@@ -26,6 +26,8 @@ package ca.openosp.openo.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class AllergyTo1 {
 
     private Integer id;
@@ -51,6 +53,7 @@ public class AllergyTo1 {
 
     private String drugrefId;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date startDate;
 
     private String ageOfOnset;
