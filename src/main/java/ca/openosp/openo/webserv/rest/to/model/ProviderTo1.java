@@ -27,6 +27,8 @@ package ca.openosp.openo.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class ProviderTo1 implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -50,7 +52,10 @@ public class ProviderTo1 implements Serializable {
     private String hsoNo;
     private String providerActivity;
     private String rmaNo;
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date signedConfidentiality;
+    
     private String practitionerNo;
     private String practitionerNoType;
     private String email;
