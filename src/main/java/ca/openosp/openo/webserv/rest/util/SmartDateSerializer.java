@@ -14,6 +14,7 @@ import java.util.Date;
 
 /**
  * Custom Jackson Date serializer that mimics the original OpenO EMR behavior:
+ * - Dates on epoch date (1970-01-01) with time components are serialized as "HH:mm:ss" strings
  * - Dates with time component 00:00:00 are serialized as "yyyy-MM-dd" strings
  * - Dates with actual time components are serialized as epoch timestamps
  * - Respects @JsonFormat annotations (epoch format takes precedence)
@@ -21,6 +22,7 @@ import java.util.Date;
 public class SmartDateSerializer extends JsonSerializer<Date> implements ContextualSerializer {
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+    private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss");
     private final boolean forceEpoch;
 
     public SmartDateSerializer() {
@@ -44,17 +46,24 @@ public class SmartDateSerializer extends JsonSerializer<Date> implements Context
             return;
         }
 
-        // Check if the date has a time component (not midnight)
+        // Check if the date represents a time-only value (epoch date 1970-01-01)
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
 
+        int year = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH); // 0-based
+        int day = cal.get(Calendar.DAY_OF_MONTH);
         int hour = cal.get(Calendar.HOUR_OF_DAY);
         int minute = cal.get(Calendar.MINUTE);
         int second = cal.get(Calendar.SECOND);
         int millisecond = cal.get(Calendar.MILLISECOND);
 
+        // If date is epoch date (1970-01-01), treat as time-only and serialize as HH:mm:ss
+        if (year == 1970 && month == 0 && day == 1) {
+            gen.writeString(TIME_FORMAT.format(date));
+        }
         // If time is exactly midnight (00:00:00.000), treat as date-only and serialize as string
-        if (hour == 0 && minute == 0 && second == 0 && millisecond == 0) {
+        else if (hour == 0 && minute == 0 && second == 0 && millisecond == 0) {
             gen.writeString(DATE_FORMAT.format(date));
         } else {
             // Otherwise, serialize as epoch timestamp
