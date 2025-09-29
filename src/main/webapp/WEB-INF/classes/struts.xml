@@ -950,7 +950,6 @@
             <result name="success">/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
         <action name="oscarEncounter/eRefer" class="ca.openosp.openo.encounter.oceanEReferal.pageUtil.ERefer2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
         <action name="oscarEncounter/RequestConsultation" class="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
             <result name="success">/oscarEncounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
