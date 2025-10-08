@@ -33,6 +33,8 @@ import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @XmlRootElement
 public class ConsultationRequestTo1 implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -40,11 +42,19 @@ public class ConsultationRequestTo1 implements Serializable {
     private static final String DEFAULT_NON_URGENT = "2";
 
     private Integer id;
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date referralDate = new Date();
+
     private Integer serviceId;
     private ProfessionalSpecialistTo1 professionalSpecialist;
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date appointmentDate;
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date appointmentTime;
+
     private String reasonForReferral;
     private String clinicalInfo;
     private String currentMeds;
@@ -58,7 +68,10 @@ public class ConsultationRequestTo1 implements Serializable {
     private String urgency = DEFAULT_NON_URGENT;
     private boolean patientWillBook;
     private String siteName;
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date followUpDate;
+    
     private String signatureImg;
     private String letterheadName;
     private String letterheadAddress;
