@@ -61,6 +61,10 @@ RUN npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset
 # Install Gemini CLI.
 RUN npm install -g @google/gemini-cli
 
+# Install Playwright and Playwright MCP server
+RUN npm install -g @executeautomation/playwright-mcp-server playwright && \
+    npx playwright install chromium --with-deps
+
 # Install pipx and Aider AI coding assistant
 RUN apt-get update && apt-get install -y pipx && \
     pipx install aider-chat && \
