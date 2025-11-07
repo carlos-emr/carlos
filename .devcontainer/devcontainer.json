@@ -27,7 +27,7 @@
                         "command": "npx",
                         "args": ["@executeautomation/playwright-mcp-server"],
                         "env": {
-                            "PLAYWRIGHT_BROWSER": "chromium",
+                            "PLAYWRIGHT_BROWSER": "firefox",
                             "PLAYWRIGHT_HEADLESS": "true"
                         }
                     }
