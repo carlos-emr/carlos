@@ -102,9 +102,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
                 }
             }
             professionalSpecialistDao.merge(professionalSpecialist);
-
-            EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-            constructSpecialistsScriptsFile.makeString(request.getLocale());
         } else {
             logger.error("missed a case, whichType=" + whichType);
         }

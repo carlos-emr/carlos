@@ -67,8 +67,6 @@ public class EctConDeleteServices2Action extends ActionSupport {
                 }
             }
         }
-        EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-        constructSpecialistsScriptsFile.makeString(request.getLocale());
         return SUCCESS;
     }
     public String[] getService() {
