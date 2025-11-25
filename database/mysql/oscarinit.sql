@@ -386,7 +386,8 @@ CREATE TABLE IF NOT EXISTS consultationServices (
   serviceId int(10) NOT NULL auto_increment,
   serviceDesc varchar(255) default NULL,
   active char(2) default NULL,
-  PRIMARY KEY  (serviceId)
+  PRIMARY KEY  (serviceId),
+  KEY idx_consultationServices_active_desc (active, serviceDesc)
 ) ;
 
 --
@@ -7272,8 +7273,13 @@ CREATE TABLE IF NOT EXISTS professionalSpecialists (
   `eformId` int(10) DEFAULT NULL,
   `hideFromView` tinyint(1) NOT NULL,
   `deleted` tinyint(1) NOT NULL DEFAULT 0,
-    `province` varchar(55),
-  PRIMARY KEY (`specId`)
+  `province` varchar(55),
+  PRIMARY KEY (`specId`),
+  KEY idx_professionalSpecialists_name (`lName`, `fName`),
+  KEY idx_professionalSpecialists_referralNo (`referralNo`),
+  KEY idx_professionalSpecialists_specType (`specType`),
+  KEY idx_professionalSpecialists_institution (`institutionId`),
+  KEY idx_professionalSpecialists_department (`departmentId`)
 );
 
 --
@@ -7678,18 +7684,10 @@ CREATE TABLE IF NOT EXISTS `SecurityArchive` (
 --
 
 CREATE TABLE IF NOT EXISTS serviceSpecialists (
-  serviceId int(10) default NULL,
-  specId int(10) default NULL
-) ;
-
---
--- Table structure for table `specialistsJavascript`
---
-
-CREATE TABLE IF NOT EXISTS specialistsJavascript (
-  `id` int(10) not null auto_increment primary key,
-  setId char(1) default NULL,
-  javascriptString mediumtext
+  serviceId int(10) DEFAULT NULL,
+  specId int(10) DEFAULT NULL,
+  KEY idx_serviceSpecialists_serviceId (serviceId),
+  KEY idx_serviceSpecialists_specId (specId)
 ) ;
 
 --
