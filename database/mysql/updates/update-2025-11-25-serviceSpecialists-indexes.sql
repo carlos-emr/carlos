@@ -34,25 +34,25 @@ CREATE INDEX idx_consultationServices_active_desc ON consultationServices(active
 -- ============================================================================
 
 -- Index for name searches (findByFullName, findByLastName, search)
--- Covers: WHERE lastName LIKE ? [AND firstName LIKE ?] ORDER BY lastName
+-- Covers: WHERE lName LIKE ? [AND fName LIKE ?] ORDER BY lName
 DROP INDEX IF EXISTS idx_professionalSpecialists_name ON professionalSpecialists;
-CREATE INDEX idx_professionalSpecialists_name ON professionalSpecialists(lastName, firstName);
+CREATE INDEX idx_professionalSpecialists_name ON professionalSpecialists(`lName`, `fName`);
 
 -- Index for referral number lookups (findByReferralNo, getByReferralNo)
 DROP INDEX IF EXISTS idx_professionalSpecialists_referralNo ON professionalSpecialists;
-CREATE INDEX idx_professionalSpecialists_referralNo ON professionalSpecialists(referralNo);
+CREATE INDEX idx_professionalSpecialists_referralNo ON professionalSpecialists(`referralNo`);
 
 -- Index for specialty searches (findBySpecialty)
 DROP INDEX IF EXISTS idx_professionalSpecialists_specType ON professionalSpecialists;
-CREATE INDEX idx_professionalSpecialists_specType ON professionalSpecialists(specialtyType);
+CREATE INDEX idx_professionalSpecialists_specType ON professionalSpecialists(`specType`);
 
 -- Index for institution foreign key lookups
 DROP INDEX IF EXISTS idx_professionalSpecialists_institution ON professionalSpecialists;
-CREATE INDEX idx_professionalSpecialists_institution ON professionalSpecialists(institutionId);
+CREATE INDEX idx_professionalSpecialists_institution ON professionalSpecialists(`institutionId`);
 
 -- Index for department foreign key lookups
 DROP INDEX IF EXISTS idx_professionalSpecialists_department ON professionalSpecialists;
-CREATE INDEX idx_professionalSpecialists_department ON professionalSpecialists(departmentId);
+CREATE INDEX idx_professionalSpecialists_department ON professionalSpecialists(`departmentId`);
 
 -- ============================================================================
 -- PART 4: Cleanup deprecated table
