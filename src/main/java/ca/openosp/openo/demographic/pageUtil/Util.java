@@ -386,13 +386,20 @@ public class Util {
     static public String leadingNum(String s) {
         if (s == null) return "";
         s = s.trim();
+        StringBuilder sb = new StringBuilder();
+
         for (int i = 0; i < s.length(); i++) {
-            if (!".0123456789".contains(s.substring(i, i + 1))) {
-                s = s.substring(0, i);
-                break;
+            char c = s.charAt(i);
+
+            // Allowed characters for the amount
+            if (Character.isDigit(c) || c == '.' || c == '/') {
+                sb.append(c);
+            } else {
+                break; // stop at anything else (space, letter, %, etc.)
             }
         }
-        return s;
+
+        return sb.toString();
     }
 
     static public float leadingNumF(String s) {
