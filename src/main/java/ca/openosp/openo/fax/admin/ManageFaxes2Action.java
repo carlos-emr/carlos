@@ -124,7 +124,7 @@ public class ManageFaxes2Action extends Fax2Action {
         log.info("TRYING TO CANCEL FAXJOB " + faxJob.getJobId());
 
         if (faxConfig == null) {
-            log.error("Could not find faxConfig while processing fax id: " + faxJob.getId() + " Has the fax number changed?");
+            //log.error("Could not find faxConfig while processing fax id: " + faxJob.getId() + " Has the fax number changed?");
         } else if (faxConfig.isActive()) {
 
             if (faxJob.getStatus().equals(FaxJob.STATUS.SENT)) {
