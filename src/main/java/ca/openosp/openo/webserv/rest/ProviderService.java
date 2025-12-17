@@ -43,6 +43,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import ca.openosp.openo.webserv.rest.to.OscarSearchResponse;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -280,11 +281,11 @@ public class ProviderService extends AbstractServiceImpl {
             // 1) Validate and coerce 'active'
             Boolean active = null;
             if (json.has("active")) {
-                Object a = json.get("active");
-                if (a instanceof Boolean) {
-                    active = (Boolean) a;
-                } else if (a instanceof String) {
-                    String s = ((String) a).trim().toLowerCase();
+                JsonNode activeNode = json.get("active");
+                if (activeNode.isBoolean()) {
+                    active = activeNode.asBoolean();
+                } else if (activeNode.isTextual()) {
+                    String s = activeNode.asText().trim().toLowerCase();
                     if ("true".equals(s))      active = true;
                     else if ("false".equals(s)) active = false;
                     else throw new WebApplicationException(
