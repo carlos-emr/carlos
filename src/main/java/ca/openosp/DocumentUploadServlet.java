@@ -147,6 +147,7 @@ public class DocumentUploadServlet extends HttpServlet {
 
             // Create a new file upload handler
             ServletFileUpload upload = new ServletFileUpload(factory);
+            upload.setHeaderEncoding("UTF-8");
 
             try {
                 // Parse the request
