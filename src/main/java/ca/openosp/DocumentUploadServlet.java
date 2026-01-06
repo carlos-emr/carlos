@@ -149,6 +149,10 @@ public class DocumentUploadServlet extends HttpServlet {
             ServletFileUpload upload = new ServletFileUpload(factory);
             upload.setHeaderEncoding("UTF-8");
 
+            // Set file size limits to prevent DoS attacks (50 MB limit for MOH billing files)
+            upload.setFileSizeMax(52428800); // 50 MB per file
+            upload.setSizeMax(52428800);     // 50 MB total request size
+
             try {
                 // Parse the request
                 @SuppressWarnings("unchecked")
