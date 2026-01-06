@@ -195,8 +195,146 @@ import ca.openosp.openo.lab.ca.all.web.LabDisplayHelper;
 import ca.openosp.openo.lab.ca.on.CommonLabResultData;
 import ca.openosp.openo.lab.ca.on.LabResultData;
 
+/**
+ * Scheduled background task for pushing local data to the CAISI integrator system.
+ * <p>
+ * This {@link TimerTask} implements the core data synchronization mechanism that periodically
+ * exports local facility data to the integrator for sharing with other facilities. It runs as
+ * a daemon thread and handles the complete lifecycle of data export, packaging, and transmission.
+ * </p>
+ * 
+ * <h2>Core Functionality</h2>
+ * <ul>
+ *   <li><strong>Incremental Updates:</strong> Tracks the last push timestamp and only exports
+ *       data modified since then (unless a full push is requested)</li>
+ *   <li><strong>Multi-Facility Support:</strong> Processes all integrator-enabled facilities
+ *       in a single run, with independent synchronization for each</li>
+ *   <li><strong>Comprehensive Data Export:</strong> Pushes demographics, clinical data, programs,
+ *       providers, and documents</li>
+ *   <li><strong>File-Based Transfer:</strong> Serializes data to files with checksums for
+ *       integrity verification and dependency tracking</li>
+ *   <li><strong>Patient Consent Integration:</strong> Respects patient consent settings when
+ *       the consent module is active</li>
+ * </ul>
+ * 
+ * <h2>Data Types Exported</h2>
+ * <p>For each demographic, the task exports:</p>
+ * <ul>
+ *   <li>Demographic information (name, DOB, HIN, contact details)</li>
+ *   <li>Clinical issues and diagnoses</li>
+ *   <li>Case management notes</li>
+ *   <li>Preventions (immunizations, screenings)</li>
+ *   <li>Medications (current and historical)</li>
+ *   <li>Admissions to programs</li>
+ *   <li>Appointments</li>
+ *   <li>Measurements (vitals, lab values)</li>
+ *   <li>Allergies</li>
+ *   <li>Documents (with optional compression)</li>
+ *   <li>Forms (e.g., lab requisitions)</li>
+ *   <li>Lab results (CML, MDS, Pathnet, HL7)</li>
+ *   <li>DxResearch codes</li>
+ *   <li>Billing items (Ontario only)</li>
+ *   <li>E-forms</li>
+ * </ul>
+ * 
+ * <h2>File Format and Structure</h2>
+ * <p>
+ * The task creates serialized files with the following structure:
+ * <ol>
+ *   <li><strong>Header ({@link IntegratorFileHeader}):</strong> Contains metadata including
+ *       timestamps, facility info, and dependency checksums</li>
+ *   <li><strong>Facility Data:</strong> Programs, providers, and facility metadata</li>
+ *   <li><strong>Demographic Data:</strong> Split across multiple files (500 demographics per file)
+ *       for manageability</li>
+ *   <li><strong>Footer ({@link IntegratorFileFooter}):</strong> Marks end of data stream</li>
+ * </ol>
+ * Files are compressed (ZIP or TAR.GZ) and checksummed (MD5) for integrity.
+ * </p>
+ * 
+ * <h2>Scheduling and Configuration</h2>
+ * <p>
+ * The task is scheduled via {@link #startTask()} and controlled by:
+ * <ul>
+ *   <li><strong>INTEGRATOR_UPDATE_PERIOD:</strong> Milliseconds between runs (from properties)</li>
+ *   <li><strong>INTEGRATOR_USER:</strong> Provider used for system-level operations</li>
+ *   <li><strong>INTEGRATOR_OUTPUT_DIR:</strong> Directory for output files (defaults to DOCUMENT_DIR)</li>
+ *   <li><strong>DisableIntegratorPushes:</strong> User property to disable pushes</li>
+ *   <li><strong>INTEGRATOR_FULL_PUSH:</strong> Forces full data push instead of incremental</li>
+ * </ul>
+ * </p>
+ * 
+ * <h2>Patient Consent Handling</h2>
+ * <p>
+ * When {@code USE_NEW_PATIENT_CONSENT_MODULE} is enabled:
+ * <ul>
+ *   <li>Only demographics with active consent are pushed</li>
+ *   <li>Consent changes trigger full demographic pushes (all data re-sent)</li>
+ *   <li>Consent status is synchronized via web services before data push</li>
+ * </ul>
+ * </p>
+ * 
+ * <h2>Document Handling</h2>
+ * <p>
+ * Documents can be handled two ways:
+ * <ol>
+ *   <li><strong>Java Compression:</strong> Default - documents are collected and zipped by Java code</li>
+ *   <li><strong>Shell Script:</strong> If {@code build_doc_zip.sh} exists in output directory,
+ *       delegates compression to external script for better performance</li>
+ * </ol>
+ * Document metadata is tracked in a separate manifest file for reference.
+ * </p>
+ * 
+ * <h2>Error Handling and Reliability</h2>
+ * <ul>
+ *   <li><strong>Per-Demographic Error Isolation:</strong> Failures processing one demographic
+ *       don't prevent processing others</li>
+ *   <li><strong>Connection Error Detection:</strong> Web service exceptions are caught and logged</li>
+ *   <li><strong>File Integrity:</strong> MD5 checksums verify data integrity</li>
+ *   <li><strong>Dependency Tracking:</strong> Each push references the checksum of the previous
+ *       push it depends on</li>
+ *   <li><strong>Transactional Publish:</strong> Files are written to .zipTemp then atomically
+ *       renamed to .zip when complete</li>
+ * </ul>
+ * 
+ * <h2>Performance Optimizations</h2>
+ * <ul>
+ *   <li><strong>Batching:</strong> Writes are batched (e.g., 50 providers at a time)</li>
+ *   <li><strong>File Splitting:</strong> Large datasets split across multiple files (500 demographics)</li>
+ *   <li><strong>Selective Queries:</strong> Database queries limited to modified data based on timestamps</li>
+ *   <li><strong>Resource Cleanup:</strong> Database connections explicitly released after each demographic</li>
+ *   <li><strong>Streaming I/O:</strong> Uses ObjectOutputStream for efficient serialization</li>
+ * </ul>
+ * 
+ * <h2>Message Synchronization</h2>
+ * <p>
+ * In addition to pushing data out, the task also:
+ * <ul>
+ *   <li>Fetches new provider messages from the integrator</li>
+ *   <li>Converts integrator messages to local Oscar Messenger format</li>
+ *   <li>Marks retrieved messages as processed</li>
+ * </ul>
+ * </p>
+ * 
+ * <h2>Audit and Conformance</h2>
+ * <p>
+ * When conformance testing is enabled ({@code ENABLE_CONFORMANCE_ONLY_FEATURES}), all data
+ * sends are logged for audit purposes via {@link ConformanceTestHelper#conformanceTestLog}.
+ * </p>
+ * 
+ * <h2>Thread Safety</h2>
+ * <p>
+ * The task uses synchronized methods for start/stop operations to prevent concurrent execution.
+ * Only one instance of the task should run at a time per JVM.
+ * </p>
+ * 
+ * @see CaisiIntegratorManager
+ * @see IntegratorFileHeader
+ * @see IntegratorFileFooter
+ * @see IntegratorFallBackManager
+ */
 public class CaisiIntegratorUpdateTask extends TimerTask {
 
+    /** Logger for this class */
     private static final Logger logger = MiscUtils.getLogger();
 
     private static final String COMPRESSION_SHELL_SCRIPT = "build_doc_zip.sh";
