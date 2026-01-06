@@ -85,29 +85,95 @@ import ca.openosp.openo.webserv.rest.to.model.DemographicSearchRequest.SEARCHMOD
 
 
 /**
- * This class is a manager for integration related functionality. <br />
- * <br />
- * Disregarding the current code base which may not properly conform to the standards... <br />
- * <br />
- * All privacy related data access should be logged (read and write). As a result, if data is cached locally, the cached read must also be logged locally. If we currently can not log the access locally for what ever reason (such as current schema is a mess
- * and we don't have a good logging facility), then the data should not be cached and individual requests should be made to the service providers. This presumes the service providers conforms to access logging standards and therefore you push the logging
- * responsibility to the other application since we are currently unable to provide that locally. When and if a good local logging facility is made available, local caching can then occur. <br />
- * <br />
- * Note that not all data is privacy related, examples include a Facility and it's information is not covered under the regulations for privacy of an individual. Note also that for some reason we're only concerned about client privacy, providers seem to
- * not be covered and or have no expectation of privacy (although we could be wrong in this interpretation).
+ * Central manager for all CAISI integrator web service interactions and data caching.
+ * <p>
+ * This class provides the primary interface for accessing the CAISI integrator system, which
+ * enables data sharing and integration across multiple healthcare facilities. It manages:
+ * <ul>
+ *   <li>Web service client creation and authentication</li>
+ *   <li>Facility discovery and metadata retrieval</li>
+ *   <li>Demographic data exchange and linking</li>
+ *   <li>Provider and program information synchronization</li>
+ *   <li>Clinical data access (notes, preventions, measurements, etc.)</li>
+ *   <li>Consent management for data sharing</li>
+ *   <li>Health Network Registry (HNR) interactions</li>
+ *   <li>Integrated referrals between facilities</li>
+ * </ul>
+ * </p>
+ * <p>
+ * <strong>Caching Strategy:</strong>
+ * The class implements a two-tier caching strategy:
+ * <ol>
+ *   <li><strong>Basic Data Cache:</strong> For non-audited, facility-level data (facilities, 
+ *       programs, providers) that doesn't contain PHI. Cache duration: 1 hour.</li>
+ *   <li><strong>Segmented Data Cache:</strong> For provider-specific data access (linked notes, 
+ *       preventions, measurements). Keyed by facility, provider, and demographic. Also 1 hour.</li>
+ * </ol>
+ * </p>
+ * <p>
+ * <strong>Privacy and Audit Compliance:</strong><br/>
+ * As noted in the original documentation, all privacy-related data access should be logged 
+ * (read and write). This class delegates audit logging responsibility to the integrator service 
+ * providers when data is not cached locally. Client privacy (demographic PHI) is strictly 
+ * controlled; provider information has reduced privacy expectations.
+ * </p>
+ * <p>
+ * <strong>Connection Management:</strong><br/>
+ * The class handles integrator connectivity issues by:
+ * <ul>
+ *   <li>Setting offline status in the session when connection exceptions occur</li>
+ *   <li>Configuring CXF client proxies with authentication interceptors</li>
+ *   <li>Building web service endpoints dynamically from facility configuration</li>
+ * </ul>
+ * </p>
+ * <p>
+ * <strong>Key Web Service Types:</strong>
+ * <ul>
+ *   <li>{@link FacilityWs} - Facility metadata and synchronization status</li>
+ *   <li>{@link DemographicWs} - Patient demographic data and linking</li>
+ *   <li>{@link ProgramWs} - Program information and referral capabilities</li>
+ *   <li>{@link ProviderWs} - Provider directory and communications</li>
+ *   <li>{@link ReferralWs} - Integrated referrals between facilities</li>
+ *   <li>{@link HnrWs} - Health Network Registry for patient matching</li>
+ * </ul>
+ * </p>
+ * 
+ * @see IntegratorFallBackManager
+ * @see CaisiIntegratorUpdateTask
+ * @see AuthenticationOutWSS4JInterceptorForIntegrator
  */
 public class CaisiIntegratorManager {
 
     /**
-     * only non-audited data should be cached in here
+     * Cache for non-audited, basic data (facilities, programs, providers).
+     * <p>
+     * This cache stores data that is not privacy-sensitive and doesn't require
+     * per-access audit logging. Capacity: 100 items, TTL: 1 hour.
+     * </p>
      */
     private static QueueCache<String, Object> basicDataCache = new QueueCache<String, Object>(4, 100, org.apache.commons.lang3.time.DateUtils.MILLIS_PER_HOUR, null);
 
     /**
-     * data put here should be segmented by the requesting providers as part of the cache key
+     * Cache for provider-segmented data access (notes, preventions, measurements).
+     * <p>
+     * Data in this cache MUST be segmented by the requesting provider as part of the cache key
+     * to ensure proper access control. This prevents one provider from accessing another
+     * provider's cached view of patient data. Capacity: 100 items, TTL: 1 hour.
+     * </p>
      */
     private static QueueCache<String, Object> segmentedDataCache = new QueueCache<String, Object>(4, 100, org.apache.commons.lang3.time.DateUtils.MILLIS_PER_HOUR, null);
 
+    /**
+     * Sets the integrator offline status in the HTTP session.
+     * <p>
+     * When set to true, this flag indicates that the integrator service is unreachable.
+     * UI components can check this flag to disable integrator-dependent features and
+     * display appropriate user messaging.
+     * </p>
+     * 
+     * @param session the HTTP session to store the status in
+     * @param status true to mark as offline, false to clear offline status
+     */
     public static void setIntegratorOffline(HttpSession session, boolean status) {
         if (status) {
             session.setAttribute(SessionConstants.INTEGRATOR_OFFLINE, true);
@@ -116,15 +182,34 @@ public class CaisiIntegratorManager {
         }
     }
 
+    /**
+     * Checks if an exception indicates a connection failure and sets offline status if so.
+     * <p>
+     * This method examines the root cause of an exception chain to detect network-level
+     * failures (ConnectException, SocketTimeoutException). When detected, it automatically
+     * sets the integrator offline status in the session.
+     * </p>
+     * 
+     * @param session the HTTP session to update
+     * @param exception the exception to analyze
+     */
     public static void checkForConnectionError(HttpSession session, Throwable exception) {
+        // Drill down to the root cause
         Throwable rootException = ExceptionUtils.getRootCause(exception);
         MiscUtils.getLogger().debug("Exception: " + exception.getClass().getName() + " --- " + rootException.getClass().getName());
 
+        // Check if it's a connectivity issue
         if (rootException instanceof java.net.ConnectException || rootException instanceof java.net.SocketTimeoutException) {
             setIntegratorOffline(session, true);
         }
     }
 
+    /**
+     * Checks if the integrator is currently marked as offline in the session.
+     * 
+     * @param session the HTTP session to check
+     * @return true if integrator is offline, false otherwise
+     */
     public static boolean isIntegratorOffline(HttpSession session) {
         Object object = session.getAttribute(SessionConstants.INTEGRATOR_OFFLINE);
         if (object != null) {
@@ -133,21 +218,91 @@ public class CaisiIntegratorManager {
         return false;
     }
 
+    /**
+     * Determines if integrated referrals are enabled for a facility.
+     * <p>
+     * Requires both the integrator to be enabled AND the specific integrated referrals
+     * feature to be turned on for the facility.
+     * </p>
+     * 
+     * @param facility the facility to check
+     * @return true if integrated referrals should be available
+     */
     public static boolean isEnableIntegratedReferrals(Facility facility) {
         return (facility.isIntegratorEnabled() && facility.isEnableIntegratedReferrals());
     }
 
+    /**
+     * Adds WS-Security authentication interceptor to a web service client.
+     * <p>
+     * This configures the CXF client to include:
+     * <ul>
+     *   <li>WS-Security username/password token for facility authentication</li>
+     *   <li>Custom SOAP header with the requesting provider number for audit trails</li>
+     * </ul>
+     * </p>
+     * 
+     * @param loggedInInfo the current user session (for provider number)
+     * @param facility the facility configuration (for credentials and URL)
+     * @param wsPort the web service port proxy to configure
+     */
     private static void addAuthenticationInterceptor(LoggedInInfo loggedInInfo, Facility facility, Object wsPort) {
+        // Get the underlying CXF client from the JAX-WS proxy
         Client cxfClient = ClientProxy.getClient(wsPort);
         String providerNo = null;
         if (loggedInInfo != null) providerNo = loggedInInfo.getLoggedInProviderNo();
+        // Add the authentication interceptor to the outbound chain
         cxfClient.getOutInterceptors().add(new AuthenticationOutWSS4JInterceptorForIntegrator(facility.getIntegratorUser(), facility.getIntegratorPassword(), providerNo));
     }
 
+    /**
+     * Builds a web service endpoint URL from facility configuration.
+     * 
+     * @param facility the facility configuration
+     * @param servicePoint the service name (e.g., "FacilityService", "DemographicService")
+     * @return the complete WSDL URL
+     * @throws MalformedURLException if the URL cannot be constructed
+     */
     private static URL buildURL(Facility facility, String servicePoint) throws MalformedURLException {
         return (new URL(facility.getIntegratorUrl() + '/' + servicePoint + "?wsdl"));
     }
 
+    /*
+     * Web Service Client Factory Methods
+     * ===================================
+     * 
+     * The following methods follow a consistent pattern for creating configured web service clients:
+     * 
+     * 1. get<Service>Ws(loggedInInfo, facility):
+     *    - Creates a service instance from the WSDL URL
+     *    - Retrieves the port (JAX-WS proxy)
+     *    - Configures CXF client connection settings (timeouts, etc.)
+     *    - Adds authentication interceptor for WS-Security
+     *    - Returns the configured port ready for use
+     * 
+     * Services include:
+     * - FacilityWs: Facility metadata and synchronization
+     * - DemographicWs: Patient demographics and linking
+     * - ProgramWs: Program information and referrals
+     * - ProviderWs: Provider directory and communications
+     * - ReferralWs: Integrated referrals
+     * - HnrWs: Health Network Registry for patient matching
+     * 
+     * All web service calls should use these factory methods to ensure proper
+     * authentication and configuration.
+     */
+
+    /**
+     * Creates and configures a Facility web service client.
+     * <p>
+     * Used for facility discovery, synchronization status checks, and facility metadata retrieval.
+     * </p>
+     * 
+     * @param loggedInInfo the current user session
+     * @param facility the facility configuration
+     * @return configured facility web service port
+     * @throws MalformedURLException if the service URL is invalid
+     */
     public static FacilityWs getFacilityWs(LoggedInInfo loggedInInfo, Facility facility) throws MalformedURLException {
         FacilityWsService service = new FacilityWsService(buildURL(facility, "FacilityService"));
         FacilityWs port = service.getFacilityWsPort();
