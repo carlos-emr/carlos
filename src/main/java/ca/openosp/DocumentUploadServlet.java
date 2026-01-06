@@ -145,6 +145,30 @@ public class DocumentUploadServlet extends HttpServlet {
             // Create a factory for disk-based file items
             DiskFileItemFactory factory = new DiskFileItemFactory();
 
+            // Configure size threshold: small files (<1MB) stay in memory, larger ones go to disk
+            factory.setSizeThreshold(1024 * 1024); // 1 MB threshold
+
+            // Configure a controlled temporary directory for larger file items
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            File uploadTempDir = new File(systemTempDir, "openoemr-uploads");
+
+            try {
+                // Create the temp directory if it doesn't exist
+                if (!uploadTempDir.exists()) {
+                    if (!uploadTempDir.mkdirs()) {
+                        throw new ServletException("Failed to create upload temp directory: " + uploadTempDir.getAbsolutePath());
+                    }
+                }
+
+                // Validate the temp directory is within allowed system temp path
+                PathValidationUtils.validateExistingPath(uploadTempDir, new File(systemTempDir));
+                factory.setRepository(uploadTempDir);
+
+            } catch (SecurityException e) {
+                MiscUtils.getLogger().error("Security validation failed for upload temp directory", e);
+                throw new ServletException("Upload configuration error: invalid temp directory path", e);
+            }
+
             // Create a new file upload handler
             ServletFileUpload upload = new ServletFileUpload(factory);
             upload.setHeaderEncoding("UTF-8");
