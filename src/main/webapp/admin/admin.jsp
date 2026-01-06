@@ -353,7 +353,7 @@
                     <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/viewMOHFiles.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
                     <li><a href="#"
-                           onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/billingRA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
+                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
                     <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
                     <li>
                         <a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/mcedt/mcedt.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mcedt"/></a>
