@@ -318,7 +318,7 @@ import ca.openosp.openo.lab.ca.on.LabResultData;
  * <h2>Audit and Conformance</h2>
  * <p>
  * When conformance testing is enabled ({@code ENABLE_CONFORMANCE_ONLY_FEATURES}), all data
- * sends are logged for audit purposes via {@link ConformanceTestHelper#conformanceTestLog}.
+ * sends are logged for audit purposes via {@link ConformanceTestHelper}.
  * </p>
  * 
  * <h2>Thread Safety</h2>

@@ -26,28 +26,6 @@
 
 package ca.openosp.openo.PMmodule.caisi_integrator;
 
-/**
- * CXF outbound interceptor for WS-Security authentication with custom CAISI provider identification.
- * <p>
- * This interceptor extends the standard WSS4J interceptor to add both WS-Security username token
- * authentication and a custom SOAP header containing the requesting CAISI provider number. This
- * dual authentication/identification approach is required for the integrator system to:
- * <ul>
- *   <li>Authenticate the facility making the request via WS-Security username/password</li>
- *   <li>Identify the individual provider within that facility making the request</li>
- *   <li>Enable proper audit logging and access control at the provider level</li>
- * </ul>
- * </p>
- * <p>
- * The interceptor is configured on CXF client proxies when establishing connections to
- * integrator web services, ensuring all outbound SOAP messages contain both authentication
- * credentials and provider identification.
- * </p>
- * 
- * @see org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
- * @see javax.security.auth.callback.CallbackHandler
- */
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +47,27 @@ import org.apache.wss4j.dom.handler.WSHandlerConstants;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+/**
+ * CXF outbound interceptor for WS-Security authentication with custom CAISI provider identification.
+ * <p>
+ * This interceptor extends the standard WSS4J interceptor to add both WS-Security username token
+ * authentication and a custom SOAP header containing the requesting CAISI provider number. This
+ * dual authentication/identification approach is required for the integrator system to:
+ * <ul>
+ *   <li>Authenticate the facility making the request via WS-Security username/password</li>
+ *   <li>Identify the individual provider within that facility making the request</li>
+ *   <li>Enable proper audit logging and access control at the provider level</li>
+ * </ul>
+ * </p>
+ * <p>
+ * The interceptor is configured on CXF client proxies when establishing connections to
+ * integrator web services, ensuring all outbound SOAP messages contain both authentication
+ * credentials and provider identification.
+ * </p>
+ *
+ * @see org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor
+ * @see javax.security.auth.callback.CallbackHandler
+ */
 public class AuthenticationOutWSS4JInterceptorForIntegrator extends WSS4JOutInterceptor implements CallbackHandler {
     /** Key used for the custom SOAP header identifying the requesting provider */
     private static final String REQUESTING_CAISI_PROVIDER_NO_KEY = "requestingCaisiProviderNo";
