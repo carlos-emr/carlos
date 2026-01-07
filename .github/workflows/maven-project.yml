@@ -76,8 +76,24 @@ jobs:
       - name: Build project
         run: docker exec openo-tomcat-dev .devcontainer/development/scripts/make install
 
-      - name: Run unit tests & build JSP files
-        run: docker exec openo-tomcat-dev mvn package -Pjspc,modern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
+      # Run tests in isolation matching the make script behavior
+      # Phase 1: Modern tests with JUnit 5 profile
+      - name: Build for modern tests
+        run: docker exec openo-tomcat-dev mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pjspc,modern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
+
+      - name: Run modern tests
+        run: docker exec openo-tomcat-dev mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+
+      # Clean up between test phases to ensure complete isolation
+      - name: Clean up between test phases
+        run: docker exec openo-tomcat-dev mvn clean -q
+
+      # Phase 2: Legacy tests without JUnit 5 profile
+      - name: Build for legacy tests
+        run: docker exec openo-tomcat-dev mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pjspc
+
+      - name: Run legacy tests
+        run: docker exec openo-tomcat-dev mvn test -DskipModernTests=true
 
   lint:
     runs-on: ubuntu-latest
