@@ -35,7 +35,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgDefineNewMeasurementGroup"/></title>
+        <title><fmt:message key="oscarEncounter.Measurements.msgDefineNewMeasurementGroup"/></title>
     </head>
 
     <body class="BodyStyle" vlink="#0000FF">
@@ -54,11 +54,11 @@
     <form action="${pageContext.request.contextPath}/oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup.do" onsubmit="return validateForm()" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn" width="400">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgDefineNewMeasurementGroup"/></td>
+                            <td><fmt:message key="oscarEncounter.Measurements.msgDefineNewMeasurementGroup"/></td>
                         </tr>
                     </table>
                 </td>
@@ -73,14 +73,14 @@
                                     <tr>
                                         <td>
                                     <tr>
-                                        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.addMeasurementGroup.createNewMeasurementGroupName"/>
+                                        <td align="left"><fmt:message key="oscarEncounter.oscarMeasurements.addMeasurementGroup.createNewMeasurementGroupName"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" name="groupName" size="35" /></td>
                                     </tr>
                                     <tr>
-                                        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.addMeasurementGroup.selectStyleSheet"/>
+                                        <td align="left"><fmt:message key="oscarEncounter.oscarMeasurements.addMeasurementGroup.selectStyleSheet"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -98,10 +98,10 @@
                                             <table>
                                                 <tr>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                               value="<fmt:message key="global.btnClose"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="submit" name="submit"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"/>
+                                                               value="<fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"/>
                                                     </td>
                                                 </tr>
                                             </table>

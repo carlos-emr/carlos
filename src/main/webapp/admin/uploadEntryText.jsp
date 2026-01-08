@@ -68,7 +68,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></title>
+    <title><fmt:message key="admin.admin.uploadEntryTxt"/></title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
@@ -98,11 +98,11 @@
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></td>
+                    <td><fmt:message key="admin.admin.uploadEntryTxt"/></td>
                     <td>&nbsp;</td>
                     <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                            href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                            href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                            href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                 </tr>
             </table>
         </td>
@@ -151,12 +151,12 @@
                 <br>
                 <br>
                 Agreement file (txt file)<input type="file" name="importFile">
-                <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                <span title="<fmt:message key="global.uploadWarningBody"/>"
                       style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                         border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
 
                 <br>
-                <input type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/>">
+                <input type="submit" value="<fmt:message key="admin.admin.uploadEntryTxt"/>">
             </form>
         </td>
     </tr>
@@ -168,9 +168,9 @@
         <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
         <td class="MainTableRightColumn">
             <% if (error == true) { %>
-            <span style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ErrorUploadEntryTxt"/></span>
+            <span style="color:red;"><fmt:message key="admin.admin.ErrorUploadEntryTxt"/></span>
             <%}%>
-            <!--   span style="color:green;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SuccessUploadEntryTxt"/></span -->
+            <!--   span style="color:green;"><fmt:message key="admin.admin.SuccessUploadEntryTxt"/></span -->
 
         </td>
 

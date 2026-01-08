@@ -41,7 +41,7 @@
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.oldMeasurements"/>
+        <title><fmt:message key="oscarEncounter.Index.oldMeasurements"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -62,7 +62,7 @@
                     "bPaginate": false,
                     "searching": false,
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
                     }
                 });
             });
@@ -108,7 +108,7 @@
                     <table style="border-width: 1px; width: 100%; border-spacing: 0px; border-color:black; border-style: solid; ">
                         <tr>
                             <td style="width: 100%; text-align: center;" class="Cell">
-                                <div class="Field2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
+                                <div class="Field2"><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/></div>
                             </td>
                         </tr>
                         <tr>
@@ -120,7 +120,7 @@
                                             <table style="width: 66%; border-spacing: 0px;">
                                                 <tr>
                                                     <td>
-                                                        <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
+                                                        <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
                                                             <oscar:nameage demographicNo="<%=demo%>"/></div>
 
                                                     </td>

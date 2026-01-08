@@ -88,7 +88,7 @@
 %>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></title>
+    <title><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></title>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
@@ -224,7 +224,7 @@
 
 <body>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></h3>
+<h3><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></h3>
 
 <div class="container-fluid">
 

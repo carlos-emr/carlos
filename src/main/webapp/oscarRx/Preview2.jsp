@@ -88,7 +88,7 @@
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>--%>
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>--%>
             <%--<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>--%>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.title"/></title>
+        <title><fmt:message key="RxPreview.title"/></title>
         <style media="print">
             .noprint {
                 display: none;
@@ -421,7 +421,7 @@
                                        value="<%=StringEscapeUtils.escapeHtml4(ptChartNo)%>"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/><%=StringEscapeUtils.escapeHtml4(patientPhone) %>"/>
+                                       value="<fmt:message key="RxPreview.msgTel"/><%=StringEscapeUtils.escapeHtml4(patientPhone) %>"/>
                                 <input type="hidden" name="rxDate"
                                        value="<%= StringEscapeUtils.escapeHtml4(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
                                 <input type="hidden" name="sigDoctorName"
@@ -438,7 +438,7 @@
                                         <%= provider.getClinicCity() %>&nbsp;&nbsp;<%=provider.getClinicProvince()%>&nbsp;&nbsp;
                                         <%= provider.getClinicPostal() %>
                                         <% if (provider.getPractitionerNo() != null && !provider.getPractitionerNo().equals("")) { %>
-                                        <br><fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
+                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
                                         <% } %>
                                         <br>
                                         <%
@@ -461,9 +461,9 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%= finalPhone %><br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <%= finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgFax"/>: <%= finalFax %><br>
+                                            <fmt:message key="RxPreview.msgFax"/>: <%= finalFax %><br>
                                         </oscar:oscarPropertiesCheck>
                                     </c:when>
                                     <c:otherwise>
@@ -489,9 +489,9 @@
 
                                         %>
                                         <c:out value="${infirmaryView_programAddress}" escapeXml="false"/><br>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
+                                            <fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
                                         </oscar:oscarPropertiesCheck>
                                     </c:otherwise>
                                 </c:choose>
@@ -507,17 +507,17 @@
 										<oscar:oscarPropertiesCheck value="true" property="showRxBandNumber">
                                             <c:if test="${ not empty bandNumber }">
                                                 <br/>
-                                                <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ca.openosp.openo.rx.bandNumber"/></b>
+                                                <b><fmt:message key="ca.openosp.openo.rx.bandNumber"/></b>
                                                 <c:out value="${ bandNumber }"/>
                                             </c:if>
                                         </oscar:oscarPropertiesCheck>
 										<b>
 											<% if (!props.getProperty("showRxHin", "").equals("false")) { %>
-												<fmt:setBundle basename="oscarResources"/><fmt:message key="ca.openosp.openo.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
+												<fmt:message key="ca.openosp.openo.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
 											<% } %>
 										</b><br>
 										<% if (props.getProperty("showRxChartNo", "").equalsIgnoreCase("true")) { %>
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="ca.openosp.openo.rx.chartNo"/><%=ptChartNo%>
+											<fmt:message key="ca.openosp.openo.rx.chartNo"/><%=ptChartNo%>
 										<% } %>
 								</span>
                                 <span style="float:right">
@@ -532,7 +532,7 @@
                         } %>
 
                         <tr valign=bottom>
-                            <td height=25px width=25%><fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgSignature"/>:</td>
+                            <td height=25px width=25%><fmt:message key="RxPreview.msgSignature"/>:</td>
                             <td height=25px width=75% style="border-bottom: 2px solid;">
                                 <%
                                     String signatureRequestId = null;
@@ -597,7 +597,7 @@
                                 &nbsp; <%= Encode.forHtmlContent(doctorName) %>
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
-                                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
+                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
                                 <% } %>
                             </td>
                         </tr>
@@ -610,9 +610,9 @@
                         <tr valign=bottom>
                             <td height=55px colspan="2">
 										<span style="float:right; font-size:10px;">
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgReprintBy"/> <%=Encode.forHtmlContent(ProviderData.getProviderName(strUser))%> <br>
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<%=rx.getPrintDate()%> <br>
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<%=String.valueOf(rx.getNumPrints())%>
+											<fmt:message key="RxPreview.msgReprintBy"/> <%=Encode.forHtmlContent(ProviderData.getProviderName(strUser))%> <br>
+											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<%=rx.getPrintDate()%> <br>
+											<fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<%=String.valueOf(rx.getNumPrints())%>
 										</span>
                                 <input type="hidden" name="origPrintDate" value="<%=rx.getPrintDate()%>"/>
                                 <input type="hidden" name="numPrints" value="<%=String.valueOf(rx.getNumPrints())%>"/>

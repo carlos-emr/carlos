@@ -59,7 +59,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></title>
+    <title><fmt:message key="admin.admin.btnINRBatchBilling"/></title>
     <script language="JavaScript">
         <!--
         function openBrWindow(theURL, winName, features) {
@@ -95,7 +95,7 @@
 </head>
 
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></h3>
+<h3><fmt:message key="admin.admin.btnINRBatchBilling"/></h3>
 
 <div class="container-fluid well">
     <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i

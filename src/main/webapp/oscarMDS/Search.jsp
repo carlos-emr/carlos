@@ -31,7 +31,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.title"/></title>
+    <title><fmt:message key="oscarMDS.search.title"/></title>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/checkDate.js"></script>
 
@@ -131,7 +131,7 @@
                                 <h2>Search All Inboxes</h2>
                             </td>
                             <td style="text-align: right;"><input type="button"
-                                                                  value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                                                                  value=" <fmt:message key="global.btnClose"/> "
                                                                   onClick="window.close()"></td>
 
                             <td>
@@ -143,17 +143,17 @@
                 <td style="text-align: center; text-align: -moz-center;vertical-align: middle;height: 100%;">
                     <table style="width:400px; text-align: left;">
                         <tr>
-                            <td><label for="lname"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formPatientLastName"/>:</label>
+                            <td><label for="lname"><fmt:message key="oscarMDS.search.formPatientLastName"/>:</label>
                             </td>
                             <td><input type="text" id="lname" name="lname"></td>
                         </tr>
                         <tr>
-                            <td><label for="fname"></label><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formPatientFirstName"/>:</label>
+                            <td><label for="fname"></label><fmt:message key="oscarMDS.search.formPatientFirstName"/>:</label>
                             </td>
                             <td><input type="text" id="fname" name="fname"></td>
                         </tr>
                         <tr>
-                            <td><label for="hnum"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formPatientHealthNumber"/>:</label>
+                            <td><label for="hnum"><fmt:message key="oscarMDS.search.formPatientHealthNumber"/>:</label>
                             </td>
                             <td><input type="text" id="hnum" name="hnum"></td>
                         </tr>
@@ -171,14 +171,14 @@
 
 
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formPhysician"/>:
+                            <td><fmt:message key="oscarMDS.search.formPhysician"/>:
                             </td>
                             <td><input type="radio" name="searchProviderAll" id="searchProviderAll-physician" value="-1"
                                        ondblclick="this.checked = false;">
-                                <label for="searchProviderAll-physician"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formPhysicianAll"/></label>
+                                <label for="searchProviderAll-physician"><fmt:message key="oscarMDS.search.formPhysicianAll"/></label>
                                 <input type="radio" name="searchProviderAll" id="searchProviderAll-unclaimed" value="0"
                                        ondblclick="this.checked = false;">
-                                <label for="searchProviderAll-unclaimed"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formPhysicianUnclaimed"/></label>
+                                <label for="searchProviderAll-unclaimed"><fmt:message key="oscarMDS.search.formPhysicianUnclaimed"/></label>
                                 <input type="hidden" name="providerNo"
                                        value="<%= request.getParameter("providerNo") %>">
                             </td>
@@ -192,16 +192,16 @@
                         </tr>
                         <tr>
                             <td colspan="2">
-                                <label><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatus"/>: </label>
+                                <label><fmt:message key="oscarMDS.search.formReportStatus"/>: </label>
                                 <input type="radio"
                                        name="status" id="status-all" value="">
-                                <label for="status-all"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusAll"/></label>
+                                <label for="status-all"><fmt:message key="oscarMDS.search.formReportStatusAll"/></label>
                                 <input type="radio"
                                        name="status" id="status-new" value="N" checked>
-                                <label for="status-new"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></label>
+                                <label for="status-new"><fmt:message key="oscarMDS.search.formReportStatusNew"/></label>
                                 <input type="radio"
                                        name="status" id="status-ack" value="A">
-                                <label for="status-ack"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusAcknowledged"/></label>
+                                <label for="status-ack"><fmt:message key="oscarMDS.search.formReportStatusAcknowledged"/></label>
                                 <input
                                         type="radio" name="status" id="status-filed" value="F">
                                 <label for="status-filed">Filed</label>
@@ -210,7 +210,7 @@
                         <tr>
                             <td colspan="2" style="text-align: right;">
                                 <input type="submit"
-                                       value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.btnSearch"/> ">
+                                       value=" <fmt:message key="oscarMDS.search.btnSearch"/> ">
 
                             </td>
                         </tr>

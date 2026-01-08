@@ -52,7 +52,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.title"/></title>
+        <title><fmt:message key="SelectPharmacy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <c:if test="${empty RxSessionBean}">
@@ -90,24 +90,24 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> > <fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.title"/></div>
+                            <div class="DivCCBreadCrumbs"><a href="oscarRx/SearchDrug.jsp"> <fmt:message key="SearchDrug.title"/></a> > <fmt:message key="SelectPharmacy.title"/></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/></b>
+                            <div class="DivContentTitle"><b><fmt:message key="SearchDrug.nameText"/></b>
                                 <%=surname%>
                                 ,
                                 <%=firstName%>
                             </div>
                             <br/>
-                            &nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.instructions"/></td>
+                            &nbsp; <fmt:message key="SelectPharmacy.instructions"/></td>
                     </tr>
                     <tr>
                         <td>
                             <div class="DivContentSectionHead"><a
-                                    href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Add"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.addLink"/></a></div>
+                                    href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Add"><fmt:message key="SelectPharmacy.addLink"/></a></div>
                         </td>
                     </tr>
                     <tr>
@@ -119,11 +119,11 @@
                             <div style=" width:860px; height:460px; overflow:auto;">
                                 <table>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.pharmacyName"/></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.address"/></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.city"/></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.phone"/></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.fax"/></td>
+                                        <td><fmt:message key="SelectPharmacy.table.pharmacyName"/></td>
+                                        <td><fmt:message key="SelectPharmacy.table.address"/></td>
+                                        <td><fmt:message key="SelectPharmacy.table.city"/></td>
+                                        <td><fmt:message key="SelectPharmacy.table.phone"/></td>
+                                        <td><fmt:message key="SelectPharmacy.table.fax"/></td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                     </tr>
@@ -142,8 +142,8 @@
                                         </td>
                                         <td><%=ph.getFax()%>
                                         </td>
-                                        <td><a href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Edit&ID=<%=ph.getId()%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.editLink"/></a></td>
-                                        <td><a href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Delete&ID=<%=ph.getId()%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.deleteLink"/></a></td>
+                                        <td><a href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Edit&ID=<%=ph.getId()%>"><fmt:message key="SelectPharmacy.editLink"/></a></td>
+                                        <td><a href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Delete&ID=<%=ph.getId()%>"><fmt:message key="SelectPharmacy.deleteLink"/></a></td>
                                     </tr>
                                     <% } %>
                                 </table>

@@ -66,7 +66,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/></title>
+        <title><fmt:message key="ScratchPad.title"/></title>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
@@ -215,7 +215,7 @@
     <body class="BodyStyle">
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="ScratchPad.title"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
@@ -225,7 +225,7 @@
                         <td style="text-align: right">
 
                             <a href="javascript:void(0)"
-                               onclick="javascript:popup(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                               onclick="javascript:popup(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
                         </td>
                     </tr>
                 </table>

@@ -97,11 +97,11 @@
                 <table width="100%">
                     <tr>
                         <td align="left"><input type="button"
-                                                value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                                                value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -164,7 +164,7 @@
                         <tr>
                             <td class="Cell">Set incoming report status:</td>
                             <td class="Cell"><input type="radio" name="status" value="N"
-                                <%= status.equals("F") ? "" : "checked" %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/> <input type="radio"
+                                <%= status.equals("F") ? "" : "checked" %>><fmt:message key="oscarMDS.search.formReportStatusNew"/> <input type="radio"
                                                                                        name="status"
                                                                                        value="F" <%= status.equals("F") ? "checked" : "" %>>Filed
                             </td>

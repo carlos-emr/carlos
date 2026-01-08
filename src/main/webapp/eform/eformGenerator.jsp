@@ -84,7 +84,7 @@ and other liscences (MIT, LGPL etc) as indicated
 %>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.title"/></title>
+    <title><fmt:message key="eFormGenerator.title"/></title>
     <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
     <style type="text/css" media="print">
@@ -258,7 +258,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 return;
             }
             if (bg.src.indexOf(img.value) > 0) {
-                var r = confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.loadFileAgain"/> ' + img.value + ' <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.Again"/>');
+                var r = confirm('<fmt:message key="eFormGenerator.loadFileAgain"/> ' + img.value + ' <fmt:message key="eFormGenerator.Again"/>');
                 if (r != true) {
                     return;
                 }
@@ -1219,7 +1219,7 @@ and other liscences (MIT, LGPL etc) as indicated
             if (calendars) {
                 textTop += "\n&lt;!-- main calendar program --&gt;\n"
                 textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/share/calendar/calendar.js&quot;&gt;&lt;/script&gt;\n"
-                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>&quot;&gt;&lt;/script&gt;\n"
+                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>&quot;&gt;&lt;/script&gt;\n"
                 textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/share/calendar/calendar-setup.js&quot;&gt;&lt;/script&gt;\n"
                 textTop += "&lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot; media=&quot;all&quot; href=&quot;<%=request.getContextPath()%>/share/calendar/calendar.css&quot; title=&quot;win2k-cold-1&quot; /&gt;\n\n"
 
@@ -1891,10 +1891,10 @@ and other liscences (MIT, LGPL etc) as indicated
 
     <div id="Wizard" class="DoNotPrint"
          style="position: absolute; left:750px; top: 0px; width: 500px; padding:5px; height: 1010px; overflow-y: scroll;">
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.title"/> 7.4</h2>
-        <span class="h1"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.title"/></span>
-        <a onclick="show('all');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expandAll"/></a>/
-        <a onclick="hide('all');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapseAll"/></a>
+        <h2><fmt:message key="eFormGenerator.title"/> 7.4</h2>
+        <span class="h1"><fmt:message key="eFormGenerator.title"/></span>
+        <a onclick="show('all');"><fmt:message key="eFormGenerator.expandAll"/></a>/
+        <a onclick="hide('all');"><fmt:message key="eFormGenerator.collapseAll"/></a>
         <p><label for="snappiness">Snap to grid (0 is off)</label>
             <select name="snappiness" id="snappiness"
                     onchange='snap = document.getElementById("snappiness").value; console.log(snap)'>
@@ -1909,13 +1909,13 @@ and other liscences (MIT, LGPL etc) as indicated
             </select>
 
         <hr>
-        <span class="h2">1. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.loadImage"/>:</span> <a
-            onclick="show('Section1');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a
-            onclick="hide('Section1');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class="h2">1. <fmt:message key="eFormGenerator.loadImage"/>:</span> <a
+            onclick="show('Section1');"><fmt:message key="eFormGenerator.expand"/></a>/<a
+            onclick="hide('Section1');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id="Section1">
             <p>
                 <select name="imageName" id="imageName">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imageChooseSelect"/>...</option>
+                    <option value=""><fmt:message key="eFormGenerator.imageChooseSelect"/>...</option>
                     <%
                         /**
                          This function/scriplet looks in the images directory and populates the selection
@@ -1944,97 +1944,97 @@ and other liscences (MIT, LGPL etc) as indicated
                         }
                     %>
                 </select>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.page"/>
+                <fmt:message key="eFormGenerator.page"/>
                 <input type="text" name="page" id="page" style="width:30px" value="" readonly>
             </p>
 
 
             <!-- <p><b>Image Name:</b><input type="text" name="imageName" id="imageName"></p> -->
-            <p> - <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imageUploadPrompt"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imageUploadLink"/></p>
+            <p> - <fmt:message key="eFormGenerator.imageUploadPrompt"/> <fmt:message key="eFormGenerator.imageUploadLink"/></p>
             <p><b>Orientation of form:</b><br>
-                <input type="radio" name="Orientation" id="OrientPortrait" value="750" checked><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imagePortrait"/><br>
-                <input type="radio" name="Orientation" id="OrientLandscape" value="1000"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imageLandscape"/><br>
-                <input type="radio" name="Orientation" id="OrientCustom" value="CustomWidth"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imageCustom"/> <input type="text" name="OrientCustomValue"
+                <input type="radio" name="Orientation" id="OrientPortrait" value="750" checked><fmt:message key="eFormGenerator.imagePortrait"/><br>
+                <input type="radio" name="Orientation" id="OrientLandscape" value="1000"><fmt:message key="eFormGenerator.imageLandscape"/><br>
+                <input type="radio" name="Orientation" id="OrientCustom" value="CustomWidth"><fmt:message key="eFormGenerator.imageCustom"/> <input type="text" name="OrientCustomValue"
                                                                   id="OrientCustomValue" style="width:100px;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imageEnterInteger"/><br>
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.imageLoadButton"/>"
+                <fmt:message key="eFormGenerator.imageEnterInteger"/><br>
+                <input type="button" value="<fmt:message key="eFormGenerator.imageLoadButton"/>"
                        onClick="loadImage();">
             </p>
-            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.image.RedOutlinehint"/></p>
+            <p><fmt:message key="eFormGenerator.image.RedOutlinehint"/></p>
 
         </div>
 
         <hr>
 
-        <span class='h2'>2. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.eFormName"/></span> <a
-            onclick="show('Section2');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a
-            onclick="hide('Section2');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class='h2'>2. <fmt:message key="eFormGenerator.eFormName"/></span> <a
+            onclick="show('Section2');"><fmt:message key="eFormGenerator.expand"/></a>/<a
+            onclick="hide('Section2');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id="Section2">
-            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.nameInstruction"/><input type="text" name="eFormName" id="eFormName">
+            <p><fmt:message key="eFormGenerator.nameInstruction"/><input type="text" name="eFormName" id="eFormName">
             </p>
         </div>
 
         <hr>
 
-        <span class='h2'>3. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.gender"/> Radio and Parent Child boxes</span> <a
-            onclick="show('Section3');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a
-            onclick="hide('Section3');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class='h2'>3. <fmt:message key="eFormGenerator.gender"/> Radio and Parent Child boxes</span> <a
+            onclick="show('Section3');"><fmt:message key="eFormGenerator.expand"/></a>/<a
+            onclick="hide('Section3');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id="Section3">
-            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.genderCheckbox"/><br> <input name="preCheckGender" id="preCheckGender"
+            <p><fmt:message key="eFormGenerator.genderCheckbox"/><br> <input name="preCheckGender" id="preCheckGender"
                                                                               type="checkbox"
-                                                                              onclick="toggleView(this.checked,'Section3a');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.GenderCheckbox"/><br>
+                                                                              onclick="toggleView(this.checked,'Section3a');"><fmt:message key="eFormGenerator.GenderCheckbox"/><br>
                 <input name="XboxType" id="XboxType" type="checkbox"
-                       onclick="toggleView(this.checked,'Section3a');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.GenderXbox"/>
+                       onclick="toggleView(this.checked,'Section3a');"><fmt:message key="eFormGenerator.GenderXbox"/>
             </p>
             <div id="Section3a" style="display:none">
                 <table>
                     <tr>
-                        <td><span><b><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.genderMale"/></b>: </span></td>
+                        <td><span><b><fmt:message key="eFormGenerator.genderMale"/></b>: </span></td>
                         <td><input name="Male" id="Male" type="button"
-                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.genderMaleButton"/>'
+                                   value='<fmt:message key="eFormGenerator.genderMaleButton"/>'
                                    onclick="SetSwitchOn(this.id);"></td>
                     </tr>
                     <tr>
-                        <td><span><b><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.genderFemale"/></b>:</span></td>
+                        <td><span><b><fmt:message key="eFormGenerator.genderFemale"/></b>:</span></td>
                         <td><input name="Female" id="Female" type="button"
-                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.genderFemaleButton"/>'
+                                   value='<fmt:message key="eFormGenerator.genderFemaleButton"/>'
                                    onclick="SetSwitchOn(this.id);"></td>
                     </tr>
                 </table>
             </div>
 
-            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.radio"/><br>
-                <!-- <input name="radio" id="radio" type="checkbox" onclick="toggleView(this.checked,'Section3b');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.radioCheckbox"/><br> -->
+            <p><fmt:message key="eFormGenerator.radio"/><br>
+                <!-- <input name="radio" id="radio" type="checkbox" onclick="toggleView(this.checked,'Section3b');"><fmt:message key="eFormGenerator.radioCheckbox"/><br> -->
                 <input name="radioX" id="radioX" type="checkbox"
                        onclick="toggleView(this.checked,'Section3b');document.getElementById('bgColor').value='white';">Add
                 Radio Xboxes</p>
 
             <div id="Section3b" style="display:none">
-                <span><b><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.radioLabel"/></b>: </span>
+                <span><b><fmt:message key="eFormGenerator.radioLabel"/></b>: </span>
                 <input name="RadioButton" id="RadioButton" type="button"
-                       value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.radioButton"/>' onclick="SetSwitchOn(this.id);">
+                       value='<fmt:message key="eFormGenerator.radioButton"/>' onclick="SetSwitchOn(this.id);">
                 <br>
-                <span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.radioHint"/></span><input type="text" name="RadioName"
+                <span><fmt:message key="eFormGenerator.radioHint"/></span><input type="text" name="RadioName"
                                                                                   id="RadioName" style="width:200px;"
                                                                                   value="radio">
             </div>
-            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.parent"/><br> <input name="parentchild" id="parentchild"
+            <p><fmt:message key="eFormGenerator.parent"/><br> <input name="parentchild" id="parentchild"
                                                                       type="checkbox"
-                                                                      onclick="toggleView(this.checked,'Section3c');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.parentCheckbox"/></p>
+                                                                      onclick="toggleView(this.checked,'Section3c');"><fmt:message key="eFormGenerator.parentCheckbox"/></p>
             <div id="Section3c" style="display:none">
                 <table>
                     <tr>
-                        <td><span><b><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.parentLabel"/></b>: </span></td>
+                        <td><span><b><fmt:message key="eFormGenerator.parentLabel"/></b>: </span></td>
                         <td><input name="Parent" id="Parent" type="button"
-                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.parentButton"/>'
+                                   value='<fmt:message key="eFormGenerator.parentButton"/>'
                                    onclick="parentcounter += 1; document.getElementById('Checkbox').click(); document.getElementById('inputClass').value = 'parent-field'; document.generator.InputNameType[1].checked=true; document.getElementById('inputName').value ='parent' + parentcounter; document.getElementById('inputParentclass').value ='';">
                         </td>
 
                     </tr>
                     <tr>
-                        <td><span><b><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.childLabel"/></b>: </span></td>
+                        <td><span><b><fmt:message key="eFormGenerator.childLabel"/></b>: </span></td>
                         <td><input name="Child" id="Child" type="button"
-                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.childButton"/>'
+                                   value='<fmt:message key="eFormGenerator.childButton"/>'
                                    onclick=" document.getElementById('inputClass').value = 'child-'; document.getElementById('inputParentclass').value ='parent' + parentcounter; document.getElementById('InputNameAuto').click();">
                         </td>
 
@@ -2045,9 +2045,9 @@ and other liscences (MIT, LGPL etc) as indicated
         <hr>
 
 
-        <span class='h2'>4. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.signature"/></span><a
-            onclick="show('Section4');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a
-            onclick="hide('Section4');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class='h2'>4. <fmt:message key="eFormGenerator.signature"/></span><a
+            onclick="show('Section4');"><fmt:message key="eFormGenerator.expand"/></a>/<a
+            onclick="hide('Section4');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id="Section4">
             <input type="checkbox" name="AddStamp2" id="AddStamp2"
                    onclick="toggleView(this.checked,'Section4e');toggleView(this.checked,'Section4f');"><span><b>Add Signature Stamps to this form</b></span><br>
@@ -2064,24 +2064,24 @@ and other liscences (MIT, LGPL etc) as indicated
             <span id="classic" style="display:none">
 		<br>
 		<input type="checkbox" name="AddSignatureClassic" id="AddSignatureClassic"
-               onclick="	toggleView(this.checked,'Section4d');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.classic"/>
+               onclick="	toggleView(this.checked,'Section4d');"><fmt:message key="eFormGenerator.classic"/>
 		<br>
 	</span>
             <div id="Section4d" style="display:none">
                 <input type="button" name="AddClassicSignatureBox" id="AddClassicSignatureBox" style="width:400px"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.signatureLocationButton"/>"
+                       value="<fmt:message key="eFormGenerator.signatureLocationButton"/>"
                        onclick="SetSwitchOn('ClassicSignature');document.getElementById('AddSignatureClassic').disabled=true; document.getElementById('AddClassicSignatureBox').disabled=true;">
                 <br>
             </div>
             <br>
             <span>
 	<input type="checkbox" name="AddSignature" id="AddSignature"
-           onclick="	toggleView(this.checked,'Section4a');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.freehand"/>
+           onclick="	toggleView(this.checked,'Section4a');"><fmt:message key="eFormGenerator.freehand"/>
                 <!-- Add A Freehand Signature area to this form--> <br>
     </span>
             <div id="Section4a" style="display:none">
                 <input type="button" name="AddSignatureBox1" id="AddSignatureBox1" style="width:400px"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.signatureLocationButton"/>"
+                       value="<fmt:message key="eFormGenerator.signatureLocationButton"/>"
                        onclick="SetSwitchOn('SignatureBox');document.getElementById('AddSignature').disabled=true; ">
                 <br>Signature Color
                 <select id="sigColor" onchange="SignatureColor=document.getElementById('sigColor').value;">
@@ -2127,23 +2127,23 @@ and other liscences (MIT, LGPL etc) as indicated
 
 
             <input type="checkbox" name="AddStamp" id="AddStamp"
-                   onclick="	toggleView(this.checked,'Section4b');toggleView(this.checked,'Section4c');"><span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.stamp"/></span><br>
+                   onclick="	toggleView(this.checked,'Section4b');toggleView(this.checked,'Section4c');"><span><fmt:message key="eFormGenerator.stamp"/></span><br>
             <div id="Section4b" style="display:none">
                 <input type="button" name="AddSignatureBox2" id="AddSignatureBox2" style="width:400px"
                        value="Click here, then drag a box around the signature area"
                        onclick="SetSwitchOn('Stamp');document.getElementById('AddStamp').disabled=true; document.getElementById('AddSignatureBox2').disabled=true;">
             </div>
             <div id="Section4c" style="display:none">
-                <br><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.signatureFragment"/>
+                <br><fmt:message key="eFormGenerator.signatureFragment"/>
                 <input type="text" name="UserList" id="UserList" style="width:200px;">
-                <br><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.signatureImage"/>
+                <br><fmt:message key="eFormGenerator.signatureImage"/>
                 <input type="text" name="SignatureList" id="SignatureList" style="width:200px;">
                 <br>
                 <input type="button" name="AddToUserSignatureList" id="AddToUserSignatureList"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.signatureAddButton"/>"
+                       value="<fmt:message key="eFormGenerator.signatureAddButton"/>"
                        onclick="addToUserSignatureList();">
                 <input type="button" name="EmptyUserSignatureList" id="EmptyUserSignatureList"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.signatureEmptyButton"/>"
+                       value="<fmt:message key="eFormGenerator.signatureEmptyButton"/>"
                        onclick="emptyUserSignaturelist()">
                 <br>
                 <ul id="UserSignatureList"
@@ -2177,31 +2177,31 @@ and other liscences (MIT, LGPL etc) as indicated
         <hr>
 
 
-        <span class='h2'>5. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.input"/></span> <a
-            onclick="show('Section5');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a
-            onclick="hide('Section5');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class='h2'>5. <fmt:message key="eFormGenerator.input"/></span> <a
+            onclick="show('Section5');"><fmt:message key="eFormGenerator.expand"/></a>/<a
+            onclick="hide('Section5');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id="Section5">
-            <span class='h3'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputType"/></span>
+            <span class='h3'><fmt:message key="eFormGenerator.inputType"/></span>
             <p>
                 <input type="radio" name="inputType" id="Text" value="text"
-                       onclick="hide('SectionPrecheck');show('SectionCustomText');show('SectionDatabase');show('SectionImportMeasurements');show('wtalign');show('SectionCustomText');show('iiimeasures');show('c_formating');SetSwitchOn(this.id);document.getElementById('bgColor').value='transparent';"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeText"/>
+                       onclick="hide('SectionPrecheck');show('SectionCustomText');show('SectionDatabase');show('SectionImportMeasurements');show('wtalign');show('SectionCustomText');show('iiimeasures');show('c_formating');SetSwitchOn(this.id);document.getElementById('bgColor').value='transparent';"><fmt:message key="eFormGenerator.inputTypeText"/>
                 <input type="radio" name="inputType" id="Textbox" value="textarea"
-                       onclick="hide('SectionPrecheck');show('SectionCustomText');show('SectionDatabase');show('wtalign');show('SectionCustomText');show('c_formating');SetSwitchOn(this.id);"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeTextArea"/>
+                       onclick="hide('SectionPrecheck');show('SectionCustomText');show('SectionDatabase');show('wtalign');show('SectionCustomText');show('c_formating');SetSwitchOn(this.id);"><fmt:message key="eFormGenerator.inputTypeTextArea"/>
                 <input type="radio" name="inputType" id="Checkbox" value="checkbox"
-                       onclick="show('SectionPrecheck');hide('SectionCustomText');hide('SectionDatabase');hide('SectionImportMeasurements');hide('iiimeasures');hide('c_formating');SetSwitchOn(this.id);"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeCheckbox"/>
+                       onclick="show('SectionPrecheck');hide('SectionCustomText');hide('SectionDatabase');hide('SectionImportMeasurements');hide('iiimeasures');hide('c_formating');SetSwitchOn(this.id);"><fmt:message key="eFormGenerator.inputTypeCheckbox"/>
                 <input type="radio" name="inputType" id="Xbox" value="Xbox"
-                       onclick="show('SectionPrecheck');show('SectionCustomText');hide('SectionDatabase');hide('SectionImportMeasurements');hide('wtalign');show('c_formating');hide('iiimeasures');SetSwitchOn(this.id);document.getElementById('bgColor').value='white';"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeXbox"/>
+                       onclick="show('SectionPrecheck');show('SectionCustomText');hide('SectionDatabase');hide('SectionImportMeasurements');hide('wtalign');show('c_formating');hide('iiimeasures');SetSwitchOn(this.id);document.getElementById('bgColor').value='white';"><fmt:message key="eFormGenerator.inputTypeXbox"/>
             </p>
 
-            <span class='h3'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputAuto"/></span>
+            <span class='h3'><fmt:message key="eFormGenerator.inputAuto"/></span>
             <ul style="list-style-type:none">
                 <li id='SectionCustomText' style="display:block">
-                    <input type="radio" name="AutoPopType" id="AutoPopCustom" value="custom"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeCustom"/><input type="text" name="inputValue" id="inputValue"
+                    <input type="radio" name="AutoPopType" id="AutoPopCustom" value="custom"><fmt:message key="eFormGenerator.inputTypeCustom"/><input type="text" name="inputValue" id="inputValue"
                                                                      value=""></li>
                 <li id='SectionDatabase' style="display:block">
-                    <input type="radio" name="AutoPopType" id="AutoPopDatabase" value="database"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeData"/>
+                    <input type="radio" name="AutoPopType" id="AutoPopDatabase" value="database"><fmt:message key="eFormGenerator.inputTypeData"/>
                     <select name="oscarDB" id="oscarDB">
-                        <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeDataButton"/></option>
+                        <option value=""><fmt:message key="eFormGenerator.inputTypeDataButton"/></option>
                         <%
                             EFormLoader names = EFormLoader.getInstance();
                             //return the array with a list of names from database
@@ -2214,13 +2214,13 @@ and other liscences (MIT, LGPL etc) as indicated
                         %>
                     </select></li>
                 <li id="SectionImportMeasurements" style="display:block;">
-                    <input type="radio" name="AutoPopType" id="AutoPopMeasurements" value="measurements"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurements"/><br>
+                    <input type="radio" name="AutoPopType" id="AutoPopMeasurements" value="measurements"><fmt:message key="eFormGenerator.inputTypeMeasurements"/><br>
                     <table>
                         <tr>
                             <td>
-                                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsType"/><br>
+                                <p><fmt:message key="eFormGenerator.inputTypeMeasurementsType"/><br>
                                     <select name="MeasurementList" id="MeasurementList">
-                                        <option value="" selected="selected"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsButton"/></option>
+                                        <option value="" selected="selected"><fmt:message key="eFormGenerator.inputTypeMeasurementsButton"/></option>
                                         <option value="HT">HT</option>
                                         <option value="WT">WT</option>
                                         <option value="BP">BP</option>
@@ -2245,16 +2245,16 @@ and other liscences (MIT, LGPL etc) as indicated
                                     </select>
                                 </p>
                             </td>
-                            <td><p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsCustom"/><br>
+                            <td><p><fmt:message key="eFormGenerator.inputTypeMeasurementsCustom"/><br>
                                 <input type="text" name="MeasurementCustom" id="MeasurementCustom" style="width:50px;">
                             </p>
                             </td>
                             <td>
-                                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsField"/><br>
+                                <p><fmt:message key="eFormGenerator.inputTypeMeasurementsField"/><br>
                                     <select name="MeasurementField" id="MeasurementField">
-                                        <option value="value"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonValue"/></option>
-                                        <option value="dateObserved"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonDateObserved"/></option>
-                                        <option value="comments"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonComment"/></option>
+                                        <option value="value"><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonValue"/></option>
+                                        <option value="dateObserved"><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonDateObserved"/></option>
+                                        <option value="comments"><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonComment"/></option>
                                     </select>
                                 </p>
                             </td>
@@ -2262,83 +2262,83 @@ and other liscences (MIT, LGPL etc) as indicated
                     </table>
                 </li>
                 <li id='SectionPrecheck' style="display:none"><input name="preCheck" id="preCheck"
-                                                                     type="checkbox"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.precheck"/></li>
+                                                                     type="checkbox"><fmt:message key="eFormGenerator.precheck"/></li>
 
             </ul>
 
 
-            <span id="c_formating"><span class='h3'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormat"/></span>
+            <span id="c_formating"><span class='h3'><fmt:message key="eFormGenerator.inputFormat"/></span>
 			<br>
-			<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatFont"/>
+			<fmt:message key="eFormGenerator.inputFormatFont"/>
 				<select id="fontFamily">
-					 <option value="sans-serif"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatSelectSans"/></option>
-					 <option value="serif"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatSelectSerif"/></option>
-					 <option value="monospace"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatSelectMono"/></option>
+					 <option value="sans-serif"><fmt:message key="eFormGenerator.inputFormatSelectSans"/></option>
+					 <option value="serif"><fmt:message key="eFormGenerator.inputFormatSelectSerif"/></option>
+					 <option value="monospace"><fmt:message key="eFormGenerator.inputFormatSelectMono"/></option>
 				</select>
-			<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatStyle"/>
+			<fmt:message key="eFormGenerator.inputFormatStyle"/>
 				<select id="fontStyle">
-					 <option value="normal"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatStyleNormal"/></option>
-					 <option value="italic"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatStyleItalic"/></option>
+					 <option value="normal"><fmt:message key="eFormGenerator.inputFormatStyleNormal"/></option>
+					 <option value="italic"><fmt:message key="eFormGenerator.inputFormatStyleItalic"/></option>
 				</select>
-			<span id="wtalign"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatWeight"/>
+			<span id="wtalign"><fmt:message key="eFormGenerator.inputFormatWeight"/>
 				<select id="fontWeight">
-					 <option value="normal"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatStyleNormal"/></option>
-					 <option value="bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatWeightBold"/></option>
-					 <option value="bolder"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatWeightBolder"/></option>
-					 <option value="lighter"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatWeightLighter"/></option>
+					 <option value="normal"><fmt:message key="eFormGenerator.inputFormatStyleNormal"/></option>
+					 <option value="bold"><fmt:message key="eFormGenerator.inputFormatWeightBold"/></option>
+					 <option value="bolder"><fmt:message key="eFormGenerator.inputFormatWeightBolder"/></option>
+					 <option value="lighter"><fmt:message key="eFormGenerator.inputFormatWeightLighter"/></option>
 				</select>
 			<br></span>
-			<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatSize"/><input type="text" name="fontSize" id="fontSize"
-                                                                       style="width:50px" value="12"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatSizehint"/>
-			<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatAlign"/>
+			<fmt:message key="eFormGenerator.inputFormatSize"/><input type="text" name="fontSize" id="fontSize"
+                                                                       style="width:50px" value="12"><fmt:message key="eFormGenerator.inputFormatSizehint"/>
+			<fmt:message key="eFormGenerator.inputFormatAlign"/>
 				<select id="textAlign">
-					<option value="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatAlignLeft"/></option>
-					<option value="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatAlignCenter"/></option>
-					<option value="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatAlignRight"/></option>
-					<option value="justify"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatAlignJustify"/></option>
+					<option value="left"><fmt:message key="eFormGenerator.inputFormatAlignLeft"/></option>
+					<option value="center"><fmt:message key="eFormGenerator.inputFormatAlignCenter"/></option>
+					<option value="right"><fmt:message key="eFormGenerator.inputFormatAlignRight"/></option>
+					<option value="justify"><fmt:message key="eFormGenerator.inputFormatAlignJustify"/></option>
 				</select>
 			<br>
-			<br><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatBackground"/>
+			<br><fmt:message key="eFormGenerator.inputFormatBackground"/>
 				<select id="bgColor">
-					<option value="transparent"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatBackgroundTransparent"/></option>
-					<option value="white"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatBackgroundWhite"/></option>
+					<option value="transparent"><fmt:message key="eFormGenerator.inputFormatBackgroundTransparent"/></option>
+					<option value="white"><fmt:message key="eFormGenerator.inputFormatBackgroundWhite"/></option>
 				</select><br>
-				- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputFormatBackgroundhint"/>
+				- <fmt:message key="eFormGenerator.inputFormatBackgroundhint"/>
 
 
 
 
-	<span class='h3'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputName"/></span>
+	<span class='h3'><fmt:message key="eFormGenerator.inputName"/></span>
 	    <br>
-	    			<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputClass"/>
+	    			<fmt:message key="eFormGenerator.inputClass"/>
         				<select id="inputClass">
-        					 <option value="" selected><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputClassNone"/></option>
-        					 <option value="parent-field"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputClassParent"/></option>
-        					 <option value="child-"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputClassChild"/></option>
+        					 <option value="" selected><fmt:message key="eFormGenerator.inputClassNone"/></option>
+        					 <option value="parent-field"><fmt:message key="eFormGenerator.inputClassParent"/></option>
+        					 <option value="child-"><fmt:message key="eFormGenerator.inputClassChild"/></option>
         				</select>
-        		    <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputParentclass"/><input type="text" name="inputParentclass"
+        		    <fmt:message key="eFormGenerator.inputParentclass"/><input type="text" name="inputParentclass"
                                                                                 id="inputParentclass"
                                                                                 style="width:100px" value="">
 
         <br>
-		<br><input type="radio" name="InputNameType" id="InputNameAuto" value="Auto" checked><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameSeq"/><br>
-				- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameSeqPrefix"/><input type="text" name="AutoNamePrefix"
+		<br><input type="radio" name="InputNameType" id="InputNameAuto" value="Auto" checked><fmt:message key="eFormGenerator.inputNameSeq"/><br>
+				- <fmt:message key="eFormGenerator.inputNameSeqPrefix"/><input type="text" name="AutoNamePrefix"
                                                                                 id="AutoNamePrefix" style="width:100px"
                                                                                 value="AutoName"><br>
-			<input type="radio" name="InputNameType" id="InputNameCustom" value="Custom"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameSeqCustom"/>
+			<input type="radio" name="InputNameType" id="InputNameCustom" value="Custom"><fmt:message key="eFormGenerator.inputNameSeqCustom"/>
 				<input type="text" name="inputName" id="inputName">
 				<br>
-				- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameSeqCustomhint1"/><br>
-				- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameSeqCustomhint2"/>
+				- <fmt:message key="eFormGenerator.inputNameSeqCustomhint1"/><br>
+				- <fmt:message key="eFormGenerator.inputNameSeqCustomhint2"/>
 			<br></span>
             <span id="iiimeasures"><input type="radio" name="InputNameType" id="InputNameMeasurement"
-                                          value="Measurement"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameMeasurement"/></span><br>
+                                          value="Measurement"><fmt:message key="eFormGenerator.inputNameMeasurement"/></span><br>
             <table>
                 <tr>
                     <td>
-                        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameMeasurementType"/><br>
+                        <p><fmt:message key="eFormGenerator.inputNameMeasurementType"/><br>
                             <select name="ExportMeasurementList" id="ExportMeasurementList">
-                                <option value="" selected="selected"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameMeasurementButton"/></option>
+                                <option value="" selected="selected"><fmt:message key="eFormGenerator.inputNameMeasurementButton"/></option>
                                 <option value="HT">HT</option>
                                 <option value="WT">WT</option>
                                 <option value="BP">BP</option>
@@ -2363,76 +2363,76 @@ and other liscences (MIT, LGPL etc) as indicated
                             </select>
                             <br>
                     </td>
-                    <td><br><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameMeasurementsCustom"/><br>
+                    <td><br><fmt:message key="eFormGenerator.inputNameMeasurementsCustom"/><br>
                         <input type="text" name="ExportMeasurementCustom" id="ExportMeasurementCustom"
                                style="width:50px;">
                         <br>
                     </td>
                     <td>
-                        <br><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputNameMeasurementsField"/><br>
+                        <br><fmt:message key="eFormGenerator.inputNameMeasurementsField"/><br>
                         <select name="ExportMeasurementField" id="ExportMeasurementField">
-                            <option value="value"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonValue"/></option>
-                            <option value="dateObserved"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonDateObserved"/></option>
-                            <option value="comments"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonComment"/></option>
+                            <option value="value"><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonValue"/></option>
+                            <option value="dateObserved"><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonDateObserved"/></option>
+                            <option value="comments"><fmt:message key="eFormGenerator.inputTypeMeasurementsFieldButtonComment"/></option>
                         </select>
                         <br>
                     </td>
                 </tr>
             </table>
             <br>
-            <span class='h3'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputDraw"/></span>
+            <span class='h3'><fmt:message key="eFormGenerator.inputDraw"/></span>
             <br>
-            <span class='h4'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputDrawText"/></span>
+            <span class='h4'><fmt:message key="eFormGenerator.inputDrawText"/></span>
             <br>
-            - <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputDrawTexthint"/><br>
+            - <fmt:message key="eFormGenerator.inputDrawTexthint"/><br>
             <br>
-            <span class='h4'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputDrawCheckbox"/></span>
+            <span class='h4'><fmt:message key="eFormGenerator.inputDrawCheckbox"/></span>
             <br>
-            - <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputDrawCheckboxhint"/><br>
+            - <fmt:message key="eFormGenerator.inputDrawCheckboxhint"/><br>
             <br>
-            <br><input type="button" onclick="Undo();" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputDrawUndoButton"/>'><br>
-            <br><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.inputDrawhint"/><br>
+            <br><input type="button" onclick="Undo();" value='<fmt:message key="eFormGenerator.inputDrawUndoButton"/>'><br>
+            <br><fmt:message key="eFormGenerator.inputDrawhint"/><br>
 
         </div>
 
         <hr>
-        <span class='h2'>6. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuning"/></span><a
-            onclick="show('Section6');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a
-            onclick="hide('Section6');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class='h2'>6. <fmt:message key="eFormGenerator.tuning"/></span><a
+            onclick="show('Section6');"><fmt:message key="eFormGenerator.expand"/></a>/<a
+            onclick="hide('Section6');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id="Section6">
 
-            <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningShowButton"/>'
+            <input type="button" value='<fmt:message key="eFormGenerator.tuningShowButton"/>'
                    onclick="ToggleInputName();"><br>
             <table style="text-align:center; border: 1px solid black;">
                 <tr>
                     <td style="background-color:#dddddd;">
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningNoneButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningNoneButton"/>'
                                onclick="uncheckList('InputChecklist');"><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningAllButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningAllButton"/>'
                                onclick="checkList('InputChecklist');">
                     </td>
                     <td>
-                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningUpButton"/></span><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningAlignButton"/>'
+                        <span><fmt:message key="eFormGenerator.tuningUpButton"/></span><br>
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningAlignButton"/>'
                                style="width:100px;" onclick="alignInput('top');"><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningShiftButton"/> [alt]&uarr;'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningShiftButton"/> [alt]&uarr;'
                                style="width:100px;" onclick="changeInput('up',10);"><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningNudgeButton"/> &uarr;'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningNudgeButton"/> &uarr;'
                                style="width:100px;" onclick="changeInput('up',1);">
                     </td>
                     <td style="background-color:#dddddd;">
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningDeleteButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningDeleteButton"/>'
                                Style="width:100px;" onclick="deleteInput();">
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningLeft"/></span><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningAlignButton"/>'
+                        <span><fmt:message key="eFormGenerator.tuningLeft"/></span><br>
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningAlignButton"/>'
                                style="width:50px;" onclick="alignInput('left');">
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningShiftButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningShiftButton"/>'
                                style="width:50px;" onclick="changeInput('left',10);">
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningNudgeButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningNudgeButton"/>'
                                style="width:50px;" onclick="changeInput('left',1);">
                     </td>
                     <td style="text-align:left;">
@@ -2440,41 +2440,41 @@ and other liscences (MIT, LGPL etc) as indicated
                             style="list-style-type:none; list-style: none; margin-left: 0; padding-left: 1em; text-indent: -1em"></ul>
                     </td>
                     <td>
-                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningRight"/></span><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningNudgeButton"/>'
+                        <span><fmt:message key="eFormGenerator.tuningRight"/></span><br>
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningNudgeButton"/>'
                                style="width:50px;" onclick="changeInput('right',1);">
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningShiftButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningShiftButton"/>'
                                style="width:50px;" onclick="changeInput('right',10);">
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningAlignButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningAlignButton"/>'
                                style="width:50px;" onclick="alignInput('right');">
                     </td>
                 </tr>
                 <tr>
                     <td style="background-color:#dddddd;">
-                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningWidth"/></span><br>
+                        <span><fmt:message key="eFormGenerator.tuningWidth"/></span><br>
                         <input type="button"
-                               value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningIncreaseButton"/>  &uArr;+&rarr;'
+                               value='<fmt:message key="eFormGenerator.tuningIncreaseButton"/>  &uArr;+&rarr;'
                                style="width:120px;" onclick="changeInput('width',1);"><br>
                         <input type="button"
-                               value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningDecreaseButton"/>  &uArr;+&larr;'
+                               value='<fmt:message key="eFormGenerator.tuningDecreaseButton"/>  &uArr;+&larr;'
                                style="width:120px;" onclick="changeInput('width',-1);">
                     </td>
                     <td>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningNudgeButton"/> &darr;'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningNudgeButton"/> &darr;'
                                style="width:100px;" onclick="changeInput('down',1);"><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningShiftButton"/> [alt]&darr;'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningShiftButton"/> [alt]&darr;'
                                style="width:100px;" onclick="changeInput('down',10);"><br>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningAlignButton"/>'
+                        <input type="button" value='<fmt:message key="eFormGenerator.tuningAlignButton"/>'
                                style="width:100px;" onclick="alignInput('bottom');"><br>
-                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningDown"/></span>
+                        <span><fmt:message key="eFormGenerator.tuningDown"/></span>
                     </td>
                     <td style="background-color:#dddddd;">
-                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningHeight"/></span><br>
+                        <span><fmt:message key="eFormGenerator.tuningHeight"/></span><br>
                         <input type="button"
-                               value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningIncreaseButton"/> &uArr;+&darr;'
+                               value='<fmt:message key="eFormGenerator.tuningIncreaseButton"/> &uArr;+&darr;'
                                style="width:120px;" onclick="changeInput('height',1);"><br>
                         <input type="button"
-                               value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.tuningDecreaseButton"/> &uArr;+&uarr;'
+                               value='<fmt:message key="eFormGenerator.tuningDecreaseButton"/> &uArr;+&uarr;'
                                style="width:120px;" onclick="changeInput('height',-1);">
                     </td>
                 </tr>
@@ -2482,38 +2482,38 @@ and other liscences (MIT, LGPL etc) as indicated
 
         </div>
         <hr>
-        <span class='h2'>7. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.misc"/></span><a onclick="show('Section7');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a onclick="hide('Section7');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class='h2'>7. <fmt:message key="eFormGenerator.misc"/></span><a onclick="show('Section7');"><fmt:message key="eFormGenerator.expand"/></a>/<a onclick="hide('Section7');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id="Section7">
-            <p><span class="h2"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.miscMax"/></span><br>
-                <input name="maximizeWindow" id="maximizeWindow" type="checkbox"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.miscMaxhint"/>
+            <p><span class="h2"><fmt:message key="eFormGenerator.miscMax"/></span><br>
+                <input name="maximizeWindow" id="maximizeWindow" type="checkbox"><fmt:message key="eFormGenerator.miscMaxhint"/>
             </p>
             <p><span class="h2">Hide Headers/Footers on Print</span><br>
                 <input name="removeHeadersFooters" id="removeHeadersFooters" type="checkbox">Removes headers/footers on
                 print (so your OSCAR link isn't displayed on the printed eForm...)
             </p>
-            <p><span class='h2'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.date"/></span><br>
-                <input name="AddDate" id="AddDate" type="checkBox" checked><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.dateDescription"/>
+            <p><span class='h2'><fmt:message key="eFormGenerator.date"/></span><br>
+                <input name="AddDate" id="AddDate" type="checkBox" checked><fmt:message key="eFormGenerator.dateDescription"/>
             </p>
-            <p><span class='h2'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.miscCheckmarks"/></span><br>
+            <p><span class='h2'><fmt:message key="eFormGenerator.miscCheckmarks"/></span><br>
                 <input name="BlackBox" id="BlackBox" type="checkbox">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.BlackBox"/>
+                <fmt:message key="eFormGenerator.BlackBox"/>
                 <br>
 
-                <input name="ScaleCheckmark" id="ScaleCheckmark" type="checkbox"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.miscCheckmarksScale"/><br>
+                <input name="ScaleCheckmark" id="ScaleCheckmark" type="checkbox"><fmt:message key="eFormGenerator.miscCheckmarksScale"/><br>
                 <input name="DefaultCheckmark" id="DefaultCheckmark" type="checkbox" style="display:none"><span
-                        style="display:none"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.miscCheckmarksDraw"/></span>
+                        style="display:none"><fmt:message key="eFormGenerator.miscCheckmarksDraw"/></span>
             </p>
             <p <%=eformGeneratorIndivicaFaxEnabled ? "" : "style=\"display: none;\"" %>>
-                <span class='h2'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.fax"/></span><br>
-                <input name="includeFaxControl" id="includeFaxControl" type="checkBox"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.faxDescription"/><br>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.faxnumber"/>: <input type="text" name="faxno" id="faxno"
+                <span class='h2'><fmt:message key="eFormGenerator.fax"/></span><br>
+                <input name="includeFaxControl" id="includeFaxControl" type="checkBox"><fmt:message key="eFormGenerator.faxDescription"/><br>
+                <fmt:message key="eFormGenerator.faxnumber"/>: <input type="text" name="faxno" id="faxno"
                                                                        style="width:200px;">
             </p>
 
             <div id='pdfOption' <%=eformGeneratorIndivicaPrintEnabled ? "" : "style=\"display: none;\"" %>>
-                <p><span class='h2'><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.PDFprint"/></span><br>
+                <p><span class='h2'><fmt:message key="eFormGenerator.PDFprint"/></span><br>
                     <input name="includePdfPrintControl" id="includePdfPrintControl" type="checkBox" checked>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.includePDFprint"/>
+                    <fmt:message key="eFormGenerator.includePDFprint"/>
                 </p>
             </div>
             <div id='ticklerOptions'>
@@ -2555,25 +2555,25 @@ and other liscences (MIT, LGPL etc) as indicated
 
         </div>
         <hr>
-        <span class='h2'>8. <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generate"/></span><a
-            onclick="show('Section8');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.expand"/></a>/<a
-            onclick="hide('Section8');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.collapse"/></a>
+        <span class='h2'>8. <fmt:message key="eFormGenerator.generate"/></span><a
+            onclick="show('Section8');"><fmt:message key="eFormGenerator.expand"/></a>/<a
+            onclick="hide('Section8');"><fmt:message key="eFormGenerator.collapse"/></a>
         <div id='Section8'>
             <!-- Inject the html to the eForm window -->
             <input name="loadHTMLButton" id="loadHTMLButton" type="button"
-                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generateLoadButton"/>' onClick="injectHtml();">
+                   value='<fmt:message key="eFormGenerator.generateLoadButton"/>' onClick="injectHtml();">
             <input name="reset" id="reset" type="button"
-                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generateResetButton"/>' onclick="resetAll();">
+                   value='<fmt:message key="eFormGenerator.generateResetButton"/>' onclick="resetAll();">
             <!--  Cookie Monster says hello! -->
-            <input name="save" id="save" type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generateSaveButton"/>'
+            <input name="save" id="save" type="button" value='<fmt:message key="eFormGenerator.generateSaveButton"/>'
                    onclick="save_to_cookie();">
             <input name="restore" id="restore" type="button"
-                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generateRestoreSaveButton"/>' onclick="restoreSaved();">
+                   value='<fmt:message key="eFormGenerator.generateRestoreSaveButton"/>' onclick="restoreSaved();">
             <!--  Cookie Monster says bye! -->
-            <p>- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generatehint1"/>
-                <br>- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generatehint2"/>
-                <br>- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generatehint3"/>
-                <br>- <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.generatehint4"/>
+            <p>- <fmt:message key="eFormGenerator.generatehint1"/>
+                <br>- <fmt:message key="eFormGenerator.generatehint2"/>
+                <br>- <fmt:message key="eFormGenerator.generatehint3"/>
+                <br>- <fmt:message key="eFormGenerator.generatehint4"/>
             </p>
 
         </div>

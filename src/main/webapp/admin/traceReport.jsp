@@ -46,7 +46,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></title>
+        <title><fmt:message key="admin.admin.traceabilityReport"/></title>
         <!--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>-->
 
         <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
@@ -88,7 +88,7 @@
 
     </head>
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></h3>
+    <h3><fmt:message key="admin.admin.traceabilityReport"/></h3>
 
     <div class="well">
         <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.downloadTraceabilityData'/></h4>
@@ -111,7 +111,7 @@
         <form action="GenerateTraceabilityReportAction.do" method="post" enctype="multipart/form-data"
               onsubmit="return validateInput()">
             <input type="file" name="file"/>
-            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+            <span title="<fmt:message key="global.uploadWarningBody"/>"
                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                     alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span>
 

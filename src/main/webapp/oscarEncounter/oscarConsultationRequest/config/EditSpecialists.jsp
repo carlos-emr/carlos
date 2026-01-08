@@ -49,7 +49,7 @@
     %>
     <head>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/>
         </title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -91,7 +91,7 @@
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td class="Header"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/>
+                            <td class="Header"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/>
                             </td>
                         </tr>
                     </table>
@@ -111,7 +111,7 @@
                         <!----Start new rows here-->
                         <tr>
                             <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.msgClickOn"/><br>
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.msgClickOn"/><br>
 
                             </td>
                         </tr>
@@ -121,13 +121,13 @@
                                 <table>
                                     <tr>
                                         <th>&nbsp;</th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.specialist"/>
+                                        <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.specialist"/>
                                         </th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.address"/>
+                                        <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.address"/>
                                         </th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.phone"/>
+                                        <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.phone"/>
                                         </th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.fax"/>
+                                        <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.fax"/>
                                         </th>
 
                                     </tr>

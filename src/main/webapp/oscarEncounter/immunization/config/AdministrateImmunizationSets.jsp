@@ -58,7 +58,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.title"/>
+        <title><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.title"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -92,7 +92,7 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.msgImm"/>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.msgImm"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
@@ -100,7 +100,7 @@
                         <td></td>
                         <td></td>
                         <td style="text-align: right"><a
-                                href="javascript:history.go(-1);"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a> | <a href="javascript:window.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a></td>
+                                href="javascript:history.go(-1);"><fmt:message key="global.btnBack"/></a> | <a href="javascript:window.close();"><fmt:message key="global.btnClose"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -112,9 +112,9 @@
                     <tr>
                         <th>&nbsp;</th>
                         <th><font color="red"><%=deletedList ? "(Deleted)" : ""%>
-                        </font> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.msgImmName"/>
+                        </font> <fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.msgImmName"/>
                         </th>
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.msgDateCreated"/>
+                        <th><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.msgDateCreated"/>
                         </th>
                     </tr>
                     <%
@@ -140,19 +140,19 @@
                     <tr>
                         <td>
                             <% if (deletedList == true) { %> <input type="submit" name="action"
-                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnRestore"/>">
+                                                                    value="<fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnRestore"/>">
                             <% } else { %> <input type="submit" name="action"
-                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnDelete"/>">
+                                                  value="<fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnDelete"/>">
                             <% } %>
                         </td>
                         <td align="right"><input type="button" name="Button"
-                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnAddNew"/>"
+                                                 value="<fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnAddNew"/>"
                                                  onClick="javascript:goURL('oscarEncounter/immunization/config/CreateImmunizationSetInit.jsp');">
                             <% if (deletedList == true) { %> <input type="button" name="action"
-                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnSetlist"/>"
+                                                                    value="<fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnSetlist"/>"
                                                                     onClick="goURL('oscarEncounter/immunization/config/AdministrateImmunizationSets.jsp');"> <% } else { %>
                             <input type="button" name="action"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnDelList"/>"
+                                   value="<fmt:message key="oscarEncounter.immunization.config.administrativeImmunizationSets.btnDelList"/>"
                                    onClick="goURL('oscarEncounter/immunization/config/AdministrateImmunizationSets.jsp?stat=2');">
                             <% } %>
                         </td>

@@ -54,7 +54,7 @@
 <html>
     <head>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.title"/></title>
+        <title><fmt:message key="admin.adminnewgroup.title"/></title>
 
         <script>
 
@@ -68,7 +68,7 @@
                 group = document.UPDATEPRE.mygroup_no.value;
 
                 if (group.length <= 0 || group <= " ") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminNewGroup.msgGroupIsRequired"/>");
+                    alert("<fmt:message key="admin.adminNewGroup.msgGroupIsRequired"/>");
 
                     return false;
                 } else {
@@ -125,14 +125,14 @@
 
         <a href="admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
 
-        <a href="adminnewgroup.jsp" class="btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+        <a href="adminnewgroup.jsp" class="btn"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
         <%} else {%>
 
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.description"/></h3>
+        <h3><fmt:message key="admin.adminnewgroup.description"/></h3>
 
 
         <input type="text" name="mygroup_no" size="10" maxlength="10"
-               placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminmygroup.formGroupNo"/>"
+               placeholder="<fmt:message key="admin.adminmygroup.formGroupNo"/>"
                title="Enter an existing or new group name.">
         <small>(Max. 10 chars.)</small>
 
@@ -141,7 +141,7 @@
             <tr class="btn-inverse">
                 <th></th>
                 <th>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.formProviderName"/>
+                    <fmt:message key="admin.admindisplaymygroup.formProviderName"/>
                 </th>
             </tr>
             </thead>
@@ -175,7 +175,7 @@
 
 
         <input type="submit" name="Submit" class="btn btn-primary"
-               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.btnSubmit"/>">
+               value="<fmt:message key="admin.adminnewgroup.btnSubmit"/>">
 
         <a href="admindisplaymygroup.jsp" class="btn btn-default">Cancel</a>
 

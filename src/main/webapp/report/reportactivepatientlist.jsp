@@ -61,7 +61,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.title"/>
+        <title><fmt:message key="report.reportactivepatientlist.title"/>
         </title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css">
         <script language="JavaScript">
@@ -79,11 +79,11 @@
 
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
-            <th align=CENTER><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgTitle"/></font></th>
+            <th align=CENTER><font face="Helvetica" color="#FFFFFF"><fmt:message key="report.reportactivepatientlist.msgTitle"/></font></th>
             <th align="right" width="10%" NOWRAP><input type="button"
-                                                        name="Button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>"
+                                                        name="Button" value="<fmt:message key="global.btnPrint"/>"
                                                         onClick="window.print()"> <input type="button" name="Button"
-                                                                                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                                                                                         value="<fmt:message key="global.btnCancel"/>"
                                                                                          onClick="window.close()"></th>
         </tr>
     </table>
@@ -92,16 +92,16 @@
         <table width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
                cellpadding="1">
             <tr bgcolor="silver">
-                <TH align="center" width="12%" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgLastName"/></b></TH>
-                <TH align="center" width="12%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgFirstName"/> </b></TH>
-                <TH align="center" width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgChart"/></b></TH>
-                <TH align="center" width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgAge"/></b></TH>
-                <TH align="center" width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgSex"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgHIN"/></b></TH>
-                <TH align="center" width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgVer"/></b></TH>
-                <TH align="center" width="16%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgMCDoc"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgDateJoined"/></b></TH>
-                <TH align="center" width="15%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgPhone"/></b></TH>
+                <TH align="center" width="12%" nowrap><b><fmt:message key="report.reportactivepatientlist.msgLastName"/></b></TH>
+                <TH align="center" width="12%"><b><fmt:message key="report.reportactivepatientlist.msgFirstName"/> </b></TH>
+                <TH align="center" width="5%"><b><fmt:message key="report.reportactivepatientlist.msgChart"/></b></TH>
+                <TH align="center" width="5%"><b><fmt:message key="report.reportactivepatientlist.msgAge"/></b></TH>
+                <TH align="center" width="5%"><b><fmt:message key="report.reportactivepatientlist.msgSex"/></b></TH>
+                <TH align="center" width="10%"><b><fmt:message key="report.reportactivepatientlist.msgHIN"/></b></TH>
+                <TH align="center" width="5%"><b><fmt:message key="report.reportactivepatientlist.msgVer"/></b></TH>
+                <TH align="center" width="16%"><b><fmt:message key="report.reportactivepatientlist.msgMCDoc"/></b></TH>
+                <TH align="center" width="10%"><b><fmt:message key="report.reportactivepatientlist.msgDateJoined"/></b></TH>
+                <TH align="center" width="15%"><b><fmt:message key="report.reportactivepatientlist.msgPhone"/></b></TH>
             </tr>
             <%
                 int age = 0;
@@ -160,12 +160,12 @@
   nLastPage=Integer.parseInt(strLimit1)-Integer.parseInt(strLimit2);
   if(nLastPage>=0) {
 %> <a
-            href="reportactivepatientlist.jsp?limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgLastPage"/></a> | <%
+            href="reportactivepatientlist.jsp?limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:message key="report.reportactivepatientlist.msgLastPage"/></a> | <%
   }
   if(nItems==Integer.parseInt(strLimit2)) {
 %> <a
             href="reportactivepatientlist.jsp?limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportactivepatientlist.msgNextPage"/></a> <%
+        <fmt:message key="report.reportactivepatientlist.msgNextPage"/></a> <%
   }
 %>
 

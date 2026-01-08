@@ -81,7 +81,7 @@
             });
             <% } %>
         </script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.title"/></title>
+        <title><fmt:message key="ManagePharmacy.title"/></title>
         <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -125,67 +125,67 @@
                                             <input type="hidden" id="pharmacyId" name="pharmacyId"/>
                                             <input type="hidden" id="demographicNo" name="demographicNo"
                                                    value="<%=bean.getDemographicNo()%>"/>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.pharmacyName"/> :
+                                            <fmt:message key="ManagePharmacy.txtfld.label.pharmacyName"/> :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyName" name="pharmacyName"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.address"/>
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.address"/>
                                             :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyAddress"
                                                    name="pharmacyAddress"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.city"/>
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.city"/>
                                             :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyCity" name="pharmacyCity"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.province"/>
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.province"/>
                                             :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyProvince"
                                                    name="pharmacyProvince"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.postalCode"/> :
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.postalCode"/> :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyPostalCode"
                                                    name="pharmacyPostalCode"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.phone1"/>
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.phone1"/>
                                             :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyPhone1"
                                                    name="pharmacyPhone1"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.phone2"/>
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.phone2"/>
                                             :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyPhone2"
                                                    name="pharmacyPhone2"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.fax"/> :
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.fax"/> :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyFax" name="pharmacyFax"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.email"/>
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.email"/>
                                             :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyEmail" name="pharmacyEmail"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.serviceLocationIdentifier"/>
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.serviceLocationIdentifier"/>
                                             :
                                         </td>
                                         <td><label type="text" readonly="true" id="pharmacyServiceLocationId"
@@ -193,7 +193,7 @@
                                     </tr>
 
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.notes"/> :
+                                        <td><fmt:message key="ManagePharmacy.txtfld.label.notes"/> :
                                         </td>
                                         <td><p id="pharmacyNotes" readonly="true" name="pharmacyNotes" rows="4"></p>
                                         </td>

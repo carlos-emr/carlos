@@ -620,7 +620,7 @@
     <!-- main calendar program -->
     <script type="text/javascript" src="${ pageContext.request.contextPath }/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
-    <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+    <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
     <script type="text/javascript"
@@ -1402,12 +1402,12 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             <%=checkRefBox%> onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="input-mini" maxlength="6"
-                                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
+                                                placeholder="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
                                                 value="<%=refNo%>">&nbsp;
-                                        <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>"
+                                        <input type="text" placeholder="<fmt:message key="dms.documentReport.msgType"/>"
                                                name="referralSpet" class="input-small" maxlength="2"
                                                value="<%=referSpet==null?"":referSpet%>"><br/>
-                                        <input placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
+                                        <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="input-medium" maxlength="30"
                                                value="<%=refName%>">
                                     </td>
@@ -1562,7 +1562,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                     %>
                                         Clinic Nbr <%
                                         } else {
-                                        %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <%
+                                        %> <fmt:message key="billing.billingCorrection.formVisitType"/> <%
                                             }
                                         %>
                                     </b></td>
@@ -1691,40 +1691,40 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         <%=m_review.equals("Y")?"checked":""%>></td>
                                 </tr>
                                 <tr>
-                                    <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
+                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td colspan="3"><select name="xml_slicode">
                                         <option value="<%=clinicNo%>">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
                                         </option>
                                         <option value="HDS">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/>
                                         </option>
                                         <option value="HED">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/>
                                         </option>
                                         <option value="HIP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/>
                                         </option>
                                         <option value="HOP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/>
                                         </option>
                                         <option value="HRP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/>
                                         </option>
                                         <option value="IHF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/>
                                         </option>
                                         <option value="OFF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/>
                                         </option>
                                         <option value="OTN">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/>
                                         </option>
                                         <option value="PDF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/>
                                         </option>
                                         <option value="RTF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/>
                                         </option>
                                     </select></td>
                                 </tr>

@@ -96,9 +96,9 @@
     <table class="Header" style="width: 7in">
         <tr>
             <td align="left"><input type="button"
-                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>"
+                                    value="<fmt:message key="global.btnPrint"/>"
                                     onclick="javascript:return onPrint();"/> <input type="button"
-                                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                                                    value="<fmt:message key="global.btnClose"/>"
                                                                                     onclick="javascript:return onClose();"/>
             </td>
         </tr>
@@ -113,7 +113,7 @@
 		<%=bean.patientSex%> <%=bean.patientAge%></span></td>
             <td
                     style="text-align: right; height: 34px; border-bottom: 2px solid #A9A9A9; border-right: 2px solid #A9A9A9; border-top: 2px solid #A9A9A9;">
-		<span style="font-weight: bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterPrint.msgDr"/>. <%=providerBean.getProperty(bean.familyDoctorNo, "")%></span>
+		<span style="font-weight: bold;"><fmt:message key="oscarEncounter.encounterPrint.msgDr"/>. <%=providerBean.getProperty(bean.familyDoctorNo, "")%></span>
             </td>
         </tr>
         <tr>
@@ -126,21 +126,21 @@
                             <table width="100%">
                                 <tr>
                                     <td width="33%">
-                                        <div class="RowTop"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.socialFamHist"/>:
+                                        <div class="RowTop"><fmt:message key="oscarEncounter.Index.socialFamHist"/>:
                                         </div>
                                     </td>
                                     <td width="33%">
                                         <div class="RowTop">
                                             <% if (oscarVariables.getProperty("otherMedications", "").length() > 1) {
                                                 out.print(oscarVariables.getProperty("otherMedications", ""));
-                                            %> <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.otherMed"/>: <% } %>
+                                            %> <% } else { %> <fmt:message key="oscarEncounter.Index.otherMed"/>: <% } %>
                                         </div>
                                     </td>
                                     <td width="33%">
                                         <div class="RowTop">
                                             <% if (oscarVariables.getProperty("medicalHistory", "").length() > 1) {
                                                 out.print(oscarVariables.getProperty("medicalHistory", ""));
-                                            } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.medHist"/>: <% } %>
+                                            } else { %> <fmt:message key="oscarEncounter.Index.medHist"/>: <% } %>
                                         </div>
                                     </td>
                                 </tr>
@@ -169,13 +169,13 @@
                                         <div class="RowTop">
                                             <% if (oscarVariables.getProperty("ongoingConcerns", "").length() > 1) {
                                                 out.print(oscarVariables.getProperty("ongoingConcerns", ""));
-                                            } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterPrint.msgOngCon"/>:
+                                            } else { %> <fmt:message key="oscarEncounter.encounterPrint.msgOngCon"/>:
                                         </div>
                                         <% } %>
                                     </td>
 
                                     <td width="50%">
-                                        <div class="RowTop"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterPrint.msgReminders"/>:
+                                        <div class="RowTop"><fmt:message key="oscarEncounter.encounterPrint.msgReminders"/>:
                                         </div>
                                     </td>
                                 </tr>
@@ -197,7 +197,7 @@
                             <table width="100%">
                                 <tr>
                                     <td>
-                                        <div class="RowTop"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterPrint.msgEncounter"/>:
+                                        <div class="RowTop"><fmt:message key="oscarEncounter.encounterPrint.msgEncounter"/>:
                                         </div>
                                     </td>
                                 </tr>
@@ -219,9 +219,9 @@
     <table class="Header" style="width: 7in">
         <tr>
             <td align="left"><input type="button"
-                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>"
+                                    value="<fmt:message key="global.btnPrint"/>"
                                     onclick="javascript:return onPrint();"/> <input type="button"
-                                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                                                    value="<fmt:message key="global.btnClose"/>"
                                                                                     onclick="javascript:return onClose();"/>
             </td>
         </tr>

@@ -125,7 +125,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></title>
+    <title><fmt:message key="admin.admin.mergeRec"/></title>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
     <script language="JavaScript">
         function setfocus() {
@@ -192,7 +192,7 @@
 </head>
 <body onLoad="setfocus()">
 <div class="container-fluid well">
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></h3>
+    <h3><fmt:message key="admin.admin.mergeRec"/></h3>
 
     <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="form-inline"
           onSubmit="return checkTypeIn()">

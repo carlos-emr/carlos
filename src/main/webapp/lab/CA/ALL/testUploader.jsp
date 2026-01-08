@@ -52,7 +52,7 @@
 <html>
 <head>
 
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.labUploadUtility"/></title>
+    <title><fmt:message key="lab.ca.all.testUploader.labUploadUtility"/></title>
 
     <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
@@ -264,7 +264,7 @@
     <form method='POST' name="UPLOAD" id="uploadForm" enctype="multipart/form-data" onsubmit="return validateForm()"
           action='${ctx}/lab/CA/ALL/insideLabUpload.do'>
 
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.pleaseSelectTheLabfile"/>: <i class="icon-question-sign"></i>
+        <fmt:message key="lab.ca.all.testUploader.pleaseSelectTheLabfile"/>: <i class="icon-question-sign"></i>
         
 
         <div style="position:relative;">
@@ -277,12 +277,12 @@
 
 
         </div>
-        <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+        <span title="<fmt:message key="global.uploadWarningBody"/>"
               style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                 alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span>
 
         <br><br>
-        <label for="type"><fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.labType"/></label><br>
+        <label for="type"><fmt:message key="lab.ca.all.testUploader.labType"/></label><br>
         <select name="type" id="type" onchange="selectOther()">
             <option value="0">Select Lab Type:</option>
             <c:forEach items="${pageScope.labTypes}" var="type">
@@ -292,12 +292,12 @@
         </select>
         <br>
         <div id="OTHER" class="hidden">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.pleaseSpecifyTheOtherLabType"/>:<br>
+            <fmt:message key="lab.ca.all.testUploader.pleaseSpecifyTheOtherLabType"/>:<br>
             <input type="text" id="otherType">
         </div>
 
         <br>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.warnings"/>
+        <fmt:message key="lab.ca.all.testUploader.warnings"/>
         <br><br>
         <button type="submit" class="btn btn-primary"><i class="icon-upload"></i> Upload</button>
 

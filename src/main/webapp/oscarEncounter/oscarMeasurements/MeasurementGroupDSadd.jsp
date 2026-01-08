@@ -59,7 +59,7 @@
 <html>
 <head>
 
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - <%=groupName%>
+    <title><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - <%=groupName%>
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet" media="screen">
@@ -69,7 +69,7 @@
 <body>
 <div class="container">
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - Add Decision Support to <em
+    <h3><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - Add Decision Support to <em
             class="text-info"><%=groupName%>
     </em> Group </h3>
     <p><em>The following listed decision support files are available for the flowsheets. Make a

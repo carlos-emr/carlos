@@ -67,7 +67,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.title"/></title>
+        <title><fmt:message key="admin.lotnrsearchresults.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
         <script LANGUAGE="JavaScript">
             <!--
@@ -88,7 +88,7 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="<%=deepcolor%>">
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.description"/></th>
+                <th><fmt:message key="admin.lotnrsearchresults.description"/></th>
             </tr>
         </table>
         <table cellspacing="0" cellpadding="0" width="100%" border="0"
@@ -97,12 +97,12 @@
                   onsubmit="return onsub();">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font
-                            face="Verdana" color="#0000FF"><b><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
+                            face="Verdana" color="#0000FF"><b><i><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
                     <td nowrap><font size="1" face="Verdana" color="#0000FF">
                         <input type="radio"
                                 <%=request.getParameter("search_mode").equals("search_prev")?"checked":""%>
                                name="search_mode" value="search_prev"
-                               onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
+                               onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                         NAME="keyword" SIZE="17" MAXLENGTH="100"
                                                                         value="<%=request.getParameter("keyword") != null ? request.getParameter("keyword") : ""%>">
@@ -113,7 +113,7 @@
                                 TYPE="hidden" NAME="limit2" VALUE="10"> <INPUT
                                 TYPE="SUBMIT" NAME="button"
                                 VALUE=
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnSubmit"/>
+                                    <fmt:message key="admin.lotnrsearchresults.btnSubmit"/>
                                         SIZE="17"></td>
                 </tr>
             </form>
@@ -121,7 +121,7 @@
 
         <table width="100%" border="0">
             <tr>
-                <td align="left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.keywords"/></i>
+                <td align="left"><i><fmt:message key="admin.search.keywords"/></i>
                     : <%=request.getParameter("keyword")%>
                 </td>
             </tr>
@@ -131,8 +131,8 @@
             <table width="100%" cellspacing="2" cellpadding="2" border="0"
                    bgcolor="ivory">
                 <tr bgcolor="<%=deepcolor%>">
-                    <TH align="center" width="25%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.prevention"/></b></TH>
-                    <TH align="center" width="25%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.lotnr"/> </b></TH>
+                    <TH align="center" width="25%"><b><fmt:message key="admin.lotnrsearchresults.prevention"/></b></TH>
+                    <TH align="center" width="25%"><b><fmt:message key="admin.lotnrsearchresults.lotnr"/> </b></TH>
                 </tr>
 
 
@@ -169,14 +169,14 @@
                 nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                 if (nLastPage >= 0) {
             %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="lotnrsearchresults.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
             if (nItems == Integer.parseInt(strLimit2)) {
         %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="lotnrsearchresults.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
-            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>
+            <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>
             <br/>
             <a href="lotnraddrecordhtm.jsp">Add new Lot #</a>
         </center>

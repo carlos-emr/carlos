@@ -150,7 +150,7 @@
           action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"
           onsubmit="return checkTypeIn()">
         <tr>
-            <td colspan="6" class="RowTop"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/></b></td>
+            <td colspan="6" class="RowTop"><b><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/></b></td>
         </tr>
         <%
             String keyword = request.getParameter("keyword");
@@ -185,15 +185,15 @@
                                     TYPE="hidden" NAME="ptstatus" VALUE="active"> <INPUT
                                     TYPE="hidden" NAME="fromMessenger" VALUE="true"> <INPUT
                                     TYPE="SUBMIT"
-                                    VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
+                                    VALUE="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
                                     SIZE="17"
-                                    TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>">
+                                    TITLE="<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>">
                             &nbsp;&nbsp;&nbsp; <INPUT TYPE="button" onclick="searchInactive();"
-                                                      TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchInactive"/>"
-                                                      VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.Inactive"/>">
+                                                      TITLE="<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchInactive"/>"
+                                                      VALUE="<fmt:message key="demographic.search.Inactive"/>">
                             <INPUT TYPE="button" onclick="searchAll();"
-                                   TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
-                                   VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>"></td>
+                                   TITLE="<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
+                                   VALUE="<fmt:message key="demographic.search.All"/>"></td>
                     </tr>
                     <tr bgcolor="white">
                         <td nowrap></td>

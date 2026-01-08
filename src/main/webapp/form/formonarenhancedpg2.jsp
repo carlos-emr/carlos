@@ -129,7 +129,7 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= context %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= context %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= context %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%= context %>/js/jquery-1.7.1.min.js"></script>
         <script src="<%= context %>/js/jquery-ui-1.8.18.custom.min.js"></script>
@@ -801,7 +801,7 @@
                 document.forms[0].submit.value = "print";
                 var ret = checkAllDates();
                 if (ret == true) {
-                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formOnar.msgNoEDB"/>")) {
+                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:message key="oscarEncounter.formOnar.msgNoEDB"/>")) {
                         ret = false;
                     } else {
                         <%
@@ -1629,7 +1629,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                     }
                                 }
                                 if (!(typeof printAr2 == "undefined")) {
-                                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formOnar.msgNoEDB"/>")) {
+                                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:message key="oscarEncounter.formOnar.msgNoEDB"/>")) {
                                         return;
                                     }
                                     if (!(typeof printAr1 == "undefined")) {

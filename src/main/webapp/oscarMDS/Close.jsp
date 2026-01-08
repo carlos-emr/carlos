@@ -37,6 +37,6 @@
     </head>
     <body>
 
-    <a href="javascript:window.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.close.msgClose"/>.</a>
+    <a href="javascript:window.close();"><fmt:message key="oscarMDS.close.msgClose"/>.</a>
     </body>
 </html>

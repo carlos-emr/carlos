@@ -67,20 +67,20 @@
     <link rel="stylesheet" href="decisionSupport.css" type="text/css"></link>
 </head>
 <body>
-<div style="font-size: 16px; font-weight: bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.youcurrently"/></div>
+<div style="font-size: 16px; font-weight: bold;"><fmt:message key="oscarencounter.guidelinelist.youcurrently"/></div>
 <c:if test="${not empty demographic_no}">
-    <div style="font-size: 10px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.demographicno"/> <c:out value="${demographic_no}"/></div>
+    <div style="font-size: 10px;"><fmt:message key="oscarencounter.guidelinelist.demographicno"/> <c:out value="${demographic_no}"/></div>
 </c:if>
 <br>
 <table class="dsTable">
     <tr>
         <th>Version</th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.title"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.author"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.dateimported"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.status"/></th>
+        <th><fmt:message key="oscarencounter.guidelinelist.title"/></th>
+        <th><fmt:message key="oscarencounter.guidelinelist.author"/></th>
+        <th><fmt:message key="oscarencounter.guidelinelist.dateimported"/></th>
+        <th><fmt:message key="oscarrx.showallergies.status"/></th>
         <c:if test="${not empty demographic_no}">
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.evaluated"/></th>
+            <th><fmt:message key="oscarencounter.guidelinelist.evaluated"/></th>
         </c:if>
 
     </tr>

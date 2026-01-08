@@ -60,7 +60,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.title"/></title>
+        <title><fmt:message key="WriteScript.title"/></title>
 
         <link rel="stylesheet" type="text/css" href="styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -183,7 +183,7 @@
                 }
 
                 if (frm.quantity.value.length < 1 || frm.quantity.value.match(/\D/)) {
-                    oscarLog('<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgQuantity"/>');
+                    oscarLog('<fmt:message key="WriteScript.msgQuantity"/>');
                 } else {
                     oscarLog("else");
                     frm.action.value = action;
@@ -1006,9 +1006,9 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> >
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title"/> >
-                                <b><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.title"/></b>
+                                <a href="oscarRx/SearchDrug.jsp"> <fmt:message key="SearchDrug.title"/></a> >
+                                <fmt:message key="ChooseDrug.title"/> >
+                                <b><fmt:message key="WriteScript.title"/></b>
                             </div>
                         </td>
                     </tr>
@@ -1016,13 +1016,13 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.title"/></div>
+                            <div class="DivContentTitle"><fmt:message key="WriteScript.title"/></div>
                         </td>
                     </tr>
 
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.section2Title"/>
+                            <div class="DivContentSectionHead"><fmt:message key="WriteScript.section2Title"/>
                                 for <%= patient.getFirstName() %> <%= patient.getSurname() %>
                             </div>
                         </td>
@@ -1036,7 +1036,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 <% if (!isCustom) { %>
                                 <tr>
                                     <td colspan=2>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.genericNameText"/>:
+                                        <fmt:message key="WriteScript.genericNameText"/>:
                                     </td>
                                     <td colspan=2>
                                         <input type="hidden" name="genericName" id="genericName"/>
@@ -1044,7 +1044,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         </b>
                                         <%if (compString != null) {%>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           title="<%=compString%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgComponents"/></a>
+                                           title="<%=compString%>"><fmt:message key="WriteScript.msgComponents"/></a>
                                         <%}%>
                                     </td>
                                     <td valign=top rowspan=9>
@@ -1060,7 +1060,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                                 <tr>
                                     <td colspan=2>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.brandNameText"/>:
+                                        <fmt:message key="WriteScript.brandNameText"/>:
                                     </td>
                                     <td colspan=2>
                                         <input type="hidden" name="brandName" id="brandName"/>
@@ -1100,7 +1100,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 <% } /* Custom */ %>
 
                                 <tr>
-                                    <td colspan=2><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.startDate"/>:</td>
+                                    <td colspan=2><fmt:message key="WriteScript.startDate"/>:</td>
                                     <td colspan=2><input type="text" name="rxDate" id="rxDate" /></td>
                                     <!--<td >
                                           &nbsp;
@@ -1195,7 +1195,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 frm.takeOther.style.display = '';
                                             }
                                         </script>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.prn"/>
+                                        <fmt:message key="WriteScript.prn"/>
                                         <input type="checkbox" name="prn" onchange="javascript:writeScriptDisplay();"/>
                                     </td>
                                     <!--<td>
@@ -1205,7 +1205,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
 
                                 <tr>
-                                    <td colspan=2><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgFor"/>:</td>
+                                    <td colspan=2><fmt:message key="WriteScript.msgFor"/>:</td>
                                     <td colspan=2><select name="cmbDuration" style="width: 72px"
                                                           onChange="javascript:calcQty();">
                                         <%for (i = 1; i < 15; i++) {%>
@@ -1221,9 +1221,9 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <select
                                                 name="durationUnit" style="width:80px"
                                                 onchange="javascript:calcQty();">
-                                            <option value="D"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgDays"/></option>
-                                            <option value="W"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgWeeks"/></option>
-                                            <option value="M"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgMonths"/></option>
+                                            <option value="D"><fmt:message key="WriteScript.msgDays"/></option>
+                                            <option value="W"><fmt:message key="WriteScript.msgWeeks"/></option>
+                                            <option value="M"><fmt:message key="WriteScript.msgMonths"/></option>
                                         </select> <input type="hidden" name="duration" id="duration"/>
                                         <script language=javascript>
                                             frm.txtDuration.value = frm.duration.value;
@@ -1241,7 +1241,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </tr>
 
                                 <tr>
-                                    <td colspan=2><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.quantity"/>: auto<input type="checkbox"
+                                    <td colspan=2><fmt:message key="WriteScript.quantity"/>: auto<input type="checkbox"
                                                                                                          name="autoQty"/>
                                     </td>
                                     <td colspan=2 width=65%><input type="text" name="quantity"
@@ -1251,7 +1251,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                        onkeyup="customQty(this.value);"/> <input
                                             type=button
                                             value="<<" onclick=" javascript:useQtyMax();"/>
-                                        (<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgCalculated"/>:&nbsp;<span id="lblSugQty"
+                                        (<fmt:message key="WriteScript.msgCalculated"/>:&nbsp;<span id="lblSugQty"
                                                                                                      style="font-weight: bold"></span>&nbsp;
                                         )&nbsp;<input type="text" name="unitName" size="5"
                                                           onchange="javascript:writeScriptDisplay();"/> <input
@@ -1282,14 +1282,14 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </tr>
 
                                 <tr>
-                                    <td colspan=2><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRepeats"/>:</td>
+                                    <td colspan=2><fmt:message key="WriteScript.msgRepeats"/>:</td>
                                     <td colspan=2><select name="cmbRepeat" style="width: 72px"
                                                           onChange="javascript:calcQty();">
                                         <%for (i = 0; i < 9; i++) {%>
                                         <option value="<%= i%>"><%= i%>
                                         </option>
                                         <%}%>
-                                        <option value="Other"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgOther"/></option>
+                                        <option value="Other"><fmt:message key="WriteScript.msgOther"/></option>
                                     </select> <input type=text name="txtRepeat" size="5"
                                                      onchange="javascript:calcQty();" style="display: none"/>
                                         <input type="hidden" name="repeat" id="repeat"/>
@@ -1303,32 +1303,32 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                             }
                                         </script>
                                         &nbsp;
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.noSubs"/>:
+                                        <fmt:message key="WriteScript.noSubs"/>:
                                         <input type="checkbox" name="nosubs" onchange="javascript:writeScriptDisplay();"/>
                                         &nbsp;
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgLastRefillDate"/>:
+                                        <fmt:message key="WriteScript.msgLastRefillDate"/>:
                                         <input type="text" name="lastRefillDate" onfocus="javascript:lastRefillDate.value='';"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgLongTermMedication"/>:
+                                        <fmt:message key="WriteScript.msgLongTermMedication"/>:
                                         <input type="checkbox" name="longTerm" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgDispenseInternal"/>:
+                                        <fmt:message key="WriteScript.msgDispenseInternal"/>:
                                         <input type="checkbox" name="dispenseInternal" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPastMedication"/>:
+                                        <fmt:message key="WriteScript.msgPastMedication"/>:
                                         <input type="checkbox" name="pastMed" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPatientCompliance"/>:
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/>
+                                        <fmt:message key="WriteScript.msgPatientCompliance"/>:
+                                        <fmt:message key="WriteScript.msgYes"/>
                                         <input type="checkbox" name="patientComplianceY" onchange="javascript:checkPatientCompliance('Y');"/>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/>
+                                        <fmt:message key="WriteScript.msgNo"/>
                                         <input type="checkbox" name="patientComplianceN" onchange="javascript:checkPatientCompliance('N');"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.special"/>: &nbsp; &nbsp; &nbsp; &nbsp;
-                                        <input type="checkbox" name="customInstr"/><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgCustomInstructions"/>
+                                        <fmt:message key="WriteScript.special"/>: &nbsp; &nbsp; &nbsp; &nbsp;
+                                        <input type="checkbox" name="customInstr"/><fmt:message key="WriteScript.msgCustomInstructions"/>
                                         <script language=javascript>
                                             function cmdSpecial_click() {
                                                 var frm = document.forms.RxWriteScriptForm;
@@ -1348,7 +1348,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                                                 onclick="javascript:first = false; writeScriptDisplay(); clearWarning(); fillWarnings();"/>
                                                     <div id="warningDiv" style="display: none;">
                                                         <ul id="warningList">
-                                                            <li><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgWarning"/></li>
+                                                            <li><fmt:message key="WriteScript.msgWarning"/></li>
                                                         </ul>
                                                     </div>
                                                     <oscar:oscarPropertiesCheck property="billregion" value="ON">
@@ -1392,19 +1392,19 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </tr>
                                 <tr>
                                     <td colspan="5">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
+                                        <fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
                                         <input type="checkbox" id="ocheck"
                                                onclick="javascript:showHideOutsideProvider();"/> &nbsp;
                                         <span id="otext">
-							    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgName"/>:</b>
+							    <b><fmt:message key="WriteScript.msgName"/>:</b>
                                             <input type="text" name="outsideProviderName"/> &nbsp;
-							    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgOHIPNO"/>:</b>
+							    <b><fmt:message key="WriteScript.msgOHIPNO"/>:</b>
                                             <input type="text" name="outsideProviderOhip"/>
 							</span>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td colspan="5"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxWrittenDate"/>:
+                                    <td colspan="5"><fmt:message key="WriteScript.msgRxWrittenDate"/>:
                                             <input type="text" name="writtenDate" id="writtenDate" />
                             </table>
                         </td>
@@ -1418,19 +1418,19 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     <td>
                                         <input type=button class="ControlPushButton" style="width: 55px"
                                                onclick="javascript:submitForm('update');"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUpdate"/>"/>
+                                               value="<fmt:message key="WriteScript.msgUpdate"/>"/>
                                         <input type=button class="ControlPushButton" style="width: 200px"
                                                onclick="javascript:submitForm('updateAddAnother');"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUpdateAndGetNewDrug"/>"/>
+                                               value="<fmt:message key="WriteScript.msgUpdateAndGetNewDrug"/>"/>
                                         <input type=button class="ControlPushButton" style="width: 200px"
                                                onclick="javascript:submitForm('updateAndPrint');"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUpdatePrintAndSave"/>"/>
+                                               value="<fmt:message key="WriteScript.msgUpdatePrintAndSave"/>"/>
                                     </td>
                                     <td align="right">
                                         <input type=button class="ControlPushButton" style="width: 100px"
                                                onclick="window.open('<c:out
                                                        value="${pageContext.request.contextPath}"/>/annotation/annotation.jsp?atbname=<%=annotation_attrib%>&demo=<%=bean.getDemographicNo()%>&display=<%=annotation_display%>','anwin','width=400,height=500');"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgAnnotation"/>"/>
+                                               value="<fmt:message key="WriteScript.msgAnnotation"/>"/>
                                     </td>
                                 </tr>
                             </table>
@@ -1482,7 +1482,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                     <tr>
                         <td><!--5a-->
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.section5Title"/></div>
+                            <div class="DivContentSectionHead"><fmt:message key="WriteScript.section5Title"/></div>
                         </td>
                     </tr>
 

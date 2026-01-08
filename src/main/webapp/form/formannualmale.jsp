@@ -47,7 +47,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.title"/></title>
+        <title><fmt:message key="oscarEncounter.formMaleAnnual.title"/></title>
         <link rel="stylesheet" type="text/css" href="annualStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="print.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -67,7 +67,7 @@
             document.forms[0].submit.value = "save";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgWannaSave"/>");
+                ret = confirm("<fmt:message key="oscarEncounter.formMaleAnnual.msgWannaSave"/>");
             }
             return ret;
         }
@@ -76,7 +76,7 @@
             document.forms[0].submit.value = "exit";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgSaveExit"/>");
+                ret = confirm("<fmt:message key="oscarEncounter.formMaleAnnual.msgSaveExit"/>");
             }
             return ret;
         }
@@ -168,7 +168,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgTypeANumber"/>");
+                alert("<fmt:message key="oscarEncounter.formMaleAnnual.msgTypeANumber"/>");
             }
         }
 
@@ -254,17 +254,17 @@
         <table class="Head" class="hidePrint">
             <tr>
                 <td align="left"><input type="submit"
-                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnSave"/>"
+                                        value="<fmt:message key="oscarEncounter.formMaleAnnual.btnSave"/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnSaveExit"/>"
+                                                                                       value="<fmt:message key="oscarEncounter.formMaleAnnual.btnSaveExit"/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input type="submit"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnExit"/>"
+                           value="<fmt:message key="oscarEncounter.formMaleAnnual.btnExit"/>"
                            onclick="javascript:return onExit();"/> <input type="button"
-                                                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnPrint"/>"
+                                                                          value="<fmt:message key="oscarEncounter.formMaleAnnual.btnPrint"/>"
                                                                           onclick="javascript:return onPrint();"/></td>
                 <td align='right'><a
-                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnAnnualReview"/></a></td>
+                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key="oscarEncounter.formMaleAnnual.btnAnnualReview"/></a></td>
             </tr>
         </table>
 
@@ -273,17 +273,17 @@
                 <td>
                     <table cellspacing="3" cellpadding="0" width="100%">
                         <tr>
-                            <td><big><i><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgAnnualMaleReview"/></b></i></big></td>
-                            <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formName"/>:</b> <input
+                            <td><big><i><b><fmt:message key="oscarEncounter.formMaleAnnual.msgAnnualMaleReview"/></b></i></big></td>
+                            <td><b><fmt:message key="oscarEncounter.formMaleAnnual.formName"/>:</b> <input
                                     type="text" class="Input" name="pName" readonly="true" size="30"
                                     value="<%= props.getProperty("pName", "") %>"/></td>
-                            <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formAge"/>:</b> <input type="text"
+                            <td><b><fmt:message key="oscarEncounter.formMaleAnnual.formAge"/>:</b> <input type="text"
                                                                                               class="Input"
                                                                                               readonly="true" name="age"
                                                                                               size="11"
                                                                                               value="<%= props.getProperty("age", "") %>"
                                                                                               readonly="true"/></td>
-                            <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formDate"/></b><small>(yyyy/mm/dd)</small>:
+                            <td><b><fmt:message key="oscarEncounter.formMaleAnnual.formDate"/></b><small>(yyyy/mm/dd)</small>:
                                 <input type="text" class="Input" name="formDate" size="11"
                                        value="<%=props.getProperty("formDate", "") %>"/></td>
                         </tr>
@@ -293,7 +293,7 @@
                             <td rowspan="4">
                                 <table class="DashedBorder" width="100%">
                                     <tr>
-                                        <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgCurrentConcerns"/>:</b></td>
+                                        <td><b><fmt:message key="oscarEncounter.formMaleAnnual.msgCurrentConcerns"/>:</b></td>
                                     </tr>
                                     <tr>
                                         <td><textarea style="height: 480px; width: 400px;"
@@ -301,33 +301,33 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgSeeChart"/>
+                                        <td align="center"><fmt:message key="oscarEncounter.formMaleAnnual.msgSeeChart"/>
                                             &nbsp;&nbsp;&nbsp; <input type="checkbox"
                                                                       name="currentConcernsNo"
                                                     <%= props.getProperty("currentConcernsNo", "") %> />
-                                            &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnNo"/>&nbsp;&nbsp;&nbsp; <input
+                                            &nbsp;<fmt:message key="oscarEncounter.formMaleAnnual.btnNo"/>&nbsp;&nbsp;&nbsp; <input
                                                     type="checkbox" name="currentConcernsYes"
                                                     <%= props.getProperty("currentConcernsYes", "") %> />
-                                            &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnYes"/></td>
+                                            &nbsp;<fmt:message key="oscarEncounter.formMaleAnnual.btnYes"/></td>
                                     </tr>
                                 </table>
                             </td>
                             <td>
                                 <table width="100%">
                                     <tr>
-                                        <td colspan="3"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgSystemsReview"/>:</b></td>
+                                        <td colspan="3"><b><fmt:message key="oscarEncounter.formMaleAnnual.msgSystemsReview"/>:</b></td>
                                         <td>&nbsp;</td>
                                     </tr>
                                     <tr>
-                                        <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formN"/></b></td>
-                                        <td colspan="2"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formAbN"/></b></td>
+                                        <td><b><fmt:message key="oscarEncounter.formMaleAnnual.formN"/></b></td>
+                                        <td colspan="2"><b><fmt:message key="oscarEncounter.formMaleAnnual.formAbN"/></b></td>
                                     </tr>
                                     <tr>
                                         <td><input type="checkbox" name="headN"
                                                 <%= props.getProperty("headN", "") %> /></td>
                                         <td><input type="checkbox" name="headAbN"
                                                 <%= props.getProperty("headAbN", "") %> /></td>
-                                        <td align="left" nowrap="true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formHeadNeck"/>:
+                                        <td align="left" nowrap="true"><fmt:message key="oscarEncounter.formMaleAnnual.formHeadNeck"/>:
                                         </td>
                                         <td align="right"><input type="text" name="head"
                                                                  class="SystemsReview"
@@ -338,7 +338,7 @@
                                                 <%= props.getProperty("respN", "") %> /></td>
                                         <td><input type="checkbox" name="respAbN"
                                                 <%= props.getProperty("respAbN", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formResp"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formResp"/>:
                                         </td>
                                         <td align="right"><input type="text" name="resp"
                                                                  class="SystemsReview"
@@ -349,7 +349,7 @@
                                                 <%= props.getProperty("cardioN", "") %> /></td>
                                         <td><input type="checkbox" name="cardioAbN"
                                                 <%= props.getProperty("cardioAbN", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formCardio"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formCardio"/>:
                                         </td>
                                         <td align="right"><input type="text" name="cardio"
                                                                  class="SystemsReview"
@@ -360,7 +360,7 @@
                                                 <%= props.getProperty("giN", "") %> /></td>
                                         <td><input type="checkbox" name="giAbN"
                                                 <%= props.getProperty("giAbN", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formGI"/>:</td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formGI"/>:</td>
                                         <td align="right"><input type="text" name="gi"
                                                                  class="SystemsReview"
                                                                  value="<%= props.getProperty("gi", "") %>"/></td>
@@ -370,7 +370,7 @@
                                                 <%= props.getProperty("guN", "") %> /></td>
                                         <td><input type="checkbox" name="guAbN"
                                                 <%= props.getProperty("guAbN", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formGU"/>:</td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formGU"/>:</td>
                                         <td align="right"><input type="text" name="gu"
                                                                  class="SystemsReview"
                                                                  value="<%= props.getProperty("gu", "") %>"/></td>
@@ -387,7 +387,7 @@
                                                 <%= props.getProperty("skinN", "") %> /></td>
                                         <td><input type="checkbox" name="skinAbN"
                                                 <%= props.getProperty("skinAbN", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formSkin"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formSkin"/>:
                                         </td>
                                         <td colspan="3" align="right"><input type="text" name="skin"
                                                                              class="SystemsReview"
@@ -399,7 +399,7 @@
                                                 <%= props.getProperty("mskN", "") %> /></td>
                                         <td><input type="checkbox" name="mskAbN"
                                                 <%= props.getProperty("mskAbN", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formMSK"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formMSK"/>:
                                         </td>
                                         <td colspan="3" align="right"><input type="text" name="msk"
                                                                              class="SystemsReview"
@@ -411,7 +411,7 @@
                                                 <%= props.getProperty("endocrinN", "") %> /></td>
                                         <td><input type="checkbox" name="endocrinAbN"
                                                 <%= props.getProperty("endocrinAbN", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formEndocrin"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formEndocrin"/>:
                                         </td>
                                         <td colspan="3" align="right"><input type="text"
                                                                              name="endocrin" class="SystemsReview"
@@ -423,7 +423,7 @@
                                                 <%= props.getProperty("otherN", "") %> /></td>
                                         <td valign="top"><input type="checkbox" name="otherAbN"
                                                 <%= props.getProperty("otherAbN", "") %> /></td>
-                                        <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formOther"/>:
+                                        <td valign="top"><fmt:message key="oscarEncounter.formMaleAnnual.formOther"/>:
                                         </td>
                                         <td colspan="3" align="right"><textarea name="other"
                                                                                 class="SystemsReview"
@@ -433,36 +433,36 @@
                                     <tr>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
-                                        <td colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formReview"/>:
+                                        <td colspan="4"><fmt:message key="oscarEncounter.formMaleAnnual.formReview"/>:
                                         </td>
                                     </tr>
                                     <tr>
                                         <td>&nbsp;</td>
                                         <td><input type="checkbox" name="drugs"
                                                 <%= props.getProperty("drugs", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formDrugs"/></td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formDrugs"/></td>
                                         <td style="width: 130px;">&nbsp;</td>
                                         <td align="right"><input type="checkbox" name="medSheet"
                                                 <%= props.getProperty("medSheet", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formMedSheet"/></td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formMedSheet"/></td>
                                     </tr>
                                     <tr>
                                         <td>&nbsp;</td>
                                         <td><input type="checkbox" name="allergies"
                                                 <%= props.getProperty("allergies", "") %> /></td>
-                                        <td colspan="2" nowrap="true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formAllergies"/></td>
+                                        <td colspan="2" nowrap="true"><fmt:message key="oscarEncounter.formMaleAnnual.formAllergies"/></td>
                                         <td align="right"><input type="checkbox" name="frontSheet1"
                                                 <%= props.getProperty("frontSheet1", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formFrontSheet"/></td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formFrontSheet"/></td>
                                     </tr>
                                     <tr>
                                         <td>&nbsp;</td>
                                         <td><input type="checkbox" name="familyHistory"
                                                 <%= props.getProperty("familyHistory", "") %> /></td>
-                                        <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formFamilyHist"/></td>
+                                        <td colspan="2"><fmt:message key="oscarEncounter.formMaleAnnual.formFamilyHist"/></td>
                                         <td align="right"><input type="checkbox" name="frontSheet2"
                                                 <%= props.getProperty("frontSheet2", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formFrontSheet"/></td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formFrontSheet"/></td>
                                     </tr>
                                 </table>
                             </td>
@@ -473,13 +473,13 @@
                             <td>
                                 <table class="DashedBorder">
                                     <tr>
-                                        <td colspan="3" nowrap="true"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgLifestyleReview"/>:</b></td>
-                                        <td><b><i><small>("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgAnyConcerns"/>")</small></i></b>
+                                        <td colspan="3" nowrap="true"><b><fmt:message key="oscarEncounter.formMaleAnnual.msgLifestyleReview"/>:</b></td>
+                                        <td><b><i><small>("<fmt:message key="oscarEncounter.formMaleAnnual.msgAnyConcerns"/>")</small></i></b>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formNo"/></td>
-                                        <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formYes"/></td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formNo"/></td>
+                                        <td colspan="2"><fmt:message key="oscarEncounter.formMaleAnnual.formYes"/></td>
                                         <td>&nbsp;</td>
                                     </tr>
                                     <tr>
@@ -487,7 +487,7 @@
                                                 <%= props.getProperty("smokingNo", "") %> /></td>
                                         <td><input type="checkbox" name="smokingYes"
                                                 <%= props.getProperty("smokingYes", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formSmoking"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formSmoking"/>:
                                         </td>
                                         <td align="right"><input type="text" name="smoking"
                                                                  class="LifestyleReview"
@@ -498,7 +498,7 @@
                                                 <%= props.getProperty("alcoholNo", "") %> /></td>
                                         <td><input type="checkbox" name="alcoholYes"
                                                 <%= props.getProperty("alcoholYes", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formAlcohol"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formAlcohol"/>:
                                         </td>
                                         <td align="right"><input type="text" name="alcohol"
                                                                  class="LifestyleReview"
@@ -509,7 +509,7 @@
                                                 <%= props.getProperty("otcNo", "") %> /></td>
                                         <td><input type="checkbox" name="otcYes"
                                                 <%= props.getProperty("otcYes", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formIllicitDrugs"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formIllicitDrugs"/>:
                                         </td>
                                         <td align="right"><input type="text" name="otc"
                                                                  class="LifestyleReview"
@@ -520,7 +520,7 @@
                                                 <%= props.getProperty("exerciseNo", "") %> /></td>
                                         <td><input type="checkbox" name="exerciseYes"
                                                 <%= props.getProperty("exerciseYes", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formExcercise"/></td>
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formExcercise"/></td>
                                         <td align="right"><input type="text" name="exercise"
                                                                  class="LifestyleReview"
                                                                  value="<%= props.getProperty("exercise", "") %>"/></td>
@@ -530,7 +530,7 @@
                                                 <%= props.getProperty("nutritionNo", "") %> /></td>
                                         <td><input type="checkbox" name="nutritionYes"
                                                 <%= props.getProperty("nutritionYes", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formNitrition"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formNitrition"/>:
                                         </td>
                                         <td align="right"><input type="text" name="nutrition"
                                                                  class="LifestyleReview"
@@ -542,7 +542,7 @@
                                                 <%= props.getProperty("dentalNo", "") %> /></td>
                                         <td><input type="checkbox" name="dentalYes"
                                                 <%= props.getProperty("dentalYes", "") %> /></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formDentalHygiene"/>:
+                                        <td><fmt:message key="oscarEncounter.formMaleAnnual.formDentalHygiene"/>:
                                         </td>
                                         <td align="right"><input type="text" name="dental"
                                                                  class="LifestyleReview"
@@ -555,7 +555,7 @@
                                         <td valign="top"><input type="checkbox"
                                                                 name="relationshipYes"
                                                 <%= props.getProperty("relationshipYes", "") %> /></td>
-                                        <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formRelationship"/>:
+                                        <td valign="top"><fmt:message key="oscarEncounter.formMaleAnnual.formRelationship"/>:
                                         </td>
                                         <td align="right"><textarea name="relationship"
                                                                     class="LifestyleReview"
@@ -567,7 +567,7 @@
                                                 <%= props.getProperty("sexualityNo", "") %> /></td>
                                         <td><input type="checkbox" name="sexualityYes"
                                                 <%= props.getProperty("sexualityYes", "") %> /></td>
-                                        <td nowrap="true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formSexualityRisks"/>:
+                                        <td nowrap="true"><fmt:message key="oscarEncounter.formMaleAnnual.formSexualityRisks"/>:
                                         </td>
                                         <td align="right"><input type="text" name="sexuality"
                                                                  class="LifestyleReview"
@@ -579,7 +579,7 @@
                                                 <%= props.getProperty("occupationalNo", "") %> /></td>
                                         <td><input type="checkbox" name="occupationalYes"
                                                 <%= props.getProperty("occupationalYes", "") %> /></td>
-                                        <td nowrap="true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formOccupationalRisks"/>:
+                                        <td nowrap="true"><fmt:message key="oscarEncounter.formMaleAnnual.formOccupationalRisks"/>:
                                         </td>
                                         <td align="right"><input type="text" name="occupational"
                                                                  class="LifestyleReview"
@@ -591,7 +591,7 @@
                                                 <%= props.getProperty("drivingNo", "") %> /></td>
                                         <td><input type="checkbox" name="drivingYes"
                                                 <%= props.getProperty("drivingYes", "") %> /></td>
-                                        <td nowrap="true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formDrivingSafety"/>:
+                                        <td nowrap="true"><fmt:message key="oscarEncounter.formMaleAnnual.formDrivingSafety"/>:
                                         </td>
                                         <td align="right"><input type="text" name="driving"
                                                                  class="LifestyleReview"
@@ -602,7 +602,7 @@
                                                 <%= props.getProperty("travelNo", "") %> /></td>
                                         <td><input type="checkbox" name="travelYes"
                                                 <%= props.getProperty("travelYes", "") %> /></td>
-                                        <td nowrap="true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formForeignTravel"/>:
+                                        <td nowrap="true"><fmt:message key="oscarEncounter.formMaleAnnual.formForeignTravel"/>:
                                         </td>
                                         <td align="right"><input type="text" name="travel"
                                                                  class="LifestyleReview"
@@ -613,7 +613,7 @@
                                                 <%= props.getProperty("otherNo", "") %> /></td>
                                         <td valign="top"><input type="checkbox" name="otherYes"
                                                 <%= props.getProperty("otherYes", "") %> /></td>
-                                        <td nowrap="true" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formOther"/>:
+                                        <td nowrap="true" valign="top"><fmt:message key="oscarEncounter.formMaleAnnual.formOther"/>:
                                         </td>
                                         <td rowspan="3" align="right"><textarea
                                                 name="otherLifestyle" class="LifestyleReview"
@@ -624,7 +624,7 @@
                             <td width="100%" valign="top" class="DashedBorder">
                                 <table width="100%">
                                     <tr>
-                                        <td width="50%" colspan="2"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgScreeningReview"/>:</b></td>
+                                        <td width="50%" colspan="2"><b><fmt:message key="oscarEncounter.formMaleAnnual.msgScreeningReview"/>:</b></td>
                                     </tr>
                                     <tr>
                                         <td colspan="2">&nbsp;</td>
@@ -632,7 +632,7 @@
                                     <tr>
                                         <td><a
                                                 href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provN
-o=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnRisk"/></a></td>
+o=<%=provNo%>');"><fmt:message key="oscarEncounter.formMaleAnnual.btnRisk"/></a></td>
                                     </tr>
                                     <!--tr>
                     <td><input type="checkbox" name="rectal" <%= props.getProperty("rectal", "") %> /></td>
@@ -663,40 +663,40 @@ o=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="os
                     </table>
                     <table width="100%" class="tableWithBorder">
                         <tr>
-                            <td colspan="9"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgPhysicalExam"/>:</b></td>
+                            <td colspan="9"><b><fmt:message key="oscarEncounter.formMaleAnnual.msgPhysicalExam"/>:</b></td>
                         </tr>
                         <tr>
-                            <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgVitals"/>: </b></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formBP"/>:
+                            <td><b><fmt:message key="oscarEncounter.formMaleAnnual.msgVitals"/>: </b></td>
+                            <td><fmt:message key="oscarEncounter.formMaleAnnual.formBP"/>:
                                 <input type="text" name="bprTop" size="5" maxlength="3"
                                        value="<%= props.getProperty("bprTop", "") %>"/>/ <input
                                         type="text" name="bprBottom" size="5" maxlength="3"
-                                        value="<%= props.getProperty("bprBottom", "") %>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgR"/></td>
-                            <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formPulse"/>:
+                                        value="<%= props.getProperty("bprBottom", "") %>"/> <fmt:message key="oscarEncounter.formMaleAnnual.msgR"/></td>
+                            <td align="right"><fmt:message key="oscarEncounter.formMaleAnnual.formPulse"/>:
                             </td>
                             <td><input type="text" name="pulse" size="10" maxlength="10"
-                                       value="<%= props.getProperty("pulse", "") %>"/> /<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgMinute"/></td>
-                            <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formHeight"/>:
+                                       value="<%= props.getProperty("pulse", "") %>"/> /<fmt:message key="oscarEncounter.formMaleAnnual.msgMinute"/></td>
+                            <td align="right"><fmt:message key="oscarEncounter.formMaleAnnual.formHeight"/>:
                             </td>
                             <td><input type="text" name="height" size="10" maxlength="4"
-                                       value="<%= props.getProperty("height", "") %>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgHeightUnit"/>.
+                                       value="<%= props.getProperty("height", "") %>"/> <fmt:message key="oscarEncounter.formMaleAnnual.msgHeightUnit"/>.
                             </td>
-                            <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formWeight"/>: <input
+                            <td align="right"><fmt:message key="oscarEncounter.formMaleAnnual.formWeight"/>: <input
                                     type="text" name="weight" size="10" maxlength="4"
-                                    value="<%= props.getProperty("weight", "") %>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgWeightUnit"/>.
+                                    value="<%= props.getProperty("weight", "") %>"/> <fmt:message key="oscarEncounter.formMaleAnnual.msgWeightUnit"/>.
                             </td>
                         <tr>
                             <td>&nbsp;</td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formBP"/>:
+                            <td><fmt:message key="oscarEncounter.formMaleAnnual.formBP"/>:
                                 <input type="text" name="bplTop" size="5" maxlength="3"
                                        value="<%= props.getProperty("bplTop", "") %>"/>/ <input
                                         type="text" name="bplBottom" size="5" maxlength="3"
-                                        value="<%= props.getProperty("bplBottom", "") %>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.msgL"/></td>
-                            <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formRythm"/>:
+                                        value="<%= props.getProperty("bplBottom", "") %>"/> <fmt:message key="oscarEncounter.formMaleAnnual.msgL"/></td>
+                            <td align="right"><fmt:message key="oscarEncounter.formMaleAnnual.formRythm"/>:
                             </td>
                             <td><input type="text" name="rhythm" size="10" maxlength="10"
                                        value="<%= props.getProperty("rhythm", "") %>"/></td>
-                            <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formUrineDipstick"/>:
+                            <td align="right"><fmt:message key="oscarEncounter.formMaleAnnual.formUrineDipstick"/>:
                             </td>
                             <td><input type="text" name="urine" size="20" maxlength="30"
                                        value="<%= props.getProperty("urine", "") %>"/></td>
@@ -707,7 +707,7 @@ o=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="os
                             <td rowspan="3">
                                 <table width="100%" class="DashedBorder">
                                     <tr>
-                                        <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formPhysicalSigns"/>: </b></td>
+                                        <td><b><fmt:message key="oscarEncounter.formMaleAnnual.formPhysicalSigns"/>: </b></td>
                                     </tr>
                                     <tr>
                                         <td><textarea name="physicalSigns"
@@ -723,7 +723,7 @@ o=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="os
                             <td>
                                 <table width="100%">
                                     <tr>
-                                        <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formAssessment"/></b></td>
+                                        <td><b><fmt:message key="oscarEncounter.formMaleAnnual.formAssessment"/></b></td>
                                     </tr>
                                     <tr>
                                         <td align="center"><textarea name="assessment"
@@ -735,7 +735,7 @@ o=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="os
                             <td>
                                 <table width="100%">
                                     <tr>
-                                        <td align="center"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formPlan"/></b></td>
+                                        <td align="center"><b><fmt:message key="oscarEncounter.formMaleAnnual.formPlan"/></b></td>
                                     </tr>
                                     <tr>
                                         <td align="center"><textarea name="plan"
@@ -746,7 +746,7 @@ o=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="os
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.formSignature"/>: <input
+                            <td colspan="2" align="right"><fmt:message key="oscarEncounter.formMaleAnnual.formSignature"/>: <input
                                     type="text" name="signature" size="30"
                                     value="<%= props.getProperty("signature", "") %>"/></td>
                         </tr>
@@ -758,17 +758,17 @@ o=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="os
         <table class="Head" class="hidePrint">
             <tr>
                 <td align="left"><input type="submit"
-                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnSave"/>"
+                                        value="<fmt:message key="oscarEncounter.formMaleAnnual.btnSave"/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnSaveExit"/>"
+                                                                                       value="<fmt:message key="oscarEncounter.formMaleAnnual.btnSaveExit"/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input type="submit"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnExit"/>"
+                           value="<fmt:message key="oscarEncounter.formMaleAnnual.btnExit"/>"
                            onclick="javascript:return onExit();"/> <input type="button"
-                                                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnPrint"/>"
+                                                                          value="<fmt:message key="oscarEncounter.formMaleAnnual.btnPrint"/>"
                                                                           onclick="javascript:return onPrint();"/></td>
                 <td align='right'><a
-                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formMaleAnnual.btnAnnualReview"/></a></td>
+                        href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key="oscarEncounter.formMaleAnnual.btnAnnualReview"/></a></td>
             </tr>
         </table>
 

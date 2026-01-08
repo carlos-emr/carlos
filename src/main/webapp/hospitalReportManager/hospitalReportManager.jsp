@@ -228,7 +228,7 @@
               method="post" onsubmit="return validateForm()">
             Upload HRM reports from your computer: <input type="file" id="fileInput" name="uploads" multiple
                                                           onChange="getFileList(event)"/>
-            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+            <span title="<fmt:message key="global.uploadWarningBody"/>"
                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                     alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"></span>
 

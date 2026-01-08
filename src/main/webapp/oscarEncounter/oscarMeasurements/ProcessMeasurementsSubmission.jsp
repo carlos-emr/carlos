@@ -33,7 +33,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgProcessMeasurementsSubmission"/></title>
+        <title><fmt:message key="oscarEncounter.Measurements.msgProcessMeasurementsSubmission"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
 

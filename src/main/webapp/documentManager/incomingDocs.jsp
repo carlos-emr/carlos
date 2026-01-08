@@ -278,7 +278,7 @@
             if (pdfNo > 0) {
                 loadPdf(pdfNo, pdfDir);
             } else {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.nothingSelected"/>");
+                alert("<fmt:message key="dms.incomingDocs.nothingSelected"/>");
             }
 
         }
@@ -291,7 +291,7 @@
                 curPage = PageNo;
                 showPageImg(queueId, pdfDir, pdfName, curPage);
             } else {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.nothingSelected"/>");
+                alert("<fmt:message key="dms.incomingDocs.nothingSelected"/>");
             }
         }
 
@@ -324,7 +324,7 @@
 
         function rotatePdf(pdfNo, pdfDir, pdfName, degrees) {
             if (totalPage == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
             } else {
                 document.PdfInfoForm.pdfNo.value = pdfNo;
                 document.PdfInfoForm.pdfDir.value = pdfDir;
@@ -337,7 +337,7 @@
 
         function rotateAllPagePdf(pdfNo, pdfDir, pdfName, degrees) {
             if (totalPage == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
             } else {
                 document.PdfInfoForm.pdfNo.value = pdfNo;
                 document.PdfInfoForm.pdfDir.value = pdfDir;
@@ -351,9 +351,9 @@
 
         function deletePdf(pdfNo, pdfDir, pdfName) {
             if (pdfNo <= 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
             } else {
-                var answer = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.areYouSureToDelete"/>" + pdfName + " ?");
+                var answer = confirm("<fmt:message key="dms.incomingDocs.areYouSureToDelete"/>" + pdfName + " ?");
                 if (answer) {
                     document.PdfInfoForm.pdfNo.value = pdfNo;
                     document.PdfInfoForm.pdfDir.value = pdfDir;
@@ -366,11 +366,11 @@
 
         function deletePagePdf(pdfNo, pdfDir, pdfName) {
             if (totalPage == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.nothingToDelete"/>");
+                alert("<fmt:message key="dms.incomingDocs.nothingToDelete"/>");
             } else if (totalPage == 1) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.onlyOneToDeleteUseDeletePDF"/>");
+                alert("<fmt:message key="dms.incomingDocs.onlyOneToDeleteUseDeletePDF"/>");
             } else {
-                var answer = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.areYouSureToDeletePage"/>" + curPage);
+                var answer = confirm("<fmt:message key="dms.incomingDocs.areYouSureToDeletePage"/>" + curPage);
                 if (answer) {
                     document.PdfInfoForm.pdfNo.value = pdfNo;
                     document.PdfInfoForm.pdfDir.value = pdfDir;
@@ -385,9 +385,9 @@
         function extractPagePdf(pdfNo, pdfDir, pdfName) {
             var validPages = true;
             if (totalPage <= 1) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.nothingToExtract"/>");
+                alert("<fmt:message key="dms.incomingDocs.nothingToExtract"/>");
             } else {
-                var range = prompt("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.enterPagesToExtract"/> ", "1-" + curPage);
+                var range = prompt("<fmt:message key="dms.incomingDocs.enterPagesToExtract"/> ", "1-" + curPage);
                 var rangestr = "";
                 if (range == null || range == "") {
                     validPages = false;
@@ -450,14 +450,14 @@
                     document.PdfInfoForm.pdfExtractPageNumber.value = range;
                     document.PdfInfoForm.submit();
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.invalidPages"/>");
+                    alert("<fmt:message key="dms.incomingDocs.invalidPages"/>");
                 }
             }
         }
 
         function printPdf(queueId, pdfDir, pdfName) {
             if (totalPage == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
             } else {
                 var url = '<c:out value="${ctx}"/>/documentManager/ManageDocument.do?method=displayIncomingDocs'
                     + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName);
@@ -585,20 +585,20 @@
         function checkDocument() {
             var n = "<%=pdfName%>";
             if (n.length == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.nothingToSave"/>");
+                alert("<fmt:message key="dms.incomingDocs.nothingToSave"/>");
                 return false;
             }
 
 
             if (totalPage == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.nothingToSave"/>");
+                alert("<fmt:message key="dms.incomingDocs.nothingToSave"/>");
                 return false;
             }
 
             var selObj = document.getElementById('docType');
             var selIndex = selObj.selectedIndex;
             if (selIndex == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.missingDocumentType"/>");
+                alert("<fmt:message key="dms.incomingDocs.missingDocumentType"/>");
                 return false;
             }
 
@@ -606,20 +606,20 @@
 
             var a = trim(docDescObj.value);
             if (a.length == 0) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.missingDocumentDescription"/>");
+                alert("<fmt:message key="dms.incomingDocs.missingDocumentDescription"/>");
                 return false;
             }
 
 
             if (!validDate("observationDate")) {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.invalidDate"/>");
+                alert("<fmt:message key="dms.incomingDocs.invalidDate"/>");
                 return false;
             }
 
             if (document.PdfInfoForm.pdfDir.value != "File") {
                 var flagproviderObj = document.getElementsByName('flagproviders');
                 if (flagproviderObj.length == 0) {
-                    if (!confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.saveWithoutFlagging"/>")) {
+                    if (!confirm("<fmt:message key="dms.incomingDocs.saveWithoutFlagging"/>")) {
                         return false;
                     }
                 }
@@ -640,7 +640,7 @@
             var demogObj = document.getElementById('demofind');
             var demo = demogObj.value;
             if (demo == "-1") {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
+                alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
                 popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/demographiccontrol.jsp?demographic_no=' + demo + '&displaymode=edit&dboperation=search_detail');
             }
@@ -651,7 +651,7 @@
             var demo = demogObj.value;
 
             if (demo == "-1") {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
+                alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
                 popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/demographiccontrol.jsp?demographic_no=' + demo + '&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25');
             }
@@ -712,12 +712,12 @@
             var MRPNo = document.getElementById('MRPNo').value;
             var demo = document.getElementById('demofind').value;
             if (demo == "-1") {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
+                alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
                 if (MRPNo != null && MRPNo.length > 0) {
-                    addflagprovider(MRPName, "(<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.MRP"/>)", MRPNo);
+                    addflagprovider(MRPName, "(<fmt:message key="dms.incomingDocs.MRP"/>)", MRPNo);
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noMRP"/>");
+                    alert("<fmt:message key="dms.incomingDocs.noMRP"/>");
                 }
             }
         }
@@ -780,7 +780,7 @@
                         </tr>
                         <%}%>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue"/>:
+                            <td><fmt:message key="dms.incomingDocs.queue"/>:
                                 <select id="queueList" name="queueList" onchange="setQueue();">
                                     <%
                                         for (Hashtable ht : queues) {
@@ -794,13 +794,13 @@
                             </td>
                         </tr>
                         <tr>
-                            <td><input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax"/>"
+                            <td><input type="button" value="<fmt:message key="dms.incomingDocs.fax"/>"
                                        onclick="loadPdf('1','Fax');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail"/>"
+                                <input type="button" value="<fmt:message key="dms.incomingDocs.mail"/>"
                                        onclick="loadPdf('1','Mail');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file"/>"
+                                <input type="button" value="<fmt:message key="dms.incomingDocs.file"/>"
                                        onclick="loadPdf('1','File');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.refile"/>"
+                                <input type="button" value="<fmt:message key="dms.incomingDocs.refile"/>"
                                        onclick="loadPdf('1','Refile');">
 
                             </td>
@@ -808,7 +808,7 @@
                         <tr>
                             <td>
                                 <fieldset>
-                                    <legend>[<%=pdfDir%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=pdfNo%>/ <%=pdfList.size()%>
+                                    <legend>[<%=pdfDir%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=pdfNo%>/ <%=pdfList.size()%>
                                         <b><%=pdfList.get(Integer.parseInt(pdfNo) - 1)%>
                                         </b> <%}%></legend>
                                     <table>
@@ -816,7 +816,7 @@
                                             <td>
                                                 <select tabIndex="<%=tabIndex++%>" name="SelectPdfList"
                                                         id="SelectPdfList" onchange="loadSelectedPdf('<%=pdfDir%>');">
-                                                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectPDF"/></option>
+                                                    <option value=""><fmt:message key="dms.incomingDocs.selectPDF"/></option>
                                                     <%
                                                         for (int p = 0; p < pdfList.size(); p++) {
                                                             String docName = (String) pdfList.get(p);
@@ -830,38 +830,38 @@
                                         </tr>
                                         <tr>
                                             <td><input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.first"/>"
                                                        onclick="loadPdf('1','<%=pdfDir%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.previous"/>"
                                                        onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<%=pdfDir%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.next"/>"
                                                        onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<%=pdfDir%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.last"/>"
                                                        onclick="loadPdf('<%=pdfList.size()%>','<%=pdfDir%>');">
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                                            <td><input type="button" value=" <fmt:message key="global.btnPrint"/> "
                                                        onClick="printPdf('<%=queueIdStr%>','<%=pdfDir%>','<%=pdfName%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePDF"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.deletePDF"/>"
                                                        onclick="deletePdf('<%=pdfNo%>','<%=pdfDir%>','<%=pdfName%>');">
                                             </td>
                                         </tr>
                                     </table>
                                 </fieldset>
                                 <fieldset>
-                                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.page"/></legend>
+                                    <legend><fmt:message key="dms.incomingDocs.page"/></legend>
                                     <table>
                                         <tr>
                                             <td>
                                                 <select tabIndex="<%=tabIndex++%>" name="SelectPageList"
                                                         id="SelectPageList"
                                                         onchange="loadSelectedPage('<%=queueIdStr%>','<%=pdfDir%>','<%=pdfName%>');">
-                                                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectPage"/></option>
+                                                    <option value=""><fmt:message key="dms.incomingDocs.selectPage"/></option>
                                                     <%
                                                         for (int p = 1; p <= numOfPage; p++) {
                                                     %>
@@ -873,22 +873,22 @@
                                         </tr>
                                         <tr>
                                             <td><input type="button" id="firstP"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.first"/>"
                                                        onclick="firstPage('<%=queueIdStr%>','<%=pdfDir%>','<%=pdfName%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.previous"/>"
                                                        onclick="prevPage('<%=queueIdStr%>','<%=pdfDir%>','<%=pdfName%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.next"/>"
                                                        onclick="nextPage('<%=queueIdStr%>','<%=pdfDir%>','<%=pdfName%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.last"/>"
                                                        onclick="lastPage('<%=queueIdStr%>','<%=pdfDir%>','<%=pdfName%>');">
 
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateThisPage"/>:<input
+                                            <td><fmt:message key="dms.incomingDocs.rotateThisPage"/>:<input
                                                     type="button" value="180"
                                                     onclick="rotatePdf('<%=pdfNo%>','<%=pdfDir%>','<%=pdfName%>','180');">
                                                 <input type="button" value="+90"
@@ -898,7 +898,7 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateAllPages"/>:<input
+                                            <td><fmt:message key="dms.incomingDocs.rotateAllPages"/>:<input
                                                     type="button" value="180"
                                                     onclick="rotateAllPagePdf('<%=pdfNo%>','<%=pdfDir%>','<%=pdfName%>','180');">
                                                 <input type="button" value="+90"
@@ -909,10 +909,10 @@
                                         </tr>
                                         <tr>
                                             <td><input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.extractPage"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.extractPage"/>"
                                                        onclick="extractPagePdf('<%=pdfNo%>','<%=pdfDir%>','<%=pdfName%>');">
                                                 <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePage"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.deletePage"/>"
                                                        onclick="deletePagePdf('<%=pdfNo%>','<%=pdfDir%>','<%=pdfName%>');">
                                             </td>
                                         </tr>
@@ -923,11 +923,11 @@
                     </table>
                 </form>
                 <fieldset>
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.dataEntryMode"/>:
+                    <legend><fmt:message key="dms.incomingDocs.dataEntryMode"/>:
                         <select tabIndex="<%=tabIndex++%>" name="entryModeList" id="entryModeList"
                                 onchange="setEntryMode();">
-                            <option value="Normal" <%=entryMode.equals("Normal") ? "selected" : ""%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.normal"/></option>
-                            <option value="Fast" <%=entryMode.equals("Fast") ? "selected" : ""%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fast"/></option>
+                            <option value="Normal" <%=entryMode.equals("Normal") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.normal"/></option>
+                            <option value="Fast" <%=entryMode.equals("Fast") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.fast"/></option>
                         </select>
                     </legend>
                     <form id="forms_" method="post" action="ManageDocument.do">
@@ -954,11 +954,11 @@
                             </tr>
                             <%}%>
                             <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.type"/>:</td>
+                                <td><fmt:message key="dms.incomingDocs.type"/>:</td>
                                 <td>
                                     <select tabIndex="<%=tabIndex++%>" name="docType" id="docType"
                                             onchange="addDocumentDescriptionTemplateButton()">
-                                        <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectType"/></option>
+                                        <option value=""><fmt:message key="dms.incomingDocs.selectType"/></option>
                                         <%
                                             for (int j = 0; j < docTypes.size(); j++) {
                                                 String docType = (String) docTypes.get(j);
@@ -970,9 +970,9 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.class"/>:</td>
+                                <td><fmt:message key="dms.incomingDocs.class"/>:</td>
                                 <td><select name="docClass" id="docClass">
-                                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectClass"/></option>
+                                    <option value=""><fmt:message key="dms.incomingDocs.selectClass"/></option>
                                     <% boolean consultShown = false;
                                         for (String reportClass : reportClasses) {
                                             if (reportClass.startsWith("Consultant Report")) {
@@ -990,7 +990,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.docSubClass"/>:
+                                <td colspan="2"><fmt:message key="dms.incomingDocs.docSubClass"/>:
                                     <input type="text" name="docSubClass" id="docSubClass" style="width:100%;">
                                     <div class="autocomplete_style" id="docSubClass_list"></div>
                                 </td>
@@ -1001,7 +1001,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.description"/>:</td>
+                                <td colspan="2"><fmt:message key="dms.incomingDocs.description"/>:</td>
                             </tr>
                             <tr>
                                 <td colspan="2"><input tabIndex="<%=tabIndex++%>" type="text" style="width:100%;"
@@ -1009,7 +1009,7 @@
                                                        onfocus="setDescriptionIfEmpty();"/></td>
                             </tr>
                             <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.obsDate"/>:
+                                <td><fmt:message key="dms.incomingDocs.obsDate"/>:
                                     <a id="obsdate" onmouseover="renderCalendar(this.id,'observationDate' );"
                                        href="javascript:void(0);"><img title="Calendar"
                                                                        src="<%=request.getContextPath()%>/images/cal.gif"
@@ -1021,7 +1021,7 @@
                             </tr>
                             <% if (entryMode.equals("Fast")) {%>
                             <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.lastPatients"/>:</td>
+                                <td><fmt:message key="dms.incomingDocs.lastPatients"/>:</td>
                             </tr>
                             <tr>
                                 <td colspan="2"><%
@@ -1045,7 +1045,7 @@
                             </tr>
                             <%}%>
                             <tr>
-                                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.demographic"/>: <input type="button"
+                                <td colspan="2"><fmt:message key="dms.incomingDocs.demographic"/>: <input type="button"
                                                                                                            value="M"
                                                                                                            onclick="loadMaster()">
                                     <input type="button" value="H" onclick="loadApptHistory();">
@@ -1062,12 +1062,12 @@
                             </tr>
                             <tr>
                                 <td colspan="2"><input type="button" id="createNewDemo"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.createNewDemographic"/>"
+                                                       value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
                                                        onclick="popupPage(700,960,'<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp','demographic')"/>
                                 </td>
                             </tr>
                             <tr>
-                                <td valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.flagProvider"/>:</td>
+                                <td valign="top" colspan="2"><fmt:message key="dms.incomingDocs.flagProvider"/>:</td>
                             </tr>
                             <tr>
                                 <td colspan="2">
@@ -1135,13 +1135,13 @@
             </td>
             <td class="topalign">
                 <div>
-                    <%if (Integer.parseInt(pdfNo) > 0) {%>Page : <b id="pgnum"><%=pdfPageNumber%> <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.of"/><span
+                    <%if (Integer.parseInt(pdfNo) > 0) {%>Page : <b id="pgnum"><%=pdfPageNumber%> <fmt:message key="dms.incomingDocs.of"/><span
                         class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>"> <%=numOfPage%> <%}%></span></b>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.viewAs"/>:
+                    <fmt:message key="dms.incomingDocs.viewAs"/>:
                     <select tabIndex="<%=tabIndex++%>" name="imageTypeList" id="imageTypeList"
                             onchange="setImageType();">
-                        <option value="Pdf" <%=imageType.equals("Pdf") ? "selected" : ""%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.PDF"/></option>
-                        <option value="Image" <%=imageType.equals("Image") ? "selected" : ""%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.image"/></option>
+                        <option value="Pdf" <%=imageType.equals("Pdf") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.PDF"/></option>
+                        <option value="Image" <%=imageType.equals("Image") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.image"/></option>
                     </select>
                 </div>
                 <div id="docdisp"></div>
@@ -1281,7 +1281,7 @@
                             var MRPName = document.getElementById('MRPName').value;
                             var MRPNo = document.getElementById('MRPNo').value;
                             if (MRPNo != null && MRPNo.length > 0) {
-                                addflagprovider(MRPName, "(<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.MRP"/>)", MRPNo);
+                                addflagprovider(MRPName, "(<fmt:message key="dms.incomingDocs.MRP"/>)", MRPNo);
                             }
                         }
                     });

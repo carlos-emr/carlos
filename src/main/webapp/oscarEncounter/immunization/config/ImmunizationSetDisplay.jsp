@@ -48,7 +48,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.immunizationSetDisplay.title"/>
+        <title><fmt:message key="oscarEncounter.immunization.config.immunizationSetDisplay.title"/>
         </title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
@@ -117,7 +117,7 @@
 
             int i = 0;
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.immunization.config.immunizationSetDisplay.msgSet"/>:
+        <h1><fmt:message key="oscarEncounter.immunization.config.immunizationSetDisplay.msgSet"/>:
             <%=setNamed%>
         </h1>
         <table cellpadding=2 cellspacing=0 border="2px" rules="all"

@@ -33,7 +33,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -64,15 +64,15 @@
             <td class="MainTableRightColumn">
                 <table width="100%" height="100%">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.msgNothingPrinted"/>
+                        <td><fmt:message key="oscarEncounter.oscarConsultationRequest.msgNothingPrinted"/>
                         </td>
                     </tr>
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
+                        <td><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
                         </td>
                     </tr>
                     <tr>
-                        <td><a href="javascript: BackToOscar();"> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> </a></td>
+                        <td><a href="javascript: BackToOscar();"> <fmt:message key="global.btnClose"/> </a></td>
                     </tr>
                 </table>
             </td>

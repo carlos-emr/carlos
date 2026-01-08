@@ -46,9 +46,9 @@
     <script language="javascript">
         function checkFormAndDisable() {
             if (document.forms[0].formHtml.value == "") {
-                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgFileMissing"/>");
+                alert("<fmt:message key="eform.uploadhtml.msgFileMissing"/>");
             } else {
-                document.forms[0].subm.value = "<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.processing"/>";
+                document.forms[0].subm.value = "<fmt:message key="eform.uploadimages.processing"/>";
                 document.forms[0].subm.disabled = true;
                 document.forms[0].submit();
             }
@@ -59,7 +59,7 @@
         }
 
         function confirmNDelete(url) {
-            if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
+            if (confirm("<fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
                 document.location = url;
             }
         }
@@ -120,9 +120,9 @@
 
     <%@ include file="efmTopNav.jspf" %>
 
-    <h3 style='display:inline;padding-right:10px'><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgLibrary"/></h3> <a
+    <h3 style='display:inline;padding-right:10px'><fmt:message key="eform.uploadhtml.msgLibrary"/></h3> <a
             href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp" class="contentLink">View Deleted
-        <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDeleted"/>--> </a>
+        <!--<fmt:message key="eform.uploadhtml.btnDeleted"/>--> </a>
 
 
     <ul class="nav nav-pills" id="eformOptions">
@@ -161,15 +161,15 @@
                 <th></th>
 
                 <th><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp?orderby=form_name"
-                       class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
                 <th><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp?orderby=form_subject"
-                       class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
 
                 <th><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp?"
-                       class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnTime"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnRoleType"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.msgAction"/></th>
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
+                <th><fmt:message key="eform.uploadhtml.btnTime"/></th>
+                <th><fmt:message key="eform.uploadhtml.btnRoleType"/></th>
+                <th><fmt:message key="eform.uploadhtml.msgAction"/></th>
             </tr>
             </thead>
 
@@ -200,20 +200,20 @@
                     <div class="btn-group">
                         <a class="btn btn-link contentLink"
                            href="<%= request.getContextPath() %>/eform/efmformmanageredit.jsp?fid=<%= curForm.get("fid")%>"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.editform"/><%=curForm.get("formName")%>'><i
-                                class="icon-pencil" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.editform"/>"></i></a>
+                           title='<fmt:message key="eform.uploadhtml.editform"/><%=curForm.get("formName")%>'><i
+                                class="icon-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
 
 
                         <a class="btn btn-link"
                            href='<%= request.getContextPath() %>/eform/manageEForm.do?method=exportEForm&fid=<%=curForm.get("fid")%>'
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnExport"/> <%=curForm.get("formName")%>'><i
-                                class="icon-download-alt" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
+                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=curForm.get("formName")%>'><i
+                                class="icon-download-alt" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
                         <a class="btn btn-link contentLink"
                            href='<%= request.getContextPath() %>/eform/delEForm.do?fid=<%=curForm.get("fid")%>'
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
-                                class="icon-trash" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
+                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
+                                class="icon-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
                     </div>
                 </td>
 

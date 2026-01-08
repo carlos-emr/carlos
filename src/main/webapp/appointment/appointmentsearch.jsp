@@ -113,7 +113,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.title"/></title>
+    <title><fmt:message key="appointment.searchnext.title"/></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     <script>
         function popupPage2(varpage, windowname, vheight, vwidth) {
@@ -156,7 +156,7 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr>
         <th NOWRAP bgcolor="#CCCCFF">
-            <font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.2ndtitle"/></font>
+            <font face="Helvetica"><fmt:message key="appointment.searchnext.2ndtitle"/></font>
         </th>
     </tr>
 </table>
@@ -165,7 +165,7 @@
     <input type="hidden" name="method" value="search"/>
     <table width="100%" border="0">
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.provider"/>:</td>
+            <td><fmt:message key="appointment.searchnext.provider"/>:</td>
             <td>
                 <select name="provider_no">
                     <option value="">All</option>
@@ -185,7 +185,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.day_of_week"/>:</td>
+            <td><fmt:message key="appointment.searchnext.day_of_week"/>:</td>
             <td>
                 <select name="dayOfWeek">
                     <%
@@ -204,7 +204,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.time_of_day"/>:</td>
+            <td><fmt:message key="appointment.searchnext.time_of_day"/>:</td>
             <td>
                 <select name="startTime">
                     <%
@@ -220,7 +220,7 @@
                         }
                     %>
                 </select>
-                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.to"/>&nbsp;
+                &nbsp;<fmt:message key="appointment.searchnext.to"/>&nbsp;
                 <select name="endTime">
                     <%
                         for (LabelValueBean lvb : endTimeOfDayOptions) {
@@ -238,7 +238,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.appt_type"/>:</td>
+            <td><fmt:message key="appointment.searchnext.appt_type"/>:</td>
             <td>
                 <select name="code">
                     <option value="">Any</option>
@@ -258,7 +258,7 @@
             </td>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.num_results"/>:</td>
+            <td><fmt:message key="appointment.searchnext.num_results"/>:</td>
             <td>
                 <select name="numberOfResults">
                     <%
@@ -290,9 +290,9 @@
 <CENTER>
     <table width="100%" border="1" bgcolor="#ffffff" cellspacing="1" cellpadding="0">
         <tr bgcolor="#CCCCFF">
-            <TH width="20%"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.date"/></TH>
-            <TH width="20%"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.time"/></TH>
-            <TH width="60%"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.searchnext.provider"/></TH>
+            <TH width="20%"><fmt:message key="appointment.searchnext.date"/></TH>
+            <TH width="20%"><fmt:message key="appointment.searchnext.time"/></TH>
+            <TH width="60%"><fmt:message key="appointment.searchnext.provider"/></TH>
         </tr>
         <%
             for (int x = 0; x < Math.min(results.size(), Integer.parseInt(numberOfResults)); x++) {

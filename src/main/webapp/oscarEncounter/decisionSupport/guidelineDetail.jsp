@@ -69,7 +69,7 @@
     <link rel="stylesheet" href="decisionSupport.css" type="text/css"></link>
 </head>
 <body>
-<div style="font-size: 16px; font-weight: bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinedetail.guidelineassessment"/> <c:out value="${patientName}"/></div>
+<div style="font-size: 16px; font-weight: bold;"><fmt:message key="oscarencounter.guidelinedetail.guidelineassessment"/> <c:out value="${patientName}"/></div>
 <br>
 <c:if test="${not empty consequences}">
     <c:forEach items="${consequences}" var="consequence">
@@ -80,15 +80,15 @@
 </c:if>
 <table style="font-size: 10px;  border-top: 1px solid black; border-collapse: collapse; margin-top: 15px;">
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.title"/></th>
+        <th><fmt:message key="oscarencounter.guidelinelist.title"/></th>
         <td><c:out value="${guideline.title}"/></td>
     </tr>
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.author"/></th>
+        <th><fmt:message key="oscarencounter.guidelinelist.author"/></th>
         <td><c:out value="${guideline.author}"/></td>
     </tr>
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.startdate"/></th>
+        <th><fmt:message key="oscarrx.showallergies.startdate"/></th>
         <td><c:out value="${guideline.dateStart}"/></td>
     </tr>
 </table>
@@ -96,10 +96,10 @@ Conditions:
 <table class="dsTable">
     <tr>
         <th>Type</th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.operator"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.expected"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.actual"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.evaluate"/></th>
+        <th><fmt:message key="oscarrx.showallergies.operator"/></th>
+        <th><fmt:message key="oscarrx.showallergies.expected"/></th>
+        <th><fmt:message key="oscarrx.showallergies.actual"/></th>
+        <th><fmt:message key="oscarrx.showallergies.evaluate"/></th>
     </tr>
     <c:forEach var="conditionResult" items="${conditionResults}" varStatus="status">
         <tr class="${status.index % 2 == 1 ? 'odd' : 'even'}">
@@ -108,24 +108,24 @@ Conditions:
             <td><c:out value="${conditionResult.condition.values}"/></td>
             <td>
                 <c:choose>
-                    <c:when test="${empty conditionResult.actualValues}"><span class="bad"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinedetail.error"/></span></c:when>
+                    <c:when test="${empty conditionResult.actualValues}"><span class="bad"><fmt:message key="oscarencounter.guidelinedetail.error"/></span></c:when>
                     <c:otherwise><c:out value="${conditionResult.actualValues}"/></c:otherwise>
                 </c:choose>
             </td>
             <td style="text-align: center;">
                 <c:choose>
                     <c:when test="${conditionResult.result == true}">
-                        <span class="good"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.passed"/></span>
+                        <span class="good"><fmt:message key="oscarencounter.guidelinelist.passed"/></span>
                     </c:when>
                     <c:otherwise>
-                        <span class="bad"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.fail"/></span>
+                        <span class="bad"><fmt:message key="oscarencounter.guidelinelist.fail"/></span>
                     </c:otherwise>
                 </c:choose>
             </td>
         </tr>
     </c:forEach>
 </table>
-<input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinedetail.btnlistguideline"/>"
+<input type="button" value="<fmt:message key="oscarencounter.guidelinedetail.btnlistguideline"/>"
        onclick="document.location='guidelineAction.do?method=list&demographic_no=<c:out
                value="${demographic_no}"/>&provider_no=<c:out value="${provider_no}"/>'">
 </body>

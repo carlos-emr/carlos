@@ -90,7 +90,7 @@
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery-1.9.1.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecordhtm.title"/></title>
+        <title><fmt:message key="admin.provideraddrecordhtm.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <script LANGUAGE="JavaScript">
             <!--
@@ -104,7 +104,7 @@
                     document.searchprovider.last_name.value == "" ||
                     document.searchprovider.first_name.value == "" ||
                     document.searchprovider.provider_type.value == "") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="global.msgInputKeyword"/>");
+                    alert("<fmt:message key="global.msgInputKeyword"/>");
                     return false;
                 }
 
@@ -156,13 +156,13 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecordhtm.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.provideraddrecordhtm.description"/></font></th>
             </tr>
         </table>
         <form method="post" action="provideraddarecord.jsp" name="searchprovider" onsubmit="return onsub()">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
-                    <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formProviderNo"/><font color="red">:</font></td>
+                    <td width="50%" align="right"><fmt:message key="admin.provider.formProviderNo"/><font color="red">:</font></td>
                     <td>
                         <%
                             if (OscarProperties.getInstance().isProviderNoAuto()) {
@@ -171,20 +171,20 @@
                             value="-new-"> <%
                     } else {%>
                         <input type="text" name="provider_no" maxlength="6"/>
-                        <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecordhtm.suggest"/>'
+                        <input type="button" value='<fmt:message key="admin.provideraddrecordhtm.suggest"/>'
                                onclick="provider_no.value='<%=suggestProviderNo%>'"
                         <%}%>
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formLastName"/><font color="red">:</font></div>
+                        <div align="right"><fmt:message key="admin.provider.formLastName"/><font color="red">:</font></div>
                     </td>
                     <td><input type="text" name="last_name" maxlength="30"></td>
                 </tr>
                 <tr>
                     <td>
-                        <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFirstName"/><font color="red">:</font></div>
+                        <div align="right"><fmt:message key="admin.provider.formFirstName"/><font color="red">:</font></div>
                     </td>
                     <td><input type="text" name="first_name" maxlength="30">
                     </td>
@@ -195,7 +195,7 @@
                 %>
                 <tr>
                     <td>
-                        <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.sitesAssigned"/><font color="red">:</font>
+                        <div align="right"><fmt:message key="admin.provider.sitesAssigned"/><font color="red">:</font>
                         </div>
                     </td>
                     <td>
@@ -216,17 +216,17 @@
                 %>
 
                 <tr>
-                    <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType"/><font
+                    <td align="right"><fmt:message key="admin.provider.formType"/><font
                             color="red">:</font></td>
                     <td><!--input type="text" name="provider_type" --> <%
 
                     %> <select id="provider_type" name="provider_type">
-                        <option value="receptionist"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionReceptionist"/></option>
-                        <option value="doctor" selected="selected"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionDoctor"/></option>
-                        <option value="nurse"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionNurse"/></option>
-                        <option value="resident"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionResident"/></option>
-                        <option value="midwife"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionMidwife"/></option>
-                        <option value="admin"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionAdmin"/></option>
+                        <option value="receptionist"><fmt:message key="admin.provider.formType.optionReceptionist"/></option>
+                        <option value="doctor" selected="selected"><fmt:message key="admin.provider.formType.optionDoctor"/></option>
+                        <option value="nurse"><fmt:message key="admin.provider.formType.optionNurse"/></option>
+                        <option value="resident"><fmt:message key="admin.provider.formType.optionResident"/></option>
+                        <option value="midwife"><fmt:message key="admin.provider.formType.optionMidwife"/></option>
+                        <option value="admin"><fmt:message key="admin.provider.formType.optionAdmin"/></option>
                     </select>
                     </td>
                 </tr>
@@ -254,18 +254,18 @@
                 </tr>
                 <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSpecialty"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSpecialty"/>:
                         </td>
                         <td><input type="text" name="specialty"
                                    onBlur="upCaseCtrl(this)" maxlength="40"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formTeam"/>:
+                        <td align="right"><fmt:message key="admin.provider.formTeam"/>:
                         </td>
                         <td><input type="text" name="team" maxlength="20"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSex"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSex"/>:
                         </td>
                         <td><select name="sex" id="sex">
                             <option value=""></option>
@@ -277,86 +277,86 @@
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formDOB"/>(<font
-                                size="-1"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecordhtm.dateFormat"/></i></font>):
+                        <td align="right"><fmt:message key="admin.provider.formDOB"/>(<font
+                                size="-1"><i><fmt:message key="admin.provideraddrecordhtm.dateFormat"/></i></font>):
                         </td>
                         <td><input type="text" name="dob" maxlength="11"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formAddress"/>:
+                        <td align="right"><fmt:message key="admin.provider.formAddress"/>:
                         </td>
                         <td><input type="text" name="address" size="40" maxlength="40">
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formHomePhone"/>:
+                        <td align="right"><fmt:message key="admin.provider.formHomePhone"/>:
                         </td>
                         <td><input type="text" name="phone" maxlength="20"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formWorkPhone"/>:
+                        <td align="right"><fmt:message key="admin.provider.formWorkPhone"/>:
                         </td>
                         <td><input type="text" name="workphone" value="" maxlength="20">
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formEmail"/>:
+                        <td align="right"><fmt:message key="admin.provider.formEmail"/>:
                         </td>
                         <td><input type="text" name="email" value=""></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formPager"/>:
+                        <td align="right"><fmt:message key="admin.provider.formPager"/>:
                         </td>
                         <td><input type="text" name="xml_p_pager" value=""></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formCell"/>:
+                        <td align="right"><fmt:message key="admin.provider.formCell"/>:
                         </td>
                         <td><input type="text" name="xml_p_cell" value=""></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOtherPhone"/>:
+                        <td align="right"><fmt:message key="admin.provider.formOtherPhone"/>:
                         </td>
                         <td><input type="text" name="xml_p_phone2" value=""></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/>:
+                        <td align="right"><fmt:message key="admin.provider.formFax"/>:
                         </td>
                         <td><input type="text" name="xml_p_fax" value=""></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOhipNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formOhipNo"/>:
                         </td>
                         <td><input type="text" name="ohip_no" maxlength="20"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formRmaNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formRmaNo"/>:
                         </td>
                         <td><input type="text" name="rma_no" maxlength="20"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formBillingNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formBillingNo"/>:
                         </td>
                         <td><input type="text" name="billing_no" maxlength="20">
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formHsoNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formHsoNo"/>:
                         </td>
                         <td><input type="text" name="hso_no" maxlength="10"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSpecialtyCode"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSpecialtyCode"/>:
                         </td>
                         <td><input type="text" name="xml_p_specialty_code"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formBillingGroupNo"/>:
+                        <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
                         <td><input type="text" name="xml_p_billinggroup_no"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formCPSIDType"/>:
+                        <td align="right"><fmt:message key="admin.provider.formCPSIDType"/>:
                         </td>
                         <td>
                             <select name="practitionerNoType" id="practitionerNoType">
@@ -378,7 +378,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formCPSID"/>:
+                        <td align="right"><fmt:message key="admin.provider.formCPSID"/>:
                         </td>
                         <td><input type="text" name="practitionerNo" id="practitionerNo"></td>
                     </tr>
@@ -439,22 +439,22 @@
                     <input type="hidden" name="provider_activity" value="">
 
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSlpUsername"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSlpUsername"/>:
                         </td>
                         <td><input type="text" name="xml_p_slpusername"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSlpPassword"/>:
+                        <td align="right"><fmt:message key="admin.provider.formSlpPassword"/>:
                         </td>
                         <td><input type="text" name="xml_p_slppassword"></td>
                     </tr>
                     <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formStatus"/>:
+                        <td align="right"><fmt:message key="admin.provider.formStatus"/>:
                         </td>
                         <td>
                             <input type="radio" id="statusActive" name="status" value="1" checked><label
-                                for="statusActive"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formStatusActive"/></label>
-                            <input type="radio" id="statusInactive" name="status" value="0"><label for="statusInactive"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formStatusInactive"/></label>
+                                for="statusActive"><fmt:message key="admin.provider.formStatusActive"/></label>
+                            <input type="radio" id="statusInactive" name="status" value="0"><label for="statusInactive"><fmt:message key="admin.provider.formStatusInactive"/></label>
                         </td>
                     </tr>
 
@@ -464,7 +464,7 @@
                         <div align="center">
 
                             <input type="submit" name="submitbtn"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecordhtm.btnProviderAddRecord"/>">
+                                   value="<fmt:message key="admin.provideraddrecordhtm.btnProviderAddRecord"/>">
                         </div>
                     </td>
                 </tr>

@@ -49,7 +49,7 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/dateFormatUtils.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.title"/></title>
+    <title><fmt:message key="demographic.search.title"/></title>
 
     <script type="text/javascript">
 
@@ -150,14 +150,14 @@
 
         <!-- <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic.addnew" rights="r">  -->
         <div class="createNew">
-            <a href="demographicaddarecordhtm.jsp"><b><font size="+1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></font></b></a>
+            <a href="demographicaddarecordhtm.jsp"><b><font size="+1"><fmt:message key="demographic.search.btnCreateNew"/></font></b></a>
         </div>
         <!-- </security:oscarSec> -->
 
         <oscar:oscarPropertiesCheck
                 property="SHOW_FILE_IMPORT_SEARCH" value="yes">
             &nbsp;&nbsp;&nbsp;<a href="demographicImport.jsp"><b><font
-            size="+1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.importNewDemographic"/></font></b></a>
+            size="+1"><fmt:message key="demographic.search.importNewDemographic"/></font></b></a>
         </oscar:oscarPropertiesCheck>
     </div>
     </body>

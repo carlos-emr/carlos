@@ -81,13 +81,13 @@
     %>
 
     <div class="alert alert-success">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminsavemygroup.msgAdditionSuccess"/>
+        <fmt:message key="admin.adminsavemygroup.msgAdditionSuccess"/>
     </div>
     <%
     } else {
     %>
     <div class="alert alert-error">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminsavemygroup.msgAdditionFailure"/>
+        <fmt:message key="admin.adminsavemygroup.msgAdditionFailure"/>
     </div>
     <%
         }
@@ -96,7 +96,7 @@
 
     <a href="admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
 
-    <a href="adminnewgroup.jsp" class="btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+    <a href="adminnewgroup.jsp" class="btn"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
 

@@ -31,7 +31,7 @@
 "http://www.w3.org/TR/html4/strict.dtd">
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
 
         <% boolean linkIncluded = StringUtils.isNotEmpty(request.getParameter("link")); %>
         <script type="text/javascript">

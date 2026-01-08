@@ -57,7 +57,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.title"/>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.title"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -88,11 +88,11 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td class="Header"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.title"/>
+                        <td class="Header"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.title"/>
                         </td>
                         <td></td>
                         <td style="text-align: right" NOWRAP><a
-                                href="javascript:window.close();"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a> |
+                                href="javascript:window.close();"><fmt:message key="global.btnClose"/></a> |
                         </td>
                     </tr>
                 </table>
@@ -112,7 +112,7 @@
 
                     <!----Start new rows here-->
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.msgCheckOff"/><br>
+                        <td><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.msgCheckOff"/><br>
 
                         </td>
                     </tr>
@@ -120,12 +120,12 @@
                         <td>
                             <form action="${pageContext.request.contextPath}/oscarEncounter/DelService.do" method="post">
                             <input type="submit" name="delete"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.btnDeleteService"/>">
+                                   value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.btnDeleteService"/>">
                             <div class="ChooseRecipientsBox1">
                                 <table>
                                     <tr>
                                         <th>&nbsp;</th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.service"/>
+                                        <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.DeleteServices.service"/>
                                         </th>
 
 

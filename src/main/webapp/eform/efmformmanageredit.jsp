@@ -66,7 +66,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditEform"/></title>
+        <title><fmt:message key="eform.edithtml.msgEditEform"/></title>
 
         <style>
             .input-error {
@@ -113,7 +113,7 @@
     <%@ include file="efmTopNav.jspf" %>
 
     <%if (request.getParameter("fid") != null) {%>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditEform"/></h3>
+    <h3><fmt:message key="eform.edithtml.msgEditEform"/></h3>
     <%} else {%>
     <h3>Create New eForm</h3>
     <%}%>
@@ -126,7 +126,7 @@
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             <div class="alert alert-success">
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgChangesSaved"/>.
+                <fmt:message key="eform.edithtml.msgChangesSaved"/>.
             </div>
             <% } %>
 
@@ -136,12 +136,12 @@
             %>
             <div class="alert alert-error">
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
+                <fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%} else if (errors.containsKey("formNameExists")) { %>
             <div class="alert alert-error">
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
+                <fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%}%>
 
@@ -153,14 +153,14 @@
 
             <!--LAST SAVED-->
             <div style="position:absolute;top:2px;right:4px;">
-                <em><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgLastModified"/>:    <%= curform.get("formDate")%>&nbsp;<%= curform.get("formTime") %>
+                <em><fmt:message key="eform.edithtml.msgLastModified"/>:    <%= curform.get("formDate")%>&nbsp;<%= curform.get("formTime") %>
                 </em>
             </div>
 
             <!--FORM NAME-->
             <div style="display:inline-block">
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/>:
+                <fmt:message key="eform.uploadhtml.formName"/>:
                 <br/>
                 <input type="text" name="formName" value="<%= curform.get("formName") %>"
                        class="<% if (errors.containsKey("formNameMissing") || (errors.containsKey("formNameExists"))) { %> input-error <% } %>"
@@ -171,13 +171,13 @@
 
             <!--FORM ADDITIONAL INFO-->
             <div style="display:inline-block">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formSubject"/>:<br/>
+                <fmt:message key="eform.uploadhtml.formSubject"/>:<br/>
                 <input type="text" name="formSubject" value="<%= curform.get("formSubject") %>" size="30"/><br/>
             </div>
 
             <!--ROLE TYPE-->
             <div style="display:inline-block">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnRoleType"/><br/>
+                <fmt:message key="eform.uploadhtml.btnRoleType"/><br/>
                 <select name="roleType">
                     <option value="">- select one -</option>
                     <% ArrayList roleList = EFormUtil.listSecRole();
@@ -197,38 +197,38 @@
 
             <!--PATIENT INDEPENDANT-->
             <div style="display:inline-block">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/> <input type="checkbox"
+                <fmt:message key="eform.uploadhtml.showLatestFormOnly"/> <input type="checkbox"
                                                                                  name="showLatestFormOnly"
                                                                                  value="true" <%= (Boolean) curform.get("showLatestFormOnly") ? "checked" : "" %> />
                 <br/>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/> <input type="checkbox"
+                <fmt:message key="eform.uploadhtml.patientIndependent"/> <input type="checkbox"
                                                                                  name="patientIndependent"
                                                                                  value="true" <%= (Boolean) curform.get("patientIndependent") ? "checked" : "" %> /><br/>
             </div>
 
             <br/>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditHtml"/>:<br/>
+            <fmt:message key="eform.edithtml.msgEditHtml"/>:<br/>
             <textarea wrap="off" name="formHtml" style="" class="span12" rows="40"><%= formHtml%></textarea><br/>
 
             <p>
             <div id="panelDisplay">
                 <a href="<%=request.getContextPath()%>/eform/efmformmanager.jsp" class="btn contentLink">
                     <i class="icon-circle-arrow-left"></i> Back to eForm Library
-                    <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
+                    <!--<fmt:message key="eform.edithtml.msgBackToForms"/>-->
                 </a>
                 <input type="button" class="btn"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgPreviewLast"/>" <% if (curform.get("fid") == null) {%>
+                       value="<fmt:message key="eform.edithtml.msgPreviewLast"/>" <% if (curform.get("fid") == null) {%>
                        disabled    <%}%> name="previewlast" onclick="openLastSaved()">
                 <a href="<%=request.getContextPath()%>/eform/efmformmanageredit.jsp?fid=<%= curform.get("fid") %>"
-                   class="btn contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.cancelChanges"/></a>
+                   class="btn contentLink"> <fmt:message key="eform.edithtml.cancelChanges"/></a>
             </div>
 
             <a href="#" class="btn" id="popupDisplay" onClick="window.close()">
                 <i class="icon-circle-arrow-left"></i> Back to eForm Library
-                <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
+                <!--<fmt:message key="eform.edithtml.msgBackToForms"/>-->
             </a>
 
-            <input type="submit" class="btn btn-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgSave"/>"
+            <input type="submit" class="btn btn-primary" value="<fmt:message key="eform.edithtml.msgSave"/>"
                    data-loading-text="Saving..." name="savebtn" id="savebtn">
 
             </p>

@@ -50,7 +50,7 @@
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.renal.managePatientLetter"/></title>
+        <title><fmt:message key="admin.renal.managePatientLetter"/></title>
         <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
 
         <%
@@ -96,7 +96,7 @@
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.renal.managePatientLetter"/></h3>
+    <h3><fmt:message key="admin.renal.managePatientLetter"/></h3>
 
     <div class="container-fluid well">
         Use this section to customize the patient letter generated from the screening report.

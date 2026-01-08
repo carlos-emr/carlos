@@ -83,11 +83,11 @@
     <form action="${pageContext.request.contextPath}/oscarWaitingList/WLEditWaitingListNameAction.do?edit=Y.do" method="post">
         <input type="hidden" name="actionChosen" id="actionChosen"/>
 
-        <h3>&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarwaitinglist.displayPatientWaitingList.waitinglist"/></h3>
+        <h3>&nbsp;&nbsp;<fmt:message key="oscarwaitinglist.displayPatientWaitingList.waitinglist"/></h3>
         <%
             if (message != null && !message.equals("")) {
         %>
-        <div class="alert"><fmt:setBundle basename="oscarResources"/><fmt:message key="<%=message%>"/></div>
+        <div class="alert"><fmt:message key="<%=message%>"/></div>
         <%
             }
         %>
@@ -95,11 +95,11 @@
             <div class="row">
                 <div class="span6">
                     <fieldset>
-                        <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
-                        <label class="control-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
+                        <legend><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
+                        <label class="control-label" for="selectedWL"><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
                         <div class="controls">
                             <select name="selectedWL" id="selectedWL">
-                                <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
+                                <option value=""><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%
                                     for (int i = 0; i < allWaitingListName.size(); i++) {
                                         WLWaitingListNameBean wLBean = (WLWaitingListNameBean) allWaitingListName.get(i);
@@ -112,29 +112,29 @@
                                 <%}%>
                             </select>
                             <input type="text" class="input-medium" name="wlChangedName" placeholder="" value="">
-                            <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                            <input type="submit" class="btn" value="<fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('change');document.forms[0].actionChosen.value='change'">
                         </div> <!-- class="controls" -->
                     </fieldset>
                 </div> <!-- class="span4" -->
                 <div class="span6">
                     <fieldset>
-                        <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
-                        <label class="control-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
+                        <legend><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
+                        <label class="control-label" for="wlNewName"><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
                         <div class="controls">
                             <input type="text" class="input-medium" name="wlNewName" id="wlNewName" placeholder="" value="">
-                            <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                            <input type="submit" class="btn" value="<fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('create');document.forms[0].actionChosen.value='create'">
                         </div> <!-- class="controls" -->
                     </fieldset>
                 </div> <!-- class="span4" -->
                 <div class="span6">
                     <fieldset>
-                        <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/></legend>
-                        <label class="control-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
+                        <legend><fmt:message key="global.btnDelete"/></legend>
+                        <label class="control-label" for="selectedWL2"><fmt:message key="global.btnDeleteList"/></label>
                         <div class="controls">
                             <select name="selectedWL2" id="selectedWL2">
-                                <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
+                                <option value=""><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%
                                     for (int i = 0; i < allWaitingListName.size(); i++) {
                                         WLWaitingListNameBean wLBean = (WLWaitingListNameBean) allWaitingListName.get(i);
@@ -146,7 +146,7 @@
                                 </option>
                                 <%}%>
                             </select>
-                            <input type="submit" class="btn btn-warning" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/>"
+                            <input type="submit" class="btn btn-warning" value="<fmt:message key="global.btnDelete"/>"
                                    onclick="resetFields('remove');document.forms[0].actionChosen.value='remove'">
                         </div> <!-- class="controls" -->
                     </fieldset>
@@ -155,7 +155,7 @@
         </div>
         <!-- end editWrapper -->
         <div>
-            <input type="reset" class="btn btn-link" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>'
+            <input type="reset" class="btn btn-link" value='<fmt:message key="global.btnClose"/>'
                    onClick="window.close();">
         </div>
     </form>

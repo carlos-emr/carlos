@@ -33,7 +33,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectQuickList"/>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectQuickList"/>
         </title>
 
         <script type="text/javascript">
@@ -55,7 +55,7 @@
                 <td>
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr bgcolor="#000000">
-                            <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
+                            <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
                         </tr>
                     </table>
                 </td>
@@ -65,7 +65,7 @@
                     <table width="100%" border="0" cellpadding="0" cellspacing="1"
                            bgcolor="#EEEEFF" height="125">
                         <tr>
-                            <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.pleaseEnterTheNewQuickListName"/>:
+                            <td align="left"><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.pleaseEnterTheNewQuickListName"/>:
                                 <input type="text" name="quickListName"/></td>
                         </tr>
                         <tr>
@@ -74,7 +74,7 @@
                                     <tr>
                                         <input type="hidden" name="forward" value="error"/>
                                         <td><input type="button" class="mbttn" name="Button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                   value="<fmt:message key="global.btnClose"/>"
                                                    onClick="window.close()"></td>
                                         <td><input type="submit" class="mbttn" name="Button"
                                                    value="Continue"/></td>

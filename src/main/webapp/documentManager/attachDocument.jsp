@@ -51,7 +51,7 @@
 <!DOCTYPE html >
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
+    <title><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
 
     <style>
 

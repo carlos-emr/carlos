@@ -35,7 +35,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgDisplayMeasurementTypes"/></title>
+        <title><fmt:message key="oscarEncounter.Measurements.msgDisplayMeasurementTypes"/></title>
 
         <script type="text/javascript">
             function set(target) {
@@ -61,11 +61,11 @@
     <form action="${pageContext.request.contextPath}/oscarEncounter/oscarMeasurements/DeleteMeasurementTypes.do" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgDisplayMeasurementTypes"/></td>
+                            <td><fmt:message key="oscarEncounter.Measurements.msgDisplayMeasurementTypes"/></td>
                         </tr>
                     </table>
                 </td>
@@ -93,17 +93,17 @@
                                     <tr>
                                         <td>
                                     <tr>
-                                        <th align="left" class="Header" width="5"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingType"/>
+                                        <th align="left" class="Header" width="5"><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingType"/>
                                         </th>
-                                        <th align="left" class="Header" width="20"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingDisplayName"/>
+                                        <th align="left" class="Header" width="20"><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingDisplayName"/>
                                         </th>
-                                        <th align="left" class="Header" width="10"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingTypeDesc"/>
+                                        <th align="left" class="Header" width="10"><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingTypeDesc"/>
                                         </th>
-                                        <th align="left" class="Header" width="300"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
+                                        <th align="left" class="Header" width="300"><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
                                         </th>
-                                        <th align="left" class="Header" width="300"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingValidation"/>
+                                        <th align="left" class="Header" width="300"><fmt:message key="oscarEncounter.oscarMeasurements.Measurements.headingValidation"/>
                                         </th>
-                                        <th align="left" class="Header" width="10"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementAction.headingDelete"/>
+                                        <th align="left" class="Header" width="10"><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementAction.headingDelete"/>
                                         </th>
                                     </tr>
                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
@@ -124,10 +124,10 @@
                                     </c:forEach>
                                     <tr>
                                         <td><input type="button" name="Button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                   value="<fmt:message key="global.btnClose"/>"
                                                    onClick="window.close()"></td>
                                         <td><input type="button" name="Button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.displayHistory.headingDelete"/>"
+                                                   value="<fmt:message key="oscarEncounter.oscarMeasurements.displayHistory.headingDelete"/>"
                                                    onclick="submit();"/></td>
                                     </tr>
 

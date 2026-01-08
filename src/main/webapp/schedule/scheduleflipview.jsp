@@ -107,7 +107,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.title"/></title>
+        <title><fmt:message key="schedule.scheduleflipview.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css" type="text/css">
 
         <script language="JavaScript">
@@ -125,18 +125,18 @@
 
             function t(s1, s2, s3, s4, s5, s6, doConfirm, allowDay, allowWeek) {
                 if (doConfirm == "Yes") {
-                    if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.confirmBooking"/>")) {
+                    if (confirm("<fmt:message key="provider.appointmentProviderAdminDay.confirmBooking"/>")) {
                         popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=curDemoNo%>&name=<%=curDemoName%>&provider_no=<%=curProvider_no%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Day") {
                     if (allowDay == "No") {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.sameDay"/>");
+                        alert("<fmt:message key="provider.appointmentProviderAdminDay.sameDay"/>");
                     } else {
                         popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=curDemoNo%>&name=<%=curDemoName%>&provider_no=<%=curProvider_no%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Wk") {
                     if (allowWeek == "No") {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.sameWeek"/>");
+                        alert("<fmt:message key="provider.appointmentProviderAdminDay.sameWeek"/>");
                     } else {
                         popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=curDemoNo%>&name=<%=curDemoName%>&provider_no=<%=curProvider_no%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
@@ -190,7 +190,7 @@
             <% if (bMultisites) out.print("<td>Site</td>"); %>
             <td width="15%" nowrap><a
                     href="scheduleflipview.jsp?originalpage=<%=originalPage%>&provider_no=<%=curProvider_no%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
-                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"
+                    title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/previous.gif"></a> <select
                     name="provider_no" onChange="selectprovider(this)">
                 <%
@@ -216,7 +216,7 @@
                 %>
             </select><a
                     href="scheduleflipview.jsp?originalpage=<%=originalPage%>&provider_no=<%=curProvider_no%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
-                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.msgNextmonth"/>"
+                    title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/next.gif"></a></td>
             <% for (int j = 0; j < colscode; j++) { %>
             <td>
@@ -389,13 +389,13 @@
                                                                           onClick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<%=DateTimeCodeBean.get("duration"+temp.toString())%>','<%=DateTimeCodeBean.get("confirm"+scheduleCode)%>','<%=allowDay%>','<%=allowWeek%>');return false;">
                             <%=temp.toString()%>
                         </a></td>
-                        <td title="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.msgbookings"/>"
+                        <td title="<fmt:message key="schedule.scheduleflipview.msgbookings"/>"
                             style="vertical-align:top; font-size: x-small;"><%=strNumOfAppts%>
                         </td>
                     </tr>
                     <tr>
                         <td style="vertical-align:bottom; font-size: x-small;"
-                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>"><%=bookinglimit%>
+                            title="<fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>"><%=bookinglimit%>
                         </td>
                     </tr>
                 </table>
@@ -411,9 +411,9 @@
 
     </table>
     <a
-            href="scheduleflipview.jsp?originalpage=<%=originalPage%>&provider_no=<%=curProvider_no%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
+            href="scheduleflipview.jsp?originalpage=<%=originalPage%>&provider_no=<%=curProvider_no%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
     |
     <a
-            href="scheduleflipview.jsp?originalpage=<%=originalPage%>&provider_no=<%=curProvider_no%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
+            href="scheduleflipview.jsp?originalpage=<%=originalPage%>&provider_no=<%=curProvider_no%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
     </body>
 </html>

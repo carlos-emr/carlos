@@ -79,7 +79,7 @@
 <!DOCTYPE HTML >
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></title>
+    <title><fmt:message key="billing.bc.title"/></title>
 
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
@@ -308,7 +308,7 @@
         <div id="page-header">
             <table id="oscarBillingHeader">
                 <tr>
-                    <td id="oscarBillingHeaderLeftColumn"><h1><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h1></td>
+                    <td id="oscarBillingHeaderLeftColumn"><h1><fmt:message key="billing.bc.title"/></h1></td>
 
                     <td id="oscarBillingHeaderCenterColumn">
                         Billing Summary
@@ -446,11 +446,11 @@
                                 <td>
                                     <table class="table table-condensed table-striped">
                                         <tr class="table-heading">
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.code"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.unit"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.fee"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.total"/></td>
+                                            <td><fmt:message key="billing.service.code"/></td>
+                                            <td><fmt:message key="billing.service.desc"/></td>
+                                            <td><fmt:message key="billing.service.unit"/></td>
+                                            <td><fmt:message key="billing.service.fee"/></td>
+                                            <td><fmt:message key="billing.service.total"/></td>
                                         </tr>
                                         <% for (int i = 0; i < billItem.size(); i++) {
                                             BillingBillingManager.BillingItem bi = (BillingBillingManager.BillingItem) billItem.get(i);
@@ -481,8 +481,8 @@
 
                                     <table class="table table-condensed table-striped">
                                         <tr class="table-heading">
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/></td>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.desc"/></td>
+                                            <td><fmt:message key="billing.diagnostic.code"/></td>
+                                            <td><fmt:message key="billing.diagnostic.desc"/></td>
                                         </tr>
                                         <c:if test="${ not empty billingSessionBean.dx1 }">
                                             <tr>

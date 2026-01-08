@@ -72,7 +72,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.title"/></title>
+        <title><fmt:message key="oscarReport.manageProvider.title"/></title>
         <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
         <script language="JavaScript">
             <!--
@@ -106,16 +106,16 @@
     <div class="container-fluid">
         <form name="form1" action="dbManageProvider.jsp" method="post">
 
-            <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgManageProvider"/> <span
+            <h3><fmt:message key="oscarReport.manageProvider.msgManageProvider"/> <span
                     class="text-info"><%=action.toUpperCase()%></span></h3>
 
             <table class="table table-hover table-condensed">
 
                 <thead>
                 <tr>
-                    <td width="40%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgTeam"/></td>
-                    <td width="50%" align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgProviderName"/></td>
-                    <td width="10%" align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgCheck"/></td>
+                    <td width="40%"><fmt:message key="oscarReport.manageProvider.msgTeam"/></td>
+                    <td width="50%" align="left"><fmt:message key="oscarReport.manageProvider.msgProviderName"/></td>
+                    <td width="10%" align="left"><fmt:message key="oscarReport.manageProvider.msgCheck"/></td>
                 </tr>
                 </thead>
 
@@ -165,10 +165,10 @@
                 </tbody>
             </table>
 
-            <input class="btn" type='button' name='print' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>'
+            <input class="btn" type='button' name='print' value='<fmt:message key="global.btnPrint"/>'
                    onClick='window.print()'>
             <input type="hidden" name="submit" value="Submit">
-            <input class="btn btn-primary" type=submit value=<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.btnSubmit"/>>
+            <input class="btn btn-primary" type=submit value=<fmt:message key="oscarReport.manageProvider.btnSubmit"/>>
             <input type=hidden name=action value=<%=action%>> <input type=hidden name=count value=<%=count1%>>
         </form>
     </div>

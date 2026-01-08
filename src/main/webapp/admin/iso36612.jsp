@@ -52,7 +52,7 @@
     </script>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></title>
+        <title><fmt:message key="admin.admin.manageGSTControl"/></title>
         <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
     </head>
     <body onload="loadData()">

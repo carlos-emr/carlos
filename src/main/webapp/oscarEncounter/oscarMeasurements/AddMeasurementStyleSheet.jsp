@@ -47,7 +47,7 @@
             });
         </script>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementStyleSheet"/></title>
+        <title><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementStyleSheet"/></title>
 
     </head>
 
@@ -69,11 +69,11 @@
             method="POST" enctype="multipart/form-data">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementStyleSheet"/></td>
+                            <td><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementStyleSheet"/></td>
                         </tr>
                     </table>
                 </td>
@@ -96,12 +96,12 @@
                                             </c:if>
                                         </td>
                                     <tr>
-                                        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.createNewMeasurementStyleSheet"/>
+                                        <td align="left"><fmt:message key="oscarEncounter.oscarMeasurements.createNewMeasurementStyleSheet"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td><input type="file" name="file" id="file" size="35"/>
-                                            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                                            <span title="<fmt:message key="global.uploadWarningBody"/>"
                                                   style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                                                     border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
 
@@ -112,10 +112,10 @@
                                             <table>
                                                 <tr>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                               value="<fmt:message key="global.btnClose"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"
+                                                               value="<fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.continueBtn"/>"
                                                                onclick="submit();"/></td>
                                                 </tr>
                                             </table>

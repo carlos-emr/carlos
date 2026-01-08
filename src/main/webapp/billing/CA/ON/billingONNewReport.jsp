@@ -414,10 +414,10 @@
         <td style="text-align:right;">
             <i class=" icon-question-sign"></i>
             <a href="javascript:void(0)"
-               onClick="popupPage(600,750,'<%=(OscarProperties.getInstance()).getProperty("HELP_SEARCH_URL")%>'+'OscarBilling+Billing')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
+               onClick="popupPage(600,750,'<%=(OscarProperties.getInstance()).getProperty("HELP_SEARCH_URL")%>'+'OscarBilling+Billing')"><fmt:message key="app.top1"/></a>
             <i class=" icon-info-sign" style="margin-left:10px;"></i>
             <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+               onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
         </td>
         <td style="width:1%"></td>
     </tr>
@@ -590,16 +590,16 @@ end broken -->
 <table style="width:100%">
     <tr>
         <td><a href=# onClick="javascript:history.go(-1);return false;" class="btn btn-link">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/></a></td>
+            <fmt:message key="global.btnCancel"/></a></td>
         <td style="text-align:right;"><a href="" onClick="self.close();" class="btn btn-link">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/></a></td>
+            <fmt:message key="global.btnExit"/></a></td>
     </tr>
 </table>
 <script>
     $('#reportTbl').DataTable({
         "order": [],
         "language": {
-            "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+            "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
         }
     });
 </script>

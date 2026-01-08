@@ -332,8 +332,8 @@
                         if (hinDemo.getVer() != null && !hinDemo.getVer().equals("66")) {
 
         %>
-        ***<font color='red'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHIN"/></font>
-        ***<br><br><a href=# onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
+        ***<font color='red'><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHIN"/></font>
+        ***<br><br><a href=# onClick="history.go(-1);return false;"><b>&lt;-<fmt:message key="global.btnBack"/></b></a>
         <%
                             return;
                         }

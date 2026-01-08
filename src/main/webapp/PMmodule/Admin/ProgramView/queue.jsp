@@ -303,10 +303,10 @@
         %>
         <a href=#
            onClick="popupPage(710, 1024,'<%=eURL%>');return false;"
-           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.encounter"/>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnEncounter"/></a>&nbsp;&nbsp;
+           title="<fmt:message key="global.encounter"/>"> <fmt:message key="provider.appointmentProviderAdminDay.btnEncounter"/></a>&nbsp;&nbsp;
         <a href=#
            onClick="popupPage(710,1024,'<%=request.getContextPath()%>/eform/efmshowform_data.jsp?demographicNo=<%=demographic_no%>&fdid=<%=curform.get("fdid")%>','0'); return false;"
-           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.remoteReferral"/>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnIntake"/></a>
+           title="<fmt:message key="global.remoteReferral"/>"> <fmt:message key="provider.appointmentProviderAdminDay.btnIntake"/></a>
 
 
         <% }

@@ -72,7 +72,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.title"/></title>
+        <title><fmt:message key="schedule.scheduleedittemplate.title"/></title>
         <!--link rel="stylesheet" href="<%= request.getContextPath() %>/www.css" /-->
 
         <script language="JavaScript">
@@ -98,7 +98,7 @@
 
             function checkInput() {
                 if (document.schedule.holiday_name.value == "") {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.msgCheckInput"/>');
+                    alert('<fmt:message key="schedule.scheduleedittemplate.msgCheckInput"/>');
                     return false;
                 } else {
                     return true;
@@ -130,7 +130,7 @@
                         <input type="hidden" name="step" value="">
                         <tr bgcolor="#CCFFCC">
                             <td nowrap>
-                                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.formProvider"/>: <%=request.getParameter("providername")%>
+                                <p><fmt:message key="schedule.scheduleedittemplate.formProvider"/>: <%=request.getParameter("providername")%>
                                 </p>
                             </td>
                             <td align='right'><select name="name">
@@ -156,7 +156,7 @@
                                     type="hidden" name="providername"
                                     value="<%=request.getParameter("providername")%>">
                             <td align='right'><input type="button"
-                                                     value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.btnEdit"/>'
+                                                     value='<fmt:message key="schedule.scheduleedittemplate.btnEdit"/>'
                                                      onclick="document.forms['addtemplatecode1'].dboperation.value=' Edit '; document.forms['addtemplatecode1'].submit();">
                             </td>
                         </tr>
@@ -191,18 +191,18 @@
                bgcolor="silver">
             <tr bgcolor="#FOFOFO" align="center">
                 <td colspan=3><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"
-                                    color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.msgMainLabel"/></font></td>
+                                    color="red"><fmt:message key="schedule.scheduleedittemplate.msgMainLabel"/></font></td>
             </tr>
             <tr bgcolor='ivory'>
-                <td nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.formTemplateName"/>:
+                <td nowrap><fmt:message key="schedule.scheduleedittemplate.formTemplateName"/>:
                 </td>
                 <td><input type="text" name="name" size="30" maxlength="20"
                         <%=bEdit?("value='"+myTempBean.getName()+"'"):"value=''"%>>
-                    <font size='-2'><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.msgLessTwentyChars"/></font></td>
+                    <font size='-2'><fmt:message key="schedule.scheduleedittemplate.msgLessTwentyChars"/></font></td>
                 <td></td>
             </tr>
             <tr bgcolor='ivory'>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.formSummary"/>:
+                <td><fmt:message key="schedule.scheduleedittemplate.formSummary"/>:
                 </td>
                 <td><input type="text" name="summary" size="30" maxlength="30"
                         <%=bEdit?("value='"+myTempBean.getSummary()+"'"):"value=''"%>></td>
@@ -214,7 +214,7 @@
 					
    for (ScheduleTemplateCode stc:stcs) {   %>
  <%=String.valueOf(stc.getCode())+" - "+stc.getDescription()%>  <%}	%>
-             "><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.formTemplateCode"/></a></td>
+             "><fmt:message key="schedule.scheduleedittemplate.formTemplateCode"/></a></td>
             </tr>
             <tr bgcolor='ivory'>
                 <td colspan='3' align='center'>
@@ -250,7 +250,7 @@
                bgcolor="silver">
             <tr bgcolor="#FOFOFO">
                 <td><input type="button"
-                           value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.btnDelete"/>'
+                           value='<fmt:message key="schedule.scheduleedittemplate.btnDelete"/>'
                            onclick="document.forms['addtemplatecode'].dboperation.value='Delete'; document.forms['addtemplatecode'].submit();">
                 </td>
                 <td align="right"><input type="hidden" name="providerid"
@@ -259,10 +259,10 @@
                         value="<%=request.getParameter("providername")%>"> <input
                         type="hidden" name="dboperation" value=""> <input
                         type="button"
-                        value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.btnSave"/>'
+                        value='<fmt:message key="schedule.scheduleedittemplate.btnSave"/>'
                         onclick="document.forms['addtemplatecode'].dboperation.value=' Save '; document.forms['addtemplatecode'].submit();">
                     <input type="button" name="Button"
-                           value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>'
+                           value='<fmt:message key="global.btnExit"/>'
                            onclick="window.close()"></td>
             </tr>
         </table>

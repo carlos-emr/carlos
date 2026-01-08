@@ -46,14 +46,14 @@
 %>
 
 <div class="PropSheetMenu">
-    <p class="PropSheetLevel1CurrentItem"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgSpecial"/></p>
-    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/SelectPharmacy.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgEditPharmacy"/></a></p>
-    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/EditFavorites.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgEditFavorites"/></a></p>
-    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/CopyFavorites.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgCopyFavorites"/></a></p>
+    <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgSpecial"/></p>
+    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/SelectPharmacy.jsp"><fmt:message key="oscarRx.sideLinks.msgEditPharmacy"/></a></p>
+    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/EditFavorites.jsp"><fmt:message key="oscarRx.sideLinks.msgEditFavorites"/></a></p>
+    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/CopyFavorites.jsp"><fmt:message key="oscarRx.sideLinks.msgCopyFavorites"/></a></p>
 
     <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=false%>">
 
-        <p class="PropSheetLevel1CurrentItem<%=alle%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgAllergies"/></p>
+        <p class="PropSheetLevel1CurrentItem<%=alle%>"><fmt:message key="oscarRx.sideLinks.msgAllergies"/></p>
         <p class="PropSheetMenuItemLevel1">
                     <%
 
@@ -69,7 +69,7 @@
     </security:oscarSec>
 
 
-    <p class="PropSheetLevel1CurrentItem"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgFavorites"/></p>
+    <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/></p>
     <p class="PropSheetMenuItemLevel1">
             <%
         RxPrescriptionData.Favorite[] favorites

@@ -308,7 +308,7 @@
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.title"/></title>
+        <title><fmt:message key="provider.appointmentprovideradminmonth.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
         <script>
@@ -430,22 +430,22 @@
         <table width="85%" bgcolor="#F0F0F0" cellpadding="0" cellspacing="2">
             <tr>
                 <td bgcolor="#F0F0F0" ALIGN="LEFT">
-                    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgDateFormat"/></p>
+                    <p><fmt:message key="provider.appointmentprovideradminmonth.msgDateFormat"/></p>
                 </td>
             </tr>
             <tr>
                 <td bgcolor="#F0F0F0" ALIGN="LEFT">
-                    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgDateDays"/></p>
+                    <p><fmt:message key="provider.appointmentprovideradminmonth.msgDateDays"/></p>
                 </td>
             </tr>
             <tr>
                 <td bgcolor="#F0F0F0" ALIGN="LEFT">
-                    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgDateWeeks"/></p>
+                    <p><fmt:message key="provider.appointmentprovideradminmonth.msgDateWeeks"/></p>
                 </td>
             </tr>
             <tr>
                 <td bgcolor="#F0F0F0" ALIGN="LEFT">
-                    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgDateMonths"/></p>
+                    <p><fmt:message key="provider.appointmentprovideradminmonth.msgDateMonths"/></p>
                 </td>
             </tr>
         </table>
@@ -463,12 +463,12 @@
                     <span class="glyphicon glyphicon-step-forward" title="<%=arrayMonthOfYear[month%12]%>"></span></a>
                 |
                 <u><a href="providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1"
-                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewAll"/></a></u>
+                      title="<fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:message key="provider.appointmentProviderAdminDay.viewAll"/></a></u>
 
                 | <a
                     href="providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+request.getParameter("curProvider")+"&curProviderName="+request.getParameter("curProviderName") )%>&displaymode=day&dboperation=searchappointmentday"
-                    TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'
-                    OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.today"/></a>
+                    TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'
+                    OnMouseOver="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>' ; return true"><fmt:message key="global.today"/></a>
 
                 | <span style="color:#333">Month</span>
 
@@ -496,7 +496,7 @@
                         TYPE="hidden" NAME="displaymode" VALUE="day"> <INPUT
                         TYPE="hidden" NAME="dboperation" VALUE="searchappointmentday">
                     <input type="hidden" name="Go" value=""> <INPUT TYPE="SUBMIT"
-                                                                    VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnGo"/>"
+                                                                    VALUE="<fmt:message key="provider.appointmentprovideradminmonth.btnGo"/>"
                                                                     onclick="document.forms['jumptodate'].Go.value='GO'; document.forms['jumptodate'].submit();"
                                                                     SIZE="5">
                 </form>
@@ -535,7 +535,7 @@
                 </select>
                 <%} %>
                 <select name="provider_no" onChange="selectprovider(this)">
-                    <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.formAllProviders"/></option>
+                    <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:message key="provider.appointmentprovideradminmonth.formAllProviders"/></option>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_team_schedule_only" rights="r" reverse="false">
                         <%
@@ -562,7 +562,7 @@
                         %>
                         <option value="<%="_grp_"+g.getId().getMyGroupNo()%>"
                                 <%=(providerview.indexOf("_grp_") != -1 && mygroupno.equals(g.getId().getMyGroupNo())) ? "selected" : ""%>>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>: <%=g.getId().getMyGroupNo()%>
+                            <fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>: <%=g.getId().getMyGroupNo()%>
                         </option>
                         <%
                                 }
@@ -599,13 +599,13 @@
 
                             <table border="1" cellspacing="0" cellpadding="2" bgcolor="silver">
                                 <tr bgcolor="#FOFOFO" align="center">
-                                    <td width="14.2%"><font SIZE="2" color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgSun"/></font></td>
-                                    <td width="14.3%"><font SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgMon"/></font></td>
-                                    <td width="14.3%"><font SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgTue"/></font></td>
-                                    <td width="14.3%"><font SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgWed"/></font></td>
-                                    <td width="14.3%"><font SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgThu"/></font></td>
-                                    <td width="14.3%"><font SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgFri"/></font></td>
-                                    <td width="14.2%"><font SIZE="2" color="green"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgSat"/></font></td>
+                                    <td width="14.2%"><font SIZE="2" color="red"><fmt:message key="provider.appointmentprovideradminmonth.msgSun"/></font></td>
+                                    <td width="14.3%"><font SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgMon"/></font></td>
+                                    <td width="14.3%"><font SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgTue"/></font></td>
+                                    <td width="14.3%"><font SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgWed"/></font></td>
+                                    <td width="14.3%"><font SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgThu"/></font></td>
+                                    <td width="14.3%"><font SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgFri"/></font></td>
+                                    <td width="14.2%"><font SIZE="2" color="green"><fmt:message key="provider.appointmentprovideradminmonth.msgSat"/></font></td>
                                 </tr>
                                 <% String caisi = "";%>
                                 <caisi:isModuleLoad moduleName="caisi">
@@ -728,7 +728,7 @@
                                                title="Last Month: <%=arrayMonthOfYear[((month+10)%12)]%>">
                                                 &nbsp;&nbsp;<span class="glyphicon glyphicon-step-backward"
                                                                   title="Last Month: <%=arrayMonthOfYear[((month+10)%12)]%>"></span>
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnLastMonth"/>
+                                                <fmt:message key="provider.appointmentprovideradminmonth.btnLastMonth"/>
                                             </a>&nbsp;
                                             &nbsp; &nbsp;<%=year%>-<%=month%> &nbsp; &nbsp; &nbsp; &nbsp;
                                             &nbsp; &nbsp; &nbsp;<%=arrayMonthOfYear[((month + 11) % 12)]%>
@@ -739,42 +739,42 @@
 
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2" color="blue"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgWeek"/></font>
+                                                                              SIZE="2" color="blue"><fmt:message key="provider.appointmentprovideradminmonth.msgWeek"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2" color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgSun"/></font>
+                                                                              SIZE="2" color="red"><fmt:message key="provider.appointmentprovideradminmonth.msgSun"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgMon"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgMon"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgTue"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgTue"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgWed"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgWed"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgThu"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgThu"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgFri"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgFri"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2" color="green"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgSat"/></font>
+                                                                              SIZE="2" color="green"><fmt:message key="provider.appointmentprovideradminmonth.msgSat"/></font>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -832,7 +832,7 @@
                                     </b><a
                                             href="providercontrol.jsp?year=<%=year%>&month=<%=(month)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth"
                                             title="Next Month: <%=arrayMonthOfYear[month%12]%>"> &nbsp;
-                                        &nbsp; &nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnNextMonth"/>
+                                        &nbsp; &nbsp; <fmt:message key="provider.appointmentprovideradminmonth.btnNextMonth"/>
                                         <span class="glyphicon glyphicon-step-forward"
                                               title="Next Month: <%=arrayMonthOfYear[(month)%12]%>"></span>
                                     </a><br>
@@ -843,42 +843,42 @@
 
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2" color="blue"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgWeek"/></font>
+                                                                              SIZE="2" color="blue"><fmt:message key="provider.appointmentprovideradminmonth.msgWeek"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2" color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgSun"/></font>
+                                                                              SIZE="2" color="red"><fmt:message key="provider.appointmentprovideradminmonth.msgSun"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgMon"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgMon"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgTue"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgTue"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgWed"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgWed"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgThu"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgThu"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgFri"/></font>
+                                                                              SIZE="2"><fmt:message key="provider.appointmentprovideradminmonth.msgFri"/></font>
                                                     </div>
                                                 </td>
                                                 <td width="12.5%">
                                                     <div align="center"><font FACE="VERDANA,ARIAL,HELVETICA"
-                                                                              SIZE="2" color="green"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.msgSat"/></font>
+                                                                              SIZE="2" color="green"><fmt:message key="provider.appointmentprovideradminmonth.msgSat"/></font>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -946,54 +946,54 @@
             if (evt.altKey) {
                 //use if (evt.altKey || evt.metaKey) Alt+A (and)/or for Mac when the browser supports it, Command+A
                 switch (evt.keyCode) {
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.adminShortcut"/> :
+                    case <fmt:message key="global.adminShortcut"/> :
                         popupOscarRx(700, 687, '<%= request.getContextPath() %>/admin/admin.jsp');
                         return false;  //run code for 'A'dmin
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.billingShortcut"/> :
+                    case <fmt:message key="global.billingShortcut"/> :
                         popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');
                         return false;  //code for 'B'illing
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.calendarShortcut"/> :
+                    case <fmt:message key="global.calendarShortcut"/> :
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/provider/providercontrol.jsp&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.edocShortcut"/> :
+                    case <fmt:message key="global.edocShortcut"/> :
                         popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
                         return false;  //run code for e'D'oc
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.resourcesShortcut"/> :
+                    case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=resourcebaseurl%>');
                         return false; // code for R'e'sources
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.helpShortcut"/> :
+                    case <fmt:message key="global.helpShortcut"/> :
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>') //run code for t'I'ckler
+                    case <fmt:message key="global.ticklerShortcut"/> : {
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:message key="global.tickler"/>') //run code for t'I'ckler
                         return false;
                     }
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.labShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=curUser_no%>', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/>');
+                    case <fmt:message key="global.labShortcut"/> :
+                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=curUser_no%>', '<fmt:message key="global.lab"/>');
                         return false;  //run code for 'L'ab
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.msgShortcut"/> :
+                    case <fmt:message key="global.msgShortcut"/> :
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for 'M'essage
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.monthShortcut"/> :
+                    case <fmt:message key="global.monthShortcut"/> :
                         window.open("providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+request.getParameter("curProvider")+"&curProviderName="+request.getParameter("curProviderName") )%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
                         return false;  //run code for Mo'n'th
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.conShortcut"/> :
+                    case <fmt:message key="global.conShortcut"/> :
                         popupOscarRx(625, 1024, '<%=request.getContextPath()%>/oscarEncounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for c'O'nsultation
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.reportShortcut"/> :
+                    case <fmt:message key="global.reportShortcut"/> :
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.prefShortcut"/> : {
+                    case <fmt:message key="global.prefShortcut"/> : {
                         popupOscarRx(715, 680, 'providerpreference.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=mygroupno%>'); //run code for 'P'references
                         return false;
                     }
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchShortcut"/> :
+                    case <fmt:message key="global.searchShortcut"/> :
                         popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/search.jsp');
                         return false;  //run code for 'S'earch
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.dayShortcut"/> :
+                    case <fmt:message key="global.dayShortcut"/> :
                         window.open("providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+request.getParameter("curProvider")+"&curProviderName="+request.getParameter("curProviderName") )%>&displaymode=day&dboperation=searchappointmentday", "_self");
                         return false;  //run code for 'T'oday
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.viewShortcut"/> : {
+                    case <fmt:message key="global.viewShortcut"/> : {
                         <% if(request.getParameter("viewall")!=null && request.getParameter("viewall").equals("1") ) { %>
                         review('0');
                         return false; //scheduled providers 'V'iew
@@ -1002,8 +1002,8 @@
                         return false; //all providers 'V'iew
                         <% } %>
                     }
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflow"/>');
+                    case <fmt:message key="global.workflowShortcut"/> :
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:message key="global.workflow"/>');
                         return false; //code for 'W'orkflow
                     default :
                         return;
@@ -1011,7 +1011,7 @@
             }
             if (evt.ctrlKey) {
                 switch (evt.keyCode || evt.charCode) {
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogoutShortcut"/> :
+                    case <fmt:message key="global.btnLogoutShortcut"/> :
                         window.open('<%= request.getContextPath() %>/logout.jsp', '_self');
                         return false;  // 'Q'uit/log out
                     default :

@@ -99,12 +99,12 @@
             <td class="MainTableTopRow" colspan="9" align="left">
                 <table width="100%">
                     <tr>
-                        <td align="left"><input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                        <td align="left"><input type="button" value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right">
 
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> |
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
+                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a> |
+                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/License.jsp')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>

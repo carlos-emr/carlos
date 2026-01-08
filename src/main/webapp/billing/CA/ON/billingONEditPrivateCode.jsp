@@ -159,7 +159,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></title>
+        <title><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
         <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
@@ -269,7 +269,7 @@
     </head>
     <body>
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></h3>
+    <h3><fmt:message key="admin.admin.managePrivBillingCode"/></h3>
 
     <div class="container-fluid">
 
@@ -357,7 +357,7 @@
                 <input class="btn" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
                 <input type="hidden" name="action" value='<%=action%>'>
                 <input class="btn" type="submit" name="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                       value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="javascript:return onSave();">
             </form>
         </div><!--edit/add well-->

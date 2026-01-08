@@ -62,7 +62,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.preventionNotification.title"/></title>
+        <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/> - <fmt:message key="admin.admin.preventionNotification.title"/></title>
 
         <style type="text/css">
 
@@ -245,7 +245,7 @@
         <tr>
             <td>
                 <!-- Master Control: to enable or disable stop sign warnings -->
-                <h3>Appointment <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.preventionNotification.title"/>:</h3>
+                <h3>Appointment <fmt:message key="admin.admin.preventionNotification.title"/>:</h3>
                 These settings will set the "stop sign" notifications you see displayed on the appointment screen.
 
                 <form name="masterForm" action="PreventionManager.jsp?formAction=update" method="post">
@@ -286,7 +286,7 @@
                 <hr bgcolor="#666666" width="530" align="left"></hr>
 
                 <!-- Customize each prevention warnings/reminders -->
-                <h3>Customize <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.preventionNotification.title"/>:</h3>
+                <h3>Customize <fmt:message key="admin.admin.preventionNotification.title"/>:</h3>
                 To customize the notifications below, "Display on Appointment Screen" must be enabled.
 
                 <form name="prevForm" action="PreventionManager.jsp?formAction=custom" method="post">

@@ -45,7 +45,7 @@
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <tr class="title">
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="casemgmt.ongoingconcerns"/></td>
+        <td><fmt:message key="casemgmt.ongoingconcerns"/></td>
     </tr>
     <tr>
         <td bgcolor="white"><textarea name="ongoingConcerns" rows="4" cols="85"></textarea></td>

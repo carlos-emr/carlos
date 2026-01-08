@@ -2386,7 +2386,7 @@
         <td class="MainTableTopRowRightColumn" colspan="2" align="left">
             <table width="100%">
                 <tr>
-                    <td align="center" class="Nav" valign="center"><span class="white"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.documentsInQueues"/></span></td>
+                    <td align="center" class="Nav" valign="center"><span class="white"><fmt:message key="inboxmanager.documentsInQueues"/></span></td>
                 </tr>
                 <tr>
                     <td align="left" valign="center">
@@ -2399,13 +2399,13 @@
                         <input type="hidden" name="selectedProviders">
 
                         <input type="button" class="smallButton" onclick="window.close();"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>">
+                               value="<fmt:message key="oscarMDS.index.btnClose"/>">
 
                     </td>
 
                     <%--                            <td align="right" valign="center" width="30%">--%>
 
-                    <%--                                | <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/About.jsp')" style="color: #FFFFFF;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>--%>
+                    <%--                                | <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/About.jsp')" style="color: #FFFFFF;" ><fmt:message key="global.about"/></a>--%>
                     <%--                            </td>--%>
                 </tr>
             </table>

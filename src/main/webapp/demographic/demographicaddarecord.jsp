@@ -105,7 +105,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.title"/></font></th>
+                    <fmt:message key="demographic.demographicaddarecord.title"/></font></th>
             </tr>
         </table>
         <form method="post" name="addappt">
@@ -247,8 +247,8 @@
                     List<Demographic> demographics = demographicDao.searchByHealthCard(paramNameHin);
                     if (demographics.size() > 0) {
             %>
-            ***<font color='red'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHIN"/></font>***<br><br>
-            <a href=# onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
+            ***<font color='red'><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHIN"/></font>***<br><br>
+            <a href=# onClick="history.go(-1);return false;"><b>&lt;-<fmt:message key="global.btnBack"/></b></a>
             <%
                         return;
                     }
@@ -432,13 +432,13 @@
 
 
         <p>
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgSuccessful"/></h2>
+        <h2><fmt:message key="demographic.demographicaddarecord.msgSuccessful"/></h2>
 
-        <a href="demographiccontrol.jsp?demographic_no=<%=dem%>&displaymode=edit&dboperation=search_detail"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
+        <a href="demographiccontrol.jsp?demographic_no=<%=dem%>&displaymode=edit&dboperation=search_detail"><fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
-            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/> (<a href="#"
+            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem%>"><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/> (<a href="#"
                                                                                   onclick="popup(700,1027,'demographiccontrol.jsp?demographic_no=<%=dem%>&displaymode=edit&dboperation=search_detail')">New
                 Window</a>)</a>
         </caisi:isModuleLoad>
@@ -446,7 +446,7 @@
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
-            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/></a>
+            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem%>"><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/></a>
         </caisi:isModuleLoad>
 
 

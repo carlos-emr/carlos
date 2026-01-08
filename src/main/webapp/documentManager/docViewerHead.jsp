@@ -30,11 +30,11 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.docViewerHead.title"/></title>
+        <title><fmt:message key="dms.docViewerHead.title"/></title>
     </head>
 
     <body bgcolor="#486ebd" text="#000000" topmargin="0">
     <div align="center"><font face="Arial, Helvetica, sans-serif"
-                              size="3"><b><font color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.docViewerHead.msgDocumentViewer"/></font></b></font></div>
+                              size="3"><b><font color="#FFFFFF"><fmt:message key="dms.docViewerHead.msgDocumentViewer"/></font></b></font></div>
     </body>
 </html>

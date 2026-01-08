@@ -47,8 +47,8 @@
         {
             %>
         if (pwd.length < password_min_length) {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="password.policy.violation.msgPasswordLengthError"/> ' +
-                password_min_length + ' <fmt:setBundle basename="oscarResources"/><fmt:message key="password.policy.violation.msgSymbols"/>');
+            alert('<fmt:message key="password.policy.violation.msgPasswordLengthError"/> ' +
+                password_min_length + ' <fmt:message key="password.policy.violation.msgSymbols"/>');
             return false;
         }
 
@@ -79,8 +79,8 @@
 
         var groups_used = parseInt(lower ? 1 : 0) + parseInt(upper ? 1 : 0) + parseInt(digits ? 1 : 0) + parseInt(special ? 1 : 0);
         if (groups_used < password_min_groups) {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="password.policy.violation.msgPasswordStrengthError"/> ' +
-                password_min_groups + ' <fmt:setBundle basename="oscarResources"/><fmt:message key="password.policy.violation.msgPasswordGroups"/>');
+            alert('<fmt:message key="password.policy.violation.msgPasswordStrengthError"/> ' +
+                password_min_groups + ' <fmt:message key="password.policy.violation.msgPasswordGroups"/>');
             return false;
         }
         <%
@@ -96,8 +96,8 @@
         var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
 
         if (pin.length < password_pin_min_length) {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="password.policy.violation.msgPinLengthError"/> ' +
-                password_pin_min_length + ' <fmt:setBundle basename="oscarResources"/><fmt:message key="password.policy.violation.msgDigits"/>');
+            alert('<fmt:message key="password.policy.violation.msgPinLengthError"/> ' +
+                password_pin_min_length + ' <fmt:message key="password.policy.violation.msgDigits"/>');
             return false;
         }
 
@@ -105,7 +105,7 @@
             var s = pin.charAt(i);
 
             if (password_group_digits.indexOf(s) == -1) {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="password.policy.violation.msgPinGroups"/>');
+                alert('<fmt:message key="password.policy.violation.msgPinGroups"/>');
                 return false;
             }
         }

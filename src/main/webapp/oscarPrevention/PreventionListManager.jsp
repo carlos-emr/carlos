@@ -50,7 +50,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></title>
+    <title><fmt:message key="oscarprevention.preventionlistmanager.title"/></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet" media="screen">
@@ -71,7 +71,7 @@
 <body>
 
 <div class="container-fluid">
-    <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></h1>
+    <h1><fmt:message key="oscarprevention.preventionlistmanager.title"/></h1>
     <p class="lead">Customize which prevention items to display on the prevention list.</p>
     <p style="margin-top:-20px"><span class="label label-info">Info</span> Any changes made here will affect every
         provider using the prevention module. To add/remove any item from the prevention list simply click on the item

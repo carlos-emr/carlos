@@ -77,7 +77,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecord.title"/></title>
+        <title><fmt:message key="admin.provideraddrecord.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     </head>
 
@@ -86,7 +86,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecord.description"/>
+                    <fmt:message key="admin.provideraddrecord.description"/>
                 </font></th>
             </tr>
         </table>
@@ -213,22 +213,22 @@
                     billCenter.addBillCenter(request.getParameter("provider_no"), request.getParameter("billcenter"));
 
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecord.msgAdditionSuccess"/>
+        <h1><fmt:message key="admin.provideraddrecord.msgAdditionSuccess"/>
         </h1>
         <%
         } else {
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecord.msgAdditionFailure"/></h1>
+        <h1><fmt:message key="admin.provideraddrecord.msgAdditionFailure"/></h1>
         <%
             if (alreadyExists) {
-        %><h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecord.msgAlreadyExists"/></h2><%
+        %><h2><fmt:message key="admin.provideraddrecord.msgAlreadyExists"/></h2><%
             }
 
         }
     } else {
         if (!isProviderFormalize) {
     %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="<%=errMsgProviderFormalize%>"/></h1>
+        <h1><fmt:message key="<%=errMsgProviderFormalize%>"/></h1>
         Provider # range from : <%=min_value %> To : <%=max_value %>
         <%
                 }

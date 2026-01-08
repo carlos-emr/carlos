@@ -48,7 +48,7 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.title"/></title>
+        <title><fmt:message key="provider.providerSignature.title"/></title>
 
     </head>
 
@@ -56,16 +56,16 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgPrefs"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="provider.providerSignature.msgPrefs"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgTitle"/>
+                        <td><fmt:message key="provider.providerSignature.msgTitle"/>
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -75,11 +75,11 @@
             <td class="MainTableRightColumn">
                 <% boolean hasSig = sig.hasSignature(curUser_no);
                     if (hasSig) {
-                %> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgCurrentSignature"/> <u><%=sig.getSignature(curUser_no)%>
+                %> <fmt:message key="provider.providerSignature.msgCurrentSignature"/> <u><%=sig.getSignature(curUser_no)%>
             </u>
                 <br>
-                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgChangeIt"/> <% } else {%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgSigNotSet"/><br>
-                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgCreate"/> <%}%>
+                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:message key="provider.providerSignature.msgChangeIt"/> <% } else {%> <fmt:message key="provider.providerSignature.msgSigNotSet"/><br>
+                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:message key="provider.providerSignature.msgCreate"/> <%}%>
             </td>
         </tr>
         <tr>

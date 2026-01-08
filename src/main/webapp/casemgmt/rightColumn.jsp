@@ -64,7 +64,7 @@
 
     <div id="rightColLoader" style="width: 100%;">
         <h3 style="width: 100%; background-color: #CCCCFF;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.LeftNavBar.msgLoading"/></h3>
+            <fmt:message key="oscarEncounter.LeftNavBar.msgLoading"/></h3>
     </div>
 </body>
 </html>

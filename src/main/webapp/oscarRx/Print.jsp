@@ -77,26 +77,26 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs"><a href="SearchPatient.jsp">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchPatient.title"/></a> > <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ChoosePatient.title"/></b></div>
+                                <fmt:message key="SearchPatient.title"/></a> > <b><fmt:message key="ChoosePatient.title"/></b></div>
                         </td>
                     </tr>
 
                     <!----Start new rows here-->
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChoosePatient.title"/></div>
+                            <div class="DivContentTitle"><fmt:message key="ChoosePatient.title"/></div>
                         </td>
                     </tr>
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChoosePatient.searchAgain"/></div>
+                            <div class="DivContentSectionHead"><fmt:message key="ChoosePatient.searchAgain"/></div>
                         </td>
                     </tr>
                     <tr>
                         <td><form action="${pageContext.request.contextPath}/oscarRx/searchPatient.do" method="post" focus="surname">
                             <table>
                                 <tr>
-                                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ChoosePatient.textBox"/></td>
+                                    <td><fmt:message key="ChoosePatient.textBox"/></td>
                                     <td><input type="checkbox" name="surname" size="16" maxlength="16" />
                                     </td>
                                     <td><input type="submit" name="submit" value="Search" class="ControlPushButton"/></td>
@@ -106,7 +106,7 @@
                     </tr>
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChoosePatient.choose"/></div>
+                            <div class="DivContentSectionHead"><fmt:message key="ChoosePatient.choose"/></div>
                         </td>
                     </tr>
 

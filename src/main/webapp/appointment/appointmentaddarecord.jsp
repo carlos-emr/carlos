@@ -68,7 +68,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabel"/></font></th>
+                    <fmt:message key="appointment.addappointment.msgMainLabel"/></font></th>
             </tr>
         </table>
         <%
@@ -229,7 +229,7 @@
             }
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgAddSuccess"/></h1>
+        <h1><fmt:message key="appointment.addappointment.msgAddSuccess"/></h1>
 
         <script LANGUAGE="JavaScript">
             <%
@@ -264,7 +264,7 @@
         } else {
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgAddFailure"/></h1>
+        <h1><fmt:message key="appointment.addappointment.msgAddFailure"/></h1>
 
         <%
             }
@@ -272,7 +272,7 @@
         <p></p>
         <hr width="90%"/>
         <form>
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onClick="closeit()">
+            <input type="button" value="<fmt:message key="global.btnClose"/>" onClick="closeit()">
         </form>
     </center>
     </body>

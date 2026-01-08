@@ -3,7 +3,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.title"/></title>
+        <title><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <script language="JavaScript">
@@ -78,12 +78,12 @@
                 <td width="90%" height="40" align="left">
                     <p><font face="Verdana, Arial, Helvetica, sans-serif"
                              color="#FFFFFF"> <b> <font
-                            face="Arial, Helvetica, sans-serif" size="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.title"/></font> </b> </font>
+                            face="Arial, Helvetica, sans-serif" size="2"><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.title"/></font> </b> </font>
                     </p>
                 </td>
             </tr>
             <tr bgcolor="CCCCFF">
-                <td><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step1"/></strong></td>
+                <td><strong><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step1"/></strong></td>
             </tr>
             <tr>
                 <td width="78%"><font
@@ -93,11 +93,11 @@
                     <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0"> </a> </font></td>
             </tr>
             <tr bgcolor="CCCCFF">
-                <td><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step2"/></strong></td>
+                <td><strong><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step2"/></strong></td>
             </tr>
             <tr>
                 <td><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.dxcode"/>
+                    <fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.dxcode"/>
                     <input type="text" name="xml_diagnostic_detail1" size="25"/> </font> <font
                         face="Verdana, Arial, Helvetica, sans-serif" size="1"> <a
                         href="javascript:ScriptAttach()"> <img

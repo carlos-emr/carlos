@@ -79,7 +79,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.title"/>
+    <title><fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.title"/>
     </title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -149,7 +149,7 @@
       function popupOscarRx(vheight, vwidth, varpage) { //open a new popup window
           var page = varpage;
           windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-          var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReq"/>", windowprops);
+          var popup = window.open(varpage, "<fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReq"/>", windowprops);
           //if (popup != null) {
           //  if (popup.opener == null) {
           //    popup.opener = self;
@@ -160,7 +160,7 @@
       function popupOscarConS(vheight, vwidth, varpage) { //open a new popup window
           var page = varpage;
           windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-          var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultChoice.oscarConS"/>", windowprops);
+          var popup = window.open(varpage, "<fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultChoice.oscarConS"/>", windowprops);
           window.close();
       }
     </script>
@@ -174,7 +174,7 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td class="Header" NOWRAP><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
+                        <td class="Header" NOWRAP><fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
                           <%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %> <%= Encode.forHtml(demographic.getSex()) %>
                           <%= Encode.forHtml(demographic.getAge()) %>
                         </td>
@@ -189,7 +189,7 @@
                     <tr>
                         <td NOWRAP><a
                                 href="javascript:popupOscarRx(700,960,'oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=<%=Encode.forUriComponent(demo)%>&teamVar=<%=Encode.forUriComponent(team)%>')">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/></a>
+                            <fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/></a>
                         </td>
                     </tr>
                 </table>
@@ -197,7 +197,7 @@
             <td class="MainTableRightColumn">
                 <table width="100%">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgClickLink"/>
+                        <td><fmt:message key="oscarEncounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgClickLink"/>
                         </td>
                     </tr>
                     <tr>

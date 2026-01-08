@@ -86,7 +86,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.title"/></title>
+        <title><fmt:message key="billing.billingCorrection.title"/></title>
         <link rel="stylesheet" type="text/css" href="billingON.css"/>
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -214,7 +214,7 @@
     <!--  <table width="100%" border="0" cellspacing="0" cellpadding="0">
 	<tr bgcolor="#000000">
 		<th height="40" width="10%"></th>
-		<th width="90%" align="left"><font face="Verdana, Arial" color="#FFFFFF" size="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgCorrection"/></font></th>
+		<th width="90%" align="left"><font face="Verdana, Arial" color="#FFFFFF" size="4"><fmt:message key="billing.billingCorrection.msgCorrection"/></font></th>
 	</tr>
 </table>
 -->
@@ -276,10 +276,10 @@
     <table width="100%" border="0" class="myYellow">
         <form name="form1" method="post" action="billingONDisplay.jsp">
             <tr>
-                <th width="30%" align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formInvoiceNo"/></th>
+                <th width="30%" align="left"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></th>
                 <th width="10%"><input type="text" name="billing_no"
                                        value="<%=nullToEmpty(ch1Obj.getId()) %>" maxsize="10"></th>
-                <th width="50%" align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <%=nullToEmpty(ch1Obj.getUpdate_datetime())%>
+                <th width="50%" align="left"><fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <%=nullToEmpty(ch1Obj.getUpdate_datetime())%>
                 </th>
                 <th><input type="button" name="submit" value="Exit"
                            onClick="window.close();"/></th>
@@ -322,30 +322,30 @@
 
         <table width="600" border="0">
             <tr class="myGreen">
-                <th align="left" colspan="2"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPatientInformation"/></b></th>
+                <th align="left" colspan="2"><b><fmt:message key="billing.billingCorrection.msgPatientInformation"/></b></th>
             </tr>
             <tr>
-                <td width="54%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
+                <td width="54%"><b><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
                                                                              onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=DemoNo %>&displaymode=edit&dboperation=search_detail');return false;">
                     <%=DemoName%>
                 </a> <input type="hidden" name="demo_name"
                             value="<%=DemoName%>"> </b></td>
-                <td width="46%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formHealth"/>: <%=hin%> <input
+                <td width="46%"><b><fmt:message key="billing.billingCorrection.formHealth"/>: <%=hin%> <input
                         type="hidden" name="xml_hin" value="<%=hin%>"> </b></td>
             </tr>
             <tr>
-                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSex"/>:
+                <td><b><fmt:message key="billing.billingCorrection.msgSex"/>:
                     <%=DemoSex%> <input type="hidden" name="demo_sex" value="<%=DemoSex%>">
                     <input type="hidden" name="hc_sex" value="<%=HCSex%>"> </b></td>
-                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formDOB"/>:
+                <td><b><fmt:message key="billing.billingCorrection.formDOB"/>:
                     <input type="hidden" name="xml_dob" value="<%=DemoDOB%>"> <%=DemoDOB%>
                 </b></td>
             </tr>
             <tr>
-                <td><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgDoctor"/>: <input type="text"
+                <td><strong><fmt:message key="billing.billingCorrection.msgDoctor"/>: <input type="text"
                                                                             name="rd" value="<%=r_doctor%>" size=20
                                                                             readonly></strong></td>
-                <td><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgDoctorNo"/>: <input type="text"
+                <td><strong><fmt:message key="billing.billingCorrection.msgDoctorNo"/>: <input type="text"
                                                                               name="rdohip" value="<%=r_doctor_ohip%>"
                                                                               size=8 readonly/></strong> <a
                         href="javascript:referralScriptAttach2('rdohip','rd')">Search</a></td>
@@ -354,13 +354,13 @@
 
         <table width="600" border="0">
             <tr class="myGreen">
-                <td colspan=2><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgAditInfo"/></strong></td>
-                <!--  td width="270"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formSpecialty"/> </strong> <select name="specialty" style="font-size:80%;">
-			<option value="none"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formNone"/></option>
-			<option value="flu" <%=specialty.equals("flu")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formFlu"/></option></td>-->
+                <td colspan=2><strong><fmt:message key="billing.billingCorrection.msgAditInfo"/></strong></td>
+                <!--  td width="270"><strong><fmt:message key="billing.billingCorrection.formSpecialty"/> </strong> <select name="specialty" style="font-size:80%;">
+			<option value="none"><fmt:message key="billing.billingCorrection.formNone"/></option>
+			<option value="flu" <%=specialty.equals("flu")?"selected":""%>><fmt:message key="billing.billingCorrection.formFlu"/></option></td>-->
             </tr>
             <tr class="myIvory">
-                <td width="320"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formHCType"/>:</strong> <select
+                <td width="320"><strong><fmt:message key="billing.billingCorrection.formHCType"/>:</strong> <select
                         name="hc_type" style="font-size: 80%;">
                     <option value="ON" <%=HCTYPE.equals("ON") ? "selected" : ""%>>ON-Ontario</option>
                     <option value="AB" <%=HCTYPE.equals("AB") ? "selected" : ""%>>AB-Alberta</option>
@@ -381,40 +381,40 @@
                     </option>
                     <option value="SK" <%=HCTYPE.equals("SK") ? "selected" : ""%>>SK-Saskatchewan</option>
                 </select></td>
-                <td width="270"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formManualReview"/>: <input
+                <td width="270"><strong><fmt:message key="billing.billingCorrection.formManualReview"/>: <input
                         type="checkbox" name="m_review" value="Y"
                         <%=m_review.equals("Y")?"checked":""%>> </strong></td>
             </tr>
             <!--  tr bgcolor="#EEEEFF">
-		<td><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgDoctor"/>:
+		<td><strong><fmt:message key="billing.billingCorrection.msgDoctor"/>:
 		<input type="checkbox" name="referral" value="checkbox" <%=r_status.equals("checked")?"checked":""%>> </strong></td>
-		<td><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgRoster"/>:
+		<td><strong><fmt:message key="billing.billingCorrection.msgRoster"/>:
 		<input type="hidden" name="roster" value="<%=roster_status%>"><%=roster_status%> </strong></td>
 	</tr>-->
         </table>
 
         <table width="600" border="0">
             <tr class="myGreen">
-                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgBillingInf"/></b></td>
-                <td width="46%"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnBillingDate"/><img
+                <td><b><fmt:message key="billing.billingCorrection.msgBillingInf"/></b></td>
+                <td width="46%"><fmt:message key="billing.billingCorrection.btnBillingDate"/><img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="xml_appointment_date_cal"/>: <input
                         type="text" id="xml_appointment_date" name="xml_appointment_date"
                         value="<%=BillDate%>" size=10/></td>
             </tr>
             <tr>
-                <td width="54%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillingType"/>: </b> <input
+                <td width="54%"><b><fmt:message key="billing.billingCorrection.formBillingType"/>: </b> <input
                         type="hidden" name="xml_status" value="<%=BillType%>"> <select
                         style="font-size: 80%;" name="status">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formSelectBillType"/></option>
-                    <option value="H" <%=BillType.equals("H") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeH"/></option>
-                    <option value="O" <%=BillType.equals("O") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeO"/></option>
-                    <option value="P" <%=BillType.equals("P") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeP"/></option>
-                    <option value="N" <%=BillType.equals("N") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeN"/></option>
-                    <option value="W" <%=BillType.equals("W") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeW"/></option>
-                    <option value="B" <%=BillType.equals("B") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeB"/></option>
-                    <option value="S" <%=BillType.equals("S") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeS"/></option>
-                    <option value="X" <%=BillType.equals("X") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeX"/></option>
-                    <option value="D" <%=BillType.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillTypeD"/></option>
+                    <option value=""><fmt:message key="billing.billingCorrection.formSelectBillType"/></option>
+                    <option value="H" <%=BillType.equals("H") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeH"/></option>
+                    <option value="O" <%=BillType.equals("O") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeO"/></option>
+                    <option value="P" <%=BillType.equals("P") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeP"/></option>
+                    <option value="N" <%=BillType.equals("N") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeN"/></option>
+                    <option value="W" <%=BillType.equals("W") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeW"/></option>
+                    <option value="B" <%=BillType.equals("B") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeB"/></option>
+                    <option value="S" <%=BillType.equals("S") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeS"/></option>
+                    <option value="X" <%=BillType.equals("X") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeX"/></option>
+                    <option value="D" <%=BillType.equals("D") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeD"/></option>
                 </select></td>
                 <td width="46%"><b> Pay Program:</b> <input type="hidden"
                                                             name="xml_payProgram" value="<%=BillDate%>"/><select
@@ -434,11 +434,11 @@
             </tr>
             <tr class="myGreen">
                 <td width="54%"><b><%if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
-                    Clinic Nbr <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <% } %>:</b>
+                    Clinic Nbr <% } else { %> <fmt:message key="billing.billingCorrection.formVisitType"/> <% } %>:</b>
                     <input type="hidden"
                            name="xml_clinic_ref_code" value="<%=location%>"> <select
                             name="clinic_ref_code">
-                        <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectLocation"/></option>
+                        <option value=""><fmt:message key="billing.billingCorrection.msgSelectLocation"/></option>
                         <%
                             //
                             List lLocation = obj.getFacilty_num();
@@ -456,9 +456,9 @@
 
                         %>
                     </select></td>
-                <td width="46%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillingPhysician"/>: </b> <select
+                <td width="46%"><b><fmt:message key="billing.billingCorrection.formBillingPhysician"/>: </b> <select
                         style="font-size: 80%;" name="provider_no">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectProvider"/></option>
+                    <option value=""><fmt:message key="billing.billingCorrection.msgSelectProvider"/></option>
                     <%
                         List<String> pList = (new JdbcBillingPageUtil()).getCurProviderStr();
                         for (int i = 0; i < pList.size(); i++) {
@@ -476,10 +476,10 @@
                 </select> <input type="hidden" name="xml_provider_no" value="<%=Provider%>"></td>
             </tr>
             <tr>
-                <td width="54%"><b> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/>: </b> <input
+                <td width="54%"><b> <fmt:message key="billing.billingCorrection.formVisitType"/>: </b> <input
                         type="hidden" name="xml_visittype" value="<%=visittype%>"> <select
                         style="font-size: 80%;" name="visittype">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectVisitType"/></option>
+                    <option value=""><fmt:message key="billing.billingCorrection.msgSelectVisitType"/></option>
                     <% if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <%
                         ClinicNbrDao cnDao = (ClinicNbrDao) SpringUtils.getBean(ClinicNbrDao.class);
@@ -491,16 +491,16 @@
                     </option>
                     <% } %>
                     <% } else { %>
-                    <option value="00" <%=visittype.equals("00") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formClinicVisit"/></option>
-                    <option value="01" <%=visittype.equals("01") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formOutpatientVisit"/></option>
-                    <option value="02" <%=visittype.equals("02") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formHospitalVisit"/></option>
-                    <option value="03" <%=visittype.equals("03") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formER"/></option>
-                    <option value="04" <%=visittype.equals("04") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formNursingHome"/></option>
-                    <option value="05" <%=visittype.equals("05") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formHomeVisit"/></option>
+                    <option value="00" <%=visittype.equals("00") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formClinicVisit"/></option>
+                    <option value="01" <%=visittype.equals("01") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formOutpatientVisit"/></option>
+                    <option value="02" <%=visittype.equals("02") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formHospitalVisit"/></option>
+                    <option value="03" <%=visittype.equals("03") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formER"/></option>
+                    <option value="04" <%=visittype.equals("04") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formNursingHome"/></option>
+                    <option value="05" <%=visittype.equals("05") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formHomeVisit"/></option>
                     <% } %>
                 </select></td>
                 <td width="46%"><b> <input type="hidden" name="xml_visitdate"
-                                           value="<%=visitdate%>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnAdmissionDate"/><img
+                                           value="<%=visitdate%>"/> <fmt:message key="billing.billingCorrection.btnAdmissionDate"/><img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="xml_vdate_cal"/>: <input
                         type="text" id="xml_vdate" name="xml_vdate" value="<%=visitdate%>"
                         size=10/></b></td>
@@ -509,10 +509,10 @@
 
         <table width="600" border="0" cellspacing="1" cellpadding="0">
             <tr class="myYellow">
-                <td width="30%" colspan=2><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formServiceCode"/></b></td>
-                <th width="50%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formDescription"/></b></th>
-                <th width="3%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formUnit"/></b></th>
-                <th width="13%" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formFee"/></b></th>
+                <td width="30%" colspan=2><b><fmt:message key="billing.billingCorrection.formServiceCode"/></b></td>
+                <th width="50%"><b><fmt:message key="billing.billingCorrection.formDescription"/></b></th>
+                <th width="3%"><b><fmt:message key="billing.billingCorrection.formUnit"/></b></th>
+                <th width="13%" align="right"><b><fmt:message key="billing.billingCorrection.formFee"/></b></th>
                 <th><font size="-1">Settle</font></th>
             </tr>
             <%
@@ -588,7 +588,7 @@
             %>
 
             <tr class="myGreen">
-                <td colspan="5"><b> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formDiagnosticCode"/></b></td>
+                <td colspan="5"><b> <fmt:message key="billing.billingCorrection.formDiagnosticCode"/></b></td>
             </tr>
             <tr>
                 <td colspan="4"><input type="hidden" name="xml_diagnostic_code"
@@ -597,7 +597,7 @@
                                                                      name="xml_diagnostic_detail"
                                                                      value="<%=diagCode%>" size="50"> <input
                         type="hidden"
-                        name="xml_dig_search1"> <a href="javascript:ScriptAttach()"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnDXSearch"/></a></td>
+                        name="xml_dig_search1"> <a href="javascript:ScriptAttach()"><fmt:message key="billing.billingCorrection.btnDXSearch"/></a></td>
             </tr>
             <tr>
                 <td colspan="4"><input type="button" name="submit" value="Exit"

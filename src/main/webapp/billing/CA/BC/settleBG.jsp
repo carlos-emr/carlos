@@ -33,7 +33,7 @@
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.settlePaidClaims"/></h3>
+<h3><fmt:message key="admin.admin.settlePaidClaims"/></h3>
 
 <div class="container-fluid well">
     <%

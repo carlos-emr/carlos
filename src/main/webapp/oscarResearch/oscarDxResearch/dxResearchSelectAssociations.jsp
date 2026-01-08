@@ -31,7 +31,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-1.9.1.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/>
         </title>
 
         <script type="text/javascript">
@@ -105,7 +105,7 @@
     <!--  -->
     <table width="100%" bgcolor="#EEEEFF">
         <tr bgcolor="#000000">
-            <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
+            <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
         </tr>
         <tr>
             <td class=heading colspan="2">Customize Associations List</td>
@@ -123,7 +123,7 @@
                     <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=uploadFile"
                                method="post" enctype="multipart/form-data">
                         <input type="file" name="file" id="file" size="35"/>
-                        <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                        <span title="<fmt:message key="global.uploadWarningBody"/>"
                               style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
                         <br/>
                         <input type="radio" name="replace" value="true"/>Replace&nbsp;

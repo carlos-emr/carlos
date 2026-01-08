@@ -65,7 +65,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentGetFile.title"/></title>
+        <title><fmt:message key="dms.documentGetFile.title"/></title>
     </head>
     <frameset rows="21,*" frameborder="NO" border="0"
               frames.opera
@@ -113,5 +113,5 @@
     }
 } else {
 %>
-<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentGetFile.msgFileNotfound"/>
+<fmt:message key="dms.documentGetFile.msgFileNotfound"/>
 <%}%>

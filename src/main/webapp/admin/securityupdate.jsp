@@ -61,14 +61,14 @@
     <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.title"/></title>
+        <title><fmt:message key="admin.securityupdate.title"/></title>
     </head>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
     <body topmargin="0" leftmargin="0" rightmargin="0">
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.securityupdate.description"/></font></th>
             </tr>
         </table>
         <%
@@ -122,12 +122,12 @@
                         request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
         %>
         <p>
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=request.getParameter("provider_no")%>
+        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=request.getParameter("provider_no")%>
         </h2>
         <%
         } else {
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= request.getParameter("provider_no") %>.</h1>
+        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= request.getParameter("provider_no") %>.</h1>
         <%
             }
         %>

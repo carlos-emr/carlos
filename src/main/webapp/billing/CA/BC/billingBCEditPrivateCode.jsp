@@ -153,7 +153,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></title>
+        <title><fmt:message key="admin.admin.ManagePrivFrm"/></title>
         <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
         <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
@@ -161,7 +161,7 @@
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
+    <h3><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
     <div class="container-fluid">
         <div class="select-code well">
             <form method="post" name="selectCode" action="billingBCEditPrivateCode.jsp" class="form-inline">
@@ -232,7 +232,7 @@
                     <input class="btn" type="submit" name="submit" value="Delete" onclick="return onDelete();"/>
                     <%}%>
                     <input class="btn" type="submit" name="submit"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>" onclick="return onSave();"/>
+                           value="<fmt:message key="admin.resourcebaseurl.btnSave"/>" onclick="return onSave();"/>
                 </div>
             </form>
         </div>

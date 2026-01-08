@@ -76,7 +76,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
 
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
         <script type="text/javascript"
@@ -160,7 +160,7 @@
             function openNewPage(vheight, vwidth, varpage) {
                 var page = varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=no,menubars=no,toolbars=no,resizable=no,screenX=0,screenY=0,top=0,left=0";
-                var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.oscarComm"/>", windowprops);
+                var popup = window.open(varpage, "<fmt:message key="global.oscarComm"/>", windowprops);
                 popup.focus();
             }
 
@@ -195,7 +195,7 @@
         <div id="page-header">
             <table id="oscarDxHeader">
                 <tr>
-                    <td id="oscarDxHeaderLeftColumn"><h1><fmt:setBundle basename="oscarResources"/><fmt:message key="global.disease"/></h1></td>
+                    <td id="oscarDxHeaderLeftColumn"><h1><fmt:message key="global.disease"/></h1></td>
 
                     <td id="oscarDxHeaderCenterColumn">
                         <oscar:nameage demographicNo="${ demographicNo }"/>
@@ -236,7 +236,7 @@
                                         <td>
                                             <div class="input-group">
 								<span class="input-group-addon" id="basic-addon3">
-									<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>
+									<fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>
 								</span>
 
                                                 <select class="form-control" name="selectedCodingSystem"
@@ -279,22 +279,22 @@
                                             <input type="hidden" name="forward" value="none"/>
                                             <%if (!disable) { %>
                                             <input type="button" name="codeSearch" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
+                                                   value="<fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
                                                    onClick="javascript: ResearchScriptAttach();" )>
 
                                             <input type="button" name="codeAdd" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/>"
+                                                   value="<fmt:message key="ADD"/>"
                                                    onClick="javascript: submitform('','');">
 
                                             <% } else { %>
 
                                             <input type="button" name="button" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
+                                                   value="<fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
                                                    onClick="javascript: ResearchScriptAttach();" )
                                                    <%=disabled%>">
 
                                             <input type="button" name="button" class="btn btn-primary"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/>"
+                                                   value="<fmt:message key="ADD"/>"
                                                    onClick="javascript: submitform('','');" <%=disabled%>">
                                             <% } %>
                                         </td>
@@ -323,12 +323,12 @@
                                 <table>
                                     <tr>
                                         <th>System</th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgCode"/></th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDiagnosis"/></th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgFirstVisit"/></th>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgLastVisit"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgCode"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDiagnosis"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgFirstVisit"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgLastVisit"/></th>
                                         <% if (!disable) { %>
-                                        <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgAction"/></th>
+                                        <th class="heading"><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgAction"/></th>
                                         <%} %>
                                     </tr>
                                     <c:forEach var="diagnotics" items="${allDiagnostics.dxResearchBeanVector}" varStatus="ctr">

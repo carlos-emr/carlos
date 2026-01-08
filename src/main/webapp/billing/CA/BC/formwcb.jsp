@@ -96,7 +96,7 @@
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"
                 type="text/javascript"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"
                 type="text/javascript"></script>

@@ -82,17 +82,17 @@
 <% } %></div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/> <span class="text-error textExists" style='display:none;'>Name already exists</span><br>
+            <fmt:message key="eform.uploadhtml.formName"/> <span class="text-error textExists" style='display:none;'>Name already exists</span><br>
             <input type="text" name="formName" size="30" class="check" required>
         </div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formSubject"/><br>
+            <fmt:message key="eform.uploadhtml.formSubject"/><br>
             <input type="text" name="formSubject" size="30">
         </div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnRoleType"/><br>
+            <fmt:message key="eform.uploadhtml.btnRoleType"/><br>
             <select name="roleType">
                 <option value="">- select one -</option>
                 <% ArrayList roleList = EFormUtil.listSecRole();
@@ -109,12 +109,12 @@
         <div class='uploadEformTitle'>
             <div>
                 <label class="checkbox">
-                    <input type="checkbox" name="showLatestFormOnly" value="true"/><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/>
+                    <input type="checkbox" name="showLatestFormOnly" value="true"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/>
                 </label>
             </div>
             <div>
                 <label class="checkbox">
-                    <input type="checkbox" name="patientIndependent" value="true"/><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/>
+                    <input type="checkbox" name="patientIndependent" value="true"/><fmt:message key="eform.uploadhtml.patientIndependent"/>
                 </label>
             </div>
         </div>
@@ -122,12 +122,12 @@
         <input type="file" name="formHtml" id="formHtml" class="check" size="50" required>
         <span style="color:red;">
 								         <i class="icon-warning-sign"
-                                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
+                                            title="<fmt:message key="global.uploadWarningBody"/>"></i>
 								        </span>
 
 
         <input type="submit" name="subm" class="btn btn-primary upload"
-               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnUpload"/>" disabled>
+               value="<fmt:message key="eform.uploadhtml.btnUpload"/>" disabled>
 
     </form>
 

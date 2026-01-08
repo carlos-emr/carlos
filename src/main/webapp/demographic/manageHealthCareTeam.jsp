@@ -361,9 +361,9 @@
                         <td style="text-align: right">
 
                             <a href="javascript:popupStart(300,400,'About.jsp')">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
+                                <fmt:message key="global.about"/></a> | <a
                                 href="javascript:popupStart(300,400,'License.jsp')">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                            <fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

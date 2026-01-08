@@ -50,7 +50,7 @@
 <html lang="en" class="no-js">
 <head>
     <meta charset="utf-8">
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title"/></title>
+    <title><fmt:message key="inboxmanager.document.title"/></title>
     <link rel="stylesheet" href="<%=context%>/css/cupertino/jquery-ui-1.8.18.custom.css" id="theme">
     <link rel="stylesheet" href="<%=resourcePath%>jquery.fileupload-ui.css">
     <link rel="stylesheet" href="<%=resourcePath%>style.css">

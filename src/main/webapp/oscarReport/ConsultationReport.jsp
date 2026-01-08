@@ -80,7 +80,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.title"/>
+        <title><fmt:message key="oscarReport.ConsultationReport.title"/>
             <%= mons %>
         </title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -116,27 +116,27 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.msgReport"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.ConsultationReport.msgReport"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <form action="ConsultationReport.jsp">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.msgTitle"/></td>
+                            <td><fmt:message key="oscarReport.ConsultationReport.msgTitle"/></td>
                             <td><select name="numMonth">
-                                <option value="1" <%=selled("1", mons)%>>1 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonth"/></option>
-                                <option value="2" <%=selled("2", mons)%>>2 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="3" <%=selled("3", mons)%>>3 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="4" <%=selled("4", mons)%>>4 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="5" <%=selled("5", mons)%>>5 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="6" <%=selled("6", mons)%>>6 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="7" <%=selled("7", mons)%>>7 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="8" <%=selled("8", mons)%>>8 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="9" <%=selled("9", mons)%>>9 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="10" <%=selled("10", mons)%>>10 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="11" <%=selled("11", mons)%>>11 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
-                                <option value="12" <%=selled("12", mons)%>>12 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="1" <%=selled("1", mons)%>>1 <fmt:message key="oscarReport.ConsultationReport.formMonth"/></option>
+                                <option value="2" <%=selled("2", mons)%>>2 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="3" <%=selled("3", mons)%>>3 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="4" <%=selled("4", mons)%>>4 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="5" <%=selled("5", mons)%>>5 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="6" <%=selled("6", mons)%>>6 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="7" <%=selled("7", mons)%>>7 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="8" <%=selled("8", mons)%>>8 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="9" <%=selled("9", mons)%>>9 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="10" <%=selled("10", mons)%>>10 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="11" <%=selled("11", mons)%>>11 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
+                                <option value="12" <%=selled("12", mons)%>>12 <fmt:message key="oscarReport.ConsultationReport.formMonths"/></option>
                             </select> <select name="proNo">
-                                <option value="-1" <%=selled("-1", pros)%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.formAllProviders"/></option>
+                                <option value="-1" <%=selled("-1", pros)%>><fmt:message key="oscarReport.ConsultationReport.formAllProviders"/></option>
                                 <%
                                     for (int i = 0; i < proList.size(); i++) {
                                         ArrayList w = (ArrayList) proList.get(i);
@@ -149,11 +149,11 @@
                                     }
                                 %>
                             </select> <input type=submit
-                                             value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.btnUpdateReport"/>"/>
+                                             value="<fmt:message key="oscarReport.ConsultationReport.btnUpdateReport"/>"/>
                             </td>
                             <td style="text-align: right"><a
-                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </form>
                 </table>
@@ -216,11 +216,11 @@ nsult.do?requestId=<%=demoCon.requestId%>')"><%=demoCon.referalDate%>
                                     <td valign=top width=300>
                                         <table border=0 cellspacing=3>
                                             <tr>
-                                                <td class=nameBox colspan=2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.msgConsDoc"/></td>
+                                                <td class=nameBox colspan=2><fmt:message key="oscarReport.ConsultationReport.msgConsDoc"/></td>
                                             </tr>
                                             <tr>
-                                                <th width=200 class="subTitles" align=left><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.msgDocDesc"/></th>
-                                                <th width=100 class="subTitles" align=left><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.ConsultationReport.msgDate"/></th>
+                                                <th width=200 class="subTitles" align=left><fmt:message key="oscarReport.ConsultationReport.msgDocDesc"/></th>
+                                                <th width=100 class="subTitles" align=left><fmt:message key="oscarReport.ConsultationReport.msgDate"/></th>
                                             </tr>
                                             <%
                                                 RptConsultReportData.DemoConsultDataStruct.ConLetter demoLetter;

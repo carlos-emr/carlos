@@ -49,7 +49,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></title>
+        <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></title>
 
     </head>
     <script type="text/javascript">
@@ -77,11 +77,11 @@
     <form action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></td>
+                            <td><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></td>
                         </tr>
                     </table>
                 </td>
@@ -91,8 +91,8 @@
                 <td class="MainTableRightColumn">
                     <table>
                         <tr class="Header">
-                            <td align="left" width="150"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgName"/></td>
-                            <td align="left" width="500"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQuery"/></td>
+                            <td align="left" width="150"><fmt:message key="oscarReport.RptByExample.MsgName"/></td>
+                            <td align="left" width="500"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></td>
                             <td width="100"></td>
                         </tr>
                         <input type="hidden" name="newName"/>

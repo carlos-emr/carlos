@@ -155,7 +155,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="css/encounterStyles.css">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.title"/>
+        <title><fmt:message key="messenger.DisplayMessages.title"/>
         </title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
@@ -186,7 +186,7 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="messenger.DisplayMessages.msgMessenger"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
@@ -198,7 +198,7 @@
                         <td style="text-align: right">
 
                             <a href="javascript:void(0)"
-                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
                         </td>
                     </tr>
                 </table>
@@ -217,7 +217,7 @@
                                             <tr>
                                                 <td class="messengerButtonsA"><a
                                                         href="javascript:BackToOscar()"
-                                                        class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a></td>
+                                                        class="messengerButtons"><fmt:message key="messenger.DisplayMessages.btnExit"/></a></td>
                                             </tr>
                                         </table>
                                     </td>
@@ -242,40 +242,40 @@
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
                                                 href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=from&moreMessages=true">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgFrom"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%} else {%> <a
                                                 href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=from&moreMessages=false">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgFrom"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
                                                 href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=subject&moreMessages=true">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSubject"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%} else {%> <a
                                                 href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=subject&moreMessages=false">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSubject"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
                                                 href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=date&moreMessages=true">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgDate"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%} else {%> <a
                                                 href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=date&moreMessages=false">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgDate"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%>
                                             <a
                                                     href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=linked&moreMessages=true">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgLinked"/>
+                                                <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%} else {%>
                                             <a
                                                     href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=linked&moreMessages=false">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgLinked"/>
+                                                <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%}%>
                                         </th>
@@ -327,7 +327,7 @@
                                         <td width="60%"></td>
                                         <td align="left"><a
                                                 href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?moreMessages=true">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgAllMessage"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgAllMessage"/>
                                         </a></td>
                                         <%}%>
                                     </tr>

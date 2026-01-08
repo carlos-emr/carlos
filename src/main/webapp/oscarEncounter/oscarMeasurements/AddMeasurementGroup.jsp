@@ -38,7 +38,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementGroup"/></title>
+        <title><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementGroup"/></title>
         <script type="text/javascript">
             function set(target) {
                 document.forms[0].forward.value = target;
@@ -69,11 +69,11 @@
     <form action="${pageContext.request.contextPath}/oscarEncounter/oscarMeasurements/AddMeasurementGroup.do" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarEncounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementGroup"/></td>
+                            <td><fmt:message key="oscarEncounter.Measurements.msgAddMeasurementGroup"/></td>
                         </tr>
                     </table>
                 </td>
@@ -86,15 +86,15 @@
                             <td>
                                 <table>
                                     <tr>
-                                        <th align="left" class="td.tite"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementGroup.allTypes"/>
+                                        <th align="left" class="td.tite"><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementGroup.allTypes"/>
                                         </th>
 
                                         <th align="left" class="td.tite"><%= session.getAttribute("groupName") %></th>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementGroup.add2Group"/>
+                                        <td><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementGroup.add2Group"/>
                                             <%= session.getAttribute("groupName") %></td>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementGroup.deleteTypes"/>
+                                        <td><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementGroup.deleteTypes"/>
                                             <%= session.getAttribute("groupName") %></td>
                                     <tr>
                                         <td><select multiple="true" name="selectedAddTypes" size="10">
@@ -115,15 +115,15 @@
                                     <tr>
                                         <input type="hidden" name="forward" value="error"/>
                                         <td><input type="button" name="button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.addBtn"/>"
+                                                   value="<fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.addBtn"/>"
                                                    onclick="set('add');submit();"/></td>
                                         <td><input type="button" name="button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"
+                                                   value="<fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"
                                                    onclick="set('delete');submit();"/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="button" name="Button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                   value="<fmt:message key="global.btnClose"/>"
                                                    onClick="window.close()"></td>
                                         <td></td>
                                     </tr>

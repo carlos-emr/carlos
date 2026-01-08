@@ -50,19 +50,19 @@
     </script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.timeOut.title"/></title>
+        <title><fmt:message key="oscarEncounter.timeOut.title"/></title>
     </head>
     <body onload="javascript:loadUp()">
 
     <!--  -->
     <table class="MainTable" id="scrollNumber1"
-           name="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.timeOut.msgEncounter"/>">
+           name="<fmt:message key="oscarEncounter.timeOut.msgEncounter"/>">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td style="color: white"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.timeOut.msgSaveExit"/></td>
+                        <td style="color: white"><fmt:message key="oscarEncounter.timeOut.msgSaveExit"/></td>
                         <td></td>
                         <td></td>
                     </tr>

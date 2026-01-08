@@ -58,7 +58,7 @@
         <td>&nbsp;</td>
         <td class="white">
             <p>&nbsp;<br>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
+                <fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
                 :<br>
                 <input type="hidden" name="bill_servicetype" value="<%=type_id%>">
                 <input type="hidden" name="billtype_old" value="<%=billtype%>">

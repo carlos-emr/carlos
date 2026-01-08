@@ -226,7 +226,7 @@
 <body id="lookUpListManager">
 <header>
     <h1 class="pageTitle">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.lookuplists.title"/>
+        <fmt:message key="admin.admin.lookuplists.title"/>
     </h1>
 </header>
 

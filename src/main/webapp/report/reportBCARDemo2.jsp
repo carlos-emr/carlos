@@ -472,7 +472,7 @@
 <html lang="en">
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportscpbDemo.title"/></title>
+    <title><fmt:message key="oscarReport.oscarReportscpbDemo.title"/></title>
     <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
     <!-- calendar stylesheet -->
     <link rel="stylesheet" type="text/css" media="all"
@@ -522,9 +522,9 @@
 
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="90%">
         <tr>
-            <th BGCOLOR="#CCFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportscpbDemo.msgHeader"/></th>
+            <th BGCOLOR="#CCFFFF"><fmt:message key="oscarReport.oscarReportscpbDemo.msgHeader"/></th>
             <th width="10%" nowrap><a href=# onclick="history.back();">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportscpbDemo.btnBack"/></a></th>
+                <fmt:message key="oscarReport.oscarReportscpbDemo.btnBack"/></a></th>
         </tr>
     </table>
 
@@ -532,7 +532,7 @@
            class="sortable tabular_list">
         <thead>
         <tr BGCOLOR="#66CCCC">
-            <th width="6%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportscpbDemo.msgNoHeader"/></th>
+            <th width="6%"><fmt:message key="oscarReport.oscarReportscpbDemo.msgNoHeader"/></th>
             <% for (int i = 0; i < vecFieldCaption.size(); i++) { %>
             <th><%=(String) vecFieldCaption.get(i)%>
             </th>

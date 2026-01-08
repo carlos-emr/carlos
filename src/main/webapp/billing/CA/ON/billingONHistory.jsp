@@ -66,7 +66,7 @@
     <link rel="stylesheet" href="billingON.css">
     <script language="JavaScript">
         function onUnbilled(url) {
-            if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
+            if (confirm("<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
                 popupPage(700, 720, url);
             }
         }

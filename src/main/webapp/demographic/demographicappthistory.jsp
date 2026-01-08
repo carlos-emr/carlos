@@ -151,7 +151,7 @@
 
         <oscar:customInterface section="appthistory"/>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.title"/></title>
+        <title><fmt:message key="demographic.demographicappthistory.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <script type="text/javascript">
 
@@ -217,19 +217,19 @@
 
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgHistory"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="demographic.demographicappthistory.msgHistory"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgResults"/>: <%=demolastname%>
+                        <td><fmt:message key="demographic.demographicappthistory.msgResults"/>: <%=demolastname%>
                             ,<%=demofirstname%>(<%=request.getParameter("demographic_no")%>)
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'About.jsp')">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
+                            <fmt:message key="global.about"/></a> | <a
                                 href="javascript:popupStart(300,400,'License.jsp')">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
+                            <fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -239,22 +239,22 @@
             <td class="MainTableLeftColumn" valign="top"><a
                     href="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&apptProvider=<%=session.getAttribute("user") %>&displaymode=edit&dboperation=search_detail"
                     onMouseOver="self.status=document.referrer;return true">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a>
+                <fmt:message key="global.btnBack"/></a>
                 <br/>
-                <input type="checkbox" name="showDeleted" id="showDeleted" onChange="toggleShowDeleted(this.checked);"/><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgShowDeleted"/>
+                <input type="checkbox" name="showDeleted" id="showDeleted" onChange="toggleShowDeleted(this.checked);"/><fmt:message key="demographic.demographicappthistory.msgShowDeleted"/>
                 <br/>
             </td>
             <td class="MainTableRightColumn">
                 <table width="95%" border="0" bgcolor="#ffffff" id="apptHistoryTbl">
                     <tr bgcolor="<%=deepColor%>">
-                        <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgApptDate"/></b></TH>
-                        <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgFrom"/></b></TH>
-                        <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgTo"/></b></TH>
-                        <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgStatus"/></b></TH>
-                        <TH width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgType"/></b></TH>
-                        <TH width="15%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgReason"/></b></TH>
-                        <TH width="15%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgProvider"/></b></TH>
-                        <TH><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgComments"/></b></TH>
+                        <TH width="10%"><b><fmt:message key="demographic.demographicappthistory.msgApptDate"/></b></TH>
+                        <TH width="10%"><b><fmt:message key="demographic.demographicappthistory.msgFrom"/></b></TH>
+                        <TH width="10%"><b><fmt:message key="demographic.demographicappthistory.msgTo"/></b></TH>
+                        <TH width="10%"><b><fmt:message key="demographic.demographicappthistory.msgStatus"/></b></TH>
+                        <TH width="10%"><b><fmt:message key="demographic.demographicappthistory.msgType"/></b></TH>
+                        <TH width="15%"><b><fmt:message key="demographic.demographicappthistory.msgReason"/></b></TH>
+                        <TH width="15%"><b><fmt:message key="demographic.demographicappthistory.msgProvider"/></b></TH>
+                        <TH><b><fmt:message key="demographic.demographicappthistory.msgComments"/></b></TH>
 
                         <% if (IsPropertiesOn.isMultisitesEnable()) { %>
                         <TH width="5%">Location</TH>
@@ -464,14 +464,14 @@
                         }
                 %>
                 <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nPrevPage%>&limit2=<%=strLimit2%>&showRemote=<%=showRemoteStr%>">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
+                    <fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
                 <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&showRemote=<%=showRemote%>">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
+                    <fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }
                 %>

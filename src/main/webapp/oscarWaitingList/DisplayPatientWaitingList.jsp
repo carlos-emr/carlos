@@ -72,7 +72,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn"><a
-                    href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<c:out value="${demographicNo}"/>&displaymode=edit&dboperation=search_detail"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>&nbsp;</a></td>
+                    href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<c:out value="${demographicNo}"/>&displaymode=edit&dboperation=search_detail"><fmt:message key="global.btnBack"/>&nbsp;</a></td>
             <td class="MainTableRightColumn">
                 <table border=0 cellspacing=4 width=700>
                     <tr>
@@ -107,7 +107,7 @@
                 <table>
                     <tr>
                         <td><input type="button" name="Button"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                   value="<fmt:message key="global.btnClose"/>"
                                    onClick="window.close()"></td>
                     </tr>
                 </table>

@@ -38,7 +38,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
         <script language="JavaScript">
             <!--
             function setfocus() {
@@ -93,7 +93,7 @@
             function openNewPage(vheight, vwidth, varpage) {
                 var page = varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=no,menubars=no,toolbars=no,resizable=no,screenX=0,screenY=0,top=0,left=0";
-                var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgOscarConsultation"/>", windowprops);
+                var popup = window.open(varpage, "<fmt:message key="oscarEncounter.Index.msgOscarConsultation"/>", windowprops);
                 popup.focus();
             }
 
@@ -108,7 +108,7 @@
             <td>
                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                     <tr bgcolor="#000000">
-                        <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
+                        <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
                     </tr>
                 </table>
             </td>
@@ -118,14 +118,14 @@
                 <table width="100%" border="0" cellpadding="0" cellspacing="0"
                        bgcolor="#EEEEFF" height="200">
                     <tr>
-                        <td class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>: <%-- <c:out value="${codingSystem}"/> --%>
+                        <td class="heading"><fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>: <%-- <c:out value="${codingSystem}"/> --%>
                             <select name="selectedCodingSystem" id="selectedCodingSystem">
                                 <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
                                     <option value="${codingSys}">${codingSys}</option>
                                 </c:forEach>
                             </select></td>
                         <td class="heading"></td>
-                        <td class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.quickListItemsOf"/> 
+                        <td class="heading"><fmt:message key="oscarResearch.oscarDxResearch.quickListItemsOf"/> 
                             <c:out value="${quickListName}"/> 
                             <input type="hidden" name="quickListName" value="<c:out value="${quickListName}"/>"/></td>
                     </tr>
@@ -164,7 +164,7 @@
                                 </tr>
                                 <tr>
                                     <td><input type="button" name="button" class=mbttn
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
+                                               value="<fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
                                                onClick="javascript: ResearchScriptAttach();" )></td>
                                 </tr>
                             </table>
@@ -174,13 +174,13 @@
                                 <tr>
                                     <td><input type="hidden" name="forward" value="none"/> <input
                                             type="button" name="button" class=mbttn style="width: 80"
-                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/> >>"
+                                            value="<fmt:message key="ADD"/> >>"
                                             onClick="javascript: submitform('add');"></td>
                                 </tr>
                                 <tr>
                                     <td><input type="button" name="button" class=mbttn
                                                style="width: 80"
-                                               value="<< <fmt:setBundle basename="oscarResources"/><fmt:message key="REMOVE"/>"
+                                               value="<< <fmt:message key="REMOVE"/>"
                                                onClick="javascript: submitform('remove');"></td>
                                 </tr>
                             </table>
@@ -203,7 +203,7 @@
                     </tr>
                     <tr>
                         <td><input type="button" class="mbttn" name="Button"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                   value="<fmt:message key="global.btnClose"/>"
                                    onClick="window.close()"></td>
                     </tr>
                     <tr>

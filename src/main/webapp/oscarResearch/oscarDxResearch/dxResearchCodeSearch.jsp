@@ -36,7 +36,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.title"/></title>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.title"/></title>
         <script LANGUAGE="JavaScript">
             //<!--
             function CodeAttach(File0) {
@@ -93,11 +93,11 @@
 
         <table width="600" cellspacing="1">
             <tr>
-                <td colspan="2"><h3><%=session.getAttribute("codeType").toString().toUpperCase()%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCodeSearch"/></h3></td>
+                <td colspan="2"><h3><%=session.getAttribute("codeType").toString().toUpperCase()%> <fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCodeSearch"/></h3></td>
             </tr>
             <tr class="heading">
-                <td width="20%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCode"/></td>
-                <td width="80%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgDescription"/></td>
+                <td width="20%"><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCode"/></td>
+                <td width="80%"><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgDescription"/></td>
             </tr>
 
             <%
@@ -118,7 +118,7 @@
             </c:forEach>
             <% if (intCount == 0) { %>
             <tr bgcolor="<%=color%>">
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgNoMatch"/>.
+                <td colspan="2"><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgNoMatch"/>.
                     <%// =i%>
                 </td>
 
@@ -128,7 +128,7 @@
         </table>
         <input type="button" name="confirm" value="Confirm"
                onclick="javascript:CodesAttach();"><input type="button"
-                                                          name="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>" value="Cancel"
+                                                          name="<fmt:message key="global.btnCancel"/>" value="Cancel"
                                                           onclick="javascript:window.close()">
 
         <p></p>

@@ -166,7 +166,7 @@
 %>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.paymentReceived.title"/></title>
+    <title><fmt:message key="oscar.billing.paymentReceived.title"/></title>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
@@ -198,7 +198,7 @@
 </head>
 
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.paymentReceived"/></h3>
+<h3><fmt:message key="admin.admin.paymentReceived"/></h3>
 
 
 <div class="container-fluid">
@@ -209,14 +209,14 @@
 
         <form name="billingPaymentForm" method="get" action="billingONPayment.jsp">
 
-            <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
+            <h4><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
 
             <div class="span3">
                 Provider:<br>
-                <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.providerName"/>-->
+                <!--<fmt:message key="oscar.billing.on.paymentReceived.providerName"/>-->
                 <select name="providerList">
                     <% if (pList.size() > 1) { %>
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.allproviders"/></option>
+                    <option value=""><fmt:message key="oscar.billing.on.paymentReceived.allproviders"/></option>
                     <% } %>
 
                     <% for (Provider p : pList) {
@@ -233,7 +233,7 @@
 
 
             <div class="span2">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
+                <fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
                 <div class="input-append">
                     <input type="text" style="width:90px" name="startDateText" id="startDateText"
                            value="<%=DateUtils.formatDate(startDate,locale)%>"
@@ -243,7 +243,7 @@
             </div>
 
             <div class="span2">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
+                <fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
                 <div class="input-append">
                     <input type="text" style="width:90px" name="endDateText" id="endDateText"
                            value="<%=DateUtils.formatDate(endDate,locale)%>"
@@ -255,31 +255,31 @@
             <div class="span2">
                 <br>
                 <input class="btn btn-primary" type="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.generateReport"/>"/>
+                       value="<fmt:message key="oscar.billing.on.paymentReceived.generateReport"/>"/>
             </div>
 
     </div>
 
 
     <div class="row">
-        <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.raBillingReport"/></h4>
+        <h4><fmt:message key="oscar.billing.on.paymentReceived.raBillingReport"/></h4>
         <table class="table-striped table-condensed table-hover">
             <thead>
             <tr>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.invoiceStatus"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.serviceDate"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.demographicName"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.dxCode"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.serviceCode"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.serviceCount"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.currentFee"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.claimed"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.adjustments"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.payprogram"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.claimNo"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.errorCodes"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.invoiceStatus"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceDate"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.demographicName"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.dxCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCount"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.currentFee"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.claimed"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.adjustments"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.payprogram"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.claimNo"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.errorCodes"/></th>
             </tr>
             </thead>
 
@@ -419,11 +419,11 @@
             }
             %>
             <tr>
-                <td colspan="2" style="font-weight:bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
+                <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
                 <td colspan="4"><%=numItems%>
                 </td>
-                <td style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
+                <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
                 <td style="text-align:right"><%=feeTotal%>
                 </td>
@@ -439,13 +439,13 @@
         </table>
         <hr>
         <!-- 3rd Party Payments Table -->
-        <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.premiumPaymentReport"/></h4>
+        <h4><fmt:message key="oscar.billing.on.paymentReceived.premiumPaymentReport"/></h4>
         <table width="100%" cellspacing="0" class="table-striped table-condensed table-hover">
             <thead>
             <tr>
-                <th style="text-align:left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.providerName"/></th>
-                <th style="text-align:left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.payDate"/></th>
-                <th colspan="9" style="text-align:right"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
+                <th style="text-align:left"><fmt:message key="oscar.billing.on.paymentReceived.providerName"/></th>
+                <th style="text-align:left"><fmt:message key="oscar.billing.on.paymentReceived.payDate"/></th>
+                <th colspan="9" style="text-align:right"><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
             </tr>
             </thead>
             <tbody>
@@ -495,11 +495,11 @@
             }
             }%>
             <tr>
-                <td colspan="2" style="font-weight:bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
+                <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
                 <td colspan="3"><%=numPremiumItems%>
                 </td>
-                <td style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
+                <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
                 <td style="text-align:right;font-weight:bold"><%=totalPremiums.toPlainString()%>
                 </td>
@@ -509,21 +509,21 @@
         </table>
         <hr>
         <!-- 3rd Party Payments Table -->
-        <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.3rdPartyBillingReport"/></h4>
+        <h4><fmt:message key="oscar.billing.on.paymentReceived.3rdPartyBillingReport"/></h4>
         <table class="table-striped table-condensed table-hover">
             <thead>
             <tr>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.serviceDate"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.demographicName"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.dxCode"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.serviceCode"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.serviceCount"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.billed"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.refund"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.paymentDate"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.balanceOutstanding"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceDate"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.demographicName"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.dxCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCount"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.billed"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.refund"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.paymentDate"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.balanceOutstanding"/></th>
             </tr>
             </thead>
             <tbody>
@@ -697,11 +697,11 @@
                 }
             %>
             <tr>
-                <td colspan="2" style="font-weight:bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
+                <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
                 <td colspan="3"><%=num3rdItems%>
                 </td>
-                <td style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
+                <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
                 <td style="text-align:right"><%=total3rdBilled%>
                 </td>
@@ -717,7 +717,7 @@
         <%
             BigDecimal finalAmt = paidTotal.add(total3rdPaid).subtract(total3rdRefunded).add(totalPremiums);
         %>
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <%=finalAmt%>
+        <h3><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <%=finalAmt%>
         </h3>
 
         </form>

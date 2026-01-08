@@ -36,7 +36,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.title"/></title>
+    <title><fmt:message key="admin.appt.status.mgr.title"/></title>
     <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
     <script>
         jQuery.noConflict();
@@ -50,7 +50,7 @@
 %>
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#486ebd">
-        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.title"/></font></th>
+        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
         <th align="right" NOWRAP><font face="Helvetica" color="#CCCCCC"><a
                 href=<%=reseturl%>>reset</a></font></th>
     </tr>
@@ -59,11 +59,11 @@
 
 <table class="borderAll" width="100%">
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.status"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.desc"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.color"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.label.active"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.status"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.desc"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.color"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
+        <th><fmt:message key="admin.appt.status.mgr.label.active"/></th>
         <th>&nbsp;</th>
     </tr>
     <%

@@ -63,9 +63,9 @@
         </tr>
         <tr>
             <td align="right">
-                <!--input type="button" name="Button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>" onClick="window.print()"-->
+                <!--input type="button" name="Button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print()"-->
                 <input type="button" name="Button"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                       value="<fmt:message key="global.btnCancel"/>"
                        onClick="window.close()">
                 </th>
         </tr>

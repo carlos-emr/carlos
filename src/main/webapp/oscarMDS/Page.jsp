@@ -89,7 +89,7 @@
                     <td align="left" valign="center">
                         <c:if test="${ labdocs.size() gt 0}">
                             <input id="topFBtn" type="button" class="smallButton"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                                   value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                    onClick="submitForward('${ searchProviderNo }', '${ param.status }')">
                             <c:if test="${ ackStatus eq 'N' or empty ackStatus }">
                                 <input id="topFileBtn" type="button" class="smallButton" value="File"
@@ -119,39 +119,39 @@
                     <tr>
                         <th>
                             <input type="checkbox" onclick="checkAllLabs('lab_form');" name="checkA"/>
-                            <%--                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgHealthNumber"/>--%>
+                            <%--                                <fmt:message key="oscarMDS.index.msgHealthNumber"/>--%>
                         </th>
                         <th>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgPatientName"/>
+                            <fmt:message key="oscarMDS.index.msgPatientName"/>
                         </th>
                         <th>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgSex"/>
+                            <fmt:message key="oscarMDS.index.msgSex"/>
                         </th>
 
                         <th>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgResultStatus"/>
+                            <fmt:message key="oscarMDS.index.msgResultStatus"/>
                         </th>
                         <th>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgLabel"/>
+                            <fmt:message key="oscarMDS.index.msgLabel"/>
                         </th>
                         <th>
                             <% if (dateType.equals("receivedCreated")) { %>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgDateCreated"/>
+                            <fmt:message key="oscarMDS.index.msgDateCreated"/>
                             <% } else { %>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgDateTest"/>
+                            <fmt:message key="oscarMDS.index.msgDateTest"/>
                             <% } %>
                         </th>
                         <%--                            <th>--%>
-                        <%--                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgOrderPriority"/>--%>
+                        <%--                                <fmt:message key="oscarMDS.index.msgOrderPriority"/>--%>
                         <%--                            </th>--%>
                         <th>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgRequestingClient"/>
+                            <fmt:message key="oscarMDS.index.msgRequestingClient"/>
                         </th>
                         <th>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgDiscipline"/>
+                            <fmt:message key="oscarMDS.index.msgDiscipline"/>
                         </th>
                         <th>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgReportStatus"/>
+                            <fmt:message key="oscarMDS.index.msgReportStatus"/>
                         </th>
                         <th>
                             Ack #
@@ -173,9 +173,9 @@
                         <td colspan="10" align="center">
                             <input type="hidden" name="NoMoreItems" value="true"/>
                             <i><% if (pageNum == 1) { %>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNoReports"/>
+                                <fmt:message key="oscarMDS.index.msgNoReports"/>
                                 <% } else { %>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNoMoreReports"/>
+                                <fmt:message key="oscarMDS.index.msgNoMoreReports"/>
                                 <% } %>
                             </i>
 
@@ -187,9 +187,9 @@
                     <div>
                         <input type="hidden" name="NoMoreItems" value="true"/>
                         <% if (pageNum == 1) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNoReports"/>
+                        <fmt:message key="oscarMDS.index.msgNoReports"/>
                         <% } else { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNoMoreReports"/>
+                        <fmt:message key="oscarMDS.index.msgNoMoreReports"/>
                         <% } %>
                     </div>
 

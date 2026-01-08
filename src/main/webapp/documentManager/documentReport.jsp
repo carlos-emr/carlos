@@ -159,7 +159,7 @@
 <html>
     <head>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
+        <title><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
 
         <link rel="stylesheet" type="text/css"
               href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
@@ -223,7 +223,7 @@
 
             function checkDelete(url, docDescription) {
 // revision Apr 05 2004 - we now allow anyone to delete documents
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
+                if (confirm("<fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
                     window.location = url;
                 }
             }
@@ -317,7 +317,7 @@
                     ],
                     order: [[6, 'dsc']],
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
                     }
                 });
             });
@@ -356,7 +356,7 @@
                  class="bi bi-file-earmark" viewBox="0 0 16 16">
                 <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
             </svg>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager
+            <fmt:message key="dms.documentReport.msgDocuments"/> Manager
         </h2>
 
         <% if (module.equals("demographic")) { %>
@@ -409,22 +409,22 @@
 
                                 <% if (i == 0) {%>
                                 <div class="form-group">
-                                        <%--      <label for="viewstatus"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
+                                        <%--      <label for="viewstatus"><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
                                     <select class="form-control" id="viewstatus" name="viewstatus"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
                                         <option value="all"
-                                                <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAll"/></option>
+                                                <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:message key="dms.documentReport.msgAll"/></option>
                                         <option value="deleted"
                                                 <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDeleted"/></option>
+                                            <fmt:message key="dms.documentReport.msgDeleted"/></option>
                                         <option value="active"
                                                 <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgPublished"/></option>
+                                            <fmt:message key="dms.documentReport.msgPublished"/></option>
                                     </select>
                                 </div>
                                 <%}%>
                                 <div class="form-group">
-                                        <%--          <label for="view"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgView"/></label>--%>
+                                        <%--          <label for="view"><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
                                             class="input-medium form-control"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
@@ -443,7 +443,7 @@
                                 <div class="form-group">
                                     <a class="btn btn-link form-control"
                                         href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>
+                                        <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
                                 <%}%>
@@ -460,25 +460,25 @@
                                            onclick="selectAll('pdfCheck<%=i%>','privateDocsDiv', 'tightCheckbox<%=i%>');"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgContent"/>
+                                    <fmt:message key="dms.documentReport.msgContent"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocDesc"/>
+                                    <fmt:message key="dms.documentReport.msgDocDesc"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>
+                                    <fmt:message key="dms.documentReport.msgType"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgCreator"/>
+                                    <fmt:message key="dms.documentReport.msgCreator"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgResponsible"/>
+                                    <fmt:message key="dms.documentReport.msgResponsible"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.observationDate"/>
+                                    <fmt:message key="dms.documentReport.observationDate"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDate"/>
+                                    <fmt:message key="dms.documentReport.msgDate"/>
                                 </th>
 
                                 <th>&nbsp;</th>
@@ -564,7 +564,7 @@
                                                     if (curdoc.getStatus() == 'D') { %>
                                         <a href="documentReport.jsp?undelDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&viewstatus=<%=Encode.forUriComponent(viewstatus)%>"
                                            class="btn btn-link" style="padding:0;"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>">
+                                           title="<fmt:message key="dms.documentReport.btnUnDelete"/>">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-arrow-counterclockwise"
                                                  viewBox="0 0 16 16">
@@ -592,7 +592,7 @@
                                                            objectName="_admin,_admin.edocdelete" rights="r">
                                             <% if (curdoc.getStatus() == 'D') {%>
                                             <a href="documentReport.jsp?undelDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&viewstatus=<%=Encode.forUriComponent(viewstatus)%>"
-                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>"
+                                               title="<fmt:message key="dms.documentReport.btnUnDelete"/>"
                                                class="btn btn-link" style="padding:0;">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                      fill="currentColor" class="bi bi-arrow-counterclockwise"
@@ -621,7 +621,7 @@
                                             if (curdoc.getStatus() == 'H') { %>
                                         <a href="javascript:void(0)"
                                            onclick="popup1(450, 600, 'addedithtmldocument.jsp?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
+                                           title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-pencil-square"
@@ -634,7 +634,7 @@
                                         <%} else {%>
                                         <a href="javascript:void(0)"
                                            onclick="popup1(350, 500, 'editDocument.jsp?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
+                                           title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-pencil-square"
@@ -691,7 +691,7 @@
                 <input type="button" name="Button" class="btn btn-primary"
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnCombinePDF"/>" class="btn"
+                <input type="button" value="<fmt:message key="dms.documentReport.btnCombinePDF"/>" class="btn"
                        onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs.do"/>');"/>
             </div>
 

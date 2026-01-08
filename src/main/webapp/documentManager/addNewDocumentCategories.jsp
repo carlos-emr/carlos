@@ -49,13 +49,13 @@
         }
     </script>
     <!-- <title>Add New Document Type</title> -->
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAddNewDocumentType"/></title>
+    <title><fmt:message key="dms.documentReport.msgAddNewDocumentType"/></title>
 </head>
 <body>
 <div>
     <% Iterator iter = doctypeerrors.keySet().iterator();
         while (iter.hasNext()) {%>
-    <font class="warning">Error: <fmt:setBundle basename="oscarResources"/><fmt:message key="<%= doctypeerrors.get(iter.next())%>"/></font><br/>
+    <font class="warning">Error: <fmt:message key="<%= doctypeerrors.get(iter.next())%>"/></font><br/>
     <% } %>
 </div>
 
@@ -66,7 +66,7 @@
             <table class="TopStatusBar">
                 <tr>
                     <!--                             <td>Add New Document Type</td> -->
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.msgAddDocument"/></td>
+                    <td><fmt:message key="dms.documentEdit.msgAddDocument"/></td>
 
                 </tr>
             </table>
@@ -78,24 +78,24 @@
         <table>
             <tr>
                 <!-- 		<td><b>Select module name: </b></td> -->
-                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.msgSelectModuleName"/></b></td>
+                <td><b><fmt:message key="dms.documentEdit.msgSelectModuleName"/></b></td>
 
                 <td>
                     <input <% if (doctypeerrors.containsKey("modulemissing")) {%>
                         <%-- 				class="warning" <%}%> id="function" type="radio" name="function" value="Demographic"> Demographic</td> --%>
                             class="warning" <%}%> id="function" type="radio" name="function" value="Demographic">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></td>
+                    <fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></td>
 
                 <td>
                     <input <% if (doctypeerrors.containsKey("modulemissing")) {%>
                         <%-- 				class="warning" <%}%> id="function" type="radio" name="function" value="Provider"> Provider</td> --%>
                             class="warning" <%}%> id="function" type="radio" name="function" value="Provider">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgProvider"/></td>
+                    <fmt:message key="oscarReport.RptByExample.MsgProvider"/></td>
 
             </tr>
 
             <tr>
-                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgEnterDocumentType"/> </b></td>
+                <td><b><fmt:message key="dms.documentReport.msgEnterDocumentType"/> </b></td>
                 <td>
                     <input <% if (doctypeerrors.containsKey("doctypemissing")) {%>
                             class="warning" <%}%> id="docType" type="text" name="docType" value=""> <br></td>

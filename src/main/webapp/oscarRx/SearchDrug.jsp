@@ -123,7 +123,7 @@
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></title>
+        <title><fmt:message key="SearchDrug.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -272,33 +272,33 @@
                        width="100%" height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><b><fmt:message key="SearchDrug.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></div>
+                            <div class="DivContentTitle"><fmt:message key="SearchDrug.title"/></div>
                         </td>
                     </tr>
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.section1Title"/></div>
+                            <div class="DivContentSectionHead"><fmt:message key="SearchDrug.section1Title"/></div>
                         </td>
                     </tr>
                     <tr>
                         <td>
                             <table>
                                 <tr>
-                                    <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/></b>
+                                    <td><b><fmt:message key="SearchDrug.nameText"/></b>
                                         ${patient.firstName} ${patient.surname}
                                     </td>
                                     <td></td>
-                                    <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.ageText"/></b>
+                                    <td><b><fmt:message key="SearchDrug.ageText"/></b>
                                         ${patient.age}
                                     </td>
                                     <td></td>
-                                    <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.PreferedPharmacy"/> :</b> <a
+                                    <td><b><fmt:message key="SearchDrug.PreferedPharmacy"/> :</b> <a
                                             href="javascript: function myFunction() {return false; }"
                                             onClick="showpic('Layer1');" id="Calcs"><%=prefPharmacy%>
                                     </a></td>
@@ -310,9 +310,9 @@
 
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.section2Title"/> (<a
-                                    href="javascript:popupWindow(720,700,'oscarRx/PrintDrugProfile.jsp','PrintDrugProfile')"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Print"/></a>) &nbsp;&nbsp;(<a href="#"
-                                                                                  onclick="$('reprint').toggle();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>)
+                            <div class="DivContentSectionHead"><fmt:message key="SearchDrug.section2Title"/> (<a
+                                    href="javascript:popupWindow(720,700,'oscarRx/PrintDrugProfile.jsp','PrintDrugProfile')"><fmt:message key="SearchDrug.Print"/></a>) &nbsp;&nbsp;(<a href="#"
+                                                                                  onclick="$('reprint').toggle();return false;"><fmt:message key="SearchDrug.Reprint"/></a>)
                             </div>
                         </td>
                     </tr>
@@ -361,16 +361,16 @@
                                             <table width="100%" cellpadding="3">
                                                 <tr>
                                                     <th align="left"><b>Rx Date</b></th>
-                                                    <th align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgPrescription"/></b></th>
-                                                    <th align="center" width="100px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/></b></th>
-                                                    <th align="center" width="100px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDelete"/></b></th>
+                                                    <th align="left"><b><fmt:message key="SearchDrug.msgPrescription"/></b></th>
+                                                    <th align="center" width="100px"><b><fmt:message key="SearchDrug.msgReprescribe"/></b></th>
+                                                    <th align="center" width="100px"><b><fmt:message key="SearchDrug.msgDelete"/></b></th>
                                                     <th align="center" width="20px">&nbsp;</th>
                                                     <%
                                                         boolean integratorEnabled = loggedInInfo.getCurrentFacility().isIntegratorEnabled();
 
                                                         if (integratorEnabled) {
                                                     %>
-                                                    <td align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgLocationPrescribed"/></td>
+                                                    <td align="center"><fmt:message key="SearchDrug.msgLocationPrescribed"/></td>
                                                     <%
                                                         }
                                                     %>
@@ -479,28 +479,28 @@
                                                         <%
                                                             String show = "&show=all";
                                                             if (showall) {
-                                                        %> <a href="oscarRx/SearchDrug.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgShowCurrent"/></a> <%
+                                                        %> <a href="oscarRx/SearchDrug.jsp"><fmt:message key="SearchDrug.msgShowCurrent"/></a> <%
                                                     } else {
                                                         show = "";
-                                                    %> <a href="oscarRx/SearchDrug.jsp?show=all"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgShowAll"/></a> <%
+                                                    %> <a href="oscarRx/SearchDrug.jsp?show=all"><fmt:message key="SearchDrug.msgShowAll"/></a> <%
                                                         }
                                                     %> &nbsp;&nbsp;&nbsp; <a
-                                                            href="oscarRx/SearchDrug.jsp?status=active<%=show%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgActive"/></a> - <a
-                                                            href="oscarRx/SearchDrug.jsp?status=inactive<%=show%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgInactive"/></a> - <a
-                                                            href="oscarRx/SearchDrug.jsp?status=all<%=show%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgAll"/></a></td>
+                                                            href="oscarRx/SearchDrug.jsp?status=active<%=show%>"><fmt:message key="SearchDrug.msgActive"/></a> - <a
+                                                            href="oscarRx/SearchDrug.jsp?status=inactive<%=show%>"><fmt:message key="SearchDrug.msgInactive"/></a> - <a
+                                                            href="oscarRx/SearchDrug.jsp?status=all<%=show%>"><fmt:message key="SearchDrug.msgAll"/></a></td>
                                                     <td align="right">
                                                                     <span style="width: 350px; align: right">
                                                                        <input type="button" name="cmdAllergies"
-                                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgViewEditAllergies"/>"
+                                                                              value="<fmt:message key="SearchDrug.msgViewEditAllergies"/>"
                                                                               class="ControlPushButton"
                                                                               onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
                                                                               style="width: 100px"/>
 								       <input type="button" name="cmdRePrescribe"
-                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/>"
+                                              value="<fmt:message key="SearchDrug.msgReprescribe"/>"
                                               class="ControlPushButton" onclick="javascript:RePrescribe();"
                                               style="width: 100px"/>
                                                                        <input type="button" name="cmdDelete"
-                                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDelete"/>"
+                                                                              value="<fmt:message key="SearchDrug.msgDelete"/>"
                                                                               class="ControlPushButton"
                                                                               onclick="javascript:Delete();"
                                                                               style="width: 100px"/>
@@ -578,7 +578,7 @@
                     </tr>
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.section3Title"/></div>
+                            <div class="DivContentSectionHead"><fmt:message key="SearchDrug.section3Title"/></div>
                         </td>
                     </tr>
 
@@ -589,20 +589,20 @@
                                          value="<%=new Integer(patient.getDemographicNo()).toString()%>"/>
                             <table>
                                 <tr valign="center">
-                                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugSearchTextBox"/><br>
+                                    <td><fmt:message key="SearchDrug.drugSearchTextBox"/><br>
                                         <input type="text" id="searchString" name="searchString" size="16" maxlength="16"/></td>
-                                    <td width="100"><a href="javascript:goDOC();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDrugOfChoice"/></a> <%
+                                    <td width="100"><a href="javascript:goDOC();"><fmt:message key="SearchDrug.msgDrugOfChoice"/></a> <%
                                         if (OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {
-                                    %> <a href="javascript:goOMD();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a> <%
+                                    %> <a href="javascript:goOMD();"><fmt:message key="SearchDrug.msgOMDLookup"/></a> <%
                                         }
                                     %>
                                         <%if (eRxEnabled) {%>
-                                        <a href="<%=eRx_SSO_URL%>User=<%=eRxUsername%>&Password=<%=eRxPassword%>&Clinic=<%=eRxFacility%>&PatientIdPMIS=<%=patient.getDemographicNo()%>&IsTraining=<%=eRxTrainingMode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.eRx.msgExternalPrescriber"/></a>
+                                        <a href="<%=eRx_SSO_URL%>User=<%=eRxUsername%>&Password=<%=eRxPassword%>&Clinic=<%=eRxFacility%>&PatientIdPMIS=<%=patient.getDemographicNo()%>&IsTraining=<%=eRxTrainingMode%>"><fmt:message key="SearchDrug.eRx.msgExternalPrescriber"/></a>
                                         <%}%>
 
                                     </td>
                                     <td><oscar:oscarPropertiesCheck property="drugref_route_search" value="on">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugSearchRouteLabel"/>
+                                        <fmt:message key="SearchDrug.drugSearchRouteLabel"/>
                                         <br>
                                         <%
                                             for (int i = 0; i < d_route.length; i++) {
@@ -617,12 +617,12 @@
                                 </tr>
                                 <tr>
                                     <td colspan="3">
-                                        <input type="submit" name="submit" class="ControlPushButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSearch"/>"/> &nbsp;&nbsp;&nbsp;
+                                        <input type="submit" name="submit" class="ControlPushButton" value="<fmt:message key="SearchDrug.msgSearch"/>"/> &nbsp;&nbsp;&nbsp;
                                         <input type="button" class="ControlPushButton"
                                                onclick="searchString.value='';searchRoute.value='';searchString.focus();"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReset"/>"/>
+                                               value="<fmt:message key="SearchDrug.msgReset"/>"/>
                                         <input type="button" class="ControlPushButton" onclick="customWarning();"
-                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCustomDrug"/>"/></td>
+                                               value="<fmt:message key="SearchDrug.msgCustomDrug"/>"/></td>
                                 </tr>
                             </table>
                         </form></td>
@@ -645,7 +645,7 @@
                                     <input type="hidden" name="stashId" id="stashId"/>
                                 </form>
 
-                                <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.section5Title"/></div>
+                                <div class="DivContentSectionHead"><fmt:message key="WriteScript.section5Title"/></div>
                             </td>
                         </tr>
                         <tr>
@@ -660,11 +660,11 @@
                                     <table cellspacing="0" cellpadding="5">
                                         <c:forEach var="rx" items="${bean.stash}" varStatus="status">
                                             <tr>
-                                                <td><a href="javascript:submitPending(${status.index}, 'edit');"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgEdit"/></a></td>
-                                                <td><a href="javascript:submitPending(${status.index}, 'delete');"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDelete"/></a></td>
+                                                <td><a href="javascript:submitPending(${status.index}, 'edit');"><fmt:message key="SearchDrug.msgEdit"/></a></td>
+                                                <td><a href="javascript:submitPending(${status.index}, 'delete');"><fmt:message key="SearchDrug.msgDelete"/></a></td>
                                                 <td><a href="javascript:submitPending(${status.index}, 'edit');"> <c:out value="${rx.rxDisplay}"/> </a></td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('${rx.genericName}');"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgInfo"/></a></td>
+                                                    <a href="javascript:ShowDrugInfo('${rx.genericName}');"><fmt:message key="SearchDrug.msgInfo"/></a></td>
                                             </tr>
                                         </c:forEach>
                                     </table>
@@ -673,7 +673,7 @@
 
                                 <input type="button" class="ControlPushButton"
                                        onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/viewScript.do';"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveAndPrint"/>"/></td>
+                                       value="<fmt:message key="SearchDrug.msgSaveAndPrint"/>"/></td>
                         </tr>
                     </c:if>
 
@@ -717,63 +717,63 @@
             </tr>
 
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgName"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgName"/></td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getName()%>
                 </td>
             </tr>
 
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgAddress"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgAddress"/></td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getAddress()%>
                 </td>
             </tr>
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgCity"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgCity"/></td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getCity()%>
                 </td>
             </tr>
 
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgProvince"/></td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgProvince"/></td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getProvince()%>
                 </td>
             </tr>
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgPostalCode"/> :</td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgPostalCode"/> :</td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getPostalCode()%>
                 </td>
             </tr>
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgPhone1"/> :</td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgPhone1"/> :</td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getPhone1()%>
                 </td>
             </tr>
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgPhone2"/> :</td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgPhone2"/> :</td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getPhone2()%>
                 </td>
             </tr>
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgFax"/> :</td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgFax"/> :</td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getFax()%>
                 </td>
             </tr>
             <tr class="LightBG">
-                <td class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgEmail"/> :</td>
+                <td class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgEmail"/> :</td>
                 <td class="wcblayerItem">&nbsp;</td>
                 <td><%=pharmacy.getEmail()%>
                 </td>
             </tr>
             <tr class="LightBG">
-                <td colspan="3" class="wcblayerTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.pharmacy.msgNotes"/> :</td>
+                <td colspan="3" class="wcblayerTitle"><fmt:message key="SearchDrug.pharmacy.msgNotes"/> :</td>
             </tr>
             <tr class="LightBG">
                 <td colspan="3"><%=pharmacy.getNotes()%>

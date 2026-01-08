@@ -92,5 +92,5 @@
 
     } else {
 %>
-<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentGetFile.msgFileNotfound"/>
+<fmt:message key="dms.documentGetFile.msgFileNotfound"/>
 <%}%>

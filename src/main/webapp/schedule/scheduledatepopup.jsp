@@ -62,7 +62,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.title"/></title>
+        <title><fmt:message key="schedule.scheduledatepopup.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
 
         <script language="JavaScript">
@@ -91,7 +91,7 @@
                     <table width="95%" border="0" cellspacing="0" cellpadding="5">
                         <tr>
                             <td bgcolor="#CCFFCC">
-                                <p align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formDate"/>:</p>
+                                <p align="right"><fmt:message key="schedule.scheduledatepopup.formDate"/>:</p>
                             </td>
                             <td bgcolor="#CCFFCC"><%=year%>-<%=month%>-<%=day%>
                             </td>
@@ -100,17 +100,17 @@
                         </tr>
                         <tr>
                             <td>
-                                <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formAvailable"/>:
+                                <div align="right"><fmt:message key="schedule.scheduledatepopup.formAvailable"/>:
                                 </div>
                             </td>
                             <td><input type="radio" name="available" value="1"
-                                    <%=available.equals("checked")?"checked":""%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formAvailableYes"/> <input
+                                    <%=available.equals("checked")?"checked":""%>> <fmt:message key="schedule.scheduledatepopup.formAvailableYes"/> <input
                                     type="radio" name="available" value="0"
-                                    <%=available.equals("checked")?"":"checked"%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formAvailableNo"/></td>
+                                    <%=available.equals("checked")?"":"checked"%>> <fmt:message key="schedule.scheduledatepopup.formAvailableNo"/></td>
                         </tr>
                         <tr>
                             <td>
-                                <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formTemplate"/>:
+                                <div align="right"><fmt:message key="schedule.scheduledatepopup.formTemplate"/>:
                                 </div>
                             </td>
                             <td><!--input type="text" name="hour1" <%=strHour%> --> <select
@@ -175,7 +175,7 @@
                         <!--  input type="hidden" name="reason" <%--=strReason--%> -->
                         <tr>
                             <td>
-                                <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formCreator"/>:
+                                <div align="right"><fmt:message key="schedule.scheduledatepopup.formCreator"/>:
                                 </div>
                             </td>
                             <td><%=strCreator%>
@@ -195,12 +195,12 @@
                                     <input type="hidden" name="provider_no"
                                            value="<%=request.getParameter("provider_no")%>"> <input
                                             type="button"
-                                            value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.btnSave"/>'
+                                            value='<fmt:message key="schedule.scheduledatepopup.btnSave"/>'
                                             onclick="document.forms['schedule'].Submit.value=' Save '; document.forms['schedule'].submit();">
                                     <input type="button" name="Button"
-                                           value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.btnCancel"/>'
+                                           value='<fmt:message key="schedule.scheduledatepopup.btnCancel"/>'
                                            onClick="window.close()"> <input type="button"
-                                                                            value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.btnDelete"/>'
+                                                                            value='<fmt:message key="schedule.scheduledatepopup.btnDelete"/>'
                                                                             onclick="document.forms['schedule'].Submit.value=' Delete '; document.forms['schedule'].submit();">
                                 </div>
                             </td>

@@ -31,12 +31,12 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.error.title"/></title>
+        <title><fmt:message key="oscarEncounter.error.title"/></title>
     </head>
     <body style="width: 600px">
-    <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.error.msgExpired"/></h2>
-    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.error.msgSessionFailed"/>
+    <h2><fmt:message key="oscarEncounter.error.msgExpired"/></h2>
+    <p><fmt:message key="oscarEncounter.error.msgSessionFailed"/>
     <p><input type="button"
-              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>" onclick="window.close();">
+              value="<fmt:message key="global.btnClose"/>" onclick="window.close();">
     </body>
 </html>

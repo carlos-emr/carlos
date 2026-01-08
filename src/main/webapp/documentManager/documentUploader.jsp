@@ -69,7 +69,7 @@
 <head>
     <meta charset="utf-8">
 
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title"/></title>
+    <title><fmt:message key="inboxmanager.document.title"/></title>
     <link rel="stylesheet" href="<%=context%>/css/cupertino/jquery-ui-1.8.18.custom.css" id="theme">
     <link rel="stylesheet" href="<%=resourcePath%>jquery.fileupload-ui.css">
     <link rel="stylesheet" href="<%=resourcePath%>style.css">
@@ -141,11 +141,11 @@
                                 <input type="hidden" id="destination" name="destination" value="<%=destination%>"/>
                                 <input type="hidden" id="destFolder" name="destFolder" value="<%=destFolder%>"/>
                                 <label style="font-family:Arial; font-weight:normal; font-size:12px"
-                                       for="destinationDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.destination"/>:</label>
+                                       for="destinationDrop" class="fields"><fmt:message key="dms.documentUploader.destination"/>:</label>
                                 <select onchange="javascript:setDestination(this);" id="destinationDrop"
                                         name="destinationDrop">
-                                    <option value="pendingDocs" <%=(destination.equals("pendingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.pendingDocs"/></option>
-                                    <option value="incomingDocs" <%=(destination.equals("incomingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.incomingDocs"/></option>
+                                    <option value="pendingDocs" <%=(destination.equals("pendingDocs") ? " selected" : "")%> ><fmt:message key="inboxmanager.document.pendingDocs"/></option>
+                                    <option value="incomingDocs" <%=(destination.equals("incomingDocs") ? " selected" : "")%> ><fmt:message key="inboxmanager.document.incomingDocs"/></option>
                                 </select><br>
 
                                 <div id="providerDropDiv">
@@ -181,12 +181,12 @@
 			</span>
             <div id="destFolderDiv">
                 <label style="font-family:Arial; font-weight:normal; font-size:12px" for="destinationDrop"
-                       class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.folder"/>:</label>
+                       class="fields"><fmt:message key="dms.documentUploader.folder"/>:</label>
                 <select onchange="javascript:setDestFolder(this);" id="destFolderDrop" name="destFolderDrop">
-                    <option value="Fax" <%=(destFolder.equals("Fax") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax"/></option>
-                    <option value="Mail" <%=(destFolder.equals("Mail") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail"/></option>
-                    <option value="File" <%=(destFolder.equals("File") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file"/></option>
-                    <option value="Refile" <%=(destFolder.equals("Refile") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.refile"/></option>
+                    <option value="Fax" <%=(destFolder.equals("Fax") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.fax"/></option>
+                    <option value="Mail" <%=(destFolder.equals("Mail") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.mail"/></option>
+                    <option value="File" <%=(destFolder.equals("File") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.file"/></option>
+                    <option value="Refile" <%=(destFolder.equals("Refile") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.refile"/></option>
                 </select>
             </div>
         </div>

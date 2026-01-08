@@ -111,7 +111,7 @@
                     <tr>
                         <td><%--fmt:message
 					key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.msgCheckOff" /--%><br>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditDepartments.msgClickOn"/><br>
+                            <fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditDepartments.msgClickOn"/><br>
 
 
                         </td>
@@ -120,7 +120,7 @@
                         <td>
                             <form action="${pageContext.request.contextPath}/oscarEncounter/EditDepartments.do" method="post">
                                 <%-- input type="submit" name="delete"
-                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"/>"--%>
+                                    value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"/>"--%>
                             <div class="ChooseRecipientsBox1">
                                 <table>
                                     <tr>

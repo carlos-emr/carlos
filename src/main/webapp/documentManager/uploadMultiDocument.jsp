@@ -128,7 +128,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.title"/></title>
+        <title><fmt:message key="dms.documentReport.title"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -227,7 +227,7 @@
 
             function checkDelete(url, docDescription) {
                 // revision Apr 05 2004 - we now allow anyone to delete documents
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
+                if (confirm("<fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
                     window.location = url;
                 }
             }

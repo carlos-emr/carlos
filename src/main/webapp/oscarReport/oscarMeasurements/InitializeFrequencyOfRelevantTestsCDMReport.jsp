@@ -41,7 +41,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgFrequencyOfRelevantTestsBeingPerformed"/>
+        <title><fmt:message key="oscarReport.CDMReport.msgFrequencyOfRelevantTestsBeingPerformed"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -100,15 +100,15 @@
     <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport.do" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgTitle"/>: <c:out value="${CDMGroup}"/></td>
+                            <td><fmt:message key="oscarReport.CDMReport.msgTitle"/>: <c:out value="${CDMGroup}"/></td>
                             <td></td>
                             <td style="text-align: right"><a
-                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                    href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                    href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -121,12 +121,12 @@
                             <td>
                                 <table>
                                     <tr>
-                                        <td class="nameBox" colspan='4'><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgNumberOfPatientsSeen"/></td>
+                                        <td class="nameBox" colspan='4'><fmt:message key="oscarReport.CDMReport.msgNumberOfPatientsSeen"/></td>
                                     </tr>
                                     <tr>
                                         <th align="left" class="subTitles" width="2"></th>
-                                        <th align="left" class="subTitles" width="120"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgStartDate"/></th>
-                                        <th align="left" class="subTitles" width="120"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgEndDate"/></th>
+                                        <th align="left" class="subTitles" width="120"><fmt:message key="oscarReport.CDMReport.msgStartDate"/></th>
+                                        <th align="left" class="subTitles" width="120"><fmt:message key="oscarReport.CDMReport.msgEndDate"/></th>
                                         <th align="left" class="subTitles" width="650"></th>
                                     </tr>
                                     <tr>
@@ -163,19 +163,19 @@
                                     <tr>
                                         <td>
                                     <tr>
-                                        <td class="nameBox" colspan='9'><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgFrequencyOfRelevantTestsBeingPerformed"/>
+                                        <td class="nameBox" colspan='9'><fmt:message key="oscarReport.CDMReport.msgFrequencyOfRelevantTestsBeingPerformed"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th align="left" class="subTitles" width="2"></th>
-                                        <th align="left" class="subTitles" width="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgTest"/></th>
-                                        <th align="left" class="subTitles" width="200"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgTestDescription"/></th>
-                                        <th align="left" class="subTitles" width="200"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgMeasuringInstruction"/></th>
-                                        <th align="left" class="subTitles" width="80"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgExactly"/></th>
-                                        <th align="left" class="subTitles" width="80"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgMoreThan"/></th>
-                                        <th align="left" class="subTitles" width="80"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgLessThan"/></th>
-                                        <th align="left" class="subTitles" width="120"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgStartDate"/></th>
-                                        <th align="left" class="subTitles" width="120"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgEndDate"/></th>
+                                        <th align="left" class="subTitles" width="4"><fmt:message key="oscarReport.CDMReport.msgTest"/></th>
+                                        <th align="left" class="subTitles" width="200"><fmt:message key="oscarReport.CDMReport.msgTestDescription"/></th>
+                                        <th align="left" class="subTitles" width="200"><fmt:message key="oscarReport.CDMReport.msgMeasuringInstruction"/></th>
+                                        <th align="left" class="subTitles" width="80"><fmt:message key="oscarReport.CDMReport.msgExactly"/></th>
+                                        <th align="left" class="subTitles" width="80"><fmt:message key="oscarReport.CDMReport.msgMoreThan"/></th>
+                                        <th align="left" class="subTitles" width="80"><fmt:message key="oscarReport.CDMReport.msgLessThan"/></th>
+                                        <th align="left" class="subTitles" width="120"><fmt:message key="oscarReport.CDMReport.msgStartDate"/></th>
+                                        <th align="left" class="subTitles" width="120"><fmt:message key="oscarReport.CDMReport.msgEndDate"/></th>
                                     </tr>
                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
                                     <tr>
@@ -241,7 +241,7 @@
                 <table>
                     <tr>
                         <td align="left"><input type="submit" name="submitBtn"
-                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.btnGenerateReport"/>"/>
+                                                value="<fmt:message key="oscarReport.CDMReport.btnGenerateReport"/>"/>
                         </td>
                     </tr>
                 </table>

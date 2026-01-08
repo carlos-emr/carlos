@@ -71,7 +71,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.title"/></title>
+        <title><fmt:message key="report.reportnewdblist.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css">
         <script language="JavaScript">
             <!--
@@ -84,13 +84,13 @@
 
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="<%=deepcolor%>">
-            <th><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgEDDList"/></font></th>
+            <th><font face="Helvetica"><fmt:message key="report.reportnewdblist.msgEDDList"/></font></th>
         </tr>
         <tr>
             <td align="right"><input type="button" name="Button"
-                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>"
+                                     value="<fmt:message key="global.btnPrint"/>"
                                      onClick="window.print()"> <input type="button" name="Button"
-                                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                                                                      value="<fmt:message key="global.btnCancel"/>"
                                                                       onClick="window.close()">
                 </th>
         </tr>
@@ -100,15 +100,15 @@
         <table width="100%" border="0" bgcolor="silver" cellspacing="2"
                cellpadding="2">
             <tr bgcolor='<%=deepcolor%>'>
-                <TH align="center" width="6%" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgEDD"/></b></TH>
-                <TH align="center" width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgName"/> </b></TH>
+                <TH align="center" width="6%" nowrap><b><fmt:message key="report.reportnewdblist.msgEDD"/></b></TH>
+                <TH align="center" width="20%"><b><fmt:message key="report.reportnewdblist.msgName"/> </b></TH>
                 <!--TH align="center" width="20%"><b>Demog' No </b></TH-->
-                <TH align="center" width="9%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgDOB"/></b></TH>
+                <TH align="center" width="9%"><b><fmt:message key="report.reportnewdblist.msgDOB"/></b></TH>
                 <TH align="center" width="5%"><b>G</b><font size="-2">ravida</font></TH>
-                <TH align="center" width="5%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgTerm"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgPhone"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msLanguage"/></b></TH>
-                <TH align="center" width="8%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msPHN"/></b></TH>
+                <TH align="center" width="5%"><b><fmt:message key="report.reportnewdblist.msgTerm"/></b></TH>
+                <TH align="center" width="10%"><b><fmt:message key="report.reportnewdblist.msgPhone"/></b></TH>
+                <TH align="center" width="10%"><b><fmt:message key="report.reportnewdblist.msLanguage"/></b></TH>
+                <TH align="center" width="8%"><b><fmt:message key="report.reportnewdblist.msPHN"/></b></TH>
                 <TH align="center" width="20%"><b>Doula</b></TH>
                 <TH align="center"><b>Doula#</b></TH>
             </tr>
@@ -180,12 +180,12 @@
   nLastPage=Integer.parseInt(strLimit1)-Integer.parseInt(strLimit2);
   if(nLastPage>=0) {
 %> <a
-            href="reportbcedblist.jsp?startDate=<%=request.getParameter("startDate")%>&endDate=<%=request.getParameter("endDate")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgLastPage"/></a> | <%
+            href="reportbcedblist.jsp?startDate=<%=request.getParameter("startDate")%>&endDate=<%=request.getParameter("endDate")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:message key="report.reportnewdblist.msgLastPage"/></a> | <%
   }
   if(nItems==Integer.parseInt(strLimit2)) {
 %> <a
             href="reportbcedblist.jsp?startDate=<%=request.getParameter("startDate")%>&endDate=<%=request.getParameter("endDate")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportnewdblist.msgNextPage"/></a> <%
+        <fmt:message key="report.reportnewdblist.msgNextPage"/></a> <%
 }
 %>
 

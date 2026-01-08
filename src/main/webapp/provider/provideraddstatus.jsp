@@ -72,7 +72,7 @@
     } else {
 %>
 <p>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="AddProviderStatus.msgAddFailure"/></h1>
+<h1><fmt:message key="AddProviderStatus.msgAddFailure"/></h1>
 
 <%
     }

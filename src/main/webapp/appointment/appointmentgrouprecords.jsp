@@ -294,7 +294,7 @@
 
         if (bSucc) {
 %>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
 <script LANGUAGE="JavaScript">
     self.opener.refresh();
     self.close();
@@ -303,7 +303,7 @@
 } else {
 %>
 <p>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
 
 <%
         }
@@ -313,7 +313,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
+        <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <script language="JavaScript">
             <!--
 
@@ -365,7 +365,7 @@
             }
 
             function onExit() {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
+                if (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
                     window.close()
                 }
             }
@@ -378,7 +378,7 @@
 
             function onSub() {
                 if (saveTemp == 1) {
-                    return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
+                    return (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
                 }
             }
 
@@ -396,30 +396,30 @@
                 <TD>
                     <% if (bEdit) { %> <INPUT TYPE="button"
                                               onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                                              VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
                     <INPUT TYPE="button"
                            onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
                     <INPUT TYPE="button"
                            onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
+                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
                            onClick="onButDelete()"> <% } else { %> <INPUT
                         TYPE="button"
                         onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                        VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
                     <% } %>
                 </TD>
                 <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
+                                         VALUE=" <fmt:message key="global.btnBack"/> "
                                          onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
+                        TYPE="button" VALUE=" <fmt:message key="global.btnExit"/> "
                         onClick="onExit()"></TD>
             </tr>
         </table>
 
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="<%=deepcolor%>">
-                <th><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgLabel"/></font></th>
+                <th><font face="Helvetica"><fmt:message key="appointment.appointmentgrouprecords.msgLabel"/></font></th>
             </tr>
         </table>
 
@@ -508,10 +508,10 @@
         <table BORDER="0" CELLPADDING="2" CELLSPACING="2" WIDTH="100%"
                BGCOLOR="white">
             <tr BGCOLOR="<%=tableTitle%>">
-                <th width=30% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgProviderName"/></th>
-                <th width=11% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgFirstAppointment"/></th>
-                <th width=11% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgSecondAppointment"/></th>
-                <th width=48% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExistedAppointment"/></th>
+                <th width=30% nowrap><fmt:message key="appointment.appointmentgrouprecords.msgProviderName"/></th>
+                <th width=11% nowrap><fmt:message key="appointment.appointmentgrouprecords.msgFirstAppointment"/></th>
+                <th width=11% nowrap><fmt:message key="appointment.appointmentgrouprecords.msgSecondAppointment"/></th>
+                <th width=48% nowrap><fmt:message key="appointment.appointmentgrouprecords.msgExistedAppointment"/></th>
             </tr>
             <%
 
@@ -588,23 +588,23 @@
                 <TD>
                     <% if (bEdit) { %> <INPUT TYPE="button"
                                               onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                                              VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
                     <INPUT TYPE="button"
                            onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
                     <INPUT TYPE="button"
                            onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
+                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
                            onClick="onButDelete()"> <% } else { %> <INPUT
                         TYPE="button"
                         onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                        VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
                     <% } %>
                 </TD>
                 <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
+                                         VALUE=" <fmt:message key="global.btnBack"/> "
                                          onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
+                        TYPE="button" VALUE=" <fmt:message key="global.btnExit"/> "
                         onClick="onExit()"></TD>
             </tr>
         </table>

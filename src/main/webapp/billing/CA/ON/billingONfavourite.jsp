@@ -422,10 +422,10 @@
                 <td style="text-align:center" class="myGreen" colspan="2"><input
                         type="hidden" name="action" value='<%=action%>'> <input
                         type="submit" name="submit" class="btn btn-primary"
-                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                        value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input class="btn" type="button"
                                                                       name="Cancel"
-                                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
+                                                                      value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
                                                                       onClick="window.close()"></td>
             </tr>
         </table>

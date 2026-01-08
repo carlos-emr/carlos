@@ -57,7 +57,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.title"/></title>
+        <title><fmt:message key="dms.documentReport.title"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -123,7 +123,7 @@
                 if (aBoxIsChecked) {
                     popupStart(300, 400, 'SelectProvider.jsp', 'providerselect');
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgSelectOneLab"/>");
+                    alert("<fmt:message key="oscarMDS.index.msgSelectOneLab"/>");
                 }
             }
 
@@ -200,17 +200,17 @@
 
                                     </tr>
                                     <tr>
-                                        <th width="30%"><b><a style="color:black;"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocDesc"/></a></b></th>
+                                        <th width="30%"><b><a style="color:black;"><fmt:message key="dms.documentReport.msgDocDesc"/></a></b></th>
                                         <th width="8%"><b><a style="color:black;">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgContent"/></a></b></th>
+                                            <fmt:message key="dms.documentReport.msgContent"/></a></b></th>
                                         <th width="8%"><b><a style="color:black;">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/></a></b></th>
-                                        <th width="12%"><b><a style="color:black;"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgCreator"/></a></b></th>
+                                            <fmt:message key="dms.documentReport.msgType"/></a></b></th>
+                                        <th width="12%"><b><a style="color:black;"><fmt:message key="dms.documentReport.msgCreator"/></a></b></th>
                                         <th width="12%"><b><a style="color:black;">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgResponsible"/></a></b></th>
+                                            <fmt:message key="dms.documentReport.msgResponsible"/></a></b></th>
                                         <th width="10%"><a style="color:black;"
-                                                           title="Observation Date"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDate"/></b></a></th>
-                                        <th width="12%"><a style="color:black;"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgReviewer"/></b></a></th>
+                                                           title="Observation Date"><b><fmt:message key="dms.documentReport.msgDate"/></b></a></th>
+                                        <th width="12%"><a style="color:black;"><b><fmt:message key="dms.documentReport.msgReviewer"/></b></a></th>
                                     </tr>
 
                                     <%
@@ -257,7 +257,7 @@
                                         if (category.size() == 0) {
                                     %>
                                     <tr>
-                                        <td colspan="6"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgNoDocumentsToDisplay"/></td>
+                                        <td colspan="6"><fmt:message key="dms.documentReport.msgNoDocumentsToDisplay"/></td>
                                     </tr>
                                     <%}%>
                                 </table>
@@ -279,11 +279,11 @@
                 <th align="center" colspan="5"><%=demoName%>'s Labs</th>
             </tr>
             <tr>
-                <th align="left" valign="bottom" class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgDiscipline"/></th>
-                <th align="left" valign="bottom" class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgDateTest"/></th>
-                <th align="left" valign="bottom" class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgRequestingClient"/></th>
-                <th align="left" valign="bottom" class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgResultStatus"/></th>
-                <th align="left" valign="bottom" class="cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgReportStatus"/></th>
+                <th align="left" valign="bottom" class="cell"><fmt:message key="oscarMDS.index.msgDiscipline"/></th>
+                <th align="left" valign="bottom" class="cell"><fmt:message key="oscarMDS.index.msgDateTest"/></th>
+                <th align="left" valign="bottom" class="cell"><fmt:message key="oscarMDS.index.msgRequestingClient"/></th>
+                <th align="left" valign="bottom" class="cell"><fmt:message key="oscarMDS.index.msgResultStatus"/></th>
+                <th align="left" valign="bottom" class="cell"><fmt:message key="oscarMDS.index.msgReportStatus"/></th>
             </tr>
 
             <%
@@ -336,7 +336,7 @@
 
                 if (endIndex == 0) { %>
             <tr>
-                <td colspan="9" align="center"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNoReports"/></i></td>
+                <td colspan="9" align="center"><i><fmt:message key="oscarMDS.index.msgNoReports"/></i></td>
             </tr>
             <% } %>
         </table>

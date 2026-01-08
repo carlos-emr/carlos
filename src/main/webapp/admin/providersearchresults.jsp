@@ -51,7 +51,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.title"/></title>
+        <title><fmt:message key="admin.providersearchresults.title"/></title>
         <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
               rel="stylesheet">
@@ -79,7 +79,7 @@
             jQuery(document).ready(function () {
                 jQuery('#tblResults').DataTable({
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
                     }
                 });
             });
@@ -115,44 +115,44 @@
     <body onLoad="setfocus()">
 
     <h4>
-        <i class="icon-search" title="Patient Search"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.description"/></h4>
+        <i class="icon-search" title="Patient Search"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
 
     <form method="post" action="providersearchresults.jsp" name="searchprovider" onsubmit="return onsub()">
         <div class="well">
             <table style="width:100%">
                 <tr>
                     <td rowspan="2" style="text-align:right; vertical-align:middle">
-                        <b class="blue-text"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.formSearchCriteria"/></i>
+                        <b class="blue-text"><i><fmt:message key="admin.search.formSearchCriteria"/></i>
                     </td>
                     <td style="white-space: nowrap;">
                         <input type="radio" <%=searchMode.equals("search_name")?"checked":""%> name="search_mode"
                                value="search_name" onclick="document.forms['searchprovider'].keyword.focus();">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formLastName"/>
+                        <fmt:message key="admin.providersearch.formLastName"/>
                     </td>
                     <td style="white-space: nowrap;">
                         <input type="radio"    <%=searchMode.equals("search_providerno")?"checked":""%>
                                name="search_mode"
                                value="search_providerno" onclick="document.forms['searchprovider'].keyword.focus();">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formProviderNo"/>
+                        <fmt:message key="admin.provider.formProviderNo"/>
                     </td>
                     <td style="white-space: nowrap;">
                         <input type="radio" name="search_status" value="All" <%=searchStatus == null ? "checked" : ""%>>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formAllStatus"/>
+                        <fmt:message key="admin.providersearch.formAllStatus"/>
                         <br/>
                         <input type="radio" name="search_status"
                                value="1" <%="1".equals(searchStatus) ? "checked" : ""%>>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formActiveStatus"/>
+                        <fmt:message key="admin.providersearch.formActiveStatus"/>
                         <br/>
                         <input type="radio" name="search_status"
                                value="0" <%="0".equals(searchStatus) ? "checked" : ""%>>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formInactiveStatus"/>
+                        <fmt:message key="admin.providersearch.formInactiveStatus"/>
                     </td>
                     <td style="vertical-align:middle; text-align:left" rowspan="2">
                         <div class="input-append">
                             <input type="text" name="keyword" class="input input-large" maxlength="100"
                                    style="height:24px">
                             <button type="submit" name="button" class="btn add-on" style="height:24px"><i
-                                    class="icon-search" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.btnSubmit"/>"></i>
+                                    class="icon-search" title="<fmt:message key="admin.search.btnSubmit"/>"></i>
                             </button>
                         </div>
                         <input type="hidden" name="orderby" value="last_name">
@@ -167,7 +167,7 @@
 
     <table>
         <tr>
-            <td style="text-align:left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.keywords"/></i>
+            <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>
                 : <%=Encode.forHtml(keyword)%>
             </td>
         </tr>
@@ -177,21 +177,21 @@
         <thead>
         <tr>
             <th style="text-align:center; width:10%">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.ID"/></th>
+                <fmt:message key="admin.providersearchresults.ID"/></th>
             <th style="text-align:center; width:20%; white-space: nowrap;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formLastName"/>,&nbsp;
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFirstName"/></th>
-            <th style="text-align:center; width:10%"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formProviderNo"/></th>
+                <fmt:message key="admin.provider.formLastName"/>,&nbsp;
+                <fmt:message key="admin.provider.formFirstName"/></th>
+            <th style="text-align:center; width:10%"><fmt:message key="admin.provider.formProviderNo"/></th>
             <th style="text-align:center; width:18%">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSpecialty"/></th>
+                <fmt:message key="admin.provider.formSpecialty"/></th>
             <th style="text-align:center; width:14%">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formTeam"/></th>
+                <fmt:message key="admin.provider.formTeam"/></th>
             <th style="text-align:center; width:4%">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSex"/></th>
+                <fmt:message key="admin.provider.formSex"/></th>
             <th style="text-align:center; width:14%">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.phone"/></th>
+                <fmt:message key="admin.providersearchresults.phone"/></th>
             <th style="text-align:center; width:10%">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formStatus"/></th>
+                <fmt:message key="admin.provider.formStatus"/></th>
         </tr>
         </thead>
         <tbody>
@@ -260,14 +260,14 @@
         String searchStatusQ = (searchStatus != null) ? "&search_status=" + searchStatus : "";
         if (nLastPage >= 0) {
     %> <a
-            href="providersearchresults.jsp?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= searchMode %><%= searchStatusQ %>&orderby=<%=orderBy%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
+            href="providersearchresults.jsp?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= searchMode %><%= searchStatusQ %>&orderby=<%=orderBy%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
     %> <a
-            href="providersearchresults.jsp?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= searchMode %><%= searchStatusQ %>&orderby=<%= orderBy %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
+            href="providersearchresults.jsp?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= searchMode %><%= searchStatusQ %>&orderby=<%= orderBy %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
         }
     %>
-    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.msgClickForEditing"/></p>
+    <p><fmt:message key="admin.providersearchresults.msgClickForEditing"/></p>
     </center>
     </body>
 </html>

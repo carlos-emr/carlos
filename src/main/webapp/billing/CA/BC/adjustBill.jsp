@@ -160,7 +160,7 @@
           title="win2k-cold-1"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -214,7 +214,7 @@
             var page = "" + varpage;
             windowprops = "height=700,width=800,location=no,"
                 + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
-            window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>", windowprops);
+            window.open(page, "<fmt:message key="oscarEncounter.Index.popupPage2Window"/>", windowprops);
         }
 
         var awnd = null;
@@ -550,7 +550,7 @@
                 Patient Name:
                 <a href=#
                    onClick="popupPage2('<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=DemoNo%>&displaymode=edit&dboperation=search_detail');return false;"
-                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
+                   title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
                     <%=Encode.forHtmlContent(DemoName)%>
                 </a>
                 <input type="hidden" name="demo_name" value="<%=Encode.forHtmlAttribute(DemoName)%>">

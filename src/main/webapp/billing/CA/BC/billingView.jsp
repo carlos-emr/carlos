@@ -73,7 +73,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></title>
+    <title><fmt:message key="billing.bc.title"/></title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     <script language="JavaScript">
         <!--
@@ -221,7 +221,7 @@
             <p><font face="Verdana, Arial, Helvetica, sans-serif"
                      color="#FFFFFF"><b><font
                     face="Arial, Helvetica, sans-serif" size="4">oscar<font
-                    size="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></font></font></b></font></p>
+                    size="3"><fmt:message key="billing.bc.title"/></font></font></b></font></p>
         </td>
     </tr>
 </table>
@@ -334,11 +334,11 @@
                     <td valign="top">
                         <table width="100%" border="0" cellspacing="1" cellpadding="1">
                             <tr bgcolor="#EAEAFF">
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.code"/></td>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/></td>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.unit"/></td>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.fee"/></td>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.total"/></td>
+                                <td><fmt:message key="billing.service.code"/></td>
+                                <td><fmt:message key="billing.service.desc"/></td>
+                                <td><fmt:message key="billing.service.unit"/></td>
+                                <td><fmt:message key="billing.service.fee"/></td>
+                                <td><fmt:message key="billing.service.total"/></td>
                             </tr>
                             <% for (int i = 0; i < billItem.size(); i++) { %>
                             <tr>
@@ -372,8 +372,8 @@
                         </table>
                         <table width="100%" border="0" cellspacing="1" cellpadding="1">
                             <tr bgcolor="#EAEAFF">
-                                <td width="10%" height="14"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/></td>
-                                <td width="39%"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.desc"/></td>
+                                <td width="10%" height="14"><fmt:message key="billing.diagnostic.code"/></td>
+                                <td width="39%"><fmt:message key="billing.diagnostic.desc"/></td>
                                 <td width="37%">&nbsp;</td>
                                 <td width="14%">&nbsp;</td>
                             </tr>

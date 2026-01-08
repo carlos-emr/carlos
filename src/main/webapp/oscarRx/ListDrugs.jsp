@@ -203,27 +203,27 @@
     <table width="100%" cellpadding="3" border="0" class="list-drugs sortable" id="Drug_table<%=Encode.forHtmlContent(heading)%>">
         <tr>
             <th align="left"><b>Entered Date</b></th>
-            <th align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgRxDate"/></b></th>
+            <th align="left"><b><fmt:message key="SearchDrug.msgRxDate"/></b></th>
             <th align="left"><b>Days to Exp</b></th>
             <th align="left"><b>LT Med</b></th>
-            <th align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgPrescription"/></b></th>
+            <th align="left"><b><fmt:message key="SearchDrug.msgPrescription"/></b></th>
             <%if (securityManager.hasWriteAccess("_rx", roleName$, true)) {%>
-            <th align="center" width="35px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/></b></th>
+            <th align="center" width="35px"><b><fmt:message key="SearchDrug.msgReprescribe"/></b></th>
             <%if (!OscarProperties.getInstance().getProperty("prescript.delete_drug.hide", "false").equals("true")) {%>
-            <th align="center" width="35px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDelete"/></b></th>
+            <th align="center" width="35px"><b><fmt:message key="SearchDrug.msgDelete"/></b></th>
             <% }
             }
             %>
-            <th align="center" width="35px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDiscontinue"/></b></th>
-            <th align="center" width="35px" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReason_help"/>"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReason"/></b></th>
-            <th align="center" width="35px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgPastMed"/></b></th>
+            <th align="center" width="35px"><b><fmt:message key="SearchDrug.msgDiscontinue"/></b></th>
+            <th align="center" width="35px" title="<fmt:message key="SearchDrug.msgReason_help"/>"><b><fmt:message key="SearchDrug.msgReason"/></b></th>
+            <th align="center" width="35px"><b><fmt:message key="SearchDrug.msgPastMed"/></b></th>
             <%if (securityManager.hasWriteAccess("_rx", roleName$, true)) {%>
             <th align="center" width="15px">&nbsp;</th>
             <% } %>
-            <th align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgLocationPrescribed"/></th>
-            <th align="center" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgHideCPP_help"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgHideCPP"/></th>
+            <th align="center"><fmt:message key="SearchDrug.msgLocationPrescribed"/></th>
+            <th align="center" title="<fmt:message key="SearchDrug.msgHideCPP_help"/>"><fmt:message key="SearchDrug.msgHideCPP"/></th>
             <%if (OscarProperties.getInstance().getProperty("rx.enable_internal_dispensing", "false").equals("true")) {%>
-            <th align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDispense"/></th>
+            <th align="center"><fmt:message key="SearchDrug.msgDispense"/></th>
             <%} %>
             <th align="center"></th>
         </tr>

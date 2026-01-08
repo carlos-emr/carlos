@@ -54,7 +54,7 @@
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.title"/></title>
+        <title><fmt:message key="colcamex.formBPMH.title"/></title>
         <link rel="stylesheet" type="text/css" media="screen"
               href="${ pageContext.request.contextPath }/form/pharmaForms/index.css"/>
         <link rel="stylesheet" type="text/css" media="screen"
@@ -94,7 +94,7 @@
         <input type="hidden" name="formId" id="formId"/>
         <header>
 
-            <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.title"/></h1>
+            <h1><fmt:message key="colcamex.formBPMH.title"/></h1>
 
             <c:set var="controls" value="on" scope="page"/>
 
@@ -102,8 +102,8 @@
 
                 <c:if test="${empty bpmh.provider}">
                     <span class="red">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.preparedby"/>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.error.unknown"/>
+                        <fmt:message key="colcamex.formBPMH.preparedby"/>
+                        <fmt:message key="colcamex.formBPMH.error.unknown"/>
                     </span>
                 </c:if>
 
@@ -111,14 +111,14 @@
                 <c:if test="${not empty bpmh.provider}">
 		
 				<span>	
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.preparedby"/>
+						<fmt:message key="colcamex.formBPMH.preparedby"/>
 						<c:out value="${bpmh.provider.formattedName}"/>
 						<c:choose>
                             <c:when test="${not empty bpmh.provider.ohipNo}">
                                 &#40;<c:out value="${bpmh.provider.ohipNo}"/>&#41;
                             </c:when>
                             <c:otherwise>
-                                &#40;<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.error.unknown"/>&#41;
+                                &#40;<fmt:message key="colcamex.formBPMH.error.unknown"/>&#41;
                             </c:otherwise>
                         </c:choose>
 
@@ -134,12 +134,12 @@
                     <span>
                 </c:if>
 
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.preparedon"/>
+					<fmt:message key="colcamex.formBPMH.preparedon"/>
 					<c:out value="${bpmh.formDateFormatted}"/>
 				</span>
 									
 				<span>				
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.printedon"/>
+					<fmt:message key="colcamex.formBPMH.printedon"/>
 					<c:out value="${bpmh.editDateFormatted}"/>
 				</span>
 
@@ -152,29 +152,29 @@
             <!--  PATIENT  -->
             <table id="patientId">
                 <tr>
-                    <th colspan="6"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.patient"/></th>
+                    <th colspan="6"><fmt:message key="colcamex.formBPMH.patient"/></th>
                 </tr>
                 <tr>
-                    <td rowspan="2" class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.patient.name"/></td>
+                    <td rowspan="2" class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.name"/></td>
                     <td rowspan="2">
                         <c:out value="${bpmh.demographic.fullName}"/>
                     </td>
-                    <td class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.patient.insurance"/></td>
+                    <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.insurance"/></td>
                     <td>
                         <c:out value="${bpmh.demographic.hin}"/>
                     </td>
-                    <td class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.patient.gender"/></td>
+                    <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.gender"/></td>
                     <td>
                         <c:out value="${bpmh.demographic.sex}"/>
                     </td>
                 </tr>
 
                 <tr>
-                    <td class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.patient.dob"/></td>
+                    <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.dob"/></td>
                     <td>
                         <c:out value="${bpmh.demographic.formattedDob}"/>
                     </td>
-                    <td class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.patient.phone"/></td>
+                    <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.phone"/></td>
                     <td>
                         <c:out value="${bpmh.demographic.phone}"/>
                     </td>
@@ -183,7 +183,7 @@
             <table id="allergies">
                 <tr>
                     <td class="columnTitle">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.patient.allergies"/>
+                        <fmt:message key="colcamex.formBPMH.patient.allergies"/>
                     </td>
                     <td>
                         <c:if test="${not empty bpmh.allergiesString}">
@@ -199,10 +199,10 @@
             <input type="hidden" name="bpmh" property="familyDrContactId" id="familyDrContactId"/>
             <table id="providerId">
                 <tr>
-                    <th colspan="7"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.familyDr"/></th>
+                    <th colspan="7"><fmt:message key="colcamex.formBPMH.familyDr"/></th>
                 </tr>
                 <tr>
-                    <td class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.familyDr.name"/></td>
+                    <td class="columnTitle"><fmt:message key="colcamex.formBPMH.familyDr.name"/></td>
                     <td>
                         <c:choose>
                             <c:when test="${empty bpmh.familyDrName}">
@@ -215,7 +215,7 @@
 
                     </td>
 
-                    <td class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.familyDr.phone"/></td>
+                    <td class="columnTitle"><fmt:message key="colcamex.formBPMH.familyDr.phone"/></td>
                     <td>
                         <c:choose>
                             <c:when test="${empty bpmh.familyDrPhone}">
@@ -227,7 +227,7 @@
                         </c:choose>
                     </td>
 
-                    <td class="columnTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.familyDr.fax"/></td>
+                    <td class="columnTitle"><fmt:message key="colcamex.formBPMH.familyDr.fax"/></td>
                     <td>
                         <c:choose>
                             <c:when test="${empty bpmh.familyDrFax}">
@@ -256,32 +256,32 @@
             <table id="drugtable">
 
                 <tr>
-                    <th colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs"/></th>
+                    <th colspan="4"><fmt:message key="colcamex.formBPMH.drugs"/></th>
                 </tr>
                 <tr id="drugtableSubheading">
 
                     <td class="columnTitle">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.what"/><br/>
+                        <fmt:message key="colcamex.formBPMH.drugs.what"/><br/>
                         <span class="smallText">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.what.sub"/>
+							<fmt:message key="colcamex.formBPMH.drugs.what.sub"/>
 						</span>
                     </td>
                     <td class="columnTitle">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.how"/><br/>
+                        <fmt:message key="colcamex.formBPMH.drugs.how"/><br/>
                         <span class="smallText">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.how.sub"/>
+							<fmt:message key="colcamex.formBPMH.drugs.how.sub"/>
 						</span>
                     </td>
                     <td class="columnTitle">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.why"/><br/>
+                        <fmt:message key="colcamex.formBPMH.drugs.why"/><br/>
                         <span class="smallText">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.why.sub"/>
+							<fmt:message key="colcamex.formBPMH.drugs.why.sub"/>
 						</span>
                     </td>
                     <td class="columnTitle">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.instructions"/><br/>
+                        <fmt:message key="colcamex.formBPMH.drugs.instructions"/><br/>
                         <span class="smallText">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.drugs.instructions.sub"/>
+							<fmt:message key="colcamex.formBPMH.drugs.instructions.sub"/>
 						</span>
                     </td>
                 </tr>
@@ -353,7 +353,7 @@
                 <tr>
                     <td>
                         <input type="checkbox" name="confirm" id="confirm" value="checked"/>
-                        <label for="confirm"><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.confirm"/></label>
+                        <label for="confirm"><fmt:message key="colcamex.formBPMH.confirm"/></label>
                     </td>
                 </tr>
             </table>
@@ -362,7 +362,7 @@
             <table>
                 <tr>
                     <td>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.notes"/>
+                        <fmt:message key="colcamex.formBPMH.notes"/>
                     </td>
                 </tr>
                 <tr>
@@ -398,7 +398,7 @@
                             <c:when test="${empty bpmh.provider}">
                                 <c:set var="controls" value="off" scope="page"/>
                                 <span class="red">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.error.missing.provider"/>
+                                    <fmt:message key="colcamex.formBPMH.error.missing.provider"/>
                                 </span>
                             </c:when>
                         </c:choose>
@@ -406,10 +406,10 @@
 
                         <c:if test="${ controls eq 'on' }">
 
-                            <input type="submit" name="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.print"/>" />
+                            <input type="submit" name="submit" value="<fmt:message key="colcamex.formBPMH.print"/>" />
 
                             <c:if test="${bpmh.formId == 0}">
-                            <input type="submit" name="submit" value=“<fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.save"/>" />
+                            <input type="submit" name="submit" value=“<fmt:message key="colcamex.formBPMH.save"/>" />
                             </c:if>
 
                         </c:if>
@@ -427,7 +427,7 @@
 
     <!-- FOOTER -->
     <footer>
-        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="colcamex.formBPMH.formowner"/></span>
+        <span><fmt:message key="colcamex.formBPMH.formowner"/></span>
     </footer>
 
     </body>

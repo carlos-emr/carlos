@@ -112,7 +112,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.title"/></title>
+    <title><fmt:message key="demographic.demographicsearch2apptresults.title"/></title>
     <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
@@ -164,7 +164,7 @@
                     dob.value = dob.value.substring(0, 4) + "-" + dob.value.substring(4, 6) + "-" + dob.value.substring(6, 8);
                 }
                 if (dob.value.length != 10) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgWrongDOB"/>");
+                    alert("<fmt:message key="demographic.demographicsearch2apptresults.msgWrongDOB"/>");
                     return false;
                 } else {
                     return true;
@@ -203,25 +203,25 @@
             <%--        <li>--%>
             <select class="wideInput form-control input-group-addon" name="search_mode">
                 <option value="search_name" <%=request.getParameter("search_mode").equals("search_name") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optName"/>
+                    <fmt:message key="demographic.demographicsearch2apptresults.optName"/>
                 </option>
                 <option value="search_phone" <%=request.getParameter("search_mode").equals("search_phone") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optPhone"/>
+                    <fmt:message key="demographic.demographicsearch2apptresults.optPhone"/>
                 </option>
                 <option value="search_dob" <%=request.getParameter("search_mode").equals("search_dob") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optDOB"/>
+                    <fmt:message key="demographic.demographicsearch2apptresults.optDOB"/>
                 </option>
                 <option value="search_address" <%=request.getParameter("search_mode").equals("search_address") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optAddress"/>
+                    <fmt:message key="demographic.demographicsearch2apptresults.optAddress"/>
                 </option>
                 <option value="search_hin" <%=request.getParameter("search_mode").equals("search_hin") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optHIN"/>
+                    <fmt:message key="demographic.demographicsearch2apptresults.optHIN"/>
                 </option>
                 <option value="search_chart_no" <%=request.getParameter("search_mode").equals("search_chart_no") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optChart"/>
+                    <fmt:message key="demographic.demographicsearch2apptresults.optChart"/>
                 </option>
                 <option value="search_demographic_no" <%=request.getParameter("search_mode").equals("search_demographic_no") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/>
+                    <fmt:message key="demographic.demographicsearch2apptresults.demographicId"/>
                 </option>
             </select>
             <%--        </li>--%>
@@ -283,26 +283,26 @@
             <div class="input-group-btn">
                 <a href="#" onclick="showHideItem('demographicSearch');" id="cancelButton"
                    class="leftButton top btn btn-link">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>
+                    <fmt:message key="global.btnCancel"/>
                 </a>
                 <input type="SUBMIT" class="btn btn-primary" name="displaymode"
-                       value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.search"/>'
-                       title='<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>'>
+                       value='<fmt:message key="global.search"/>'
+                       title='<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>'>
                 <INPUT TYPE="button" id="inactiveButton" class="btn btn-secondary"
                        onclick="searchInactive();"
-                       TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchInactive"/>"
-                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.Inactive"/>">
+                       TITLE="<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchInactive"/>"
+                       VALUE="<fmt:message key="demographic.search.Inactive"/>">
                 <INPUT TYPE="button" id="allButton" class="btn btn-secondary"
                        onclick="searchAll();"
-                       TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
-                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>">
+                       TITLE="<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
+                       VALUE="<fmt:message key="demographic.search.All"/>">
             </div>
             <%
                 if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
             %>
             <input type="checkbox" class="checkbox-inline" name="includeIntegratedResults"
                    value="true"   <%="true".equals(request.getParameter("includeIntegratedResults")) ? "checked" : ""%>/>
-            <span style="font-size:small"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgInclIntegratedResults"/></span>
+            <span style="font-size:small"><fmt:message key="demographic.search.msgInclIntegratedResults"/></span>
             <% } %>
             <%--   </li>--%>
             <% if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {%>
@@ -319,9 +319,9 @@
 
         <div>
             <%if (request.getParameter("keyword") != null && request.getParameter("keyword").length() == 0) { %>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgMostRecentPatients"/>
+            <fmt:message key="demographic.demographicsearch2apptresults.msgMostRecentPatients"/>
             <% } else { %>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%=Encode.forHtml(request.getParameter("keyword"))%> <%}%>
+            <fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%=Encode.forHtml(request.getParameter("keyword"))%> <%}%>
         </div>
         <script language="JavaScript">
 
@@ -376,29 +376,29 @@
 
 
                     <th class="demoIdSearch">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.demographicId"/>
                     </th>
 
                     <th class="lastname">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.lastName"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.lastName"/>
                     </th>
                     <th class="firstname">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.firstName"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.firstName"/>
                     </th>
                     <th class="age">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.age"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.age"/>
                     </th>
                     <th class="rosterStatus">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.rosterStatus"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.rosterStatus"/>
                     </th>
                     <th class="sex">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.sex"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.sex"/>
                     </th>
                     <th class="dob">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.DOB"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.DOB"/>
                     </th>
                     <th class="doctor">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.doctor"/>
+                        <fmt:message key="demographic.demographicsearch2apptresults.doctor"/>
                     </th>
                 </tr>
 
@@ -637,18 +637,18 @@
                         OscarProperties.getInstance().getProperty("caisi.search.workflow", "false").equals("true")) {
 
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/>
+        <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
             <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?fromAppt=1&originalPage=<%=request.getParameter("originalPage")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=request.getParameter("year")%>&month=<%=request.getParameter("month")%>&day=<%=request.getParameter("day")%>&start_time=<%=request.getParameter("start_time")%>&end_time=<%=request.getParameter("end_time")%>&duration=<%=request.getParameter("duration")%>&bFirstDisp=false&provider_no=<%=request.getParameter("provider_no")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode"))%>&reason=<%=Encode.forUriComponent(request.getParameter("reason"))%>&location=<%=Encode.forUriComponent(request.getParameter("location"))%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forUriComponent(request.getParameter("status"))%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator"))%>&remarks=<%=request.getParameter("remarks")%>">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
+                <fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <%
         } else {
         %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/>
+        <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
             <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?fromAppt=1&originalPage=<%=request.getParameter("originalPage")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=request.getParameter("year")%>&month=<%=request.getParameter("month")%>&day=<%=request.getParameter("day")%>&start_time=<%=request.getParameter("start_time")%>&end_time=<%=request.getParameter("end_time")%>&duration=<%=request.getParameter("duration")%>&bFirstDisp=false&provider_no=<%=request.getParameter("provider_no")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode"))%>&reason=<%=Encode.forUriComponent(request.getParameter("reason"))%>&location=<%=Encode.forUriComponent(request.getParameter("location"))%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forUriComponent(request.getParameter("status"))%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator"))%>&remarks=<%=request.getParameter("remarks")%>">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
+                <fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <%
             }
@@ -680,7 +680,7 @@
                     if (nLastPage >= 0) {
                 %>
                 <input type="submit" id="prevPageButton" name="submit" class="btn btn-default"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                       value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                        onClick="last()">
                 <%
                     }
@@ -688,7 +688,7 @@
                     if (rowCounter == limit) {
                 %>
                 <input type="submit" id="nextPageButton" class="btn btn-default" name="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                       value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                        onClick="next()">
                 <%
                     }

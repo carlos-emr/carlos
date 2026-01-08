@@ -259,9 +259,9 @@
             </tr>
             <tr>
                 <td align="center" bgcolor="#CCCCFF" colspan="2">
-                    <input type="submit" name="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                    <input type="submit" name="submit" value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                            onclick="javascript:return onSave();">
-                    <input type="button" name="Cancel" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
+                    <input type="button" name="Cancel" value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
                            onClick="window.close()">
                 </td>
             </tr>

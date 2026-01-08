@@ -131,7 +131,7 @@
                 <font size="3">Billing</font>
             </td>
             <td width="90%" align="right" class="Header">
-                <input type="button" name="print" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>"
+                <input type="button" name="print" value="<fmt:message key="global.btnPrint"/>"
                        onClick="window.print()">
             </td>
         </tr>

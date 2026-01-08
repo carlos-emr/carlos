@@ -68,7 +68,7 @@
     <security:oscarSec roleName="${ sessionScope.userrole }" objectName="_admin" rights="r" reverse="${ false }">
 
         <head>
-            <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.title"/></title>
+            <title><fmt:message key="messenger.config.MessengerAdmin.title"/></title>
 
             <script type="text/javascript"
                     src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>

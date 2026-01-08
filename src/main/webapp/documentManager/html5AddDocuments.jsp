@@ -54,7 +54,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title"/></title>
+    <title><fmt:message key="inboxmanager.document.title"/></title>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/scriptaculous.js"></script>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
@@ -327,7 +327,7 @@
 <body>
 <div class="maindiv">
     <div class="maindivheading">
-        &nbsp;&nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.addMultipleDocuments"/>
+        &nbsp;&nbsp;&nbsp; <fmt:message key="inboxmanager.document.addMultipleDocuments"/>
     </div>
     <div>
         <input type="hidden" id="queue" value="<%=queueId%>"/>

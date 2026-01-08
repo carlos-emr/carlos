@@ -81,11 +81,11 @@
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#CCCCFF">
-        <th align=CENTER NOWRAP><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.echartHistory.title"/></font></th>
+        <th align=CENTER NOWRAP><font face="Helvetica"><fmt:message key="oscarEncounter.echartHistory.title"/></font></th>
         <th width="10%" nowrap><input type="button" name="Button"
-                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.echartHistory.buttonPrint"/>"
+                                      value="<fmt:message key="oscarEncounter.echartHistory.buttonPrint"/>"
                                       onClick="window.print()"><input type="button" name="Button"
-                                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.echartHistory.buttonExit"/>"
+                                                                      value="<fmt:message key="oscarEncounter.echartHistory.buttonExit"/>"
                                                                       onClick="window.close()"></th>
     </tr>
 </table>
@@ -99,8 +99,8 @@
 <table width="100%" border="0" bgcolor="#ffffff" cellspacing="1"
        cellpadding="2">
     <tr bgcolor="#CCCCFF" align="center">
-        <TH><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.echartHistory.apptDate"/></b></TH>
-        <TH width="50%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.echartHistory.reason"/></b></TH>
+        <TH><b><fmt:message key="oscarEncounter.echartHistory.apptDate"/></b></TH>
+        <TH width="50%"><b><fmt:message key="oscarEncounter.echartHistory.reason"/></b></TH>
         <!--TH width="10%"><b>Size</b></TH-->
         <th>Provider</th>
     </tr>

@@ -147,7 +147,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="css/encounterStyles.css">
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.title"/>
+            <fmt:message key="messenger.DisplayMessages.title"/>
         </title>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-1.12.0.min.js"></script>
@@ -271,7 +271,7 @@
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn">
-                <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/></h2>
+                <h2><fmt:message key="messenger.DisplayMessages.msgMessenger"/></h2>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
@@ -283,15 +283,15 @@
                                     String delStyle = "messengerButtonsA";
                                     switch (pageType) {
                                         case 0: %>
-                                <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgInbox"/></div>
+                                <div class="DivContentTitle"><fmt:message key="messenger.DisplayMessages.msgInbox"/></div>
                                 <% inbxStyle = "messengerButtonsD";
                                     break;
                                     case 1: %>
-                                <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSentTitle"/></div>
+                                <div class="DivContentTitle"><fmt:message key="messenger.DisplayMessages.msgSentTitle"/></div>
                                 <% sentStyle = "messengerButtonsD";
                                     break;
                                     case 2: %>
-                                <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgArchived"/></div>
+                                <div class="DivContentTitle"><fmt:message key="messenger.DisplayMessages.msgArchived"/></div>
                                 <% delStyle = "messengerButtonsD";
                                     break;
                                     case 3: %>
@@ -309,15 +309,15 @@
                                 <input name="searchString" type="text" size="20"
                                        value="<jsp:getProperty name="DisplayMessagesBeanId" property="filter"/>">
                                 <input name="btnSearch" type="submit"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnSearch"/>">
+                                       value="<fmt:message key="messenger.DisplayMessages.btnSearch"/>">
                                 <input name="btnClearSearch" type="submit"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnClearSearch"/>">
+                                       value="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>">
                             </form>
                             <!-- end edit 2006-0811-01 by wreby -->
                         </td>
                         <td style="text-align:right">
 
-                            <a href="<%=request.getContextPath()%>/oscarEncounter/About.jsp" target="_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                            <a href="<%=request.getContextPath()%>/oscarEncounter/About.jsp" target="_new"><fmt:message key="global.about"/></a>
                         </td>
                     </tr>
                 </table>
@@ -339,7 +339,7 @@
                                                 <td class="messengerButtonsA">
                                                     <a href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
                                                                class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnCompose"/>
+                                                        <fmt:message key="messenger.DisplayMessages.btnCompose"/>
                                                     </a>
                                                 </td>
                                             </tr>
@@ -351,7 +351,7 @@
                                                 <td class="messengerButtonsA">
                                                     <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
                                                                class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnRefresh"/>
+                                                        <fmt:message key="messenger.DisplayMessages.btnRefresh"/>
                                                     </a>
                                                 </td>
                                             </tr>
@@ -363,7 +363,7 @@
                                                 <td class="messengerButtonsA">
                                                     <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
                                                                class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnSent"/><!--sentMessage--link-->
+                                                        <fmt:message key="messenger.DisplayMessages.btnSent"/><!--sentMessage--link-->
                                                     </a>
                                                 </td>
                                             </tr>
@@ -375,7 +375,7 @@
                                                 <td class="messengerButtonsA">
                                                     <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=2"
                                                                class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/><!--deletedMessage--link-->
+                                                        <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/><!--deletedMessage--link-->
                                                     </a>
                                                 </td>
                                             </tr>
@@ -386,7 +386,7 @@
                                             <tr>
                                                 <td class="messengerButtonsA">
                                                     <a href="javascript:BackToOscar()"
-                                                       class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
+                                                       class="messengerButtons"><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
                                                 </td>
                                             </tr>
                                         </table>
@@ -434,10 +434,10 @@
                                                 <td>
                                                     <%if (pageType == 0) {%>
                                                     <input name="btnDelete" type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/>">
+                                                           value="<fmt:message key="messenger.DisplayMessages.formArchive"/>">
                                                     <%} else if (pageType == 2) {%>
                                                     <input type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>">
+                                                           value="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>">
                                                     <%}%>
                                                     &nbsp;
                                                 </td>
@@ -485,38 +485,38 @@
                                     <th align="left" bgcolor="#DDDDFF">
                                         <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=status"
                                                    paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgStatus"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgStatus"/>
                                         </a>
                                     </th>
                                     <th align="left" bgcolor="#DDDDFF">
                                         <%if (pageType == 1) {%>
                                         <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=sentto"
                                                    paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgTo"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgTo"/>
                                         </a>
                                         <%} else {%>
                                         <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=from"
                                                    paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgFrom"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a>
                                         <% } %>
                                     </th>
                                     <th align="left" bgcolor="#DDDDFF">
                                         <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=subject"
                                                    paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSubject"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a>
                                     </th>
                                     <th align="left" bgcolor="#DDDDFF">
                                         <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=date"
                                                    paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgDate"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a>
                                     </th>
                                     <th align="left" bgcolor="#DDDDFF">
                                         <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=linked"
                                                    paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgLinked"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                         </a>
                                     </th>
                                 </tr>
@@ -551,7 +551,7 @@
 
                                     </td>
                                     <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="<%= key %>"/>
+                                        <fmt:message key="<%= key %>"/>
                                     </td>
                                     <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
                                         <span class="recipientList">
@@ -592,10 +592,10 @@
                                                 <td>
                                                     <%if (pageType == 0) {%>
                                                     <input name="btnDelete" type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/>">
+                                                           value="<fmt:message key="messenger.DisplayMessages.formArchive"/>">
                                                     <%} else if (pageType == 2) {%>
                                                     <input type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>">
+                                                           value="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>">
                                                     <%}%>
                                                 </td>
 

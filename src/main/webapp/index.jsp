@@ -53,7 +53,7 @@
                 <%--	    		<c:out value="${ LoginResourceBean.tabName }" />--%>
                 <%--	    	</c:when>--%>
                 <%--	    	<c:otherwise>--%>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.title"/>
+            <fmt:message key="loginApplication.title"/>
                 <%--	    	</c:otherwise>--%>
                 <%--	    </c:choose>--%>
         </title>
@@ -549,14 +549,14 @@
 
                     <!-- default text if logo is missing -->
                     <h2 id="default_logo" style="display:none;">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formLabel"/>
+                        <fmt:message key="loginApplication.formLabel"/>
                     </h2>
                 </div>
 
                 <c:if test='${ param.login eq "failed" }'>
                     <c:set var="login_error" value="has-error" scope="page"/>
                     <div class="alert">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formFailedLabel"/>
+                        <fmt:message key="loginApplication.formFailedLabel"/>
                     </div>
                 </c:if>
 
@@ -582,7 +582,7 @@
                                     <input type="password" name="pin" placeholder="Enter your PIN" value=""
                                            size="15" maxlength="15" autocomplete="off" class="form-control"/>
                                     <span class="extrasmall">
-										<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formCmt"/>
+										<fmt:message key="loginApplication.formCmt"/>
 									</span>
                                 </div>
                             </c:if>
@@ -590,7 +590,7 @@
                             <input type="hidden" id="oneIdKey" name="nameId" value="${ nameId }"/>
                             <input type="hidden" id="loginType" name="loginType" value=""/>
                             <input type=hidden name='propname'
-                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.propertyFile"/>'/>
+                                   value='<fmt:message key="loginApplication.propertyFile"/>'/>
 
                             <div id="buttonContainer">
                                 <c:choose>
@@ -615,16 +615,16 @@
                                id="oneIdLogin" onclick="addStartTime()" class="btn btn-primary btn-block oneIDLogin">
                                 <span class="oneIDLogo"></span>
                                 <span class="oneIdText">
-    									<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.oneid"/>
+    									<fmt:message key="loginApplication.oneid"/>
     								</span>
                             </a>
                         </oscar:oscarPropertiesCheck>
 
                         <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable }">
     			            <span class="extrasmall">
-	                        	<fmt:setBundle basename="oscarResources"/><fmt:message key="global.aua"/> &nbsp;
+	                        	<fmt:message key="global.aua"/> &nbsp;
 	                        	<a href="javascript:void(0);" onclick="showHideItem('auaText');">
-	                        		<fmt:setBundle basename="oscarResources"/><fmt:message key="global.showhide"/>
+	                        		<fmt:message key="global.showhide"/>
 	                        	</a>
 	                        </span>
                         </c:if>
@@ -681,7 +681,7 @@
     </div>
     <footer>
      	<span id="license" class="extrasmall">
-     		<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.leftRmk2"/>
+     		<fmt:message key="loginApplication.leftRmk2"/>
      	</span>
     </footer>
 

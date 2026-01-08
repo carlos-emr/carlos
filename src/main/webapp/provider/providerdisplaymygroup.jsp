@@ -42,7 +42,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.title"/></title>
+        <title><fmt:message key="provider.providerdisplaymygroup.title"/></title>
     </head>
 
     <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
@@ -50,15 +50,15 @@
 
         <div id="topMenuDiv" style="position:fixed;width:100%">
             <div style="background-color:#486ebd;text-align:center;font-family:Helvetica,sans-serif;color:#ffffff;font-weight:bold;padding:1px">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
+                <fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
             </div>
             <div style="background-color:#486ebd;text-align:center;border-top:solid white 1px;padding:1px">
                 <input type="hidden" name="submit_form" value="">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
+                <INPUT TYPE="submit" VALUE="<fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
                        onclick="document.forms['UPDATEPRE'].submit_form.value='Delete'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
+                <INPUT TYPE="submit" VALUE="<fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
                        onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="RESET" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnClose"/>"
+                <INPUT TYPE="RESET" VALUE="<fmt:message key="provider.providerdisplaymygroup.btnClose"/>"
                        onClick="window.close();">
             </div>
         </div>
@@ -77,8 +77,8 @@
                         <table BORDER="0" CELLPADDING="0" CELLSPACING="1" WIDTH="100%"
                                BGCOLOR="#C0C0C0">
                             <tr BGCOLOR="#CCFFFF">
-                                <td ALIGN="center" colspan="2"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></font></td>
-                                <td ALIGN="center"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgProvider"/></font></td>
+                                <td ALIGN="center" colspan="2"><font face="arial"> <fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></font></td>
+                                <td ALIGN="center"><font face="arial"> <fmt:message key="provider.providerdisplaymygroup.msgProvider"/></font></td>
                             </tr>
                             <%
                                 boolean bNewNo = false;

@@ -142,7 +142,7 @@
     <div id="header" class="bgLilac">
         <ul>
             <li>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.billProvider"/>
+                <fmt:message key="billing.provider.billProvider"/>
 
                 <select id="billingProviderNo" name="billingProviderNo">
                     <option value="empty">- Select Provider -</option>

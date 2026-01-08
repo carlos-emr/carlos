@@ -84,7 +84,7 @@
                 <c:redirect url="index.jsp"/>
             </c:if>
         </c:if>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.title"/></title>
+        <title><fmt:message key="messenger.SentMessage.title"/></title>
         <link rel="stylesheet" type="text/css" href="encounterStyles.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
@@ -112,15 +112,15 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessenger"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="messenger.SentMessage.msgMessenger"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessageSent"/></h2></td>
+                        <td><h2><fmt:message key="messenger.SentMessage.msgMessageSent"/></h2></td>
                         <td></td>
                         <td style="text-align: right">
                             <a href="javascript:void(0)"
-                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
                         </td>
                     </tr>
                 </table>
@@ -143,7 +143,7 @@
                                                 <td class="messengerButtonsA"><a
                                                         href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
                                                         class="messengerButtons">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.btnCompose"/>
+                                                    <fmt:message key="messenger.SentMessage.btnCompose"/>
                                                 </a></td>
                                             </tr>
                                         </table>
@@ -154,7 +154,7 @@
                                                 <td class="messengerButtonsA"><a
                                                         href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
                                                         class="messengerButtons">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessagebtnBack"/>
+                                                    <fmt:message key="messenger.SentMessagebtnBack"/>
                                                 </a></td>
                                             </tr>
                                         </table>
@@ -164,7 +164,7 @@
                                             <tr>
                                                 <td class="messengerButtonsA"><a
                                                         href="javascript:BackToOscar()"
-                                                        class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.btnExit"/></a></td>
+                                                        class="messengerButtons"><fmt:message key="messenger.SentMessage.btnExit"/></a></td>
                                             </tr>
                                         </table>
                                     </td>
@@ -173,7 +173,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessageSentTo"/> <%= request.getAttribute("SentMessageProvs") %>
+                        <td><fmt:message key="messenger.SentMessage.msgMessageSentTo"/> <%= request.getAttribute("SentMessageProvs") %>
                         </td>
                     </tr>
                 </table>

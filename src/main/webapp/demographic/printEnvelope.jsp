@@ -47,14 +47,14 @@
 %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.printLabel.title"/></title>
+        <title><fmt:message key="report.printLabel.title"/></title>
     </head>
     <body>
     <% if (!defaultPrinterName.isEmpty()) {
         if (silentPrint == true) {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.printLabel.SilentlyPrintToDefaultPrinter"/>
+    <fmt:message key="report.printLabel.SilentlyPrintToDefaultPrinter"/>
     <%} else {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.printLabel.DefaultPrinter"/>
+    <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
     <%=defaultPrinterName%>
     <%}%>

@@ -66,7 +66,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.title"/></title>
+        <title><fmt:message key="report.reportdaysheet.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <style>
             td {
@@ -112,9 +112,9 @@
         <tr bgcolor="<%=deepColor%>">
             <input type="button"
                    name="Button"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>"
+                   value="<fmt:message key="report.reportdaysheet.btnPrint"/>"
                    onClick="window.print()"><input type="button" name="Button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
+                                                   value="<fmt:message key="global.btnExit"/>"
                                                    onClick="window.close()">
         </tr>
     </table>

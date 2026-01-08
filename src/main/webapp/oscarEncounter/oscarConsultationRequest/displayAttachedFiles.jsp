@@ -126,7 +126,7 @@
     if (privatedocs.size() == 0 && labs.size() == 0 && hrmDocumentToDemographicList.size() == 0 && eForms.isEmpty()) {
 %>
 <p id="attachDefault"
-   style="background-color: white; text-align: center;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDoc.Empty"/></p>
+   style="background-color: white; text-align: center;"><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDoc.Empty"/></p>
 <%
     }
 %>

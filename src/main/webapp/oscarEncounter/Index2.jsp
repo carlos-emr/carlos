@@ -246,7 +246,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.title"/> - <oscar:nameage
+        <title><fmt:message key="oscarEncounter.Index.title"/> - <oscar:nameage
                 demographicNo="<%=demoNo%>"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script language="javascript" type="text/javascript"
@@ -287,29 +287,29 @@
             var itemColours = new Object();
 
             //Add calculators to autocompleter menu
-            autoCompleted["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.bodyMass"/>"] = "popupPage(650,775,'BodyMassIndex','http://www.intmed.mcw.edu/clincalc/body.html')";
-            autoCompList.push("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.bodyMass"/>");
-            itemColours["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.bodyMass"/>"] = calculatorColour;
+            autoCompleted["<fmt:message key="oscarEncounter.Index.bodyMass"/>"] = "popupPage(650,775,'BodyMassIndex','http://www.intmed.mcw.edu/clincalc/body.html')";
+            autoCompList.push("<fmt:message key="oscarEncounter.Index.bodyMass"/>");
+            itemColours["<fmt:message key="oscarEncounter.Index.bodyMass"/>"] = calculatorColour;
 
-            autoCompleted["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.coronary"/>"] = "popupPage(525,775,'CoronaryArteryDiseaseRisk','calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>')";
-            autoCompList.push("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.coronary"/>");
-            itemColours["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.coronary"/>"] = calculatorColour;
+            autoCompleted["<fmt:message key="oscarEncounter.Index.coronary"/>"] = "popupPage(525,775,'CoronaryArteryDiseaseRisk','calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>')";
+            autoCompList.push("<fmt:message key="oscarEncounter.Index.coronary"/>");
+            itemColours["<fmt:message key="oscarEncounter.Index.coronary"/>"] = calculatorColour;
 
-            autoCompleted["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgOsteoporotic"/>"] = "popupPage(525,775,'OsteoporoticFracture','calculators/OsteoporoticFracture.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>')";
-            autoCompList.push("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgOsteoporotic"/>");
-            itemColours["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgOsteoporotic"/>"] = calculatorColour;
+            autoCompleted["<fmt:message key="oscarEncounter.Index.msgOsteoporotic"/>"] = "popupPage(525,775,'OsteoporoticFracture','calculators/OsteoporoticFracture.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>')";
+            autoCompList.push("<fmt:message key="oscarEncounter.Index.msgOsteoporotic"/>");
+            itemColours["<fmt:message key="oscarEncounter.Index.msgOsteoporotic"/>"] = calculatorColour;
 
-            autoCompleted["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pregnancy"/>"] = "popupPage(650,775,'PregancyCalculator','http://www.intmed.mcw.edu/clincalc/pregnancy.html')";
-            autoCompList.push("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pregnancy"/>");
-            itemColours["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pregnancy"/>"] = calculatorColour;
+            autoCompleted["<fmt:message key="oscarEncounter.Index.pregnancy"/>"] = "popupPage(650,775,'PregancyCalculator','http://www.intmed.mcw.edu/clincalc/pregnancy.html')";
+            autoCompList.push("<fmt:message key="oscarEncounter.Index.pregnancy"/>");
+            itemColours["<fmt:message key="oscarEncounter.Index.pregnancy"/>"] = calculatorColour;
 
-            autoCompleted["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.simpleCalculator"/>"] = "popupPage(400,500,'SimpleCalc','calculators/SimpleCalculator.jsp')";
-            autoCompList.push("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.simpleCalculator"/>");
-            itemColours["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.simpleCalculator"/>"] = calculatorColour;
+            autoCompleted["<fmt:message key="oscarEncounter.Index.simpleCalculator"/>"] = "popupPage(400,500,'SimpleCalc','calculators/SimpleCalculator.jsp')";
+            autoCompList.push("<fmt:message key="oscarEncounter.Index.simpleCalculator"/>");
+            itemColours["<fmt:message key="oscarEncounter.Index.simpleCalculator"/>"] = calculatorColour;
 
-            autoCompleted["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.generalConversions"/>"] = "popupPage(650,775,'GeneralConversions','calculators/GeneralCalculators.jsp')";
-            autoCompList.push("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.generalConversions"/>");
-            itemColours["<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.generalConversions"/>"] = calculatorColour;
+            autoCompleted["<fmt:message key="oscarEncounter.Index.generalConversions"/>"] = "popupPage(650,775,'GeneralConversions','calculators/GeneralCalculators.jsp')";
+            autoCompList.push("<fmt:message key="oscarEncounter.Index.generalConversions"/>");
+            itemColours["<fmt:message key="oscarEncounter.Index.generalConversions"/>"] = calculatorColour;
 
             <%
             int MaxLen = 25;
@@ -328,17 +328,17 @@
             %>
 
             function closeEncounterWindow() {
-                return window.confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.closeEncounterWindowConfirm"/>");
+                return window.confirm("<fmt:message key="oscarEncounter.Index.closeEncounterWindowConfirm"/>");
             }
 
             //function saveAndCloseEncounterWindow() {
-            //    var x = window.confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.confirmExit"/>");
+            //    var x = window.confirm("<fmt:message key="oscarEncounter.Index.confirmExit"/>");
             //    if(x) {window.close();}
             //}
             //get another encounter from the select list
             function onSplit() {
                 document.forms['encForm'].btnPressed.value = 'Split Chart';
-                var ret = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.confirmSplit"/>");
+                var ret = confirm("<fmt:message key="oscarEncounter.Index.confirmSplit"/>");
                 return ret;
             }
 
@@ -413,7 +413,7 @@
             function popupStart1(vheight, vwidth, varpage) {
                 var page = varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-                var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.title"/>", windowprops);
+                var popup = window.open(varpage, "<fmt:message key="oscarEncounter.Index.title"/>", windowprops);
             }
 
             function getAnotherEncounter(newAppointmentNo) {
@@ -422,7 +422,7 @@
             }
 
             function insertTemplate(text) {
-                // var x = window.confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.insertTemplateConfirm"/>");
+                // var x = window.confirm("<fmt:message key="oscarEncounter.Index.insertTemplateConfirm"/>");
                 // if(x) {
                 document.encForm.enTextarea.value = document.encForm.enTextarea.value + "\n\n" + text;
                 document.encForm.enTextarea.value = document.encForm.enTextarea.value.replace(/\\u003E/g, ">");
@@ -448,7 +448,7 @@
             }
 
             function onUnbilled(url) {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.onUnbilledConfirm"/>")) {
+                if (confirm("<fmt:message key="oscarEncounter.Index.onUnbilledConfirm"/>")) {
                     popupPage(700, 720, 'unbilled', url);
                 }
             }
@@ -459,13 +459,13 @@
                 var page = "" + varpage;
                 name = name.replace(/\s+/g, "_");
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-                //var popup =window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPageWindow"/>", windowprops);
+                //var popup =window.open(page, "<fmt:message key="oscarEncounter.Index.popupPageWindow"/>", windowprops);
                 openWindows[name] = window.open(page, name, windowprops);
 
                 if (openWindows[name] != null) {
                     if (openWindows[name].opener == null) {
                         openWindows[name].opener = self;
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPageAlert"/>");
+                        alert("<fmt:message key="oscarEncounter.Index.popupPageAlert"/>");
                     }
                     openWindows[name].focus();
                 }
@@ -1130,10 +1130,10 @@
 
             function grabEnter(event) {
                 if (window.event && window.event.keyCode == 13) {
-                    popupPage(600, 800, '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupSearchPageWindow"/>', document.forms['ksearch'].channel.options[document.forms['ksearch'].channel.selectedIndex].value + urlencode(document.forms['ksearch'].keyword.value));
+                    popupPage(600, 800, '<fmt:message key="oscarEncounter.Index.popupSearchPageWindow"/>', document.forms['ksearch'].channel.options[document.forms['ksearch'].channel.selectedIndex].value + urlencode(document.forms['ksearch'].keyword.value));
                     return false;
                 } else if (event && event.which == 13) {
-                    popupPage(600, 800, '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupSearchPageWindow"/>', document.forms['ksearch'].channel.options[document.forms['ksearch'].channel.selectedIndex].value + urlencode(document.forms['ksearch'].keyword.value));
+                    popupPage(600, 800, '<fmt:message key="oscarEncounter.Index.popupSearchPageWindow"/>', document.forms['ksearch'].channel.options[document.forms['ksearch'].channel.selectedIndex].value + urlencode(document.forms['ksearch'].keyword.value));
                     return false;
                 }
             }
@@ -1176,19 +1176,19 @@
     <table border="0" cellpadding="0" cellspacing="0"
            style="border-collapse: collapse; width: 100%; height: 680;"
            bordercolor="#111111" id="scrollNumber1"
-           name="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.encounterTable"/>">
+           name="<fmt:message key="oscarEncounter.Index.encounterTable"/>">
         <tr>
             <td class="hidePrint" bgcolor="#003399"
                 style="width: auto; border-right: 2px solid #A9A9A9; height: 34px;">
 
-                <div class="Title">&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgEncounter"/>&nbsp;&nbsp; <%=famDocName%>&nbsp;<%=famDocSurname%>
+                <div class="Title">&nbsp;<fmt:message key="oscarEncounter.Index.msgEncounter"/>&nbsp;&nbsp; <%=famDocName%>&nbsp;<%=famDocSurname%>
                 </div>
 
                 <div class="Title" style="margin: 0 auto; text-align: center"><a
                         href="javascript: function myFunction() {return false; }"
-                        title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.calculators"/>"
+                        title="<fmt:message key="oscarEncounter.Index.calculators"/>"
                         onClick="popupPage(150,200,'calculatorWin','calculators.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;"><img
-                        alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.calculators"/>"
+                        alt="<fmt:message key="oscarEncounter.Index.calculators"/>"
                         src="graphics/calculator.gif"></a></div>
             </td>
 
@@ -1206,7 +1206,7 @@
                             %> <a href="#"
                                   style="font-size: 11px; text-decoration: none"
                                   onClick="popupPage(700,1000,'<%=winName%>','<%=url%>'); return false;"
-                                  title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>"><%=bean.patientLastName %>
+                                  title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>"><%=bean.patientLastName %>
                             ,
                             <%=bean.patientFirstName%>
                         </a>&nbsp;<%=bean.patientSex%> <%=bean.patientAge%>
@@ -1224,28 +1224,28 @@
                                     name="channel">
                                 <option
                                         value="http://resource.oscarmcmaster.org/oscarResource/OSCAR_search/OSCAR_search_results?title=">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.oscarSearch"/></option>
-                                <option value="http://www.google.com/search?q="><fmt:setBundle basename="oscarResources"/><fmt:message key="global.google"/></option>
+                                    <fmt:message key="oscarEncounter.Index.oscarSearch"/></option>
+                                <option value="http://www.google.com/search?q="><fmt:message key="global.google"/></option>
                                 <option
                                         value="http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?SUBMIT=y&CDM=Search&DB=PubMed&term=">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="global.pubmed"/></option>
+                                    <fmt:message key="global.pubmed"/></option>
                                 <option
                                         value="http://search.nlm.nih.gov/medlineplus/query?DISAMBIGUATION=true&FUNCTION=search&SERVER2=server2&SERVER1=server1&PARAMETER=">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="global.medlineplus"/></option>
+                                    <fmt:message key="global.medlineplus"/></option>
                                 <option
                                         value="http://www.bnf.org/bnf/bnf/current/noframes/search.htm?n=50&searchButton=Search&q=">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="global.BNF"/></option>
+                                    <fmt:message key="global.BNF"/></option>
                             </select> <input type="text" name="keyword" value=""
                                              onkeypress="return grabEnter(event)"/> <input type="button"
                                                                                            name="button" value="Search"
                                                                                            onClick="popupPage(600,800,'
-                                                                                               <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupSearchPageWindow"/>',forms['ksearch'].channel.options[forms['ksearch'].channel.selectedIndex].value+urlencode(forms['ksearch'].keyword.value) ); return false;">
+                                                                                               <fmt:message key="oscarEncounter.Index.popupSearchPageWindow"/>',forms['ksearch'].channel.options[forms['ksearch'].channel.selectedIndex].value+urlencode(forms['ksearch'].keyword.value) ); return false;">
 
                             </form>
 
                         </td>
                             <%-- <td class="Header" style="text-align:center;border-right: 3px solid #003399" NOWRAP>
-                                            <a href="javascript:popupPage(300,400,'utility','Help.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a> | <a href="javascript:popupPage(300,400,'utility','About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                                            <a href="javascript:popupPage(300,400,'utility','Help.jsp')"><fmt:message key="global.help"/></a> | <a href="javascript:popupPage(300,400,'utility','About.jsp')"><fmt:message key="global.about"/></a>
                                     </td>--%>
                     </tr>
 
@@ -1278,14 +1278,14 @@
                                 <table bgcolor="#CCCCFF" id="rowOne" width="100%">
                                     <tr>
                                         <td>
-                                            <div class="RowTop"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.socialFamHist"/>:
+                                            <div class="RowTop"><fmt:message key="oscarEncounter.Index.socialFamHist"/>:
                                             </div>
                                             <input type="hidden" name="shInput"/></td>
                                         <td>
                                             <div class="RowTop">
                                                 <% if (oscarVariables.getProperty("otherMedications", "").length() > 1) {
                                                     out.print(oscarVariables.getProperty("otherMedications", ""));
-                                                %> <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.otherMed"/>: <% } %>
+                                                %> <% } else { %> <fmt:message key="oscarEncounter.Index.otherMed"/>: <% } %>
                                             </div>
                                         </td>
                                         <td>
@@ -1293,32 +1293,32 @@
                                                     style="display: inline; float: right; font-size: 8pt; text-align: right; vertical-align: bottom">
                                                 <a onMouseOver="javascript:window.status='Minimize'; return true;"
                                                    href="javascript:rowOneX();"
-                                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipClose"/>">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.x"/></a> | <a
+                                                   title="<fmt:message key="oscarEncounter.Index.tooltipClose"/>">
+                                                    <fmt:message key="oscarEncounter.Index.x"/></a> | <a
                                                     onMouseOver="javascript:window.status='Small Size'; return true;"
                                                     href="javascript:rowOneSmall();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.s"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
+                                                <fmt:message key="oscarEncounter.Index.s"/></a> | <a
                                                     onMouseOver="javascript:window.status='Medium Size'; return true;"
                                                     href="javascript:rowOneNormal();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.n"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
+                                                <fmt:message key="oscarEncounter.Index.n"/></a> | <a
                                                     onMouseOver="javascript:window.status='Large Size'; return true;"
                                                     href="javascript:rowOneLarge();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.l"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
+                                                <fmt:message key="oscarEncounter.Index.l"/></a> | <a
                                                     onMouseOver="javascript:window.status='Full Size'; return true;"
                                                     href="javascript:rowOneFull();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipFull"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.f"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipFull"/>">
+                                                <fmt:message key="oscarEncounter.Index.f"/></a> | <a
                                                     onMouseOver="javascript:window.status='Full Size'; return true;"
                                                     href="javascript:reset();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipReset"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.r"/></a></div>
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipReset"/>">
+                                                <fmt:message key="oscarEncounter.Index.r"/></a></div>
                                             <div class="RowTop">
                                                 <% if (oscarVariables.getProperty("medicalHistory", "").length() > 1) {
                                                     out.print(oscarVariables.getProperty("medicalHistory", ""));
-                                                %> <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.medHist"/>: <% } %>
+                                                %> <% } else { %> <fmt:message key="oscarEncounter.Index.medHist"/>: <% } %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1354,7 +1354,7 @@
                                             <div class="RowTop">
                                                 <% if (oscarVariables.getProperty("ongoingConcerns", "").length() > 1) {
                                                     out.print(oscarVariables.getProperty("ongoingConcerns", ""));
-                                                %> <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgConcerns"/>: <% } %>
+                                                %> <% } else { %> <fmt:message key="oscarEncounter.Index.msgConcerns"/>: <% } %>
                                             </div>
                                             <input type="hidden" name="ocInput"/></td>
                                         <td>
@@ -1362,29 +1362,29 @@
                                                     style="display: inline; float: right; font-size: 8pt; text-align: right; vertical-align: bottom">
                                                 <a onMouseOver="javascript:window.status='Minimize'; return true;"
                                                    href="javascript:rowTwoX();"
-                                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipClose"/>">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.x"/></a> | <a
+                                                   title="<fmt:message key="oscarEncounter.Index.tooltipClose"/>">
+                                                    <fmt:message key="oscarEncounter.Index.x"/></a> | <a
                                                     onMouseOver="javascript:window.status='Small Size'; return true;"
                                                     href="javascript:rowTwoSmall();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.s"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
+                                                <fmt:message key="oscarEncounter.Index.s"/></a> | <a
                                                     onMouseOver="javascript:window.status='Medium Size'; return true;"
                                                     href="javascript:rowTwoNormal();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.n"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
+                                                <fmt:message key="oscarEncounter.Index.n"/></a> | <a
                                                     onMouseOver="javascript:window.status='Large Size'; return true;"
                                                     href="javascript:rowTwoLarge();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.l"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
+                                                <fmt:message key="oscarEncounter.Index.l"/></a> | <a
                                                     onMouseOver="javascript:window.status='Full Size'; return true;"
                                                     href="javascript:rowTwoFull();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipFull"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.f"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipFull"/>">
+                                                <fmt:message key="oscarEncounter.Index.f"/></a> | <a
                                                     onMouseOver="javascript:window.status='Full Size'; return true;"
                                                     href="javascript:reset();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipReset"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.r"/></a></div>
-                                            <div class="RowTop"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgReminders"/>:
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipReset"/>">
+                                                <fmt:message key="oscarEncounter.Index.r"/></a></div>
+                                            <div class="RowTop"><fmt:message key="oscarEncounter.Index.msgReminders"/>:
                                             </div>
                                         </td>
                                     </tr>
@@ -1410,7 +1410,7 @@
                                         <!--hr style="border-bottom: 0pt solid #888888; background-color: #888888;"-->
                                         <td valign="top">
                                             <div class="RowTop"><a href=#
-                                                                   onClick="popupPage(700,960,'allergy','<%=request.getContextPath()%>/oscarRx/showAllergy.do?demographicNo=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.allergies"/></a>:&nbsp;&nbsp;&nbsp&nbsp;&nbsp;&nbsp&nbsp;&nbsp;
+                                                                   onClick="popupPage(700,960,'allergy','<%=request.getContextPath()%>/oscarRx/showAllergy.do?demographicNo=<%=bean.demographicNo%>');return false;"><fmt:message key="global.allergies"/></a>:&nbsp;&nbsp;&nbsp&nbsp;&nbsp;&nbsp&nbsp;&nbsp;
                                             </div>
                                             <div class="presBox" id="allergyBox">
                                                 <ul>
@@ -1436,7 +1436,7 @@
                                                     <td>
                                                         <div class="RowTop">
                                                             <div class="RowTop"><a href=#
-                                                                                   onClick="popupPage(700,1027,'Rx','<%=request.getContextPath()%>/oscarRx/choosePatient.do?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a></div>
+                                                                                   onClick="popupPage(700,1027,'Rx','<%=request.getContextPath()%>/oscarRx/choosePatient.do?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;"><fmt:message key="global.prescriptions"/></a></div>
                                                         </div>
                                                     </td>
                                                     <td align=right>
@@ -1445,28 +1445,28 @@
                                                             <a
                                                                     onMouseOver="javascript:window.status='Minimize'; return true;"
                                                                     href="javascript:presBoxX();"
-                                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipClose"/>">
-                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.x"/></a> | <a
+                                                                    title="<fmt:message key="oscarEncounter.Index.tooltipClose"/>">
+                                                                <fmt:message key="oscarEncounter.Index.x"/></a> | <a
                                                                 onMouseOver="javascript:window.status='Small Size'; return true;"
                                                                 href="javascript:presBoxSmall();"
-                                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.s"/></a> | <a
+                                                                title="<fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
+                                                            <fmt:message key="oscarEncounter.Index.s"/></a> | <a
                                                                 onMouseOver="javascript:window.status='Medium Size'; return true;"
                                                                 href="javascript:presBoxNormal();"
-                                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.n"/></a> | <a
+                                                                title="<fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
+                                                            <fmt:message key="oscarEncounter.Index.n"/></a> | <a
                                                                 onMouseOver="javascript:window.status='Large Size'; return true;"
                                                                 href="javascript:presBoxLarge();"
-                                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.l"/></a> | <a
+                                                                title="<fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
+                                                            <fmt:message key="oscarEncounter.Index.l"/></a> | <a
                                                                 onMouseOver="javascript:window.status='Full Size'; return true;"
                                                                 href="javascript:presBoxFull();"
-                                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipFull"/>">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.f"/></a> | <a
+                                                                title="<fmt:message key="oscarEncounter.Index.tooltipFull"/>">
+                                                            <fmt:message key="oscarEncounter.Index.f"/></a> | <a
                                                                 onMouseOver="javascript:window.status='Full Size'; return true;"
                                                                 href="javascript:reset();"
-                                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipReset"/>">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.r"/></a></div>
+                                                                title="<fmt:message key="oscarEncounter.Index.tooltipReset"/>">
+                                                            <fmt:message key="oscarEncounter.Index.r"/></a></div>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1519,8 +1519,8 @@
                                                 <tr>
                                                     <td width='75%'>
                                                         <div class="RowTop"><a href=#
-                                                                               onClick="popupPage(600,700,'<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>','<%= request.getContextPath() %>/report/reportecharthistory.jsp?demographic_no=<%=bean.demographicNo%>');return false;">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.encounter"/>: <%=bean.patientLastName %>
+                                                                               onClick="popupPage(600,700,'<fmt:message key="oscarEncounter.Index.popupPage2Window"/>','<%= request.getContextPath() %>/report/reportecharthistory.jsp?demographic_no=<%=bean.demographicNo%>');return false;">
+                                                            <fmt:message key="global.encounter"/>: <%=bean.patientLastName %>
                                                             ,
                                                             <%=bean.patientFirstName%>
                                                         </a> <%if (sChart) {%> &nbsp; &nbsp; &nbsp;
@@ -1588,32 +1588,32 @@
                                                     style="font-size: 8pt; text-align: right; vertical-align: bottom">
                                                 <a onMouseOver="javascript:window.status='Minimize'; return true;"
                                                    href="javascript:rowThreeX();"
-                                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipClose"/>">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.x"/></a> | <a
+                                                   title="<fmt:message key="oscarEncounter.Index.tooltipClose"/>">
+                                                    <fmt:message key="oscarEncounter.Index.x"/></a> | <a
                                                     onMouseOver="javascript:window.status='Small Size'; return true;"
                                                     href="javascript:rowThreeSmall();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.s"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipSmall"/>">
+                                                <fmt:message key="oscarEncounter.Index.s"/></a> | <a
                                                     onMouseOver="javascript:window.status='Normal Size'; return true;"
                                                     href="javascript:rowThreeNormal();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.n"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipNormal"/>">
+                                                <fmt:message key="oscarEncounter.Index.n"/></a> | <a
                                                     onMouseOver="javascript:window.status='Medium Size'; return true;"
                                                     href="javascript:rowThreeMedium();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipMedium"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.m"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipMedium"/>">
+                                                <fmt:message key="oscarEncounter.Index.m"/></a> | <a
                                                     onMouseOver="javascript:window.status='Large Size'; return true;"
                                                     href="javascript:rowThreeLarge();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.l"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipLarge"/>">
+                                                <fmt:message key="oscarEncounter.Index.l"/></a> | <a
                                                     onMouseOver="javascript:window.status='Full Size'; return true;"
                                                     href="javascript:rowThreeFull();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipFull"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.f"/></a> | <a
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipFull"/>">
+                                                <fmt:message key="oscarEncounter.Index.f"/></a> | <a
                                                     onMouseOver="javascript:window.status='Full Size'; return true;"
                                                     href="javascript:reset();"
-                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.tooltipReset"/>">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.r"/></a></div>
+                                                    title="<fmt:message key="oscarEncounter.Index.tooltipReset"/>">
+                                                <fmt:message key="oscarEncounter.Index.r"/></a></div>
                                         </td>
                                     </tr>
                                     <%
@@ -1664,30 +1664,30 @@
                                                    onClick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'cpp', 'encounterCPP.jsp'); document.forms['encForm'].submit();"/>
                                         </oscar:oscarPropertiesCheck> <input type="button" style="height: 20px;"
                                                                              class="ControlPushButton2"
-                                                                             value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>"
+                                                                             value="<fmt:message key="global.btnPrint"/>"
                                                                              onClick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', 'encounterPrint.jsp');"/>
                                             <input type="hidden" name="btnPressed" value=""><!-- sec code block -->
                                             <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
                                                                rights="w">
                                                 <% if (!bPrincipalControl || (bPrincipalControl && bPrincipalDisplay)) { %>
                                                 <input type="button" style="height: 20px"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSave"/>"
+                                                       value="<fmt:message key="oscarEncounter.Index.btnSave"/>"
                                                        class="ControlPushButton2"
                                                        onclick="document.forms['encForm'].btnPressed.value='Save'; document.forms['encForm'].submit();">
                                                 <input type="button" style="height: 20px"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSignSave"/>"
+                                                       value="<fmt:message key="oscarEncounter.Index.btnSignSave"/>"
                                                        class="ControlPushButton2"
                                                        onclick="document.forms['encForm'].btnPressed.value='Sign,Save and Exit'; document.forms['encForm'].submit();">
                                                 <oscar:oscarPropertiesCheck property="billregion" value="BC">
                                                     <input type="button" style="height: 20px"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSignSaveBill"/>"
+                                                           value="<fmt:message key="oscarEncounter.Index.btnSignSaveBill"/>"
                                                            class="ControlPushButton2"
                                                            onclick="document.forms['encForm'].btnPressed.value='Sign,Save and Bill'; document.forms['encForm'].submit();">
                                                 </oscar:oscarPropertiesCheck>
                                                 <security:oscarSec roleName="<%=roleName$%>"
                                                                    objectName="_eChart.verifyButton" rights="w">
                                                     <input type="button" style="height: 20px"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSign"/>"
+                                                           value="<fmt:message key="oscarEncounter.Index.btnSign"/>"
                                                            class="ControlPushButton2"
                                                            onclick="document.forms['encForm'].btnPressed.value='Verify and Sign'; document.forms['encForm'].submit();">
                                                 </security:oscarSec>
@@ -1695,7 +1695,7 @@
                                             </security:oscarSec> <!-- sec code block --> <input type="button"
                                                                                                      style="height: 20px"
                                                                                                      name="buttonPressed"
-                                                                                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
+                                                                                                     value="<fmt:message key="global.btnExit"/>"
                                                                                                      class="ControlPushButton2"
                                                                                                      onclick="document.forms['encForm'].btnPressed.value='Exit'; if (closeEncounterWindow()) {document.forms['encForm'].submit();}">
                                             <input type="hidden" name="rowOneSize"
@@ -1751,7 +1751,7 @@
                 String[] s = (String[]) splitChart.get(i);%>
             <tr class="background-color : #ccccff;">
                 <td class="wcblayerTitle"><a href=#
-                                             onClick="hidepic('splitChartLayer');popupPage(600,700,'<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>','echarthistoryprint.jsp?echartid=<%=s[0]%>&demographic_no=<%=bean.demographicNo%>');return false;">
+                                             onClick="hidepic('splitChartLayer');popupPage(600,700,'<fmt:message key="oscarEncounter.Index.popupPage2Window"/>','echarthistoryprint.jsp?echartid=<%=s[0]%>&demographic_no=<%=bean.demographicNo%>');return false;">
                     <%=s[1]%>
                 </a></td>
                 <td class="wcblayerItem">&nbsp;</td>

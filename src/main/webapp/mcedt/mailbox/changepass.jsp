@@ -67,7 +67,7 @@
 
 
             if (document.getElementById("password").value == "") {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPassword"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                alert('<fmt:message key="admin.securityrecord.formPassword"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
                 setfocus('password');
                 return false;
             }
@@ -76,7 +76,7 @@
             //	return false;
             //}
             if (document.getElementById("password").value != document.getElementById("conPassword").value) {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.msgPasswordNotConfirmed"/>');
+                alert('<fmt:message key="admin.securityrecord.msgPasswordNotConfirmed"/>');
                 setfocus('conPassword');
                 return false;
             }

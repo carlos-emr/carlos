@@ -32,7 +32,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.title"/></title>
+        <title><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
         <script type="text/javascript">
 
@@ -238,11 +238,11 @@
 
                 document.second.prediction.value =
                     "*****************************************\n"
-                    + "*<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAverage"/>      \n"
-                    + "*<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgOsteoporoticFracture"/>                  \n"
+                    + "*<fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAverage"/>      \n"
+                    + "*<fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgOsteoporoticFracture"/>                  \n"
                     + "*****************************************\n"
-                    + "* <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msg10YearProb"/>:         " + retval + " %  \n"
-                    + "* <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgOverall"/>: " + total + " %  \n"
+                    + "* <fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msg10YearProb"/>:         " + retval + " %  \n"
+                    + "* <fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgOverall"/>: " + total + " %  \n"
                     + "*****************************************\n";
 
 
@@ -365,16 +365,16 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgCalculators"/>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgCalculators"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.title"/></td>
+                        <td><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.title"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -388,24 +388,24 @@
                             <form name="calCorArDi">
                                 <table>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgFemale"/>:
+                                        <td><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgFemale"/>:
                                         </td>
                                         <td><input type="radio" name="sex" value="F" checked
                                                    onClick="switchData();"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgMale"/>:
+                                        <td><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgMale"/>:
                                         </td>
                                         <td><input type="radio" name="sex" value="M"
                                                    onClick="switchData();"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAge"/>:
+                                        <td><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAge"/>:
                                         </td>
                                         <td><input type="text" name="age" size="4"/></td>
                                     </tr>
                                     <tr>
-                                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgTScore"/>:
+                                        <td><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgTScore"/>:
                                         </td>
                                         <td><select name="tScore">
                                             <option value="1">1</option>
@@ -418,11 +418,11 @@
 
                                     <tr>
                                         <td colspan="2"><input type="button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.btnCalculate"/>"
+                                                               value="<fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.btnCalculate"/>"
                                                                onClick="calculate();"/></td>
                                     </tr>
                                     <!--<tr>
-										<td><input type="text" name="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.btnTotalVal"/>" visible="false"/></td>
+										<td><input type="text" name="<fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.btnTotalVal"/>" visible="false"/></td>
 									</tr>-->
                                 </table>
                             </form>
@@ -434,24 +434,24 @@
                         <td align="center" valign="top">
                             <table class="outline">
                                 <tr>
-                                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgCompare"/>
+                                    <td><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgCompare"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgProbability"/>
+                                    <td align="center"><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgProbability"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
                                         <table class="grid" width="100%" align="center" cellspacing="0">
                                             <tr>
-                                                <td rowspan=2 class="gridTitles"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAge"/></td>
-                                                <td class="gridTitlesWOBottom"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgOverall"/></td>
-                                                <td colspan=5 class="gridTitlesWOBottom"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgTScore"/></td>
+                                                <td rowspan=2 class="gridTitles"><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAge"/></td>
+                                                <td class="gridTitlesWOBottom"><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgOverall"/></td>
+                                                <td colspan=5 class="gridTitlesWOBottom"><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgTScore"/></td>
 
                                             </tr>
                                             <tr>
-                                                <td align="center" class="gridTitles"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAvg"/></td>
+                                                <td align="center" class="gridTitles"><fmt:message key="oscarEncounter.calculators.OsteoporoticFracture.msgAvg"/></td>
                                                 <td class="gridTitles">1</td>
                                                 <td class="gridTitles">0</td>
                                                 <td class="gridTitles">-1</td>

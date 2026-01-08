@@ -112,7 +112,7 @@
 </div>
 
 <div style="margin-left: 3px;"><span style="float: left;">
-<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.editors.title"/>:</span>
+<fmt:message key="oscarEncounter.editors.title"/>:</span>
 <c:choose>
     <c:when test="${newNote == 'false'}">
         <ul style="list-style: none inside none; margin: 0;">
@@ -205,22 +205,22 @@
 
 <c:set var="encSelect" value="${encSelect}${noteIndex}" />
 <div style="clear: right; margin: 0 3px 0 0; float: right;">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encType.title"/>:&nbsp;
+    <fmt:message key="oscarEncounter.encType.title"/>:&nbsp;
     <span id="encType${noteIndex}">
         <c:choose>
             <c:when test="${empty ajaxsave}">
                 <select id="${encSelect}" class="encTypeCombo" name="caseNote.encounter_type">
                     <option value="" ${empty caseManagementEntryForm.caseNote.encounter_type ? 'selected' : ''}></option>
-                    <option value="face to face encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'face to face encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.faceToFaceEnc.title"/></option>
-                    <option value="telephone encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'telephone encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.telephoneEnc.title"/></option>
-                    <option value="email encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'email encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.emailEnc.title"/></option>
-                    <option value="encounter without client" ${caseManagementEntryForm.caseNote.encounter_type == 'encounter without client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noClientEnc.title"/></option>
+                    <option value="face to face encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'face to face encounter with client' ? 'selected' : ''}><fmt:message key="oscarEncounter.faceToFaceEnc.title"/></option>
+                    <option value="telephone encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'telephone encounter with client' ? 'selected' : ''}><fmt:message key="oscarEncounter.telephoneEnc.title"/></option>
+                    <option value="email encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'email encounter with client' ? 'selected' : ''}><fmt:message key="oscarEncounter.emailEnc.title"/></option>
+                    <option value="encounter without client" ${caseManagementEntryForm.caseNote.encounter_type == 'encounter without client' ? 'selected' : ''}><fmt:message key="oscarEncounter.noClientEnc.title"/></option>
 
                     <c:if test="${loggedInInfo73557.currentFacility.enableGroupNotes}">
-                        <option value="group face to face encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group face to face encounter' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.groupFaceEnc.title"/></option>
-                        <option value="group telephone encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group telephone encounter' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.groupTelephoneEnc.title"/></option>
-                        <option value="group encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.emailEnc.title"/></option>
-                        <option value="group encounter without group" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter without group' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.groupNoClientEnc.title"/></option>
+                        <option value="group face to face encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group face to face encounter' ? 'selected' : ''}><fmt:message key="oscarEncounter.groupFaceEnc.title"/></option>
+                        <option value="group telephone encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group telephone encounter' ? 'selected' : ''}><fmt:message key="oscarEncounter.groupTelephoneEnc.title"/></option>
+                        <option value="group encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter with client' ? 'selected' : ''}><fmt:message key="oscarEncounter.emailEnc.title"/></option>
+                        <option value="group encounter without group" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter without group' ? 'selected' : ''}><fmt:message key="oscarEncounter.groupNoClientEnc.title"/></option>
                     </c:if>
                 </select>
             </c:when>
@@ -259,7 +259,7 @@
 
 <div id="noteIssues">
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
-        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.referenceResolvedIssues.title"/></b>
+        <b><fmt:message key="oscarEncounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>
         <table id="setIssueList">
             <c:set var="countResolvedIssue" value="0"/>
@@ -341,7 +341,7 @@
 
     <% int countUnresolvedIssue = -1; %>
     <div id="noteIssues-unresolved" style="margin: 0px; background-color: #CCCCFF; display: none;">
-        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.referenceUnresolvedIssues.title"/></b>
+        <b><fmt:message key="oscarEncounter.referenceUnresolvedIssues.title"/></b>
 
         <table id="setIssueList">
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">

@@ -83,7 +83,7 @@
 <html>
 <head>
 
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - complete</title>
+    <title><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - complete</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet" media="screen">
 
@@ -92,7 +92,7 @@
 <body>
 <div class="container">
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - Modify Decision Support for
+    <h3><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - Modify Decision Support for
         Group </h3>
 
     <div class="alert alert-success alert-block">

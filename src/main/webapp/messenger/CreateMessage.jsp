@@ -167,7 +167,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.title"/></title>
+        <title><fmt:message key="messenger.CreateMessage.title"/></title>
 
         <link rel="stylesheet" type="text/css" href="encounterStyles.css">
 
@@ -206,18 +206,18 @@
                 // cannot send attachments to remote facilities
                 $("input:checked").each(function () {
                     if (this.id.split("-")[2] > 0 && $("#attachmentAlert").val()) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.attachmentsNotPermitted"/>");
+                        alert("<fmt:message key="messenger.CreateMessage.attachmentsNotPermitted"/>");
                         return false;
                     }
                 })
 
                 if (document.forms[0].message.value.length == 0) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>");
+                    alert("<fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>");
                     return false;
                 }
                 val = validateCheckBoxes(document.forms[0]);
                 if (val == 0) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgNoProvider"/>");
+                    alert("<fmt:message key="messenger.CreateMessage.msgNoProvider"/>");
                     return false;
                 }
                 return true
@@ -326,18 +326,18 @@
         <table class="MainTable" id="scrollNumber1">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgMessenger"/>
+                    <fmt:message key="messenger.CreateMessage.msgMessenger"/>
                 </td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgCreate"/></h2>
+                            <td><h2><fmt:message key="messenger.CreateMessage.msgCreate"/></h2>
                             </td>
                             <td>&nbsp;</td>
                             <td style="text-align: right">
                                 
                                 <a href="javascript:void(0)"
-                                   onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                                   onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
                             </td>
                         </tr>
                     </table>
@@ -358,7 +358,7 @@
                                                     <td class="messengerButtonsA"><a
                                                             href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
                                                             class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox"/>
+                                                        <fmt:message key="messenger.ViewMessage.btnInbox"/>
                                                     </a></td>
                                                 </tr>
                                             </table>
@@ -369,7 +369,7 @@
                                                     <td class="messengerButtonsA"><a
                                                             href="${pageContext.request.contextPath}/messenger/ClearMessage.do"
                                                             class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear"/>
+                                                        <fmt:message key="messenger.CreateMessage.btnClear"/>
                                                     </a></td>
                                                 </tr>
                                             </table>
@@ -379,7 +379,7 @@
                                                 <tr>
                                                     <td class="messengerButtonsA"><a
                                                             href="javascript:BackToOscar()"
-                                                            class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnExit"/></a></td>
+                                                            class="messengerButtons"><fmt:message key="messenger.CreateMessage.btnExit"/></a></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -393,8 +393,8 @@
                                 <form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validatefields()">
                                     <table>
                                         <tr>
-                                            <th bgcolor="#DDDDFF" width="75"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgRecipients"/></th>
-                                            <th colspan="2" align="left" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgMessage"/></th>
+                                            <th bgcolor="#DDDDFF" width="75"><fmt:message key="messenger.CreateMessage.msgRecipients"/></th>
+                                            <th colspan="2" align="left" bgcolor="#DDDDFF"><fmt:message key="messenger.CreateMessage.msgMessage"/></th>
                                         </tr>
                                         <tr>
 
@@ -402,10 +402,10 @@
                                                 <table>
                                                     <tr>
                                                         <td><input type="submit" class="ControlPushButton"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendMessage"/>">
+                                                                   value="<fmt:message key="messenger.CreateMessage.btnSendMessage"/>">
                                                         </td>
                                                         <td><input type="button" class="ControlPushButton"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>"
+                                                                   value="<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>"
                                                                    onClick="XMLHttpRequestSendnArch()">
                                                         </td>
                                                     </tr>
@@ -557,7 +557,7 @@
                                             <td bgcolor="#EEEEFF" valign=top colspan="2"><!--Message and Subject Cell-->
                                                 <div>
                                                     <label for="subject">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject"/> :
+                                                        <fmt:message key="messenger.CreateMessage.formSubject"/> :
                                                     </label>
                                                     <input type="text" name="subject" id="subject" size="67" value="${messageSubject}"/>
                                                     <br>
@@ -573,7 +573,7 @@
                                                     if (att != null || pdfAtt != null) {
                                                 %>
                                                 <br>
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachments"/>
+                                                <fmt:message key="messenger.CreateMessage.msgAttachments"/>
                                                 <input type="hidden" id="attachmentAlert" name="attachmentAlert"
                                                        value="true"/>
                                                 <%
@@ -585,7 +585,7 @@
 
                                         <tr>
                                             <td bgcolor="#B8B8FF"></td>
-                                            <td bgcolor="#B8B8FF" colspan="2"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgLinkThisMessage"/></strong>
+                                            <td bgcolor="#B8B8FF" colspan="2"><strong><fmt:message key="messenger.CreateMessage.msgLinkThisMessage"/></strong>
                                             </td>
                                         </tr>
 
@@ -598,13 +598,13 @@
                                             </td>
                                             <td bgcolor="#EEEEFF">
                                                 <input type="button" class="ControlPushButton" name="searchDemo"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSearchDemographic"/>"
+                                                       value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic"/>"
                                                        onclick="popupSearchDemo(document.forms[0].keyword.value)"/>
                                             </td>
                                         </tr>
                                         <tr>
                                             <td bgcolor="#EEEEFF"></td>
-                                            <td bgcolor="#EEEEFF" colspan="2"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSelectedDemographic"/></strong>
+                                            <td bgcolor="#EEEEFF" colspan="2"><strong><fmt:message key="messenger.CreateMessage.msgSelectedDemographic"/></strong>
                                             </td>
                                         </tr>
                                         <tr>
@@ -636,10 +636,10 @@
                                             <td bgcolor="#EEEEFF">
                                                 <input type="button"
                                                        class="ControlPushButton" name="clearDemographic"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic"/>"
+                                                       value="<fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic"/>"
                                                        onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"'/>
                                                 <input type="button" class="ControlPushButton" name="attachDemo"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachDemographic"/>"
+                                                       value="<fmt:message key="messenger.CreateMessage.msgAttachDemographic"/>"
                                                        onclick="popupAttachDemo(document.forms[0].demographic_no.value)"
                                                        style="display: "/>
                                             </td>

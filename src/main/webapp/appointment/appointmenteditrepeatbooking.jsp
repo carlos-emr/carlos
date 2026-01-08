@@ -274,7 +274,7 @@
 
         if (bSucc) {
 %>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
 <script LANGUAGE="JavaScript">
     self.opener.refresh();
     self.close();
@@ -283,7 +283,7 @@
 } else {
 %>
 <p>
-<h1><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddFailure"/></h1>
 
 <%
         }
@@ -293,7 +293,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
+        <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <script language="JavaScript">
             <!--
 
@@ -306,7 +306,7 @@
 
 
             function onExit() {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
+                if (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
                     window.close()
                 }
             }
@@ -319,7 +319,7 @@
 
             function onSub() {
                 if (saveTemp == 1) {
-                    return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
+                    return (confirm("<fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
                 }
             }
 
@@ -334,7 +334,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -351,30 +351,30 @@
                 <TD>
                     <% if (bEdit) { %> <INPUT TYPE="button"
                                               onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                                              VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
                     <INPUT TYPE="button"
                            onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
                     <INPUT TYPE="button"
                            onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
+                           VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
                            onClick="onButDelete()"> <% } else { %> <INPUT
                         TYPE="button"
                         onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                        VALUE="<fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
                     <% } %>
                 </TD>
                 <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
+                                         VALUE=" <fmt:message key="global.btnBack"/> "
                                          onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
+                        TYPE="button" VALUE=" <fmt:message key="global.btnExit"/> "
                         onClick="onExit()"></TD>
             </tr>
         </table>
 
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="<%=deepcolor%>">
-                <th><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.title"/></font>
+                <th><font face="Helvetica"><fmt:message key="appointment.appointmenteditrepeatbooking.title"/></font>
                 </th>
             </tr>
         </table>
@@ -382,27 +382,27 @@
         <table border="0" cellspacing="1" cellpadding="2" width="100%">
             <tr>
                 <td width="20%"></td>
-                <td nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></td>
+                <td nowrap><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></td>
             </tr>
             <tr>
                 <td></td>
                 <td nowrap>&nbsp;&nbsp;&nbsp;
 
-                    <input type="radio" name="dateUnit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="day"/>"   <%="checked"%>
-                           onclick='onCheck(this, "day")'><fmt:setBundle basename="oscarResources"/><fmt:message key="day"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="week"/>"  <%=""%>
-                           onclick='onCheck(this, "week")'><fmt:setBundle basename="oscarResources"/><fmt:message key="week"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="month"/>" <%=""%>
-                           onclick='onCheck(this, "month")'><fmt:setBundle basename="oscarResources"/><fmt:message key="month"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="year"/>"  <%=""%>
-                           onclick='onCheck(this, "year")'><fmt:setBundle basename="oscarResources"/><fmt:message key="year"/></td>
+                    <input type="radio" name="dateUnit" value="<fmt:message key="day"/>"   <%="checked"%>
+                           onclick='onCheck(this, "day")'><fmt:message key="day"/> &nbsp;&nbsp;
+                    <input type="radio" name="dateUnit" value="<fmt:message key="week"/>"  <%=""%>
+                           onclick='onCheck(this, "week")'><fmt:message key="week"/> &nbsp;&nbsp;
+                    <input type="radio" name="dateUnit" value="<fmt:message key="month"/>" <%=""%>
+                           onclick='onCheck(this, "month")'><fmt:message key="month"/> &nbsp;&nbsp;
+                    <input type="radio" name="dateUnit" value="<fmt:message key="year"/>"  <%=""%>
+                           onclick='onCheck(this, "year")'><fmt:message key="year"/></td>
             </tr>
         </table>
 
         <table border="0" cellspacing="1" cellpadding="2" width="100%">
             <tr>
                 <td width="20%"></td>
-                <td width="16%" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></td>
+                <td width="16%" nowrap><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></td>
                 <td nowrap><select name="everyNum">
                     <%
                         for (int i = 1; i < 12; i++) {
@@ -417,10 +417,10 @@
             </tr>
             <tr>
                 <td></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/> &nbsp;&nbsp;
+                <td><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/> &nbsp;&nbsp;
                     <button type="button" id="f_trigger_b">...</button>
                     <br>
-                    <font size="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="ddmmyyyy"/></font></td>
+                    <font size="-1"><fmt:message key="ddmmyyyy"/></font></td>
                 <td nowrap valign="top"><input type="text" name="endDate"
                                                id="endDate" size="10"
                                                value="<%=UtilDateUtilities.DateToString(new java.util.Date(),"dd/MM/yyyy")%>"

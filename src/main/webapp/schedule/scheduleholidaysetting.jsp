@@ -129,7 +129,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.title"/></title>
+        <title><fmt:message key="schedule.scheduleholidaysetting.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
 
         <script language="JavaScript">
@@ -146,7 +146,7 @@
 
             function checkInput() {
                 if (document.schedule.holiday_name.value == "") {
-                    alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgCheckInput"/>');
+                    alert('<fmt:message key="schedule.scheduleholidaysetting.msgCheckInput"/>');
                     return false;
                 } else {
                     return true;
@@ -189,7 +189,7 @@
                     <table width="95%" border="0" cellspacing="0" cellpadding="5">
                         <tr>
                             <td bgcolor="#CCFFCC">
-                                <p align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.formHolidayName"/>:</p>
+                                <p align="right"><fmt:message key="schedule.scheduleholidaysetting.formHolidayName"/>:</p>
                             </td>
                             <td bgcolor="#CCFFCC"><input type="text" name="holiday_name"></td>
                         </tr>
@@ -206,13 +206,13 @@
                                     href="scheduleholidaysetting.jsp?year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
                                 &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                                  BORDER="0"
-                                                 ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnLastMonthTip"/>'
-                                                 vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnLastMonth"/>&nbsp;&nbsp; </a>
+                                                 ALT='<fmt:message key="schedule.scheduleholidaysetting.btnLastMonthTip"/>'
+                                                 vspace="2"> <fmt:message key="schedule.scheduleholidaysetting.btnLastMonth"/>&nbsp;&nbsp; </a>
                                 <b><span CLASS=title><%=year%>-<%=month%></span></b> <a
                                         href="scheduleholidaysetting.jsp?year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
-                                    &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnNextMonth"/> <img
+                                    &nbsp;&nbsp;<fmt:message key="schedule.scheduleholidaysetting.btnNextMonth"/> <img
                                         src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
-                                        ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnNextMonthTip"/>'
+                                        ALT='<fmt:message key="schedule.scheduleholidaysetting.btnNextMonthTip"/>'
                                         vspace="2">&nbsp;&nbsp;</a></td>
                         </TR>
                     </table>
@@ -221,14 +221,14 @@
                            bgcolor="silver">
                         <tr bgcolor="#FOFOFO" align="center">
                             <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"
-                                                    color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgSunday"/></font></td>
-                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgMonday"/></font></td>
-                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgTuesday"/></font></td>
-                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgWednesday"/></font></td>
-                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgThursday"/></font></td>
-                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgFriday"/></font></td>
+                                                    color="red"><fmt:message key="schedule.scheduleholidaysetting.msgSunday"/></font></td>
+                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="schedule.scheduleholidaysetting.msgMonday"/></font></td>
+                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="schedule.scheduleholidaysetting.msgTuesday"/></font></td>
+                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="schedule.scheduleholidaysetting.msgWednesday"/></font></td>
+                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="schedule.scheduleholidaysetting.msgThursday"/></font></td>
+                            <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"><fmt:message key="schedule.scheduleholidaysetting.msgFriday"/></font></td>
                             <td width="12.5%"><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"
-                                                    color="green"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.msgSaturday"/></font></td>
+                                                    color="green"><fmt:message key="schedule.scheduleholidaysetting.msgSaturday"/></font></td>
                         </tr>
                         <%
                             StringBuffer bgcolor = new StringBuffer("white");
@@ -270,7 +270,7 @@
                         <tr bgcolor="#CCFFCC">
                             <input type="hidden" name="dboperation" value="">
                             <td><input type="button"
-                                       value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnDelete"/>'
+                                       value='<fmt:message key="schedule.scheduleholidaysetting.btnDelete"/>'
                                        onclick="deleteHoliday();"></td>
                             <td>
                                 <div align="right"><input type="hidden" name="year"
@@ -279,10 +279,10 @@
                                         type="hidden" name="day"
                                         value="<%=day%>"> <input type="hidden" name="bFirstDisp"
                                                                  value="0"> <input type="button"
-                                                                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnSave"/>'
+                                                                                   value='<fmt:message key="schedule.scheduleholidaysetting.btnSave"/>'
                                                                                    onclick="return(saveHoliday());">
                                     <input type="button"
-                                           value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>'
+                                           value='<fmt:message key="global.btnClose"/>'
                                            onClick="window.close()"></div>
                             </td>
                         </tr>

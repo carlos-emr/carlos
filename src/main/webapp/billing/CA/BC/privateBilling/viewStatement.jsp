@@ -26,7 +26,7 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
+        <title><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/3.0.0/css/bootstrap.min.css">
         <style>
             .table > tbody > tr.highlight_pink {
@@ -48,7 +48,7 @@
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></h3>
+    <h3><fmt:message key="admin.admin.PrivateBillingStatement"/></h3>
 
     <div class="container-fluid well">
 

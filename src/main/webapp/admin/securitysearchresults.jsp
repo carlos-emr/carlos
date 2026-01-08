@@ -68,7 +68,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.title"/></title>
+        <title><fmt:message key="admin.securitysearchresults.title"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
@@ -90,7 +90,7 @@
             jQuery(document).ready(function () {
                 jQuery('#tblResults').DataTable({
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
                     }
                 });
             });
@@ -98,26 +98,26 @@
     </head>
     <body onLoad="setfocus()">
 
-    <h4><i class="icon-search" title=""></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.description"/></h4>
+    <h4><i class="icon-search" title=""></i>&nbsp;<fmt:message key="admin.securitysearchresults.description"/></h4>
     <div name="alert" style="display:none;" class="alert alert-error"></div>
     <div class="well">
         <form method="post" action="securitysearchresults.jsp" name="searchprovider">
             <table style="width:100%">
                 <tr>
-                    <td style="text-align:right; vertical-align:middle"><b><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchrecordshtm.msgCriteria"/></i></b>&nbsp;&nbsp;
+                    <td style="text-align:right; vertical-align:middle"><b><i><fmt:message key="admin.securitysearchrecordshtm.msgCriteria"/></i></b>&nbsp;&nbsp;
                     </td>
                     <td style="white-space: nowrap;">
                         <input type="radio" name="search_mode" value="search_username">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/></td>
+                        <fmt:message key="admin.securityrecord.formUserName"/></td>
                     <td style="white-space: nowrap;">
                         <input type="radio" checked name="search_mode"
-                               value="search_providerno"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formProviderNo"/></td>
+                               value="search_providerno"> <fmt:message key="admin.securityrecord.formProviderNo"/></td>
                     <td style="vertical-align:middle; text-align:left">
                         <div class="input-append" name="keywordwrap">
                             <input type="text" name="keyword" class="input input-large" maxlength="100">
                             <button type="submit" name="button" class="btn add-on" style="height:30px; width:30px;">
                                 <i class="icon-search"
-                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchrecordshtm.btnSearch"/>"></i></button>
+                                   title="<fmt:message key="admin.securitysearchrecordshtm.btnSearch"/>"></i></button>
                         </div>
                         <input type="hidden" name="orderby" value="user_name">
                         <input type="hidden" name="limit1" value="0">
@@ -129,7 +129,7 @@
     </div>
     <table style="width:100%">
         <tr>
-            <td style="text-align:left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.keywords"/></i>:
+            <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
                 <%=Encode.forHtmlContent(request.getParameter("keyword"))%>
             </td>
         </tr>
@@ -137,10 +137,10 @@
     <table style="width:100%" id="tblResults" class="table table-hover table-striped table-condensed">
         <thead>
         <tr>
-            <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/></b></th>
-            <th style="text-align:center; width:40%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPassword"/></b></th>
-            <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formProviderNo"/></b></th>
-            <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPIN"/></b></th>
+            <th style="text-align:center; width:20%"><b><fmt:message key="admin.securityrecord.formUserName"/></b></th>
+            <th style="text-align:center; width:40%"><b><fmt:message key="admin.securityrecord.formPassword"/></b></th>
+            <th style="text-align:center; width:20%"><b><fmt:message key="admin.securityrecord.formProviderNo"/></b></th>
+            <th style="text-align:center; width:20%"><b><fmt:message key="admin.securityrecord.formPIN"/></b></th>
         </tr>
         </thead>
         <%
@@ -174,6 +174,6 @@
         %>
     </table>
     <br>
-    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.msgClickForDetail"/></p>
+    <p><fmt:message key="admin.securitysearchresults.msgClickForDetail"/></p>
     </body>
 </html>

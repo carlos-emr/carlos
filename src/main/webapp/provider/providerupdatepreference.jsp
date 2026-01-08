@@ -54,7 +54,7 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerupdatepreference.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="provider.providerupdatepreference.description"/></font></th>
             </tr>
         </table>
         <%
@@ -97,7 +97,7 @@
         <hr width="90%"/>
         <form><input type="button"
                      value=
-                         <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> onClick="self.close()">
+                         <fmt:message key="global.btnClose"/> onClick="self.close()">
         </form>
     </center>
     </body>

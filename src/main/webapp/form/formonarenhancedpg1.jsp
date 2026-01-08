@@ -96,7 +96,7 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= context %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= context %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= context %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
 
         <script src="<%= context %>/js/jquery-1.7.1.min.js" type="text/javascript"></script>

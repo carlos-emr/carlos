@@ -50,7 +50,7 @@
 
 <div class="page-header">
     <h4>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.serverLog"/>
+        <fmt:message key="admin.admin.serverLog"/>
     </h4>
 </div>
 

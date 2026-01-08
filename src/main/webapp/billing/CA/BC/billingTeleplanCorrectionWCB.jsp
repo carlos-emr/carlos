@@ -93,7 +93,7 @@
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"
                 type="text/javascript"></script>
         <script src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"
                 type="text/javascript"></script>
@@ -189,8 +189,8 @@
             <tr>
                 <td colspan="2" class="SectionHead"><a href=#
                                                        onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=form.getDemographicNumber()%>&displaymode=edit&dboperation=search_detail','
-                                                           <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>');return false;"
-                                                       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
+                                                           <fmt:message key="oscarEncounter.Index.popupPage2Window"/>');return false;"
+                                                       title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
                     Information</a> <input type="hidden" name="id" id="id" value="<%=form.getId()%>"/>
                     <input type="hidden"
                            name="demographicNumber" id="demographicNumber"

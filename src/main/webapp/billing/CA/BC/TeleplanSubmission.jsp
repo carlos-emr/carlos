@@ -133,7 +133,7 @@
 </head>
 
 <body>
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile2"/></h3>
+<h3><fmt:message key="admin.admin.genTeleplanFile2"/></h3>
 
 <div class="container-fluid well">
     <div id="Layer2"

@@ -55,7 +55,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="90%">
             <tr bgcolor="#486ebd">
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgTitle"/></font></th>
+                    <fmt:message key="provider.providersavemygroup.msgTitle"/></font></th>
             </tr>
         </table>
         <%
@@ -80,7 +80,7 @@
             if (rowsAffected == 1) {
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgSuccessful"/></h1>
+        <h1><fmt:message key="provider.providersavemygroup.msgSuccessful"/></h1>
         </p>
         <script LANGUAGE="JavaScript">
             self.close();
@@ -90,7 +90,7 @@
         } else {
         %>
         <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgFailed"/></h1>
+        <h1><fmt:message key="provider.providersavemygroup.msgFailed"/></h1>
         </p>
         <%
             }
@@ -98,7 +98,7 @@
         <p></p>
         <hr width="90%"/>
         <form><input type="button"
-                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.btnClose"/>"
+                     value="<fmt:message key="provider.providersavemygroup.btnClose"/>"
                      onClick="window.close()"></form>
     </center>
     </body>

@@ -76,7 +76,7 @@
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
                         Invalid input.
                     </p>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.patientNameLength.title"/>
+                    <fmt:message key="provider.patientNameLength.title"/>
                     <input type="text" id="numericFormField" name="patientNameLength.value" value="<c:out value='${length.value}'/>" />
                     <br/>
                     <input type="submit" name="submit" value="Apply" class="btn btn-primary" />

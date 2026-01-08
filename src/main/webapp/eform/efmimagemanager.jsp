@@ -39,7 +39,7 @@
             }
 
             function deleteImg(image) {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.imgDelete"/>")) {
+                if (confirm("<fmt:message key="eform.uploadimages.imgDelete"/>")) {
                     document.location = "<%=request.getContextPath()%>/eform/deleteImage.do?filename=" + image;
                 }
             }
@@ -60,8 +60,8 @@
     <table class="table table-condensed table-striped table-hover" id="tblImage">
         <thead>
         <tr>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgimgName"/></th>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgImgAction"/></th>
+            <th><fmt:message key="eform.uploadimages.msgimgName"/></th>
+            <th><fmt:message key="eform.uploadimages.msgImgAction"/></th>
         </tr>
         </thead>
 
@@ -86,7 +86,7 @@
 
             <td>
                 <a href="<%= request.getContextPath() %>/eform/deleteImage.do?filename=<%=URLEncoder.encode(curimage, "UTF-8")%>"
-                   class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                   class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
             </td>
         </tr>
         <% } %>

@@ -44,7 +44,7 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setColour.title"/></title>
+        <title><fmt:message key="provider.setColour.title"/></title>
 
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
@@ -81,8 +81,8 @@
 
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setColour.msgPrefs"/></td>
-            <td style="color: white" class="MainTableTopRowRightColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setColour.msgProviderColour"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="provider.setColour.msgPrefs"/></td>
+            <td style="color: white" class="MainTableTopRowRightColumn"><fmt:message key="provider.setColour.msgProviderColour"/></td>
         </tr>
         <tr>
             <td class="MainTableLeftColumn">&nbsp;</td>
@@ -96,19 +96,19 @@
                 %>
                 <form action="${pageContext.request.contextPath}/setProviderColour.do" method="post">
                 <input type="hidden" name="colour" id="colour" value="<%=colour%>"/>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setColour.msgEdit"/>
+                <fmt:message key="provider.setColour.msgEdit"/>
                 <a href="javascript:TCP.popup(document.forms[0].elements['colour'])"><img
                         width="15" height="13" border="0" src="<%= request.getContextPath() %>/images/sel.gif"></a>
-                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setColour.msgSatus"/>
+                <p><fmt:message key="provider.setColour.msgSatus"/>
                 <div id='cdisp' style='width: 33%'>&nbsp;</div>
                 </p>
                 <p><input type="submit" onclick="return validate();"
-                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setColour.btnSubmit"/>"/>
+                          value="<fmt:message key="provider.setColour.btnSubmit"/>"/>
                     </form> <%
                }
                else if( ((String)request.getAttribute("status")).equals("complete") ) {
             %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setColour.msgSuccess"/> <br>
+                        <fmt:message key="provider.setColour.msgSuccess"/> <br>
 
                             <%
                }

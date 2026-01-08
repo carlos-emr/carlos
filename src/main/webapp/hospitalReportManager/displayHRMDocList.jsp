@@ -67,7 +67,7 @@
                 jQuery('#tblHRM').DataTable({
                     "order": [],
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
                     }
                 });
             });
@@ -95,12 +95,12 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar" style="width:100%">
                     <tr>
-                        <td><h4><fmt:setBundle basename="oscarResources"/><fmt:message key="hrm.displayHRMDocList.displaydocs"/></h4></td>
+                        <td><h4><fmt:message key="hrm.displayHRMDocList.displaydocs"/></h4></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'Help.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a> | <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'Help.jsp')"><fmt:message key="global.help"/></a> | <a
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -113,11 +113,11 @@
                     <thead>
                     <tr>
 
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="hrm.displayHRMDocList.reportType"/></th>
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="hrm.displayHRMDocList.description"/></th>
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="hrm.displayHRMDocList.reportStatus"/></th>
+                        <th><fmt:message key="hrm.displayHRMDocList.reportType"/></th>
+                        <th><fmt:message key="hrm.displayHRMDocList.description"/></th>
+                        <th><fmt:message key="hrm.displayHRMDocList.reportStatus"/></th>
                         <th>Report Date</th>
-                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="hrm.displayHRMDocList.timeReceived"/></th>
+                        <th><fmt:message key="hrm.displayHRMDocList.timeReceived"/></th>
                         <th>Category</th>
                         <th>Class/Subclass/Accompanying Subclass</th>
                     </tr>
@@ -150,7 +150,7 @@
                         if (hrmdocs.size() <= 0) {
                     %>
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgNoData"/></td>
+                        <td><fmt:message key="eform.showmyform.msgNoData"/></td>
                         <td></td>
                         <!-- this empty td is here so that the number of columns matches the <th>, an important requirement when using jquery datatables-->
                         <td></td>

@@ -42,7 +42,7 @@
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/></title>
+        <title><fmt:message key="admin.admin.scheduleOfBenefits"/></title>
         <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
 
         <script type="text/javascript" LANGUAGE="JavaScript">
@@ -101,7 +101,7 @@
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/> </h3>
+    <h3><fmt:message key="admin.admin.scheduleOfBenefits"/> </h3>
     <div class="container-fluid form-inline">
 
 
@@ -122,11 +122,11 @@
                     <input type="file" name="importFile" value="/root/apr05sob.001">
                     <input class="btn btn-primary" type="submit" name="Submit" value="Import">
                     <div>
-                        <input type="checkbox" name="showChangedCodes" value="on" checked tabindex="1"/><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showCodesChangedPrices"/><br>
-                        <input type="checkbox" name="showNewCodes" value="on" tabindex="2"/><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showNewCodes"/><br>
-                        <input type="checkbox" name="forceUpdate" value="on" tabindex="3"/><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.forceUpdate"/><br>
+                        <input type="checkbox" name="showChangedCodes" value="on" checked tabindex="1"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showCodesChangedPrices"/><br>
+                        <input type="checkbox" name="showNewCodes" value="on" tabindex="2"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showNewCodes"/><br>
+                        <input type="checkbox" name="forceUpdate" value="on" tabindex="3"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.forceUpdate"/><br>
                         <input type="checkbox" name="updateAssistantFees" onclick="toggleAssistantInput(this);"
-                               value="on" tabindex="5"/><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAssistantFees"/><span
+                               value="on" tabindex="5"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAssistantFees"/><span
                             id="updateAssistantInput" style="display:none;"><input type="text"
                                                                                    name="updateAssistantFeesValue"
                                                                                    id="updateAssistantFeesValue"
@@ -134,7 +134,7 @@
                                                                                    style="margin-left:30px;"
                                                                                    tabindex="7"/></span><br/>
                         <input type="checkbox" name="updateAnaesthetistFees" onclick="toggleAnaesthetistInput(this);"
-                               value="on" tabindex="6"/><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAnaesthetistFees"/><span
+                               value="on" tabindex="6"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAnaesthetistFees"/><span
                             id="updateAnaesthetistInput" style="display:none;"><input type="text"
                                                                                       name="updateAnaesthetistFeesValue"
                                                                                       id="updateAnaesthetistFeesValue"

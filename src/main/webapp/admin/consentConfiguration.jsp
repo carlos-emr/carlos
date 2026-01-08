@@ -46,7 +46,7 @@
 
 <html ng-app="consentConfig">
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.consentConfig"/></title>
+    <title><fmt:message key="admin.admin.consentConfig"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/angular.min.js"></script>
@@ -58,7 +58,7 @@
 <body vlink="#0000FF" class="BodyStyle">
 <div ng-controller="consentConfig">
     <div class="page-header">
-        <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.consentConfig"/></h4>
+        <h4><fmt:message key="admin.admin.consentConfig"/></h4>
     </div>
 
 

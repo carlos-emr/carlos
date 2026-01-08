@@ -55,7 +55,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchrecordshtm.title"/></title>
+        <title><fmt:message key="admin.providersearchrecordshtm.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <script LANGUAGE="JavaScript">
             <!--
@@ -85,7 +85,7 @@
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchrecordshtm.description"/></font></th>
+                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.providersearchrecordshtm.description"/></font></th>
             </tr>
         </table>
 
@@ -95,20 +95,20 @@
             <form method="post" action="providersearchresults.jsp" name="searchprovider" onsubmit="return onsub()">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font face="Verdana" color="#0000FF">
-                        <b><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
+                        <b><i><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
                     <td nowrap><font size="1" face="Verdana" color="#0000FF">
                         <input type="radio" checked name="search_mode" value="search_name"
                                onclick="document.forms['searchprovider'].keyword.focus();">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formLastName"/></font></td>
+                        <fmt:message key="admin.providersearch.formLastName"/></font></td>
                     <td nowrap><font size="1" face="Verdana" color="#0000FF">
                         <input type="radio" name="search_mode" value="search_providerno"
                                onclick="document.forms['searchprovider'].keyword.focus();">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formNo"/></font></td>
+                        <fmt:message key="admin.providersearch.formNo"/></font></td>
                     <td nowrap><font size="1" face="Verdana" color="#0000FF">
                         <input type="checkbox" name="search_status" value="1">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formActiveStatus"/><br/>
+                        <fmt:message key="admin.providersearch.formActiveStatus"/><br/>
                         <input type="checkbox" name="search_status" value="0">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formInactiveStatus"/> </font></td>
+                        <fmt:message key="admin.providersearch.formInactiveStatus"/> </font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text" NAME="keyword" SIZE="17"
                                                                         MAXLENGTH="100">
                         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
@@ -116,7 +116,7 @@
                         <INPUT TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
 
                         <INPUT TYPE="SUBMIT" NAME="button" VALUE=
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.btnSubmit"/> SIZE="17"></td>
+                            <fmt:message key="admin.search.btnSubmit"/> SIZE="17"></td>
                 </tr>
             </form>
         </table>

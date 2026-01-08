@@ -68,7 +68,7 @@
             var ctx = '<%=request.getContextPath()%>';
         </script>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.title"/></title>
+        <title><fmt:message key="demographic.demographicappthistory.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>

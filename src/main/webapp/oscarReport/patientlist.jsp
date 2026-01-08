@@ -29,7 +29,7 @@
 
     <fieldset>
         <h4>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.exportPatientbyAppt"/> <br> <small>Please select
+            <fmt:message key="admin.admin.exportPatientbyAppt"/> <br> <small>Please select
             the provider and appointment date from &amp; to.</small>
         </h4>
         <div class="row-fluid">

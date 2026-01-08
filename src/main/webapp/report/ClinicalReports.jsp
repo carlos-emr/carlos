@@ -115,14 +115,14 @@
 <html>
 
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.title"/></title>
+        <title><fmt:message key="report.ClinicalReports.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.12.3.js"></script>
@@ -321,7 +321,7 @@
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn" width="100">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.title"/>
+                <fmt:message key="report.ClinicalReports.title"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
@@ -334,8 +334,8 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -348,18 +348,18 @@
                     ArrayList<ReportEvaluator> arrList = (ArrayList) session.getAttribute("ClinicalReports");
                     if (arrList != null) {
                 %>
-                <a href="<%= request.getContextPath() %>/report/ClinicalReports.jsp?clear=yes"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                <a href="<%= request.getContextPath() %>/report/ClinicalReports.jsp?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
                 <ul style="list-style-type:square; margin-left:1px;padding-left:4px;padding-top:2px;margin-top:2px;">
                     <% for (int i = 0; i < arrList.size(); i++) {
                         ReportEvaluator re = arrList.get(i);
                     %>
                     <li title="<%=re.getName()%>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
-                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp?id=<%=i%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
-                        <a style="text-decoration:none;" href="<%= request.getContextPath() %>/report/RemoveClinicalReport.do?id=<%=i%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgDel"/></a>
+                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
+                        <a style="text-decoration:none;" href="<%= request.getContextPath() %>/report/RemoveClinicalReport.do?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgDel"/></a>
                     </li>
                     <% }%>
                 </ul>
-                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgCSV"/></a>
+                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp"><fmt:message key="report.ClinicalReports.msgCSV"/></a>
                 <%}%>
 
             </td>
@@ -371,7 +371,7 @@
                             <label for="asOfDate" >As Of Date:</label><input type="text" name="asOfDate" id="asOfDate" value="<%=""%>" size="9" > <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0" /></a> <br>
                             -->
                             <fieldset>
-                                <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgNumerator"/></legend>
+                                <legend><fmt:message key="report.ClinicalReports.msgNumerator"/></legend>
 
                                 <select name="numerator" id="numerator"
                                         onchange="javascript:processExtraFieldsNumerator(this)">
@@ -401,7 +401,7 @@
                                             numer_val[0] = request.getAttribute("numerator_value");
                                         }
                                     %>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgValue"/> : <input type="text"
+                                    <fmt:message key="report.ClinicalReports.msgValue"/> : <input type="text"
                                                                                                    name="numerator_value"
                                                                                                    value="<%=numer_val[0]%>"><br>
 
@@ -438,7 +438,7 @@
                             <%for (int i = 0; i < 11; i++) { %>
 
                             <fieldset style="display:none" id="fieldNumerator<%=i%>">
-                                <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgNumerator"/></legend>
+                                <legend><fmt:message key="report.ClinicalReports.msgNumerator"/></legend>
 
                                 <select name="numerator<%=i %>" id="numerator<%=i %>"
                                         onchange="javascript:processExtraFieldsNumerator<%=i %>(this)">
@@ -469,7 +469,7 @@
                                             numer_val[i] = request.getAttribute("numerator" + i + "_value");
                                         }
                                     %>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgValue"/> : <input type="text"
+                                    <fmt:message key="report.ClinicalReports.msgValue"/> : <input type="text"
                                                                                                    name="numerator<%=i %>_value"
                                                                                                    value="<%=numer_val[i]%>"><br>
 
@@ -508,7 +508,7 @@
                             <br/>
 
                             <fieldset>
-                                <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgDenominator"/></legend>
+                                <legend><fmt:message key="report.ClinicalReports.msgDenominator"/></legend>
 
                                 <select id="denominator" name="denominator"
                                         onchange="javascript:processExtraFields(this)">
@@ -552,26 +552,26 @@
                             </fieldset>
 
                             <fieldset>
-                                <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.Fieldstoinclude"/></legend>
+                                <legend><fmt:message key="report.ClinicalReports.Fieldstoinclude"/></legend>
                                 <input type="checkbox"
                                        name="showfields" <%=dchecked((String[]) request.getAttribute("showfields"), "lastName")%>
-                                       value="lastName"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgLastName"/></input>
+                                       value="lastName"><fmt:message key="report.ClinicalReports.msgLastName"/></input>
                                 <input type="checkbox"
                                        name="showfields" <%=dchecked((String[]) request.getAttribute("showfields"), "firstName")%>
-                                       value="firstName"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgFirstName"/></input>
+                                       value="firstName"><fmt:message key="report.ClinicalReports.msgFirstName"/></input>
                                 <input type="checkbox"
                                        name="showfields" <%=dchecked((String[]) request.getAttribute("showfields"), "sex")%>
-                                       value="sex"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgSex"/></input>
+                                       value="sex"><fmt:message key="report.ClinicalReports.msgSex"/></input>
                                 <input type="checkbox"
                                        name="showfields" <%=dchecked((String[]) request.getAttribute("showfields"), "phone")%>
-                                       value="phone"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgPhone"/></input>
+                                       value="phone"><fmt:message key="report.ClinicalReports.msgPhone"/></input>
                                 <input type="checkbox"
                                        name="showfields" <%=dchecked((String[]) request.getAttribute("showfields"), "address")%>
-                                       value="address"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgAddress"/></input>
+                                       value="address"><fmt:message key="report.ClinicalReports.msgAddress"/></input>
                                 <br/>
                                 <%for (int rm = 0; rm < 3; rm++) {%>
                                 <select name="report_measurement<%=rm%>">
-                                    <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgNoMeasurements"/></option>
+                                    <option value="-1"><fmt:message key="report.ClinicalReports.msgNoMeasurements"/></option>
                                     <% for (EctMeasurementTypesBean measurementTypes : vec) {
                                         String measInst = measurementTypes.getMeasuringInstrc();
                                         if (measInst.length() > 25) {
@@ -598,7 +598,7 @@
                                    id="includeNonPositiveResults" <%=includeNonPositiveResultsCheck %>/>&nbsp;Include All Results (includes results where numerator evaluates to false)
 
                             <br/>
-                            <input type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.btnEvaluate"/>"/>
+                            <input type="submit" value="<fmt:message key="report.ClinicalReports.btnEvaluate"/>"/>
                         </form>
                     </fieldset>
 
@@ -606,13 +606,13 @@
 
                 <% if (request.getAttribute("denominator") != null) {%>
                 <div>
-                    <H3><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgResults"/></H3>
+                    <H3><fmt:message key="report.ClinicalReports.msgResults"/></H3>
                     <ul>
-                        <li><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgNumerator"/>:   <%=request.getAttribute("numerator")%>
+                        <li><fmt:message key="report.ClinicalReports.msgNumerator"/>:   <%=request.getAttribute("numerator")%>
                         </li>
-                        <li><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgDenominator"/>: <%=request.getAttribute("denominator")%>
+                        <li><fmt:message key="report.ClinicalReports.msgDenominator"/>: <%=request.getAttribute("denominator")%>
                         </li>
-                        <li><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgPercentage"/>:  <%=request.getAttribute("percentage")%> %
+                        <li><fmt:message key="report.ClinicalReports.msgPercentage"/>:  <%=request.getAttribute("percentage")%> %
                         </li>
                     </ul>
                     CSV:<input type="text" size="30" value="<%=request.getAttribute("csv")%>"/>
@@ -705,9 +705,9 @@
                 %>
                 <form target="_new" action="<%= request.getContextPath() %>/report/ClinicalExport.jsp">
                     <input type="submit" name="getCSV"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgExporttoCSV"/>">
+                           value="<fmt:message key="report.ClinicalReports.msgExporttoCSV"/>">
                     <input type="submit" name="getXLS"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgExporttoXLS"/>">
+                           value="<fmt:message key="report.ClinicalReports.msgExporttoXLS"/>">
                 </form>
             </td>
         </tr>

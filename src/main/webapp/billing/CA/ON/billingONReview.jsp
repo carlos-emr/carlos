@@ -722,8 +722,8 @@
                     <tr style="color:white">
                         <td align=center>
                             <div class='myError'>
-                                (<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
-                                ) A003A - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
+                                (<fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
+                                ) A003A - <fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
                             </div>
                         </td>
                     </tr>

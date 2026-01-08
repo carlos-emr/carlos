@@ -62,7 +62,7 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></title>
+        <title><fmt:message key="admin.admin.btnUpdatePatientProvider"/></title>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
     </head>
@@ -96,7 +96,7 @@
 
     <body>
     <div class="container-fluid">
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></h3>
+        <h3><fmt:message key="admin.admin.btnUpdatePatientProvider"/></h3>
         <%
             if (request.getParameter("update") != null
                     && request.getParameter("update").equals("UpdateResident")) {
@@ -135,7 +135,7 @@
                 }
         %>
         <%=rowsAffected %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgRecords"/>
+        <fmt:message key="admin.updatedemographicprovider.msgRecords"/>
         <br>
         <%
             }
@@ -176,7 +176,7 @@
                 }
         %>
         <%=rowsAffected %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgRecords"/>
+        <fmt:message key="admin.updatedemographicprovider.msgRecords"/>
         <br>
         <%
             }
@@ -220,7 +220,7 @@
                 }
         %>
         <%= rowsAffected %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgRecords"/>
+        <fmt:message key="admin.updatedemographicprovider.msgRecords"/>
         <br>
         <%
             }
@@ -242,7 +242,7 @@
                 }
         %>
         <%= rowsAffected %>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgRecords"/>
+        <fmt:message key="admin.updatedemographicprovider.msgRecords"/>
         <br>
         <% } %>
 
@@ -253,14 +253,14 @@
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp3())">
                     <tr>
                         <td>
-                            <b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgMrp"/></b>
+                            <b><fmt:message key="admin.updatedemographicprovider.msgMrp"/></b>
                         </td>
                     </tr>
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formReplace"/>
+                        <td><fmt:message key="admin.updatedemographicprovider.formReplace"/>
                             <select name="oldcust5">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
                                 <option value="<%= Encode.forHtmlContent(names.get(i)) %>">
@@ -268,10 +268,10 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formWith"/>
+                            <fmt:message key="admin.updatedemographicprovider.formWith"/>
                             <select name="newcust5">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
                                 <option value="<%=Encode.forHtmlContent(names.get(i))%>">
@@ -279,7 +279,7 @@
                                 </option>
                                 <% } %>
                             </select><br>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formCondition"/>
+                            <fmt:message key="admin.updatedemographicprovider.formCondition"/>
                             <select name="last_name_from">
                                 <%
                                     char cletter = 'A';
@@ -290,7 +290,7 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formTo"/>
+                            <fmt:message key="admin.updatedemographicprovider.formTo"/>
                             <select name="last_name_to">
                                 <%
                                     cletter = 'A';
@@ -303,7 +303,7 @@
                             </select> <br>
                             <INPUT type="hidden" name="regexp" value="">
                             <input type="hidden" name="update" value="UpdateMrp">
-                            <INPUT class="btn btn-primary" type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>">
+                            <INPUT class="btn btn-primary" type="submit" value="<fmt:message key="global.update"/>">
                         </td>
                     </tr>
                 </form>
@@ -317,14 +317,14 @@
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp1())">
                     <tr>
                         <td>
-                            <b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNurse"/></b>
+                            <b><fmt:message key="admin.updatedemographicprovider.msgNurse"/></b>
                         </td>
                     </tr>
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formReplace"/>
+                        <td><fmt:message key="admin.updatedemographicprovider.formReplace"/>
                             <select name="oldcust1">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
                                 <option value="<%= Encode.forHtmlContent(names.get(i)) %>">
@@ -332,10 +332,10 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formWith"/>
+                            <fmt:message key="admin.updatedemographicprovider.formWith"/>
                             <select name="newcust1">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
                                 <option value="<%=Encode.forHtmlContent(names.get(i))%>">
@@ -343,7 +343,7 @@
                                 </option>
                                 <% } %>
                             </select><br>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formCondition"/>
+                            <fmt:message key="admin.updatedemographicprovider.formCondition"/>
                             <select name="last_name_from">
                                 <%
                                     cletter = 'A';
@@ -354,7 +354,7 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formTo"/>
+                            <fmt:message key="admin.updatedemographicprovider.formTo"/>
                             <select name="last_name_to">
                                 <%
                                     cletter = 'A';
@@ -368,7 +368,7 @@
                             <INPUT type="hidden" name="regexp" value="">
                             <input type="hidden" name="update" value="UpdateNurse">
                             <INPUT class="btn btn-primary" type="submit"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>">
+                                   value="<fmt:message key="global.update"/>">
                         </td>
                     </tr>
                 </form>
@@ -381,14 +381,14 @@
                 <FORM NAME="ADDAPPT2" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp2())">
                     <tr>
-                        <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgMidwife"/></b></td>
+                        <td><b><fmt:message key="admin.updatedemographicprovider.msgMidwife"/></b></td>
                     </tr>
                     <tr>
                         <td>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formReplace"/>
+                            <fmt:message key="admin.updatedemographicprovider.formReplace"/>
                             <select name="oldcust4">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <%
                                     for (int i = 0; i < names.size(); i = i + 2) {
@@ -398,10 +398,10 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formWith"/>
+                            <fmt:message key="admin.updatedemographicprovider.formWith"/>
                             <select name="newcust4">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
                                 <option value="<%= Encode.forHtmlContent(names.get(i)) %>">
@@ -409,7 +409,7 @@
                                 </option>
                                 <% } %>
                             </select><br>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formCondition"/>
+                            <fmt:message key="admin.updatedemographicprovider.formCondition"/>
                             <select name="last_name_from">
                                 <%
                                     cletter = 'A';
@@ -420,7 +420,7 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formTo"/>
+                            <fmt:message key="admin.updatedemographicprovider.formTo"/>
                             <select
                                     name="last_name_to">
                                 <%
@@ -435,7 +435,7 @@
                             <input type="hidden" NAME="regexp" value="">
                             <input type="hidden" name="update" value="UpdateMidwife">
                             <input class="btn btn-primary" type="submit"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>">
+                                   value="<fmt:message key="global.update"/>">
                         </td>
                     </tr>
                 </form>
@@ -448,13 +448,13 @@
                 <FORM NAME="ADDAPPT" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp())">
                     <tr>
-                        <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgResident"/></b></td>
+                        <td><b><fmt:message key="admin.updatedemographicprovider.msgResident"/></b></td>
                     </tr>
                     <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formReplace"/>
+                        <td><fmt:message key="admin.updatedemographicprovider.formReplace"/>
                             <select name="oldcust2">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
                                 <option value="<%= Encode.forHtmlContent(names.get(i)) %>">
@@ -462,10 +462,10 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formWith"/>
+                            <fmt:message key="admin.updatedemographicprovider.formWith"/>
                             <select name="newcust2">
                                 <option value="">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
+                                    <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
                                 <option value="<%= Encode.forHtmlContent(names.get(i)) %>">
@@ -473,7 +473,7 @@
                                 </option>
                                 <% } %>
                             </select><br>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formCondition"/>
+                            <fmt:message key="admin.updatedemographicprovider.formCondition"/>
                             <select name="last_name_from">
                                 <%
                                     cletter = 'A';
@@ -484,7 +484,7 @@
                                 </option>
                                 <% } %>
                             </select>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.updatedemographicprovider.formTo"/>
+                            <fmt:message key="admin.updatedemographicprovider.formTo"/>
                             <select name="last_name_to">
                                 <%
                                     cletter = 'A';
@@ -499,7 +499,7 @@
                                     type="hidden" name="update" value="UpdateResident"> <INPUT
                                     class="btn btn-primary"
                                     TYPE="submit"
-                                    VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>">
+                                    VALUE="<fmt:message key="global.update"/>">
                         </td>
                     </tr>
                 </form>

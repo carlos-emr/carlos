@@ -125,7 +125,7 @@
             String boxType = request.getParameter("boxType");
         %>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.title"/></title>
+        <title><fmt:message key="messenger.ViewMessage.title"/></title>
 
 
         <script type="text/javascript">
@@ -179,7 +179,7 @@
                     var ngApp = window.parent.opener.document.body.parentElement.getAttribute("ng-app");
 
                     if (action == "writeToEncounter") {
-                        win = window.open("", "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
+                        win = window.open("", "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
                         if (win.pasteToEncounterNote && win.demographicNo == demographicNo) {
                             txt = fmtOscarMsg();
                             win.pasteToEncounterNote(txt);
@@ -196,7 +196,7 @@
                         } else {
                             win.close();
                             page = 'WriteToEncounter.do?demographic_no=' + demographicNo + '&msgId=' + msgId + '&providerNo=' + providerNo + '&encType=messenger';
-                            var popUp = window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
+                            var popUp = window.open(page, "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
                             if (popUp != null) {
                                 if (popUp.opener == null) {
                                     popUp.opener = self;
@@ -269,16 +269,16 @@
 
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgMessenger"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="messenger.ViewMessage.msgMessenger"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgViewMessage"/></h2></td>
+                            <td><h2><fmt:message key="messenger.ViewMessage.msgViewMessage"/></h2></td>
                             <td></td>
                             <td style="text-align: right">
 
                                 <a href="javascript:void(0)"
-                                   onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                                   onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
                             </td>
                         </tr>
                     </table>
@@ -300,7 +300,7 @@
                                                         <td class="messengerButtonsA"><a
                                                                 href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
                                                                 class="messengerButtons">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnCompose"/>
+                                                            <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                                         </a></td>
                                                     </tr>
                                                 </table>
@@ -312,7 +312,7 @@
                                                 <tr>
                                                     <td class="messengerButtonsA"><a
                                                             href="javascript:window.print()"
-                                                            class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnPrint"/></a></td>
+                                                            class="messengerButtons"><fmt:message key="messenger.ViewMessage.btnPrint"/></a></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -325,7 +325,7 @@
                                                         <td class="messengerButtonsA"><a
                                                                 href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
                                                                 class="messengerButtons">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox"/>
+                                                            <fmt:message key="messenger.ViewMessage.btnInbox"/>
                                                         </a></td>
                                                     </tr>
                                                 </table>
@@ -339,7 +339,7 @@
                                                     <td class="messengerButtonsA"><a
                                                             href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
                                                             class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnSent"/>
+                                                        <fmt:message key="messenger.ViewMessage.btnSent"/>
                                                     </a></td>
                                                 </tr>
                                             </table>
@@ -351,7 +351,7 @@
                                                 <tr>
                                                     <td class="messengerButtonsA"><a
                                                             href="javascript:BackToOscar()"
-                                                            class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnExit"/></a></td>
+                                                            class="messengerButtons"><fmt:message key="messenger.ViewMessage.btnExit"/></a></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -363,21 +363,21 @@
                             <td class="Printable">
                                 <table valign="top">
                                     <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgFrom"/>:
+                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:message key="messenger.ViewMessage.msgFrom"/>:
                                         </td>
                                         <td colspan="2" id="sentBy" class="Printable"
                                             bgcolor="#CCCCFF"><%= session.getAttribute("viewMessageSentby") %>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgTo"/>:
+                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:message key="messenger.ViewMessage.msgTo"/>:
                                         </td>
                                         <td colspan="2" id="sentTo" class="Printable"
                                             bgcolor="#BFBFFF"><%= session.getAttribute("viewMessageSentto") %>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgSubject"/>:
+                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:message key="messenger.ViewMessage.msgSubject"/>:
                                         </td>
                                         <td colspan="2" id="msgSubject" class="Printable"
                                             bgcolor="#BBBBFF"><%= session.getAttribute("viewMessageSubject") %>
@@ -385,7 +385,7 @@
                                     </tr>
 
                                     <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgDate"/>:
+                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:message key="messenger.ViewMessage.msgDate"/>:
                                         </td>
                                         <td colspan="2" id="sentDate" class="Printable" bgcolor="#B8B8FF">
                                             <c:out value="${ viewMessageDate }"/> <c:out value="${ viewMessageTime }"/>
@@ -396,11 +396,11 @@
                                         if (attach != null && attach.equals("1")) {
                                     %>
                                     <tr>
-                                        <td bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments"/>:
+                                        <td bgcolor="#DDDDFF"><fmt:message key="messenger.ViewMessage.msgAttachments"/>:
                                         </td>
                                         <td bgcolor="#B8B8FF" colspan="2"><a
                                                 href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=id%>')">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach"/> </a></td>
+                                            <fmt:message key="messenger.ViewMessage.btnAttach"/> </a></td>
                                     </tr>
                                     <%
                                         }
@@ -410,11 +410,11 @@
                                         if (pdfAttach != null && pdfAttach.equals("1")) {
                                     %>
                                     <tr>
-                                        <td bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments"/>:
+                                        <td bgcolor="#DDDDFF"><fmt:message key="messenger.ViewMessage.msgAttachments"/>:
                                         </td>
                                         <td bgcolor="#B8B8FF" colspan="2"><a
                                                 href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=id%>')">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach"/> </a></td>
+                                            <fmt:message key="messenger.ViewMessage.btnAttach"/> </a></td>
                                     </tr>
                                     <%
                                         }
@@ -486,13 +486,13 @@
                                                 <td bgcolor="#EEEEFF"></td>
                                                 <td bgcolor="#EEEEFF" colspan="2">
                                                     <input type="submit"  class="ControlPushButton"
-                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/>"/>
+                                                        value="<fmt:message key="messenger.ViewMessage.btnReply"/>"/>
                                                     <input type="submit" class="ControlPushButton"
-                                                        value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/>"/>
+                                                        value=" <fmt:message key="messenger.ViewMessage.btnReplyAll"/>"/>
                                                     <input type="submit" class="ControlPushButton"
-                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"/>
+                                                        value="<fmt:message key="messenger.ViewMessage.btnForward"/>"/>
                                                     <input type="submit" class="ControlPushButton"
-                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"/>
+                                                        value="<fmt:message key="messenger.ViewMessage.btnDelete"/>"/>
                                                     <input type="hidden" name="messageNo" id="messageNo" value="${ viewMessageNo }"/>
                                                 </td>
                                             </tr>

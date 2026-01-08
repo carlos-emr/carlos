@@ -67,7 +67,7 @@
         <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <script> var lang = '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>';</script>
+        <script> var lang = '<fmt:message key="global.i18nLanguagecode"/>';</script>
         <script src="${ pageContext.request.contextPath }/hospitalReportManager/inbox.js?<%=(int)(Math.random()*100000)%>"></script>
 
         <script src="${ pageContext.request.contextPath }/js/jquery.ui.widget.js"></script>

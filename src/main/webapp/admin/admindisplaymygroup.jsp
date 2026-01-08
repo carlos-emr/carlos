@@ -53,7 +53,7 @@
 <html>
     <head>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.title"/></title>
+        <title><fmt:message key="admin.admindisplaymygroup.title"/></title>
 
         <script>
             <!--
@@ -80,7 +80,7 @@
     <body>
     <FORM NAME="UPDATEPRE" id="groupForm" METHOD="post" ACTION="adminnewgroup.jsp">
 
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h3>
+        <h3><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h3>
 
 
         <table class="table table-condensed table-hover">
@@ -88,10 +88,10 @@
             <tr class="btn-inverse">
                 <th></th>
                 <th>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminmygroup.formGroupNo"/>
+                    <fmt:message key="admin.adminmygroup.formGroupNo"/>
                 </th>
                 <th>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.formProviderName"/>
+                    <fmt:message key="admin.admindisplaymygroup.formProviderName"/>
                 </th>
             </tr>
             </thead>
@@ -136,10 +136,10 @@
 
 
         <INPUT TYPE="submit" name="submit" class="btn btn-danger"
-               VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit1"/>"
+               VALUE="<fmt:message key="admin.admindisplaymygroup.btnSubmit1"/>"
                SIZE="7">
 
-        <a href="adminnewgroup.jsp" class="btn btn-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+        <a href="adminnewgroup.jsp" class="btn btn-primary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
 
     </FORM>
 

@@ -109,7 +109,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.title"/></title>
+        <title><fmt:message key="demographic.demographiceditdemographic.title"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
 
@@ -183,54 +183,54 @@
             </tr>
             <tr>
                 <td align="left"
-                    title='<%=d.getDemographicNo()%>'><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><%=d.getLastName()%>
+                    title='<%=d.getDemographicNo()%>'><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><%=d.getLastName()%>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
                 <td align="left"><%=d.getFirstName()%>
                 </td>
             </tr>
 
 
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b> <%=d.getAddress()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b> <%=d.getAddress()%>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b></td>
                 <td align="left"><%=d.getCity()%>
                 </td>
             </tr>
 
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formProcvince"/>: </b><%=d.getProvince()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formProcvince"/>: </b><%=d.getProvince()%>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPostal"/>: </b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPostal"/>: </b></td>
                 <td align="left"><%=d.getPostal()%>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b><%=d.getPhone()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b><%=d.getPhone()%>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>:</b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>:</b></td>
                 <td align="left"><%=d.getPhone2()%>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b><%=d.getEmail() != null ? d.getEmail() : ""%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b><%=d.getEmail() != null ? d.getEmail() : ""%>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDOB"/></b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDOBDetais"/><b>:
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formDOB"/></b><fmt:message key="demographic.demographiceditdemographic.formDOBDetais"/><b>:
                 </b> <%=d.getYearOfBirth()%>/ <%=d.getMonthOfBirth()%>/
                     <%=d.getDateOfBirth()%> <b>Age: </b> <%=age%>
                 </td>
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</b></td>
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</b></td>
                 <td align="left"><%=d.getSex()%>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b><%=d.getHin()%>
-                    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formVer"/></b> <%=d.getVer()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b><%=d.getHin()%>
+                    <b><fmt:message key="demographic.demographiceditdemographic.formVer"/></b> <%=d.getVer()%>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</b></td>
                 <td align="left">
                     <%
                         // Put 0 on the left on dates
@@ -246,7 +246,7 @@
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</b> <%
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</b> <%
                     String hctype = d.getHcType() == null ? "" : d.getHcType(); %>
                     <%=hctype%>
                 </td>
@@ -254,7 +254,7 @@
                 <td></td>
             </tr>
             <tr valign="top">
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDoctor"/>: </b> <%
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formDoctor"/>: </b> <%
                     List<Provider> providers = providerDao.getActiveProviders();
                     for (Provider p : providers) {
                         if (p.getProviderNo().equals(d.getProviderNo())) {%>
@@ -263,7 +263,7 @@
                     }
                     %>
                 </td>
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNurse"/>: </b></td>
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formNurse"/>: </b></td>
                 <td align="left">
                     <%
                         for (Provider p : providers) {
@@ -274,14 +274,14 @@
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>: </b> <%
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>: </b> <%
                     for (Provider p : providers) {
                         if (p.getProviderNo().equals(midwife)) {%>
                     <%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>
                     <% }
                     }%>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</b></td>
                 <td align="left">
                     <%
                         for (Provider p : providers) {
@@ -293,7 +293,7 @@
             </tr>
 
             <tr valign="top">
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>: </b> <% if (oscarProps.getProperty("isMRefDocSelectList", "").equals("true")) {
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>: </b> <% if (oscarProps.getProperty("isMRefDocSelectList", "").equals("true")) {
                     // drop down list
                     Properties prop = null;
                     Vector vecRef = new Vector();
@@ -342,20 +342,20 @@
                     </script>
                     <% } else {%> <%=rd%> <% } %>
                 </td>
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>: </b></td>
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>: </b></td>
                 <td align="left"><%=rdohip%>
                 </td>
             </tr>
 
             <tr valign="top">
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>: </b> <%
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>: </b> <%
                     String rosterStatus = d.getRosterStatus();
                     if (rosterStatus == null) {
                         rosterStatus = "";
                     }
                 %> <%=rosterStatus%>
                 </td>
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>: </b></td>
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>: </b></td>
                 <td align="left">
                     <%
                         // Format year
@@ -368,7 +368,7 @@
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPatientStatus"/>:</b> <%
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPatientStatus"/>:</b> <%
                     String pacStatus = d.getPatientStatus(); %>
                     <%
                         boolean nextStatus = true;
@@ -383,7 +383,7 @@
 
                     %> <%=pacStatus%> <% } %>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</b></td>
                 <td align="left"><%=d.getChartNo()%>
                 </td>
             </tr>
@@ -410,7 +410,7 @@
             </tr>
             <%}%>
             <tr valign="top">
-                <td align="left" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDateJoined1"/>: </b> <%
+                <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formDateJoined1"/>: </b> <%
                     // Format year
                     decF.applyPattern("0000");
                     String dateJoinedYear = decF.format(MyDateFormat.getYearFromStandardDate(d.getFormattedDateJoined()));
@@ -419,7 +419,7 @@
                     String dateJoinedDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedDateJoined()));
                 %> <%= dateJoinedYear %> <%= dateJoinedMonth %> <%= dateJoinedDay %>
                 </td>
-                <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>: </b></td>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>: </b></td>
                 <td align="left">
                     <%
                         // Format year
@@ -434,12 +434,12 @@
                 <td nowrap colspan="3">
                     <table width="100%" bgcolor="#EEEEFF">
                         <tr>
-                            <td width="7%" align="left"><font color="#FF0000"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAlert"/>: </b></font></td>
+                            <td width="7%" align="left"><font color="#FF0000"><b><fmt:message key="demographic.demographiceditdemographic.formAlert"/>: </b></font></td>
                             <td><%=alert%>
                             </td>
                         </tr>
                         <tr>
-                            <td align="left"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/>: </b></td>
+                            <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formNotes"/>: </b></td>
                             <td><%=notes%>
                             </td>
                         </tr>

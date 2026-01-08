@@ -32,12 +32,12 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></title>
+        <title><fmt:message key="admin.admin.ManagePrivFrm"/></title>
         <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
     </head>
 
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
+    <h3><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
     <div class="container-fluid well">
 
         <a href="billingAddPrivateCode.jsp?addNew=true" class="btn btn-primary">Add Code</a>

@@ -51,12 +51,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.title"/></title>
+    <title><fmt:message key="tickler.ticklerEdit.title"/></title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <script type="application/javascript">
         function setEmpty(selectbox) {
-            var emptyTxt = "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
+            var emptyTxt = "<fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
             var emptyVal = "0";
             var op = document.createElement("option");
             try {
@@ -150,15 +150,15 @@
 </head>
 <body style="font-family:arial, sans-serif;">
 <div class="container">
-    <h3>Tickler <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
+    <h3>Tickler <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
     <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest.do" method="post">
         <input type="hidden" name="method" value="updateTextSuggest">
         <table style="display: flex;justify-content: space-evenly;align-items: stretch;">
 
             <tr>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.activeText"/></th>
+                <th><fmt:message key="tickler.ticklerTextSuggest.activeText"/></th>
                 <th></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.inactiveText"/></th>
+                <th><fmt:message key="tickler.ticklerTextSuggest.inactiveText"/></th>
             </tr>
             <tr>
                 <td style="vertical-align: top">
@@ -210,13 +210,13 @@
             </tr>
             <tr>
                 <td colspan="3">
-                    <label for="newTextSuggest"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.enterText"/>:</label>
+                    <label for="newTextSuggest"><fmt:message key="tickler.ticklerTextSuggest.enterText"/>:</label>
                     <div class="input-group">
                         <input id="newTextSuggest" class="form-control" name="newTextSuggest" type="text"
                                maxlength="100"/>
                         <div class="input-group-btn">
                             <input type="button" class="btn btn-default" name="addNewTextSuggest"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
+                                   value="<fmt:message key="tickler.ticklerTextSuggest.addText"/>"
                                    onclick="addToList('activeText','newTextSuggest')"/>
                         </div>
                     </div>
@@ -226,10 +226,10 @@
                 <td colspan="3">
                     <div class="form-group pull-right">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
+                               value="<fmt:message key="tickler.ticklerTextSuggest.save"/>"
                                onclick="doSelect('activeText');doSelect('inactiveText');document.tsTicklerForm.submit();"/>
                         <input type="button" class="btn btn-danger" name="cancelTextChanges"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.cancel"/>"
+                               value="<fmt:message key="tickler.ticklerTextSuggest.cancel"/>"
                                onclick="window.close()"/>
                     </div>
                 </td>

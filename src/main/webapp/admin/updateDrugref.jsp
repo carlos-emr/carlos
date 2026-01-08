@@ -50,7 +50,7 @@
 <html>
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></title>
+        <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
         <link href="<c:out value="${ctx}/css/bootstrap.css"/>" rel="stylesheet" type="text/css">
         <script src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
         <script src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
@@ -95,12 +95,12 @@
         </script>
     </head>
     <body class="mainbody" onload="getUpdateTime();">
-    <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></h4>
+    <h4><fmt:message key="admin.admin.UpdateDrugref"/></h4>
     <div class="well">
-        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DrugRef"/></p>
+        <p><fmt:message key="admin.admin.DrugRef"/></p>
         <p><a id="dbInfo" href="javascript:void(0);"></a></p>
         <p><a id="updatedb" style="display:none" onclick="updateDB();" href="javascript:void(0);"
-              class="btn btn-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a>
+              class="btn btn-primary"><fmt:message key="admin.admin.UpdateDrugref"/></a>
         <p><a id="updateResult"></a>
         <p>
     </div>

@@ -65,13 +65,13 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></title>
+    <title><fmt:message key="admin.admin.misRpt"/></title>
 </head>
 
 <body>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
-<h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></h3>
+<h3><fmt:message key="admin.admin.misRpt"/></h3>
 
 <form action="${ctx}/oscarReport/mis_report_form.jsp" class="well form-horizontal" id="misForm">
 

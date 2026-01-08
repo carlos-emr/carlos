@@ -95,7 +95,7 @@
 
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title><!-- i18n -->
+        <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title><!-- i18n -->
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
@@ -103,7 +103,7 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/sortable.js"></script>
@@ -418,7 +418,7 @@
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn" width="100">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
+                <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
@@ -432,8 +432,8 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popup(300,400,'<%= request.getContextPath() %>/oscarEncounter/About.jsp','About')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popup(300,400,'<%= request.getContextPath() %>/oscarEncounter/License.jsp','License')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
+                                href="javascript:popup(300,400,'<%= request.getContextPath() %>/oscarEncounter/About.jsp','About')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popup(300,400,'<%= request.getContextPath() %>/oscarEncounter/License.jsp','License')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
