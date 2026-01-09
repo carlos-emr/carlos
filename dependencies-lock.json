@@ -258,11 +258,11 @@
   }, {
     "groupId" : "com.github.ben-manes.caffeine",
     "artifactId" : "caffeine",
-    "version" : "3.1.8",
+    "version" : "3.2.3",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:0TzFRRfYUQXuF4Sb5o9WhM+GTiZBy8M04AG/PI8ON89jF8cpadmjTpScDVOcq9jnpI/LUndDZxjnloow0zEuVQ=="
+    "integrity" : "sha512:eqZd4csIeqZF1yF70xYrOEL+QJFLWQI4r8aBsdizNkfvsf2UjSHtAhCkDUu9qILtJPPm0yb5oDExZgrpd4u7ew=="
   }, {
     "groupId" : "com.github.cliftonlabs",
     "artifactId" : "json-simple",
@@ -2626,14 +2626,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:H7EdGdjGNkC0xAkHqAOEtBdpJPYOR9h7TGz2EaBiy6QiDZkMCLhTawNA/TKYXAj5aWUK/TNgpb0ojs2JEk8Zow=="
-  }, {
-    "groupId" : "org.checkerframework",
-    "artifactId" : "checker-qual",
-    "version" : "3.37.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:mPkqTRS3fylG3jS8ZLwAaFBbqIk6c05S9kWOMGH8dHG9WmDAc8k4MCt7eNUSBZKRNCB6vCTw7a3T2x4fV3Vd5Q=="
   }, {
     "groupId" : "org.codehaus.castor",
     "artifactId" : "castor-core",
