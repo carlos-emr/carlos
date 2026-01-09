@@ -1125,7 +1125,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
                 strength = pa[p].getDosage().split(" ");
 
                 cdsDtCihiPhcvrs.DrugMeasure drugM = medications.addNewStrength();
-                if (Util.leadingNum(strength[0]).equals(strength[0])) {//amount & unit separated by space
+                if (Util.leadingNumWithFraction(strength[0]).equals(strength[0])) {//amount & unit separated by space
                     drugM.setAmount(strength[0]);
                     if (strength.length > 1) drugM.setUnitOfMeasure(strength[1]);
                     else drugM.setUnitOfMeasure("unit"); //UnitOfMeasure cannot be null
@@ -1133,14 +1133,14 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
                 } else {//amount & unit not separated, probably e.g. 50mg / 2tablet
                     if (strength.length > 1 && strength[1].equals("/")) {
                         if (strength.length > 2) {
-                            String unit1 = Util.leadingNum(strength[2]).equals("") ? "1" : Util.leadingNum(strength[2]);
+                            String unit1 = Util.leadingNumWithFraction(strength[2]).equals("") ? "1" : Util.leadingNumWithFraction(strength[2]);
                             String unit2 = Util.trailingTxt(strength[2]).equals("") ? "unit" : Util.trailingTxt(strength[2]);
 
-                            drugM.setAmount(Util.leadingNum(strength[0]) + "/" + Util.leadingNum(strength[2]));
+                            drugM.setAmount(Util.leadingNumWithFraction(strength[0]) + "/" + Util.leadingNumWithFraction(strength[2]));
                             drugM.setUnitOfMeasure(Util.trailingTxt(strength[0]) + "/" + unit2);
                         }
                     } else {
-                        drugM.setAmount(Util.leadingNum(strength[0]));
+                        drugM.setAmount(Util.leadingNumWithFraction(strength[0]));
                         drugM.setUnitOfMeasure(Util.trailingTxt(strength[0]));
                     }
                 }
