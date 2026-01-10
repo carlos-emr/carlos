@@ -292,7 +292,7 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
         try {
 
             String queryString = "select a from Secuserrole a, LstOrgcd b, SecProvider p"
-                    + " where a.providerNo=p.providerNo and b.code ='" + orgcd + "'";
+                    + " where a.providerNo=p.providerNo and b.code = :orgcd";
             if (activeOnly)
                 queryString += " and p.status='1'";
 
@@ -300,7 +300,9 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
                     + " and b.codecsv like '%' || a.orgcd || ',%'"
                     + " and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
 
-            return getSession().createQuery(queryString).list();
+            Query query = getSession().createQuery(queryString);
+            query.setParameter("orgcd", orgcd);
+            return query.list();
 
         } catch (RuntimeException re) {
             logger.error("Find staff failed", re);
@@ -321,7 +323,7 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
             String orgcd = staffForm.getOrgcd();
 
             String queryString = "select a from Secuserrole a, LstOrgcd b"
-                    + " where b.code ='" + orgcd + "'"
+                    + " where b.code = :orgcd"
                     + " and b.codecsv like '%' || a.orgcd || ',%'"
                     + " and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
 
@@ -329,15 +331,22 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
             String lname = staffForm.getLastName();
 
             if (fname != null && fname.length() > 0) {
-                fname = fname.toLowerCase();
-                queryString = queryString + AND + "lower(a.providerFName) like '%" + fname + "%'";
+                queryString = queryString + AND + "lower(a.providerFName) like :fname";
             }
             if (lname != null && lname.length() > 0) {
-                lname = lname.toLowerCase();
-                queryString = queryString + AND + "lower(a.providerLName) like '%" + lname + "%'";
+                queryString = queryString + AND + "lower(a.providerLName) like :lname";
             }
 
-            return getSession().createQuery(queryString).list();
+            Query query = getSession().createQuery(queryString);
+            query.setParameter("orgcd", orgcd);
+            if (fname != null && fname.length() > 0) {
+                query.setParameter("fname", "%" + fname.toLowerCase() + "%");
+            }
+            if (lname != null && lname.length() > 0) {
+                query.setParameter("lname", "%" + lname.toLowerCase() + "%");
+            }
+            
+            return query.list();
 
         } catch (RuntimeException re) {
             logger.error("Search staff failed", re);
