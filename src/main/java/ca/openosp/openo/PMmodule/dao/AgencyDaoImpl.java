@@ -29,33 +29,65 @@ package ca.openosp.openo.PMmodule.dao;
 
 import java.util.List;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
+
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.model.Agency;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
-public class AgencyDaoImpl extends HibernateDaoSupport implements AgencyDao {
+/**
+ * Data Access Object implementation for Agency entities.
+ * Provides database operations for managing agency information.
+ * 
+ * This implementation uses JPA EntityManager for database access,
+ * migrated from deprecated HibernateDaoSupport.
+ */
+@Repository
+@Transactional
+public class AgencyDaoImpl implements AgencyDao {
 
     private Logger log = MiscUtils.getLogger();
+    
+    @PersistenceContext(unitName = "entityManagerFactory")
+    protected EntityManager entityManager;
 
+    /**
+     * Retrieves the local agency from the database.
+     * 
+     * @return the first Agency found in the database, or null if no agency exists
+     */
+    @Override
     public Agency getLocalAgency() {
         Agency agency = null;
 
-        List results = getHibernateTemplate().find("from Agency a");
+        String queryStr = "FROM Agency a";
+        TypedQuery<Agency> query = entityManager.createQuery(queryStr, Agency.class);
+        List<Agency> results = query.getResultList();
 
         if (!results.isEmpty()) {
-            agency = (Agency) results.get(0);
+            agency = results.get(0);
         }
 
         return agency;
     }
 
+    /**
+     * Saves or updates an agency in the database.
+     * 
+     * @param agency the Agency entity to save or update
+     * @throws IllegalArgumentException if agency is null
+     */
+    @Override
     public void saveAgency(Agency agency) {
         if (agency == null) {
             throw new IllegalArgumentException();
         }
 
-        getHibernateTemplate().saveOrUpdate(agency);
+        entityManager.merge(agency);
 
         if (log.isDebugEnabled()) {
             log.debug("saveAgency : id = " + agency.getId());
