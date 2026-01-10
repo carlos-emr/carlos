@@ -67,16 +67,20 @@ public class UserAccessDaoImpl implements UserAccessDao {
     @Override
     public List GetUserAccessList(String providerNo, Integer shelterId) {
         String sSQL = "";
+        Query query;
         if (shelterId != null && shelterId.intValue() > 0) {
-            String s = "'%S" + shelterId.toString() + ",%'";
+            String shelterPattern = "%S" + shelterId.toString() + ",%";
             sSQL = "from UserAccessValue s where s.providerNo= :providerNo " +
-                    " and s.orgCdcsv like " + s + " order by s.functionCd, s.privilege desc, s.orgCd";
+                    " and s.orgCdcsv like :shelterPattern order by s.functionCd, s.privilege desc, s.orgCd";
+            query = getSession().createQuery(sSQL);
+            query.setParameter("providerNo", providerNo);
+            query.setParameter("shelterPattern", shelterPattern);
         } else {
             sSQL = "from UserAccessValue s where s.providerNo= :providerNo " +
                     " order by s.functionCd, s.privilege desc, s.orgCd";
+            query = getSession().createQuery(sSQL);
+            query.setParameter("providerNo", providerNo);
         }
-        Query query = getSession().createQuery(sSQL);
-        query.setParameter("providerNo", providerNo);
         return query.list();
     }
 
@@ -90,19 +94,21 @@ public class UserAccessDaoImpl implements UserAccessDao {
     @Override
     public List GetUserOrgAccessList(String providerNo, Integer shelterId) {
         String sSQL = "";
+        Query query;
         if (shelterId != null && shelterId.intValue() > 0) {
+            String shelterPattern = "%S" + shelterId.toString() + ",%";
             sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o " +
                     "where s.providerNo= :providerNo and s.privilege>='r' and s.orgCd=o.code " +
-                    " and o.codecsv like '%S" + shelterId.toString() + ",%'" +
+                    " and o.codecsv like :shelterPattern" +
                     " order by o.codecsv";
-            Query query = getSession().createQuery(sSQL);
+            query = getSession().createQuery(sSQL);
             query.setParameter("providerNo", providerNo);
-            return query.list();
+            query.setParameter("shelterPattern", shelterPattern);
         } else {
             sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o where s.providerNo= :providerNo and s.privilege>='r' and s.orgCd=o.code order by o.codecsv";
-            Query query = getSession().createQuery(sSQL);
+            query = getSession().createQuery(sSQL);
             query.setParameter("providerNo", providerNo);
-            return query.list();
         }
+        return query.list();
     }
 }
