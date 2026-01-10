@@ -214,10 +214,10 @@ public class ProgramQueueDaoImpl implements ProgramQueueDao {
 
         ProgramQueue result = null;
 
-        String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.ClientId = :clientId AND pq.Status='active'";
+        String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.ClientId = :demographicNo AND pq.Status='active'";
         Query<ProgramQueue> query = getSession().createQuery(queryStr, ProgramQueue.class);
         query.setParameter("programId", programId);
-        query.setParameter("clientId", demographicNo);
+        query.setParameter("demographicNo", demographicNo);
         List<ProgramQueue> results = query.getResultList();
         if (!results.isEmpty()) {
             result = results.get(0);
