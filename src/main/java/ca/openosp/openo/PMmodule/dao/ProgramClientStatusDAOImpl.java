@@ -99,10 +99,7 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
             throw new IllegalArgumentException();
         }
 
-        ProgramClientStatus pcs = null;
-        pcs = getSession().get(ProgramClientStatus.class, Integer.valueOf(id));
-        if (pcs != null) return pcs;
-        else return null;
+        return getSession().get(ProgramClientStatus.class, Integer.valueOf(id));
     }
 
     /**
@@ -138,13 +135,13 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
         query.setParameter("statusName", statusName);
 
         @SuppressWarnings("unchecked")
-        List<Object> teams = query.list();
+        List<Object> results = query.list();
 
         if (log.isDebugEnabled()) {
-            log.debug("clientStatusNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());
+            log.debug("clientStatusNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !results.isEmpty());
         }
 
-        return !teams.isEmpty();
+        return !results.isEmpty();
     }
 
     /**
