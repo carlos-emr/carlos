@@ -80,6 +80,13 @@ public class ProgramClientRestrictionDAOImpl implements ProgramClientRestriction
         return sessionFactory.getCurrentSession();
     }
 
+    /**
+     * Finds program client restrictions for a specific program and demographic.
+     *
+     * @param programId the ID of the program
+     * @param demographicNo the demographic number of the client
+     * @return a collection of active program client restrictions matching the criteria
+     */
     public Collection<ProgramClientRestriction> find(int programId, int demographicNo) {
 
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = :programId and pcr.demographicNo = :demographicNo order by pcr.startDate";
@@ -94,14 +101,31 @@ public class ProgramClientRestrictionDAOImpl implements ProgramClientRestriction
         return pcrs;
     }
 
+    /**
+     * Saves or updates a program client restriction.
+     *
+     * @param restriction the program client restriction to save or update
+     */
     public void save(ProgramClientRestriction restriction) {
         getSession().saveOrUpdate(restriction);
     }
 
+    /**
+     * Finds a program client restriction by its ID.
+     *
+     * @param restrictionId the ID of the restriction to find
+     * @return the program client restriction with the specified ID, or null if not found
+     */
     public ProgramClientRestriction find(int restrictionId) {
         return setRelationships(getSession().get(ProgramClientRestriction.class, restrictionId));
     }
 
+    /**
+     * Finds all enabled (active) program client restrictions for a specific program.
+     *
+     * @param programId the ID of the program
+     * @return a collection of enabled program client restrictions for the program
+     */
     public Collection<ProgramClientRestriction> findForProgram(int programId) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = :programId order by pcr.demographicNo";
         Query query = getSession().createQuery(sSQL);
@@ -114,6 +138,12 @@ public class ProgramClientRestrictionDAOImpl implements ProgramClientRestriction
         return pcrs;
     }
 
+    /**
+     * Finds all disabled (inactive) program client restrictions for a specific program.
+     *
+     * @param programId the ID of the program
+     * @return a collection of disabled program client restrictions for the program
+     */
     public Collection<ProgramClientRestriction> findDisabledForProgram(int programId) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.programId = :programId order by pcr.demographicNo";
         Query query = getSession().createQuery(sSQL);
@@ -126,6 +156,12 @@ public class ProgramClientRestrictionDAOImpl implements ProgramClientRestriction
         return pcrs;
     }
 
+    /**
+     * Finds all enabled (active) program client restrictions for a specific client.
+     *
+     * @param demographicNo the demographic number of the client
+     * @return a collection of enabled program client restrictions for the client
+     */
     public Collection<ProgramClientRestriction> findForClient(int demographicNo) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = :demographicNo order by pcr.programId";
         Query query = getSession().createQuery(sSQL);
@@ -138,6 +174,17 @@ public class ProgramClientRestrictionDAOImpl implements ProgramClientRestriction
         return pcrs;
     }
 
+    /**
+     * Finds all enabled (active) program client restrictions for a specific client and facility.
+     * <p>
+     * This method filters restrictions to include only those for programs belonging to the
+     * specified facility or programs with no facility (null facilityId).
+     * </p>
+     *
+     * @param demographicNo the demographic number of the client
+     * @param facilityId the ID of the facility
+     * @return a collection of enabled program client restrictions for the client within the facility
+     */
     public Collection<ProgramClientRestriction> findForClient(int demographicNo, int facilityId) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = :demographicNo" +
         " and pcr.programId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null) order by pcr.programId";
@@ -152,6 +199,12 @@ public class ProgramClientRestrictionDAOImpl implements ProgramClientRestriction
         return pcrs;
     }
 
+    /**
+     * Finds all disabled (inactive) program client restrictions for a specific client.
+     *
+     * @param demographicNo the demographic number of the client
+     * @return a collection of disabled program client restrictions for the client
+     */
     public Collection<ProgramClientRestriction> findDisabledForClient(int demographicNo) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.demographicNo = :demographicNo order by pcr.programId";
         Query query = getSession().createQuery(sSQL);
