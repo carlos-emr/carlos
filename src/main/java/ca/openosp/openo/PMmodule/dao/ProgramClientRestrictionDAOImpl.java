@@ -54,7 +54,6 @@ import org.springframework.beans.factory.annotation.Required;
  */
 public class ProgramClientRestrictionDAOImpl implements ProgramClientRestrictionDAO {
     
-    @Autowired
     private SessionFactory sessionFactory;
     
     private DemographicDao demographicDao;
