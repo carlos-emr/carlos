@@ -180,7 +180,7 @@ public class SecProviderDaoImpl implements SecProviderDao {
     /**
      * Finds SecProvider instances by example using Query by Example (QBE).
      * 
-     * @param instance the example SecProviderDao instance to match
+     * @param instance the example SecProvider instance to match
      * @return list of SecProvider instances matching the example
      * @throws RuntimeException if the query fails
      */
@@ -216,7 +216,7 @@ public class SecProviderDaoImpl implements SecProviderDao {
                 + ", value: " + value);
         Session session = getSession();
         try {
-            String queryString = "from Provider as model where model."
+            String queryString = "from SecProvider as model where model."
                     + propertyName + "= ?1";
             Query queryObject = session.createQuery(queryString);
             queryObject.setParameter(1, value);
@@ -414,7 +414,7 @@ public class SecProviderDaoImpl implements SecProviderDao {
         logger.debug("finding all Provider instances");
         Session session = getSession();
         try {
-            String queryString = "from Provider";
+            String queryString = "from SecProvider";
             Query queryObject = session.createQuery(queryString);
             return queryObject.list();
         } catch (RuntimeException re) {
