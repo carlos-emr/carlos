@@ -30,21 +30,59 @@ package ca.openosp.openo.PMmodule.dao;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import ca.openosp.openo.PMmodule.model.ProgramQueue;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 
-public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQueueDao {
+/**
+ * Data Access Object implementation for ProgramQueue entity.
+ * <p>
+ * This DAO provides CRUD operations and query methods for managing program queues,
+ * which represent client enrollment queues for various programs in the system.
+ * </p>
+ * 
+ * <p>
+ * The implementation uses Hibernate SessionFactory for database operations,
+ * migrated from the deprecated HibernateDaoSupport pattern.
+ * </p>
+ * 
+ * @see ProgramQueue
+ * @see ProgramQueueDao
+ */
+public class ProgramQueueDaoImpl implements ProgramQueueDao {
 
     private Logger log = MiscUtils.getLogger();
+    
+    @Autowired
+    private SessionFactory sessionFactory;
+    
+    /**
+     * Gets the current Hibernate session.
+     * 
+     * @return the current session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
 
+    /**
+     * Retrieves a program queue by its unique identifier.
+     * 
+     * @param queueId the unique identifier of the queue
+     * @return the program queue, or null if not found
+     * @throws IllegalArgumentException if queueId is null or less than or equal to zero
+     */
     @Override
     public ProgramQueue getProgramQueue(Long queueId) {
         if (queueId == null || queueId.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        ProgramQueue result = getHibernateTemplate().get(ProgramQueue.class, queueId);
+        ProgramQueue result = getSession().get(ProgramQueue.class, queueId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: queueId=" + queueId + ",found=" + (result != null));
@@ -53,14 +91,24 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         return result;
     }
 
+    /**
+     * Retrieves all program queues for a specific program, ordered by queue ID.
+     * 
+     * @param programId the unique identifier of the program
+     * @return list of program queues for the specified program
+     * @throws IllegalArgumentException if programId is null
+     */
     @Override
     public List<ProgramQueue> getProgramQueuesByProgramId(Long programId) {
         if (programId == null) {
             throw new IllegalArgumentException();
         }
 
-        String queryStr = " FROM ProgramQueue q WHERE q.ProgramId=?0 ORDER BY  q.Id  ";
-        List results = getHibernateTemplate().find(queryStr, programId);
+        String queryStr = "FROM ProgramQueue q WHERE q.ProgramId=:programId ORDER BY q.Id";
+        Query query = getSession().createQuery(queryStr);
+        query.setParameter("programId", programId);
+        @SuppressWarnings("unchecked")
+        List<ProgramQueue> results = query.list();
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: programId=" + programId + ",# of results=" + results.size());
@@ -69,15 +117,24 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         return results;
     }
 
+    /**
+     * Retrieves all active program queues for a specific program, ordered by referral date.
+     * 
+     * @param programId the unique identifier of the program
+     * @return list of active program queues for the specified program
+     * @throws IllegalArgumentException if programId is null
+     */
     @Override
     public List<ProgramQueue> getActiveProgramQueuesByProgramId(Long programId) {
         if (programId == null) {
             throw new IllegalArgumentException();
         }
 
-        List results = this.getHibernateTemplate().find(
-                "from ProgramQueue pq where pq.ProgramId = ?0 and pq.Status = 'active' order by pq.ReferralDate",
-                Long.valueOf(programId));
+        String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.Status = 'active' ORDER BY pq.ReferralDate";
+        Query query = getSession().createQuery(queryStr);
+        query.setParameter("programId", programId);
+        @SuppressWarnings("unchecked")
+        List<ProgramQueue> results = query.list();
 
         if (log.isDebugEnabled()) {
             log.debug("getActiveProgramQueuesByProgramId: programId=" + programId + ",# of results=" + results.size());
@@ -86,13 +143,18 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         return results;
     }
 
+    /**
+     * Saves or updates a program queue entity.
+     * 
+     * @param programQueue the program queue to save or update
+     */
     @Override
     public void saveProgramQueue(ProgramQueue programQueue) {
         if (programQueue == null) {
             return;
         }
 
-        getHibernateTemplate().saveOrUpdate(programQueue);
+        getSession().saveOrUpdate(programQueue);
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramQueue: id=" + programQueue.getId());
@@ -100,6 +162,14 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
 
     }
 
+    /**
+     * Retrieves a program queue for a specific program and client.
+     * 
+     * @param programId the unique identifier of the program
+     * @param clientId the unique identifier of the client
+     * @return the program queue, or null if not found
+     * @throws IllegalArgumentException if programId or clientId is null
+     */
     @Override
     public ProgramQueue getQueue(Long programId, Long clientId) {
         if (programId == null) {
@@ -110,12 +180,15 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         }
 
         ProgramQueue result = null;
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?0 and pq.ClientId = ?1";
-        Object[] params = new Object[]{Long.valueOf(programId), Long.valueOf(clientId)};
-        List results = this.getHibernateTemplate().find(sSQL,params);
+        String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.ClientId = :clientId";
+        Query query = getSession().createQuery(queryStr);
+        query.setParameter("programId", programId);
+        query.setParameter("clientId", clientId);
+        @SuppressWarnings("unchecked")
+        List<ProgramQueue> results = query.list();
 
         if (!results.isEmpty()) {
-            result = (ProgramQueue) results.get(0);
+            result = results.get(0);
         }
 
         if (log.isDebugEnabled()) {
@@ -125,6 +198,14 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         return result;
     }
 
+    /**
+     * Retrieves the active program queue for a specific program and demographic.
+     * 
+     * @param programId the unique identifier of the program
+     * @param demographicNo the unique identifier of the demographic
+     * @return the active program queue, or null if not found
+     * @throws IllegalArgumentException if programId or demographicNo is null or less than or equal to zero
+     */
     @Override
     public ProgramQueue getActiveProgramQueue(Long programId, Long demographicNo) {
         if (programId == null || programId.intValue() <= 0) {
@@ -136,11 +217,14 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
 
         ProgramQueue result = null;
 
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?0 and pq.ClientId = ?1 and pq.Status='active'";
-        Object[] params = new Object[]{programId, demographicNo};
-        List results = this.getHibernateTemplate().find(sSQL, params);
+        String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.ClientId = :clientId AND pq.Status='active'";
+        Query query = getSession().createQuery(queryStr);
+        query.setParameter("programId", programId);
+        query.setParameter("clientId", demographicNo);
+        @SuppressWarnings("unchecked")
+        List<ProgramQueue> results = query.list();
         if (!results.isEmpty()) {
-            result = (ProgramQueue) results.get(0);
+            result = results.get(0);
         }
 
         if (log.isDebugEnabled()) {
