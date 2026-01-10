@@ -73,7 +73,9 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
         String sSQL = "from ProgramClientStatus pcs where pcs.programId=:programId";
         Query query = getSession().createQuery(sSQL);
         query.setParameter("programId", programId);
-        return (List<ProgramClientStatus>) query.list();
+        @SuppressWarnings("unchecked")
+        List<ProgramClientStatus> results = (List<ProgramClientStatus>) query.list();
+        return results;
     }
 
     /**
@@ -135,10 +137,11 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
         query.setParameter("programId", programId.longValue());
         query.setParameter("statusName", statusName);
 
-        List teams = query.list();
+        @SuppressWarnings("unchecked")
+        List<Object> teams = query.list();
 
         if (log.isDebugEnabled()) {
-            log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());
+            log.debug("clientStatusNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());
         }
 
         return !teams.isEmpty();
@@ -165,10 +168,11 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
         Query query = getSession().createQuery(sSQL);
         query.setParameter("programId", programId);
         query.setParameter("statusId", statusId);
+        @SuppressWarnings("unchecked")
         List<Admission> results = (List<Admission>) query.list();
 
         if (log.isDebugEnabled()) {
-            log.debug("getAdmissionsInTeam: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
+            log.debug("getAllClientsInStatus: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
         }
 
         return results;
