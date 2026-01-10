@@ -26,36 +26,83 @@ package ca.openosp.openo.daos.security;
 
 import java.util.List;
 
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
 
-public class UserAccessDaoImpl extends HibernateDaoSupport implements UserAccessDao {
+/**
+ * Data Access Object implementation for UserAccess entities.
+ * <p>
+ * This DAO provides methods to retrieve user access information including
+ * access lists and organization access lists for providers. It has been
+ * migrated from HibernateDaoSupport to direct SessionFactory injection
+ * for compatibility with Spring 6 and Jakarta EE.
+ * </p>
+ *
+ * @see UserAccessDao
+ * @see ca.openosp.openo.model.security.UserAccessValue
+ */
+public class UserAccessDaoImpl implements UserAccessDao {
+    
+    @Autowired
+    private SessionFactory sessionFactory;
+    
+    /**
+     * Gets the current Hibernate session from the SessionFactory.
+     *
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
 
+    /**
+     * Retrieves the user access list for a specific provider, optionally filtered by shelter ID.
+     *
+     * @param providerNo the provider number to retrieve access for
+     * @param shelterId optional shelter ID to filter by (can be null)
+     * @return list of UserAccessValue objects representing the provider's access rights
+     */
     @Override
     public List GetUserAccessList(String providerNo, Integer shelterId) {
         String sSQL = "";
         if (shelterId != null && shelterId.intValue() > 0) {
             String s = "'%S" + shelterId.toString() + ",%'";
-            sSQL = "from UserAccessValue s where s.providerNo= ?0 " +
+            sSQL = "from UserAccessValue s where s.providerNo= :providerNo " +
                     " and s.orgCdcsv like " + s + " order by s.functionCd, s.privilege desc, s.orgCd";
         } else {
-            sSQL = "from UserAccessValue s where s.providerNo= ?0 " +
+            sSQL = "from UserAccessValue s where s.providerNo= :providerNo " +
                     " order by s.functionCd, s.privilege desc, s.orgCd";
         }
-        return getHibernateTemplate().find(sSQL, providerNo);
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("providerNo", providerNo);
+        return query.list();
     }
 
+    /**
+     * Retrieves the organization access list for a specific provider, optionally filtered by shelter ID.
+     *
+     * @param providerNo the provider number to retrieve organization access for
+     * @param shelterId optional shelter ID to filter by (can be null)
+     * @return list of organization code CSV strings that the provider has access to
+     */
     @Override
     public List GetUserOrgAccessList(String providerNo, Integer shelterId) {
         String sSQL = "";
         if (shelterId != null && shelterId.intValue() > 0) {
             sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o " +
-                    "where s.providerNo= ?0 and s.privilege>='r' and s.orgCd=o.code " +
+                    "where s.providerNo= :providerNo and s.privilege>='r' and s.orgCd=o.code " +
                     " and o.codecsv like '%S" + shelterId.toString() + ",%'" +
                     " order by o.codecsv";
-            return getHibernateTemplate().find(sSQL, providerNo);
+            Query query = getSession().createQuery(sSQL);
+            query.setParameter("providerNo", providerNo);
+            return query.list();
         } else {
-            sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o where s.providerNo= ?0 and s.privilege>='r' and s.orgCd=o.code order by o.codecsv";
-            return getHibernateTemplate().find(sSQL, providerNo);
+            sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o where s.providerNo= :providerNo and s.privilege>='r' and s.orgCd=o.code order by o.codecsv";
+            Query query = getSession().createQuery(sSQL);
+            query.setParameter("providerNo", providerNo);
+            return query.list();
         }
     }
 }
