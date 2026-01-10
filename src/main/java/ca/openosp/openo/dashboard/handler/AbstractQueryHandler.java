@@ -135,6 +135,12 @@ public abstract class AbstractQueryHandler {
      * to a map representation (alias to entity map). Results are logged and
      * stored internally for later retrieval.
      * </p>
+     * <p>
+     * <b>Note on session management:</b> This method explicitly closes the session
+     * because the dashboard query handlers are not executed within a Spring-managed
+     * transaction context. In future refactoring, consider adding @Transactional
+     * annotations to the calling methods to enable automatic session management.
+     * </p>
      * 
      * @param query the SQL query string to execute
      * @return the query results as a list of maps
@@ -144,7 +150,9 @@ public abstract class AbstractQueryHandler {
         setResultList(null);
 
         Session session = getSession();
+        @SuppressWarnings("deprecation")
         SQLQuery sqlQuery = session.createSQLQuery(query);
+        @SuppressWarnings("deprecation")
         List<?> results = sqlQuery.setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP).list();
 
         logger.info("Thread " + Thread.currentThread().getName() + "[" + Thread.currentThread().getId()
@@ -154,6 +162,7 @@ public abstract class AbstractQueryHandler {
         // defined in the securityInfoManager object.
 
         setResultList(results);
+        // Explicit close required as this code runs outside of @Transactional context
         session.close();
 
         return results;
