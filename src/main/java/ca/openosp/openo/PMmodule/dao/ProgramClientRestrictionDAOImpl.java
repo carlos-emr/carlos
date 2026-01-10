@@ -27,27 +27,68 @@
 
 package ca.openosp.openo.PMmodule.dao;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 import ca.openosp.openo.PMmodule.model.ProgramClientRestriction;
 import ca.openosp.openo.commn.dao.DemographicDao;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Required;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 
 /**
+ * Data Access Object implementation for managing ProgramClientRestriction entities.
+ * <p>
+ * This DAO provides methods to create, read, update, and query program client restrictions,
+ * which control access permissions for clients within specific programs.
+ * </p>
+ * <p>
+ * Uses Hibernate SessionFactory for database operations. Each restriction links a client
+ * (demographic) to a program with specified access controls and provider information.
+ * </p>
  *
+ * @see ProgramClientRestriction
+ * @see ProgramClientRestrictionDAO
  */
-public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport implements ProgramClientRestrictionDAO {
+public class ProgramClientRestrictionDAOImpl implements ProgramClientRestrictionDAO {
+    
+    @Autowired
+    private SessionFactory sessionFactory;
+    
     private DemographicDao demographicDao;
     private ProgramDao programDao;
     private ProviderDao providerDao;
+    
+    /**
+     * Sets the SessionFactory for this DAO.
+     * Used by Spring for dependency injection.
+     *
+     * @param sessionFactory the SessionFactory to set
+     */
+    @Autowired
+    public void setSessionFactory(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
+    }
+    
+    /**
+     * Gets the current Hibernate session from the SessionFactory.
+     *
+     * @return the current Hibernate Session
+     */
+    private Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
 
     public Collection<ProgramClientRestriction> find(int programId, int demographicNo) {
 
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?0 and pcr.demographicNo = ?1 order by pcr.startDate";
-        List<ProgramClientRestriction> pcrs = (List<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, new Object[]{programId, demographicNo});
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = :programId and pcr.demographicNo = :demographicNo order by pcr.startDate";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("programId", programId);
+        query.setParameter("demographicNo", demographicNo);
+        @SuppressWarnings("unchecked")
+        List<ProgramClientRestriction> pcrs = query.list();
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -55,16 +96,19 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public void save(ProgramClientRestriction restriction) {
-        getHibernateTemplate().saveOrUpdate(restriction);
+        getSession().saveOrUpdate(restriction);
     }
 
     public ProgramClientRestriction find(int restrictionId) {
-        return setRelationships(getHibernateTemplate().get(ProgramClientRestriction.class, restrictionId));
+        return setRelationships(getSession().get(ProgramClientRestriction.class, restrictionId));
     }
 
     public Collection<ProgramClientRestriction> findForProgram(int programId) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?0 order by pcr.demographicNo";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, programId);
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = :programId order by pcr.demographicNo";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("programId", programId);
+        @SuppressWarnings("unchecked")
+        Collection<ProgramClientRestriction> pcrs = query.list();
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -72,8 +116,11 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findDisabledForProgram(int programId) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.programId = ?0 order by pcr.demographicNo";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, programId);
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.programId = :programId order by pcr.demographicNo";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("programId", programId);
+        @SuppressWarnings("unchecked")
+        Collection<ProgramClientRestriction> pcrs = query.list();
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -81,8 +128,11 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findForClient(int demographicNo) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?0 order by pcr.programId";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, demographicNo);
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = :demographicNo order by pcr.programId";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("demographicNo", demographicNo);
+        @SuppressWarnings("unchecked")
+        Collection<ProgramClientRestriction> pcrs = query.list();
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -90,10 +140,13 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findForClient(int demographicNo, int facilityId) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?0" +
-        " and pcr.programId in (select s.id from Program s where s.facilityId = ?1 or s.facilityId is null) order by pcr.programId";
-        Object params[] = new Object[]{Integer.valueOf(demographicNo), facilityId};
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, params);
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = :demographicNo" +
+        " and pcr.programId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null) order by pcr.programId";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("facilityId", facilityId);
+        @SuppressWarnings("unchecked")
+        Collection<ProgramClientRestriction> pcrs = query.list();
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -101,8 +154,11 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findDisabledForClient(int demographicNo) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.demographicNo = ?0 order by pcr.programId";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, demographicNo);
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.demographicNo = :demographicNo order by pcr.programId";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("demographicNo", demographicNo);
+        @SuppressWarnings("unchecked")
+        Collection<ProgramClientRestriction> pcrs = query.list();
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
