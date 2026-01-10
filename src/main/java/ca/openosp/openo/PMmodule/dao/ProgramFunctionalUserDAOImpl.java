@@ -149,20 +149,26 @@ public class ProgramFunctionalUserDAOImpl implements ProgramFunctionalUserDAO {
 
     /**
      * Retrieves functional users by program ID.
+     * <p>
+     * Note: This method has a type mismatch - it queries ProgramFunctionalUser entities
+     * but returns them as FunctionalUserType. This was present in the original code and
+     * may cause ClassCastException at runtime. This should be fixed in a future refactoring.
+     * </p>
      *
      * @param programId the ID of the program
      * @return a list of functional user types associated with the program
      * @throws IllegalArgumentException if programId is null or less than or equal to 0
      */
     @Override
+    @SuppressWarnings("unchecked")
     public List<FunctionalUserType> getFunctionalUsers(Long programId) {
         if (programId == null || programId.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
+        // TODO: Fix type mismatch - query returns ProgramFunctionalUser but cast to FunctionalUserType
         String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = :programId";
-        @SuppressWarnings("unchecked")
-        List<FunctionalUserType> results = getSession().createQuery(sSQL)
+        List<FunctionalUserType> results = (List<FunctionalUserType>) (List<?>) getSession().createQuery(sSQL)
                 .setParameter("programId", programId)
                 .list();
 
