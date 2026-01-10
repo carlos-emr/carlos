@@ -30,38 +30,88 @@ package ca.openosp.openo.daos.security;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import ca.openosp.openo.model.security.Secrole;
+import ca.openosp.openo.utility.MiscUtils;
 
-public class SecroleDaoImpl extends HibernateDaoSupport implements SecroleDao {
+/**
+ * Data Access Object (DAO) implementation for managing security roles in the OpenO EMR system.
+ * <p>
+ * This DAO provides CRUD operations and queries for {@link Secrole} entities, which represent
+ * security roles used for role-based access control (RBAC) within the application.
+ * Migrated from HibernateDaoSupport to direct SessionFactory injection for Spring 6 compatibility.
+ * </p>
+ *
+ * @see Secrole
+ * @see SecroleDao
+ * @since 2025-01-10
+ */
+public class SecroleDaoImpl implements SecroleDao {
 
     private Logger logger = MiscUtils.getLogger();
 
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session.
+     *
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    /**
+     * Retrieves all security roles ordered by role name.
+     *
+     * @return a list of all {@link Secrole} entities, ordered by roleName
+     */
     @Override
     public List<Secrole> getRoles() {
         @SuppressWarnings("unchecked")
-        List<Secrole> results = (List<Secrole>) this.getHibernateTemplate().find("from Secrole r order by roleName");
+        Query<Secrole> query = getSession().createQuery("from Secrole r order by roleName", Secrole.class);
+        List<Secrole> results = query.list();
 
         logger.debug("getRoles: # of results=" + results.size());
 
         return results;
     }
 
+    /**
+     * Retrieves a security role by its ID.
+     *
+     * @param id the role ID to search for
+     * @return the {@link Secrole} entity with the specified ID, or null if not found
+     * @throws IllegalArgumentException if id is null or less than or equal to 0
+     */
     @Override
     public Secrole getRole(Integer id) {
         if (id == null || id.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        Secrole result = this.getHibernateTemplate().get(Secrole.class, Long.valueOf(id));
+        Secrole result = getSession().get(Secrole.class, Long.valueOf(id));
 
         logger.debug("getRole: id=" + id + ",found=" + (result != null));
 
         return result;
     }
 
+    /**
+     * Retrieves a security role by its role name.
+     * <p>
+     * Uses parameterized queries to prevent SQL injection vulnerabilities.
+     * </p>
+     *
+     * @param roleName the name of the role to search for
+     * @return the {@link Secrole} entity with the specified roleName, or null if not found
+     * @throws IllegalArgumentException if roleName is null or empty
+     */
     @Override
     public Secrole getRoleByName(String roleName) {
         Secrole result = null;
@@ -69,27 +119,48 @@ public class SecroleDaoImpl extends HibernateDaoSupport implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        List lst = this.getHibernateTemplate().find("from Secrole r where r.roleName='" + roleName + "'");
+        Query<Secrole> query = getSession().createQuery("from Secrole r where r.roleName = :roleName", Secrole.class);
+        query.setParameter("roleName", roleName);
+        List<Secrole> lst = query.list();
+        
         if (lst != null && lst.size() > 0)
-            result = (Secrole) lst.get(0);
+            result = lst.get(0);
 
         logger.debug("getRoleByName: roleName=" + roleName + ",found=" + (result != null));
 
         return result;
     }
 
+    /**
+     * Retrieves all default (system-defined) security roles.
+     * <p>
+     * Default roles are those where userDefined flag is 0.
+     * </p>
+     *
+     * @return a list of default {@link Secrole} entities
+     */
     @Override
     public List getDefaultRoles() {
-        return this.getHibernateTemplate().find("from Secrole r where r.userDefined=0");
+        Query query = getSession().createQuery("from Secrole r where r.userDefined=0");
+        return query.list();
     }
 
+    /**
+     * Persists or updates a security role.
+     * <p>
+     * This method will create a new role if it doesn't exist, or update an existing one.
+     * </p>
+     *
+     * @param secrole the {@link Secrole} entity to save or update
+     * @throws IllegalArgumentException if secrole is null
+     */
     @Override
     public void save(Secrole secrole) {
         if (secrole == null) {
             throw new IllegalArgumentException();
         }
 
-        getHibernateTemplate().saveOrUpdate(secrole);
+        getSession().saveOrUpdate(secrole);
 
     }
 
