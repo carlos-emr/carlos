@@ -140,6 +140,7 @@ public class SecroleDaoImpl implements SecroleDao {
      * @return a list of default {@link Secrole} entities
      */
     @Override
+    @SuppressWarnings("rawtypes")
     public List getDefaultRoles() {
         Query query = getSession().createQuery("from Secrole r where r.userDefined=0");
         return query.list();
