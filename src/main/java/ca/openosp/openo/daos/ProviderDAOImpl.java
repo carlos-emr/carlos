@@ -30,26 +30,80 @@ package ca.openosp.openo.daos;
 import java.util.List;
 
 import ca.openosp.openo.commn.model.Provider;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * This couldn't possibly work, it's not a spring managed bean according to the xml files.
- * But oh well, some one imports this class and tries to have it injected so I'll
- * leave the code here so it compiles. what ever...
+ * Data Access Object (DAO) implementation for Provider entities.
+ * <p>
+ * This DAO provides methods to retrieve Provider entities from the database
+ * using Hibernate SessionFactory for database access. It has been migrated
+ * from the deprecated HibernateDaoSupport to direct SessionFactory injection
+ * as part of the Spring 6/Jakarta EE migration effort.
+ * </p>
+ * <p>
+ * Key operations supported:
+ * </p>
+ * <ul>
+ *   <li>Retrieve all providers ordered by last name</li>
+ *   <li>Retrieve a specific provider by provider number</li>
+ *   <li>Retrieve a provider by first and last name</li>
+ * </ul>
+ * 
+ * @see Provider
+ * @see ProviderDAO
  */
-public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO {
+public class ProviderDAOImpl implements ProviderDAO {
 
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session.
+     * 
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    /**
+     * Retrieves all providers from the database, ordered by last name.
+     * 
+     * @return a list of all providers ordered by last name
+     */
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
-        return (List<Provider>) getHibernateTemplate().find("from Provider p order by p.lastName");
+        return getSession().createQuery("from Provider p order by p.lastName").list();
     }
 
+    /**
+     * Retrieves a specific provider by provider number.
+     * 
+     * @param provider_no the unique provider number identifier
+     * @return the Provider entity, or null if not found
+     */
     public Provider getProvider(String provider_no) {
-        return getHibernateTemplate().get(Provider.class, provider_no);
+        return getSession().get(Provider.class, provider_no);
     }
 
+    /**
+     * Retrieves a provider by first and last name.
+     * 
+     * @param lastName the provider's last name
+     * @param firstName the provider's first name
+     * @return the Provider entity matching the given names
+     * @throws IndexOutOfBoundsException if no provider is found with the given names
+     */
+    @SuppressWarnings("unchecked")
     public Provider getProviderByName(String lastName, String firstName) {
-        return (Provider) getHibernateTemplate().find("from Provider p where p.first_name = ?0 and p.last_name = ?1", firstName, lastName).get(0);
+        List<Provider> providers = getSession()
+            .createQuery("from Provider p where p.firstName = :firstName and p.lastName = :lastName")
+            .setParameter("firstName", firstName)
+            .setParameter("lastName", lastName)
+            .list();
+        return providers.get(0);
     }
 
 }
