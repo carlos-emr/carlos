@@ -27,33 +27,59 @@
 
 package ca.openosp.openo.PMmodule.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Query;
 import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
 import ca.openosp.openo.PMmodule.model.FunctionalUserType;
 import ca.openosp.openo.PMmodule.model.ProgramFunctionalUser;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 
-public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements ProgramFunctionalUserDAO {
+/**
+ * Data Access Object implementation for managing Program Functional Users and Functional User Types.
+ * <p>
+ * This DAO provides CRUD operations for functional user types and program functional users,
+ * including retrieval, saving, and deletion of entities. It uses Hibernate SessionFactory
+ * for database interactions.
+ * </p>
+ *
+ * @see ProgramFunctionalUserDAO
+ * @see FunctionalUserType
+ * @see ProgramFunctionalUser
+ */
+@Repository
+@Transactional
+public class ProgramFunctionalUserDAOImpl implements ProgramFunctionalUserDAO {
 
     private static Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
-
+    
     @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session.
+     *
+     * @return the current Hibernate session
+     */
+    private Session getSession() {
+        return sessionFactory.getCurrentSession();
     }
 
+    /**
+     * Retrieves all functional user types.
+     *
+     * @return a list of all functional user types
+     */
     @Override
     public List<FunctionalUserType> getFunctionalUserTypes() {
         String sSQL = "from FunctionalUserType";
-        List<FunctionalUserType> results = (List<FunctionalUserType>) this.getHibernateTemplate().find(sSQL);
+        @SuppressWarnings("unchecked")
+        List<FunctionalUserType> results = getSession().createQuery(sSQL).list();
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUserTypes: # of results=" + results.size());
@@ -61,13 +87,20 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
         return results;
     }
 
+    /**
+     * Retrieves a functional user type by its ID.
+     *
+     * @param id the ID of the functional user type
+     * @return the functional user type, or null if not found
+     * @throws IllegalArgumentException if id is null or less than or equal to 0
+     */
     @Override
     public FunctionalUserType getFunctionalUserType(Long id) {
         if (id == null || id.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        FunctionalUserType result = this.getHibernateTemplate().get(FunctionalUserType.class, id);
+        FunctionalUserType result = getSession().get(FunctionalUserType.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUserType: id=" + id + ",found=" + (result != null));
@@ -76,40 +109,62 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
         return result;
     }
 
+    /**
+     * Saves or updates a functional user type.
+     *
+     * @param fut the functional user type to save or update
+     * @throws IllegalArgumentException if fut is null
+     */
     @Override
     public void saveFunctionalUserType(FunctionalUserType fut) {
         if (fut == null) {
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().saveOrUpdate(fut);
+        getSession().saveOrUpdate(fut);
 
         if (log.isDebugEnabled()) {
             log.debug("saveFunctionalUserType:" + fut.getId());
         }
     }
 
+    /**
+     * Deletes a functional user type by its ID.
+     *
+     * @param id the ID of the functional user type to delete
+     * @throws IllegalArgumentException if id is null or less than or equal to 0
+     */
     @Override
     public void deleteFunctionalUserType(Long id) {
         if (id == null || id.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().delete(getFunctionalUserType(id));
+        getSession().delete(getFunctionalUserType(id));
 
         if (log.isDebugEnabled()) {
             log.debug("deleteFunctionalUserType:" + id);
         }
     }
 
+    /**
+     * Retrieves functional users by program ID.
+     *
+     * @param programId the ID of the program
+     * @return a list of functional user types associated with the program
+     * @throws IllegalArgumentException if programId is null or less than or equal to 0
+     */
     @Override
     public List<FunctionalUserType> getFunctionalUsers(Long programId) {
         if (programId == null || programId.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = ?0";
-        List<FunctionalUserType> results = (List<FunctionalUserType>) this.getHibernateTemplate().find(sSQL, programId);
+        String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = :programId";
+        @SuppressWarnings("unchecked")
+        List<FunctionalUserType> results = getSession().createQuery(sSQL)
+                .setParameter("programId", programId)
+                .list();
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUsers: programId=" + programId + ",# of results=" + results.size());
@@ -117,13 +172,20 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
         return results;
     }
 
+    /**
+     * Retrieves a program functional user by its ID.
+     *
+     * @param id the ID of the program functional user
+     * @return the program functional user, or null if not found
+     * @throws IllegalArgumentException if id is null or less than or equal to 0
+     */
     @Override
     public ProgramFunctionalUser getFunctionalUser(Long id) {
         if (id == null || id.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        ProgramFunctionalUser result = this.getHibernateTemplate().get(ProgramFunctionalUser.class, id);
+        ProgramFunctionalUser result = getSession().get(ProgramFunctionalUser.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUser: id=" + id + ",found=" + (result != null));
@@ -132,32 +194,52 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
         return result;
     }
 
+    /**
+     * Saves or updates a program functional user.
+     *
+     * @param pfu the program functional user to save or update
+     * @throws IllegalArgumentException if pfu is null
+     */
     @Override
     public void saveFunctionalUser(ProgramFunctionalUser pfu) {
         if (pfu == null) {
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().saveOrUpdate(pfu);
+        getSession().saveOrUpdate(pfu);
 
         if (log.isDebugEnabled()) {
             log.debug("saveFunctionalUser:" + pfu.getId());
         }
     }
 
+    /**
+     * Deletes a program functional user by its ID.
+     *
+     * @param id the ID of the program functional user to delete
+     * @throws IllegalArgumentException if id is null or less than or equal to 0
+     */
     @Override
     public void deleteFunctionalUser(Long id) {
         if (id == null || id.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().delete(getFunctionalUser(id));
+        getSession().delete(getFunctionalUser(id));
 
         if (log.isDebugEnabled()) {
             log.debug("deleteFunctionalUser:" + id);
         }
     }
 
+    /**
+     * Retrieves the program ID for a functional user by program ID and user type ID.
+     *
+     * @param programId the ID of the program
+     * @param userTypeId the ID of the user type
+     * @return the program ID if found, null otherwise
+     * @throws IllegalArgumentException if programId or userTypeId is null or less than or equal to 0
+     */
     @Override
     public Long getFunctionalUserByUserType(Long programId, Long userTypeId) {
         if (programId == null || programId.intValue() <= 0) {
@@ -169,20 +251,15 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
 
         Long result = null;
 
-        String query = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?0 and pfu.UserTypeId = ?1";
-        Session session = sessionFactory.getCurrentSession();
-        Query q = session.createQuery(query);
-        q.setLong(1, programId.longValue());
-        q.setLong(2, userTypeId.longValue());
-        List results = new ArrayList();
-        try {
-            results = q.list();
-        } finally {
-            // releaseSession(session);
-            session.close();
-        }
-        if (results.size() > 0) {
-            result = (Long) results.get(0);
+        String query = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = :programId and pfu.UserTypeId = :userTypeId";
+        @SuppressWarnings("unchecked")
+        List<Long> results = getSession().createQuery(query)
+                .setParameter("programId", programId)
+                .setParameter("userTypeId", userTypeId)
+                .list();
+        
+        if (!results.isEmpty()) {
+            result = results.get(0);
         }
 
         if (log.isDebugEnabled()) {
