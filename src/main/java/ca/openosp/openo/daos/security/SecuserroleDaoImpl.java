@@ -182,13 +182,17 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
         logger.debug("Update Secuserrole instance");
         Session session = getSession();
         try {
-            String queryString = "update Secuserrole as model set model.activeyn ='" + instance.getActiveyn()
-                    + "' , lastUpdateDate=now() "
-                    + " where model.providerNo ='" + instance.getProviderNo() + "'"
-                    + " and model.roleName ='" + instance.getRoleName() + "'"
-                    + " and model.orgcd ='" + instance.getOrgcd() + "'";
+            String queryString = "update Secuserrole as model set model.activeyn = :activeyn"
+                    + ", lastUpdateDate=now() "
+                    + " where model.providerNo = :providerNo"
+                    + " and model.roleName = :roleName"
+                    + " and model.orgcd = :orgcd";
 
             Query queryObject = session.createQuery(queryString);
+            queryObject.setParameter("activeyn", instance.getActiveyn());
+            queryObject.setParameter("providerNo", instance.getProviderNo());
+            queryObject.setParameter("roleName", instance.getRoleName());
+            queryObject.setParameter("orgcd", instance.getOrgcd());
 
             return queryObject.executeUpdate();
 
@@ -240,6 +244,13 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
     public List findByProperty(String propertyName, Object value) {
         logger.debug("finding Secuserrole instance with property: " + propertyName
                 + ", value: " + value);
+        
+        // Validate propertyName against whitelist to prevent HQL injection
+        if (!PROVIDER_NO.equals(propertyName) && !ROLE_NAME.equals(propertyName) 
+                && !ORGCD.equals(propertyName) && !ACTIVEYN.equals(propertyName)) {
+            throw new IllegalArgumentException("Invalid property name: " + propertyName);
+        }
+        
         Session session = getSession();
         try {
             String queryString = "from Secuserrole as model where model."
