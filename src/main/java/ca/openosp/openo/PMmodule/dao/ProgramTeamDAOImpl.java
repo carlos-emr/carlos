@@ -164,10 +164,11 @@ public class ProgramTeamDAOImpl implements ProgramTeamDAO {
         return results;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see ca.openosp.openo.daos.PMmodule.ProgramTeamDAO#saveProgramTeam(ca.openosp.openo.model.PMmodule.ProgramTeam)
+    /**
+     * Saves or updates a program team.
+     * 
+     * @param team the ProgramTeam entity to save or update
+     * @throws IllegalArgumentException if team is null
      */
     @Override
     public void saveProgramTeam(ProgramTeam team) {
@@ -175,17 +176,18 @@ public class ProgramTeamDAOImpl implements ProgramTeamDAO {
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().saveOrUpdate(team);
+        getSession().saveOrUpdate(team);
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramTeam: id=" + team.getId());
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see ca.openosp.openo.daos.PMmodule.ProgramTeamDAO#deleteProgramTeam(java.lang.Integer)
+    /**
+     * Deletes a program team by its ID.
+     * 
+     * @param id the ID of the program team to delete
+     * @throws IllegalArgumentException if id is null or invalid
      */
     @Override
     public void deleteProgramTeam(Integer id) {
@@ -193,7 +195,7 @@ public class ProgramTeamDAOImpl implements ProgramTeamDAO {
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().delete(getProgramTeam(id));
+        getSession().delete(getProgramTeam(id));
 
         if (log.isDebugEnabled()) {
             log.debug("deleteProgramTeam: id=" + id);
