@@ -243,9 +243,9 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
         Session session = getSession();
         try {
             String queryString = "from Secuserrole as model where model."
-                    + propertyName + "= ?1";
+                    + propertyName + "= :value";
             Query queryObject = session.createQuery(queryString);
-            queryObject.setParameter(1, value);
+            queryObject.setParameter("value", value);
             return queryObject.list();
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
