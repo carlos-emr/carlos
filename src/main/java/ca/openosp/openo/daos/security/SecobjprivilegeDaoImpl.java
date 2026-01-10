@@ -125,13 +125,16 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
     public int update(Secobjprivilege instance) {
         logger.debug("update Secobjprivilege instance");
         try {
-            String queryString = "update Secobjprivilege as model set model.providerNo ='" + instance.getProviderNo()
-                    + "'"
-                    + " where model.objectname_code ='" + instance.getObjectname_code() + "'"
-                    + " and model.privilege_code ='" + instance.getPrivilege_code() + "'"
-                    + " and model.roleusergroup ='" + instance.getRoleusergroup() + "'";
+            String queryString = "update Secobjprivilege as model set model.providerNo = :providerNo"
+                    + " where model.objectname_code = :objectnameCode"
+                    + " and model.privilege_code = :privilegeCode"
+                    + " and model.roleusergroup = :roleusergroup";
 
             Query queryObject = getSession().createQuery(queryString);
+            queryObject.setParameter("providerNo", instance.getProviderNo());
+            queryObject.setParameter("objectnameCode", instance.getObjectname_code());
+            queryObject.setParameter("privilegeCode", instance.getPrivilege_code());
+            queryObject.setParameter("roleusergroup", instance.getRoleusergroup());
 
             return queryObject.executeUpdate();
 
@@ -280,17 +283,17 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
     /**
      * Retrieves security object privileges by object name and filters by role list.
      * 
-     * @param o the object name code to search for
+     * @param objectNameCode the object name code to search for
      * @param roles the list of role names to filter by
      * @return list of security object privileges matching the criteria
      */
     @Override
-    public List<Secobjprivilege> getByObjectNameAndRoles(String o, List<String> roles) {
+    public List<Secobjprivilege> getByObjectNameAndRoles(String objectNameCode, List<String> roles) {
         String queryString = "from Secobjprivilege obj where obj.objectname_code=:objectName";
         List<Secobjprivilege> results = new ArrayList<Secobjprivilege>();
 
         Query query = getSession().createQuery(queryString);
-        query.setParameter("objectName", o);
+        query.setParameter("objectName", objectNameCode);
         
         @SuppressWarnings("unchecked")
         List<Secobjprivilege> lst = (List<Secobjprivilege>) query.list();

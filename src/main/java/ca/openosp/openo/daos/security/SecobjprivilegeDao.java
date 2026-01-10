@@ -51,7 +51,7 @@ public interface SecobjprivilegeDao {
 
     public List findByProperty(String propertyName, Object value);
 
-    public List<Secobjprivilege> getByObjectNameAndRoles(String o, List<String> roles);
+    public List<Secobjprivilege> getByObjectNameAndRoles(String objectNameCode, List<String> roles);
 
     public List<Secobjprivilege> getByRoles(List<String> roles);
 }
