@@ -246,6 +246,7 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
                 + ", value: " + value);
         
         // Validate propertyName against whitelist to prevent HQL injection
+        // Using constants ensures only safe column names are used
         if (!PROVIDER_NO.equals(propertyName) && !ROLE_NAME.equals(propertyName) 
                 && !ORGCD.equals(propertyName) && !ACTIVEYN.equals(propertyName)) {
             throw new IllegalArgumentException("Invalid property name: " + propertyName);
@@ -253,8 +254,9 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
         
         Session session = getSession();
         try {
+            // Safe to use propertyName here because it's been validated against whitelist
             String queryString = "from Secuserrole as model where model."
-                    + propertyName + "= :value";
+                    + propertyName + " = :value";
             Query queryObject = session.createQuery(queryString);
             queryObject.setParameter("value", value);
             return queryObject.list();
