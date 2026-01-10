@@ -55,6 +55,18 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
     
     @Autowired
     private SessionFactory sessionFactory;
+    
+    // Allowlist of valid property names for dynamic queries to prevent HQL injection
+    private static final java.util.Set<String> VALID_PROPERTIES = java.util.Collections.unmodifiableSet(
+        new java.util.HashSet<>(java.util.Arrays.asList(
+            "roleusergroup",
+            "objectname_code",
+            "privilege_code",
+            "providerNo",
+            "objectname_desc",
+            "privilege_desc"
+        ))
+    );
 
     /**
      * Gets the current Hibernate session.
@@ -296,13 +308,7 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
      * @return true if the property name is valid, false otherwise
      */
     private boolean isValidProperty(String propertyName) {
-        // Allowlist of valid properties that can be queried
-        return "roleusergroup".equals(propertyName) 
-            || "objectname_code".equals(propertyName)
-            || "privilege_code".equals(propertyName)
-            || "providerNo".equals(propertyName)
-            || "objectname_desc".equals(propertyName)
-            || "privilege_desc".equals(propertyName);
+        return VALID_PROPERTIES.contains(propertyName);
     }
 
     /**
