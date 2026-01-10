@@ -35,37 +35,60 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import ca.openosp.openo.PMmodule.model.ProgramTeam;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
 import org.hibernate.SessionFactory;
 
-public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTeamDAO {
+/**
+ * Data Access Object (DAO) implementation for ProgramTeam entities.
+ * 
+ * <p>This DAO provides database operations for managing program teams within the PMmodule.
+ * It handles CRUD operations and validation logic for program team entities.</p>
+ * 
+ * <p>Migrated from HibernateDaoSupport to direct SessionFactory injection for better
+ * alignment with modern Spring/Hibernate practices.</p>
+ * 
+ * @see ProgramTeamDAO
+ * @see ProgramTeam
+ */
+@Repository
+public class ProgramTeamDAOImpl implements ProgramTeamDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
-
+    
     @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session.
+     * 
+     * @return the current session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see ca.openosp.openo.daos.PMmodule.ProgramTeamDAO#teamExists(java.lang.Integer)
+    /**
+     * Checks if a program team exists by its ID.
+     * 
+     * @param teamId the ID of the team to check
+     * @return true if the team exists, false otherwise
      */
     @Override
     public boolean teamExists(Integer teamId) {
-        boolean exists = getHibernateTemplate().get(ProgramTeam.class, teamId) != null;
+        boolean exists = getSession().get(ProgramTeam.class, teamId) != null;
         log.debug("teamExists: " + exists);
 
         return exists;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see ca.openosp.openo.daos.PMmodule.ProgramTeamDAO#teamNameExists(java.lang.Integer, java.lang.String)
+    /**
+     * Checks if a team with the given name exists for a specific program.
+     * 
+     * @param programId the ID of the program
+     * @param teamName the name of the team to check
+     * @return true if a team with the given name exists in the program, false otherwise
+     * @throws IllegalArgumentException if programId is null or invalid, or if teamName is null or empty
      */
     @Override
     public boolean teamNameExists(Integer programId, String teamName) {
@@ -76,19 +99,14 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
         if (teamName == null || teamName.length() <= 0) {
             throw new IllegalArgumentException();
         }
-        // Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
+        
+        Session session = getSession();
         Query query = session.createQuery("select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2" );
         query.setParameter(1, programId.longValue());
         query.setParameter(2, teamName);
 
-        List teams = new ArrayList();
-        try {
-            teams = query.list();
-        } finally {
-            // this.releaseSession(session);
-            session.close();
-        }
+        @SuppressWarnings("unchecked")
+        List<Long> teams = query.list();
 
         if (log.isDebugEnabled()) {
             log.debug("teamNameExists: programId = " + programId + ", teamName = " + teamName + ", result = " + !teams.isEmpty());
@@ -97,10 +115,12 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
         return !teams.isEmpty();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see ca.openosp.openo.daos.PMmodule.ProgramTeamDAO#getProgramTeam(java.lang.Integer)
+    /**
+     * Retrieves a program team by its ID.
+     * 
+     * @param id the ID of the program team to retrieve
+     * @return the ProgramTeam entity, or null if not found
+     * @throws IllegalArgumentException if id is null or invalid
      */
     @Override
     public ProgramTeam getProgramTeam(Integer id) {
@@ -108,7 +128,7 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
             throw new IllegalArgumentException();
         }
 
-        ProgramTeam result = this.getHibernateTemplate().get(ProgramTeam.class, id);
+        ProgramTeam result = getSession().get(ProgramTeam.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramTeam: id=" + id + ",found=" + (result != null));
@@ -117,10 +137,12 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
         return result;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see ca.openosp.openo.daos.PMmodule.ProgramTeamDAO#getProgramTeams(java.lang.Integer)
+    /**
+     * Retrieves all program teams for a specific program.
+     * 
+     * @param programId the ID of the program
+     * @return list of ProgramTeam entities belonging to the specified program
+     * @throws IllegalArgumentException if programId is null or invalid
      */
     @Override
     public List<ProgramTeam> getProgramTeams(Integer programId) {
@@ -128,8 +150,12 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramTeam tp where tp.programId = ?0";
-        List<ProgramTeam> results = (List<ProgramTeam>) this.getHibernateTemplate().find(sSQL, programId);
+        Session session = getSession();
+        Query query = session.createQuery("from ProgramTeam tp where tp.programId = ?1");
+        query.setParameter(1, programId);
+        
+        @SuppressWarnings("unchecked")
+        List<ProgramTeam> results = query.list();
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramTeams: programId=" + programId + ",# of results=" + results.size());
