@@ -30,9 +30,9 @@ package ca.openosp.openo.PMmodule.dao;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import ca.openosp.openo.PMmodule.model.ProgramQueue;
@@ -105,10 +105,9 @@ public class ProgramQueueDaoImpl implements ProgramQueueDao {
         }
 
         String queryStr = "FROM ProgramQueue q WHERE q.ProgramId=:programId ORDER BY q.Id";
-        Query query = getSession().createQuery(queryStr);
+        Query<ProgramQueue> query = getSession().createQuery(queryStr, ProgramQueue.class);
         query.setParameter("programId", programId);
-        @SuppressWarnings("unchecked")
-        List<ProgramQueue> results = query.list();
+        List<ProgramQueue> results = query.getResultList();
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: programId=" + programId + ",# of results=" + results.size());
@@ -131,10 +130,9 @@ public class ProgramQueueDaoImpl implements ProgramQueueDao {
         }
 
         String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.Status = 'active' ORDER BY pq.ReferralDate";
-        Query query = getSession().createQuery(queryStr);
+        Query<ProgramQueue> query = getSession().createQuery(queryStr, ProgramQueue.class);
         query.setParameter("programId", programId);
-        @SuppressWarnings("unchecked")
-        List<ProgramQueue> results = query.list();
+        List<ProgramQueue> results = query.getResultList();
 
         if (log.isDebugEnabled()) {
             log.debug("getActiveProgramQueuesByProgramId: programId=" + programId + ",# of results=" + results.size());
@@ -181,11 +179,10 @@ public class ProgramQueueDaoImpl implements ProgramQueueDao {
 
         ProgramQueue result = null;
         String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.ClientId = :clientId";
-        Query query = getSession().createQuery(queryStr);
+        Query<ProgramQueue> query = getSession().createQuery(queryStr, ProgramQueue.class);
         query.setParameter("programId", programId);
         query.setParameter("clientId", clientId);
-        @SuppressWarnings("unchecked")
-        List<ProgramQueue> results = query.list();
+        List<ProgramQueue> results = query.getResultList();
 
         if (!results.isEmpty()) {
             result = results.get(0);
@@ -218,11 +215,10 @@ public class ProgramQueueDaoImpl implements ProgramQueueDao {
         ProgramQueue result = null;
 
         String queryStr = "FROM ProgramQueue pq WHERE pq.ProgramId = :programId AND pq.ClientId = :clientId AND pq.Status='active'";
-        Query query = getSession().createQuery(queryStr);
+        Query<ProgramQueue> query = getSession().createQuery(queryStr, ProgramQueue.class);
         query.setParameter("programId", programId);
         query.setParameter("clientId", demographicNo);
-        @SuppressWarnings("unchecked")
-        List<ProgramQueue> results = query.list();
+        List<ProgramQueue> results = query.getResultList();
         if (!results.isEmpty()) {
             result = results.get(0);
         }
