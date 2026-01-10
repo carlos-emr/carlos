@@ -119,7 +119,7 @@ public class ProgramSignatureDaoImpl implements ProgramSignatureDao {
         List<ProgramSignature> results = query.list();
 
         if (log.isDebugEnabled()) {
-            log.debug("getProgramSignatures: # of programs: " + results.size());
+            log.debug("getProgramSignatures: # of signatures: " + results.size());
         }
         
         return results;
