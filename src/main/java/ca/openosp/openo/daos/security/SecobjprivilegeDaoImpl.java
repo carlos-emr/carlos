@@ -259,7 +259,10 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
      * Finds Secobjprivilege entities by a specific property and value.
      * Results are ordered by objectname_code.
      * 
-     * @param propertyName the name of the property to search by
+     * <p>Note: This method dynamically constructs HQL queries. The propertyName parameter
+     * should only be passed from trusted sources to prevent HQL injection attacks.</p>
+     * 
+     * @param propertyName the name of the property to search by (must be a valid property of Secobjprivilege)
      * @param value the value to search for
      * @return list of matching security object privileges
      * @throws RuntimeException if the query fails
@@ -269,6 +272,11 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
         logger.debug("finding Secobjprivilege instance with property: " + propertyName
                 + ", value: " + value);
         try {
+            // Validate propertyName against allowlist to prevent HQL injection
+            if (!isValidProperty(propertyName)) {
+                throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            }
+            
             String queryString = "from Secobjprivilege as model where model."
                     + propertyName + "= :value order by objectname_code";
             Query queryObject = getSession().createQuery(queryString);
@@ -278,6 +286,23 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
             logger.error("find by property name failed", re);
             throw re;
         }
+    }
+
+    /**
+     * Validates that the property name is a valid property of Secobjprivilege entity.
+     * This prevents HQL injection attacks in dynamic queries.
+     * 
+     * @param propertyName the property name to validate
+     * @return true if the property name is valid, false otherwise
+     */
+    private boolean isValidProperty(String propertyName) {
+        // Allowlist of valid properties that can be queried
+        return "roleusergroup".equals(propertyName) 
+            || "objectname_code".equals(propertyName)
+            || "privilege_code".equals(propertyName)
+            || "providerNo".equals(propertyName)
+            || "objectname_desc".equals(propertyName)
+            || "privilege_desc".equals(propertyName);
     }
 
     /**
@@ -315,12 +340,12 @@ public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
     @Override
     public List<Secobjprivilege> getByRoles(List<String> roles) {
         String queryString = "from Secobjprivilege obj where obj.roleusergroup IN (:roles)";
-        List<Secobjprivilege> results = new ArrayList<Secobjprivilege>();
 
         Query q = getSession().createQuery(queryString);
         q.setParameterList("roles", roles);
 
-        results = q.list();
+        @SuppressWarnings("unchecked")
+        List<Secobjprivilege> results = q.list();
 
         return results;
     }
