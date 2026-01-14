@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.query.Query;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -159,7 +160,7 @@ public class SecUserRoleDaoImpl implements SecUserRoleDao {
         Query<SecUserRole> query = getSession().createQuery(hql, SecUserRole.class);
         query.setParameter("providerNo", providerNo);
         List<SecUserRole> results = query.getResultList();
-        
+
         if (!results.isEmpty()) {
             result = true;
         }
