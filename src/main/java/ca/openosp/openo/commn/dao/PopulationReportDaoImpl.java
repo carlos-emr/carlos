@@ -35,6 +35,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -42,23 +43,57 @@ import java.util.Map.Entry;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.HibernateException;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
 import org.joda.time.Days;
 import org.joda.time.MutablePeriod;
 import org.joda.time.PeriodType;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
 import ca.openosp.openo.PMmodule.utility.DateTimeFormatUtils;
 import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.commn.model.Stay;
 import ca.openosp.openo.utility.DbConnectionFilter;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.EncounterUtil.EncounterType;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
-
 import ca.openosp.openo.util.SqlUtils;
 
-public class PopulationReportDaoImpl extends HibernateDaoSupport implements PopulationReportDao {
-
+/**
+ * Data Access Object implementation for population report queries.
+ * 
+ * <p>This DAO provides methods for generating population-based statistics including:
+ * <ul>
+ *   <li>Current and historical population sizes</li>
+ *   <li>Shelter usage patterns categorized by duration</li>
+ *   <li>Mortality statistics</li>
+ *   <li>Disease prevalence and incidence based on ICD-10 codes</li>
+ *   <li>Case management note counts grouped by various criteria</li>
+ * </ul>
+ * 
+ * <p>This implementation uses Hibernate SessionFactory for database access
+ * and supports queries across multiple program types (service, community, deceased).
+ * 
+ * @see PopulationReportDao
+ * @see ca.openosp.openo.commn.model.Stay
+ */
+@Repository
+public class PopulationReportDaoImpl implements PopulationReportDao {
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session.
+     * 
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
 
     private static final String HQL_CURRENT_POP_SIZE = "select count(distinct a.clientId) from Admission a where " +
     "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
@@ -91,14 +126,15 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
 
     public int getCurrentPopulationSize() {
-
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_POP_SIZE).iterator().next()).intValue();
+        Query<Long> query = getSession().createQuery(HQL_CURRENT_POP_SIZE, Long.class);
+        return query.uniqueResult().intValue();
     }
 
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
-
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears)).iterator().next()).intValue();
+        Query<Long> query = getSession().createQuery(HQL_CURRENT_HISTORICAL_POP_SIZE, Long.class);
+        query.setParameter(1, DateTimeFormatUtils.getPast(numYears));
+        return query.uniqueResult().intValue();
     }
 
     @Override
@@ -112,7 +148,11 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         Date end = instant.getTime();
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
-        for (Object o : getHibernateTemplate().find(HQL_GET_USAGES, start)) {
+        Query<?> query = getSession().createQuery(HQL_GET_USAGES);
+        query.setParameter(2, start);
+        List<?> results = query.list();
+        
+        for (Object o : results) {
             Object[] tuple = (Object[]) o;
 
             Integer clientId = (Integer) tuple[0];
@@ -154,44 +194,47 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
     @Override
     public int getMortalities(int numYears) {
-
-        return ((Long) getHibernateTemplate().find(HQL_GET_MORTALITIES, new Object[]{DateTimeFormatUtils.getPast(numYears)}).iterator().next()).intValue();
+        Query<Long> query = getSession().createQuery(HQL_GET_MORTALITIES, Long.class);
+        query.setParameter(1, DateTimeFormatUtils.getPast(numYears));
+        return query.uniqueResult().intValue();
     }
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
 
-        StringBuilder query = new StringBuilder(HQL_GET_PREVALENCE).append("(");
+        StringBuilder queryString = new StringBuilder(HQL_GET_PREVALENCE).append("(");
 
         for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
+            queryString.append("'").append(icd10Code).append("'");
 
             if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
+                queryString.append(",");
             }
         }
 
-        query.append(")");
+        queryString.append(")");
 
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Query<Long> query = getSession().createQuery(queryString.toString(), Long.class);
+        return query.uniqueResult().intValue();
     }
 
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
 
-        StringBuilder query = new StringBuilder(HQL_GET_INCIDENCE).append("(");
+        StringBuilder queryString = new StringBuilder(HQL_GET_INCIDENCE).append("(");
 
         for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
+            queryString.append("'").append(icd10Code).append("'");
 
             if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
+                queryString.append(",");
             }
         }
 
-        query.append(")");
+        queryString.append(")");
 
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Query<Long> query = getSession().createQuery(queryString.toString(), Long.class);
+        return query.uniqueResult().intValue();
     }
 
     @Override
