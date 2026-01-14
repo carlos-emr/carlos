@@ -31,57 +31,145 @@ import java.util.Date;
 import java.util.List;
 
 import ca.openosp.openo.casemgmt.model.CaseManagementNoteExt;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
-public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements CaseManagementNoteExtDAO {
+/**
+ * Data Access Object implementation for CaseManagementNoteExt entities.
+ * 
+ * This DAO provides methods to retrieve, save, and update case management note extensions,
+ * which contain additional metadata and attributes associated with case management notes.
+ * 
+ * @see CaseManagementNoteExt
+ * @see CaseManagementNoteExtDAO
+ */
+@Transactional
+public class CaseManagementNoteExtDAOImpl implements CaseManagementNoteExtDAO {
 
-    @Override
-    public CaseManagementNoteExt getNoteExt(Long id) {
-        CaseManagementNoteExt noteExt = this.getHibernateTemplate().get(CaseManagementNoteExt.class, id);
-        return noteExt;
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session from the session factory.
+     *
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
     }
 
+    /**
+     * Retrieves a case management note extension by its ID.
+     *
+     * @param id the unique identifier of the note extension
+     * @return the CaseManagementNoteExt entity, or null if not found
+     */
+    @Override
+    public CaseManagementNoteExt getNoteExt(Long id) {
+        return getSession().get(CaseManagementNoteExt.class, id);
+    }
+
+    /**
+     * Retrieves all note extensions associated with a specific note ID.
+     *
+     * @param noteId the ID of the note
+     * @return list of CaseManagementNoteExt entities ordered by ID descending
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteExt> getExtByNote(Long noteId) {
-        String hql = "from CaseManagementNoteExt cExt where cExt.noteId = ?0 order by cExt.id desc";
-        return (List<CaseManagementNoteExt>) this.getHibernateTemplate().find(hql, noteId);
+        String hql = "from CaseManagementNoteExt cExt where cExt.noteId = :noteId order by cExt.id desc";
+        Query<CaseManagementNoteExt> query = getSession().createQuery(hql, CaseManagementNoteExt.class);
+        query.setParameter("noteId", noteId);
+        return query.list();
     }
 
+    /**
+     * Retrieves all note extensions with a specific key value.
+     *
+     * @param keyVal the key value to search for
+     * @return list of CaseManagementNoteExt entities matching the key value
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public List getExtByKeyVal(String keyVal) {
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0";
-        return this.getHibernateTemplate().find(hql, keyVal);
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal";
+        Query query = getSession().createQuery(hql);
+        query.setParameter("keyVal", keyVal);
+        return query.list();
     }
 
+    /**
+     * Retrieves all note extensions with a specific key value and value pattern.
+     *
+     * @param keyVal the key value to search for
+     * @param value the value pattern to match (supports LIKE wildcards)
+     * @return list of CaseManagementNoteExt entities matching the criteria
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public List getExtByValue(String keyVal, String value) {
-        Object[] param = {keyVal, value};
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0 and cExt.value like ?1";
-        return this.getHibernateTemplate().find(hql, param);
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal and cExt.value like :value";
+        Query query = getSession().createQuery(hql);
+        query.setParameter("keyVal", keyVal);
+        query.setParameter("value", value);
+        return query.list();
     }
 
+    /**
+     * Retrieves all note extensions with a specific key value and date value before or equal to the specified date.
+     *
+     * @param keyVal the key value to search for
+     * @param dateValue the date threshold (inclusive)
+     * @return list of CaseManagementNoteExt entities with date values before or equal to the specified date
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public List getExtBeforeDate(String keyVal, Date dateValue) {
-        Object[] param = {keyVal, dateValue};
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0 and cExt.dateValue <= ?1";
-        return this.getHibernateTemplate().find(hql, param);
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal and cExt.dateValue <= :dateValue";
+        Query query = getSession().createQuery(hql);
+        query.setParameter("keyVal", keyVal);
+        query.setParameter("dateValue", dateValue);
+        return query.list();
     }
 
+    /**
+     * Retrieves all note extensions with a specific key value and date value after or equal to the specified date.
+     *
+     * @param keyVal the key value to search for
+     * @param dateValue the date threshold (inclusive)
+     * @return list of CaseManagementNoteExt entities with date values after or equal to the specified date
+     */
+    @SuppressWarnings("unchecked")
     @Override
     public List getExtAfterDate(String keyVal, Date dateValue) {
-        Object[] param = {keyVal, dateValue};
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0 and cExt.dateValue >= ?1";
-        return this.getHibernateTemplate().find(hql, param);
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal and cExt.dateValue >= :dateValue";
+        Query query = getSession().createQuery(hql);
+        query.setParameter("keyVal", keyVal);
+        query.setParameter("dateValue", dateValue);
+        return query.list();
     }
 
+    /**
+     * Persists a new case management note extension to the database.
+     *
+     * @param cExt the CaseManagementNoteExt entity to save
+     */
     @Override
     public void save(CaseManagementNoteExt cExt) {
-        this.getHibernateTemplate().save(cExt);
+        getSession().save(cExt);
     }
 
+    /**
+     * Updates an existing case management note extension in the database.
+     *
+     * @param cExt the CaseManagementNoteExt entity to update
+     */
     @Override
     public void update(CaseManagementNoteExt cExt) {
-        this.getHibernateTemplate().update(cExt);
+        getSession().update(cExt);
     }
 }
