@@ -75,6 +75,15 @@ public class SecUserRoleDaoImpl implements SecUserRoleDao {
     private SessionFactory sessionFactory;
 
     /**
+     * Setter for SessionFactory to support XML-based autowiring by name.
+     *
+     * @param sessionFactory the Hibernate SessionFactory to inject
+     */
+    public void setSessionFactory(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
+    }
+
+    /**
      * Gets the current Hibernate session from the SessionFactory.
      * <p>
      * This method retrieves the session bound to the current thread,
