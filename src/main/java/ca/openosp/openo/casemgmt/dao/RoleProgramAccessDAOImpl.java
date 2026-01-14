@@ -69,7 +69,6 @@ public class RoleProgramAccessDAOImpl implements RoleProgramAccessDAO {
      * @param roleId the ID of the role to retrieve access rights for
      * @return list of DefaultRoleAccess objects for the specified role
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultAccessRightByRole(Long roleId) {
         String hql = "from DefaultRoleAccess da where da.caisi_role.id = :roleId";
@@ -85,7 +84,6 @@ public class RoleProgramAccessDAOImpl implements RoleProgramAccessDAO {
      * @param accessType the access type name pattern (supports SQL LIKE patterns)
      * @return list of DefaultRoleAccess objects matching the role and access type
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType) {
         String hql = "from DefaultRoleAccess da where da.caisi_role.id = :roleId and da.access_type.Name like :accessType";
@@ -108,6 +106,7 @@ public class RoleProgramAccessDAOImpl implements RoleProgramAccessDAO {
         Query<DefaultRoleAccess> query = getSession().createQuery(hql, DefaultRoleAccess.class);
         query.setParameter("roleId", roleId);
         query.setParameter("accessName", accessName);
+        query.setMaxResults(1);
         return !query.getResultList().isEmpty();
     }
 }
