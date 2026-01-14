@@ -51,7 +51,7 @@ import ca.openosp.openo.utility.MiscUtils;
  */
 public class SecobjprivilegeDaoImpl implements SecobjprivilegeDao {
 
-    private Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
     
     @Autowired
     private SessionFactory sessionFactory;
