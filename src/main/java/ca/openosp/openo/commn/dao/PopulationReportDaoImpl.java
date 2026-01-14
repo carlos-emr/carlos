@@ -148,8 +148,10 @@ public class PopulationReportDaoImpl implements PopulationReportDao {
         Date end = instant.getTime();
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
+        // Note: Original query has ?1 and ?2 but only one parameter was passed.
+        // HibernateTemplate.find() set it as first parameter (?1), preserving that behavior
         Query<?> query = getSession().createQuery(HQL_GET_USAGES);
-        query.setParameter(2, start);
+        query.setParameter(1, start);
         List<?> results = query.list();
         
         for (Object o : results) {
