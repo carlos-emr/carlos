@@ -30,27 +30,84 @@ package ca.openosp.openo.casemgmt.dao;
 import java.util.List;
 
 import ca.openosp.openo.PMmodule.model.DefaultRoleAccess;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
-public class RoleProgramAccessDAOImpl extends HibernateDaoSupport implements RoleProgramAccessDAO {
+/**
+ * Data Access Object implementation for managing role program access permissions.
+ * 
+ * This DAO provides methods to query and manage default access rights based on roles
+ * within the case management system. It handles the persistence of role-based
+ * access controls for programs and access types.
+ * 
+ * @see RoleProgramAccessDAO
+ * @see DefaultRoleAccess
+ */
+@Repository
+@Transactional
+public class RoleProgramAccessDAOImpl implements RoleProgramAccessDAO {
 
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session from the session factory.
+     * 
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    /**
+     * Retrieves all default access rights for a specific role.
+     * 
+     * @param roleId the ID of the role to retrieve access rights for
+     * @return list of DefaultRoleAccess objects for the specified role
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultAccessRightByRole(Long roleId) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?0";
-        return (List<DefaultRoleAccess>) getHibernateTemplate().find(q, roleId);
+        String hql = "from DefaultRoleAccess da where da.caisi_role.id = :roleId";
+        Query<DefaultRoleAccess> query = getSession().createQuery(hql, DefaultRoleAccess.class);
+        query.setParameter("roleId", roleId);
+        return query.getResultList();
     }
 
+    /**
+     * Retrieves default access rights for a specific role and access type.
+     * 
+     * @param roleId the ID of the role
+     * @param accessType the access type name pattern (supports SQL LIKE patterns)
+     * @return list of DefaultRoleAccess objects matching the role and access type
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?0 and da.access_type.Name like ?1";
-        return (List<DefaultRoleAccess>) getHibernateTemplate().find(q, new Object[]{roleId, accessType});
+        String hql = "from DefaultRoleAccess da where da.caisi_role.id = :roleId and da.access_type.Name like :accessType";
+        Query<DefaultRoleAccess> query = getSession().createQuery(hql, DefaultRoleAccess.class);
+        query.setParameter("roleId", roleId);
+        query.setParameter("accessType", accessType);
+        return query.getResultList();
     }
 
+    /**
+     * Checks if a role has access to a specific access type.
+     * 
+     * @param accessName the name of the access type to check
+     * @param roleId the ID of the role
+     * @return true if the role has access, false otherwise
+     */
     @Override
     public boolean hasAccess(String accessName, Long roleId) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=" + roleId + " and da.access_type.Name= ?0";
-        return getHibernateTemplate().find(q, accessName).isEmpty() ? false : true;
+        String hql = "from DefaultRoleAccess da where da.caisi_role.id = :roleId and da.access_type.Name = :accessName";
+        Query<DefaultRoleAccess> query = getSession().createQuery(hql, DefaultRoleAccess.class);
+        query.setParameter("roleId", roleId);
+        query.setParameter("accessName", accessName);
+        return !query.getResultList().isEmpty();
     }
 }
