@@ -31,25 +31,78 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import ca.openosp.openo.PMmodule.model.SecUserRole;
-import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import ca.openosp.openo.PMmodule.model.SecUserRole;
+import ca.openosp.openo.utility.MiscUtils;
+
+/**
+ * Data Access Object (DAO) implementation for SecUserRole entities.
+ * <p>
+ * This DAO provides persistence and retrieval operations for user role assignments
+ * in the PMmodule. It manages the relationship between providers and their assigned
+ * security roles within the system.
+ * </p>
+ * <p>
+ * Key responsibilities include:
+ * <ul>
+ *   <li>Retrieving user roles by provider number</li>
+ *   <li>Querying roles by role name</li>
+ *   <li>Checking for admin role assignments</li>
+ *   <li>Managing user role persistence operations</li>
+ *   <li>Tracking role updates for integration purposes</li>
+ * </ul>
+ * </p>
+ * <p>
+ * This implementation uses direct SessionFactory injection for Hibernate operations,
+ * following the migration from deprecated HibernateDaoSupport.
+ * </p>
+ *
+ * @see SecUserRole
+ * @see SecUserRoleDao
+ */
 @Transactional
-public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRoleDao {
+public class SecUserRoleDaoImpl implements SecUserRoleDao {
 
     private static Logger log = MiscUtils.getLogger();
 
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session from the SessionFactory.
+     * <p>
+     * This method retrieves the session bound to the current thread,
+     * which is managed by Spring's transaction management.
+     * </p>
+     *
+     * @return the current Hibernate Session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    /**
+     * Retrieves all user roles assigned to a specific provider.
+     *
+     * @param providerNo the provider number to search for
+     * @return list of SecUserRole entities assigned to the provider
+     * @throws IllegalArgumentException if providerNo is null
+     */
     @Override
     public List<SecUserRole> getUserRoles(String providerNo) {
         if (providerNo == null) {
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from SecUserRole s where s.ProviderNo = ?0";
-        @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, providerNo);
+        String hql = "from SecUserRole s where s.ProviderNo = :providerNo";
+        Query<SecUserRole> query = getSession().createQuery(hql, SecUserRole.class);
+        query.setParameter("providerNo", providerNo);
+        List<SecUserRole> results = query.getResultList();
 
         if (log.isDebugEnabled()) {
             log.debug("getUserRoles: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -58,24 +111,43 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
         return results;
     }
 
+    /**
+     * Retrieves all user roles with a specific role name.
+     *
+     * @param roleName the name of the role to search for
+     * @return list of SecUserRole entities with the specified role name
+     */
     @Override
     public List<SecUserRole> getSecUserRolesByRoleName(String roleName) {
-        String sSQL = "from SecUserRole s where s.RoleName = ?0";
-        @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, roleName);
-
-        return results;
+        String hql = "from SecUserRole s where s.RoleName = :roleName";
+        Query<SecUserRole> query = getSession().createQuery(hql, SecUserRole.class);
+        query.setParameter("roleName", roleName);
+        return query.getResultList();
     }
 
+    /**
+     * Finds user roles matching both role name and provider number.
+     *
+     * @param roleName   the name of the role to search for
+     * @param providerNo the provider number to search for
+     * @return list of SecUserRole entities matching both criteria
+     */
     @Override
     public List<SecUserRole> findByRoleNameAndProviderNo(String roleName, String providerNo) {
-        String sSQL = "from SecUserRole s where s.RoleName = ?0 and s.ProviderNo=?1";
-        @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, new Object[]{roleName, providerNo});
-
-        return results;
+        String hql = "from SecUserRole s where s.RoleName = :roleName and s.ProviderNo = :providerNo";
+        Query<SecUserRole> query = getSession().createQuery(hql, SecUserRole.class);
+        query.setParameter("roleName", roleName);
+        query.setParameter("providerNo", providerNo);
+        return query.getResultList();
     }
 
+    /**
+     * Checks if a provider has the admin role assigned.
+     *
+     * @param providerNo the provider number to check
+     * @return true if the provider has the admin role, false otherwise
+     * @throws IllegalArgumentException if providerNo is null
+     */
     @Override
     public boolean hasAdminRole(String providerNo) {
         if (providerNo == null) {
@@ -83,9 +155,11 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
         }
 
         boolean result = false;
-        String sSQL = "from SecUserRole s where s.ProviderNo = ?0 and s.RoleName = 'admin'";
-        @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) this.getHibernateTemplate().find(sSQL, providerNo);
+        String hql = "from SecUserRole s where s.ProviderNo = :providerNo and s.RoleName = 'admin'";
+        Query<SecUserRole> query = getSession().createQuery(hql, SecUserRole.class);
+        query.setParameter("providerNo", providerNo);
+        List<SecUserRole> results = query.getResultList();
+        
         if (!results.isEmpty()) {
             result = true;
         }
@@ -97,24 +171,46 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
         return result;
     }
 
+    /**
+     * Finds a SecUserRole entity by its primary key ID.
+     *
+     * @param id the primary key of the SecUserRole entity
+     * @return the SecUserRole entity, or null if not found
+     */
     @Override
     public SecUserRole find(Long id) {
-        return this.getHibernateTemplate().get(SecUserRole.class, id);
+        return getSession().get(SecUserRole.class, id);
     }
 
+    /**
+     * Persists a SecUserRole entity to the database.
+     * <p>
+     * Automatically updates the lastUpdateDate to the current timestamp before saving.
+     * </p>
+     *
+     * @param sur the SecUserRole entity to save
+     */
     @Override
     public void save(SecUserRole sur) {
         sur.setLastUpdateDate(new Date());
-        this.getHibernateTemplate().save(sur);
+        getSession().save(sur);
     }
 
+    /**
+     * Retrieves provider numbers for records that have been added or updated since a specified date.
+     * <p>
+     * This method is useful for integration purposes to identify changed records.
+     * </p>
+     *
+     * @param date the cutoff date - only records updated after this date are returned
+     * @return list of provider numbers with updates after the specified date
+     */
     @Override
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
-        String sSQL = "select p.ProviderNo From SecUserRole p WHERE p.lastUpdateDate > ?0";
-        @SuppressWarnings("unchecked")
-        List<String> records = (List<String>) getHibernateTemplate().find(sSQL, date);
-
-        return records;
+        String hql = "select p.ProviderNo from SecUserRole p where p.lastUpdateDate > :date";
+        Query<String> query = getSession().createQuery(hql, String.class);
+        query.setParameter("date", date);
+        return query.getResultList();
     }
 
 }
