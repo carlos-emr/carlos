@@ -97,7 +97,7 @@ public class CaseManagementNoteExtDAOImpl implements CaseManagementNoteExtDAO {
     @Override
     public List getExtByKeyVal(String keyVal) {
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal";
-        Query query = getSession().createQuery(hql);
+        Query<CaseManagementNoteExt> query = getSession().createQuery(hql, CaseManagementNoteExt.class);
         query.setParameter("keyVal", keyVal);
         return query.list();
     }
@@ -113,7 +113,7 @@ public class CaseManagementNoteExtDAOImpl implements CaseManagementNoteExtDAO {
     @Override
     public List getExtByValue(String keyVal, String value) {
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal and cExt.value like :value";
-        Query query = getSession().createQuery(hql);
+        Query<CaseManagementNoteExt> query = getSession().createQuery(hql, CaseManagementNoteExt.class);
         query.setParameter("keyVal", keyVal);
         query.setParameter("value", value);
         return query.list();
@@ -130,7 +130,7 @@ public class CaseManagementNoteExtDAOImpl implements CaseManagementNoteExtDAO {
     @Override
     public List getExtBeforeDate(String keyVal, Date dateValue) {
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal and cExt.dateValue <= :dateValue";
-        Query query = getSession().createQuery(hql);
+        Query<CaseManagementNoteExt> query = getSession().createQuery(hql, CaseManagementNoteExt.class);
         query.setParameter("keyVal", keyVal);
         query.setParameter("dateValue", dateValue);
         return query.list();
@@ -147,7 +147,7 @@ public class CaseManagementNoteExtDAOImpl implements CaseManagementNoteExtDAO {
     @Override
     public List getExtAfterDate(String keyVal, Date dateValue) {
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = :keyVal and cExt.dateValue >= :dateValue";
-        Query query = getSession().createQuery(hql);
+        Query<CaseManagementNoteExt> query = getSession().createQuery(hql, CaseManagementNoteExt.class);
         query.setParameter("keyVal", keyVal);
         query.setParameter("dateValue", dateValue);
         return query.list();
