@@ -81,13 +81,12 @@ public class CaseManagementCPPDAOImpl implements CaseManagementCPPDAO {
      * @return the most recent CaseManagementCPP for the demographic, or null if none exists
      */
     @Override
-    @SuppressWarnings("unchecked")
     public CaseManagementCPP getCPP(String demographic_no) {
         List<CaseManagementCPP> results = getSession()
-                .createQuery("from CaseManagementCPP cpp where cpp.demographic_no = :demographicNo order by update_date desc")
+                .createQuery("from CaseManagementCPP cpp where cpp.demographic_no = :demographicNo order by update_date desc", CaseManagementCPP.class)
                 .setParameter("demographicNo", demographic_no)
                 .list();
-        return (results.size() != 0) ? results.get(0) : null;
+        return !results.isEmpty() ? results.get(0) : null;
     }
 
     /**
