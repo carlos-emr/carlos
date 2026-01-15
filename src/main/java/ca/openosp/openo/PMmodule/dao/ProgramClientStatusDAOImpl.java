@@ -71,11 +71,9 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
      */
     public List<ProgramClientStatus> getProgramClientStatuses(Integer programId) {
         String sSQL = "from ProgramClientStatus pcs where pcs.programId=:programId";
-        Query query = getSession().createQuery(sSQL);
+        Query<ProgramClientStatus> query = getSession().createQuery(sSQL, ProgramClientStatus.class);
         query.setParameter("programId", programId);
-        @SuppressWarnings("unchecked")
-        List<ProgramClientStatus> results = (List<ProgramClientStatus>) query.list();
-        return results;
+        return query.getResultList();
     }
 
     /**
@@ -107,9 +105,14 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
      * 
      * @param id the ID of the program client status to delete
      * @throws IllegalArgumentException if id is null or negative
+     * @throws IllegalStateException if the entity is not found
      */
     public void deleteProgramClientStatus(String id) {
-        getSession().delete(getProgramClientStatus(id));
+        ProgramClientStatus status = getProgramClientStatus(id);
+        if (status == null) {
+            throw new IllegalStateException("ProgramClientStatus with id " + id + " not found");
+        }
+        getSession().delete(status);
     }
 
     /**
@@ -130,12 +133,11 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
         }
 
         Session session = getSession();
-        Query query = session.createQuery("select pt.id from ProgramClientStatus pt where pt.programId = :programId and pt.name = :statusName");
+        Query<Object> query = session.createQuery("select pt.id from ProgramClientStatus pt where pt.programId = :programId and pt.name = :statusName", Object.class);
         query.setParameter("programId", programId.longValue());
         query.setParameter("statusName", statusName);
 
-        @SuppressWarnings("unchecked")
-        List<Object> results = query.list();
+        List<Object> results = query.getResultList();
 
         if (log.isDebugEnabled()) {
             log.debug("clientStatusNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !results.isEmpty());
@@ -162,11 +164,10 @@ public class ProgramClientStatusDAOImpl implements ProgramClientStatusDAO {
         }
 
         String sSQL = "from Admission a where a.ProgramId = :programId and a.TeamId = :statusId and a.AdmissionStatus='current'";
-        Query query = getSession().createQuery(sSQL);
+        Query<Admission> query = getSession().createQuery(sSQL, Admission.class);
         query.setParameter("programId", programId);
         query.setParameter("statusId", statusId);
-        @SuppressWarnings("unchecked")
-        List<Admission> results = (List<Admission>) query.list();
+        List<Admission> results = query.getResultList();
 
         if (log.isDebugEnabled()) {
             log.debug("getAllClientsInStatus: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
