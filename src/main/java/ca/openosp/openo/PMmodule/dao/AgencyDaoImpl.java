@@ -84,7 +84,7 @@ public class AgencyDaoImpl implements AgencyDao {
     @Override
     public void saveAgency(Agency agency) {
         if (agency == null) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Agency cannot be null");
         }
 
         entityManager.merge(agency);
