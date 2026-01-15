@@ -300,7 +300,7 @@ public class IssueDAOImpl implements IssueDAO {
         search = "%" + search + "%";
         search = search.toLowerCase();
         final String sql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in ("
-                + roleList + ") order by sortOrderId";
+                + roleList + ")";
         logger.debug(sql);
         List<Long> result = getSession().createQuery(sql)
                 .setParameter("search", search)
@@ -351,7 +351,7 @@ public class IssueDAOImpl implements IssueDAO {
         if (type == null || type.equals("")) {
             codes = new ArrayList<String>();
         } else {
-            codes = getSession().createQuery("FROM Issue i WHERE i.type = :type")
+            codes = getSession().createQuery("SELECT i.code FROM Issue i WHERE i.type = :type")
                     .setParameter("type", type.toLowerCase())
                     .list();
         }
