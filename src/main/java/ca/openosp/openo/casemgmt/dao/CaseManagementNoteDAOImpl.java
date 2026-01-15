@@ -678,10 +678,21 @@ public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
         return new ArrayList<CaseManagementNote>();
     }
 
+    /**
+     * Finds notes for a demographic filtered by issue codes.
+     * <p>
+     * Returns unique notes (by UUID) sorted by observation date. Uses native SQL query
+     * to join across issue, case management issue, and note tables.
+     * </p>
+     *
+     * @param demographic_no the demographic number
+     * @param issueCodes array of issue codes to filter by (optional)
+     * @return collection of notes sorted by observation date
+     */
     @Override
     public Collection<CaseManagementNote> findNotesByDemographicAndIssueCode(Integer demographic_no,
                                                                              String[] issueCodes) {
-        Session session = currentSession();
+        Session session = getSession();
         List<CaseManagementNote> notes = new ArrayList<CaseManagementNote>();
         try {
             StringBuilder sqlCommand = new StringBuilder(
@@ -827,12 +838,21 @@ public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
         return getSession().save(note);
     }
 
+    /**
+     * Searches for case management notes based on various criteria.
+     * <p>
+     * Uses Hibernate Criteria API to build a dynamic query based on the search parameters
+     * provided in the search bean.
+     * </p>
+     *
+     * @param searchBean the search criteria containing demographic number, role ID, program ID, and date range
+     * @return list of notes matching the search criteria, or null if parsing errors occur
+     */
     @Override
     public List<CaseManagementNote> search(CaseManagementSearchBean searchBean) {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 
-        // Session session = getSession();
-        Session session = currentSession();
+        Session session = getSession();
 
         List<CaseManagementNote> results = null;
 
@@ -889,12 +909,19 @@ public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
         return results;
     }
 
+    /**
+     * Checks if an issue exists for a note.
+     *
+     * @param issid the issue ID
+     * @param demoNo the demographic number (unused parameter)
+     * @return true if the issue exists, false otherwise
+     */
     @Override
     public boolean haveIssue(Long issid, String demoNo) {
-        // Session session = getSession();
-        Session session = currentSession();
+        Session session = getSession();
         try {
-            SQLQuery query = session.createSQLQuery("select * from casemgmt_issue_notes where id=" + issid.longValue());
+            SQLQuery query = session.createSQLQuery("select * from casemgmt_issue_notes where id=:issueId");
+            query.setParameter("issueId", issid.longValue());
             List results = query.list();
             // log.info("haveIssue - DAO - # of results = " + results.size());
             if (results.size() > 0)
@@ -905,10 +932,16 @@ public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
         }
     }
 
+    /**
+     * Checks if a specific issue code exists for a demographic.
+     *
+     * @param issueCode the issue code to check
+     * @param demographicId the demographic ID
+     * @return true if the issue exists for the demographic, false otherwise
+     */
     @Override
     public boolean haveIssue(String issueCode, Integer demographicId) {
-        // Session session=getSession();
-        Session session = currentSession();
+        Session session = getSession();
         try {
             SQLQuery query = session.createSQLQuery(
                     "select casemgmt_issue.id from casemgmt_issue_notes,casemgmt_issue,issue " +
@@ -926,14 +959,18 @@ public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
         }
     }
 
-    /*
-     * select issue_id from issue where code = 'Concerns';
+    /**
+     * Counts distinct notes (by UUID) for a provider within a date range.
+     *
+     * @param providerNo the provider number
+     * @param startDate the start date of the range (inclusive)
+     * @param endDate the end date of the range (inclusive)
+     * @return count of distinct notes, or 0 if an error occurs
      */
-
     @Override
     public int getNoteCountForProviderForDateRange(String providerNo, Date startDate, Date endDate) {
         try {
-            Session session = currentSession();
+            Session session = getSession();
             String sqlCommand = "select count(distinct uuid) from casemgmt_note where provider_no = :providerNo and observation_date >= :startDate and observation_date <= :endDate";
 
             @SuppressWarnings("unchecked")
@@ -950,11 +987,20 @@ public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
         }
     }
 
+    /**
+     * Counts distinct notes (by UUID) for a provider within a date range filtered by issue code.
+     *
+     * @param providerNo the provider number
+     * @param startDate the start date of the range (inclusive)
+     * @param endDate the end date of the range (inclusive)
+     * @param issueCode the issue code to filter by
+     * @return count of distinct notes matching criteria, or 0 if issue not found or error occurs
+     */
     @Override
     public int getNoteCountForProviderForDateRangeWithIssueId(String providerNo, Date startDate, Date endDate,
                                                               String issueCode) {
         try {
-            Session session = currentSession();
+            Session session = getSession();
 
             // Step 1: Get issue_id from issue code
             String getIssueIdSql = "SELECT issue_id FROM issue WHERE code = :issueCode";
