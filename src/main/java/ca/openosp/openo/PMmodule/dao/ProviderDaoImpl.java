@@ -905,14 +905,27 @@ public class ProviderDaoImpl implements ProviderDao {
         }
     }
 
+    /**
+     * Gets providers associated with a patient (demographic).
+     * 
+     * @param patientId the demographic number (patient ID)
+     * @return list of providers associated with the patient
+     */
     @Override
     public List<Provider> getProviderByPatientId(Integer patientId) {
         String hql = "SELECT p FROM Provider p, Demographic d "
                 + "WHERE d.ProviderNo = p.ProviderNo "
-                + "AND d.DemographicNo = ?0";
-        return (List<Provider>) this.getHibernateTemplate().find(hql, patientId);
+                + "AND d.DemographicNo = :patientId";
+        Query query = getSession().createQuery(hql);
+        query.setParameter("patientId", patientId);
+        return query.list();
     }
 
+    /**
+     * Gets all active doctors with non-empty credentials (OHIP numbers).
+     * 
+     * @return list of active doctors with credentials
+     */
     @Override
     public List<Provider> getDoctorsWithNonEmptyCredentials() {
         String sql = "FROM Provider p WHERE p.ProviderType = 'doctor' " +
@@ -920,37 +933,67 @@ public class ProviderDaoImpl implements ProviderDao {
                 "AND p.OhipNo IS NOT NULL " +
                 "AND p.OhipNo != '' " +
                 "ORDER BY p.LastName, p.FirstName";
-        return (List<Provider>) getHibernateTemplate().find(sql);
+        return getSession().createQuery(sql).list();
     }
 
+    /**
+     * Gets all active providers with non-empty credentials (OHIP numbers).
+     * 
+     * @return list of active providers with credentials
+     */
     @Override
     public List<Provider> getProvidersWithNonEmptyCredentials() {
         String sql = "FROM Provider p WHERE p.Status='1' " +
                 "AND p.OhipNo IS NOT NULL " +
                 "AND p.OhipNo != '' " +
                 "ORDER BY p.LastName, p.FirstName";
-        return (List<Provider>) getHibernateTemplate().find(sql);
+        return getSession().createQuery(sql).list();
     }
 
+    /**
+     * Gets provider numbers for all providers in a team.
+     * 
+     * @param teamName the team name to search for
+     * @return list of provider numbers in the specified team
+     */
     @Override
     public List<String> getProvidersInTeam(String teamName) {
-        String sSQL = "select distinct p.ProviderNo from Provider p  where p.Team = ?0";
-        List<String> providerList = (List<String>) getHibernateTemplate().find(sSQL, new Object[]{teamName});
+        String sSQL = "select distinct p.ProviderNo from Provider p  where p.Team = :teamName";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("teamName", teamName);
+        List<String> providerList = query.list();
         return providerList;
     }
 
+    /**
+     * Gets distinct provider numbers and types.
+     * <p>
+     * Returns an array for each provider containing [providerNo, providerType].
+     * 
+     * @return list of Object arrays with provider number and type
+     */
     @Override
     public List<Object[]> getDistinctProviders() {
-        List<Object[]> providerList = (List<Object[]>) getHibernateTemplate()
-                .find("select distinct p.ProviderNo, p.ProviderType from Provider p ORDER BY p.LastName");
+        List<Object[]> providerList = getSession().createQuery(
+                "select distinct p.ProviderNo, p.ProviderType from Provider p ORDER BY p.LastName").list();
         return providerList;
     }
 
+    /**
+     * Gets provider numbers for providers added or updated since a specific time.
+     * <p>
+     * Useful for incremental synchronization or change tracking.
+     * 
+     * @param date the cutoff date - returns providers updated after this date
+     * @return list of provider numbers updated since the given date
+     */
     @Override
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
-        String sSQL = "select distinct p.ProviderNo From Provider p where p.lastUpdateDate > ?0 ";
+        String sSQL = "select distinct p.ProviderNo From Provider p where p.lastUpdateDate > :date ";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("date", date);
         @SuppressWarnings("unchecked")
-        List<String> providers = (List<String>) getHibernateTemplate().find(sSQL, date);
+        List<String> providers = query.list();
 
         return providers;
     }
@@ -1092,12 +1135,22 @@ public class ProviderDaoImpl implements ProviderDao {
         return results;
     }
 
+    /**
+     * Gets a provider by practitioner number and OLIS identifier type.
+     * <p>
+     * Validates that the provider's OLIS identifier type matches the requested type.
+     * 
+     * @param practitionerNo the practitioner number
+     * @param olisIdentifierType the expected OLIS identifier type
+     * @return the provider if found with matching OLIS type, null otherwise
+     */
     @Override
     public Provider getProviderByPractitionerNoAndOlisType(String practitionerNo, String olisIdentifierType) {
         UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
-        String sql = "FROM Provider p WHERE p.practitionerNo=?0";
-
-        List<Provider> providers = (List<Provider>) getHibernateTemplate().find(sql, practitionerNo);
+        String sql = "FROM Provider p WHERE p.practitionerNo=:practitionerNo";
+        Query query = getSession().createQuery(sql);
+        query.setParameter("practitionerNo", practitionerNo);
+        List<Provider> providers = query.list();
 
         if (!providers.isEmpty()) {
             Provider provider = providers.get(0);
