@@ -758,14 +758,13 @@
             <version>1.4.3</version>
         </dependency>
 
-        <!-- REMOVE displayTag. It's only used in 1 deprecated feature of this code
-        and is not well maintained. -->
-        <!-- From my current understanding, displayTag is used in a lot of jsp files -->
-        <!-- This should be removed but at a later date -->
+        <!-- displayTag - Upgraded to hazendaz fork 2.9.0 (last javax-compatible version) -->
+        <!-- Version 2.9.0 is actively maintained and includes security patches -->
+        <!-- This is preparation for Jakarta EE migration (3.0+ uses jakarta namespace) -->
         <dependency>
-            <groupId>displaytag</groupId>
+            <groupId>com.github.hazendaz</groupId>
             <artifactId>displaytag</artifactId>
-            <version>1.2</version>
+            <version>2.9.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
