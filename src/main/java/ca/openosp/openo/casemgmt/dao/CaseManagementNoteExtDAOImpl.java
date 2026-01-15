@@ -42,6 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
  * 
  * This DAO provides methods to retrieve, save, and update case management note extensions,
  * which contain additional metadata and attributes associated with case management notes.
+ * <p>
+ * This class is annotated with {@link org.springframework.transaction.annotation.Transactional}
+ * at the class level, so all public methods participate in Spring-managed transactions using
+ * the default Spring transaction semantics.
  * 
  * @see CaseManagementNoteExt
  * @see CaseManagementNoteExtDAO
