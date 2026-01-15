@@ -73,7 +73,7 @@ public class SecroleDaoImpl implements SecroleDao {
      */
     @Override
     public List<Secrole> getRoles() {
-        @SuppressWarnings("unchecked")
+
         Query<Secrole> query = getSession().createQuery("from Secrole r order by roleName", Secrole.class);
         List<Secrole> results = query.list();
 
