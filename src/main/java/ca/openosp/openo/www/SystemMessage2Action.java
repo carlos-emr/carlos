@@ -35,6 +35,7 @@ import ca.openosp.openo.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class SystemMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -115,6 +116,7 @@ public class SystemMessage2Action extends ActionSupport {
         return system_message;
     }
 
+    @StrutsParameter(depth=1)
     public void setSystem_message(SystemMessage system_message) {
         this.system_message = system_message;
     }
