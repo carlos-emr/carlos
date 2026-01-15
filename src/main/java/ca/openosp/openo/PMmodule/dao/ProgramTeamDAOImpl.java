@@ -151,8 +151,8 @@ public class ProgramTeamDAOImpl implements ProgramTeamDAO {
         }
 
         Session session = getSession();
-        Query query = session.createQuery("from ProgramTeam tp where tp.programId = ?1");
-        query.setParameter(1, programId);
+        Query query = session.createQuery("from ProgramTeam tp where tp.programId = :programId");
+        query.setParameter("programId", programId);
         
         @SuppressWarnings("unchecked")
         List<ProgramTeam> results = query.list();
