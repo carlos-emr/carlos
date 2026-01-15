@@ -40,8 +40,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Data Access Object implementation for CaseManagementNoteExt entities.
  * 
- * This DAO provides methods to retrieve, save, and update case management note extensions,
- * which contain additional metadata and attributes associated with case management notes.
+ * This DAO encapsulates Hibernate-based persistence operations for creating, reading, updating,
+ * and querying case management note extensions, which store additional metadata and attributes
+ * associated with core case management notes within the OpenO EMR case management module.
  * <p>
  * This class is annotated with {@link org.springframework.transaction.annotation.Transactional}
  * at the class level, so all public methods participate in Spring-managed transactions using
