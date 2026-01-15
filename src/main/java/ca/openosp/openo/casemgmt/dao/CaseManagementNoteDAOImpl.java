@@ -911,9 +911,12 @@ public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
 
     /**
      * Checks if an issue exists for a note.
+     * <p>
+     * Note: The demoNo parameter is currently unused but retained for API compatibility.
+     * </p>
      *
      * @param issid the issue ID
-     * @param demoNo the demographic number (unused parameter)
+     * @param demoNo the demographic number (kept for API compatibility, currently unused)
      * @return true if the issue exists, false otherwise
      */
     @Override
