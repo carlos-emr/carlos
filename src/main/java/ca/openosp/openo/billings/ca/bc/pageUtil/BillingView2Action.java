@@ -52,7 +52,7 @@ import ca.openosp.openo.billings.ca.bc.data.BillingPreferencesDAO;
 import ca.openosp.openo.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import ca.openosp.openo.demographic.data.DemographicData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class BillingView2Action

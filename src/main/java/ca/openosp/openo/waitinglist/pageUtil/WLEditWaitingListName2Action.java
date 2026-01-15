@@ -19,7 +19,7 @@
 
 package ca.openosp.openo.waitinglist.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.model.ProviderPreference;
 import ca.openosp.openo.utility.MiscUtils;

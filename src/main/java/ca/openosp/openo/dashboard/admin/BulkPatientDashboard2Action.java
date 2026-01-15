@@ -52,7 +52,7 @@ import ca.openosp.openo.dashboard.handler.MessageHandler;
 import ca.openosp.openo.managers.DashboardManager;
 import ca.openosp.openo.managers.SecurityInfoManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BulkPatientDashboard2Action extends ActionSupport {

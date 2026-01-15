@@ -34,7 +34,7 @@ import ca.openosp.openo.utility.MiscUtils;
 
 import ca.openosp.openo.billings.ca.bc.data.BillingCodeData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class BillingAddCode2Action extends ActionSupport {

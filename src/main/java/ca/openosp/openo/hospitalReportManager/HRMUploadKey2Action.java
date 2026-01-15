@@ -26,7 +26,7 @@ import ca.openosp.openo.lab.ca.all.upload.HandlerClassFactory;
 import ca.openosp.openo.lab.ca.all.upload.handlers.DefaultHandler;
 import ca.openosp.openo.lab.ca.all.util.Utilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class HRMUploadKey2Action extends ActionSupport {

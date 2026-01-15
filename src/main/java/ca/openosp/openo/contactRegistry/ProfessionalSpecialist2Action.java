@@ -1,7 +1,7 @@
 //CHECKSTYLE:OFF
 package ca.openosp.openo.contactRegistry;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.model.ProfessionalSpecialist;

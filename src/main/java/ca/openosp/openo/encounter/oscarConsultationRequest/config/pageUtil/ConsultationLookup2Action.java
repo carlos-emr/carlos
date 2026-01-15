@@ -12,7 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ServletActionContext;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.openosp.openo.commn.dao.ConsultationServiceDao;

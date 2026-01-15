@@ -71,7 +71,7 @@ import ca.uhn.hl7v2.model.v26.message.REF_I12;
 import ca.uhn.hl7v2.model.v26.segment.PID;
 import ca.uhn.hl7v2.model.v26.segment.PRD;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctViewRequest2Action extends ActionSupport {

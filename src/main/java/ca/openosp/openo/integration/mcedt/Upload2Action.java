@@ -39,7 +39,7 @@ import ca.ontario.health.edt.EDTDelegate;
 import ca.ontario.health.edt.ResourceResult;
 import ca.ontario.health.edt.UploadData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Upload2Action extends ActionSupport {

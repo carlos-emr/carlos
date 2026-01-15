@@ -56,7 +56,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * @author rjonasz
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import ca.openosp.openo.util.LabelValueBean;

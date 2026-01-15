@@ -52,7 +52,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import ca.openosp.openo.log.LogAction;
 import ca.openosp.openo.log.LogConst;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DocumentUpload2Action extends ActionSupport {

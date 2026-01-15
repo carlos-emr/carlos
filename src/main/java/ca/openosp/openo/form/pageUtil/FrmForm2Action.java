@@ -67,7 +67,7 @@ import ca.openosp.openo.util.UtilDateUtilities;
  * Company: iConcept Technologes Inc.
  * Created on: October 31, 2004
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class FrmForm2Action extends ActionSupport {

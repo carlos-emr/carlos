@@ -46,7 +46,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.prescript.data.RxPatientData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RxChoosePatient2Action extends ActionSupport {

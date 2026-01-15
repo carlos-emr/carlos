@@ -38,7 +38,7 @@ import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctGroupNameBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class EctSetupGroupList2Action extends ActionSupport {

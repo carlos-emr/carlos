@@ -36,7 +36,7 @@ import javax.servlet.http.HttpSession;
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctTypeDisplayNameBeanHandler;
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctValidationsBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class EctSetupAddMeasuringInstruction2Action extends ActionSupport {

@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletResponse;
  *
  * @author rjonasz
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DisplayPersonalInfoAppointment2Action extends ActionSupport {

@@ -48,7 +48,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**

@@ -43,7 +43,7 @@ import javax.servlet.http.HttpServletResponse;
  * One action here: save the collection of bills from the
  * session form bean.
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.model.ProviderData;
 import ca.openosp.openo.billings.ca.bc.data.BillingFormData;

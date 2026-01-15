@@ -33,7 +33,7 @@ import ca.openosp.openo.commons.KeyConstants;
 import ca.openosp.openo.model.security.NoAccessException;
 import ca.openosp.openo.services.security.SecurityManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AdminHome2Action extends ActionSupport {

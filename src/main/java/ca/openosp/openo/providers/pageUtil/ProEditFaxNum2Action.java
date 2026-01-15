@@ -34,7 +34,7 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.providers.data.ProviderFaxUpdater;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ProEditFaxNum2Action extends ActionSupport {

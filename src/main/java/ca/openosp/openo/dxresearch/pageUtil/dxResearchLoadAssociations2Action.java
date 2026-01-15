@@ -53,7 +53,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import com.Ostermiller.util.ExcelCSVParser;
 import com.Ostermiller.util.ExcelCSVPrinter;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class dxResearchLoadAssociations2Action extends ActionSupport {

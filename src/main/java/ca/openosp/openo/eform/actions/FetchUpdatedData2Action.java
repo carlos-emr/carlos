@@ -30,7 +30,7 @@ import ca.openosp.openo.eform.EFormLoader;
 import ca.openosp.openo.eform.EFormUtil;
 import ca.openosp.openo.eform.data.DatabaseAP;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class FetchUpdatedData2Action extends ActionSupport {

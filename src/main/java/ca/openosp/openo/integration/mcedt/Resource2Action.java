@@ -40,7 +40,7 @@ import ca.ontario.health.edt.*;
 import ca.openosp.openo.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Resource2Action extends ActionSupport {

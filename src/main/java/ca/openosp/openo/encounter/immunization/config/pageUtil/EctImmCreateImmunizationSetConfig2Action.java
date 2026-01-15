@@ -42,7 +42,7 @@ import ca.openosp.openo.encounter.immunization.config.data.EctImmImmunizationSet
 import ca.openosp.openo.encounter.immunization.config.data.EctImmImmunizations;
 import ca.openosp.openo.encounter.pageUtil.EctSessionBean;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {

@@ -30,7 +30,7 @@ import javax.servlet.http.HttpServletResponse;
 import ca.openosp.openo.services.security.SecurityManager;
 import ca.openosp.openo.utility.MiscUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ExportTemplate2Action extends ActionSupport {

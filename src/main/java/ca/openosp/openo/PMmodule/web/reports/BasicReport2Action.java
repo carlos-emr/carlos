@@ -42,7 +42,7 @@ import ca.openosp.openo.utility.SpringUtils;
  * 1) # of programs
  * 2) # of service programs
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BasicReport2Action extends ActionSupport {

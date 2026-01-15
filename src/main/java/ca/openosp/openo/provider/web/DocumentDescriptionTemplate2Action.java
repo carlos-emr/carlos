@@ -39,7 +39,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.log.LogAction;
 import ca.openosp.openo.log.LogConst;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DocumentDescriptionTemplate2Action extends ActionSupport {

@@ -36,7 +36,7 @@ import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.dxresearch.bean.dxCodeSearchBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class dxResearchCodeSearch2Action extends ActionSupport {

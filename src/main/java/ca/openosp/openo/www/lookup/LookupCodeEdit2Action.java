@@ -37,7 +37,7 @@ import ca.openosp.openo.model.LookupTableDefValue;
 import ca.openosp.openo.services.LookupManager;
 import ca.openosp.openo.utils.Utility;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.utility.SpringUtils;
 

@@ -42,7 +42,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.integration.mcedt.DelegateFactory;
 import ca.openosp.openo.integration.mcedt.McedtMessageCreator;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ReSubmit2Action extends ActionSupport {

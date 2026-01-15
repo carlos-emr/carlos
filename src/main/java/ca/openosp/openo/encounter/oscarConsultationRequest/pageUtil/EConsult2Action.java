@@ -44,7 +44,7 @@ import ca.openosp.OscarProperties;
 /**
  * Class for use with the Ontario MD / eHealth eConsult project
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EConsult2Action extends ActionSupport {

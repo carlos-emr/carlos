@@ -46,7 +46,7 @@ import ca.openosp.openo.managers.MeasurementManager;
 
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctStyleSheetBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctSelectMeasurementGroup2Action extends ActionSupport {

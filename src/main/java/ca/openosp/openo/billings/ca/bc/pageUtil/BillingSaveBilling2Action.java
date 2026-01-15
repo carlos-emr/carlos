@@ -51,7 +51,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BillingSaveBilling2Action extends ActionSupport {

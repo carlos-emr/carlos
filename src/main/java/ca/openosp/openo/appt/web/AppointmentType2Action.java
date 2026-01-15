@@ -24,7 +24,7 @@
 package ca.openosp.openo.appt.web;
 
 import ca.openosp.openo.commn.IsPropertiesOn;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.AppointmentTypeDao;
 import ca.openosp.openo.commn.dao.SiteDao;

@@ -25,7 +25,7 @@
 
 package ca.openosp.openo.billings.ca.bc.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.billings.ca.bc.data.SupServiceCodeAssocDAO;

@@ -44,7 +44,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.prescript.data.RxPatientData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**

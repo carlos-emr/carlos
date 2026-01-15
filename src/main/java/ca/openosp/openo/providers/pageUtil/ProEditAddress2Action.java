@@ -32,7 +32,7 @@ import ca.openosp.openo.commn.model.UserProperty;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ProEditAddress2Action extends ActionSupport {

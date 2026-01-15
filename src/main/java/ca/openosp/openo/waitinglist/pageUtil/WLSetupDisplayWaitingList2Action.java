@@ -27,7 +27,7 @@
 package ca.openosp.openo.waitinglist.pageUtil;
 
 import ca.openosp.openo.utility.MiscUtils;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.model.Provider;

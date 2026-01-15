@@ -26,7 +26,7 @@
 
 package ca.openosp.openo.eform.actions;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;

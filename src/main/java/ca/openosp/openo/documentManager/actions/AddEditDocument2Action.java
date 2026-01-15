@@ -79,7 +79,7 @@ import ca.openosp.openo.util.UtilDateUtilities;
 
 import com.itextpdf.text.pdf.PdfReader;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AddEditDocument2Action extends ActionSupport {

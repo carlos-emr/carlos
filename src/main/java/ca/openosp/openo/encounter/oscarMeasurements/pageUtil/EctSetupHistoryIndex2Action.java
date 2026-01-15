@@ -41,7 +41,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import ca.openosp.openo.encounter.pageUtil.EctSessionBean;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class EctSetupHistoryIndex2Action extends ActionSupport {

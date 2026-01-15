@@ -33,7 +33,7 @@ import ca.openosp.openo.commn.dao.ClinicDAO;
 import ca.openosp.openo.commn.model.Clinic;
 import ca.openosp.openo.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ClinicManage2Action extends ActionSupport {

@@ -256,6 +256,14 @@
     "optional" : false,
     "integrity" : "sha512:f8R2TrZSJ/W6YUaYpc8vlDATP0LsbirlO0xyTuU/JYVBoBCf4GWeC55FcptGyVwAIn5pa40a3c13LIX4d2WMmg=="
   }, {
+    "groupId" : "com.github.ben-manes.caffeine",
+    "artifactId" : "caffeine",
+    "version" : "3.2.3",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:eqZd4csIeqZF1yF70xYrOEL+QJFLWQI4r8aBsdizNkfvsf2UjSHtAhCkDUu9qILtJPPm0yb5oDExZgrpd4u7ew=="
+  }, {
     "groupId" : "com.github.cliftonlabs",
     "artifactId" : "json-simple",
     "version" : "3.0.2",
@@ -1493,11 +1501,11 @@
   }, {
     "groupId" : "ognl",
     "artifactId" : "ognl",
-    "version" : "3.1.29",
+    "version" : "3.3.5",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:8gfH1V4+1lfbepROC81OVKSH3Gke3mH2bBqv4oPfuSyTvM6lq37wccot/m+BlUaxm468GlkJnoMB1RddsUuArg=="
+    "integrity" : "sha512:HCPMWPi6LC5iY6Sj7mFwZpWNqT0FAJx62Nu5dj8XJJ2jxjlc4o1aITl9UqCbP+crhjriGpE8iJW9Gda71nSZqQ=="
   }, {
     "groupId" : "omd",
     "artifactId" : "hrm",
@@ -2365,19 +2373,19 @@
   }, {
     "groupId" : "org.apache.struts",
     "artifactId" : "struts2-core",
-    "version" : "2.5.33",
+    "version" : "6.8.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:HnTy9GCQNkcQbF49pxEC5i8mdlUoXvmiMebLrBPNm/Fo17TiRaNcS0TZB7szaoxclczw01eeyS5+wnPuvraJ4A=="
+    "integrity" : "sha512:Q1Qd9KO2+exYroJsbujQPYdlfAQVWgzA2q0fbORewi6EUaHF1Z8mZeXqgCdEqQKZAhfMktL1yw96ESFAJxaSWA=="
   }, {
     "groupId" : "org.apache.struts",
     "artifactId" : "struts2-spring-plugin",
-    "version" : "2.5.33",
+    "version" : "6.8.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:6t+uUpMgr3cUbXNb/dD4h69D25eM3TIoH9yl0bBYFOaOj2N0JIz2hdiolkRxz2U1zknw+VU+/JjPSlH4ChlGlw=="
+    "integrity" : "sha512:fBh2fNzWPczzYPmXwTEUFv8r4ygnsZLZLvHrQUodD4kp6MNWjdm60GHCC6JULACT7xSXZipiy7y7/POpI2nO4w=="
   }, {
     "groupId" : "org.apache.velocity.tools",
     "artifactId" : "velocity-tools-generic",
@@ -2781,11 +2789,11 @@
   }, {
     "groupId" : "org.freemarker",
     "artifactId" : "freemarker",
-    "version" : "2.3.31",
+    "version" : "2.3.33",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:sd9RhnzTJFCpDSfqG5EyLPBMhjfhovWskN3zZM/AZhwerMPW8ZxFWpQefx6ZyVwGExOg5IDsDOzIVa4PfQ0JlQ=="
+    "integrity" : "sha512:OMYE1Ng3tAib6VQP0ReSpY4h/6Fw+ph14Jy1WrLCEx9QxB+xL1JoOTsKQPl3d1MlturcYUMup1OSuLdjtyqJhw=="
   }, {
     "groupId" : "org.glassfish.external",
     "artifactId" : "management-api",
@@ -2989,11 +2997,11 @@
   }, {
     "groupId" : "org.javassist",
     "artifactId" : "javassist",
-    "version" : "3.20.0-GA",
+    "version" : "3.29.0-GA",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:mnshLy+VOooL8h/Sq5YGuNNy53gYmr2vdYz058o6QodQXT6MVnpvaERkMvdAOxzKaWCZJEIyLljNtp8+gWn0ZA=="
+    "integrity" : "sha512:4o6YOB5H8/H5BMAfUQ8rdk5AKuYULmcOHf+vsf/FSbDCPcQNy6B87UXyBUNxCLsTgslVXaV8o4U85np+nNpn6Q=="
   }, {
     "groupId" : "org.jboss.aerogear",
     "artifactId" : "aerogear-otp-java",

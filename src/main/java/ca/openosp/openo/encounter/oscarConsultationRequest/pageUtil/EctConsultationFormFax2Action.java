@@ -46,7 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctConsultationFormFax2Action extends ActionSupport {

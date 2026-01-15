@@ -38,7 +38,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.demographic.data.DemographicData;
 import ca.openosp.openo.waitinglist.bean.WLPatientWaitingListBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport {

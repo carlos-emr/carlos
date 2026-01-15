@@ -15,10 +15,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import com.opensymphony.xwork2.ActionContext;
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.dispatcher.HttpParameters;
-import org.apache.struts2.dispatcher.Parameter;
 
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -88,21 +86,24 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
      */
     protected void setUpActionContext() {
         // Create ActionContext
-        ActionContext context = ActionContext.getContext();
-        if (context == null) {
-            context = new ActionContext(new HashMap<>());
-            ActionContext.setContext(context);
+        HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
+
+        // Convert MockHttpSession attributes to a Map
+        Map<String, Object> sessionMap = new HashMap<>();
+        var attrNames = mockSession.getAttributeNames();
+        while (attrNames.hasMoreElements()) {
+            String name = attrNames.nextElement();
+            sessionMap.put(name, mockSession.getAttribute(name));
         }
 
-        // Set up servlet context in ActionContext
-        Map<String, Object> contextMap = context.getContextMap();
-        contextMap.put(ServletActionContext.HTTP_REQUEST, mockRequest);
-        contextMap.put(ServletActionContext.HTTP_RESPONSE, mockResponse);
-        contextMap.put(ServletActionContext.SESSION, mockSession);
+        ActionContext context = ActionContext.of()
+            .withServletRequest(mockRequest)
+            .withServletResponse(mockResponse)
+            .withSession(sessionMap)
+            .withParameters(httpParameters);
 
-        // Set parameters
-        HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
-        context.setParameters(httpParameters);
+        // Bind context to current thread
+        ActionContext.bind(context);
     }
 
     /**
@@ -159,9 +160,9 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
         requestParameters.put(name, new String[]{value});
         mockRequest.setParameter(name, value);
 
-        // Update ActionContext parameters
+        // Update ActionContext parameter
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
-        ActionContext.getContext().setParameters(httpParameters);
+        ActionContext.getContext().withParameters(httpParameters);
     }
 
     /**
@@ -264,7 +265,7 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
      */
     @Override
     protected void cleanUp() {
-        ActionContext.setContext(null);
+        ActionContext.clear();
         super.cleanUp();
     }
 }

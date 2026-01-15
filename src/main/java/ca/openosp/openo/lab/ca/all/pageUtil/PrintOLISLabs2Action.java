@@ -45,7 +45,7 @@ import ca.openosp.openo.lab.ca.all.parsers.OLISHL7Handler;
  *
  * @author wrighd
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class PrintOLISLabs2Action extends ActionSupport {

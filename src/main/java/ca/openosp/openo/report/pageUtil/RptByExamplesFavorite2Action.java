@@ -40,7 +40,7 @@ import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.report.bean.RptByExampleQueryBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RptByExamplesFavorite2Action extends ActionSupport {

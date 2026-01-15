@@ -72,7 +72,7 @@ import org.springframework.beans.BeanUtils;
 
 import ca.openosp.OscarProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Contact2Action extends ActionSupport {

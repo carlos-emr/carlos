@@ -102,7 +102,7 @@ import ca.openosp.openo.demographic.data.DemographicRelationship;
 
 import ca.openosp.openo.services.LookupManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ClientManager2Action extends ActionSupport {

@@ -27,7 +27,7 @@
 package ca.openosp.openo.login;
 
 import ca.openosp.OscarProperties;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.PropertyDao;

@@ -26,7 +26,7 @@
 
 package ca.openosp.openo.dxresearch.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.AbstractCodeSystemDao;
 import ca.openosp.openo.commn.dao.DxresearchDAO;

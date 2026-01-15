@@ -28,7 +28,7 @@ package ca.openosp.openo.demographic.pageUtil;
 
 import cdsrourke.PatientDocument;
 import cdsrourke.PatientDocument.Patient;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.xmlbeans.XmlOptions;

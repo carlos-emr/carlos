@@ -52,7 +52,7 @@ import ca.openosp.openo.demographic.data.DemographicMerged;
 /**
  * @author wrighd
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DemographicMergeRecord2Action extends ActionSupport {

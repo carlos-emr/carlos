@@ -25,7 +25,7 @@
 
 package ca.openosp.openo.report.oscarMeasurements.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.MeasurementDao;
 import ca.openosp.openo.commn.model.Measurement;

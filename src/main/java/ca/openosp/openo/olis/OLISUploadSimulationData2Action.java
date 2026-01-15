@@ -26,7 +26,7 @@ import ca.openosp.openo.utility.MiscUtils;
 
 import ca.openosp.openo.olis1.Driver;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class OLISUploadSimulationData2Action extends ActionSupport {

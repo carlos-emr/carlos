@@ -59,7 +59,7 @@ import ca.openosp.openo.demographic.data.DemographicData;
 import ca.openosp.openo.util.SqlUtils;
 import ca.openosp.openo.util.StringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BillingReProcessBill2Action extends ActionSupport {

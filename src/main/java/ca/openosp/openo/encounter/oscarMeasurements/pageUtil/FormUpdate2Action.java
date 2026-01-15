@@ -51,7 +51,7 @@ import ca.openosp.openo.casemgmt.model.CaseManagementNote;
 import ca.openosp.openo.casemgmt.service.CaseManagementManager;
 import org.apache.logging.log4j.Logger;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class FormUpdate2Action extends ActionSupport {

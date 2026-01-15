@@ -44,7 +44,7 @@ import ca.openosp.openo.encounter.immunization.data.EctImmImmunizationData;
 import ca.openosp.openo.util.UtilMisc;
 import ca.openosp.openo.util.UtilXML;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class EctImmSaveSchedule2Action extends ActionSupport {

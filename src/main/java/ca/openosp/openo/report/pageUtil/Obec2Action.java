@@ -43,7 +43,7 @@ import ca.openosp.openo.encounter.oscarMeasurements.pageUtil.EctValidation;
 import ca.openosp.openo.report.data.ObecData;
 import ca.openosp.openo.util.DateUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Obec2Action extends ActionSupport {

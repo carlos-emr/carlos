@@ -40,7 +40,7 @@ import ca.openosp.openo.billings.ca.bc.data.BillingHistoryDAO;
  *
  * @version 1.0
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import java.util.List;

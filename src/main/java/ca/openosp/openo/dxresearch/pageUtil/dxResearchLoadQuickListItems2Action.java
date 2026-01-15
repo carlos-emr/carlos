@@ -40,7 +40,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.dxresearch.bean.dxQuickListItemsHandler;
 import ca.openosp.openo.dxresearch.util.dxResearchCodingSystem;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class dxResearchLoadQuickListItems2Action extends ActionSupport {

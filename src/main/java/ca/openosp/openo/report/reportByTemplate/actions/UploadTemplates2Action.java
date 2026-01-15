@@ -37,7 +37,7 @@ package ca.openosp.openo.report.reportByTemplate.actions;
 
 
 import ca.openosp.openo.services.security.SecurityManager;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.PathValidationUtils;

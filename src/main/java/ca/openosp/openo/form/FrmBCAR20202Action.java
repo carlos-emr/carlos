@@ -65,7 +65,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class FrmBCAR20202Action extends ActionSupport {

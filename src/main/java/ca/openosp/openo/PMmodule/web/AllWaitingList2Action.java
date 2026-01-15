@@ -26,7 +26,7 @@ package ca.openosp.openo.PMmodule.web;
 /**
  * @author AnooshTech
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 public class AllWaitingList2Action extends ActionSupport {
 

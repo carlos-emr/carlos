@@ -49,7 +49,7 @@ import ca.openosp.openo.log.LogAction;
 
 import com.itextpdf.text.DocumentException;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EChartPrint2Action extends ActionSupport {

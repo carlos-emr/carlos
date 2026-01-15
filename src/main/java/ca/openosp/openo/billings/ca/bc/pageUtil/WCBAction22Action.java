@@ -55,7 +55,7 @@ import ca.openosp.openo.util.UtilDateUtilities;
  *
  * @author jaygallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class WCBAction22Action extends ActionSupport {

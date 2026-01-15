@@ -47,7 +47,7 @@ import com.itextpdf.text.Paragraph;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GeneratePatientSpreadSheetList2Action extends ActionSupport {

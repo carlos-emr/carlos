@@ -39,7 +39,7 @@ import ca.openosp.openo.log.LogAction;
 import ca.openosp.openo.util.OscarRoleObjectPrivilege;
 import ca.openosp.openo.util.StringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class CaseloadContent2Action extends ActionSupport {

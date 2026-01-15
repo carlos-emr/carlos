@@ -22,7 +22,7 @@
 
 package ca.openosp.openo.security;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.model.Security;
 import ca.openosp.openo.managers.MfaManager;

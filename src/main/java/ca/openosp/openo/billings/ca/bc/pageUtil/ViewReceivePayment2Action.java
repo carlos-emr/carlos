@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.openo.entities.PaymentType;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ViewReceivePayment2Action

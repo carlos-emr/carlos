@@ -60,7 +60,7 @@ import ca.uhn.hl7v2.parser.GenericParser;
 import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class MeasurementHL7Uploader2Action extends ActionSupport {

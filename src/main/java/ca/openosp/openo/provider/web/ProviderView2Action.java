@@ -36,7 +36,7 @@ import ca.openosp.openo.utility.SpringUtils;
 /**
  * @author rjonasz
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ProviderView2Action extends ActionSupport {

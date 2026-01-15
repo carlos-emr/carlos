@@ -39,7 +39,7 @@ import ca.openosp.openo.log.LogAction;
 
 import ca.openosp.openo.services.LookupManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ClientSearchAction22Action extends ActionSupport {

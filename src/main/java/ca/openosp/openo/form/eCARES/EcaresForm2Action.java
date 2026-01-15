@@ -26,7 +26,7 @@
 package ca.openosp.openo.form.eCARES;
 
 import com.Ostermiller.util.ExcelCSVPrinter;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ServletActionContext;

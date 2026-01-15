@@ -51,7 +51,7 @@ import ca.openosp.openo.model.security.Secrole;
  *
  * @author jennifer@indivica.com
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class NotePermissions2Action extends ActionSupport {

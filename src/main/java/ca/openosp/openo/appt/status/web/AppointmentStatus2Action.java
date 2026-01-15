@@ -32,7 +32,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import ca.openosp.openo.appt.status.service.AppointmentStatusMgr;
 import ca.openosp.openo.appt.status.service.impl.AppointmentStatusMgrImpl;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AppointmentStatus2Action extends ActionSupport {

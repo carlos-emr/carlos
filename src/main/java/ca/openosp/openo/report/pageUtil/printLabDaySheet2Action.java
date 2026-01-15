@@ -45,7 +45,7 @@ import ca.openosp.OscarDocumentCreator;
 /**
  * @author Toby
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class printLabDaySheet2Action extends ActionSupport {

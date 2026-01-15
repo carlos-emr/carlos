@@ -33,7 +33,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.casemgmt.util.ExtPrintRegistry;
 import ca.openosp.openo.utility.MiscUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ExtPrintRegistry2Action extends ActionSupport {

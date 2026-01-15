@@ -35,7 +35,7 @@ import javax.servlet.http.HttpServletResponse;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RemoveClinicalReportFromHistory2Action extends ActionSupport {

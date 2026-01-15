@@ -41,7 +41,7 @@ import ca.openosp.openo.report.data.RptDemographicQuery2Saver;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.opensymphony.xwork2.ModelDriven;
 
 import org.apache.struts2.ServletActionContext;

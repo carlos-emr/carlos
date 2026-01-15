@@ -46,7 +46,7 @@ import ca.openosp.openo.encounter.immunization.data.EctImmImmunizationData;
 import ca.openosp.openo.encounter.pageUtil.EctSessionBean;
 import ca.openosp.openo.util.UtilXML;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class EctImmSaveConfig2Action extends ActionSupport {

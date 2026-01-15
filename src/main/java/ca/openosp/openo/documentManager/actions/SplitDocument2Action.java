@@ -54,7 +54,7 @@ import ca.openosp.openo.documentManager.EDocUtil;
 import ca.openosp.openo.lab.ca.all.upload.ProviderLabRouting;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class SplitDocument2Action extends ActionSupport {

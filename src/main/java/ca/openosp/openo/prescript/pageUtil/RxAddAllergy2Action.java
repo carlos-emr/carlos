@@ -46,7 +46,7 @@ import ca.openosp.openo.prescript.data.RxDrugData;
 import ca.openosp.openo.prescript.data.RxPatientData;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RxAddAllergy2Action extends ActionSupport {

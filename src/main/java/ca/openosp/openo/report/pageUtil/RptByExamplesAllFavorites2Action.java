@@ -35,7 +35,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.openo.report.bean.RptByExampleQueryBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RptByExamplesAllFavorites2Action extends ActionSupport {

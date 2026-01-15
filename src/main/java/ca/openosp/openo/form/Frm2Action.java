@@ -28,7 +28,7 @@
 // c_lastVisited, formId - if the form has multiple pages
 package ca.openosp.openo.form;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;

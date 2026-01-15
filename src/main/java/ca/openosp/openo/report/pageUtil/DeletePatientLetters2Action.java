@@ -40,7 +40,7 @@ import ca.openosp.openo.report.data.ManageLetters;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DeletePatientLetters2Action extends ActionSupport {

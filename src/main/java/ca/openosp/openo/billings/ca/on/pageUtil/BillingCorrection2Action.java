@@ -60,7 +60,7 @@ import ca.openosp.openo.util.StringUtils;
 /**
  * @author mweston4
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BillingCorrection2Action extends ActionSupport {

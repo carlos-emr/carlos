@@ -35,7 +35,7 @@ import ca.openosp.openo.lab.ca.all.upload.HandlerClassFactory;
 import ca.openosp.openo.lab.ca.all.upload.handlers.OLISHL7Handler;
 import ca.openosp.openo.lab.ca.on.CommonLabResultData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class OLISAddToInbox2Action extends ActionSupport {

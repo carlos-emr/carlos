@@ -64,7 +64,7 @@ import ca.openosp.openo.billings.ca.on.data.JdbcBilling3rdPartImpl;
 /**
  * @author rjonasz
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BillingONPayments2Action extends ActionSupport {

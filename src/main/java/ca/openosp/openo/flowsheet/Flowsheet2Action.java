@@ -78,7 +78,7 @@ import ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet;
 import ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
 import ca.openosp.openo.prevention.PreventionDisplayConfig;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Flowsheet2Action extends ActionSupport {

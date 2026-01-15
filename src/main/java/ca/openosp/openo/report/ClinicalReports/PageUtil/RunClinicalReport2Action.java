@@ -47,7 +47,7 @@ import ca.openosp.openo.report.ClinicalReports.Denominator;
 import ca.openosp.openo.report.ClinicalReports.Numerator;
 import ca.openosp.openo.report.ClinicalReports.ReportEvaluator;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RunClinicalReport2Action extends ActionSupport {

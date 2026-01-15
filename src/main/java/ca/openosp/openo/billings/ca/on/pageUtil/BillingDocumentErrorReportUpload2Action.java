@@ -26,8 +26,7 @@
 
 package ca.openosp.openo.billings.ca.on.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
-
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.BatchEligibilityDao;

@@ -59,7 +59,7 @@ import ca.openosp.openo.log.LogConst;
 import ca.openosp.openo.encounter.data.EctProgram;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**

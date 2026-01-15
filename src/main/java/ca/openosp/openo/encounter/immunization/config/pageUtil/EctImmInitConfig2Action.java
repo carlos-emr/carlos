@@ -26,7 +26,7 @@
 
 package ca.openosp.openo.encounter.immunization.config.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 public final class EctImmInitConfig2Action extends ActionSupport {
     public String execute() {

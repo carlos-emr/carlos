@@ -23,7 +23,7 @@ import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.HashMap;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class PrintDemoLabel2Action extends ActionSupport {

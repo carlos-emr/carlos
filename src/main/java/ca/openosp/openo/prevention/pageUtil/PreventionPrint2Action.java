@@ -49,7 +49,7 @@ import ca.openosp.openo.utility.SpringUtils;
 /**
  * Convert submitted preventions into pdf and return file
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class PreventionPrint2Action extends ActionSupport {

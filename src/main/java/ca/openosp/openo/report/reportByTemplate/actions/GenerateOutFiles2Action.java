@@ -44,7 +44,7 @@ import com.Ostermiller.util.CSVParser;
  *
  * @author apavel (Paul)
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateOutFiles2Action extends ActionSupport {

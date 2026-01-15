@@ -28,7 +28,7 @@ package ca.openosp.openo.provider.web;
 
 import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.entities.Provider;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;

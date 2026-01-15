@@ -56,7 +56,7 @@ import ca.openosp.openo.log.LogConst;
 import ca.openosp.openo.util.ConversionUtils;
 import ca.openosp.openo.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctSaveEncounter2Action extends ActionSupport {

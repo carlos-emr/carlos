@@ -24,7 +24,7 @@
  */
 package ca.openosp.openo.hospitalReportManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao;

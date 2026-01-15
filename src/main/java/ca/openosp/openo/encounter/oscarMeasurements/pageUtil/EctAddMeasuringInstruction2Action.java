@@ -47,7 +47,7 @@ import ca.openosp.openo.encounter.oscarMeasurements.bean.EctValidationsBeanHandl
 import ca.openosp.openo.messenger.util.MsgStringQuote;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctAddMeasuringInstruction2Action extends ActionSupport {

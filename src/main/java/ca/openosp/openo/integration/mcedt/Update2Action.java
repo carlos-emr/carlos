@@ -25,7 +25,7 @@
 package ca.openosp.openo.integration.mcedt;
 
 import ca.ontario.health.edt.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.utility.MiscUtils;

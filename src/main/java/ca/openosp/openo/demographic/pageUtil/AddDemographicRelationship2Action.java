@@ -44,7 +44,7 @@ import ca.openosp.openo.demographic.data.DemographicRelationship;
 /**
  * @author Jay Gallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AddDemographicRelationship2Action extends ActionSupport {

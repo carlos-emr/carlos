@@ -34,7 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 import ca.openosp.openo.commn.dao.OscarCommLocationsDao;
 import ca.openosp.openo.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class EctViewAttachment2Action extends ActionSupport {

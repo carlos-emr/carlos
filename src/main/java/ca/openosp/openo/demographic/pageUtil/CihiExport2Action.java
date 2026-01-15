@@ -45,7 +45,7 @@ import cdscihi.PatientRecordDocument.PatientRecord;
 import cdscihi.ProblemListDocument.ProblemList;
 import cdscihi.ProcedureDocument.Procedure;
 import cdscihi.RiskFactorsDocument.RiskFactors;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.xmlbeans.XmlOptions;

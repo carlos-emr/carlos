@@ -71,7 +71,7 @@ import ca.openosp.openo.olis1.queries.Z07Query;
 import ca.openosp.openo.olis1.queries.Z08Query;
 import ca.openosp.openo.olis1.queries.Z50Query;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**

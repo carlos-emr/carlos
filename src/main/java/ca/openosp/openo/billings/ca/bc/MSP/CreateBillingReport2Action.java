@@ -34,7 +34,7 @@ import ca.openosp.openo.billings.ca.bc.data.PayRefSummary;
  * @author Joel Legris
  * @version 1.0
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class CreateBillingReport2Action extends ActionSupport {

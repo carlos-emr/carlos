@@ -1,6 +1,6 @@
 package ca.openosp.openo.billing.CA.ON.web;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 import java.io.File;
 import java.io.IOException;

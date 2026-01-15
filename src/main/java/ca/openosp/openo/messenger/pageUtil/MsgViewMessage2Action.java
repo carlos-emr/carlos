@@ -26,7 +26,7 @@
 
 package ca.openosp.openo.messenger.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.caisi_integrator.ws.CachedFacility;

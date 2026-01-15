@@ -51,7 +51,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import ca.openosp.openo.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AddEditHtml2Action extends ActionSupport {

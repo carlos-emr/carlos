@@ -45,7 +45,7 @@ import ca.openosp.openo.log.LogAction;
 /**
  * @author Administrator
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DefaultEncounterIssue2Action extends ActionSupport {

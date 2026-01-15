@@ -64,7 +64,7 @@ import ca.openosp.openo.util.StringUtils;
  * Created on Mar 10, 2004
  */
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {

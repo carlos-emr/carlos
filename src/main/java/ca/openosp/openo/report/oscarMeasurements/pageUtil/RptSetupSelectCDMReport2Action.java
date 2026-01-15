@@ -35,7 +35,7 @@ import javax.servlet.http.HttpServletResponse;
 
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RptSetupSelectCDMReport2Action extends ActionSupport {

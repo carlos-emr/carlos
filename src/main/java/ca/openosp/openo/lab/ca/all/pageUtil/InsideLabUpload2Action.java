@@ -59,7 +59,7 @@ import ca.openosp.openo.lab.ca.all.upload.HandlerClassFactory;
 import ca.openosp.openo.lab.ca.all.upload.handlers.MessageHandler;
 import ca.openosp.openo.lab.ca.all.util.Utilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class InsideLabUpload2Action extends ActionSupport {

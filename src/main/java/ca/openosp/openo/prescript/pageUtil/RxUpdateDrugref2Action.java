@@ -43,7 +43,7 @@ import ca.openosp.openo.prescript.util.RxDrugRef;
 /**
  * @author jackson
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RxUpdateDrugref2Action extends ActionSupport {

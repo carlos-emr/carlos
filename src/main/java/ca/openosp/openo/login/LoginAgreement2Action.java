@@ -46,7 +46,7 @@ import ca.openosp.openo.log.LogConst;
 /**
  * @author rjonasz
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class LoginAgreement2Action extends ActionSupport {

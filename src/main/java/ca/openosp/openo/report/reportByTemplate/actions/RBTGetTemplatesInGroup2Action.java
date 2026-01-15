@@ -40,7 +40,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.report.reportByTemplate.ReportManager;
 import ca.openosp.openo.report.reportByTemplate.ReportObjectGeneric;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RBTGetTemplatesInGroup2Action extends ActionSupport {

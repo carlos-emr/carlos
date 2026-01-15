@@ -33,7 +33,7 @@ import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.services.security.RolesManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**

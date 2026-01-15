@@ -36,7 +36,7 @@ import javax.servlet.http.HttpServletResponse;
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.EDTDelegate;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Info2Action extends ActionSupport {

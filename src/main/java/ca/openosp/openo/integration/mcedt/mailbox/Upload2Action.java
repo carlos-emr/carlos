@@ -24,7 +24,7 @@
 package ca.openosp.openo.integration.mcedt.mailbox;
 
 import ca.ontario.health.edt.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.cxf.helpers.FileUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;

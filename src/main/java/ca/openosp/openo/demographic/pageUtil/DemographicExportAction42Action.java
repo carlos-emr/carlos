@@ -176,7 +176,7 @@ import ca.openosp.openo.util.ConversionUtils;
 import ca.openosp.openo.util.StringUtils;
 import ca.openosp.openo.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**

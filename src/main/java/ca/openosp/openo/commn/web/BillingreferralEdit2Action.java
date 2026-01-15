@@ -43,7 +43,7 @@ import ca.openosp.openo.utility.SpringUtils;
  * @author Toby
  */
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BillingreferralEdit2Action extends ActionSupport {

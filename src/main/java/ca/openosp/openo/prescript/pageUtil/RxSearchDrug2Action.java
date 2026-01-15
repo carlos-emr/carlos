@@ -50,7 +50,7 @@ import ca.openosp.OscarProperties;
 import ca.openosp.openo.prescript.data.RxDrugData;
 import ca.openosp.openo.prescript.util.RxDrugRef;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RxSearchDrug2Action extends ActionSupport {

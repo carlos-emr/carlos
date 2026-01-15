@@ -27,7 +27,7 @@
 package ca.openosp.openo.prescript.pageUtil;
 
 import ca.openosp.openo.commn.model.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;

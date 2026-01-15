@@ -28,7 +28,7 @@ package ca.openosp.openo.billings.ca.bc.pageUtil;
 import javax.servlet.http.HttpServletRequest;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EditServiceCodeAssoc2Action extends ActionSupport {

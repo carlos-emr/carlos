@@ -31,7 +31,7 @@ import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.services.security.SecurityManager;
 import ca.openosp.openo.util.UtilDateUtilities;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import ca.openosp.openo.model.security.Secrole;
 import ca.openosp.openo.services.security.RolesManager;
 import com.fasterxml.jackson.databind.ObjectMapper;

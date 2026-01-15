@@ -51,7 +51,7 @@ import ca.openosp.openo.form.pharmaForms.formBPMH.util.JsonUtil;
 import ca.openosp.openo.prescript.data.RxAllergyData;
 import ca.openosp.openo.prescript.util.RxDrugRef;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RxSearchAllergy2Action extends ActionSupport {

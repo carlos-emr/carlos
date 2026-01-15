@@ -30,7 +30,7 @@ import javax.servlet.http.HttpServletResponse;
 import ca.openosp.openo.model.LookupTableDefValue;
 import ca.openosp.openo.services.LookupManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.utility.SpringUtils;
 

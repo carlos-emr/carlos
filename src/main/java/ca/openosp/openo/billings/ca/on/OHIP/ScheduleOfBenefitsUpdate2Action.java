@@ -44,7 +44,7 @@ import ca.openosp.openo.billings.ca.on.data.BillingCodeData;
 /**
  * @author Jay Gallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {

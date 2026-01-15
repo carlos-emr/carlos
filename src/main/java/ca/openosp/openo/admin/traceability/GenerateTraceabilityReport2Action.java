@@ -47,7 +47,7 @@ import ca.openosp.openo.log.LogConst;
  *
  * @author oscar
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateTraceabilityReport2Action extends ActionSupport {

@@ -38,7 +38,7 @@ import ca.openosp.openo.report.data.DemographicSets;
 /**
  * @author Jay Gallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DemographicSetEligibility2Action extends ActionSupport {
