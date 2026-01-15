@@ -73,7 +73,6 @@ public class SecroleDaoImpl implements SecroleDao {
      */
     @Override
     public List<Secrole> getRoles() {
-
         Query<Secrole> query = getSession().createQuery("from Secrole r order by roleName", Secrole.class);
         List<Secrole> results = query.list();
 
@@ -123,8 +122,9 @@ public class SecroleDaoImpl implements SecroleDao {
         query.setParameter("roleName", roleName);
         List<Secrole> lst = query.list();
         
-        if (lst != null && lst.size() > 0)
+        if (!lst.isEmpty()) {
             result = lst.get(0);
+        }
 
         logger.debug("getRoleByName: roleName=" + roleName + ",found=" + (result != null));
 
