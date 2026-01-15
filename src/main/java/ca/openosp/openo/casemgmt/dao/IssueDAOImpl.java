@@ -95,11 +95,13 @@ public class IssueDAOImpl implements IssueDAO {
     /**
      * Finds Issues by an array of issue codes.
      * <p>
-     * Note: This method concatenates codes into SQL which could be replaced with 
-     * parameterized queries for better security in future refactoring.
+     * <strong>Security Note:</strong> This method concatenates codes into SQL which creates
+     * potential SQL injection vulnerabilities. The codes parameter should be validated
+     * before calling this method. Consider refactoring to use parameterized queries
+     * with collection parameters in future updates.
      * </p>
      *
-     * @param codes array of issue codes to search for
+     * @param codes array of issue codes to search for (must be validated/sanitized by caller)
      * @return list of Issues matching any of the provided codes
      */
     @Override
@@ -193,8 +195,9 @@ public class IssueDAOImpl implements IssueDAO {
     /**
      * Retrieves a list of Issue IDs filtered by security roles.
      * <p>
-     * Note: This method builds SQL with concatenated role names which could be 
-     * replaced with parameterized queries in future refactoring.
+     * <strong>Security Note:</strong> This method builds SQL with concatenated role names.
+     * Role names should be validated/sanitized by the security framework before being passed here.
+     * Consider refactoring to use parameterized queries with collection parameters in future updates.
      * </p>
      *
      * @param roles list of security roles to filter by
@@ -227,6 +230,10 @@ public class IssueDAOImpl implements IssueDAO {
      * Searches across code, description, and role fields using case-insensitive LIKE matching.
      * Results are filtered by role and support pagination with maximum result limits.
      * </p>
+     * <p>
+     * <strong>Security Note:</strong> This method builds SQL with concatenated role names.
+     * Role names should be validated/sanitized by the security framework before being passed here.
+     * </p>
      *
      * @param search the search term to match
      * @param roles list of security roles to filter by
@@ -252,7 +259,7 @@ public class IssueDAOImpl implements IssueDAO {
 
         search = "%" + search + "%";
         search = search.toLowerCase();
-        final String sql = "from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :roleSearch) and i.role in ("
+        final String sql = "from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in ("
                 + roleList + ") order by sortOrderId";
         logger.debug(sql);
         
@@ -260,12 +267,15 @@ public class IssueDAOImpl implements IssueDAO {
         q.setMaxResults(Math.min(numToReturn, AbstractDaoImpl.MAX_LIST_RETURN_SIZE));
         q.setFirstResult(startIndex);
         q.setParameter("search", search);
-        q.setParameter("roleSearch", roleList);
         return q.list();
     }
 
     /**
      * Counts the number of Issues matching search criteria and role filters.
+     * <p>
+     * <strong>Security Note:</strong> This method builds SQL with concatenated role names.
+     * Role names should be validated/sanitized by the security framework before being passed here.
+     * </p>
      *
      * @param search the search term to match against code, description, and role
      * @param roles list of security roles to filter by
@@ -289,13 +299,11 @@ public class IssueDAOImpl implements IssueDAO {
 
         search = "%" + search + "%";
         search = search.toLowerCase();
-        final String sql = "select count(i) from Issue i where (lower(i.code) like :search1 or lower(i.description) like :search2 or lower(i.role) like :search3) and i.role in ("
+        final String sql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in ("
                 + roleList + ") order by sortOrderId";
         logger.debug(sql);
         List<Long> result = getSession().createQuery(sql)
-                .setParameter("search1", search)
-                .setParameter("search2", search)
-                .setParameter("search3", roleList)
+                .setParameter("search", search)
                 .list();
 
         if (result.size() > 0) {
