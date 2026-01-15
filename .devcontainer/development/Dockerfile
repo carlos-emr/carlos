@@ -40,7 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Node.js (latest LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs
+    && apt-get install -y nodejs \
+    && node --version && npm --version
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -56,7 +57,7 @@ RUN apt-get update && apt-get install -y golang-go
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
 
 # Install Claude Code CLI and Docusaurus
-RUN npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset-classic
+RUN which npm && npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset-classic
 
 # Install Gemini CLI.
 RUN npm install -g @google/gemini-cli

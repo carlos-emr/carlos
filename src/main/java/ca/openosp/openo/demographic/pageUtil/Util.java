@@ -395,6 +395,34 @@ public class Util {
         return s;
     }
 
+    /**
+     * Extracts the leading numeric portion from a string, including fractions.
+     * Unlike leadingNum(), this preserves '/' characters to support fractional
+     * dosage formats like "125/5" in medication strength expressions.
+     *
+     * @param s The input string to parse
+     * @return The leading numeric portion including fractions (e.g., "125/5" from "125/5 mg/ml")
+     * @since 2025-01-08
+     */
+    static public String leadingNumWithFraction(String s) {
+        if (s == null) return "";
+        s = s.trim();
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+
+            // Allowed characters for the amount (digits, decimal point, slash)
+            if (Character.isDigit(c) || c == '.' || c == '/') {
+                sb.append(c);
+            } else {
+                break; // stop at anything else (space, letter, %, etc.)
+            }
+        }
+
+        return sb.toString();
+    }
+
     static public float leadingNumF(String s) {
         s = leadingNum(s);
         try {
