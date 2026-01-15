@@ -61,8 +61,6 @@ import ca.openosp.openo.casemgmt.model.CaseManagementSearchBean;
 import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.utility.DbConnectionFilter;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.HibernateTemplate;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,60 +68,135 @@ import org.springframework.transaction.annotation.Transactional;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.util.SqlUtils;
 
+/**
+ * Data Access Object implementation for CaseManagementNote entities.
+ * <p>
+ * This DAO provides methods for managing case management notes, including creation, retrieval,
+ * updating, and querying notes associated with patient demographics. It handles complex queries
+ * for note history, issue-based filtering, and provider-specific note tracking.
+ * </p>
+ * <p>
+ * This implementation uses direct Hibernate SessionFactory injection for database operations,
+ * migrated from the deprecated HibernateDaoSupport pattern to support Spring 6 compatibility.
+ * </p>
+ *
+ * @since 2026-01-15
+ */
 @Transactional
-public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements CaseManagementNoteDAO {
+public class CaseManagementNoteDAOImpl implements CaseManagementNoteDAO {
 
     private static Logger log = MiscUtils.getLogger();
 
     @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
+    private SessionFactory sessionFactory;
+
+    /**
+     * Returns the current Hibernate session.
+     * <p>
+     * This method retrieves the session bound to the current transaction context.
+     * All database operations should use this session to ensure proper transaction management.
+     * </p>
+     *
+     * @return the current Hibernate Session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
     }
 
+    /**
+     * Retrieves all case management notes from the database.
+     * <p>
+     * <strong>WARNING:</strong> This method loads all notes into memory and may cause
+     * performance issues or server crashes. Use pagination methods instead.
+     * </p>
+     *
+     * @return list of all CaseManagementNote entities
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> findAll() {
-        logger.warn(
+        log.warn(
                 "A METHOD THAT IS LIKELY TO CAUSE A CRASH HAS BEEN INVOKED. PLEASE LIMIT THE USE OF THIS METHOD, AS IT'S LIKELY TO EXHAUST MEMORY AND MAY LEAD TO A SERVER CRASH. CONSIDER PAGINATING THE INVOCATION INSTEAD");
-        return (List<CaseManagementNote>) this.getHibernateTemplate().find("FROM CaseManagementNote");
+        Query<CaseManagementNote> query = getSession().createQuery("FROM CaseManagementNote");
+        return query.list();
     }
 
+    /**
+     * Retrieves all providers who have edited a specific note.
+     *
+     * @param note the CaseManagementNote to find editors for
+     * @return list of Provider entities who have edited the note
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Provider> getEditors(CaseManagementNote note) {
         String uuid = note.getUuid();
-        String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.uuid = ?0";
-        return (List<Provider>) this.getHibernateTemplate().find(hql, uuid);
+        String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.uuid = :uuid";
+        Query<Provider> query = getSession().createQuery(hql);
+        query.setParameter("uuid", uuid);
+        return query.list();
     }
 
+    /**
+     * Retrieves all providers who have edited notes for a specific demographic.
+     *
+     * @param demographicNo the demographic number to search for
+     * @return list of Provider entities who have edited notes for this demographic
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Provider> getAllEditors(String demographicNo) {
-        String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.demographic_no = ?0";
-        return (List<Provider>) this.getHibernateTemplate().find(hql, demographicNo);
+        String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.demographic_no = :demographicNo";
+        Query<Provider> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographicNo);
+        return query.list();
     }
 
+    /**
+     * Retrieves the complete history of a note, ordered by update date.
+     *
+     * @param note the CaseManagementNote to get history for
+     * @return list of all versions of the note, ordered chronologically
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getHistory(CaseManagementNote note) {
         String uuid = note.getUuid();
-        return (List<CaseManagementNote>) this.getHibernateTemplate()
-                .find("from CaseManagementNote cmn where cmn.uuid = ?0 order by cmn.update_date asc", uuid);
+        String hql = "from CaseManagementNote cmn where cmn.uuid = :uuid order by cmn.update_date asc";
+        Query<CaseManagementNote> query = getSession().createQuery(hql);
+        query.setParameter("uuid", uuid);
+        return query.list();
     }
 
+    /**
+     * Retrieves note history for specific issues and demographic.
+     * <p>
+     * Note: This method uses string concatenation for issueIds in the HQL query.
+     * This is acceptable here as issueIds are numeric values validated elsewhere.
+     * </p>
+     *
+     * @param issueIds comma-separated list of issue IDs
+     * @param demoNo the demographic number
+     * @return list of most recent notes for each UUID related to the specified issues
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getIssueHistory(String issueIds, String demoNo) {
         String hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (" + issueIds
-                + ") and cmn.demographic_no= ?0 ORDER BY cmn.observation_date asc";
+                + ") and cmn.demographic_no= :demoNo ORDER BY cmn.observation_date asc";
 
         List<CaseManagementNote> issueListReturn = new ArrayList<CaseManagementNote>();
 
-        List<CaseManagementNote> issueList = (List<CaseManagementNote>) this.getHibernateTemplate().find(hql, demoNo);
+        Query<CaseManagementNote> query1 = getSession().createQuery(hql);
+        query1.setParameter("demoNo", demoNo);
+        List<CaseManagementNote> issueList = query1.list();
 
         hql = "select max(cmn.id) from CaseManagementNote cmn join cmn.issues i where i.issue_id in (" + issueIds
-                + ") and cmn.demographic_no = ?0 group by cmn.uuid order by max(cmn.id)";
-        List<Integer> currNoteList = (List<Integer>) this.getHibernateTemplate().find(hql, demoNo);
+                + ") and cmn.demographic_no = :demoNo group by cmn.uuid order by max(cmn.id)";
+        Query<Integer> query2 = getSession().createQuery(hql);
+        query2.setParameter("demoNo", demoNo);
+        List<Integer> currNoteList = query2.list();
+        
         for (CaseManagementNote issueNote : issueList) {
             if (currNoteList.contains(issueNote.getId())) {
                 issueListReturn.add(issueNote);
@@ -133,23 +206,45 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         return issueListReturn;
     }
 
+    /**
+     * Retrieves a single case management note by ID with initialized issues collection.
+     *
+     * @param id the note ID
+     * @return the CaseManagementNote with issues eagerly loaded, or null if not found
+     */
     @Override
     public CaseManagementNote getNote(Long id) {
-        CaseManagementNote note = this.getHibernateTemplate().get(CaseManagementNote.class, id);
-        getHibernateTemplate().initialize(note.getIssues());
+        CaseManagementNote note = getSession().get(CaseManagementNote.class, id);
+        if (note != null) {
+            // Force initialization of lazy-loaded issues collection
+            org.hibernate.Hibernate.initialize(note.getIssues());
+        }
         return note;
     }
 
+    /**
+     * Retrieves multiple notes by their IDs.
+     *
+     * @param ids list of note IDs to retrieve
+     * @return list of CaseManagementNote entities matching the IDs
+     */
     @Override
     public List<CaseManagementNote> getNotes(List<Long> ids) {
         if (ids.size() == 0)
             return new ArrayList<CaseManagementNote>();
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> notes = (List<CaseManagementNote>) this.getHibernateTemplate()
-                .find("SELECT n FROM CaseManagementNote n WHERE n.id IN (?0)", new Object[]{ids});
+        Query<CaseManagementNote> query = getSession().createQuery("SELECT n FROM CaseManagementNote n WHERE n.id IN (:ids)");
+        query.setParameter("ids", ids);
+        List<CaseManagementNote> notes = query.list();
         return notes;
     }
 
+    /**
+     * Retrieves the most recent version of a note by UUID.
+     *
+     * @param uuid the note UUID
+     * @return the most recent CaseManagementNote with this UUID, or null if not found
+     */
     @Override
     public CaseManagementNote getMostRecentNote(String uuid) {
         String hql = "select cmn from CaseManagementNote cmn " +
@@ -157,8 +252,9 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
                     "select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = :uuid)";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> tmp = (List<CaseManagementNote>) this.getHibernateTemplate()
-            .findByNamedParam(hql, "uuid", uuid);
+        Query<CaseManagementNote> query = getSession().createQuery(hql);
+        query.setParameter("uuid", uuid);
+        List<CaseManagementNote> tmp = query.list();
 
         if (tmp == null || tmp.isEmpty())
             return null;
@@ -166,14 +262,30 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         return tmp.get(0);
     }
 
+    /**
+     * Retrieves all notes with a specific UUID, ordered by ID.
+     *
+     * @param uuid the note UUID
+     * @return list of all CaseManagementNote versions with this UUID
+     */
     @Override
     public List<CaseManagementNote> getNotesByUUID(String uuid) {
-        String hql = "select cmn from CaseManagementNote cmn where cmn.uuid = ?0 order by cmn.id";
+        String hql = "select cmn from CaseManagementNote cmn where cmn.uuid = :uuid order by cmn.id";
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> ret = (List<CaseManagementNote>) this.getHibernateTemplate().find(hql, uuid);
+        Query<CaseManagementNote> query = getSession().createQuery(hql);
+        query.setParameter("uuid", uuid);
+        List<CaseManagementNote> ret = query.list();
         return ret;
     }
 
+    /**
+     * Retrieves CPP (Cumulative Patient Profile) notes for a demographic and issue.
+     *
+     * @param demoNo the demographic number
+     * @param issueId the issue ID
+     * @param staleDate the date after which notes are considered current (format: yyyy-MM-dd)
+     * @return list of most recent notes for each UUID after the stale date
+     */
     @Override
     public List<CaseManagementNote> getCPPNotes(String demoNo, long issueId, String staleDate) {
         Date d;
@@ -191,14 +303,26 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             d = cal.getTime();
         }
 
-        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?0 and cmn.demographic_no = ?1 and cmn.observation_date >= ?2  and cmn.id in (select max(cmn.id) from cmn where cmn.demographic_no = ?3 GROUP BY uuid) ORDER BY cmn.observation_date asc";
+        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = :issueId and cmn.demographic_no = :demoNo and cmn.observation_date >= :date  and cmn.id in (select max(cmn.id) from cmn where cmn.demographic_no = :demoNo2 GROUP BY uuid) ORDER BY cmn.observation_date asc";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> result = (List<CaseManagementNote>) getHibernateTemplate().find(hql,
-                new Object[]{issueId, demoNo, d, demoNo});
+        Query<CaseManagementNote> query = getSession().createQuery(hql);
+        query.setParameter("issueId", issueId);
+        query.setParameter("demoNo", demoNo);
+        query.setParameter("date", d);
+        query.setParameter("demoNo2", demoNo);
+        List<CaseManagementNote> result = query.list();
         return result;
     }
 
+    /**
+     * Retrieves notes for a demographic filtered by issues and stale date.
+     *
+     * @param demographic_no the demographic number
+     * @param issues array of issue IDs to filter by
+     * @param staleDate the date after which notes are considered current (format: yyyy-MM-dd)
+     * @return list of most recent notes for each UUID matching criteria
+     */
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issues, String staleDate) {
         String list = null;
@@ -222,93 +346,169 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             MiscUtils.getLogger().error("Error", e);
         }
         String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (" + list
-                + ") and cmn.demographic_no = ?0  and cmn.id in (select max(cmn.id) from cmn where cmn.observation_date >= ?1 GROUP BY uuid) ORDER BY cmn.observation_date asc";
+                + ") and cmn.demographic_no = :demographicNo  and cmn.id in (select max(cmn.id) from cmn where cmn.observation_date >= :date GROUP BY uuid) ORDER BY cmn.observation_date asc";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> result = (List<CaseManagementNote>) getHibernateTemplate().find(hql,
-                new Object[]{demographic_no, d});
+        Query<CaseManagementNote> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographic_no);
+        query.setParameter("date", d);
+        List<CaseManagementNote> result = query.list();
         return result;
     }
 
+    /**
+     * Retrieves notes for a demographic after a specific stale date.
+     * Uses named queries that differ based on database type (Oracle vs others).
+     *
+     * @param demographic_no the demographic number
+     * @param staleDate the date after which notes are considered current (format: yyyy-MM-dd)
+     * @return list of most recent notes for each UUID
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String staleDate) {
         if (OscarProperties.getInstance().getDbType().equals("oracle")) {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentTimeOra",
-                    new Object[]{demographic_no, staleDate});
+            Query<CaseManagementNote> query = getSession().getNamedQuery("mostRecentTimeOra");
+            query.setParameter(0, demographic_no);
+            query.setParameter(1, staleDate);
+            return query.list();
         } else {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentTime",
-                    new Object[]{demographic_no, staleDate});
+            Query<CaseManagementNote> query = getSession().getNamedQuery("mostRecentTime");
+            query.setParameter(0, demographic_no);
+            query.setParameter(1, staleDate);
+            return query.list();
         }
     }
 
-    // This was created by OSCAR. if all notes' UUID are same like null, it will
-    // only get one note.
+    /**
+     * Retrieves the most recent notes for a demographic.
+     * <p>
+     * Note: If all notes have the same UUID (e.g., all null), this will only return one note.
+     * Uses named queries that differ based on database type (Oracle vs others).
+     * </p>
+     *
+     * @param demographic_no the demographic number
+     * @return list of most recent notes for each unique UUID
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no) {
         if (OscarProperties.getInstance().getDbType().equals("oracle")) {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentOra",
-                    new Object[]{demographic_no});
+            Query<CaseManagementNote> query = getSession().getNamedQuery("mostRecentOra");
+            query.setParameter(0, demographic_no);
+            return query.list();
         } else {
-            String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
-            return (List<CaseManagementNote>) getHibernateTemplate().find(hql, demographic_no);
+            String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = :demographicNo and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
+            Query<CaseManagementNote> query = getSession().createQuery(hql);
+            query.setParameter("demographicNo", demographic_no);
+            return query.list();
             // return getHibernateTemplate().findByNamedQuery("mostRecent", new Object[] {
             // demographic_no });
 
         }
     }
 
+    /**
+     * Retrieves notes for a demographic that have been updated since a specific date.
+     *
+     * @param demographic_no the demographic number
+     * @param date the date to filter by (notes updated after this date)
+     * @return list of unlocked, most recent notes updated since the date
+     */
     @Override
     public List<CaseManagementNote> getNotesByDemographicSince(String demographic_no, Date date) {
 
-        String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?0 and cmn.update_date > ?1 and cmn.locked != '1' and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
-        return (List<CaseManagementNote>) getHibernateTemplate().find(hql, demographic_no, date);
+        String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = :demographicNo and cmn.update_date > :date and cmn.locked != '1' and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
+        Query<CaseManagementNote> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographic_no);
+        query.setParameter("date", date);
+        return query.list();
     }
 
+    /**
+     * Returns the count of notes for a specific demographic.
+     *
+     * @param demographic_no the demographic number
+     * @return the count of notes
+     */
     @Override
     public long getNotesCountByDemographicId(String demographic_no) {
-        String hql = "select count(*) from CaseManagementNote cmm where cmm.demographic_no = ?0";
-        return ((Long) getHibernateTemplate().find(hql, demographic_no).get(0)).longValue();
+        String hql = "select count(*) from CaseManagementNote cmm where cmm.demographic_no = :demographicNo";
+        Query<Long> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographic_no);
+        return query.list().get(0).longValue();
     }
 
+    /**
+     * Retrieves raw note information (selected fields only) for a demographic.
+     *
+     * @param demographic_no the demographic number
+     * @return list of Object arrays containing note fields
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> getRawNoteInfoByDemographic(String demographic_no) {
-        String hql = "select cmn.id,cmn.observation_date,cmn.providerNo,cmn.program_no,cmn.reporter_caisi_role,cmn.uuid from CaseManagementNote cmn where cmn.demographic_no = ?0 order by cmn.update_date DESC";
-        return (List<Object[]>) getHibernateTemplate().find(hql, demographic_no);
+        String hql = "select cmn.id,cmn.observation_date,cmn.providerNo,cmn.program_no,cmn.reporter_caisi_role,cmn.uuid from CaseManagementNote cmn where cmn.demographic_no = :demographicNo order by cmn.update_date DESC";
+        Query<Object[]> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographic_no);
+        return query.list();
     }
 
+    /**
+     * Retrieves raw note information as a map for a demographic.
+     *
+     * @param demographic_no the demographic number
+     * @return list of maps containing note information
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Map<String, Object>> getRawNoteInfoMapByDemographic(String demographic_no) {
-        String hql = "select new map(cmn.id as id,cmn.observation_date as observation_date,cmn.providerNo as providerNo,cmn.program_no as program_no,cmn.reporter_caisi_role as reporter_caisi_role,cmn.uuid as uuid, cmn.update_date as update_date) from CaseManagementNote cmn where cmn.demographic_no = ?0 order by cmn.update_date DESC";
-        return (List<Map<String, Object>>) getHibernateTemplate().find(hql, demographic_no);
+        String hql = "select new map(cmn.id as id,cmn.observation_date as observation_date,cmn.providerNo as providerNo,cmn.program_no as program_no,cmn.reporter_caisi_role as reporter_caisi_role,cmn.uuid as uuid, cmn.update_date as update_date) from CaseManagementNote cmn where cmn.demographic_no = :demographicNo order by cmn.update_date DESC";
+        Query<Map<String, Object>> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographic_no);
+        return query.list();
     }
 
+    /**
+     * Retrieves unsigned raw note information as a map for a demographic.
+     *
+     * @param demographic_no the demographic number
+     * @return list of maps containing unsigned note information
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Map<String, Object>> getUnsignedRawNoteInfoMapByDemographic(String demographic_no) {
-        String hql = "select new map(cmn.id as id,cmn.observation_date as observation_date,cmn.providerNo as providerNo,cmn.program_no as program_no,cmn.reporter_caisi_role as reporter_caisi_role,cmn.uuid as uuid, cmn.update_date as update_date) from CaseManagementNote cmn where cmn.demographic_no = ?0 and cmn.signed=?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.update_date DESC";
-        return (List<Map<String, Object>>) getHibernateTemplate().find(hql, new Object[]{demographic_no, false});
+        String hql = "select new map(cmn.id as id,cmn.observation_date as observation_date,cmn.providerNo as providerNo,cmn.program_no as program_no,cmn.reporter_caisi_role as reporter_caisi_role,cmn.uuid as uuid, cmn.update_date as update_date) from CaseManagementNote cmn where cmn.demographic_no = :demographicNo and cmn.signed=:signed and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.update_date DESC";
+        Query<Map<String, Object>> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographic_no);
+        query.setParameter("signed", false);
+        return query.list();
     }
 
+    /**
+     * Retrieves the most recent notes for a demographic with optional limit.
+     *
+     * @param demographic_no the demographic number
+     * @param maxNotes maximum number of notes to return (-1 for unlimited)
+     * @return list of most recent notes for each unique UUID
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, Integer maxNotes) {
         if (OscarProperties.getInstance().getDbType().equals("oracle")) {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentOra",
-                    new Object[]{demographic_no});
+            Query<CaseManagementNote> query = getSession().getNamedQuery("mostRecentOra");
+            query.setParameter(0, demographic_no);
+            return query.list();
         } else {
-            String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date desc";
+            String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = :demographicNo and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date desc";
 
-            HibernateTemplate Hibernatetemplate = getHibernateTemplate();
+            Query<CaseManagementNote> query = getSession().createQuery(hql);
+            query.setParameter("demographicNo", demographic_no);
             if (maxNotes != -1) {
-                Hibernatetemplate.setMaxResults(maxNotes);
+                query.setMaxResults(maxNotes);
             }
 
-            List<CaseManagementNote> list = (List<CaseManagementNote>) Hibernatetemplate.find(hql, demographic_no);
-            Hibernatetemplate.setMaxResults(0);
+            List<CaseManagementNote> list = query.list();
             return list;
             // return getHibernateTemplate().findByNamedQuery("mostRecent", new Object[] {
             // demographic_no });
@@ -325,6 +525,13 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
      * , new Object[] {demographic_no}); }
      */
 
+    /**
+     * Retrieves active (non-archived) notes for a demographic filtered by issues.
+     *
+     * @param demographic_no the demographic number
+     * @param issues array of issue IDs to filter by
+     * @return list of active notes matching the criteria
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getActiveNotesByDemographic(String demographic_no, String[] issues) {
@@ -343,20 +550,25 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
                     list += issues[x];
                 }
                 hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (" + list
-                        + ") and cmn.demographic_no = ?0 and cmn.archived = 0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) ORDER BY cmn.position, cmn.observation_date desc";
-                return (List<CaseManagementNote>) this.getHibernateTemplate().find(hql, demographic_no);
+                        + ") and cmn.demographic_no = :demographicNo and cmn.archived = 0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) ORDER BY cmn.position, cmn.observation_date desc";
+                Query<CaseManagementNote> query = getSession().createQuery(hql);
+                query.setParameter("demographicNo", demographic_no);
+                return query.list();
 
             } else if (issues.length == 1) {
                 long id = Long.parseLong(issues[0]);
 
-                hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?0 and cmn.demographic_no= ?1 and cmn.archived=0 order by cmn.position, cmn.observation_date desc";
+                hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = :issueId and cmn.demographic_no= :demographicNo and cmn.archived=0 order by cmn.position, cmn.observation_date desc";
 
-                List<CaseManagementNote> issueList = (List<CaseManagementNote>) this.getHibernateTemplate().find(hql,
-                        new Object[]{id, demographic_no});
+                Query<CaseManagementNote> query1 = getSession().createQuery(hql);
+                query1.setParameter("issueId", id);
+                query1.setParameter("demographicNo", demographic_no);
+                List<CaseManagementNote> issueList = query1.list();
 
-                hql = "select  max(cmn.id) from CaseManagementNote cmn where cmn.demographic_no = ?0 group by cmn.uuid order by max(cmn.id)";
-                List<Integer> currNoteList = (List<Integer>) this.getHibernateTemplate().find(hql,
-                        new Object[]{demographic_no});
+                hql = "select  max(cmn.id) from CaseManagementNote cmn where cmn.demographic_no = :demographicNo group by cmn.uuid order by max(cmn.id)";
+                Query<Integer> query2 = getSession().createQuery(hql);
+                query2.setParameter("demographicNo", demographic_no);
+                List<Integer> currNoteList = query2.list();
 
                 for (CaseManagementNote issueNote : issueList) {
                     if (currNoteList.contains(issueNote.getId())) {
@@ -370,14 +582,18 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         return issueListReturn;
     }
 
+    /**
+     * Retrieves notes for a demographic filtered by issues with optional limit.
+     *
+     * @param demographic_no the demographic number
+     * @param issueIds array of issue IDs to filter by
+     * @param maxNotes maximum number of notes to return (-1 for unlimited)
+     * @return list of most recent notes matching criteria
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issueIds, Integer maxNotes) {
 
-        HibernateTemplate hibernateTemplate = getHibernateTemplate();
-        if (maxNotes != -1) {
-            hibernateTemplate.setMaxResults(maxNotes);
-        }
         List<CaseManagementNote> retList = new ArrayList<CaseManagementNote>();
         String list = null;
         String hql;
@@ -391,18 +607,27 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
                     list += issueIds[x];
                 }
                 hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (" + list
-                        + ") and cmn.demographic_no = ?0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) order by cmn.observation_date desc ";
-                retList = (List<CaseManagementNote>) this.getHibernateTemplate().find(hql, demographic_no);
+                        + ") and cmn.demographic_no = :demographicNo and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) order by cmn.observation_date desc ";
+                Query<CaseManagementNote> query = getSession().createQuery(hql);
+                query.setParameter("demographicNo", demographic_no);
+                if (maxNotes != -1) {
+                    query.setMaxResults(maxNotes);
+                }
+                retList = query.list();
 
             } else if (issueIds.length == 1) {
-                hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?0 and cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) order by cmn.observation_date desc";
+                hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = :issueId and cmn.demographic_no = :demographicNo and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) order by cmn.observation_date desc";
                 long id = Long.parseLong(issueIds[0]);
-                retList = (List<CaseManagementNote>) this.getHibernateTemplate().find(hql,
-                        new Object[]{id, demographic_no});
+                Query<CaseManagementNote> query = getSession().createQuery(hql);
+                query.setParameter("issueId", id);
+                query.setParameter("demographicNo", demographic_no);
+                if (maxNotes != -1) {
+                    query.setMaxResults(maxNotes);
+                }
+                retList = query.list();
             }
         }
 
-        hibernateTemplate.setMaxResults(0);
         // String hql = "select distinct cmn from CaseManagementNote cmn where
         // cmn.demographic_no = ? and cmn.issues.issue_id in (" + list +
         // ") and cmn.id in (select max(cmn.id) from cmn GROUP BY uuid) ORDER BY
@@ -410,6 +635,13 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         return retList;
     }
 
+    /**
+     * Retrieves notes for a demographic filtered by issues.
+     *
+     * @param demographic_no the demographic number
+     * @param issueIds array of issue IDs to filter by
+     * @return list of most recent notes matching criteria
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issueIds) {
@@ -425,14 +657,18 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
                     list += issueIds[x];
                 }
                 hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (" + list
-                        + ") and cmn.demographic_no = ?0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid)";
-                return (List<CaseManagementNote>) this.getHibernateTemplate().find(hql, demographic_no);
+                        + ") and cmn.demographic_no = :demographicNo and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid)";
+                Query<CaseManagementNote> query = getSession().createQuery(hql);
+                query.setParameter("demographicNo", demographic_no);
+                return query.list();
 
             } else if (issueIds.length == 1) {
-                hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?0 and cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid)";
+                hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = :issueId and cmn.demographic_no = :demographicNo and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid)";
                 long id = Long.parseLong(issueIds[0]);
-                return (List<CaseManagementNote>) this.getHibernateTemplate().find(hql,
-                        new Object[]{id, demographic_no});
+                Query<CaseManagementNote> query = getSession().createQuery(hql);
+                query.setParameter("issueId", id);
+                query.setParameter("demographicNo", demographic_no);
+                return query.list();
             }
         }
         // String hql = "select distinct cmn from CaseManagementNote cmn where
@@ -491,30 +727,69 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     }
 
 
+    /**
+     * Retrieves notes for a demographic within a specific date range.
+     *
+     * @param demographic_no the demographic number
+     * @param startDate the start date of the range
+     * @param endDate the end date of the range
+     * @return list of most recent notes within the date range
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate,
                                                                    Date endDate) {
-        return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentDateRange",
-                new Object[]{demographic_no, startDate, endDate});
+        Query<CaseManagementNote> query = getSession().getNamedQuery("mostRecentDateRange");
+        query.setParameter(0, demographic_no);
+        query.setParameter(1, startDate);
+        query.setParameter(2, endDate);
+        return query.list();
     }
 
+    /**
+     * Retrieves a limited number of notes for a demographic with pagination.
+     *
+     * @param demographic_no the demographic number
+     * @param offset the starting offset for pagination
+     * @param numToReturn the number of notes to return
+     * @return list of notes with pagination applied
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographicLimit(String demographic_no, Integer offset,
                                                                Integer numToReturn) {
-        return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentLimit",
-                new Object[]{demographic_no, offset, numToReturn});
+        Query<CaseManagementNote> query = getSession().getNamedQuery("mostRecentLimit");
+        query.setParameter(0, demographic_no);
+        query.setParameter(1, offset);
+        query.setParameter(2, numToReturn);
+        return query.list();
     }
 
+    /**
+     * Updates an existing case management note.
+     * <p>
+     * The update date is automatically set to the current time before updating.
+     * </p>
+     *
+     * @param note the CaseManagementNote to update
+     */
     @Override
     @Transactional(readOnly = false)
     public void updateNote(CaseManagementNote note) {
         note.setUpdate_date(new Date());
-        this.getHibernateTemplate().update(note);
-        this.getHibernateTemplate().flush();
+        getSession().update(note);
+        getSession().flush();
     }
 
+    /**
+     * Saves a new case management note.
+     * <p>
+     * If the note doesn't have a UUID, one is automatically generated.
+     * If the update date is not set, it's set to the current time.
+     * </p>
+     *
+     * @param note the CaseManagementNote to save
+     */
     @Override
     @Transactional(readOnly = false)
     public void saveNote(CaseManagementNote note) {
@@ -525,10 +800,20 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        this.getHibernateTemplate().save(note);
-        this.getHibernateTemplate().flush();
+        getSession().save(note);
+        getSession().flush();
     }
 
+    /**
+     * Saves a new case management note and returns the generated identifier.
+     * <p>
+     * If the note doesn't have a UUID, one is automatically generated.
+     * If the update date is not set, it's set to the current time.
+     * </p>
+     *
+     * @param note the CaseManagementNote to save
+     * @return the generated identifier for the saved note
+     */
     @Override
     @Transactional(readOnly = false)
     public Object saveAndReturn(CaseManagementNote note) {
@@ -539,7 +824,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        return this.getHibernateTemplate().save(note);
+        return getSession().save(note);
     }
 
     @Override
@@ -591,10 +876,16 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
     }
 
+    /**
+     * Retrieves all note IDs from the database.
+     *
+     * @return list of all note IDs
+     */
     @Override
     public List<Long> getAllNoteIds() {
         @SuppressWarnings("unchecked")
-        List<Long> results = (List<Long>) this.getHibernateTemplate().find("select n.id from CaseManagementNote n");
+        Query<Long> query = getSession().createQuery("select n.id from CaseManagementNote n");
+        List<Long> results = query.list();
         return results;
     }
 
@@ -701,34 +992,63 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         }
     }
 
-    // used by decision support to search through the notes for a string
+    /**
+     * Searches for notes containing a specific string in the note text.
+     * Used by decision support to search through notes.
+     *
+     * @param demographic_no the demographic number
+     * @param searchString the string to search for in note text
+     * @return list of most recent non-archived notes containing the search string
+     */
     @Override
     public List<CaseManagementNote> searchDemographicNotes(String demographic_no, String searchString) {
-        String hql = "select distinct cmn from CaseManagementNote cmn where cmn.id in (select max(cmn.id) from cmn where cmn.demographic_no = ?0 GROUP BY uuid) and cmn.demographic_no = ?1 and cmn.note like ?2 and cmn.archived = 0";
+        String hql = "select distinct cmn from CaseManagementNote cmn where cmn.id in (select max(cmn.id) from cmn where cmn.demographic_no = :demographicNo GROUP BY uuid) and cmn.demographic_no = :demographicNo2 and cmn.note like :searchString and cmn.archived = 0";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> result = (List<CaseManagementNote>) getHibernateTemplate().find(hql,
-                new Object[]{demographic_no, demographic_no, searchString});
+        Query<CaseManagementNote> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", demographic_no);
+        query.setParameter("demographicNo2", demographic_no);
+        query.setParameter("searchString", searchString);
+        List<CaseManagementNote> result = query.list();
         return result;
     }
 
+    /**
+     * Retrieves case management notes by program ID and observation date range.
+     *
+     * @param programId the program ID to filter by
+     * @param minObservationDate the minimum observation date
+     * @param maxObservationDate the maximum observation date
+     * @return list of notes matching the criteria
+     */
     @Override
     public List<CaseManagementNote> getCaseManagementNoteByProgramIdAndObservationDate(Integer programId,
                                                                                        Date minObservationDate, Date maxObservationDate) {
-        String queryStr = "FROM CaseManagementNote x WHERE x.program_no=?0 and x.observation_date>=?1 and x.observation_date<=?2";
+        String queryStr = "FROM CaseManagementNote x WHERE x.program_no=:programId and x.observation_date>=:minDate and x.observation_date<=:maxDate";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> rs = (List<CaseManagementNote>) getHibernateTemplate().find(queryStr,
-                new Object[]{programId.toString(), minObservationDate, maxObservationDate});
+        Query<CaseManagementNote> query = getSession().createQuery(queryStr);
+        query.setParameter("programId", programId.toString());
+        query.setParameter("minDate", minObservationDate);
+        query.setParameter("maxDate", maxObservationDate);
+        List<CaseManagementNote> rs = query.list();
 
         return rs;
     }
 
+    /**
+     * Retrieves the most recent notes for a specific appointment.
+     *
+     * @param appointmentNo the appointment number
+     * @return list of most recent notes associated with the appointment
+     */
     @Override
     public List<CaseManagementNote> getMostRecentNotesByAppointmentNo(int appointmentNo) {
-        String hql = "select distinct cmn.uuid from CaseManagementNote cmn where cmn.appointmentNo = ?0";
+        String hql = "select distinct cmn.uuid from CaseManagementNote cmn where cmn.appointmentNo = :appointmentNo";
         @SuppressWarnings("unchecked")
-        List<String> tmp = (List<String>) this.getHibernateTemplate().find(hql, appointmentNo);
+        Query<String> query = getSession().createQuery(hql);
+        query.setParameter("appointmentNo", appointmentNo);
+        List<String> tmp = query.list();
         List<CaseManagementNote> mostRecents = new ArrayList<CaseManagementNote>();
         for (String uuid : tmp) {
             mostRecents.add(this.getMostRecentNote(uuid));
@@ -736,12 +1056,19 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         return mostRecents;
     }
 
+    /**
+     * Retrieves the most recent notes for a specific demographic.
+     *
+     * @param demographicNo the demographic number
+     * @return list of most recent notes for each unique UUID
+     */
     @Override
     public List<CaseManagementNote> getMostRecentNotes(Integer demographicNo) {
-        String hql = "select distinct cmn.uuid from CaseManagementNote cmn where cmn.demographic_no = ?0";
+        String hql = "select distinct cmn.uuid from CaseManagementNote cmn where cmn.demographic_no = :demographicNo";
         @SuppressWarnings("unchecked")
-        List<String> tmp = (List<String>) this.getHibernateTemplate().find(hql,
-                new Object[]{String.valueOf(demographicNo)});
+        Query<String> query = getSession().createQuery(hql);
+        query.setParameter("demographicNo", String.valueOf(demographicNo));
+        List<String> tmp = query.list();
         List<CaseManagementNote> mostRecents = new ArrayList<CaseManagementNote>();
         for (String uuid : tmp) {
             mostRecents.add(this.getMostRecentNote(uuid));
@@ -749,11 +1076,17 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         return mostRecents;
     }
 
+    /**
+     * Finds the maximum note ID in the database.
+     *
+     * @return the maximum note ID, or 0 if no notes exist
+     */
     @Override
     public Long findMaxNoteId() {
         String sql = "select max(c.id) from CaseManagementNote c";
         @SuppressWarnings("unchecked")
-        List<Object> r = (List<Object>) getHibernateTemplate().find(sql);
+        Query<Object> query = getSession().createQuery(sql);
+        List<Object> r = query.list();
         if (r.isEmpty()) {
             return 0L;
         }
@@ -761,6 +1094,17 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
     }
 
+    /**
+     * Retrieves notes for a facility (programs) updated since a specific date.
+     * <p>
+     * Note: This method uses string concatenation for program IDs in the HQL query.
+     * This is acceptable here as program IDs are numeric values from trusted sources.
+     * </p>
+     *
+     * @param date the date to filter by (notes updated after this date)
+     * @param programs list of programs to filter by
+     * @return list of demographic numbers with notes matching the criteria
+     */
     @Override
     public List<Integer> getNotesByFacilitySince(Date date, List<Program> programs) {
         StringBuilder sb = new StringBuilder();
@@ -772,8 +1116,10 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         }
         String hql = "select distinct cmn.demographic_no from CaseManagementNote cmn where cmn.program_no in ("
                 + sb.toString()
-                + ") and cmn.update_date > ?0 and cmn.locked != '1' and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
-        List<String> results = (List<String>) getHibernateTemplate().find(hql, date);
+                + ") and cmn.update_date > :date and cmn.locked != '1' and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
+        Query<String> query = getSession().createQuery(hql);
+        query.setParameter("date", date);
+        List<String> results = query.list();
 
         List<Integer> results2 = new ArrayList<Integer>();
         for (String r : results) {
