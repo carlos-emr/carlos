@@ -110,7 +110,9 @@ public class CaseManagementNoteExtDAOImpl implements CaseManagementNoteExtDAO {
      * Retrieves all note extensions with a specific key value and value pattern.
      *
      * @param keyVal the key value to search for
-     * @param value the value pattern to match (supports LIKE wildcards)
+     * @param value the value pattern to match using SQL LIKE semantics.
+     *              Callers are responsible for including any required LIKE wildcards
+     *              (for example, {@code "%value%"}, {@code "value%"}, or {@code "%value"}).
      * @return list of CaseManagementNoteExt entities matching the criteria
      */
     @SuppressWarnings("unchecked")
