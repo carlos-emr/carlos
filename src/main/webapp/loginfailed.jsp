@@ -25,7 +25,8 @@
 --%>
 
 <%@page
-        import="ca.openosp.OscarProperties" %>
+        import="ca.openosp.OscarProperties,
+                org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String errormsg = request.getParameter("errormsg");
@@ -40,7 +41,7 @@
     <body>
     <!--h2>OSCAR has encountered the following fatal error:</h2>
       <hr-->
-    <p><%=errormsg%>
+    <p><%= Encode.forHtml(errormsg) %>
     <p>Please correct and try again.
     </body>
 </html>
