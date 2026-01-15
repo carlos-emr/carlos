@@ -80,7 +80,6 @@ public class CaseManagementNoteLinkDAOImpl implements CaseManagementNoteLinkDAO 
      * @param tableId Long the unique identifier within the specified table
      * @return List&lt;CaseManagementNoteLink&gt; list of note links, ordered by ID ascending
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableId(Integer tableName, Long tableId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = :tableName and cLink.tableId = :tableId order by cLink.id";
@@ -98,7 +97,6 @@ public class CaseManagementNoteLinkDAOImpl implements CaseManagementNoteLinkDAO 
      * @param otherId String additional identifier for filtering links
      * @return List&lt;CaseManagementNoteLink&gt; list of note links matching all criteria, ordered by ID ascending
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableId(Integer tableName, Long tableId, String otherId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = :tableName and cLink.tableId = :tableId and cLink.otherId = :otherId order by cLink.id";
@@ -116,7 +114,6 @@ public class CaseManagementNoteLinkDAOImpl implements CaseManagementNoteLinkDAO 
      * @param tableId Long the unique identifier within the specified table
      * @return List&lt;CaseManagementNoteLink&gt; list of note links, ordered by ID descending (most recent first)
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableIdDesc(Integer tableName, Long tableId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = :tableName and cLink.tableId = :tableId order by cLink.id desc";
@@ -134,7 +131,6 @@ public class CaseManagementNoteLinkDAOImpl implements CaseManagementNoteLinkDAO 
      * @param otherId String additional identifier for filtering links
      * @return List&lt;CaseManagementNoteLink&gt; list of note links matching all criteria, ordered by ID descending
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableIdDesc(Integer tableName, Long tableId, String otherId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.tableName = :tableName and cLink.tableId = :tableId and cLink.otherId = :otherId order by cLink.id desc";
@@ -151,7 +147,6 @@ public class CaseManagementNoteLinkDAOImpl implements CaseManagementNoteLinkDAO 
      * @param noteId Long the unique identifier of the case management note
      * @return List&lt;CaseManagementNoteLink&gt; list of note links for the specified note, ordered by ID ascending
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByNote(Long noteId) {
         String hql = "from CaseManagementNoteLink cLink where cLink.noteId = :noteId order by cLink.id";
