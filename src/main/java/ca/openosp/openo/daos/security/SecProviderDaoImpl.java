@@ -161,7 +161,7 @@ public class SecProviderDaoImpl implements SecProviderDao {
     public SecProvider findById(java.lang.String id, String status) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            String sql = "from SecProvider where id=?0 and status=?1";
+            String sql = "from SecProvider where providerNo=?0 and status=?1";
             Query query = getSession().createQuery(sql);
             query.setParameter(0, id);
             query.setParameter(1, status);
