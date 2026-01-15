@@ -310,6 +310,13 @@ public abstract class AbstractQueryHandler {
      *   <li>Adds ranges (replaces range placeholders with values)</li>
      * </ol>
      * <p>
+     * <b>SECURITY WARNING:</b> Callers MUST validate and sanitize all user inputs
+     * (parameters, ranges, and columns) before passing them to this handler.
+     * This method performs placeholder replacement but does not validate the safety
+     * of the input values. Failure to validate inputs may result in SQL injection
+     * vulnerabilities. See OpenO EMR security guidelines for input validation requirements.
+     * </p>
+     * <p>
      * <b>Note:</b> This method is NOT thread-safe. Each thread should use its own
      * instance of the handler.
      * </p>
@@ -345,6 +352,11 @@ public abstract class AbstractQueryHandler {
      * <p>
      * Searches the query string for placeholder patterns matching each parameter ID.
      * The pattern format is: {@code ${ parameter_id }}
+     * </p>
+     * <p>
+     * <b>SECURITY WARNING:</b> Parameter values are inserted directly into the query
+     * via string replacement. Callers MUST validate and sanitize parameter values
+     * before calling this method to prevent SQL injection attacks.
      * </p>
      * 
      * @param parameters the list of parameters to insert
@@ -383,6 +395,11 @@ public abstract class AbstractQueryHandler {
      * Searches the query string for placeholder patterns matching each range ID.
      * Range placeholders are prefixed with either "lowerLimit." or "upperLimit."
      * depending on the range type.
+     * </p>
+     * <p>
+     * <b>SECURITY WARNING:</b> Range values are inserted directly into the query
+     * via string replacement. Callers MUST validate and sanitize range values
+     * before calling this method to prevent SQL injection attacks.
      * </p>
      * 
      * @param ranges the list of ranges to insert
