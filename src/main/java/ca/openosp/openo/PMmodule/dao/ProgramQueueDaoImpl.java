@@ -152,7 +152,13 @@ public class ProgramQueueDaoImpl implements ProgramQueueDao {
             return;
         }
 
-        getSession().saveOrUpdate(programQueue);
+        if (programQueue.getId() == null) {
+            // New entity: use persist to make it managed in the current session
+            getSession().persist(programQueue);
+        } else {
+            // Existing (detached) entity: use merge to update the persistent state
+            getSession().merge(programQueue);
+        }
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramQueue: id=" + programQueue.getId());
