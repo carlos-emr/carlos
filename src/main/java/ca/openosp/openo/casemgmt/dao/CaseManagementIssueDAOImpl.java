@@ -238,6 +238,7 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * 
      * @param issue the case management issue to save or update
      */
+    @Override
     public void saveIssue(CaseManagementIssue issue) {
         issue.setUpdate_date(new Date());
         getSession().saveOrUpdate(issue);
@@ -315,8 +316,9 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
     @Override
     public List<FacilityIdDemographicIssueCompositePk> getIssueIdsForIntegrator(Integer facilityId,
                                                                                 Integer demographicNo) {
-        Query query = getSession().createQuery(
-                "select i.code,i.type from CaseManagementIssue cmi, Issue i where cmi.issue_id = i.id and cmi.demographic_no = :demographicNo");
+        Query<Object[]> query = getSession().createQuery(
+                "select i.code,i.type from CaseManagementIssue cmi, Issue i where cmi.issue_id = i.id and cmi.demographic_no = :demographicNo",
+                Object[].class);
         query.setParameter("demographicNo", demographicNo);
         List<Object[]> rs = query.list();
         List<FacilityIdDemographicIssueCompositePk> results = new ArrayList<FacilityIdDemographicIssueCompositePk>();
