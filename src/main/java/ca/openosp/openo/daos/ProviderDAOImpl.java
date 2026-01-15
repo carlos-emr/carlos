@@ -75,7 +75,7 @@ public class ProviderDAOImpl implements ProviderDAO {
      */
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
-        return getSession().createQuery("from Provider p order by p.lastName").list();
+        return getSession().createQuery("from Provider p order by p.LastName").list();
     }
 
     /**
@@ -90,6 +90,11 @@ public class ProviderDAOImpl implements ProviderDAO {
 
     /**
      * Retrieves a provider by first and last name.
+     * <p>
+     * Note: This method will throw an IndexOutOfBoundsException if no provider 
+     * is found with the given names. This preserves the original behavior from 
+     * the HibernateDaoSupport implementation.
+     * </p>
      * 
      * @param lastName the provider's last name
      * @param firstName the provider's first name
@@ -99,7 +104,7 @@ public class ProviderDAOImpl implements ProviderDAO {
     @SuppressWarnings("unchecked")
     public Provider getProviderByName(String lastName, String firstName) {
         List<Provider> providers = getSession()
-            .createQuery("from Provider p where p.firstName = :firstName and p.lastName = :lastName")
+            .createQuery("from Provider p where p.FirstName = :firstName and p.LastName = :lastName")
             .setParameter("firstName", firstName)
             .setParameter("lastName", lastName)
             .list();
