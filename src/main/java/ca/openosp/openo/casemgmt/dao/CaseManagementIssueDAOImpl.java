@@ -155,7 +155,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      */
     @Override
     public CaseManagementIssue getIssuebyId(String demo, String id) {
-        @SuppressWarnings("unchecked")
         Query<CaseManagementIssue> query = getSession().createQuery(
                 "from CaseManagementIssue cmi where cmi.issue_id = :issueId and demographic_no = :demographicNo",
                 CaseManagementIssue.class);
@@ -177,7 +176,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      */
     @Override
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode) {
-        @SuppressWarnings("unchecked")
         Query<CaseManagementIssue> query = getSession().createQuery(
                 "select cmi from CaseManagementIssue cmi, Issue issue where cmi.issue_id=issue.id and issue.code = :issueCode and cmi.demographic_no = :demographicNo",
                 CaseManagementIssue.class);
@@ -265,7 +263,7 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
     @Override
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs) {
         // Validate that all program IDs are valid integers to prevent SQL injection
-        List<Integer> programIds = new ArrayList<>();
+        List<Integer> programIds = new ArrayList<>(programs.size());
         for (Program p : programs) {
             if (p.getId() == null) {
                 throw new IllegalArgumentException("Program ID cannot be null");
