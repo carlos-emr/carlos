@@ -195,10 +195,10 @@ public class CaseManagementNoteLinkDAOImpl implements CaseManagementNoteLinkDAO 
      * Helper method to retrieve the last element from a list of note links.
      *
      * @param listLink List&lt;CaseManagementNoteLink&gt; the list of note links
-     * @return CaseManagementNoteLink the last element in the list, or null if the list is empty
+     * @return CaseManagementNoteLink the last element in the list, or null if the list is empty or null
      */
     private CaseManagementNoteLink getLast(List<CaseManagementNoteLink> listLink) {
-        if (listLink.isEmpty())
+        if (listLink == null || listLink.isEmpty())
             return null;
         return listLink.get(listLink.size() - 1);
     }
