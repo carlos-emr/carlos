@@ -105,10 +105,10 @@ public class PopulationReportDaoImpl implements PopulationReportDao {
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
     "(a.dischargeDate is null or a.dischargeDate > ?1)";
 
-    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where " +
+    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from ?1 a where " +
     "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > ?1) " +
+    "(a.dischargeDate is null or a.dischargeDate > ?2) " +
     "order by a.clientId, a.admissionDate";
 
     private static final String HQL_GET_MORTALITIES = "select count(distinct a.clientId) from Admission a where " +
@@ -149,7 +149,7 @@ public class PopulationReportDaoImpl implements PopulationReportDao {
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
         Query<?> query = getSession().createQuery(HQL_GET_USAGES);
-        query.setParameter(1, start);
+        query.setParameter(2, start);
         List<?> results = query.list();
         
         for (Object o : results) {
@@ -201,17 +201,39 @@ public class PopulationReportDaoImpl implements PopulationReportDao {
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
-        String queryString = HQL_GET_PREVALENCE + "(:codes)";
-        Query<Long> query = getSession().createQuery(queryString, Long.class);
-        query.setParameterList("codes", icd10Codes);
+
+        StringBuilder queryString = new StringBuilder(HQL_GET_PREVALENCE).append("(");
+
+        for (String icd10Code : icd10Codes) {
+            queryString.append("'").append(icd10Code).append("'");
+
+            if (!icd10Codes.last().equals(icd10Code)) {
+                queryString.append(",");
+            }
+        }
+
+        queryString.append(")");
+
+        Query<Long> query = getSession().createQuery(queryString.toString(), Long.class);
         return query.uniqueResult().intValue();
     }
 
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
-        String queryString = HQL_GET_INCIDENCE + "(:codes)";
-        Query<Long> query = getSession().createQuery(queryString, Long.class);
-        query.setParameterList("codes", icd10Codes);
+
+        StringBuilder queryString = new StringBuilder(HQL_GET_INCIDENCE).append("(");
+
+        for (String icd10Code : icd10Codes) {
+            queryString.append("'").append(icd10Code).append("'");
+
+            if (!icd10Codes.last().equals(icd10Code)) {
+                queryString.append(",");
+            }
+        }
+
+        queryString.append(")");
+
+        Query<Long> query = getSession().createQuery(queryString.toString(), Long.class);
         return query.uniqueResult().intValue();
     }
 
