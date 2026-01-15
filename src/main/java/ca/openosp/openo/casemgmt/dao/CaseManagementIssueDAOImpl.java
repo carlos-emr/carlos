@@ -314,7 +314,7 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
                 Object[].class);
         query.setParameter("demographicNo", demographicNo);
         List<Object[]> rs = query.list();
-        List<FacilityIdDemographicIssueCompositePk> results = new ArrayList<FacilityIdDemographicIssueCompositePk>();
+        List<FacilityIdDemographicIssueCompositePk> results = new ArrayList<>(rs.size());
         for (Object[] item : rs) {
             FacilityIdDemographicIssueCompositePk key = new FacilityIdDemographicIssueCompositePk();
             key.setIntegratorFacilityId(facilityId);
