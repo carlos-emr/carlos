@@ -32,9 +32,9 @@ import java.util.List;
 
 import ca.openosp.openo.PMmodule.model.ProgramClientRestriction;
 import ca.openosp.openo.commn.dao.DemographicDao;
-import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Required;
 
