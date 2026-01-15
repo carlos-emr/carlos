@@ -109,11 +109,11 @@ public interface MessengerDemographicManager {
     /**
      * ONLY FOR USE WITH DEMOGRAPHICS THAT ARE REMOTELY ATTACHED TO A MESSAGE - INTEGRATOR ONLY.
      *
-     * @param loggedInInfo
-     * @param messageId
-     * @param demographicNo
-     * @param facilityId
-     * @return
+     * @param loggedInInfo the logged in user information
+     * @param messageId the message ID
+     * @param demographicNo the demographic number
+     * @param sourceFacilityId the source facility ID
+     * @return the attached demographic mapping ID
      */
     public Integer attachIntegratedDemographicToMessage(LoggedInInfo loggedInInfo, int messageId, int demographicNo, int sourceFacilityId);
 
@@ -153,13 +153,12 @@ public interface MessengerDemographicManager {
     public Long[] attachDemographicToMessage(LoggedInInfo loggedInInfo, int messageId, Integer[] demographicNoArray);
 
     /**
-     * Attach a demographic number to the give message id.
+     * Attach a demographic number to the given message id.
      *
-     * @param loggedInInfo
-     * @param messageId
-     * @param demographicNo
-     * @param sourceFacilityId
-     * @return
+     * @param loggedInInfo the logged in user information
+     * @param messageId the message ID
+     * @param demographicNo the demographic number
+     * @return the message demographic mapping ID
      */
     public Long attachDemographicToMessage(LoggedInInfo loggedInInfo, int messageId, int demographicNo);
 

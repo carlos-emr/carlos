@@ -25,7 +25,7 @@
     <%@ page import="ca.openosp.OscarProperties"%>
     <%@ page import="org.springframework.web.util.JavaScriptUtils"%>
 
-    <%@ page contentType="text/javascript"%>
+    <%@ page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
 
     <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 

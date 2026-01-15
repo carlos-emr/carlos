@@ -65,6 +65,7 @@ import ca.openosp.openo.managers.ProgramManager2;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SessionConstants;
 import ca.openosp.openo.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -261,14 +262,12 @@ public class AddEditDocument2Action extends ActionSupport {
 
             // save local file
             File file = writeLocalFile(Files.newInputStream(docFile.toPath()), fileName2);
+            newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase().endsWith(".pdf")) {
                 newDoc.setContentType("application/pdf");
                 int numberOfPages = countNumOfPages(fileName2);
                 newDoc.setNumberOfPages(numberOfPages);
-            } else {
-                int dotIndex = fileName2.lastIndexOf('.');
-                newDoc.setContentType(fileName2.substring(dotIndex + 1));
             }
 
 
@@ -475,17 +474,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         FileOutputStream fos = null;
         File file = null;
         try {
-            // Get the base directory from properties
+            // Validate file path using PathValidationUtils
             String docDir = OscarProperties.getInstance().getDocumentDirectory();
-            Path baseDir = Paths.get(docDir).normalize().toAbsolutePath();
-
-            // Resolve the full path
-            Path savePath = baseDir.resolve(fileName).normalize();
-
-            // Verify the path is still inside the base directory
-            if (!savePath.startsWith(baseDir)) {
-                throw new SecurityException("Path is no longer in the base directory");
-            }
+            File baseDirFile = new File(docDir);
+            File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
+            Path savePath = validatedFile.toPath();
 
             // Create the parent directory
             Files.createDirectories(savePath.getParent());

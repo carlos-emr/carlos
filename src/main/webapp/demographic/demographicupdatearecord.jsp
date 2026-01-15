@@ -42,7 +42,7 @@
 <%@ page
         import="java.sql.*, java.util.*, ca.openosp.MyDateFormat, ca.openosp.openo.waitinglist.util.WLWaitingListUtil, ca.openosp.openo.log.*, ca.openosp.openo.commn.OtherIdManager" %>
 
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 
@@ -392,7 +392,7 @@
 
         %>
 
-        <form name="add2WLFrm" action="../oscarWaitingList/Add2WaitingList.jsp">
+        <form name="add2WLFrm" action="<%= request.getContextPath() %>/oscarWaitingList/Add2WaitingList.jsp">
             <input type="hidden" name="listId" value="<%=request.getParameter("list_id")%>"/>
             <input type="hidden" name="demographicNo" value="<%=request.getParameter("demographic_no")%>"/>
             <input type="hidden" name="demographic_no" value="<%=request.getParameter("demographic_no")%>"/>
@@ -417,7 +417,7 @@
             <script language="JavaScript">
                 var add2List = confirm("The patient already has an appointment, do you still want to add him/her to the waiting list?");
                 if (add2List) {
-                    document.add2WLFrm.action = "../oscarWaitingList/Add2WaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listId=<%=request.getParameter("list_id")%>&waitingListNote=<%=request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note")%>&onListSince=<%=request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date")%>";
+                    document.add2WLFrm.action = "<%= request.getContextPath() %>/oscarWaitingList/Add2WaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listId=<%=request.getParameter("list_id")%>&waitingListNote=<%=request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note")%>&onListSince=<%=request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date")%>";
                 } else {
                     document.add2WLFrm.action = "demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=edit&dboperation=search_detail";
                 }
@@ -427,7 +427,7 @@
             } else {
             %>
             <script language="JavaScript">
-                document.add2WLFrm.action = "../oscarWaitingList/Add2WaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listId=<%=request.getParameter("list_id")%>&waitingListNote=<%=request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note")%>&onListSince=<%=request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date")%>";
+                document.add2WLFrm.action = "<%= request.getContextPath() %>/oscarWaitingList/Add2WaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listId=<%=request.getParameter("list_id")%>&waitingListNote=<%=request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note")%>&onListSince=<%=request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date")%>";
                 document.add2WLFrm.submit();
             </script>
             <%

@@ -33,7 +33,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.BooleanUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import ca.openosp.openo.commn.dao.UserPropertyDAO;
 import ca.openosp.openo.commn.model.UserProperty;
 import ca.openosp.openo.managers.SecurityInfoManager;

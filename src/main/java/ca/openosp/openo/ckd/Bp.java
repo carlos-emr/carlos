@@ -44,7 +44,7 @@ public interface Bp extends XmlObject
      * Gets the systolic blood pressure target value.
      *
      * Systolic pressure represents the pressure in arteries when the heart beats.
-     * For CKD patients, typical target is <130 mmHg, though this may vary based on
+     * For CKD patients, typical target is &lt;130 mmHg, though this may vary based on
      * individual patient factors and comorbidities.
      *
      * @return String representation of the systolic BP target in mmHg, or null if not set
@@ -88,7 +88,7 @@ public interface Bp extends XmlObject
      * Gets the diastolic blood pressure target value.
      *
      * Diastolic pressure represents the pressure in arteries between heartbeats.
-     * For CKD patients, typical target is <80 mmHg. Proper diastolic control is
+     * For CKD patients, typical target is &lt;80 mmHg. Proper diastolic control is
      * essential for preventing further kidney damage and cardiovascular complications.
      *
      * @return String representation of the diastolic BP target in mmHg, or null if not set

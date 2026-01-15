@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -162,9 +162,9 @@
                     <tr>
                         <td>
                             <%
-                                String sBack = "ShowAllergies.jsp";
+                                String sBack = request.getContextPath() + "/oscarRx/ShowAllergies.jsp";
                             %> <input type=button class="ControlPushButton"
-                                      onclick="javascript:window.location.href='oscarRx/<%=sBack%>';"
+                                      onclick="javascript:window.location.href='<%=sBack%>';"
                                       value="Back to View Allergies"/></td>
                     </tr>
                     <!----End new rows here-->

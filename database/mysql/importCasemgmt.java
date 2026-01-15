@@ -129,7 +129,7 @@ public class importCasemgmt {
                         }
                         
                         rs.close();
-                        sql = "select provider_no, role_name from secUserRole where provider_no in (select provider_no from providers) ";
+                        sql = "select provider_no, role_name from secUserRole where provider_no in (select provider_no from provider) ";
                         if( secObjs.size() > 0 )
                             sql += "and ";
                         

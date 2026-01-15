@@ -1,9 +1,11 @@
 //CHECKSTYLE:OFF
 package ca.openosp.openo.documentManager.actions;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.eform.EFormUtil;
 import ca.openosp.openo.encounter.data.EctFormData;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.OscarProperties;
@@ -17,6 +19,7 @@ import ca.openosp.openo.hospitalReportManager.HRMUtil;
 import ca.openosp.openo.managers.FormsManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.PDFGenerationException;
 import ca.openosp.openo.utility.SpringUtils;
 
@@ -46,12 +49,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
-
-    private List<EDoc> allDocuments = new ArrayList<>();
-    private List<EFormData> allEForms = new ArrayList<>();
-    private ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = new ArrayList<>();
-    private List<AttachmentLabResultData> allLabsSortedByVersions = new ArrayList<>();
-    private List<EctFormData.PatientForm> allForms = new ArrayList<>();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         String method = request.getParameter("method");
@@ -171,14 +169,19 @@ public class DocumentPreview2Action extends ActionSupport {
                 OscarProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
                 System.getProperty("java.io.tmpdir")
             };
-            
+
             boolean isValidPath = false;
             for (String basePath : allowedBasePaths) {
                 if (basePath != null && !basePath.isEmpty()) {
-                    Path baseCanonicalPath = Paths.get(basePath).toRealPath();
-                    if (canonicalPdfPath.startsWith(baseCanonicalPath)) {
-                        isValidPath = true;
-                        break;
+                    java.io.File baseDir = new java.io.File(basePath);
+                    if (baseDir.exists()) {
+                        try {
+                            PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir);
+                            isValidPath = true;
+                            break;
+                        } catch (SecurityException e) {
+                            // File not in this directory, try next
+                        }
                     }
                 }
             }
@@ -220,13 +223,11 @@ public class DocumentPreview2Action extends ActionSupport {
 
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
 
-        allDocuments = EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE);
-        allEForms = EFormUtil.listPatientEformsCurrent(Integer.valueOf(demographicNo), true);
-        allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false);
-        allLabsSortedByVersions = documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo);
-        allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicNo), false, true);
+        populateCommonDocs(loggedInInfo, demographicNo);
+		List<EFormData> allEForms = EFormUtil.listPatientEformsCurrent(Integer.valueOf(demographicNo), true);
+        request.setAttribute("allEForms", allEForms);
 
-        return forwardDocuments();
+        return "fetchDocuments";
     }
 
     public String fetchEFormDocuments() {
@@ -235,17 +236,15 @@ public class DocumentPreview2Action extends ActionSupport {
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
 
-        allDocuments = EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE);
-        allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, Integer.parseInt(demographicNo), Integer.parseInt(fdid));
-        allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false);
-        allLabsSortedByVersions = documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo);
-        allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicNo), false, true);
+        populateCommonDocs(loggedInInfo, demographicNo);
+		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, Integer.parseInt(demographicNo), Integer.parseInt(fdid));
+		request.setAttribute("allEForms", allEForms);
 
-        return forwardDocuments();
+        return "fetchDocuments";
     }
 
     private void generateResponse(HttpServletResponse response, Path pdfPath) throws PDFGenerationException {
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
         json.put("base64Data", base64Data);
         response.setContentType("text/javascript");
@@ -257,7 +256,7 @@ public class DocumentPreview2Action extends ActionSupport {
     }
 
     private void generateResponse(HttpServletResponse response, String errorMessage) {
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);
         response.setContentType("text/javascript");
         try {
@@ -267,12 +266,20 @@ public class DocumentPreview2Action extends ActionSupport {
         }
     }
 
-    private String forwardDocuments() {
+    /**
+     * Populate common documents like EDocs, Labs, Forms, HRM documents
+     * @param loggedInInfo Information about the logged-in user
+     * @param demographicNo Demographic number of the patient
+     */
+    private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo) {
+        List<EDoc> allDocuments = EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE);
+        ArrayList<HashMap<String,? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo,false);
+        List<AttachmentLabResultData> allLabsSortedByVersions = documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo);
+        List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicNo), false, true);
+
         request.setAttribute("allDocuments", allDocuments);
-        request.setAttribute("allLabsSortedByVersions", allLabsSortedByVersions);
-        request.setAttribute("allForms", allForms);
-        request.setAttribute("allEForms", allEForms);
         request.setAttribute("allHRMDocuments", allHRMDocuments);
-        return "fetchDocuments";
+		request.setAttribute("allLabsSortedByVersions", allLabsSortedByVersions);
+		request.setAttribute("allForms", allForms);
     }
 }

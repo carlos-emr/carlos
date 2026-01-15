@@ -203,7 +203,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='oscarRx/SearchDrug3.jsp';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp';"/>
                             </div>
                         </td>
                     </tr>
@@ -387,7 +387,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='oscarRx/SearchDrug3.jsp';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp';"/>
                             </div>
                         </td>
                     </tr>

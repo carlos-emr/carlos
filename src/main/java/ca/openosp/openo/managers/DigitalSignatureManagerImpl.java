@@ -28,6 +28,7 @@ import ca.openosp.openo.commn.model.enumerator.ModuleType;
 import ca.openosp.openo.utility.DigitalSignatureUtils;
 import ca.openosp.openo.utility.EncryptionUtils;
 import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,13 +114,9 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         }
 
         try {
-            Path baseDir = Paths.get("/safe/signatures").toAbsolutePath().normalize();
-            Path filePath = baseDir.resolve(filename).normalize();
-
-            if (!filePath.startsWith(baseDir)) {
-                logger.warn("Attempted access to file outside of signature directory: " + filename);
-                throw new SecurityException("Invalid file path");
-            }
+            java.io.File baseDirFile = new java.io.File(System.getProperty("java.io.tmpdir"));
+            java.io.File validatedFile = PathValidationUtils.validatePath(filename, baseDirFile);
+            Path filePath = validatedFile.toPath();
 
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
                 logger.debug("Signature file not found or not a regular file: " + filePath);

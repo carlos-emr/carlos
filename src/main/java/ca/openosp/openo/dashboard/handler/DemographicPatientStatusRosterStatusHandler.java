@@ -31,16 +31,16 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONArray;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import ca.openosp.openo.commn.model.Demographic;
 import ca.openosp.openo.commn.dao.DemographicDao;
 import ca.openosp.openo.commn.dao.DemographicArchiveDao;
-//import org.oscarehr.commons.model.DemographicArchive;
 import ca.openosp.openo.commn.dao.DemographicExtDao;
 import ca.openosp.openo.commn.dao.DemographicExtArchiveDao;
-//import org.oscarehr.commons.model.DemographicExt;
-//import org.oscarehr.commons.model.DemographicExtArchive;
 import ca.openosp.openo.utility.LoggedInInfo;
 
 public class DemographicPatientStatusRosterStatusHandler {
@@ -52,7 +52,10 @@ public class DemographicPatientStatusRosterStatusHandler {
     DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
     DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
 
-    public Boolean setPatientStatusInactiveJson(String jsonString) {
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public Boolean setPatientStatusInactiveJson(String jsonString) throws JsonParseException, JsonMappingException, Exception {
         Boolean result = false;
         if (jsonString == null || jsonString.isEmpty()) return false;
         String providerNo = getProviderNo();
@@ -64,10 +67,10 @@ public class DemographicPatientStatusRosterStatusHandler {
         if (!jsonString.endsWith("]")) {
             jsonString = jsonString + "]";
         }
-        JSONArray jsonArray = JSONArray.fromObject(jsonString);
+        ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
         Integer arraySize = jsonArray.size();
         for (int i = 0; i < arraySize; i++) {
-            result = setPatientStatusInactive(jsonArray.getString(i));
+            result = setPatientStatusInactive(jsonArray.get(i).asText());
             if (!result) return false;
         }
         return true;

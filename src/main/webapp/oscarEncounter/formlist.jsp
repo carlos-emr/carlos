@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -129,7 +129,6 @@
                 for (int j = 0; j < forms.length; j++) {
                     EctFormData.Form frm = forms[j];
                     String table = frm.getFormTable();
-                    table = org.apache.commons.lang.StringEscapeUtils.escapeSql(table);
 
                     EctFormData.PatientForm[] pforms;
                     if (table.length() == 0) {

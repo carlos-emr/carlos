@@ -137,6 +137,8 @@ public class LabResultData implements Comparable<LabResultData> {
     }
 
     public boolean isAbnormal() {
+        // For documents, the abn field is pre-set when loading data from the database
+        // For labs, we calculate abnormal status on-demand based on lab type.
         if (EXCELLERIS.equals(this.labType)) {
             //logger.debug("excelleris is doc type");
             PathnetResultsData prd = new PathnetResultsData();
@@ -151,6 +153,7 @@ public class LabResultData implements Comparable<LabResultData> {
                 this.abn = true;
             }
         }
+        // For DOCUMENT type, abn is already set from Document.abnormal field
 
         return abn;
 

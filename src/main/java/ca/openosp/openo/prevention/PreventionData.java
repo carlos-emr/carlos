@@ -31,8 +31,8 @@ import javax.annotation.Nonnull;
 
 import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.commn.model.Prevention;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.caisi_integrator.IntegratorFallBackManager;

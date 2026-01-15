@@ -29,7 +29,7 @@
 <%@page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.managers.CodingSystemManager" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
 <%@page import="ca.openosp.openo.casemgmt.model.Issue" %>
 <%@page import="ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
@@ -60,7 +60,7 @@
         <p class="PropSheetLevel1CurrentItem<%=alle%>">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgAllergies"/>
             <a href="javascript:void(0);" name="cmdAllergies"
-               onclick="javascript:window.location.href='oscarRx/ShowAllergies2.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
+               onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies2.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
                style="width: 200px">+</a>
         </p>
         <p class="PropSheetMenuItemLevel1">
@@ -99,7 +99,7 @@
 
                 if (codeDescr != null) {
         %>
-        <p class="PropSheetMenuItemLevel1"><%=StringEscapeUtils.escapeHtml(codeDescr)%>
+        <p class="PropSheetMenuItemLevel1"><%=StringEscapeUtils.escapeHtml4(codeDescr)%>
         </p>
         <%
                 }
@@ -122,7 +122,7 @@
                 if (!note.isLocked() && !note.isArchived()) {
 
         %>
-        <p class="PropSheetMenuItemLevel1"><%=StringEscapeUtils.escapeHtml(note.getNote()) %>
+        <p class="PropSheetMenuItemLevel1"><%=StringEscapeUtils.escapeHtml4(note.getNote()) %>
         </p>
         <%
                 }

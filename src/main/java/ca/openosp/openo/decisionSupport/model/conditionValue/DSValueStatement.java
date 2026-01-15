@@ -28,7 +28,7 @@ package ca.openosp.openo.decisionSupport.model.conditionValue;
 
 import java.util.ArrayList;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.decisionSupport.model.DecisionSupportException;
 
 /**

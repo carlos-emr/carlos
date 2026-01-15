@@ -35,10 +35,6 @@
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.selectProvider.title"/></title>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/effects.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/controls.js"></script>
-
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/connection-min.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/animation-min.js"></script>
@@ -55,23 +51,25 @@
         var fwdProviders = "";
         var fwdFavorites = "";
 
+        var fwdProvidersEl = document.getElementById("fwdProviders");
+        var favoritesEl = document.getElementById("favorites");
 
-        for (i = 0; i < $("fwdProviders").options.length; i++) {
-
-            if (fwdProviders != "") {
-                fwdProviders = fwdProviders + ",";
+        if (fwdProvidersEl) {
+            for (i = 0; i < fwdProvidersEl.options.length; i++) {
+                if (fwdProviders != "") {
+                    fwdProviders = fwdProviders + ",";
+                }
+                fwdProviders = fwdProviders + fwdProvidersEl.options[i].value;
             }
-
-            fwdProviders = fwdProviders + $("fwdProviders").options[i].value;
         }
 
-        for (i = 0; i < $("favorites").options.length; i++) {
-
-            if (fwdFavorites != "") {
-                fwdFavorites = fwdFavorites + ",";
+        if (favoritesEl) {
+            for (i = 0; i < favoritesEl.options.length; i++) {
+                if (fwdFavorites != "") {
+                    fwdFavorites = fwdFavorites + ",";
+                }
+                fwdFavorites = fwdFavorites + favoritesEl.options[i].value;
             }
-
-            fwdFavorites = fwdFavorites + $("favorites").options[i].value;
         }
 
         var isListView = <%=request.getParameter("isListView")%>;
@@ -81,18 +79,26 @@
 
         if (docId != "null" && labDisplay == "null") {
             frm += "_" + docId;
-            self.opener.document.forms[frm].selectedProviders.value = fwdProviders;
-            self.opener.document.forms[frm].favorites.value = fwdFavorites;
+            var form = self.opener.document.forms[frm];
+            if (form) {
+                if (form.selectedProviders) form.selectedProviders.value = fwdProviders;
+                if (form.favorites) form.favorites.value = fwdFavorites;
+            }
             self.opener.forwardDocument(docId);
             self.close();
         } else if (isListView != "null" && isListView == true) {
-            // self.opener.document.forms[frm].selectedProviders.value = fwdProviders;
-            forwardLabs(document.getElementById("forwardList").value, fwdProviders);
+            var forwardListEl = document.getElementById("forwardList");
+            if (forwardListEl) {
+                forwardLabs(forwardListEl.value, fwdProviders);
+            }
         } else {
             frm += "_" + docId;
-            self.opener.document.forms[frm].selectedProviders.value = fwdProviders;
-            self.opener.document.forms[frm].favorites.value = fwdFavorites;
-            self.opener.document.forms[frm].submit();
+            var form = self.opener.document.forms[frm];
+            if (form) {
+                if (form.selectedProviders) form.selectedProviders.value = fwdProviders;
+                if (form.favorites) form.favorites.value = fwdFavorites;
+                form.submit();
+            }
             self.close();
         }
 
@@ -177,21 +183,24 @@
         oAC.queryMatchContains = true;
 
         oAC.itemSelectEvent.subscribe(function (type, args) {
-            $("autocompleteprov").value = "";
+            var autocompleteEl = document.getElementById("autocompleteprov");
+            if (autocompleteEl) autocompleteEl.value = "";
             var name = args[2][2] + ", " + args[2][1];
             var id = args[2][0];
 
-            var selectObj = $("fwdProviders");
-            var option = document.createElement("option");
-            option.text = name;
-            option.value = id;
-            option.id = id;
+            var selectObj = document.getElementById("fwdProviders");
+            if (selectObj) {
+                var option = document.createElement("option");
+                option.text = name;
+                option.value = id;
+                option.id = id;
 
-            try {
-                // for IE earlier than version 8
-                selectObj.add(option, selectObj.options[null]);
-            } catch (e) {
-                selectObj.add(option, null);
+                try {
+                    // for IE earlier than version 8
+                    selectObj.add(option, selectObj.options[null]);
+                } catch (e) {
+                    selectObj.add(option, null);
+                }
             }
 
         });
@@ -203,15 +212,20 @@
         };
     }();
 
-    $("autocompleteprov").focus();
+    var autocompleteprovEl = document.getElementById("autocompleteprov");
+    if (autocompleteprovEl) autocompleteprovEl.focus();
 
     function removeProvider(selectObj) {
         selectObj.remove(selectObj.selectedIndex);
     }
 
     function copyProvider(to, from) {
-        var fromOptions = $(from).options;
-        var toOptions = $(to).options;
+        var fromEl = document.getElementById(from);
+        var toEl = document.getElementById(to);
+        if (!fromEl || !toEl) return;
+
+        var fromOptions = fromEl.options;
+        var toOptions = toEl.options;
 
         for (var idx = 0; idx < fromOptions.length; ++idx) {
             if (fromOptions[idx].selected && toOptions.namedItem(fromOptions[idx].id) == null) {
@@ -224,9 +238,9 @@
                 option.id = fromOptions[idx].id;
                 try {
                     // for IE earlier than version 8
-                    $(to).add(option, $(to).options[null]);
+                    toEl.add(option, toEl.options[null]);
                 } catch (e) {
-                    $(to).add(option, null);
+                    toEl.add(option, null);
                 }
             }
         }

@@ -27,6 +27,7 @@
 
 package ca.openosp.openo.casemgmt.dao;
 
+import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -51,6 +52,9 @@ import org.hibernate.Session;
 import org.hibernate.criterion.Expression;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
+import org.hibernate.query.NativeQuery;
+import org.hibernate.query.Query;
+
 import ca.openosp.openo.PMmodule.model.Program;
 import ca.openosp.openo.casemgmt.model.CaseManagementNote;
 import ca.openosp.openo.casemgmt.model.CaseManagementSearchBean;
@@ -518,7 +522,9 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             UUID uuid = UUID.randomUUID();
             note.setUuid(uuid.toString());
         }
-        note.setUpdate_date(new Date());
+        if (note.getUpdate_date() == null) {
+            note.setUpdate_date(new Date());
+        }
         this.getHibernateTemplate().save(note);
         this.getHibernateTemplate().flush();
     }
@@ -530,7 +536,9 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             UUID uuid = UUID.randomUUID();
             note.setUuid(uuid.toString());
         }
-        note.setUpdate_date(new Date());
+        if (note.getUpdate_date() == null) {
+            note.setUpdate_date(new Date());
+        }
         return this.getHibernateTemplate().save(note);
     }
 
@@ -633,78 +641,64 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
     @Override
     public int getNoteCountForProviderForDateRange(String providerNo, Date startDate, Date endDate) {
-        int ret = 0;
-
-        Connection c = null;
         try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
-            String sqlCommand = "select count(distinct uuid) from casemgmt_note where provider_no = ?1 and observation_date >= ?2 and observation_date <= ?3";
-            try (PreparedStatement ps = c.prepareStatement(sqlCommand)) {
-                ps.setString(1, providerNo);
-                ps.setTimestamp(2, new Timestamp(startDate.getTime()));
-                ps.setTimestamp(3, new Timestamp(endDate.getTime()));
+            Session session = currentSession();
+            String sqlCommand = "select count(distinct uuid) from casemgmt_note where provider_no = :providerNo and observation_date >= :startDate and observation_date <= :endDate";
 
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        ret = rs.getInt(1);
-                    }
-                }
-            }
+            @SuppressWarnings("unchecked")
+            NativeQuery<BigInteger> query = session.createNativeQuery(sqlCommand);
+            query.setParameter("providerNo", providerNo);
+            query.setParameter("startDate", new Timestamp(startDate.getTime()));
+            query.setParameter("endDate", new Timestamp(endDate.getTime()));
+
+            BigInteger result = query.uniqueResult();
+            return result != null ? result.intValue() : 0;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            return 0;
         }
-        return ret;
     }
 
     @Override
     public int getNoteCountForProviderForDateRangeWithIssueId(String providerNo, Date startDate, Date endDate,
                                                               String issueCode) {
-        int ret = 0;
-
-        Connection c = null;
         try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
+            Session session = currentSession();
 
             // Step 1: Get issue_id from issue code
-            String getIssueIdSql = "SELECT issue_id FROM issue WHERE code = ?";
+            String getIssueIdSql = "SELECT issue_id FROM issue WHERE code = :issueCode";
             log.debug(getIssueIdSql);
 
-            String issueId = null;
-            try (PreparedStatement ps1 = c.prepareStatement(getIssueIdSql)) {
-                ps1.setString(1, issueCode);
-            
-                try (ResultSet rs1 = ps1.executeQuery()) {
-                    if (rs1.next()) {
-                        issueId = rs1.getString("issue_id");
-                    } else {
-                        log.debug("Could not find issueCode: " + issueCode);
-                        return 0;
-                    }
-                }
+            @SuppressWarnings("unchecked")
+            NativeQuery<Integer> issueQuery = session.createNativeQuery(getIssueIdSql);
+            issueQuery.setParameter("issueCode", issueCode);
+
+            Integer issueId = issueQuery.uniqueResult();
+            if (issueId == null) {
+                log.debug("Could not find issueCode: " + issueCode);
+                return 0;
             }
 
             log.debug("issue Code " + issueCode + " id :" + issueId);
 
-            String sqlCommand = "select count(distinct uuid) from casemgmt_issue c, casemgmt_issue_notes cin, casemgmt_note cn where c.issue_id = ? and c.id = cin.id and cin.note_id = cn.note_id and cn.provider_no = ?  and observation_date >= ? and observation_date <= ?";
-            
+            // Step 2: Count notes with the issue_id
+            String sqlCommand = "select count(distinct uuid) from casemgmt_issue c, casemgmt_issue_notes cin, casemgmt_note cn where c.issue_id = :issueId and c.id = cin.id and cin.note_id = cn.note_id and cn.provider_no = :providerNo and observation_date >= :startDate and observation_date <= :endDate";
             log.debug(sqlCommand);
 
-            try (PreparedStatement ps2 = c.prepareStatement(sqlCommand)) {
-                ps2.setString(1, issueId);
-                ps2.setString(2, providerNo);
-                ps2.setTimestamp(3, new Timestamp(startDate.getTime()));
-                ps2.setTimestamp(4, new Timestamp(endDate.getTime()));
-                
-                try (ResultSet rs2 = ps2.executeQuery()) {
-                    if (rs2.next()) {
-                        return rs2.getInt(1);
-                    }
-                }
-            }
+            @SuppressWarnings("unchecked")
+            NativeQuery<BigInteger> countQuery = session.createNativeQuery(sqlCommand);
+            countQuery.setParameter("issueId", issueId);
+            countQuery.setParameter("providerNo", providerNo);
+            countQuery.setParameter("startDate", new Timestamp(startDate.getTime()));
+            countQuery.setParameter("endDate", new Timestamp(endDate.getTime()));
+
+            BigInteger result = countQuery.uniqueResult();
+            int finalCount = result != null ? result.intValue() : 0;
+            return finalCount;
         } catch (Exception e) {
             log.error("Error counting notes for issue :" + issueCode, e);
+            return 0;
         }
-        return ret;
     }
 
     // used by decision support to search through the notes for a string

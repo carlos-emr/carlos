@@ -13,8 +13,8 @@ import org.apache.wss4j.dom.engine.WSSecurityEngineResult;
  * <p/>
  * 
  * By default CXF requires identical actions to be configured on In and Out
- * interceptors. Otherwise, it triggers #{@link org.apache.ws.security.WSSecurityException}. 
- * In MCEDT case, actions can not be identical, as there is SOAP request must not be encrypted, 
+ * interceptors. Otherwise, it triggers a WSSecurityException.
+ * In MCEDT case, actions can not be identical, as there is SOAP request must not be encrypted,
  * but SOAP response comes back in an encrypted form. To allow for that,
  * {@link #checkReceiverResultsAnyOrder(List, List)} is overridden to accept all
  * results.
@@ -49,12 +49,10 @@ public class WSS4JInNonValidatingActionInterceptor extends WSS4JInInterceptor {
 	
 	/**
 	 * Overrides parent method to allow all results.
-	 * 
-	 * @return
-	 * 		Returns true for all parameters.
-	 * 
-	 * @see org.apache.ws.security.handler.WSHandler#checkReceiverResultsAnyOrder(java.util.List,
-	 *      java.util.List)
+	 *
+	 * @param wsResult the list of security engine results
+	 * @param actions the list of expected actions
+	 * @return Returns true for all parameters.
 	 */
 	@Override
 	protected boolean checkReceiverResultsAnyOrder(

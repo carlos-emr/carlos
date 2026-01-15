@@ -34,7 +34,7 @@
 %>
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect("../../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
     <%authed = false; %>
 </security:oscarSec>
 <%

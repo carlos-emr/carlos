@@ -17,7 +17,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page
         import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*, ca.openosp.openo.appt.*, ca.openosp.openo.commn.dao.AppointmentTypeDao, ca.openosp.openo.commn.model.AppointmentType, ca.openosp.openo.utility.SpringUtils" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
@@ -41,7 +41,7 @@
         loc = loc + '<%= types.get(j).getLocation() %>' + ',';
         notes = notes + '<%= types.get(j).getNotes() %>' + ',';
         resources = resources + '<%= types.get(j).getResources() %>' + ',';
-        names = names + '<%=StringEscapeUtils.escapeJavaScript(types.get(j).getName()) %>' + ',';
+        names = names + '<%=StringEscapeUtils.escapeEcmaScript(types.get(j).getName()) %>' + ',';
         <%   } %>
         var durArray = dur.split(",");
         var reasonArray = reason.split(",");

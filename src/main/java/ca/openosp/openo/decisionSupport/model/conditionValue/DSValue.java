@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.decisionSupport.model.DecisionSupportException;
 import ca.openosp.openo.utility.MiscUtils;
@@ -65,7 +65,7 @@ import ca.openosp.openo.utility.MiscUtils;
  * @since 2009-07-06
  * @see DSValueStatement for numeric comparison values
  * @see DSValueString for string literal values
- * @see DSCondition for condition evaluation using values
+ * @see DSValueStatement for condition evaluation using values
  */
 public abstract class DSValue {
     private static final Logger _log = MiscUtils.getLogger();
@@ -143,7 +143,7 @@ public abstract class DSValue {
      * <ul>
      * <li>Simple comma-separated values: "icd9:250,icd9:401"</li>
      * <li>Quoted string values: "'diabetes mellitus','hypertension'"</li>
-     * <li>Range expressions: "18 y - 65 y" (creates >=18 y and <=65 y)</li>
+     * <li>Range expressions: "18 y - 65 y" (creates &gt;=18 y and &lt;=65 y)</li>
      * <li>Mixed expressions: "icd9:250,>=18 y,'diabetes'"</li>
      * </ul>
      *
@@ -206,7 +206,7 @@ public abstract class DSValue {
      * <li>"icd9:250" - Medical code with type</li>
      * <li>">=18 y" - Numeric comparison with unit</li>
      * <li>"'diabetes'" - Quoted string literal</li>
-     * <li>"<=140 mmHg" - Measurement with operator and unit</li>
+     * <li>"&lt;=140 mmHg" - Measurement with operator and unit</li>
      * <li>"F" - Simple string value</li>
      * </ul>
      * <p>

@@ -26,6 +26,7 @@
 
 <%@page import="java.util.List" %>
 <%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <% String errorMessage = request.getParameter("errorMessage"); %>
 

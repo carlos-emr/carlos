@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,7 @@
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo
@@ -91,28 +91,6 @@
                         listReports();
 
                         $("#btnAdd").bind('click', function () {
-                            /*
-                            var e = {
-                                name : 'testing',
-                                eformId : 3,
-                                expiryDate : new Date(),
-                                providerNo : '999998'
-                            };
-                            $.ajax({
-                                url : '../../webserv/rs/reporting/eformReportTool/add',
-                                type : 'POST',
-                                data : JSON.stringify(e),
-                                contentType : "application/json; charset=utf-8",
-                                dataType : 'json',
-                                success : function(data) {
-                                    //	alert(data);
-                                    listReports();
-                                },
-                                error : function(data) {
-                                    alert('error:' + data);
-                                }
-                            });
-                             */
                             fetchEFormsAndOpenDialog();
 
                         });
@@ -149,25 +127,19 @@
                                                         "#eformExpiryDate")
                                                         .val();
                                                 }
-                                                //alert(JSON.stringify(e));
 
-                                                $
-                                                    .ajax({
-                                                        url: '../../ws/rs/reporting/eformReportTool/add',
+                                                $.ajax({
+                                                        url: '${pageContext.request.contextPath}/ws/rs/reporting/eformReportTool/add',
                                                         type: 'POST',
                                                         data: JSON
                                                             .stringify(e),
                                                         contentType: "application/json; charset=utf-8",
                                                         dataType: 'json',
-                                                        success: function (
-                                                            data) {
-                                                            //	alert(data);
+                                                        success: function (data) {
                                                             listReports();
                                                         },
-                                                        error: function (
-                                                            data) {
-                                                            alert('error:'
-                                                                + data);
+                                                        error: function (xhr, status, error) {
+                                                            alert('Error: ' + error + '\nHTTP Status: ' + xhr.status);
                                                         }
                                                     });
 
@@ -192,7 +164,7 @@
                     });
 
             function fetchEFormsAndOpenDialog() {
-                jQuery.getJSON("../../ws/rs/forms/allEForms", {}, function (xml) {
+                jQuery.getJSON("${pageContext.request.contextPath}/ws/rs/forms/allEForms", {}, function (xml) {
                     $("#eformReportToolEformId option").remove();
                     //alert(JSON.stringify(xml));
                     if (xml.content) {
@@ -212,7 +184,7 @@
                     id: eftId
                 };
                 $.ajax({
-                    url: '../../ws/rs/reporting/eformReportTool/populate',
+                    url: '${pageContext.request.contextPath}/ws/rs/reporting/eformReportTool/populate',
                     type: 'POST',
                     data: JSON.stringify(e),
                     contentType: "application/json; charset=utf-8",
@@ -220,8 +192,8 @@
                     success: function (data) {
                         listReports();
                     },
-                    error: function (data) {
-                        alert('error:' + data);
+                    error: function (xhr, status, error) {
+                        alert('Error: ' + error + '\nHTTP Status: ' + xhr.status);
                     }
                 });
             }
@@ -231,7 +203,7 @@
                     id: eftId
                 };
                 $.ajax({
-                    url: '../../ws/rs/reporting/eformReportTool/markLatest',
+                    url: '${pageContext.request.contextPath}/ws/rs/reporting/eformReportTool/markLatest',
                     type: 'POST',
                     data: JSON.stringify(e),
                     contentType: "application/json; charset=utf-8",
@@ -239,8 +211,8 @@
                     success: function (data) {
                         listReports();
                     },
-                    error: function (data) {
-                        alert('error:' + data);
+                    error: function (xhr, status, error) {
+                        alert('Error: ' + error + '\nHTTP Status: ' + xhr.status);
                     }
                 });
             }
@@ -251,7 +223,7 @@
                         id: eftId
                     };
                     $.ajax({
-                        url: '../../ws/rs/reporting/eformReportTool/remove',
+                        url: '${pageContext.request.contextPath}/ws/rs/reporting/eformReportTool/remove',
                         type: 'POST',
                         data: JSON.stringify(e),
                         contentType: "application/json; charset=utf-8",
@@ -260,8 +232,8 @@
                             listReports();
 
                         },
-                        error: function (data) {
-                            alert('error:' + data);
+                        error: function (xhr, status, error) {
+                            alert('Error: ' + error + '\nHTTP Status: ' + xhr.status);
                         }
                     });
                 }
@@ -270,7 +242,7 @@
             function listReports() {
                 $
                     .ajax({
-                        url: '../../ws/rs/reporting/eformReportTool/list',
+                        url: '${pageContext.request.contextPath}/ws/rs/reporting/eformReportTool/list',
                         type: 'GET',
                         dataType: 'json',
                         success: function (data) {
@@ -321,8 +293,8 @@
                             }
 
                         },
-                        error: function (data) {
-                            alert('error:' + data);
+                        error: function (xhr, status, error) {
+                            alert('Error: ' + error + '\nHTTP Status: ' + xhr.status);
                         }
                     });
 

@@ -42,7 +42,7 @@ import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.commn.model.*;
 import com.itextpdf.text.DocumentException;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.pdmodel.PDDocument;
 

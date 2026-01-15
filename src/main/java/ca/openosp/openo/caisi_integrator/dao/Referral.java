@@ -10,7 +10,7 @@ import org.apache.openjpa.enhance.FieldSupplier;
 import org.apache.openjpa.enhance.RedefinitionHelper;
 import org.apache.openjpa.enhance.PersistenceCapable;
 import org.apache.openjpa.enhance.PCRegistry;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.openjpa.enhance.StateManager;
 import javax.persistence.TemporalType;
 import javax.persistence.Temporal;
@@ -454,11 +454,11 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
     }
     
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
-        fieldConsumer.storeObjectField(2 + Referral.pcInheritedFieldCount, (Object)new Integer(((IntId)o).getId()));
+        fieldConsumer.storeObjectField(2 + Referral.pcInheritedFieldCount, (Object)Integer.valueOf(((IntId)o).getId()));
     }
     
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
-        this.id = new Integer(((IntId)o).getId());
+        this.id = Integer.valueOf(((IntId)o).getId());
     }
     
     public Object pcNewObjectIdInstance(final Object o) {

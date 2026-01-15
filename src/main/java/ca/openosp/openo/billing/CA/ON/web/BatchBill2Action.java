@@ -35,7 +35,7 @@ import java.util.ResourceBundle;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import ca.openosp.openo.commn.dao.BatchBillingDAO;
 import ca.openosp.openo.commn.dao.BillingONCHeader1Dao;
 import ca.openosp.openo.commn.model.BatchBilling;
@@ -157,7 +157,7 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         try {
-            response.sendRedirect("/billing/CA/ON/batchBilling.jsp?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
+            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/batchBilling.jsp?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -191,7 +191,7 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         try {
-            response.sendRedirect("/billing/CA/ON/batchBilling.jsp?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
+            response.sendRedirect(request.getContextPath() + "/billing/CA/ON/batchBilling.jsp?provider_no=" + request.getParameter("providers") + "&service_code=" + request.getParameter("service_code"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

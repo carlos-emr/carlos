@@ -58,7 +58,7 @@
 
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String curProvider_no = (String) session.getAttribute("user");
 
     java.util.Properties oscarVariables = OscarProperties.getInstance();

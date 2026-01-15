@@ -37,7 +37,7 @@ import ca.openosp.openo.utility.MiscUtils;
 import noNamespace.SitePatientVisitRecordsDocument;
 import noNamespace.SitePatientVisitRecordsDocument.SitePatientVisitRecords;
 
-import org.apache.commons.lang.WordUtils;
+import org.apache.commons.text.WordUtils;
 import org.apache.logging.log4j.Logger;
 
 import ca.openosp.openo.form.data.FrmVTData;

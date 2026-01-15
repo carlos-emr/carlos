@@ -45,10 +45,10 @@ public class Hl7MshDao extends AbstractDaoImpl<Hl7Msh> {
 
     public List<PathNetLabResults> findPathnetResultsDataByPatientNameHinStatusAndProvider(String patientName, String patientHealthNumber, String status, String providerNo, String labType) {
 		/*
-		 * Below query use a constructor expression (SELECT new org.oscarehr.billing.CA.BC.model.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, ProviderLabRoutingModel, String))
+		 * Below query use a constructor expression (SELECT new ca.openosp.openo.billing.CA.BC.util.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, ProviderLabRoutingModel, String))
 		 * and TypedQuery<PathNetLabResults> to directly create instances of PathNetLabResults from the database results
 		 * */
-        String sql = "SELECT new org.oscarehr.billing.CA.BC.util.PathNetLabResults( msh, pid, orc, obr, providerLabRouting, MIN(obr.resultStatus) )" +
+        String sql = "SELECT new ca.openosp.openo.billing.CA.BC.util.PathNetLabResults( msh, pid, orc, obr, providerLabRouting, MIN(obr.resultStatus) )" +
                 "FROM Hl7Msh msh, Hl7Pid pid, Hl7Orc orc, Hl7Obr obr, ProviderLabRoutingModel providerLabRouting " +
                 "WHERE providerLabRouting.labNo = pid.messageId " +
                 "AND pid.messageId = msh.messageId " +
@@ -72,10 +72,10 @@ public class Hl7MshDao extends AbstractDaoImpl<Hl7Msh> {
 
     public List<PathNetLabResults> findPathnetResultsByLabNo(Integer labNo) {
 		/*
-		 * Below query use a constructor expression (SELECT new org.oscarehr.billing.CA.BC.model.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, ProviderLabRoutingModel, String))
+		 * Below query use a constructor expression (SELECT new ca.openosp.openo.billing.CA.BC.util.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, ProviderLabRoutingModel, String))
 		 * and TypedQuery<PathNetLabResults> to directly create instances of PathNetLabResults from the database results
 		 * */
-        String sql = "SELECT new org.oscarehr.billing.CA.BC.util.PathNetLabResults( msh, pid, orc, obr, providerLabRouting, MIN(obr.resultStatus) )" +
+        String sql = "SELECT new ca.openosp.openo.billing.CA.BC.util.PathNetLabResults( msh, pid, orc, obr, providerLabRouting, MIN(obr.resultStatus) )" +
                 "FROM Hl7Msh msh, Hl7Pid pid, Hl7Orc orc, Hl7Obr obr, ProviderLabRoutingModel providerLabRouting " +
                 "WHERE providerLabRouting.labNo = pid.messageId " +
                 "AND pid.messageId = msh.messageId " +
@@ -91,10 +91,10 @@ public class Hl7MshDao extends AbstractDaoImpl<Hl7Msh> {
 
 	public List<PathNetLabResults> findPathnetResultsDeomgraphicNo(Integer demographicNo, String labType) {
 		/*
-		 * Below query use a constructor expression (SELECT new org.oscarehr.billing.CA.BC.model.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, PatientLabRouting, String))
+		 * Below query use a constructor expression (SELECT new ca.openosp.openo.billing.CA.BC.util.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, PatientLabRouting, String))
 		 * and TypedQuery<PathNetLabResults> to directly create instances of PathNetLabResults from the database results
 		 * */
-	    String sql =  "SELECT new org.oscarehr.billing.CA.BC.util.PathNetLabResults( msh, pid, orc, obr, patientLabRouting, MIN(obr.resultStatus) )" +
+	    String sql =  "SELECT new ca.openosp.openo.billing.CA.BC.util.PathNetLabResults( msh, pid, orc, obr, patientLabRouting, MIN(obr.resultStatus) )" +
                 "FROM Hl7Msh msh, Hl7Pid pid, Hl7Orc orc, Hl7Obr obr, PatientLabRouting patientLabRouting " +
                 "WHERE patientLabRouting.labNo = pid.id " +
                 "AND pid.id = orc.pidId " +

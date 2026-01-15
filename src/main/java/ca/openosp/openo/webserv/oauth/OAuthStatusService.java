@@ -65,10 +65,11 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JsonConfig;
-import net.sf.json.processors.JsDateJsonBeanProcessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import ca.openosp.openo.utility.JsDateSerializer;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.commn.model.ServiceAccessToken;
@@ -86,8 +87,16 @@ public class OAuthStatusService extends AbstractServiceImpl {
     @Autowired
     private ServiceAccessTokenDao serviceAccessTokenDao;
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    static {
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(java.sql.Date.class, new JsDateSerializer());
+        objectMapper.registerModule(module);
+    }
+
     /**
-     * Returns JSON containing the authenticated providers’s details
+     * Returns JSON containing the authenticated providers's details
      * and the list of scopes/roles they granted when authorizing this token.
      */
     @GET
@@ -115,14 +124,11 @@ public class OAuthStatusService extends AbstractServiceImpl {
             }
 
             // 4) build JSON exactly as before
-            JsonConfig config = new JsonConfig();
-            config.registerJsonBeanProcessor(java.sql.Date.class,
-                new JsDateJsonBeanProcessor());
 
-            JSONObject obj = new JSONObject();
-            obj.put("providers", JSONObject.fromObject(provider, config));
+            ObjectNode obj = objectMapper.createObjectNode();
+            obj.set("providers", objectMapper.valueToTree(provider));
             obj.put("login", provider.getProviderNo());
-            obj.put("roles", roles);
+            obj.set("roles", objectMapper.valueToTree(roles));
 
             return obj.toString();
 

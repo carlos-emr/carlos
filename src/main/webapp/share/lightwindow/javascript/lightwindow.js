@@ -12,6 +12,17 @@
 //
 
 /*-----------------------------------------------------------------------------------------------*/
+var contextPath = (function() {
+    var scripts = document.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+        var src = scripts[i].src;
+        if (src && src.indexOf('lightwindow.js') !== -1) {
+            var match = src.match(/^https?:\/\/[^\/]+(\/[^\/]+)?\/share\/lightwindow/);
+            return match ? (match[1] || '') : '';
+        }
+    }
+    return '';
+})();
 
 if (typeof Effect == 'undefined')
     throw ("lightwindow.js requires including script.aculo.us' effects.js library!");
@@ -160,7 +171,7 @@ lightwindow.prototype = {
             overlay: {
                 opacity: 0.7,
                 image: '../share/lightwindow/images/black.png',
-                presetImage: '../share/lightwindow/images/black-70.png'
+                presetImage: contextPath + '/share/lightwindow/images/black-70.png'
             },
             skin: {
                 main: '<div id="lightwindow_container" >' +

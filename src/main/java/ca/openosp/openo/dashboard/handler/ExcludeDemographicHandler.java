@@ -27,7 +27,9 @@ package ca.openosp.openo.dashboard.handler;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.DemographicExtDao;
@@ -38,11 +40,14 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONArray;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ExcludeDemographicHandler {
 
     private static Logger logger = MiscUtils.getLogger();
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     private static DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
     private DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
@@ -129,11 +134,15 @@ public class ExcludeDemographicHandler {
         if (!jsonString.endsWith("]")) {
             jsonString = jsonString + "]";
         }
-        JSONArray jsonArray = JSONArray.fromObject(jsonString);
-        Integer arraySize = jsonArray.size();
-        for (int i = 0; i < arraySize; i++) {
-            demographicExtDao.addKey(providerNo, jsonArray.getInt(i), excludeIndicator, indicatorName);
-            logger.info("demo: " + jsonArray.getInt(i) + " excluded from indicatorTemplate " + indicatorName);
+        try {
+            ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
+            Integer arraySize = jsonArray.size();
+            for (int i = 0; i < arraySize; i++) {
+                demographicExtDao.addKey(providerNo, jsonArray.get(i).asInt(), excludeIndicator, indicatorName);
+                logger.info("demo: " + jsonArray.get(i).asInt() + " excluded from indicatorTemplate " + indicatorName);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to parse JSON string: " + jsonString, e);
         }
     }
 
@@ -145,16 +154,26 @@ public class ExcludeDemographicHandler {
         if (!jsonString.endsWith("]")) {
             jsonString = jsonString + "]";
         }
-        JSONArray jsonArray = JSONArray.fromObject(jsonString);
-        String providerNo = getProviderNo();
-        List<DemographicExt> allProviderDemoExts = demographicExtDao.getDemographicExtByKeyAndValue(excludeIndicator, indicatorName);
-        logger.debug("unExcludeDemoIds (json): " + allProviderDemoExts + " matching extensions for template " + indicatorName);
-        for (DemographicExt e : allProviderDemoExts) {
-            // remove exclusion if provider_no matches or is null and the demongraphic_no matches
-            if (e.getProviderNo().equals(providerNo) && jsonArray.contains(e.getDemographicNo())) {
-                demographicExtDao.removeDemographicExt(e.getId());
-                logger.info("demo: " + e.getDemographicNo() + " unexcluded from indicatorTemplate " + indicatorName);
+        try {
+            ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
+            String providerNo = getProviderNo();
+
+            Set<Integer> demoIds = new HashSet<>();
+            for (JsonNode node : jsonArray) {
+                demoIds.add(node.asInt());
             }
+
+            List<DemographicExt> allProviderDemoExts = demographicExtDao.getDemographicExtByKeyAndValue(excludeIndicator, indicatorName);
+            logger.debug("unExcludeDemoIds (json): " + allProviderDemoExts + " matching extensions for template " + indicatorName);
+            for (DemographicExt e : allProviderDemoExts) {
+                // remove exclusion if provider_no matches or is null and the demongraphic_no matches
+                if (e.getProviderNo().equals(providerNo) && demoIds.contains(e.getDemographicNo())) {
+                    demographicExtDao.removeDemographicExt(e.getId());
+                    logger.info("demo: " + e.getDemographicNo() + " unexcluded from indicatorTemplate " + indicatorName);
+                }
+            }
+        } catch (Exception ex) {
+            logger.error("Failed to parse JSON string: " + jsonString, ex);
         }
     }
 

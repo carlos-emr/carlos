@@ -106,13 +106,13 @@
                 document.getElementById(id).style.display = 'none';
             }
 
-            function showHideNextDate(id, nextDate, nexerWarn) {
+            function showHideNextDate(id, nextDate, neverWarn) {
                 if (document.getElementById(id).style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
                     document.getElementById(nextDate).value = "";
-                    document.getElementById(nexerWarn).checked = false;
+                    document.getElementById(neverWarn).checked = false;
 
                 }
             }
@@ -193,6 +193,120 @@
                     }
                 }
             }
+
+            let exportCheckInterval = null;
+            let exportStartTime = null;
+            const MAX_EXPORT_WAIT_MS = 300000; // 5 minutes timeout
+
+            /**
+             * Clears the export status cookie.
+             */
+            function clearExportStatusCookie() {
+                document.cookie = 'exportStatus=; path=/; max-age=0;';
+            }
+
+            /**
+             * Handles the export form submission.
+             * Shows loading overlay, submits to hidden iframe, polls for status cookie.
+             */
+            function handleExportSubmit() {
+                if (!checkValidOptions()) {
+                    return false;
+                }
+
+                // Hide any previous messages
+                document.getElementById('exportSuccessMessage').style.display = 'none';
+                document.getElementById('exportErrorMessage').style.display = 'none';
+
+                // Clear any existing export status cookie
+                clearExportStatusCookie();
+
+                // Show loading overlay
+                document.getElementById('exportLoadingOverlay').style.display = 'block';
+
+                // Clear any existing polling interval to prevent multiple loops
+                if (exportCheckInterval) {
+                    clearInterval(exportCheckInterval);
+                }
+
+                // Start polling for the status cookie set by the server
+                exportStartTime = Date.now();
+                exportCheckInterval = setInterval(checkExportStatus, 500);
+
+                return true;
+            }
+
+            /**
+             * Checks for the export status cookie set by the server.
+             * The server sets this cookie right before starting the file download.
+             */
+            function checkExportStatus() {
+                // Timeout check to prevent infinite polling
+                if (Date.now() - exportStartTime > MAX_EXPORT_WAIT_MS) {
+                    clearInterval(exportCheckInterval);
+                    exportCheckInterval = null;
+                    document.getElementById('exportLoadingOverlay').style.display = 'none';
+                    document.getElementById('exportErrorMessage').style.display = 'block';
+                    return;
+                }
+
+                const status = getCookie('exportStatus');
+
+                if (status === 'success') {
+                    clearInterval(exportCheckInterval);
+                    exportCheckInterval = null;
+                    document.getElementById('exportLoadingOverlay').style.display = 'none';
+                    document.getElementById('exportSuccessMessage').style.display = 'block';
+                    clearExportStatusCookie();
+                } else if (status === 'error') {
+                    clearInterval(exportCheckInterval);
+                    exportCheckInterval = null;
+                    document.getElementById('exportLoadingOverlay').style.display = 'none';
+                    document.getElementById('exportErrorMessage').style.display = 'block';
+                    clearExportStatusCookie();
+                }
+                // If no cookie yet, keep polling
+            }
+
+            /**
+             * Gets a cookie value by name.
+             */
+            function getCookie(name) {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.indexOf(name + '=') === 0) {
+                        return cookie.substring(name.length + 1);
+                    }
+                }
+                return null;
+            }
+
+            /**
+             * Allows user to retry the export by re-submitting the form.
+             */
+            function retryExport() {
+                document.getElementById('exportErrorMessage').style.display = 'none';
+                document.getElementById('exportSuccessMessage').style.display = 'none';
+
+                // Clear any existing export status cookie
+                clearExportStatusCookie();
+
+                // Show loading overlay
+                document.getElementById('exportLoadingOverlay').style.display = 'block';
+
+                // Clear any existing polling interval to prevent multiple loops
+                if (exportCheckInterval) {
+                    clearInterval(exportCheckInterval);
+                }
+
+                // Start polling for the status cookie
+                exportStartTime = Date.now();
+                exportCheckInterval = setInterval(checkExportStatus, 500);
+
+                // Submit the form
+                document.getElementById('DemographicExportForm').submit();
+            }
         </SCRIPT>
 
         <style type="text/css">
@@ -200,11 +314,57 @@
                 line-height: normal;
                 margin: 4px 4px 4px;
             }
+
+            #exportLoadingOverlay {
+                display: none;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.4);
+                z-index: 9999;
+            }
+
+            #exportLoadingContent {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 20px 30px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                text-align: center;
+            }
+
+            .export-spinner {
+                width: 40px;
+                height: 40px;
+                margin: 0 auto 10px;
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #3498db;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+
+            #exportSuccessMessage,
+            #exportErrorMessage {
+                display: none;
+            }
         </style>
 
     </head>
 
     <body>
+    <!-- Hidden iframe for form submission -->
+    <iframe id="exportDownloadFrame" name="exportDownloadFrame" style="display:none;"></iframe>
+
     <%
         if (!userRole.toLowerCase().contains("admin")) { %>
     <div class="alert alert-block alert-error">
@@ -221,7 +381,14 @@
     } else {
     %>
 
-    <div class="container-fluid well">
+    <div class="container-fluid well" style="position: relative;">
+        <!-- Loading overlay shown during export -->
+        <div id="exportLoadingOverlay">
+            <div id="exportLoadingContent">
+                <div class="export-spinner"></div>
+                <div><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.preparingExport"/></div>
+            </div>
+        </div>
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/> </h3>
 
         <div class="span2">
@@ -233,7 +400,21 @@
 
         <div class="span4">
 
-            <form action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="get" onsubmit="return checkValidOptions();">
+            <!-- Success message shown after export completes -->
+            <div id="exportSuccessMessage" class="alert alert-success">
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportSuccess"/>
+                <br/><br/>
+                <fmt:message key="demographic.demographicexport.downloadNotStarted"/> <a href="javascript:void(0);" onclick="retryExport()"><fmt:message key="demographic.demographicexport.clickToDownload"/></a>
+            </div>
+
+            <!-- Error message shown if export fails -->
+            <div id="exportErrorMessage" class="alert alert-error">
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportError"/>
+                <br/><br/>
+                <button type="button" class="btn" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
+            </div>
+
+            <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="get" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
                 <input type="hidden" name="demographicNo" id="demographicNo" value="<%=demographicNo%>"/>

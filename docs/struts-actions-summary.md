@@ -124,7 +124,7 @@ The following actions were removed as their corresponding Java classes no longer
 ## Technical Notes
 
 1. **Naming Convention**: All action classes use the `*2Action` suffix, suggesting a migration from an earlier Struts version
-2. **Package Structure**: Actions are organized by functional module under `org.oscarehr.*` and `oscar.*` packages
+2. **Package Structure**: Actions are organized by functional module under the `ca.openosp.openo.*` package
 3. **Result Mappings**: Most actions define multiple result mappings for different outcomes (success, failure, error, etc.)
 4. **JSP Integration**: Actions primarily forward to JSP pages for view rendering
 
@@ -132,7 +132,6 @@ The following actions were removed as their corresponding Java classes no longer
 
 1. **Orphaned Actions**: 18 additional orphaned actions remain that could be cleaned up
 2. **Module Consolidation**: Consider consolidating overlapping report modules (oscarReport vs report)
-3. **Naming Standardization**: Consider migrating from `oscar.*` to `org.oscarehr.*` package structure
 4. **Documentation**: Add inline comments in struts.xml to document complex action workflows
 
 ---

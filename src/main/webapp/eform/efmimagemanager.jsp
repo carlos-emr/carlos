@@ -101,7 +101,6 @@
             "aaSorting": [[0, "asc"]],
             "bPaginate": false
         });
-
     </script>
     </body>
 </html>

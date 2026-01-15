@@ -38,7 +38,7 @@ and VS-Code.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/cc-ar-emr/Open-O.git
+   git clone https://github.com/openo-beta/Open-O.git
    cd open-osp
    ```
 
@@ -76,6 +76,7 @@ Once you've built it for the first time, a subsequent full build should take abo
 minutes on Windows, as we'll have managed to cache a bunch of Maven compilation artifacts.
 
    ```zsh
+   make clean
    make install
    ```
 
@@ -100,6 +101,15 @@ For developers who are not compiling for the first time in the dev container, it
    make clean
    make install
    ```
+
+### Additional Notes About Compilation
+
+Hot Reload Functionality:
+
+- A feature that allows you to save changes to JSP/HTML/CSS files, and see the changes after refreshing the web application page
+  - This will automatically be set up on compilation of the project with `make install`. And will only need to be set up if it is not already running in the background
+  - On other types of files with new changes that aren't listed with this functionality, you will need to fully rebuild the project with `make clean` and `make install`
+
 
 ### Running Tests
 
@@ -144,6 +154,7 @@ OpenO logs are sent to the console and can be viewed using Docker commands. The 
 - **Coverage**: Application flow, authentication, errors, and important events
 - **DEBUG Level**: Available but commented out (very verbose, useful for deep troubleshooting)  
 - **SQL Logging**: Available but commented out by default (can be enabled in `local.env`)
+- **Hot Reload Logging**: Console only (viewable via `/tmp/webapp-watcher.log`)
 
 ## Manual Container Management (Without VS Code)
 
@@ -372,6 +383,8 @@ HIBERNATE_FORMAT_SQL=true
 * **`.devcontainer/development/Dockerfile`:** Defines the Docker image for the Open-OSP application.
 * **`.devcontainer/db/Dockerfile`:** Defines the Docker image for the Open-OSP database.
 * **`.devcontainer/development/setup/setup.sh`:** Automates the setup process for the development environment.
+* **` .devcontainer/development/setup/seed_data.sh`:** Automates the setup process for the needed test data files, that will be added into the test database when building the container.
+* **` .devcontainer/development/setup/setup-hot-reload.sh`:** Automates the setup process for the hot reload functionality in the development environment when building the project.
 * **`.devcontainer/docker-compose.yml`:** Defines the Docker Compose configuration for the development environment,
   including the services to run and their dependencies.
 

@@ -63,7 +63,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -86,7 +86,7 @@
         t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
         d = demographicManager.getDemographicWithExt(loggedInInfo, t.getDemographicNo());
     } else {
-        response.sendRedirect("../errorpage.jsp");
+        response.sendRedirect(request.getContextPath() + "/errorpage.jsp");
     }
 
     java.util.Locale vLocale = request.getLocale();
@@ -281,7 +281,7 @@
                 }
             }
         </script>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
               type="text/css">
 
     </head>

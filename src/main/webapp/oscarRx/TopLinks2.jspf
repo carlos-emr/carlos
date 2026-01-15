@@ -24,16 +24,16 @@
 <%@ page import="java.io.StringWriter" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@ page import="com.fasterxml.jackson.databind.SerializationFeature" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
-<%@ page import="net.sf.json.JSONObject" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
 <%@ page import="ca.openosp.openo.prescript.data.*,
     ca.openosp.openo.demographic.data.DemographicData,
     ca.openosp.OscarProperties,
     ca.openosp.openo.log.*" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<jsp:include page="../images/spinner.jsp" flush="true"/>
+<jsp:include page="/images/spinner.jsp" flush="true"/>
 
 <script type="text/javascript">
 function newWindow(url) {

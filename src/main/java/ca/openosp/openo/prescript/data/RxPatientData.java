@@ -152,7 +152,7 @@ public class RxPatientData {
 
         public java.util.Date getDOB() {
             Date dob = null;
-            if (demographic != null) dob = demographic.getBirthDay().getTime();
+            if (demographic != null && demographic.getBirthDay() != null) dob = demographic.getBirthDay().getTime();
 
             return dob;
         }

@@ -25,7 +25,7 @@
 --%>
 <%@page import="ca.openosp.openo.managers.IntegratorFileLogManager" %>
 <%@page import="ca.openosp.openo.commn.model.IntegratorFileLog" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
@@ -40,7 +40,7 @@
 
 <%@page import="ca.openosp.OscarProperties" %>
 <%@page import="java.util.List" %>
-<%@page contentType="text/html" %>
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="ca.openosp.openo.commn.model.UserProperty" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -52,7 +52,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 
 <%

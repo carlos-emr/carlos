@@ -25,6 +25,7 @@
 --%>
 
 <%@page import="java.net.URLEncoder" %>
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.text.SimpleDateFormat, java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -54,7 +55,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -151,7 +152,7 @@
                     <td><%=pRec.getPreventionType()%>
                     </td>
                     <td><a
-                            href="lotnrdeleterecordhtm.jsp?prevention=<%=pRec.getPreventionType()%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(),"UTF-8")%>"><%= pRec.getLotNr()%>
+                            href="lotnrdeleterecordhtm.jsp?prevention=<%=pRec.getPreventionType()%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%= pRec.getLotNr()%>
                     </a></td>
                 </tr>
                 <% }

@@ -30,7 +30,7 @@ import java.util.Date;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.openosp.openo.commn.dao.DemographicExtDao;
 import ca.openosp.openo.commn.model.DemographicExt;
@@ -49,6 +49,7 @@ public class DemographicExtService2Action extends ActionSupport {
     private HttpServletResponse response = ServletActionContext.getResponse();
     private DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
         return saveNewValue();
@@ -87,7 +88,7 @@ public class DemographicExtService2Action extends ActionSupport {
 
         LogAction.addLog(providerNo, "write", id.toString(), value);
 
-        JSONObject json = JSONObject.fromObject(new LabelValueBean("id", String.valueOf(id)));
+        String json = objectMapper.writeValueAsString(new LabelValueBean("id", String.valueOf(id)));
         response.getWriter().println(json);
         return null;
     }

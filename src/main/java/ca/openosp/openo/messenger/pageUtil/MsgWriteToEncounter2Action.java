@@ -60,7 +60,7 @@ import java.util.GregorianCalendar;
  * 
  * <p>Known issues:</p>
  * <ul>
- *   <li>URL parameters are not properly encoded (missing ? and & separators)</li>
+ *   <li>URL parameters are not properly encoded (missing ? and &amp; separators)</li>
  *   <li>No URL encoding for special characters in parameters</li>
  *   <li>No security validation before redirecting</li>
  *   <li>encType parameter append is missing = sign</li>
@@ -68,7 +68,6 @@ import java.util.GregorianCalendar;
  * 
  * @version 2.0
  * @since 2003
- * @see ca.openosp.openo.oscarEncounter.pageUtil.IncomingEncounterAction
  */
 public class MsgWriteToEncounter2Action extends ActionSupport {
     /**
@@ -106,7 +105,7 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
      * </ul>
      * 
      * <p>BUG: The URL construction is flawed - parameters are concatenated without
-     * proper separators (? and &), making the resulting URL invalid. The code should
+     * proper separators (? and &amp;), making the resulting URL invalid. The code should
      * use proper URL building with encoded parameters.</p>
      * 
      * @return NONE as the method performs a redirect instead of forwarding

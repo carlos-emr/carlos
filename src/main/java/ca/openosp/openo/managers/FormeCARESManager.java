@@ -29,9 +29,9 @@ import ca.openosp.openo.utility.EncounterUtil;
 import ca.openosp.openo.utility.JsonUtil;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.services.IssueAdminManager;
 import ca.openosp.openo.PMmodule.dao.ProgramProviderDAO;
@@ -95,12 +95,13 @@ public class FormeCARESManager {
     private CaseManagementManager caseManagementManager;
 
     private final Logger logger = MiscUtils.getLogger();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public final JSONObject save(LoggedInInfo loggedInInfo, String formData) {
+    public final ObjectNode save(LoggedInInfo loggedInInfo, String formData) {
 
-        JSONObject formJsonData = (JSONObject) JsonUtil.jsonToPojo(formData, JSONObject.class);
-        String demographicNo = (String) formJsonData.get(Constants.Cares.FormField.demographicNo.name());
-        JSONObject responseMessage = new JSONObject();
+        ObjectNode formJsonData = (ObjectNode) JsonUtil.jsonToPojo(formData, ObjectNode.class);
+        String demographicNo = formJsonData.get(Constants.Cares.FormField.demographicNo.name()).asText();
+        ObjectNode responseMessage = objectMapper.createObjectNode();
         responseMessage.put(Constants.Cares.FormField.saved.name(), false);
         responseMessage.put(Constants.Cares.FormField.demographicNo.name(), demographicNo);
 
@@ -108,7 +109,7 @@ public class FormeCARESManager {
             throw new SecurityException("missing required sec object (_form)");
         }
 
-        String formId = (String) formJsonData.get(Constants.Cares.FormField.formId.name());
+        String formId = formJsonData.get(Constants.Cares.FormField.formId.name()).asText();
         int formIdInteger = 0;
         if (formId != null && !formId.isEmpty()) {
             formIdInteger = Integer.parseInt(formId);
@@ -119,7 +120,7 @@ public class FormeCARESManager {
 
         // create a new formeCARES object for every save.
         FormeCARES formeCARES = new FormeCARES();
-        boolean completed = formJsonData.getBoolean(Constants.Cares.FormField.completed.name());
+        boolean completed = formJsonData.get(Constants.Cares.FormField.completed.name()).asBoolean();
         formeCARES.setDemographicNo(Integer.parseInt(demographicNo));
         formeCARES.setProviderNo(loggedInInfo.getLoggedInProviderNo());
         formeCARES.setFormEdited(new Date());
@@ -154,7 +155,7 @@ public class FormeCARESManager {
         return responseMessage;
     }
 
-    public final JSONObject getData(LoggedInInfo loggedInInfo, int demographicNo, int formId) {
+    public final ObjectNode getData(LoggedInInfo loggedInInfo, int demographicNo, int formId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo)) {
             throw new SecurityException("missing required sec object (_form)");
         }
@@ -162,7 +163,7 @@ public class FormeCARESManager {
         logger.debug("Fetching eCARES form id " + formId + " for demographic number " + demographicNo);
 
         FormeCARES formeCARES = null;
-        JSONObject jsonDataObject = null;
+        ObjectNode jsonDataObject = null;
 
         // get previously saved data if the form id > 0
         if (formId > 0) {
@@ -172,7 +173,11 @@ public class FormeCARESManager {
         // get the pre-existing form data to populate into the open form
         if (formeCARES != null) {
             String jsonData = formeCARES.getFormData();
-            jsonDataObject = (JSONObject) JSONSerializer.toJSON(jsonData);
+            try {
+                jsonDataObject = (ObjectNode) objectMapper.readTree(jsonData);
+            } catch (Exception e) {
+                logger.error("Error parsing form JSON data", e);
+            }
 
             // set completion status
             jsonDataObject.put(Constants.Cares.FormField.completed.name(), formeCARES.isCompleted());
@@ -180,7 +185,7 @@ public class FormeCARESManager {
 
         // create a new data object if no data pre-exists
         if (jsonDataObject == null) {
-            jsonDataObject = new JSONObject();
+            jsonDataObject = objectMapper.createObjectNode();
 
             /* This is a new form. Check for existing incomplete forms.
              * to warn the user with incompleteFormExists = true/false
@@ -213,38 +218,38 @@ public class FormeCARESManager {
         return jsonDataObject;
     }
 
-    public final JSONObject createTickler(LoggedInInfo loggedInInfo, String tickerString) {
+    public final ObjectNode createTickler(LoggedInInfo loggedInInfo, String tickerString) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_form)");
         }
 
-        JSONObject responseMessage = new JSONObject();
+        ObjectNode responseMessage = objectMapper.createObjectNode();
         boolean success = Boolean.FALSE;
         Tickler tickler = null;
-        JSONObject formJsonData = null;
+        ObjectNode formJsonData = null;
 
         if (tickerString != null & !tickerString.isEmpty()) {
             /* Would rather do this: tickler = (Tickler) JsonUtil.jsonToPojo(tickerString, Tickler.class);
              * but then a refactor of OSCAR's Tickler model is needed to handle the ENUMs correctly
              */
-            formJsonData = (JSONObject) JsonUtil.jsonToPojo(tickerString, JSONObject.class);
-            Provider assignedTo = providerManager.getProvider(loggedInInfo, formJsonData.getString(Constants.Cares.Tickler.taskAssignedTo.name()));
+            formJsonData = (ObjectNode) JsonUtil.jsonToPojo(tickerString, ObjectNode.class);
+            Provider assignedTo = providerManager.getProvider(loggedInInfo, formJsonData.get(Constants.Cares.Tickler.taskAssignedTo.name()).asText());
             tickler = new Tickler();
 
             try {
                 SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                Date serviceDate = simpleDateFormat.parse(formJsonData.getString(Constants.Cares.Tickler.serviceDate.name()));
+                Date serviceDate = simpleDateFormat.parse(formJsonData.get(Constants.Cares.Tickler.serviceDate.name()).asText());
 
                 tickler.setServiceDate(serviceDate);
-                tickler.setServiceTime(formJsonData.getString(Constants.Cares.Tickler.serviceTime.name()));
+                tickler.setServiceTime(formJsonData.get(Constants.Cares.Tickler.serviceTime.name()).asText());
                 tickler.setCreator(loggedInInfo.getLoggedInProviderNo());
                 tickler.setAssignee(loggedInInfo.getLoggedInProvider());
                 tickler.setTaskAssignedTo(assignedTo.getProviderNo());
                 tickler.setTaskAssignedToName(assignedTo.getFullName());
-                tickler.setCategoryId(formJsonData.getInt(Constants.Cares.Tickler.categoryId.name()));
-                tickler.setMessage(formJsonData.getString(Constants.Cares.Tickler.message.name()));
-                tickler.setPriorityAsString(formJsonData.getString(Constants.Cares.Tickler.priority.name()));
-                tickler.setDemographicNo(formJsonData.getInt(Constants.Cares.Tickler.demographicNo.name()));
+                tickler.setCategoryId(formJsonData.get(Constants.Cares.Tickler.categoryId.name()).asInt());
+                tickler.setMessage(formJsonData.get(Constants.Cares.Tickler.message.name()).asText());
+                tickler.setPriorityAsString(formJsonData.get(Constants.Cares.Tickler.priority.name()).asText());
+                tickler.setDemographicNo(formJsonData.get(Constants.Cares.Tickler.demographicNo.name()).asInt());
                 tickler.setStatus(Tickler.STATUS.A);
                 tickler.setUpdateDate(new Date());
 
@@ -257,8 +262,8 @@ public class FormeCARESManager {
         if (tickler != null) {
             success = ticklerManager.addTickler(loggedInInfo, tickler);
             try {
-                long noteId = saveTicklerEncounterNote(loggedInInfo, formJsonData.getString(Constants.Cares.Tickler.comments.name()),
-                        formJsonData.getInt(Constants.Cares.Tickler.demographicNo.name()));
+                long noteId = saveTicklerEncounterNote(loggedInInfo, formJsonData.get(Constants.Cares.Tickler.comments.name()).asText(),
+                        formJsonData.get(Constants.Cares.Tickler.demographicNo.name()).asInt());
 
                 if (noteId > 0) {
                     //save link, so we know what tickler this note is linked to
@@ -401,17 +406,17 @@ public class FormeCARESManager {
         return completedDate;
     }
 
-    private void setDemographic(LoggedInInfo loggedInInfo, JSONObject jsonDataObject) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, jsonDataObject.getInt(Constants.Cares.FormField.demographicNo.name()));
+    private void setDemographic(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
+        Demographic demographic = demographicManager.getDemographic(loggedInInfo, jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt());
         jsonDataObject.put(Constants.Cares.FormField.patientFirstName.name(), demographic.getFirstName());
         jsonDataObject.put(Constants.Cares.FormField.patientLastName.name(), demographic.getLastName());
         jsonDataObject.put(Constants.Cares.FormField.patientPHN.name(), demographic.getHin());
         jsonDataObject.put(Constants.Cares.FormField.patientDOB.name(), demographic.getBirthDayAsString());
         jsonDataObject.put(Constants.Cares.FormField.patientGender.name(), demographic.getSex());
-        jsonDataObject.put(Constants.Cares.FormField.patientAge, demographic.getAge());
+        jsonDataObject.put(Constants.Cares.FormField.patientAge.name(), demographic.getAge());
     }
 
-    private void setProvider(LoggedInInfo loggedInInfo, JSONObject jsonDataObject) {
+    private void setProvider(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
         Provider provider = loggedInInfo.getLoggedInProvider();
         jsonDataObject.put(Constants.Cares.FormField.userFirstName.name(), provider.getFirstName());
         jsonDataObject.put(Constants.Cares.FormField.userLastName.name(), provider.getLastName());
@@ -425,7 +430,7 @@ public class FormeCARESManager {
      * @param loggedInInfo   Authentication information for the current user
      * @param jsonDataObject Current JSON Object with form data
      */
-    private void setMeasurements(LoggedInInfo loggedInInfo, JSONObject jsonDataObject) {
+    private void setMeasurements(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
         List<String> typeList = new ArrayList<String>();
         typeList.add(Constants.Cares.Measurement.EGFR.name());
         typeList.add(Constants.Cares.Measurement.CRCL.name());
@@ -433,7 +438,7 @@ public class FormeCARESManager {
         /*
          * get the most recent creatine clearance (EGFR) from the patient chart.
          */
-        Measurement recentMeasurement = getRecentMeasurement(loggedInInfo, typeList, jsonDataObject.getInt(Constants.Cares.FormField.demographicNo.name()));
+        Measurement recentMeasurement = getRecentMeasurement(loggedInInfo, typeList, jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt());
         if (recentMeasurement != null) {
             jsonDataObject.put(Constants.Cares.FormField.crcl.name(), recentMeasurement.getDataField());
         }
@@ -445,52 +450,53 @@ public class FormeCARESManager {
         typeList = new ArrayList<String>();
         typeList.add(Constants.Cares.Measurement.EFI.name());
 
-        List<Measurement> measurementList = getRecentMeasurementList(loggedInInfo, typeList, jsonDataObject.getInt(Constants.Cares.FormField.demographicNo.name()));
-        JSONArray jsonArray = new JSONArray();
+        List<Measurement> measurementList = getRecentMeasurementList(loggedInInfo, typeList, jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt());
+        ArrayNode jsonArray = objectMapper.createArrayNode();
         for (Measurement measurement : measurementList) {
-            JSONObject jsonObject = new JSONObject();
+            ObjectNode jsonObject = objectMapper.createObjectNode();
             jsonObject.put(Constants.Cares.Measurement.id.name(), measurement.getId());
-            jsonObject.put(Constants.Cares.Measurement.date.name(), measurement.getCreateDate());
+            jsonObject.put(Constants.Cares.Measurement.date.name(), measurement.getCreateDate().toString());
             jsonObject.put(Constants.Cares.Measurement.score.name(), measurement.getDataField());
             jsonArray.add(jsonObject);
         }
 
-        jsonDataObject.put(Constants.Cares.FormField.efi_scores.name(), jsonArray);
+        jsonDataObject.set(Constants.Cares.FormField.efi_scores.name(), jsonArray);
     }
 
-    private void setMedications(LoggedInInfo loggedInInfo, JSONObject jsonDataObject) {
+    private void setMedications(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
 
         List<Drug> drugList = null;
-        int demographicNo = jsonDataObject.getInt(Constants.Cares.FormField.demographicNo.name());
+        int demographicNo = jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt();
 
         /* add authorization for fetching Medications here
          * since a Drug manager does not exist in this version of OSCAR.
          */
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", SecurityInfoManager.READ, demographicNo)) {
-            jsonDataObject.element(Constants.Cares.Medication.medications.name(), new String[]{"User not authorized to view medications for this patient. " +
-                    "Missing required sec object (_newCasemgmt.prescriptions)"});
+            ArrayNode errorArray = objectMapper.createArrayNode();
+            errorArray.add("User not authorized to view medications for this patient. Missing required sec object (_newCasemgmt.prescriptions)");
+            jsonDataObject.set(Constants.Cares.Medication.medications.name(), errorArray);
         } else {
             drugList = drugDao.findByDemographicId(demographicNo, Boolean.FALSE);
         }
 
         // add only the prescription details about the medication into a JSON string.
         if (drugList != null && !drugList.isEmpty()) {
-            JSONArray jsonArray = new JSONArray();
+            ArrayNode jsonArray = objectMapper.createArrayNode();
 
             outer:
             for (Drug drug : drugList) {
-                JSONObject medicationObject;
+                ObjectNode medicationObject;
 
                 /* update and merge saved list. A saved medication can be
                  * "archived" when the user sets the active variable in the
                  * eCARES form.  This is only a "symbolic" delete.
                  */
-                if (jsonDataObject.containsKey(Constants.Cares.Medication.medications.name())) {
+                if (jsonDataObject.has(Constants.Cares.Medication.medications.name())) {
                     Object savedMedications = jsonDataObject.get(Constants.Cares.Medication.medications.name());
-                    if (savedMedications instanceof JSONArray) {
-                        for (Object savedMedication : (JSONArray) savedMedications) {
-                            if (savedMedication instanceof JSONObject) {
-                                medicationObject = (JSONObject) savedMedication;
+                    if (savedMedications instanceof ArrayNode) {
+                        for (Object savedMedication : (ArrayNode) savedMedications) {
+                            if (savedMedication instanceof ObjectNode) {
+                                medicationObject = (ObjectNode) savedMedication;
                                 if (medicationObject.get(Constants.Cares.Medication.id.name()).equals(drug.getId())) {
                                     jsonArray.add(medicationObject);
                                     continue outer;
@@ -501,7 +507,7 @@ public class FormeCARESManager {
                 }
 
                 // create a new medication object if the process gets this far.
-                medicationObject = new JSONObject();
+                medicationObject = objectMapper.createObjectNode();
                 medicationObject.put(Constants.Cares.Medication.id.name(), drug.getId());
                 medicationObject.put(Constants.Cares.Medication.rxDate.name(), drug.getRxDate() != null ? drug.getRxDate().toString() : "");
                 medicationObject.put(Constants.Cares.Medication.prescription.name(), drug.getSpecial().replaceAll("\n", ""));
@@ -509,30 +515,31 @@ public class FormeCARESManager {
                 jsonArray.add(medicationObject);
             }
 
-            jsonDataObject.put(Constants.Cares.Medication.medications.name(), jsonArray);
+            jsonDataObject.set(Constants.Cares.Medication.medications.name(), jsonArray);
         }
     }
 
-    private void setProblems(LoggedInInfo loggedInInfo, JSONObject jsonDataObject) {
+    private void setProblems(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
         List<Dxresearch> dxresearchList = null;
         /* add authorization for fetching disease registry here
          * since a dxregistry manager not exist in this version of OSCAR.
          */
-        int demographicNo = jsonDataObject.getInt(Constants.Cares.FormField.demographicNo.name());
+        int demographicNo = jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt();
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.DxRegistry", SecurityInfoManager.READ, demographicNo)) {
-            jsonDataObject.element("problems", new String[]{"User not authorized to view diseases for this patient. " +
-                    "Missing required sec object (_newCasemgmt.DxRegistry)"});
+            ArrayNode errorArray = objectMapper.createArrayNode();
+            errorArray.add("User not authorized to view diseases for this patient. Missing required sec object (_newCasemgmt.DxRegistry)");
+            jsonDataObject.set("problems", errorArray);
         } else {
             dxresearchList = dxresearchDAO.getByDemographicNo(demographicNo);
         }
 
         if (dxresearchList != null && !dxresearchList.isEmpty()) {
 
-            JSONArray jsonArray = new JSONArray();
+            ArrayNode jsonArray = objectMapper.createArrayNode();
 
             outer:
             for (Dxresearch dxresearch : dxresearchList) {
-                JSONObject dxresearchObject;
+                ObjectNode dxresearchObject;
 
                 if ('A' == dxresearch.getStatus()) {
 
@@ -540,12 +547,12 @@ public class FormeCARESManager {
                      * "archived" when the user sets the active variable in the
                      * eCARES form.  This is only a "symbolic" delete.
                      */
-                    if (jsonDataObject.containsKey(Constants.Cares.Problem.problems.name())) {
+                    if (jsonDataObject.has(Constants.Cares.Problem.problems.name())) {
                         Object savedProblems = jsonDataObject.get(Constants.Cares.Problem.problems.name());
-                        if (savedProblems instanceof JSONArray) {
-                            for (Object savedProblem : (JSONArray) savedProblems) {
-                                if (savedProblem instanceof JSONObject) {
-                                    dxresearchObject = (JSONObject) savedProblem;
+                        if (savedProblems instanceof ArrayNode) {
+                            for (Object savedProblem : (ArrayNode) savedProblems) {
+                                if (savedProblem instanceof ObjectNode) {
+                                    dxresearchObject = (ObjectNode) savedProblem;
                                     if (dxresearchObject.get(Constants.Cares.Problem.id.name()).equals(dxresearch.getId())) {
                                         jsonArray.add(dxresearchObject);
                                         continue outer;
@@ -555,7 +562,7 @@ public class FormeCARESManager {
                         }
                     }
 
-                    dxresearchObject = new JSONObject();
+                    dxresearchObject = objectMapper.createObjectNode();
                     dxresearchObject.put(Constants.Cares.Problem.id.name(), dxresearch.getId());
                     dxresearchObject.put(Constants.Cares.Problem.startdate.name(), dxresearch.getStartDate().toString());
                     dxresearchObject.put(Constants.Cares.Problem.code.name(), dxresearch.getCodingSystem() + "(" + dxresearch.getDxresearchCode() + ")");
@@ -567,13 +574,13 @@ public class FormeCARESManager {
                 }
             }
 
-            jsonDataObject.put("problems", jsonArray);
+            jsonDataObject.set("problems", jsonArray);
         }
 
     }
 
-    private void setPreventions(LoggedInInfo loggedInInfo, JSONObject jsonDataObject) {
-        int demographicNo = jsonDataObject.getInt(Constants.Cares.FormField.demographicNo.name());
+    private void setPreventions(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
+        int demographicNo = jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt();
         List<Prevention> preventionList = preventionManager.getPreventionsByDemographicNo(loggedInInfo, demographicNo);
         if (preventionList != null && !preventionList.isEmpty()) {
             /*
@@ -596,34 +603,34 @@ public class FormeCARESManager {
                 if (prevention.isComplete()) {
                     switch (Constants.Cares.Prevention.valueOf(preventionType)) {
                         case HepAB:
-                            jsonDataObject.put(Constants.Cares.FormField.hep_a, "1");
-                            jsonDataObject.put(Constants.Cares.FormField.hep_b, "1");
+                            jsonDataObject.put(Constants.Cares.FormField.hep_a.name(), "1");
+                            jsonDataObject.put(Constants.Cares.FormField.hep_b.name(), "1");
                             break;
                         case HepA:
-                            jsonDataObject.put(Constants.Cares.FormField.hep_a, "1");
+                            jsonDataObject.put(Constants.Cares.FormField.hep_a.name(), "1");
                             break;
                         case HepB:
-                            jsonDataObject.put(Constants.Cares.FormField.hep_b, "1");
+                            jsonDataObject.put(Constants.Cares.FormField.hep_b.name(), "1");
                             break;
                         case Td:
-                            jsonDataObject.put(Constants.Cares.FormField.tetanus_and_diphtheria, "1");
+                            jsonDataObject.put(Constants.Cares.FormField.tetanus_and_diphtheria.name(), "1");
                             break;
                         case Pneumovax:
                         case PneuC:
-                            jsonDataObject.put(Constants.Cares.FormField.pneumococcal, "1");
+                            jsonDataObject.put(Constants.Cares.FormField.pneumococcal.name(), "1");
                             break;
                         case Smoking:
-                            jsonDataObject.put(Constants.Cares.FormField.smoke, "1");
+                            jsonDataObject.put(Constants.Cares.FormField.smoke.name(), "1");
                             break;
                         case Flu:
                             if (preventionDate.after(ayearago.getTime())) {
-                                jsonDataObject.put(Constants.Cares.FormField.influenza, "1");
+                                jsonDataObject.put(Constants.Cares.FormField.influenza.name(), "1");
                             }
                             break;
                         case RZV:
                         case Zoster:
                         case HZV:
-                            jsonDataObject.put(Constants.Cares.FormField.zoster, "1");
+                            jsonDataObject.put(Constants.Cares.FormField.zoster.name(), "1");
                             break;
                         default:
                             // do nothing
@@ -647,13 +654,13 @@ public class FormeCARESManager {
         return false;
     }
 
-    private void saveFrailtyScore(LoggedInInfo loggedInInfo, JSONObject jsonDataObject) {
+    private void saveFrailtyScore(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
         String currentFrailtyScore = null;
-        if (jsonDataObject.containsKey(Constants.Cares.FormField.deficit_based_frailty_score.name())) {
-            currentFrailtyScore = jsonDataObject.getString(Constants.Cares.FormField.deficit_based_frailty_score.name());
+        if (jsonDataObject.has(Constants.Cares.FormField.deficit_based_frailty_score.name())) {
+            currentFrailtyScore = jsonDataObject.get(Constants.Cares.FormField.deficit_based_frailty_score.name()).asText();
         }
 
-        int demographicNo = jsonDataObject.getInt(Constants.Cares.FormField.demographicNo.name());
+        int demographicNo = jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt();
 
         if (currentFrailtyScore != null && !currentFrailtyScore.isEmpty()) {
             Measurement frailtyMeasurement = new Measurement();

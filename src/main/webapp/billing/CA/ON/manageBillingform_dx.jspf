@@ -27,6 +27,7 @@
 <%@page import="java.util.List" %>
 <%@page import="ca.openosp.openo.commn.model.CtlDiagCode" %>
 <%@page import="ca.openosp.openo.commn.dao.CtlDiagCodeDao" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <form method="post" name="form1" action="dbManageBillingform_dx.jsp">
 <table width="75%" border="0" cellpadding="3" bgcolor="#9999CC">

@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page contentType="text/html" %>
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@page import="ca.openosp.openo.commn.model.UserProperty" %>
 
@@ -42,7 +42,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -242,8 +242,8 @@
             <table id="integratorPrefTable" border=0>
                 <tr>
                     <td></td>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="providers.integratorPreferences.enabled"/></th>
-                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="providers.integratorPreferences.disabled"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.integratorPreferences.enabled"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.integratorPreferences.disabled"/></th>
                 </tr>
                 <tr>
                     <td>Demographic Records</td>

@@ -112,7 +112,7 @@ public class AddPrevention2Action extends ActionSupport {
         String given = request.getParameter("given");
         String prevDate = request.getParameter("prevDate");
         String providerName = request.getParameter("providerName");
-        String providerNo = request.getParameter("providerNo");
+        String providerNo = request.getParameter("provider");
 
         String nextDate = request.getParameter("nextDate");
         String neverWarn = request.getParameter("neverWarn");

@@ -25,7 +25,7 @@
 package ca.openosp.openo.hospitalReportManager;
 
 import com.opensymphony.xwork2.ActionSupport;
-import org.apache.commons.io.FileUtils;
+
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao;
 import ca.openosp.openo.hospitalReportManager.model.HRMDocument;
@@ -34,9 +34,14 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.util.StringUtils;
 
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public class HRMDownloadFile2Action extends ActionSupport {
@@ -89,37 +94,32 @@ public class HRMDownloadFile2Action extends ActionSupport {
 
 
         String fileName = (report.getLegalLastName() + "-" + report.getLegalFirstName() + "-" + report.getFirstReportClass() + report.getFileExtension()).replaceAll("\\s", "_");
-        String contentType = "application/octet-stream";
-
-        if (report.getFileExtension().equals(".pdf")) {
-            contentType = "application/pdf";
-        }
-        if (report.getFileExtension().equals(".tiff")) {
-            contentType = "image/tiff";
-        }
-        if (report.getFileExtension().equals(".rtf")) {
-            contentType = "text/enriched";
-        }
-        if (report.getFileExtension().equals(".jpg")) {
-            contentType = "image/jpeg";
-        }
-        if (report.getFileExtension().equals(".gif")) {
-            contentType = "image/gif";
-        }
-        if (report.getFileExtension().equals(".png")) {
-            contentType = "image/png";
-        }
-        if (report.getFileExtension().equals(".html")) {
-            contentType = "text/html";
-        }
-
-        File temp = File.createTempFile("HRMDownloadFile", report.getFileExtension());
-        temp.deleteOnExit();
-
-        FileUtils.writeByteArrayToFile(temp, data);
+        
+        String contentType = switch (report.getFileExtension()) {
+            case ".pdf" -> "application/pdf";
+            case ".tiff" -> "image/tiff";
+            case ".rtf" -> "text/enriched";
+            case ".jpg" -> "image/jpeg";
+            case ".gif" -> "image/gif";
+            case ".png" -> "image/png";
+            case ".html" -> "text/html";
+            default -> "application/octet-stream";
+        };
 
         response.setContentType(contentType);
-        response.setHeader("Content-disposition", "attachment; filename=" + fileName);
+        response.setContentLength(data.length);
+
+        // Encode filename per RFC 5987 using UTF-8
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+
+        // Set both headers for compatibility
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"; filename*=UTF-8''" + encodedFileName);
+
+        try (ServletOutputStream out = response.getOutputStream()) {
+            out.write(data);
+        } catch (IOException e) {
+            throw new IOException("Error streaming HRM report: " + e.getMessage(), e);
+        }
 
         return NONE;
     }

@@ -26,8 +26,8 @@ package ca.openosp.openo.PMmodule.web;
 import java.util.Comparator;
 import java.util.Date;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.model.ClientReferral;
@@ -107,7 +107,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getDestinationProgramName() {
-        return (StringEscapeUtils.escapeHtml(destinationProgramName));
+        return (StringEscapeUtils.escapeHtml4(destinationProgramName));
     }
 
     public void setDestinationProgramName(String destinationProgramName) {
@@ -115,7 +115,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getDestinationProgramType() {
-        return (StringEscapeUtils.escapeHtml(destinationProgramType));
+        return (StringEscapeUtils.escapeHtml4(destinationProgramType));
     }
 
     public void setDestinationProgramType(String destinationProgramType) {
@@ -149,7 +149,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getSourceProgramName() {
-        return (StringEscapeUtils.escapeHtml(sourceProgramName));
+        return (StringEscapeUtils.escapeHtml4(sourceProgramName));
     }
 
     public void setSourceProgramName(String sourceProgramName) {
@@ -157,7 +157,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getExternal() {
-        return (StringEscapeUtils.escapeHtml(external));
+        return (StringEscapeUtils.escapeHtml4(external));
     }
 
     public void setExternal(String external) {

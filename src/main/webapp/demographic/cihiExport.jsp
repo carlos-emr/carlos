@@ -40,7 +40,7 @@
     }
 %>
 <%@page import="ca.openosp.openo.commn.dao.DataExportDao" %>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils" %>
+<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="ca.openosp.openo.report.data.DemographicSets" %>
 <%@page import="java.util.List" %>
 <%@page import="ca.openosp.openo.commn.model.DataExport" %>
@@ -77,55 +77,55 @@
         <table class="table-condensed">
             <tr>
                 <td>Organization Name</td>
-                <td><input type="text" name="orgName" styleClass="right" /></td>
+                <td><input type="text" name="orgName" class="right" /></td>
             </tr>
             <tr>
                 <td>Contact Last Name</td>
-                <td><input type="text" name="contactLName" styleClass="right" /></td>
+                <td><input type="text" name="contactLName" class="right" /></td>
             </tr>
             <tr>
                 <td>Contact First Name</td>
-                <td><input type="text" name="contactFName" styleClass="right" /></td>
+                <td><input type="text" name="contactFName" class="right" /></td>
             </tr>
             <tr>
                 <td>Contact Phone</td>
-                <td><input type="text" name="contactPhone" styleClass="right" /></td>
+                <td><input type="text" name="contactPhone" class="right" /></td>
             </tr>
             <tr>
                 <td>Contact Email</td>
-                <td><input type="text" name="contactEmail" styleClass="right" /></td>
+                <td><input type="text" name="contactEmail" class="right" /></td>
             </tr>
             <tr>
                 <td>Contact Username</td>
-                <td><input type="text" name="contactUserName" styleClass="right" /></td>
+                <td><input type="text" name="contactUserName" class="right" /></td>
             </tr>
             <tr>
                 <td>Vendor Business Name</td>
-                <td><input type="text" name="vendorBusinessName" styleClass="right" /></td>
+                <td><input type="text" name="vendorBusinessName" class="right" /></td>
             </tr>
             <tr>
                 <td>Vendor ID</td>
-                <td><input type="text" name="vendorId" styleClass="right" readonly="true" /></td>
+                <td><input type="text" name="vendorId" class="right" readonly="true" /></td>
             </tr>
             <tr>
                 <td>Vendor Common Name</td>
-                <td><input type="text" name="vendorCommonName" styleClass="right" readonly="true" /></td>
+                <td><input type="text" name="vendorCommonName" class="right" readonly="true" /></td>
             </tr>
             <tr>
                 <td>Vendor Software</td>
-                <td><input type="text" name="vendorSoftware" styleClass="right" readonly="true" /></td>
+                <td><input type="text" name="vendorSoftware" class="right" readonly="true" /></td>
             </tr>
             <tr>
                 <td>Vendor Software Common Name</td>
-                <td><input type="text" name="vendorSoftwareCommonName" styleClass="right" readonly="true" /></td>
+                <td><input type="text" name="vendorSoftwareCommonName" class="right" readonly="true" /></td>
             </tr>
             <tr>
                 <td>Vendor Software Ver</td>
-                <td><input type="text" name="vendorSoftwareVer" styleClass="right" readonly="true" /></td>
+                <td><input type="text" name="vendorSoftwareVer" class="right" readonly="true" /></td>
             </tr>
             <tr>
                 <td>Vendor Install Date</td>
-                <td><input type="text" name="installDate" styleClass="right" readonly="true" /></td>
+                <td><input type="text" name="installDate" class="right" readonly="true" /></td>
             </tr>
 
             <tr>

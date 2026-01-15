@@ -188,60 +188,10 @@ public class FormsDao {
         return query.getResultList();
     }
 
-    @NativeSql
-    @SuppressWarnings("rawtypes")
-    public List<Object[]> runNativeQuery(String string) {
-        // run query
-        Query query = entityManager.createNativeQuery(string);
-        List result = query.getResultList();
-        if (result == null) {
-            return new ArrayList<Object[]>();
-        }
-
-        // get first meaningful element
-        Object firstNonNullElement = null;
-        for (int i = 0; i < result.size(); i++) {
-            Object o = result.get(i);
-            if (o != null) {
-                firstNonNullElement = o;
-                break;
-            }
-        }
-
-        // contains arrays, so it's safe to return the original result set
-        if (firstNonNullElement != null && firstNonNullElement.getClass().isArray()) {
-            return result;
-        }
-
-        // at this point we ended up having a list of single element and not an array, so
-        // wrap it up properly in the array values. This might happen when we select
-        // a single value, for example "SELECT d.id FROM demographic d"
-        List<Object[]> wrappedResult = new ArrayList<Object[]>(result.size());
-        for (Object o : result) {
-            wrappedResult.add(new Object[]{o});
-        }
-        return wrappedResult;
-    }
-
-    @NativeSql
-    public Object runNativeQuerySingleResult(String string) {
-        Query query = entityManager.createNativeQuery(string);
-        query.setMaxResults(1);
-        return query.getSingleResult();
-    }
-
-    @NativeSql
-    public Object runNativeQueryWithOffset(String string, int offset) {
-        Query query = entityManager.createNativeQuery(string);
-        query.setFirstResult(offset);
-        query.setMaxResults(1);
-        return query.getSingleResult();
-    }
-
     /**
      * Executes a parameterized native SQL query with named parameters.
      * Parameters should be passed as alternating name-value pairs.
-     * 
+     *
      * @param sql The SQL query with named parameters (e.g., :paramName)
      * @param params Alternating parameter names and values (name1, value1, name2, value2, ...)
      * @return List of Object arrays containing the query results
@@ -251,15 +201,63 @@ public class FormsDao {
         if (params.length % 2 != 0) {
             throw new IllegalArgumentException("Parameters must be provided in name-value pairs");
         }
-        
+
         Query query = entityManager.createNativeQuery(sql);
-        
+
         for (int i = 0; i < params.length; i += 2) {
             String paramName = (String) params[i];
             Object paramValue = params[i + 1];
             query.setParameter(paramName, paramValue);
         }
-        
+
         return query.getResultList();
+    }
+
+    /**
+     * Executes a parameterized native SQL query with named parameters provided as a Map.
+     * This method provides protection against SQL injection by properly binding parameters.
+     *
+     * @param sql The SQL query with named parameters (e.g., :paramName)
+     * @param params Map of parameter names to values
+     * @return List of Object arrays containing the query results
+     */
+    @SuppressWarnings("rawtypes")
+    public List<Object[]> runParameterizedNativeQuery(String sql, Map<String, Object> params) {
+        Query query = entityManager.createNativeQuery(sql);
+
+        if (params != null) {
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                query.setParameter(entry.getKey(), entry.getValue());
+            }
+        }
+
+        List resultList = query.getResultList();
+        if (resultList == null) {
+            return new ArrayList<Object[]>();
+        }
+
+        // get first meaningful element
+        Object firstNonNullElement = null;
+        for (int i = 0; i < resultList.size(); i++) {
+            Object o = resultList.get(i);
+            if (o != null) {
+                firstNonNullElement = o;
+                break;
+            }
+        }
+
+        // contains arrays, so it's safe to return the original result set
+        if (firstNonNullElement != null && firstNonNullElement.getClass().isArray()) {
+            return resultList;
+        }
+
+        // at this point we ended up having a list of single element and not an array, so
+        // wrap it up properly in the array values. This might happen when we select
+        // a single value, for example "SELECT d.id FROM demographic d"
+        List<Object[]> wrappedResult = new ArrayList<Object[]>(resultList.size());
+        for (Object o : resultList) {
+            wrappedResult.add(new Object[]{o});
+        }
+        return wrappedResult;
     }
 }

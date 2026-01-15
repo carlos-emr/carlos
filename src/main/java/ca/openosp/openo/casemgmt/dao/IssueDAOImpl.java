@@ -30,8 +30,7 @@ package ca.openosp.openo.casemgmt.dao;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.HibernateException;
 import org.hibernate.Query;
@@ -114,7 +113,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
             if (x != 0) {
                 buf.append(",");
             }
-            buf.append("\'" + StringEscapeUtils.escapeSql((roles.get(x)).getName()) + "\'");
+            buf.append("\'" + (roles.get(x).getName()) + "\'");
         }
         String roleList = buf.toString();
 
@@ -135,7 +134,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
             if (x != 0) {
                 buf.append(",");
             }
-            buf.append("\'" + StringEscapeUtils.escapeSql((roles.get(x)).getName()) + "\'");
+            buf.append("\'" + (roles.get(x).getName()) + "\'");
         }
         final String roleList = buf.toString();
 
@@ -170,7 +169,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
             if (x != 0) {
                 buf.append(",");
             }
-            buf.append("\'" + StringEscapeUtils.escapeSql((roles.get(x)).getName()) + "\'");
+            buf.append("\'" + (roles.get(x).getName()) + "\'");
         }
         final String roleList = buf.toString();
 

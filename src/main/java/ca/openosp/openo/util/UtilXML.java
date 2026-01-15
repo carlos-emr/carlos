@@ -124,7 +124,21 @@ public class UtilXML {
         Document document;
         try {
             InputSource is = new InputSource(new StringReader(xmlInput));
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
+            DocumentBuilderFactory docBuilder = DocumentBuilderFactory.newInstance();
+
+            // Disable external entities to prevent XXE attacks
+            docBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            docBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            docBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            docBuilder.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            
+            // Disable XInclude
+            docBuilder.setXIncludeAware(false);
+            
+            // Disabled expansion of entity references
+            docBuilder.setExpandEntityReferences(false);
+            
+            Document doc = docBuilder.newDocumentBuilder().parse(is);
             Document document1 = doc;
             return document1;
         } catch (Exception e) {

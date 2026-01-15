@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,6 +47,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+        <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/oscarRx/styles.css">
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
         <script type="text/javascript"
@@ -180,7 +181,6 @@
         }
     %>
         </c:if>
-        <link rel="stylesheet" type="text/css" href="styles.css">
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
 

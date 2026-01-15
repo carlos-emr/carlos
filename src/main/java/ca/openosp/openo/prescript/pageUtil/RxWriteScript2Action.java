@@ -28,9 +28,13 @@ package ca.openosp.openo.prescript.pageUtil;
 
 import ca.openosp.openo.commn.model.*;
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.dispatcher.mapper.ActionMapping;
+
 import ca.openosp.openo.casemgmt.model.CaseManagementNote;
 import ca.openosp.openo.casemgmt.model.CaseManagementNoteLink;
 import ca.openosp.openo.casemgmt.service.CaseManagementManager;
@@ -67,6 +71,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final String PRIVILEGE_READ = "r";
@@ -118,6 +123,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             return updateToLongTerm();
         } else if ("checkNoStashItem".equals(method)) {
             return checkNoStashItem();
+        } else if ("searchSpecialInstructions".equals(method)) {
+            searchSpecialInstructions();
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -265,6 +272,17 @@ public final class RxWriteScript2Action extends ActionSupport {
             reRxDrugIdList.add(drugId);
         } else if (action.equals("removeFromReRxDrugIdList") && reRxDrugIdList.contains(drugId)) {
             reRxDrugIdList.remove(drugId);
+            try {
+				for (Iterator<RxPrescriptionData.Prescription> iterator = bean.getStashList().iterator(); iterator.hasNext(); ) {
+					RxPrescriptionData.Prescription prescription = iterator.next();
+					if (prescription.getDrugReferenceId() == Integer.parseInt(drugId)) {
+						iterator.remove();
+						break;
+					}
+				}
+			} catch (NumberFormatException e) {
+                logger.error("Error: {}", e.getMessage());
+			}
         } else if (action.equals("clearReRxDrugIdList")) {
             bean.clearReRxDrugIdList();
         } else {
@@ -717,7 +735,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
                 hm.put("policyViolations", rx.getPolicyViolations());
-                JSONObject jsonObject = JSONObject.fromObject(hm);
+                ObjectNode jsonObject = objectMapper.valueToTree(hm);
                 logger.debug("jsonObject:" + jsonObject.toString());
                 response.getOutputStream().write(jsonObject.toString().getBytes());
             } catch (Exception e) {
@@ -801,7 +819,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("prn", rx.getPrn());
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
-                JSONObject jsonObject = JSONObject.fromObject(hm);
+                ObjectNode jsonObject = objectMapper.valueToTree(hm);
                 response.getOutputStream().write(jsonObject.toString().getBytes());
             } catch (Exception e) {
                 logger.error("Error", e);
@@ -1194,7 +1212,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             hm.put("patientName", "Unknown");
             hm.put("patientHIN", "Unknown");
         }
-        JSONObject jo = JSONObject.fromObject(hm);
+        ObjectNode jo = objectMapper.valueToTree(hm);
         response.getOutputStream().write(jo.toString().getBytes());
         return null;
     }
@@ -1232,7 +1250,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             hm.put("success", saveStatus);
         }
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         response.getOutputStream().write(jsonObject.toString().getBytes());
         return null;
     }
@@ -1253,6 +1271,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             try {
                 rx = bean.getStashItem(i);
                 rx.Save(scriptId);// new drug id available after this line
+                rx.setScript_no(scriptId);
                 bean.addRandomIdDrugIdPair(rx.getRandomId(), rx.getDrugId());
                 auditStr.append(rx.getAuditString());
                 auditStr.append("\n");
@@ -1330,12 +1349,31 @@ public final class RxWriteScript2Action extends ActionSupport {
         return;
     }
 
+    public String searchSpecialInstructions() throws IOException {
+		String str = request.getParameter("query");
+		Set<String> set = this.rxManager.getStoredInstructionsMatching(str);
+
+		Map<String, Object> json = new HashMap<>();
+        json.put("results", set);
+
+		response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+		ObjectMapper mapper = new ObjectMapper();
+        mapper.writeValue(response.getWriter(), json);
+
+        return "prescribe";
+	}
+
     public String checkNoStashItem() throws IOException, Exception {
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         int n = bean.getStashSize();
         HashMap hm = new HashMap();
         hm.put("NoStashItem", n);
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
+
+        response.setContentType("application/json");
+
         response.getOutputStream().write(jsonObject.toString().getBytes());
         return null;
     }

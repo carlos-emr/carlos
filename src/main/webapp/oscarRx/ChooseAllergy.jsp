@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -90,17 +90,17 @@
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
                     alert(name);
-                    window.location = "addReaction.do?ID=0&type=0&name=" + name;
+                    window.location = "<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=0&type=0&name=" + encodeURIComponent(name);
                 }
             }
 
             function toggleSection(typecode) {
                 var imgsrc = document.getElementById(typecode + "_img").src;
                 if (imgsrc.indexOf('expander') != -1) {
-                    document.getElementById(typecode + "_img").src = '../images/collapser.png';
+                    document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/collapser.png';
                     Effect.BlindDown(document.getElementById(typecode + "_content"), {duration: 0.1});
                 } else {
-                    document.getElementById(typecode + "_img").src = '../images/expander.png';
+                    document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/expander.png';
                     Effect.BlindUp(document.getElementById(typecode + "_content"), {duration: 0.1});
                 }
 
@@ -122,8 +122,8 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="oscarRx/ShowAllergies.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseAllergy.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseAllergy.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -224,12 +224,12 @@
                                     <c:choose>
                                         <c:when test="${flatResults}">
                                             <c:forEach var="allergy" items="${flatMap}">
-                                                <a href="addReaction.do?ID=${allergy.value.drugrefId}&name=${fn:escapeXml(allergy.value.description)}&type=${allergy.value.typeCode}">
+                                                <a href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${allergy.value.drugrefId}&name=${fn:escapeXml(allergy.value.description)}&type=${allergy.value.typeCode}">
                                                         ${allergy.value.description}
                                                 </a>
                                                 <c:forEach var="drugClassPair" items="${drugClassHash[allergy.value.drugrefId]}">
                                                     &nbsp;&nbsp;&nbsp;
-                                                    <a style="color: orange" href="addReaction.do?ID=${drugClassPair[0]}&name=${fn:escapeXml(drugClassPair[1])}&type=10">
+                                                    <a style="color: orange" href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${drugClassPair[0]}&name=${fn:escapeXml(drugClassPair[1])}&type=10">
                                                             ${drugClassPair[1]}
                                                     </a>
                                                 </c:forEach>
@@ -245,7 +245,7 @@
                                                 </div>
                                                 <div id="8_content">
                                                     <c:forEach var="allergy" items="${allergyResults[8]}">
-                                                        <a href="addReaction.do?ID=${allergy.drugrefId}&name=${fn:escapeXml(allergy.description)}&type=${allergy.typeCode}">
+                                                        <a href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${allergy.drugrefId}&name=${fn:escapeXml(allergy.description)}&type=${allergy.typeCode}">
                                                                 ${allergy.description}
                                                         </a>
                                                         <br/>
@@ -261,7 +261,7 @@
                             <br>
                             <br>
                             <%
-                                String sBack = "oscarRx/ShowAllergies.jsp";
+                                String sBack = request.getContextPath() + "/oscarRx/ShowAllergies.jsp";
                             %> <input type=button class="ControlPushButton"
                                       onclick="javascript:window.location.href='<%=sBack%>';"
                                       value="Back to View Allergies"/></td>

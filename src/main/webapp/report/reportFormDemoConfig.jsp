@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -15,7 +15,7 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*, ca.openosp.openo.report.data.*" %>
 <%@ page import="ca.openosp.openo.login.*" %>
-<%@ page import="org.apache.commons.lang.*" %>
+<%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="ca.openosp.openo.report.data.RptReportConfigData" %>
 <%@ page import="ca.openosp.openo.report.data.RptReportItem" %>
 <%@ page import="ca.openosp.openo.report.data.RptTableFieldNameCaption" %>
@@ -138,7 +138,7 @@
                                 String color = i % 2 == 0 ? "#EEEEFF" : "";
                                 String captionName = (String) vecTableField.get(i);
                                 if (captionName.matches(strMatchConfig)) continue;
-                                captionName = StringEscapeUtils.escapeHtml(captionName);
+                                captionName = StringEscapeUtils.escapeHtml4(captionName);
                         %>
                         <option value="<%=captionName%>"><%=captionName%>
                         </option>
@@ -164,7 +164,7 @@
                                                        ondblclick="javascript:onSelField();">
                     <% for (int i = 0; i < vecConfigField.size(); i++) {
                         String captionName = (String) vecConfigField.get(i);
-                        captionName = StringEscapeUtils.escapeHtml(captionName);
+                        captionName = StringEscapeUtils.escapeHtml4(captionName);
                     %>
                     <option value="<%=captionName%>"><%=captionName%>
                     </option>

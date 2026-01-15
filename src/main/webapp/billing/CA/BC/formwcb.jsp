@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -40,7 +40,7 @@
 
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 %>
 <%@ page
@@ -50,7 +50,7 @@
 <%@ page import="ca.openosp.openo.billings.ca.bc.Teleplan.WCBCodes" %>
 <%@ page import="ca.openosp.openo.billings.ca.bc.MSP.WcbHelper" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 

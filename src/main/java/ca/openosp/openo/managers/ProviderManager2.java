@@ -62,6 +62,9 @@ public class ProviderManager2 {
     @Autowired
     private ProviderExtDao providerExtDao;
 
+    @Autowired
+	private SecurityInfoManager securityInfoManager;
+
     public List<Provider> getProviders(LoggedInInfo loggedInInfo, Boolean active) {
         List<Provider> results = null;
 
@@ -728,4 +731,95 @@ public class ProviderManager2 {
         LogAction.addLogSynchronous(loggedInInfo, "ProviderManager.updateProvider, providerNo=" + provider.getProviderNo(), null);
 
     }
+
+    public boolean updateAutoLinkToMrpProperty(LoggedInInfo loggedInInfo, String value) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.WRITE, null) &&
+            !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.WRITE, null)) {
+			throw new RuntimeException("missing required security object (_admin.hrm or _admin.lab)");
+		}
+
+		List<Property> properties = propertyDao.findGlobalByName(Property.PROPERTY_KEY.auto_link_to_mrp);
+		if (properties.size() > 0) {
+			for (Property property: properties) {
+				property.setValue(value);
+				propertyDao.merge(property);
+			}
+		}
+
+		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
+	}
+
+	public boolean viewAutoLinkToMrpPropertyStatus(LoggedInInfo loggedInInfo) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.READ, null) &&
+            !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.READ, null)) {
+			throw new RuntimeException("missing required security object (_admin.hrm or _admin.lab)");
+		}
+
+		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
+	}
+
+	// If no property is found, it returns true by default.
+	public boolean isHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
+			throw new RuntimeException("missing required security object _lab");
+		}
+
+		return propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.hl7_offer_file_for_others, providerNo)
+				.stream()
+				.findFirst()
+				.map(p -> "true".equals(p.getValue()))
+				.orElse(true); // default to true
+	}
+
+	public boolean isHl7AllowOthersFileForYou(LoggedInInfo loggedInInfo, String providerNo) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
+			throw new RuntimeException("missing required security object _lab");
+		}
+
+		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.hl7_allow_others_file_for_you, providerNo);
+	}
+
+	public boolean updateHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo, String value) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+			throw new RuntimeException("missing required security object _lab");
+		}
+
+		List<Property> properties = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.hl7_offer_file_for_others, providerNo);
+		if (properties.size() > 0) {
+			for (Property property: properties) {
+				property.setValue(value);
+				propertyDao.merge(property);
+			}
+		} else {
+			Property property = new Property();
+			property.setValue(value);
+			property.setProviderNo(providerNo);
+			property.setName(Property.PROPERTY_KEY.hl7_offer_file_for_others.name());
+			propertyDao.persist(property);
+		}
+
+		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.hl7_offer_file_for_others, providerNo);
+	}
+
+	public boolean updateHl7AllowOthersFileForYou(LoggedInInfo loggedInInfo, String providerNo, String value) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+			throw new RuntimeException("missing required security object _lab");
+		}
+
+		List<Property> properties = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.hl7_allow_others_file_for_you, providerNo);
+		if (properties.size() > 0) {
+			for (Property property: properties) {
+				property.setValue(value);
+				propertyDao.merge(property);
+			}
+		} else {
+			Property property = new Property();
+			property.setValue(value);
+			property.setProviderNo(providerNo);
+			property.setName(Property.PROPERTY_KEY.hl7_allow_others_file_for_you.name());
+			propertyDao.persist(property);
+		}
+
+		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.hl7_allow_others_file_for_you, providerNo);
+	}
 }

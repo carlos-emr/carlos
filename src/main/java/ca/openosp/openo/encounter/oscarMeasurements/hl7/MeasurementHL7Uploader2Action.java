@@ -36,7 +36,7 @@ import ca.openosp.openo.utility.MiscUtils;
 import org.apache.http.HttpStatus;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.MeasurementDao;
 import ca.openosp.openo.commn.model.Demographic;

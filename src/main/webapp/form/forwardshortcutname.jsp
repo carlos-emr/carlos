@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
                    rights="r" reverse="<%=true%>">
-    <%response.sendRedirect("../logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 
 <%@ page import="java.net.URLDecoder, ca.openosp.openo.form.data.*" %>
@@ -42,7 +42,7 @@
     // forward to the page 'form_link'
     if (true) {
         out.clear();
-        //forward to the current specified form, e.g. ../form/formar.jsp?demographic_no=
+        //forward to the current specified form, e.g. contextPath/form/formar.jsp?demographic_no=
         String strFrm = URLDecoder.decode(request.getParameter("formname"), "UTF-8");
         String[] formPath = (new FrmData()).getShortcutFormValue(request.getParameter("demographic_no"), strFrm);
         formPath[0] = formPath[0].trim();

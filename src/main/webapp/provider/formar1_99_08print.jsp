@@ -25,7 +25,7 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     int oox = 0, ooy = 0;
     if (request.getParameter("oox") != null) oox = Integer.parseInt(request.getParameter("oox"));
     if (request.getParameter("ooy") != null) ooy = Integer.parseInt(request.getParameter("ooy"));
@@ -56,7 +56,7 @@
     </SCRIPT>
 </head>
 <body onLoad="setfocus()" topmargin="0" leftmargin="1" rightmargin="1"
-      background="../images/formar1_99_08.gif">
+      background="<%= request.getContextPath() %>/images/formar1_99_08.gif">
 
 <div ID="bdiv1"
      STYLE="position:absolute; visibility:visible; z-index:2; left:<%=50+oox%>px; top:<%=96+ooy%>px; width:400px; height:20px;">

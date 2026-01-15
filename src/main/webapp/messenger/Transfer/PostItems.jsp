@@ -73,7 +73,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -81,7 +81,7 @@
     }
 %>
 
-<%@page contentType='text/xml'
+<%@page contentType='text/xml; charset=UTF-8' pageEncoding='UTF-8'
         import="ca.openosp.openo.messenger.docxfer.send.*, ca.openosp.openo.messenger.docxfer.util.*" %>
 <%@ page import="ca.openosp.openo.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="ca.openosp.openo.messenger.pageUtil.MsgSessionBean" %>
@@ -112,5 +112,5 @@
     bean.setAttachment(sXML);
 
     // Redirect to message creation page
-    response.sendRedirect("../CreateMessage.jsp");
+    response.sendRedirect(request.getContextPath() + "/messenger/CreateMessage.jsp");
 %>

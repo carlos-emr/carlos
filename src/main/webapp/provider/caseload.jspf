@@ -12,7 +12,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
 <%@ page import=" ca.openosp.openo.utility.*"%>
 <%@ page import="java.util.*, java.net.URLEncoder "%>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils"%>
+<%@ page import="org.apache.commons.text.StringEscapeUtils"%>
 <%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao, ca.openosp.openo.commn.model.Provider" %>
 <%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
 <%@ page import="ca.openosp.OscarProperties" %>
@@ -83,7 +83,7 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 				<div id="leftSearch">
 					<form>
 						<b><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNotes"/></b>
-						<input type='text' id='caseloadQ' size='20' onclick='this.value=""; document.getElementById("caseloadDx").value="";' value="<%=StringEscapeUtils.escapeHtml(caseloadQ).replace("'","\\\'")%>" />
+						<input type='text' id='caseloadQ' size='20' onclick='this.value=""; document.getElementById("caseloadDx").value="";' value="<%=StringEscapeUtils.escapeHtml4(caseloadQ).replace("'","\\\'")%>" />
 						<input type='submit' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("noteSearch"); return false;'>
 					</form>
 				</div>
@@ -132,12 +132,12 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 		for (String rosterStatus : rosterStatusList) {
 			if (rosterStatus != null && rosterStatus.trim().length() > 0) {
 		%>
-						<option value='<%=StringEscapeUtils.escapeHtml(rosterStatus)%>' <%=caseloadRoster.equals(rosterStatus)?"selected":""%>><%=StringEscapeUtils.escapeHtml(rosterStatus)%></option>
+						<option value='<%=StringEscapeUtils.escapeHtml4(rosterStatus)%>' <%=caseloadRoster.equals(rosterStatus)?"selected":""%>><%=StringEscapeUtils.escapeHtml4(rosterStatus)%></option>
 		<% 	}
 		} %>
 					</select>
 					<b>DxReg: </b>
-					<input type='text' id='caseloadDx' size='10' onclick='this.value=""; document.getElementById("caseloadQ").value="";' value="<%= StringEscapeUtils.escapeHtml(caseloadDx).replace("'","\\\'") %>" />
+					<input type='text' id='caseloadDx' size='10' onclick='this.value=""; document.getElementById("caseloadQ").value="";' value="<%= StringEscapeUtils.escapeHtml4(caseloadDx).replace("'","\\\'") %>" />
 					<input type='submit' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("search"); return false;'>
 					</form>
 				</div>

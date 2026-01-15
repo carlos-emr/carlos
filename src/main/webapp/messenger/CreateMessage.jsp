@@ -95,7 +95,7 @@
 <%-- Security tag: Verify user has write permissions for messaging module --%>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
 </security:oscarSec>
 <%
     // Exit page execution if user is not authorized
@@ -337,7 +337,7 @@
                             <td style="text-align: right">
                                 
                                 <a href="javascript:void(0)"
-                                   onclick="javascript:popupPage(600,700,'../oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                                   onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
                             </td>
                         </tr>
                     </table>

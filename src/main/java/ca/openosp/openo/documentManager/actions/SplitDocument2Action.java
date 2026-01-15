@@ -22,9 +22,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.OscarProperties;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.pdfbox.io.RandomAccessFile;
 import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -61,6 +62,9 @@ public class SplitDocument2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -190,8 +194,8 @@ public class SplitDocument2Action extends ActionSupport {
                 }
 
                 if (result.isEmpty() || result2.isEmpty()) {
-                    String json = "{newDocNum:" + newDocNo + "}";
-                    JSONObject jsonObject = JSONObject.fromObject(json);
+                    ObjectNode jsonObject = objectMapper.createObjectNode();
+                    jsonObject.put("newDocNum", newDocNo);
                     response.setContentType("application/json");
                     PrintWriter printWriter = response.getWriter();
                     printWriter.print(jsonObject);

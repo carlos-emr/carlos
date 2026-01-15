@@ -39,7 +39,7 @@
              class="ca.openosp.openo.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
 <jsp:useBean id="checklist"
              class="ca.openosp.openo.decision.DesAntenatalPlannerChecklist_99_12" scope="page"/>
-<%@ include file="../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.Desaprisk" %>
 <%@page import="ca.openosp.openo.commn.dao.DesapriskDao" %>
@@ -102,7 +102,7 @@
 <%
 
 
-        String riskFilePath = "../webapps/" + oscarVariables.getProperty("project_home") + "/decision/antenatal/desantenatalplannerrisks_99_12.xml";
+        String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
 
         File file = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
         if (file.isFile() || file.canRead()) {
@@ -176,7 +176,7 @@
             }
         }
 
-        String checkListFilePath = "../webapps/" + oscarVariables.getProperty("project_home") + "/decision/antenatal/desantenatalplannerchecklist_99_12.xml";
+        String checkListFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerchecklist_99_12.xml");
 
         File file = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml");
         if (file.isFile() || file.canRead()) {

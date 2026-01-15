@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed2) {
@@ -41,7 +41,7 @@
 
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page
-        import="org.apache.commons.lang.StringUtils,org.apache.commons.lang.StringEscapeUtils,java.util.*,ca.openosp.openo.util.*,ca.openosp.openo.report.data.*,ca.openosp.openo.db.*,java.sql.*,ca.openosp.openo.demographic.data.*,ca.openosp.openo.eform.*,ca.openosp.openo.commn.model.Provider,ca.openosp.openo.managers.ProviderManager2,ca.openosp.openo.utility.SpringUtils" %>
+        import="org.apache.commons.lang3.StringUtils,org.apache.commons.text.StringEscapeUtils,java.util.*,ca.openosp.openo.util.*,ca.openosp.openo.report.data.*,ca.openosp.openo.db.*,java.sql.*,ca.openosp.openo.demographic.data.*,ca.openosp.openo.eform.*,ca.openosp.openo.commn.model.Provider,ca.openosp.openo.managers.ProviderManager2,ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.eform.OneTimeConsultUtil" %>
 <%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -176,7 +176,7 @@
                                     }
                                 %>
 
-                        ><%=StringEscapeUtils.escapeHtml(provider.getFormattedName())%>
+                        ><%=StringEscapeUtils.escapeHtml4(provider.getFormattedName())%>
                         </option>
                         <%
                             }

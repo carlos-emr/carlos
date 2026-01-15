@@ -30,7 +30,7 @@
 <%@ page import="ca.openosp.openo.eform.EFormUtil" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String country = request.getLocale().getCountry();
 
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -134,7 +134,7 @@
             %>
             <tr>
                 <td><a href="#"
-                       ONCLICK="openEform('../eform/efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
+                       ONCLICK="openEform('<%= request.getContextPath() %>/eform/efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>"
                        onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
                 </a></td>

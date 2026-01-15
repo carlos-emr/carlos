@@ -42,8 +42,9 @@ import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import org.w3c.dom.NodeList;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -60,6 +61,9 @@ public class OutcomesDashboard2Action extends ActionSupport {
 
     Logger logger = MiscUtils.getLogger();
 
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public String execute() throws Exception {
         return refreshIndicators();
     }
@@ -75,12 +79,12 @@ public class OutcomesDashboard2Action extends ActionSupport {
 
         byte[] b = Base64.decodeBase64(data);
 
-        JSONObject jsonObject = JSONObject.fromObject(new String(b));
+        ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(new String(b));
 
-        String username = jsonObject.getString("username");
-        JSONArray arr = jsonObject.getJSONArray("queryList");
+        String username = jsonObject.get("username").asText();
+        ArrayNode arr = (ArrayNode) jsonObject.get("queryList");
         for (int x = 0; x < arr.size(); x++) {
-            String metricSetName = arr.getString(x);
+            String metricSetName = arr.get(x).asText();
 
             //need to find the right indicator!
             Provider provider = providerManager.getProvider(LoggedInInfo.getLoggedInInfoFromSession(request), username);
@@ -93,9 +97,9 @@ public class OutcomesDashboard2Action extends ActionSupport {
             }
         }
 
-        JSONObject o = new JSONObject();
+        ObjectNode o = objectMapper.createObjectNode();
 
-        o.write(response.getWriter());
+        response.getWriter().print(o.toString());
 
         return null;
     }

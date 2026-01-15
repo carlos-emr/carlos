@@ -27,6 +27,7 @@ package ca.openosp.openo.webserv.rest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,7 +45,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.casemgmt.service.CaseManagementManager;
 import ca.openosp.openo.commn.dao.ClinicDAO;
@@ -95,7 +96,8 @@ import ca.openosp.openo.webserv.rest.to.model.ProfessionalSpecialistTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.documentManager.EDoc;
 import ca.openosp.openo.documentManager.EDocUtil;
 import ca.openosp.openo.eform.EFormUtil;
@@ -153,7 +155,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Path("/searchRequests")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public AbstractSearchResponse<ConsultationRequestSearchResult> searchRequests(JSONObject json) {
+    public AbstractSearchResponse<ConsultationRequestSearchResult> searchRequests(ObjectNode json) {
         AbstractSearchResponse<ConsultationRequestSearchResult> rp = new AbstractSearchResponse<ConsultationRequestSearchResult>();
 
         int count = consultationManager.getConsultationCount(convertRequestJSON(json));
@@ -340,7 +342,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Path("/searchResponses")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public AbstractSearchResponse<ConsultationResponseSearchResult> searchResponses(JSONObject json) {
+    public AbstractSearchResponse<ConsultationResponseSearchResult> searchResponses(ObjectNode json) {
         AbstractSearchResponse<ConsultationResponseSearchResult> rp = new AbstractSearchResponse<ConsultationResponseSearchResult>();
 
         int count = consultationManager.getConsultationCount(convertResponseJSON(json));
@@ -516,58 +518,62 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return null;
     }
 
-    private ConsultationRequestSearchFilter convertRequestJSON(JSONObject json) {
+    private ConsultationRequestSearchFilter convertRequestJSON(ObjectNode json) {
         ConsultationRequestSearchFilter filter = new ConsultationRequestSearchFilter();
 
-        filter.setAppointmentEndDate(convertJSONDate((String) json.get("appointmentEndDate")));
-        filter.setAppointmentStartDate(convertJSONDate((String) json.get("appointmentStartDate")));
-        filter.setDemographicNo((Integer) json.get("demographicNo"));
-        filter.setMrpNo((Integer) json.get("mrpNo"));
-        filter.setNumToReturn((Integer) json.get("numToReturn"));
-        filter.setReferralEndDate(convertJSONDate((String) json.get("referralEndDate")));
-        filter.setReferralStartDate(convertJSONDate((String) json.get("referralStartDate")));
-        filter.setStartIndex((Integer) json.get("startIndex"));
-        filter.setStatus((Integer) json.get("status"));
-        filter.setTeam((String) json.get("team"));
+        filter.setAppointmentEndDate(convertJSONDate(json.get("appointmentEndDate") != null ? json.get("appointmentEndDate").asText() : null));
+        filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
+        filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
+        filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
+        filter.setReferralEndDate(convertJSONDate(json.get("referralEndDate") != null ? json.get("referralEndDate").asText() : null));
+        filter.setReferralStartDate(convertJSONDate(json.get("referralStartDate") != null ? json.get("referralStartDate").asText() : null));
+        filter.setStartIndex(json.get("startIndex") != null ? json.get("startIndex").asInt() : null);
+        filter.setStatus(json.get("status") != null ? json.get("status").asInt() : null);
+        filter.setTeam(json.get("team") != null ? json.get("team").asText() : null);
 
-        JSONObject params = json.getJSONObject("params");
+        ObjectNode params = (ObjectNode) json.get("params");
         if (params != null) {
-            for (Object key : params.keySet()) {
-                Matcher nameMtchr = namePtrn.matcher((String) key);
+            Iterator<String> fieldNames = params.fieldNames();
+            while (fieldNames.hasNext()) {
+                String key = fieldNames.next();
+                Matcher nameMtchr = namePtrn.matcher(key);
                 if (nameMtchr.find()) {
                     String var = nameMtchr.group(1);
                     filter.setSortMode(ConsultationRequestSearchFilter.SORTMODE.valueOf(var));
-                    filter.setSortDir(ConsultationRequestSearchFilter.SORTDIR.valueOf(params.getString((String) key)));
+                    filter.setSortDir(ConsultationRequestSearchFilter.SORTDIR.valueOf(params.get(key).asText()));
                 }
             }
         }
         return filter;
     }
 
-    private ConsultationResponseSearchFilter convertResponseJSON(JSONObject json) {
+    private ConsultationResponseSearchFilter convertResponseJSON(ObjectNode json) {
         ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
 
-        filter.setAppointmentEndDate(convertJSONDate((String) json.get("appointmentEndDate")));
-        filter.setAppointmentStartDate(convertJSONDate((String) json.get("appointmentStartDate")));
-        filter.setDemographicNo((Integer) json.get("demographicNo"));
-        filter.setMrpNo((Integer) json.get("mrpNo"));
-        filter.setNumToReturn((Integer) json.get("numToReturn"));
-        filter.setReferralEndDate(convertJSONDate((String) json.get("referralEndDate")));
-        filter.setReferralStartDate(convertJSONDate((String) json.get("referralStartDate")));
-        filter.setResponseEndDate(convertJSONDate((String) json.get("responseEndDate")));
-        filter.setResponseStartDate(convertJSONDate((String) json.get("responseStartDate")));
-        filter.setStartIndex((Integer) json.get("startIndex"));
-        filter.setStatus((Integer) json.get("status"));
-        filter.setTeam((String) json.get("team"));
+        filter.setAppointmentEndDate(convertJSONDate(json.get("appointmentEndDate") != null ? json.get("appointmentEndDate").asText() : null));
+        filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
+        filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
+        filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
+        filter.setReferralEndDate(convertJSONDate(json.get("referralEndDate") != null ? json.get("referralEndDate").asText() : null));
+        filter.setReferralStartDate(convertJSONDate(json.get("referralStartDate") != null ? json.get("referralStartDate").asText() : null));
+        filter.setResponseEndDate(convertJSONDate(json.get("responseEndDate") != null ? json.get("responseEndDate").asText() : null));
+        filter.setResponseStartDate(convertJSONDate(json.get("responseStartDate") != null ? json.get("responseStartDate").asText() : null));
+        filter.setStartIndex(json.get("startIndex") != null ? json.get("startIndex").asInt() : null);
+        filter.setStatus(json.get("status") != null ? json.get("status").asInt() : null);
+        filter.setTeam(json.get("team") != null ? json.get("team").asText() : null);
 
-        JSONObject params = json.getJSONObject("params");
+        ObjectNode params = (ObjectNode) json.get("params");
         if (params != null) {
-            for (Object key : params.keySet()) {
-                Matcher nameMtchr = namePtrn.matcher((String) key);
+            java.util.Iterator<String> fieldNames = params.fieldNames();
+            while (fieldNames.hasNext()) {
+                String key = fieldNames.next();
+                Matcher nameMtchr = namePtrn.matcher(key);
                 if (nameMtchr.find()) {
                     String var = nameMtchr.group(1);
                     filter.setSortMode(ConsultationResponseSearchFilter.SORTMODE.valueOf(var));
-                    filter.setSortDir(ConsultationResponseSearchFilter.SORTDIR.valueOf(params.getString((String) key)));
+                    filter.setSortDir(ConsultationResponseSearchFilter.SORTDIR.valueOf(params.get(key).asText()));
                 }
             }
         }

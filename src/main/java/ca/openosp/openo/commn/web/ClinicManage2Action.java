@@ -61,11 +61,11 @@ public class ClinicManage2Action extends ActionSupport {
 
     public String update() {
         Clinic clinic = this.getClinic();
-        //weird hack, but not sure why struts isn't filling in the id.
         if (request.getParameter("clinic.id") != null && request.getParameter("clinic.id").length() > 0 && clinic.getId() == null) {
             clinic.setId(Integer.parseInt(request.getParameter("clinic.id")));
         }
         clinicDAO.save(clinic);
+        request.setAttribute("clinicForm", clinic);
 
         return SUCCESS;
     }

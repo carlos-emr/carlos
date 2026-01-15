@@ -1,4 +1,5 @@
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean" %><%--
+
+<%--
 
 
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -24,9 +25,11 @@
 --%>
 
 
+
 <%-- Updated by Eugene Petruhin on 24 dec 2008 while fixing #2459538 --%>
 <%-- Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061 --%>
 
+<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
@@ -57,7 +60,7 @@
             CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
             request.setAttribute("caseManagementEntryForm", form);
 
-        int size=form.getIssueCheckList().length;
+        int size = (form.getIssueCheckList() != null) ? form.getIssueCheckList().size() : 0;
 
         if (session.getAttribute("newNote")!=null && "true".equalsIgnoreCase((String)session.getAttribute("newNote")))
         {%>

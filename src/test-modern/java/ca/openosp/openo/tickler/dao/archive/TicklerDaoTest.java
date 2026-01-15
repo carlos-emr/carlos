@@ -27,7 +27,7 @@
  * @author yingbull
  * @since 2025-09-15
  */
-package ca.openosp.openo.tickler.dao;
+package ca.openosp.openo.tickler.dao.archive;
 
 import ca.openosp.openo.test.base.OpenODaoTestBase;
 import ca.openosp.openo.commn.dao.TicklerDao;

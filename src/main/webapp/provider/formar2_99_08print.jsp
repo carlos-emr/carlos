@@ -25,11 +25,12 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     int oox = 0, ooy = 0;
     if (request.getParameter("oox") != null) oox = Integer.parseInt(request.getParameter("oox"));
     if (request.getParameter("ooy") != null) ooy = Integer.parseInt(request.getParameter("ooy"));
 %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.util.UtilMisc, ca.openosp.openo.form.graphic.*"
         errorPage="/errorpage.jsp" %>
@@ -691,7 +692,7 @@
 <div ID="graphic"
      STYLE="position:absolute; visibility:visible; z-index:2; left:<%=3+oox%>px; top:<%=653+ooy%>px; width:501px; height:280px;">
     <embed type="image/svg+xml"
-           src="<%= request.getContextPath() %>/form/formar2svg.jsp?bgimage=<%=URLEncoder.encode("../images/formar2_99_08gra.gif")%>&bgimagewidth=222&bgimageheight=276<%=urlparam%>"
+        src="<%= request.getContextPath() %>/form/formar2svg.jsp?bgimage=<%=URLEncoder.encode("../images/formar2_99_08gra.gif", StandardCharsets.UTF_8)%>&bgimagewidth=222&bgimageheight=276<%=urlparam%>"
            width="221" height="276" wmode="transparent"/>
 </div>
 <%

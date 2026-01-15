@@ -25,7 +25,7 @@ package ca.openosp.openo.PMmodule.web;
 
 import java.util.Date;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.dao.CdsClientFormDao;
 import ca.openosp.openo.commn.dao.CdsClientFormDataDao;
 import ca.openosp.openo.commn.model.CdsClientForm;

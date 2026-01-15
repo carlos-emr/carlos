@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -31,10 +31,10 @@
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>"
-                   objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.invoices,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.torontoRfq"
+                   objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.invoices,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.torontoRfq,_admin.flowsheet"
                    rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.*");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.*");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -289,7 +289,7 @@
                         <li><a href="#"
                                onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/billingSim.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,${pageContext.request.contextPath}/billing/CA/BC/billingTeleplanGroupReport.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/billingTeleplanGroupReport.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
                         <li><a href="#"
@@ -328,11 +328,11 @@
                     <li><a href="#"
                            onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/addEditServiceCode.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(300,600, ${pageContext.request.contextPath}/billing/CA/ON/billingONEditPrivateCode.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/billingONEditPrivateCode.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/admin/manageCSSStyles.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/../admin/gstControl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/../admin/gstreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/gstControl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/gstreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/manageBillingLocation.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
                     <li><a href="#"
@@ -344,17 +344,16 @@
                     <li><a href="#"
                            onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/billingCorrection.jsp?billing_no=");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,820, "${pageContext.request.contextPath}/billing/CA/ON/batchBilling.jsp?service_code=all"/>);return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
+                           onclick='popupPage(700,820, "${pageContext.request.contextPath}/billing/CA/ON/batchBilling.jsp?service_code=all");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/inr/reportINR.jspprovider_no=all");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/inr/reportINR.jsp?provider_no=all");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/billingONUpload.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
                     <% if (OscarProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
                     <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/viewMOHFiles.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
                     <li><a href="#"
-                           onclick='popupPage(600,900, "${pageContext.request.contextPath}/servlet/oscar.DocumentUploadServlet");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
-                    <!-- li><a href="#" onclick ='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/ON/billingRA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li-->
+                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
                     <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
                     <li>
                         <a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/mcedt/mcedt.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mcedt"/></a>
@@ -476,7 +475,7 @@
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportCatchment.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnPCNCatchmentReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,${pageContext.request.contextPath}/oscarReport/FluBilling.do"/>?orderby=&quot;);return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling.do?orderby=");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
 
@@ -640,9 +639,9 @@
                                onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction.do'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/adminnewgroup.jsp"/>?submit=blank &quot;)'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/adminnewgroup.jsp?submit=blank");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp"/> &quot;)'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupnoacl.jsp")'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
                         <li><a href="#"
@@ -655,18 +654,27 @@
         </security:oscarSec>
         <!-- #Schedule Management END-->
 
-        <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r"
+        <!-- #FLOWSHEET & DOCUMENT MANAGEMENT -->
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document,_admin.flowsheet" rights="r"
                            reverse="<%=false%>">
             <div class="adminBox">
-                <h3>&nbsp;Document Management</h3>
+                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManagement"/></h3>
                 <ul>
-                    <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentCategories.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentCategories"/></a></li>
-                    <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r"
+                                       reverse="<%=false%>">
+                        <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/manageFlowsheets.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+                    </security:oscarSec>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r"
+                                       reverse="<%=false%>">
+                        <li><a href="#"
+                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentCategories.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentCategories"/></a></li>
+                        <li><a href="#"
+                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+                    </security:oscarSec>
                 </ul>
             </div>
         </security:oscarSec>
+        <!-- #FLOWSHEET & DOCUMENT MANAGEMENT END -->
 
 
         <!-- #SYSTEM Management-->
@@ -722,7 +730,7 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger/DisplayMessages.do"/>?providerNo=<%=curProvider_no%>&amp;userName=<%=userfirstname%>%20<%=userlastname%>&quot;);return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.messages"/></a></li>
+                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger/DisplayMessages.do?providerNo=<%=curProvider_no%>&amp;userName=<%=userfirstname%>%20<%=userlastname%>");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.messages"/></a></li>
                         <li><a href="#"
                                onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger/config/MessengerAdmin.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
 
@@ -752,21 +760,21 @@
                         <%--				<li>&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.titleFactorAuth"/>--%>
                         <%--				<ul>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/ip/show');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ipFilter"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/ip/show');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ipFilter"/></a></li>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/cert/?act=super');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setCert"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/cert/?act=super');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setCert"/></a></li>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/supercert');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genCert"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/supercert');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genCert"/></a></li>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/clear');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clearCookie"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/clear');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clearCookie"/></a></li>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/quest/adminQuestions');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecQuestions"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/quest/adminQuestions');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecQuestions"/></a></li>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/policyadmin/select');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecPolicies"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/policyadmin/select');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecPolicies"/></a></li>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/banremover/show');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.removeBans"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/banremover/show');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.removeBans"/></a></li>--%>
                         <%--					<li><a href="#"--%>
-                        <%--						onclick="popupPage(500,700,'../gatekeeper/matrixadmin/show');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genMatrixCards"/></a></li>--%>
+                        <%--						onclick="popupPage(500,700,'<%= request.getContextPath() %>/gatekeeper/matrixadmin/show');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genMatrixCards"/></a></li>--%>
                         <%--				</ul>--%>
                         <%--				</li>--%>
                         <%--			</sec:oscarSec>--%>
@@ -788,13 +796,13 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.securityLogReport" rights="r">
                         <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/logReport.jsp"/>?keyword=admin&quot;);return false;'>
+                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/logReport.jsp?keyword=admin");return false;'>
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.securityLogReport"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin, _admin.traceability" rights="r">
                         <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/traceReport.jsp"/>?keyword=admin&quot;);return false;'>
+                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/traceReport.jsp?keyword=admin");return false;'>
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></a></li>
                     </security:oscarSec>
 
@@ -815,7 +823,7 @@
                     <li><a href="#"
                            onclick="popupPage(900, 500, '<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewIntegratorProperties');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetIntegratorPreferences"/></a></li>
                     <li><a href="#"
-                           onClick="popupPage(800, 1000, '../admin/integratorPushStatus.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.integratorPush"/></a></li>
+                           onClick="popupPage(800, 1000, '${pageContext.request.contextPath}/admin/integratorPushStatus.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.integratorPush"/></a></li>
 
                     <li><a href="<%=request.getContextPath()%>/lab/CA/ALL/sendOruR01.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
@@ -834,7 +842,7 @@
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/olis/Preferences.jsp");return false;'>OLIS Preferences</a></li>
                     <% } %>
 
-                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, "${pageContext.request.contextPath}/admin/updateDrugref.jsp");return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
+                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/updateDrugref.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
                 </ul>
             </div>
         </security:oscarSec>

@@ -19,7 +19,7 @@
 
 --%>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect("../../../logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     OscarProperties props = OscarProperties.getInstance();
     session.setAttribute("homepath", props.getProperty("project_home", ""));
 %>
@@ -43,10 +43,10 @@
             }
             if (val1.substring(0, 1) == "P" || val1.substring(0, 1) == "S") {
                 if (document.all) {
-                    document.all.form1.action = "../../../servlet/oscar.DocumentUploadServlet";
+                    document.all.form1.action = "${pageContext.request.contextPath}/servlet/ca.openosp.DocumentUploadServlet";
                     document.all.form1.submit();
                 } else {
-                    document.getElementById('form1').action = "../../../servlet/oscar.DocumentUploadServlet";
+                    document.getElementById('form1').action = "${pageContext.request.contextPath}/servlet/ca.openosp.DocumentUploadServlet";
                     document.getElementById('form1').submit();
                 }
             } else {

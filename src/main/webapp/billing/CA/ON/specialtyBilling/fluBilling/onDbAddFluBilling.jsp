@@ -31,7 +31,7 @@
         String prevention = request.getParameter("goPrev");
         if (prevention != null && !prevention.equalsIgnoreCase("")) {
 
-            response.sendRedirect("../../../../../oscarPrevention/AddPreventionData.jsp?prevention=" + prevention + "&demographic_no="
+            response.sendRedirect(request.getContextPath() + "/oscarPrevention/AddPreventionData.jsp?prevention=" + prevention + "&demographic_no="
                     + request.getParameter("functionid"));
         }
     }

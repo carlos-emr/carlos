@@ -37,7 +37,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.tools.ant.util.DateUtils;
 import ca.openosp.openo.PMmodule.model.ProgramProvider;
 import ca.openosp.openo.PMmodule.service.AdmissionManager;

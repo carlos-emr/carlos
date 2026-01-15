@@ -33,16 +33,52 @@ import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
+/**
+ * Wrapper for SSLSocketFactory that applies custom SSL parameters to all created sockets.
+ * 
+ * <p>This class wraps an existing SSLSocketFactory and automatically applies
+ * specified SSL parameters (such as cipher suites, protocols, etc.) to every
+ * socket it creates. This ensures consistent SSL/TLS configuration across all
+ * connections.</p>
+ * 
+ * <p>Example usage:</p>
+ * <pre>
+ * SSLSocketFactory baseFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+ * SSLParameters params = new SSLParameters();
+ * params.setProtocols(new String[]{"TLSv1.2", "TLSv1.3"});
+ * SSLSocketFactoryWrapper wrapper = new SSLSocketFactoryWrapper(baseFactory, params);
+ * Socket socket = wrapper.createSocket("example.com", 443);
+ * </pre>
+ * 
+ * <p><strong>Security Note:</strong> Ensure SSL parameters are configured according to
+ * current security best practices. Avoid deprecated protocols and weak cipher suites.</p>
+ */
 public class SSLSocketFactoryWrapper extends SSLSocketFactory {
 
     private final SSLSocketFactory wrappedFactory;
     private final SSLParameters sslParameters;
 
+    /**
+     * Constructs a new SSLSocketFactoryWrapper.
+     * 
+     * @param factory the underlying SSLSocketFactory to wrap
+     * @param sslParameters the SSL parameters to apply to all created sockets
+     */
     public SSLSocketFactoryWrapper(SSLSocketFactory factory, SSLParameters sslParameters) {
         this.wrappedFactory = factory;
         this.sslParameters = sslParameters;
     }
 
+    /**
+     * Creates a socket and connects it to the specified host and port.
+     * Applies configured SSL parameters before returning.
+     * 
+     * @param host the server host name
+     * @param port the server port
+     * @return the SSL socket with configured parameters
+     * @throws IOException if an I/O error occurs
+     * @throws UnknownHostException if the host cannot be resolved
+     */
     @Override
     public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
         SSLSocket socket = (SSLSocket) wrappedFactory.createSocket(host, port);
@@ -50,6 +86,19 @@ public class SSLSocketFactoryWrapper extends SSLSocketFactory {
         return socket;
     }
 
+    /**
+     * Creates a socket and connects it to the specified host and port,
+     * binding to the specified local address and port.
+     * Applies configured SSL parameters before returning.
+     * 
+     * @param host the server host name
+     * @param port the server port
+     * @param localHost the local address to bind to
+     * @param localPort the local port to bind to
+     * @return the SSL socket with configured parameters
+     * @throws IOException if an I/O error occurs
+     * @throws UnknownHostException if the host cannot be resolved
+     */
     @Override
     public Socket createSocket(String host, int port, InetAddress localHost, int localPort)
             throws IOException, UnknownHostException {
@@ -59,6 +108,15 @@ public class SSLSocketFactoryWrapper extends SSLSocketFactory {
     }
 
 
+    /**
+     * Creates a socket and connects it to the specified address and port.
+     * Applies configured SSL parameters before returning.
+     * 
+     * @param host the server IP address
+     * @param port the server port
+     * @return the SSL socket with configured parameters
+     * @throws IOException if an I/O error occurs
+     */
     @Override
     public Socket createSocket(InetAddress host, int port) throws IOException {
         SSLSocket socket = (SSLSocket) wrappedFactory.createSocket(host, port);
@@ -66,6 +124,18 @@ public class SSLSocketFactoryWrapper extends SSLSocketFactory {
         return socket;
     }
 
+    /**
+     * Creates a socket and connects it to the specified address and port,
+     * binding to the specified local address and port.
+     * Applies configured SSL parameters before returning.
+     * 
+     * @param address the server IP address
+     * @param port the server port
+     * @param localAddress the local address to bind to
+     * @param localPort the local port to bind to
+     * @return the SSL socket with configured parameters
+     * @throws IOException if an I/O error occurs
+     */
     @Override
     public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort) throws IOException {
         SSLSocket socket = (SSLSocket) wrappedFactory.createSocket(address, port, localAddress, localPort);
@@ -74,6 +144,13 @@ public class SSLSocketFactoryWrapper extends SSLSocketFactory {
 
     }
 
+    /**
+     * Creates an unconnected socket.
+     * Applies configured SSL parameters before returning.
+     * 
+     * @return the unconnected SSL socket with configured parameters
+     * @throws IOException if an I/O error occurs
+     */
     @Override
     public Socket createSocket() throws IOException {
         SSLSocket socket = (SSLSocket) wrappedFactory.createSocket();

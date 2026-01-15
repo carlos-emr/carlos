@@ -40,9 +40,11 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 
 import ca.openosp.openo.commn.model.PharmacyInfo;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -62,6 +64,8 @@ import org.apache.struts2.ServletActionContext;
 public final class RxManagePharmacy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
 
     public String execute() throws IOException, ServletException {
@@ -121,8 +125,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         response.setContentType("text/x-json");
-        JSONObject jsonObject = JSONObject.fromObject(retVal);
-        jsonObject.write(response.getWriter());
+        ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
+        response.getWriter().write(jsonObject.toString());
 
         return null;
     }
@@ -140,8 +144,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
             response.setContentType("text/x-json");
             String retVal = "{\"id\":\"" + pharmId + "\"}";
-            JSONObject jsonObject = JSONObject.fromObject(retVal);
-            jsonObject.write(response.getWriter());
+            ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
+            response.getWriter().write(jsonObject.toString());
         } catch (Exception e) {
             MiscUtils.getLogger().error("CANNOT UNLINK PHARMACY", e);
         }
@@ -196,11 +200,17 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             status = "{\"success\":false}";
         }
 
-        JSONObject jsonObject = JSONObject.fromObject(status);
+        ObjectNode jsonObject = objectMapper.createObjectNode();
+
+        try {
+            jsonObject = (ObjectNode) objectMapper.readTree(status);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Cannot parse status json", e);
+        }
 
         try {
             response.setContentType("text/x-json");
-            jsonObject.write(response.getWriter());
+            response.getWriter().write(jsonObject.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Cannot write response", e);
         }
@@ -307,7 +317,10 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             hm.put("province", pharmacy.getProvince());
             hm.put("serviceLocationIdentifier", pharmacy.getServiceLocationIdentifier());
             hm.put("notes", pharmacy.getNotes());
-            JSONObject jsonObject = JSONObject.fromObject(hm);
+            ObjectNode jsonObject = objectMapper.valueToTree(hm);
+
+            response.setContentType("application/json");
+
             response.getOutputStream().write(jsonObject.toString().getBytes());
         }
         return null;
@@ -317,7 +330,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         String pharmacyId = StringUtils.isNullOrEmpty(request.getParameter("pharmacyId")) ? "0" : request.getParameter("pharmacyId");
         RxPharmacyData pharmacyData = new RxPharmacyData();
         Long totalDemographics = pharmacyData.getTotalDemographicsPreferedToPharmacyByPharmacyId(pharmacyId);
-        JSONObject jsonObject = new JSONObject();
+        ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put("totalDemographics", totalDemographics);
         response.getOutputStream().write(jsonObject.toString().getBytes());
         return null;

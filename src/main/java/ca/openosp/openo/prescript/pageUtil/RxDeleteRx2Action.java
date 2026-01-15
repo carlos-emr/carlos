@@ -36,8 +36,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import ca.openosp.openo.casemgmt.model.CaseManagementNote;
 import ca.openosp.openo.casemgmt.model.CaseManagementNoteLink;
@@ -82,6 +82,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -262,7 +263,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             }
             HashMap hm = new HashMap();
             hm.put("drugId", drugId);
-            JSONObject jsonObject = JSONObject.fromObject(hm);
+            ObjectNode jsonObject = objectMapper.valueToTree(hm);
             MiscUtils.getLogger().debug("jsonObject=" + jsonObject.toString());
             response.getOutputStream().write(jsonObject.toString().getBytes());
         }
@@ -391,8 +392,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
         d.put("id", "" + id);
         d.put("reason", reason);
         response.setContentType("text/x-json");
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(d);
-        jsonArray.write(response.getWriter());
+        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
+        response.getWriter().write(jsonArray.toString());
 
         return null;
     }

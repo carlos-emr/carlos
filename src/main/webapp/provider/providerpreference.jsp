@@ -49,7 +49,7 @@
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.web.PrescriptionQrCodeUIBean" %>
 <%@page import="ca.openosp.openo.commn.model.EForm" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.commn.model.EncounterForm" %>
 <%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
 <%@page import="ca.openosp.openo.commn.model.CtlBillingService" %>
@@ -315,7 +315,7 @@
                             List<EncounterForm> encounterForms = ProviderPreferencesUIBean.getAllEncounterForms();
                             Collection<String> checkedEncounterFormNames = ProviderPreferencesUIBean.getCheckedEncounterFormNames(providerNo);
                             for (EncounterForm encounterForm : encounterForms) {
-                                String nameEscaped = StringEscapeUtils.escapeHtml(encounterForm.getFormName());
+                                String nameEscaped = StringEscapeUtils.escapeHtml4(encounterForm.getFormName());
                                 String checkedString = (checkedEncounterFormNames.contains(encounterForm.getFormName()) ? "checked=\"checked\"" : "");
                         %>
                         <input type="checkbox" name="encounterFormName"
@@ -348,7 +348,7 @@
 
                         %>
                         <input type="checkbox" name="eformId"
-                               value="<%=eform.getId()%>" <%=checkedString%> /> <%=StringEscapeUtils.escapeHtml(eform.getFormName())%>
+                               value="<%=eform.getId()%>" <%=checkedString%> /> <%=StringEscapeUtils.escapeHtml4(eform.getFormName())%>
                         <br/>
                         <%
                             }
@@ -367,9 +367,9 @@
                             for (ProviderPreference.QuickLink quickLink : quickLinks) {
                         %>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="REMOVE"/>"
-                               onclick="document.location='providerPreferenceQuickLinksAction.jsp?action=remove&name='+escape('<%=StringEscapeUtils.escapeHtml(quickLink.getName())%>')"/>
-                        <%=StringEscapeUtils.escapeHtml(quickLink.getName())%>
-                        : <%=StringEscapeUtils.escapeHtml(quickLink.getUrl())%>
+                               onclick="document.location='providerPreferenceQuickLinksAction.jsp?action=remove&name='+escape('<%=StringEscapeUtils.escapeHtml4(quickLink.getName())%>')"/>
+                        <%=StringEscapeUtils.escapeHtml4(quickLink.getName())%>
+                        : <%=StringEscapeUtils.escapeHtml4(quickLink.getUrl())%>
                         <br/>
                         <%
                             }
@@ -515,7 +515,7 @@
                 <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="no">
                     <tr>
                         <TD align="center"><a href=#
-                                              onClick="popupPage(230,600,'../casemgmt/newCaseManagementEnable.jsp');return false;">Enable
+                                              onClick="popupPage(230,600,'<%= request.getContextPath() %>/casemgmt/newCaseManagementEnable.jsp');return false;">Enable
                             OSCAR CME UI</a> &nbsp;&nbsp;&nbsp;
                     </tr>
                 </oscar:oscarPropertiesCheck>
@@ -703,7 +703,7 @@
             </tr>
             <tr>
                 <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'../admin/displayDocumentDescriptionTemplate.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDocumentDescriptionTemplate"/></a></td>
+                                      onClick="popupPage(230,860,'<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDocumentDescriptionTemplate"/></a></td>
             </tr>
             <tr>
                 <td align="center"><a href=# onClick="popupPage(500,900,'clients.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditClients"/></a></td>

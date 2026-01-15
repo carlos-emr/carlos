@@ -116,7 +116,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             for (int i = 0; i < docList.size(); i++) {
                 isURLjavaScript = false;
                 EDoc curDoc = docList.get(i);
-                String dispFilename = org.apache.commons.lang.StringUtils.trimToEmpty(curDoc.getFileName());
+                String dispFilename = org.apache.commons.lang3.StringUtils.trimToEmpty(curDoc.getFileName());
                 String dispStatus = String.valueOf(curDoc.getStatus());
 
                 boolean skip = false;
@@ -179,6 +179,10 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
                 if ("integrator".equalsIgnoreCase(curDoc.getSource())) {
                     item.setBgColour("#FFCCCC");
+                }
+
+                if ("true".equals(curDoc.getAbnormal())) {
+                    item.setColour("red");
                 }
 
                 Dao.addItem(item);

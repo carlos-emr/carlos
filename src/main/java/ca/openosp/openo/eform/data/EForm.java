@@ -26,10 +26,13 @@
 
 package ca.openosp.openo.eform.data;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
@@ -114,6 +117,9 @@ public class EForm extends EFormBase {
             this.formHtml = "No Such Form in Database";
         }
     }
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public void loadEForm(String fid, String demographicNo) {
         HashMap loaded = EFormUtil.loadEForm(fid);
@@ -268,7 +274,6 @@ public class EForm extends EFormBase {
                     if (!setAP2nd) saveFieldValue(html, markerLoc);
                     continue;
                 }
-                int apNameLen = apName.length();
                 apName = EFormUtil.removeQuotes(apName);
 
                 log.debug("AP ==== " + apName);
@@ -278,11 +283,17 @@ public class EForm extends EFormBase {
                 String fieldType = getFieldType(fieldHeader); // textarea, text, hidden etc..
                 if ((fieldType == null || fieldType.equals("")) || (apName == null || apName.equals(""))) continue;
 
-                // sets up the pointer where to write the value
-                int pointer = markerLoc + EFormUtil.getAttributePos(marker, fieldHeader) + marker.length() + 1;
-                if (!fieldType.equals("textarea")) {
-                    pointer += apNameLen;
+                // Position pointer right after the oscardb attribute's closing quote
+                // This works for all field types, which then handle insertion differently in putValuesFromAP():
+                // - textarea: searches forward for closing > and inserts content inside the tags
+                // - select: searches forward for matching option value and adds "selected" attribute
+                // - input: directly inserts value="" attribute at this position
+                int attributeEndPos = EFormUtil.getAttributeEndPos(marker, fieldHeader);
+                if (attributeEndPos == -1) {
+                    log.error("Failed to find attribute end position for marker: " + marker + " in field: " + fieldHeader);
+                    continue;
                 }
+                int pointer = markerLoc + attributeEndPos;
                 EFormLoader.getInstance();
                 DatabaseAP curAP = EFormLoader.getAP(apName);
 
@@ -697,7 +708,7 @@ public class EForm extends EFormBase {
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
             sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {
-                JSONArray values = EFormUtil.getJsonValues(names, sql);
+                ArrayNode values = EFormUtil.getJsonValues(names, sql);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
             } else {
                 ArrayList<String> values = EFormUtil.getValues(names, sql);
@@ -750,7 +761,7 @@ public class EForm extends EFormBase {
     private String getSqlParams(String key) {
         if (sql_params.containsKey(key)) {
             String val = sql_params.get(key);
-            return val == null ? "" : StringEscapeUtils.escapeSql(val);
+            return val == null ? "" : val;
         }
         return "";
     }
@@ -778,11 +789,8 @@ public class EForm extends EFormBase {
         Matcher matcher = p.matcher(html);
         if (matcher.find(from)) {
             int start = matcher.start();
-            //org.oscarehr.util.MiscUtils.getLogger().info("New code shows: " + start);
             return start;
         } else {
-            //org.oscarehr.util.MiscUtils.getLogger().info("New code shows: " + -1);
-
             return -1;
         }
 
@@ -1098,19 +1106,28 @@ public class EForm extends EFormBase {
      * Empty image src values are the result of using Javascript in the eForm to dynamically
      * set paths for images.
      */
-    public void addImagePathPlaceholders(String[] imagePathPlaceholders) {
+    public void addImagePathPlaceholders(String[] imagePathPlaceholders)
+        throws JsonProcessingException, JsonMappingException {
         if (imagePathPlaceholders != null && imagePathPlaceholders.length > 0) {
-            JSONArray placeHolders = JSONArray.fromObject(Arrays.toString(imagePathPlaceholders));
             Elements imageElements = getDocument().getElementsByTag("img");
-            for (Object objekt : placeHolders) {
-                JSONObject placeHolder = (JSONObject) objekt;
-                String id = placeHolder.getString("id");
-                String value = placeHolder.getString("value");
-                if (!id.isEmpty() && !value.isEmpty() && (!value.startsWith("http") || !value.startsWith("HTTP"))) {
-                    for (Element imageElement : imageElements) {
-                        if (id.equalsIgnoreCase(imageElement.id())) {
-                            imageElement.attr("src", value);
-                            break;
+            for (String jsonString : imagePathPlaceholders) {
+                JsonNode parsedNode = objectMapper.readTree(jsonString);
+                if (parsedNode.isObject()) {
+                    ObjectNode placeHolder = (ObjectNode) parsedNode;
+                    JsonNode idNode = placeHolder.get("id");
+                    JsonNode valueNode = placeHolder.get("value");
+
+                    if (idNode != null && valueNode != null) {
+                        String id = idNode.asText();
+                        String value = valueNode.asText();
+
+                        if (!id.isEmpty() && !value.isEmpty() && !value.toLowerCase().startsWith("http")) {
+                            for (Element imageElement : imageElements) {
+                                if (id.equalsIgnoreCase(imageElement.id())) {
+                                    imageElement.attr("src", value);
+                                    break;
+                                }
+                            }
                         }
                     }
                 }

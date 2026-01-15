@@ -25,7 +25,7 @@
 
 package ca.openosp.openo.form.pharmaForms.formBPMH.bean;
 
-import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import ca.openosp.openo.commn.model.Allergy;
 import ca.openosp.openo.commn.model.Demographic;
 import ca.openosp.openo.commn.model.DemographicCust;

@@ -19,17 +19,17 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect("../logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 
 <%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
@@ -73,7 +73,7 @@
 
 
             function openAddSpecialist() {
-                popupOscarRx(625, 1024, '../oscarEncounter/oscarConsultationRequest/config/AddSpecialist.jsp');
+                popupOscarRx(625, 1024, '<%= request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/config/AddSpecialist.jsp');
                 return false;
             }
 
@@ -143,8 +143,8 @@
             <td class="MainTableRightColumn" valign="top">
 
 
-                <nested:form action="/admin/ManageBillingReferral">
-                    <nested:hidden property="method" value="advancedSearch"/>
+                <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral.do">
+                    <input type="hidden" name="method" value="advancedSearch"/>
                     <input type="text" name="nameQuery" id="nameQuery" placeholder="Name or ReferralId"
                            value="<%= Encode.forHtmlAttribute(name != null ? name : "") %>">
                     &nbsp;
@@ -158,11 +158,11 @@
                     <input type="checkbox" name="showHidden"
                            id="showHidden" <%=(checked != null && checked) ? " checked=\"checked\" " : "" %> />
 
-                    <nested:submit style="border:1px solid #666666;">Search</nested:submit>
-                    <nested:submit style="border:1px solid #666666;" onclick="clearMe()">Clear</nested:submit>
-                    <nested:submit style="border:1px solid #666666;"
-                                   onclick="return openAddSpecialist()">Add</nested:submit>
-                </nested:form>
+                    <input type="submit" style="border:1px solid #666666;" value="Search" />
+                    <input type="submit" style="border:1px solid #666666;" onclick="clearMe()" value="Clear" />
+                    <input type="submit" style="border:1px solid #666666;"
+                                   onclick="return openAddSpecialist()" value="Add" />
+                </form>
                 <br/>
                 <%
                     if (request.getAttribute("referrals") == null) {
@@ -214,7 +214,7 @@
                                 for (ProfessionalSpecialist ps : checkedSpecs) {
                         %>
                         <tr>
-                            <td><%=StringEscapeUtils.escapeHtml(ps.getFormattedName()) %>
+                            <td><%=StringEscapeUtils.escapeHtml4(ps.getFormattedName()) %>
                             </td>
                         </tr>
                         <%

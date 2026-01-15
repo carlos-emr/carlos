@@ -20,7 +20,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no;
     user_no = (String) session.getAttribute("user");
     String asstProvider_no = "";

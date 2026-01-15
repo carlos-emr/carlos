@@ -94,7 +94,6 @@ import ca.uhn.fhir.model.primitive.StringDt;
  * "availabilityExceptions" : "<string>" // Description of availability exceptions
  * }
  *
- * @param <T>
  */
 public class PatientContact extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.Patient, Contact> {
 

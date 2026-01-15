@@ -37,21 +37,21 @@ public class AbstractCodeSystemDaoTest extends DaoTestFixtures {
         // nothing to do right now
     }
 
-    @Test
-    public void testGetDaoName_Valid() {
-        String codeSystem = "icd9";
-        assertEquals("icd9Dao", getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
-
-        codeSystem = "ichppccode";
-        assertEquals("ichppccodeDao", getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
-
-        codeSystem = "SnomedCore";
-        assertEquals("snomedCoreDao", getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testGetDaoName_Invalid() {
-        String codeSystem = "FAIL";
-        assertEquals("failDao", getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
-    }
+	@Test
+	public void testGetDaoName_Valid() {
+		String codeSystem = "icd9";
+		assertEquals(Icd9Dao.class, getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
+		
+		codeSystem = "ichppccode";
+		assertEquals(IchppccodeDao.class, getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
+		
+		codeSystem = "SnomedCore";
+		assertEquals(SnomedCoreDao.class, getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
+	}
+	
+	@Test(expected = IllegalArgumentException.class)
+	public void testGetDaoName_Invalid() {
+		String codeSystem = "FAIL";
+		assertEquals(Object.class, getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codeSystem)));
+	}
 }

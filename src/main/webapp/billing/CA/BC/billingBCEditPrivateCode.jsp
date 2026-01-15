@@ -20,7 +20,7 @@
 --%>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 %>
 <%@ page import="java.util.*,ca.openosp.openo.billings.ca.bc.data.BillingCodeData" %>

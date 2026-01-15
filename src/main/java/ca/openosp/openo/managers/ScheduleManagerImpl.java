@@ -40,7 +40,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.AppointmentArchiveDao;
 import ca.openosp.openo.commn.dao.AppointmentStatusDao;

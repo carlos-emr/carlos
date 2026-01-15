@@ -71,6 +71,11 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
         return query.getResultList();
     }
 
+    @Override
+	public List<Property> findGlobalByName(Property.PROPERTY_KEY propertyName) {
+		return findGlobalByName(propertyName.name());
+	}
+
     public List<Property> findByNameAndProvider(Property.PROPERTY_KEY propertyName, String providerNo) {
         return findByNameAndProvider(propertyName.name(), providerNo);
     }

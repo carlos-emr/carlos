@@ -69,7 +69,7 @@ public class SMTPEmailSender {
         }
     }
 
-    private JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
+    protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
         try {

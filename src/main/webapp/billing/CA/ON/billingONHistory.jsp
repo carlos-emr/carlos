@@ -17,10 +17,11 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.math.BigDecimal" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curProvider_no;
     curProvider_no = (String) session.getAttribute("user");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -216,12 +217,12 @@
         nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
         if (nLastPage >= 0) {
     %> <a
-        href="billinghistory.jsp?last_name=<%=URLEncoder.encode(request.getParameter("last_name")) %>&first_name=<%=URLEncoder.encode(request.getParameter("first_name")) %>&demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
+        href="billinghistory.jsp?last_name=<%=URLEncoder.encode(request.getParameter("last_name"), StandardCharsets.UTF_8) %>&first_name=<%=URLEncoder.encode(request.getParameter("first_name"), StandardCharsets.UTF_8) %>&demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
     Page</a> | <%
     }
     if (nItems == Integer.parseInt(strLimit2)) {
 %> <a
-        href="billinghistory.jsp?last_name=<%=URLEncoder.encode(request.getParameter("last_name")) %>&first_name=<%=URLEncoder.encode(request.getParameter("first_name")) %>&demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
+        href="billinghistory.jsp?last_name=<%=URLEncoder.encode(request.getParameter("last_name"), StandardCharsets.UTF_8) %>&first_name=<%=URLEncoder.encode(request.getParameter("first_name"), StandardCharsets.UTF_8) %>&demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
     Next Page</a> <%
     }
 

@@ -111,7 +111,7 @@ public class OscarMsgType extends AbstractModel<Integer> implements Serializable
 
     @Override
     public String toString() {
-        return "org.oscarehr.commons.model.OscarMsgType[ type=" + id + " ]";
+        return "ca.openosp.openo.commn.model.OscarMsgType[ type=" + id + " ]";
     }
 
 }

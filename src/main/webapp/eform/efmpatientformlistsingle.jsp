@@ -32,7 +32,7 @@
     String demographic_no = request.getParameter("demographic_no");
     String deepColor = "#CCCCFF", weakColor = "#EEEEFF";
 
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String country = request.getLocale().getCountry();
 
@@ -53,15 +53,33 @@
 <html>
 
     <head>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/css/eformStyle.css">
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery-1.7.1.min.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.fileDownload.js"></script>
-        <script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>
+
+		<link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet"><!-- Bootstrap 2.3.1 -->
+		<link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
+		<link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet">
+		<link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css" rel="stylesheet" >
+
+		<script src="${pageContext.request.contextPath}/js/global.js"></script>
+		<script src="${pageContext.request.contextPath}/js/bootstrap.min.js"></script>
+		<script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+
+		<script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
+		<script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
+
+		<script src="${ pageContext.request.contextPath }/js/jquery.fileDownload.js"></script>
+		<script src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
+		<script>
+			jQuery(document).ready( function () {
+				jQuery('#tblEforms').DataTable({
+					"order": [],
+					"bPaginate": false,
+					"language": {
+						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+					}
+				});
+			});
+		</script>
         <script type="text/javascript" language="javascript">
             function showHtml() {
 

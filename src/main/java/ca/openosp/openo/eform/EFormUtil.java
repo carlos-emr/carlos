@@ -29,11 +29,12 @@ import ca.openosp.Misc;
 import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.model.security.Secobjprivilege;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.math.NumberUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.PMmodule.model.ProgramProvider;
@@ -75,6 +76,7 @@ import java.util.regex.Pattern;
 
 public class EFormUtil {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     // for sorting....
     public static final String NAME = "form_name";
@@ -563,18 +565,18 @@ public class EFormUtil {
         return (values);
     }
 
-    public static JSONArray getJsonValues(ArrayList<String> names, String sql) {
+    public static ArrayNode getJsonValues(ArrayList<String> names, String sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
         ResultSet rs = getSQL(sql);
-        JSONArray values = new JSONArray();
+        ArrayNode values = objectMapper.createArrayNode();
         try {
             while (rs.next()) {
-                JSONObject value = new JSONObject();
+                ObjectNode value = objectMapper.createObjectNode();
                 for (int i = 0; i < names.size(); i++) {
                     try {
-                        value.element(names.get(i), Misc.getString(rs, names.get(i)));
+                        value.put(names.get(i), Misc.getString(rs, names.get(i)));
                     } catch (Exception sqe) {
-                        value.element(names.get(i), "<(" + names.get(i) + ")NotFound>");
+                        value.put(names.get(i), "<(" + names.get(i) + ")NotFound>");
                         logger.error("Error", sqe);
                     }
                 }
@@ -1174,6 +1176,25 @@ public class EFormUtil {
         return m.start();
     }
 
+    /**
+     * Returns the end position of an attribute in an HTML tag (after the attribute value and closing quote).
+     * This is useful for inserting new attributes after an existing attribute.
+     *
+     * @param key the attribute name to find
+     * @param htmlTag the HTML tag content to search in
+     * @return the position after the attribute's closing quote, or -1 if not found
+     * @since 2025-10-30
+     */
+    public static int getAttributeEndPos(String key, String htmlTag) {
+        int pos = -1;
+        if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return pos;
+
+        Matcher m = getAttributeMatcher(key, htmlTag, false);
+        if (m == null) return pos;
+
+        return m.end();
+    }
+
     public static ArrayList<String> listRichTextLetterTemplates() {
         String imagePath = OscarProperties.getInstance().getEformImageDirectory();
         MiscUtils.getLogger().debug("Img Path: " + imagePath);
@@ -1648,10 +1669,10 @@ public class EFormUtil {
 //			String currentErrors = eform.getErrorLog();
 //			JSONArray jsonArray;
 //			if(currentErrors == null || currentErrors.isEmpty()) {
-//				jsonArray = new JSONArray();
+//				jsonArray = objectMapper.createArrayNode();
 //				jsonArray.add(error);
 //			} else {
-//				jsonArray = JSONArray.fromObject(currentErrors);
+//				jsonArray = objectMapper.valueToTree(currentErrors);
 //				boolean addError = true;
 //				for(Object jsonArrayObject : jsonArray) {
 //					if(((String)jsonArrayObject).equalsIgnoreCase(error)) {

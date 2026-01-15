@@ -36,7 +36,7 @@
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
 %>
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.htm");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no = (String) session.getAttribute("user");
 %>
 <html>

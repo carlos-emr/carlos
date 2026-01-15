@@ -66,6 +66,7 @@ public class MsgUtil {
      * @return The escaped string with quotes and backslashes properly escaped
      * @deprecated Use parameterized queries or PreparedStatements for better SQL injection prevention
      */
+    @Deprecated
     public static String replaceQuote(String Expression) {
         StringBuilder sb = new java.lang.StringBuilder(Expression);
 

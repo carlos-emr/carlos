@@ -32,13 +32,14 @@
 <%@ page import="ca.openosp.OscarProperties" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -59,7 +60,7 @@
         String filePath = docdownload + '/' + filename;
         if (filetype.compareTo("active") == 0) {
             if (downloadMethod == null) {
-                filePath = "../../OscarDocument" + request.getContextPath() + "/document/" + filename;
+                filePath = request.getContextPath() + "/OscarDocument/document/" + filename;
 %>
 <html>
     <head>

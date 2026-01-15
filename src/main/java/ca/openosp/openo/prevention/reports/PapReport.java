@@ -34,7 +34,6 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
@@ -106,15 +105,11 @@ public class PapReport implements PreventionReport {
 
 
                 if (refused && noFutureItems.size() > 1) {
-                    log.debug("REFUSED AND PREV IS greater than one for demo " + demo);
                     for (int pr = (noFutureItems.size() - 2); pr > -1; pr--) {
-                        log.debug("pr #" + pr);
                         Map<String, Object> h2 = noFutureItems.get(pr);
-                        log.debug("pr #" + pr + "  " + ((String) h2.get("refused")));
                         if (h2.get("refused") != null && ((String) h2.get("refused")).equals("0")) {
                             prevDateStr = (String) h2.get("prevention_date");
                             dateIsRefused = false;
-                            log.debug("REFUSED prevDateStr " + prevDateStr);
                             pr = 0;
                         }
                     }
@@ -123,25 +118,16 @@ public class PapReport implements PreventionReport {
                 try {
                     prevDate = formatter.parse(prevDateStr);
                 } catch (Exception e) {
-                    //extra
+                    log.error("Error parsing prevention date: " + prevDateStr, e);
                 }
 
 
                 Calendar cal = Calendar.getInstance();
+                cal.setTime(asofDate);
                 cal.add(Calendar.YEAR, -3);
                 Date dueDate = cal.getTime();
                 cal.add(Calendar.MONTH, -6);
                 Date cutoffDate = cal.getTime();
-
-                Calendar cal2 = GregorianCalendar.getInstance();
-                cal2.add(Calendar.YEAR, -3);
-
-                //cal2.roll(Calendar.YEAR, -1);
-                cal2.add(Calendar.MONTH, -6);
-                Date cutoffDate2 = cal2.getTime();
-
-                log.debug("cut 1 " + cutoffDate.toString() + " cut 2 " + cutoffDate2.toString());
-
 
                 String numMonths = "------";
                 if (prevDate != null) {
@@ -153,26 +139,15 @@ public class PapReport implements PreventionReport {
                 Calendar bonusEl = Calendar.getInstance();
                 bonusEl.setTime(asofDate);
                 bonusEl.add(Calendar.MONTH, -42);
-                //bonusEl.add(Calendar.YEAR,-2);
                 Date bonusStartDate = bonusEl.getTime();
 
-                log.debug("\n\n\n prevDate " + prevDate);
-                log.debug("bonusEl date " + bonusStartDate + " " + bonusEl.after(prevDate));
-                log.debug("asofDate date" + asofDate + " " + asofDate.after(prevDate));
-
-                //IF REFUSED SHOULD CHECK TO SEE IF
-
-
-                if (!dateIsRefused && bonusStartDate.before(prevDate) && asofDate.after(prevDate)) {
+                if (prevDate != null && !dateIsRefused && bonusStartDate.before(prevDate) && asofDate.after(prevDate)) {
                     prd.bonusStatus = "Y";
                     prd.billStatus = "Y";
                     done++;
                 }
-                //outcomes
-                log.debug("due Date " + dueDate.toString() + " cutoffDate " + cutoffDate.toString() + " prevDate " + prevDate.toString());
-                log.debug("due Date  (" + dueDate.toString() + " ) After Prev (" + prevDate.toString() + " ) " + dueDate.after(prevDate));
-                log.debug("cutoff Date  (" + cutoffDate.toString() + " ) before Prev (" + prevDate.toString() + " ) " + cutoffDate.before(prevDate));
-                if (!refused && dueDate.after(prevDate) && cutoffDate.before(prevDate)) { // overdue
+
+                if (prevDate != null && !refused && dueDate.after(prevDate) && cutoffDate.before(prevDate)) { // due
                     prd.rank = 2;
                     prd.lastDate = prevDateStr;
                     prd.state = "due";
@@ -183,7 +158,7 @@ public class PapReport implements PreventionReport {
                         doneWithGrace++;
                     }
 
-                } else if (!refused && cutoffDate.after(prevDate)) { // overdue
+                } else if (prevDate != null && !refused && cutoffDate.after(prevDate)) { // overdue
                     prd.rank = 2;
                     prd.lastDate = prevDateStr;
                     prd.state = "Overdue";
@@ -196,13 +171,12 @@ public class PapReport implements PreventionReport {
                     prd.state = "Refused";
                     prd.numMonths = numMonths;
                     prd.color = "orange"; //FF9933
-                } else if (dueDate.before(prevDate)) {  // recorded done
+                } else if (prevDate != null && (dueDate.before(prevDate) || dueDate.equals(prevDate))) {  // recorded done (prevDate >= dueDate)
                     prd.rank = 4;
                     prd.lastDate = prevDateStr;
                     prd.state = "Up to date";
                     prd.numMonths = numMonths;
                     prd.color = "green";
-                    //done++;
                 }
             }
             letterProcessing(prd, "PAPF", asofDate);
@@ -212,18 +186,12 @@ public class PapReport implements PreventionReport {
         String percentStr = "0";
         String percentWithGraceStr = "0";
         double eligible = list.size() - inList;
-        log.debug("eligible " + eligible + " done " + done + " doneWithGrace " + doneWithGrace);
         if (eligible != 0) {
             double percentage = (done / eligible) * 100;
             double percentageWithGrace = (done + doneWithGrace) / eligible * 100;
-            log.debug("in percentage  " + percentage + " " + (done / eligible));
             percentStr = "" + Math.round(percentage);
             percentWithGraceStr = "" + Math.round(percentageWithGrace);
         }
-
-
-        /////
-
 
         Collections.sort(returnReport);
 
@@ -234,10 +202,9 @@ public class PapReport implements PreventionReport {
         h.put("percentWithGrace", percentWithGraceStr);
         h.put("returnReport", returnReport);
         h.put("inEligible", "" + inList);
-        h.put("eformSearch", "Mam");
+        h.put("eformSearch", "Pap");
         h.put("followUpType", "PAPF");
         h.put("BillCode", "Q001A");
-        log.debug("set returnReport " + returnReport);
         return h;
     }
 
@@ -269,7 +236,7 @@ public class PapReport implements PreventionReport {
             try {
                 prevDate = formatter.parse(prevDateStr);
             } catch (Exception e) {
-                //empty
+                log.error("Error parsing prevention date: " + prevDateStr, e);
             }
 
             if (prevDate != null && prevDate.before(asOfDate)) {
@@ -300,24 +267,20 @@ public class PapReport implements PreventionReport {
     //Reached limit no contact suggested
 
     //Measurement Type will be 1 per Prevention report, with the dataField holding method ie L1, L2, P1 (letter 1 , letter 2, phone call 1)
-    String LETTER1 = "L1";
-    String LETTER2 = "L2";
-    String PHONE1 = "P1";
+    private static final String LETTER1 = "L1";
+    private static final String LETTER2 = "L2";
+    private static final String PHONE1 = "P1";
 
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate) {
         if (prd != null) {
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue")) {
-                // Get LAST contact method
                 EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
-                log.debug("getting followup data for " + prd.demographicNo);
-
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
-                //NO Contact
 
                 if (followupData.size() == 0) {
-                    prd.nextSuggestedProcedure = this.LETTER1;
-                    return this.LETTER1;
-                } else { //There has been contact
+                    prd.nextSuggestedProcedure = LETTER1;
+                    return LETTER1;
+                } else {
                     Calendar oneyear = Calendar.getInstance();
                     oneyear.setTime(asofDate);
                     oneyear.add(Calendar.YEAR, -1);
@@ -339,62 +302,45 @@ public class PapReport implements PreventionReport {
                         observationDate = measurementData.getDateObservedAsDate();
 
                         if (index == 0) {
-                            log.debug("fluData " + measurementData.getDataField());
-                            log.debug("lastFollowup " + measurementData.getDateObservedAsDate() + " last procedure " + measurementData.getDateObservedAsDate());
-                            log.debug("toString: " + measurementData.toString());
                             prd.lastFollowup = observationDate;
                             prd.lastFollupProcedure = measurementData.getDataField();
 
                             if (measurementData.getDateObservedAsDate().before(oneyear.getTime())) {
-                                prd.nextSuggestedProcedure = this.LETTER1;
-                                return this.LETTER1;
+                                prd.nextSuggestedProcedure = LETTER1;
+                                return LETTER1;
                             }
 
-
-                            if (prd.lastFollupProcedure.equals(this.PHONE1)) {
+                            if (prd.lastFollupProcedure.equals(PHONE1)) {
                                 prd.nextSuggestedProcedure = "----";
                                 return "----";
                             }
-
-
                         }
 
-
-                        log.debug(prd.demographicNo + " obs" + observationDate + String.valueOf(observationDate.before(onemonth.getTime())) + " OneYear " + oneyear.getTime() + " " + String.valueOf(observationDate.after(oneyear.getTime())));
                         if (observationDate.before(onemonth.getTime()) && observationDate.after(oneyear.getTime())) {
                             ++count;
                         } else if (count > 1 && observationDate.after(oneyear.getTime())) {
                             ++count;
                         }
-
-
                         ++index;
-
                     }
 
                     switch (count) {
                         case 0:
-                            prd.nextSuggestedProcedure = this.LETTER1;
+                            prd.nextSuggestedProcedure = LETTER1;
                             break;
                         case 1:
-                            prd.nextSuggestedProcedure = this.LETTER2;
+                            prd.nextSuggestedProcedure = LETTER2;
                             break;
                         case 2:
-                            prd.nextSuggestedProcedure = this.PHONE1;
+                            prd.nextSuggestedProcedure = PHONE1;
                             break;
                         default:
                             prd.nextSuggestedProcedure = "----";
                     }
-
                     return prd.nextSuggestedProcedure;
-
                 }
-
-
-            } else if (prd.state.equals("Refused")) {  //Not sure what to do about refused
-                //prd.lastDate = "-----";
+            } else if (prd.state.equals("Refused")) {
                 EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
-                log.debug("getting followup data for " + prd.demographicNo);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = (EctMeasurementsDataBean) followupData.iterator().next();
@@ -402,50 +348,20 @@ public class PapReport implements PreventionReport {
                     prd.lastFollupProcedure = measurementData.getDataField();
                 }
                 prd.nextSuggestedProcedure = "----";
-                //prd.numMonths ;
             } else if (prd.state.equals("Ineligible")) {
-                // Do nothing
                 prd.nextSuggestedProcedure = "----";
             } else if (prd.state.equals("Up to date")) {
-                //Do nothing
                 EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
-                log.debug("getting followup data for " + prd.demographicNo);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
-
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = (EctMeasurementsDataBean) followupData.iterator().next();
                     prd.lastFollowup = measurementData.getDateObservedAsDate();
                     prd.lastFollupProcedure = measurementData.getDataField();
                 }
                 prd.nextSuggestedProcedure = "----";
-            } else {
-                log.debug("NOT SURE WHAT HAPPEND IN THE LETTER PROCESSING");
             }
         }
         return null;
     }
 
 }
-
-
-//                  Calendar today = Calendar.getInstance();
-//                  today.setTime(asofDate);
-//                  int num = UtilDateUtilities.getNumMonths(measurementData.getDateObservedAsDate(),today.getTime());
-//                  if (num > 12){
-//                        prd.nextSuggestedProcedure = this.LETTER1;
-//                        return this.LETTER1;
-//                  }else{ //AFTER CUTOFF DATE
-//                      if ( num > 3 ){
-//                          if (prd.lastFollupProcedure.equals(this.LETTER1)){
-//                                prd.nextSuggestedProcedure = this.LETTER2;
-//                                return this.LETTER2;
-//                          }else if(prd.lastFollupProcedure.equals(this.LETTER1)){
-//                                prd.nextSuggestedProcedure = this.PHONE1;
-//                                return this.PHONE1;
-//                          }else{
-//                              prd.nextSuggestedProcedure = "----";
-//                              return "----";
-//                          }
-//
-//                        }
-//

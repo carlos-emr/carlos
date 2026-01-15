@@ -24,6 +24,8 @@
 
 --%>
 
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+
 <!-- jquery-1.9.1.js - in nonPatientContextHeader.jspf -->
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
@@ -52,7 +54,7 @@ $(document).ready(function(){
 	}
 
 	function refreshTabAlerts(id) {
-	var url = "../provider/tabAlertsRefresh.jsp";
+	var url = "<%= request.getContextPath() %>/provider/tabAlertsRefresh.jsp";
 	var parameters = {"id":id};
 
 	$id = $("#"+id);

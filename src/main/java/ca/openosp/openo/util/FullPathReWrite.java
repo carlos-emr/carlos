@@ -33,6 +33,8 @@ import javax.servlet.jsp.JspException;
 import javax.servlet.jsp.JspWriter;
 import javax.servlet.jsp.tagext.TagSupport;
 
+import org.apache.commons.text.StringEscapeUtils;
+
 
 public class FullPathReWrite extends TagSupport {
 
@@ -72,7 +74,8 @@ public class FullPathReWrite extends TagSupport {
 
         JspWriter out = pageContext.getOut();
         try {
-            out.write(returnTag);
+            out.write(StringEscapeUtils.escapeHtml4(returnTag));
+            out.flush();
         } catch (IOException e) {
             throw new JspException(e.toString());
         }

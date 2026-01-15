@@ -17,6 +17,7 @@ import ca.openosp.openo.billing.CA.ON.util.EDTFolder;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.utility.WebUtils;
 
@@ -86,20 +87,22 @@ public class MoveMOHFiles2Action extends ActionSupport {
     }
 
     private boolean validateFileLocation(File file) {
-    boolean result = false;
-    try {
-        Path filePath = file.toPath().toRealPath().normalize();
-        for (EDTFolder folder : EDTFolder.values()) {
-            Path edtFolderPath = Paths.get(folder.getPath()).toRealPath().normalize();
-            if (filePath.startsWith(edtFolderPath)) {
-                result = true;
-                break;
+        boolean result = false;
+        try {
+            for (EDTFolder folder : EDTFolder.values()) {
+                File edtFolderFile = new File(folder.getPath());
+                try {
+                    PathValidationUtils.validateExistingPath(file, edtFolderFile);
+                    result = true;
+                    break;
+                } catch (SecurityException e) {
+                    // File not in this folder, try next
+                }
             }
+        } catch (Exception e) {
+            logger.error("Unable to validate file location", e);
         }
-    } catch (Exception e) {
-        logger.error("Unable to validate file location", e);
-    }
-    return result;
+        return result;
     }
 
     private File getFile(String folderPath, String fileName) {

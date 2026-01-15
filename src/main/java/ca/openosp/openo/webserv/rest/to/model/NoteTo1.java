@@ -33,7 +33,7 @@ import java.util.Set;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import ca.openosp.openo.casemgmt.model.CaseManagementIssue;
 
 @XmlRootElement(name = "encounterNote")

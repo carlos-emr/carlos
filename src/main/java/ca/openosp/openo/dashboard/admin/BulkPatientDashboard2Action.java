@@ -37,8 +37,11 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.log.LogAction;
 import ca.openosp.openo.log.LogConst;
 
@@ -70,6 +73,9 @@ public class BulkPatientDashboard2Action extends ActionSupport {
     private DemographicPatientStatusRosterStatusHandler demographicPatientStatusRosterStatusHandler = new DemographicPatientStatusRosterStatusHandler();
 
     private MessageHandler messageHandler = new MessageHandler();
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         String method = request.getParameter("method");
@@ -146,12 +152,12 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String icd9code = getICD9Code(request);
 
         String patientIdsJson = request.getParameter("patientIds");
-        JSONArray patientIds = asJsonArray(patientIdsJson);
+        ArrayNode patientIds = asJsonArray(patientIdsJson);
         List<Integer> patientIdList = new ArrayList<Integer>();
 
         String ip = request.getRemoteAddr();
         for (int i = 0; i < patientIds.size(); ++i) {
-            int patientId = patientIds.getInt(i);
+            int patientId = patientIds.get(i).asInt();
             patientIdList.add(patientId);
 
             Integer drId = diseaseRegistryHandler.addToDiseaseRegistry(
@@ -179,16 +185,18 @@ public class BulkPatientDashboard2Action extends ActionSupport {
     }
 
     public String getICD9Description() {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
 
         String icd9code = getICD9Code(request);
         String description = diseaseRegistryHandler.getDescription(icd9code);
 
-        JSONObject jsonObject = new JSONObject();
+        ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put("icd9code", icd9code);
         jsonObject.put("description", description);
 
         try {
-            jsonObject.write(response.getWriter());
+            objectMapper.writeValue(response.getWriter(), jsonObject);
             response.setStatus(HttpServletResponse.SC_OK);
         } catch (IOException e) {
             logger.error("Error generating JSON response", e);
@@ -210,12 +218,12 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         demographicPatientStatusRosterStatusHandler.setLoggedinInfo(loggedInInfo);
 
         String patientIdsJson = request.getParameter("patientIds");
-        JSONArray patientIds = asJsonArray(patientIdsJson);
+        ArrayNode patientIds = asJsonArray(patientIdsJson);
         List<Integer> patientIdList = new ArrayList<Integer>();
 
         String ip = request.getRemoteAddr();
         for (int i = 0; i < patientIds.size(); ++i) {
-            int patientId = patientIds.getInt(i);
+            int patientId = patientIds.get(i).asInt();
             patientIdList.add(patientId);
             demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId);
             LogAction.addLog(providerNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC, "" + patientId, ip, "" + patientId, "patient_status: IN");
@@ -236,9 +244,9 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         return null;
     }
 
-    private static JSONArray asJsonArray(String jsonString) {
+    private static ArrayNode asJsonArray(String jsonString) {
         if (jsonString == null || jsonString.isEmpty()) {
-            return new JSONArray();
+            return objectMapper.createArrayNode();
         }
 
         if (!jsonString.startsWith("[")) {
@@ -248,16 +256,21 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             jsonString = jsonString + "]";
         }
 
-        JSONArray jsonArray = JSONArray.fromObject(jsonString);
-        return jsonArray;
+        try {
+            ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
+            return jsonArray;
+        } catch (Exception e) {
+            logger.error("Error parsing JSON array: " + jsonString, e);
+            return objectMapper.createArrayNode();
+        }
     }
 
 /*	private List<Integer> parseIntegers(String jsonString) {
 		List<Integer> ints = new ArrayList<Integer>();
 
-		JSONArray jsonArray = asJsonArray(jsonString);
+		ArrayNode jsonArray = asJsonArray(jsonString);
 		for (int i = 0; i < jsonArray.size(); i++) {
-			ints.add(jsonArray.getInt(i));
+			ints.add(jsonArray.get(i).asInt());
 		}
 
 		return ints;

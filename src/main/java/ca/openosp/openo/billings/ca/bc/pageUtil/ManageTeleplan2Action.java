@@ -46,6 +46,7 @@ import ca.openosp.openo.commn.model.DiagnosticCode;
 import ca.openosp.openo.managers.DemographicManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.OscarProperties;
@@ -160,16 +161,16 @@ public class ManageTeleplan2Action extends ActionSupport {
         log.debug("real filename " + tr.getRealFilename());
 
         File file = tr.getFile();
-        
-        // Define allowed directory (configure this based on your needs)
+
+        // Use PathValidationUtils to validate file is in allowed directory or temp
         File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
-       
-        // Convert to Path and normalize
-        Path filePath = file.toPath().normalize().toAbsolutePath();
-        Path allowedPath = allowedDir.toPath().normalize().toAbsolutePath();
-        
-        if (!filePath.startsWith(allowedPath)) {
-            throw new SecurityException("File access not allowed outside designated directory");
+        try {
+            PathValidationUtils.validateExistingPath(file, allowedDir);
+        } catch (SecurityException e) {
+            // File might be in temp directory from Teleplan API
+            if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
+                throw new SecurityException("File access not allowed outside designated directory");
+            }
         }
 
         BufferedReader buff = new BufferedReader(new FileReader(file));
@@ -233,18 +234,18 @@ public class ManageTeleplan2Action extends ActionSupport {
         log.debug("real filename " + tr.getRealFilename());
 
         File file = tr.getFile();
-        
-        // Define allowed directory (configure this based on your needs)
+
+        // Use PathValidationUtils to validate file is in allowed directory or temp
         File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        
-        // Convert to Path and normalize
-        Path filePath = file.toPath().normalize().toAbsolutePath();
-        Path allowedPath = allowedDir.toPath().normalize().toAbsolutePath();
-        
-        if (!filePath.startsWith(allowedPath)) {
-            throw new SecurityException("File access not allowed outside designated directory");
+        try {
+            PathValidationUtils.validateExistingPath(file, allowedDir);
+        } catch (SecurityException e) {
+            // File might be in temp directory from Teleplan API
+            if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
+                throw new SecurityException("File access not allowed outside designated directory");
+            }
         }
-        
+
         BufferedReader buff = new BufferedReader(new FileReader(file));
 
         String line = null;
@@ -535,19 +536,18 @@ public class ManageTeleplan2Action extends ActionSupport {
         String realFile = tr.getRealFilename();
         if (realFile != null && !realFile.trim().equals("")) {
             File file = tr.getFile();
-            
-            // Define allowed directory (configure this based on your needs)
+
+            // Use PathValidationUtils to validate file is in allowed directory or temp
             File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
-            
-            // Convert to Path and normalize
-            Path filePath = file.toPath().normalize().toAbsolutePath();
-            Path allowedPath = allowedDir.toPath().normalize().toAbsolutePath();
-        
-            
-            if (!filePath.startsWith(allowedPath)) {
-                throw new SecurityException("File access not allowed outside designated directory");
+            try {
+                PathValidationUtils.validateExistingPath(file, allowedDir);
+            } catch (SecurityException e) {
+                // File might be in temp directory from Teleplan API
+                if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
+                    throw new SecurityException("File access not allowed outside designated directory");
+                }
             }
-            
+
             BufferedReader buff = new BufferedReader(new FileReader(file));
             StringBuilder sb = new StringBuilder();
             String line = null;

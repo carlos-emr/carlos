@@ -43,9 +43,9 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.lab.ca.on.CommonLabResultData;
 import ca.openosp.openo.lab.ca.on.LabResultData;
 
@@ -63,8 +63,11 @@ public class ReportMacro2Action extends ActionSupport {
     private TicklerDao ticklerDao = SpringUtils.getBean(TicklerDao.class);
     private TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
 
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public String execute() throws ServletException, IOException {
-        JSONObject result = new JSONObject();
+        ObjectNode result = objectMapper.createObjectNode();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
@@ -77,7 +80,7 @@ public class ReportMacro2Action extends ActionSupport {
         if (name == null) {
             result.put("success", false);
             result.put("error", "No macro name provided");
-            result.write(response.getWriter());
+            response.getWriter().write(result.toString());
             return null;
         }
 
@@ -88,11 +91,11 @@ public class ReportMacro2Action extends ActionSupport {
 
         //find and run specific macro
         if (up != null && !StringUtils.isEmpty(up.getValue())) {
-            JSONArray macros = (JSONArray) JSONSerializer.toJSON(up.getValue());
+            ArrayNode macros = (ArrayNode) objectMapper.readTree(up.getValue());
             if (macros != null) {
                 for (int x = 0; x < macros.size(); x++) {
-                    JSONObject macro = macros.getJSONObject(x);
-                    if (name.equals(macro.getString("name"))) {
+                    ObjectNode macro = (ObjectNode) macros.get(x);
+                    if (name.equals(macro.get("name").asText())) {
                         success = runMacro(macro, request);
                     }
                 }
@@ -100,18 +103,18 @@ public class ReportMacro2Action extends ActionSupport {
         } else {
             result.put("success", false);
             result.put("error", "No macros defined in provider preferences");
-            result.write(response.getWriter());
+            response.getWriter().write(result.toString());
             return null;
         }
 
 
         result.put("success", success);
-        result.write(response.getWriter());
+        response.getWriter().write(result.toString());
         return null;
     }
 
-    protected boolean runMacro(JSONObject macro, HttpServletRequest request) {
-        logger.info("running macro " + macro.getString("name"));
+    protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
+        logger.info("running macro " + macro.get("name").asText());
         String segmentID = request.getParameter("segmentID");
         String providerNo = request.getParameter("providerNo");
         String labType = request.getParameter("labType");
@@ -119,19 +122,19 @@ public class ReportMacro2Action extends ActionSupport {
 
         if (macro.has("acknowledge")) {
             logger.info("Acknowledging lab " + labType + ":" + segmentID);
-            JSONObject jAck = macro.getJSONObject("acknowledge");
-            String comment = jAck.getString("comment");
+            ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
+            String comment = jAck.get("comment").asText();
             CommonLabResultData.updateReportStatus(Integer.parseInt(segmentID), providerNo, 'A', comment, labType, skipComment(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()));
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
-            JSONObject jTickler = macro.getJSONObject("tickler");
+            ObjectNode jTickler = (ObjectNode) macro.get("tickler");
 
             if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
                 logger.info("Sending Tickler");
                 Tickler t = new Tickler();
-                t.setTaskAssignedTo(jTickler.getString("taskAssignedTo"));
+                t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
                 t.setDemographicNo(Integer.parseInt(demographicNo));
-                t.setMessage(jTickler.getString("message"));
+                t.setMessage(jTickler.get("message").asText());
                 t.setCreator(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
                 ticklerDao.persist(t);
 

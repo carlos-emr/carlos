@@ -43,7 +43,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.openo.demographic.data.DemographicNameAgeString;
 import ca.openosp.openo.prescript.data.RxPrescriptionData;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
 import org.jfree.chart.ChartFactory;
@@ -105,7 +105,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         log.debug("In MeasurementGraphAction22Action");
         String userrole = (String) request.getSession().getAttribute("userrole");
         if (userrole == null) {
-            response.sendRedirect("../logout.jsp");
+            response.sendRedirect(request.getContextPath() + "/logout.jsp");
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {

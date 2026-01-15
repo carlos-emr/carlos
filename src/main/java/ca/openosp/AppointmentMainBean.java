@@ -35,6 +35,23 @@ import ca.openosp.openo.db.DBPreparedHandler;
 import ca.openosp.openo.db.DBPreparedHandlerParam;
 import ca.openosp.openo.util.UtilDict;
 
+/**
+ * Main bean for managing appointment-related database operations and configurations.
+ * 
+ * <p>This bean provides functionality for:</p>
+ * <ul>
+ *   <li>Configuring database operations with SQL statements</li>
+ *   <li>Managing control-to-file mappings for form handling</li>
+ *   <li>Processing HTTP request parameters for appointments</li>
+ *   <li>Executing prepared database statements</li>
+ * </ul>
+ * 
+ * <p><strong>Note:</strong> This class uses deprecated {@link DBPreparedHandler}.
+ * Consider migrating to JPA or modern database access patterns.</p>
+ * 
+ * @see DBPreparedHandler
+ * @see UtilDict
+ */
 public class AppointmentMainBean {
 
     private DBPreparedHandler dbPH = null;
@@ -44,22 +61,45 @@ public class AppointmentMainBean {
     private String targetType = null;
     private boolean bDoConfigure = false;
 
+    /**
+     * Gets the target control-to-file mappings.
+     * 
+     * @return UtilDict containing the control-to-file mappings
+     */
     public UtilDict getTargets() {
         return toFile;
     }
 
+    /**
+     * Gets the utility dictionary containing processed request parameters.
+     * 
+     * @return UtilDict with request parameter mappings
+     */
     public UtilDict getRequestUtilDict() {
         return requestUtilDict;
     }
 
+    /**
+     * Checks if the bean has been configured.
+     * 
+     * @return true if configured, false otherwise
+     */
     public boolean getBDoConfigure() {
         return bDoConfigure;
     }
 
+    /**
+     * Resets the configuration state to false.
+     */
     public void setBDoConfigure() {
         bDoConfigure = false;
     }
 
+    /**
+     * Configures the bean with database operations only.
+     * 
+     * @param dbOperation 2D array of database operation definitions
+     */
     public void doConfigure(String[][] dbOperation) {
         bDoConfigure = true;
         if (dbPH != null) dbPH = null;
@@ -69,6 +109,12 @@ public class AppointmentMainBean {
         dbPH = new DBPreparedHandler();
     }
 
+    /**
+     * Configures the bean with both database operations and control-to-file mappings.
+     * 
+     * @param dbOperation 2D array of database operation definitions
+     * @param controlToFile 2D array of control-to-file mapping definitions
+     */
     public void doConfigure(String[][] dbOperation, String[][] controlToFile) {
         bDoConfigure = true;
         if (dbPH != null) dbPH = null;

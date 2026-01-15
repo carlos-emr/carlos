@@ -31,7 +31,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_admin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -145,10 +145,9 @@
             <td width="5%" height="16">Status</td>
         </tr>
 
-            <%
-    
+  <%
+    try {
     for(TeleplanS21 result : teleplanS21Dao.search_all_tahd("D")) {
-    
         raNo  = result.getId().toString();
         paymentdate = result.getPayment();
         payable = result.getPayeeName();
@@ -160,41 +159,31 @@
         newbalance = result.getNewBalance();
    %>
 
-        <tr>
-            <td><%=paymentdate%>
-            </td>
-            <td align="right"><%=Encode.forHtmlContent(payable)%>
-            </td>
-            <td align="right"><%=moneyFormat(amtbilled)%>
-            </td>
-            <td align="right"><%=moneyFormat(amtpaid)%>
-            </td>
-            <td align="right"><%=moneyFormat(balancefwd)%>
-            </td>
-            <td align="right"><%=moneyFormat(chequeamt)%>
-            </td>
-            <td align="right"><%=moneyFormat(newbalance)%>
-            </td>
-            <td>&nbsp;&nbsp;
-                Billed( <a
-                        href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREM&rano=<%=raNo%>&selPayee=<%=payeeNo%>"
-                        target="_blank">PDF</a>|<a
-                        href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREM&rano=<%=raNo%>&selPayee=<%=payeeNo%>"
-                        target="_blank">CSV</a>) |
-                <a href="genTAS00.jsp?rano=<%=raNo%>&proNo=" target="_blank">Detail</a> |
-                <a href="genTAS22.jsp?rano=<%=raNo%>&proNo=" target="_blank">Summary</a>
-                ( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=raNo%>&proNo="
-                     target="_blank">PDF</a>|<a
-                        href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=raNo%>&proNo="
-                        target="_blank">CSV</a>)
-            </td>
-            <td><%=result.getStatus()%>
-            </td>
-        </tr>
-        <tr>
-            <td colspan="10" bgcolor="#EBF4F5">&nbsp;</td>
-        </tr>
-            <% }%>
+     <tr>
+        <td ><%=paymentdate%>  </td>
+        <td align="right"><%=Encode.forHtmlContent(payable)%> </td>
+        <td align="right"><%=moneyFormat(amtbilled)%></td>
+        <td align="right"><%=moneyFormat(amtpaid)%></td>
+        <td align="right"><%=moneyFormat(balancefwd)%></td>
+        <td align="right"><%=moneyFormat(chequeamt)%></td>
+        <td align="right"><%=moneyFormat(newbalance)%></td>
+        <td >&nbsp;&nbsp;
+           Billed( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREM&rano=<%=raNo%>&selPayee=<%=payeeNo%>" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREM&rano=<%=raNo%>&selPayee=<%=payeeNo%>" target="_blank">CSV</a>) | 
+           <a href="genTAS00.jsp?rano=<%=raNo%>&proNo=" target="_blank">Detail</a> |
+           <a href="genTAS22.jsp?rano=<%=raNo%>&proNo=" target="_blank">Summary</a> 
+           ( <a href="createBillingReportAction.do?docFormat=pdf&repType=REP_MSPREMSUM&rano=<%=raNo%>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction.do?docFormat=csv&repType=REP_MSPREMSUM&rano=<%=raNo%>&proNo=" target="_blank">CSV</a>)
+        </td>
+        <td ><%=result.getStatus()%></td>
+     </tr>
+     <tr>
+        <td colspan="10" bgcolor="#EBF4F5">&nbsp;</td>
+     </tr>
+
+ <% }
+} catch (Exception e) {
+		MiscUtils.getLogger().error("error", e);
+}
+%>
 
 </table>
 

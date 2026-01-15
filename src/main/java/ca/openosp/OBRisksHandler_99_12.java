@@ -34,31 +34,70 @@ import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+/**
+ * SAX content handler for processing obstetrics risk assessment XML (1999/2012 AR1 form).
+ * 
+ * <p>This handler extends {@link DefaultHandler} to parse and format obstetrics
+ * risk assessment data. It provides:</p>
+ * <ul>
+ *   <li>HTML-formatted risk assessment output generation</li>
+ *   <li>Multi-column table layout for risk factors</li>
+ *   <li>Risk categorization and organization</li>
+ *   <li>Hyperlink support for detailed risk information</li>
+ * </ul>
+ * 
+ * <p>The handler processes XML elements and generates an HTML table showing
+ * identified risk factors organized in a multi-column layout (default 5 columns).</p>
+ * 
+ * @see OBRisks_99_12
+ * @see DefaultHandler
+ */
 public class OBRisksHandler_99_12 extends DefaultHandler {
 
     private Locator locator;
     private String results, riskName; //currentElement
     private int colcount = 0;
+    /** Number of columns for risk factor display table */
     private int numcols = 5;
     private int interiortable = 0;
     private int href = 0;
     private Properties riskNameObj = null;
 //	private Hashtable savedparams;
 
+    /**
+     * Constructs a new OBRisksHandler.
+     */
     public OBRisksHandler_99_12() {
     }
 
+    /**
+     * Receives the document locator for position tracking during parsing.
+     * 
+     * @param locator the document locator
+     */
     public void setDocumentLocator(Locator locator) {
 
         this.locator = locator;
     }
 
+    /**
+     * Called at the start of document parsing.
+     * Initializes the handler and begins HTML table generation.
+     * 
+     * @throws SAXException if a SAX error occurs
+     */
     public void startDocument() throws SAXException {
 
         riskNameObj = new Properties();
         results = "<center><table width='100%' border='0' cellpadding='0' CELLSPACING='0' BGCOLOR='ivory'><tr><td>\n";
     }
 
+    /**
+     * Called at the end of document parsing.
+     * Closes the HTML table structure.
+     * 
+     * @throws SAXException if a SAX error occurs
+     */
     public void endDocument() throws SAXException {
 
         if (interiortable == 1) { //close content table
@@ -67,14 +106,35 @@ public class OBRisksHandler_99_12 extends DefaultHandler {
         results += "</td></tr></table></center>\n";
     }
 
+    /**
+     * Processes XML processing instructions.
+     * Currently not implemented.
+     * 
+     * @param target the processing instruction target
+     * @param data the processing instruction data
+     * @throws SAXException if a SAX error occurs
+     */
     public void processingInstruction(String target, String data) throws SAXException {
 
     }
 
+    /**
+     * Called when a prefix mapping starts.
+     * Currently not implemented.
+     * 
+     * @param prefix the namespace prefix
+     * @param uri the namespace URI
+     */
     public void startPrefixMapping(String prefix, String uri) {
 
     }
 
+    /**
+     * Called when a prefix mapping ends.
+     * Currently not implemented.
+     * 
+     * @param prefix the namespace prefix
+     */
     public void endPrefixMapping(String prefix) {
 
     }

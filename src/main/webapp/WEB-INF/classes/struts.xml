@@ -8,9 +8,10 @@
     <constant name="struts.enable.SlashesInActionNames" value="true" />
     <constant name="struts.serve.static" value="true" />
     <constant name="struts.serve.static.browserCache" value="true" />
-    <constant name="struts.action.excludePattern" value=".*\.(css|js|png|jpg|gif)$" />
+    <constant name="struts.action.excludePattern" value=".*\.(css|js|png|jpg|gif)$|^/ws/.*|^/servlet/(ca\.openosp\.DocumentUploadServlet|oscar\.DocumentTeleplanReportUploadServlet)$" />
     <constant name="struts.custom.i18n.resources" value="oscarResources"/>
     <constant name="struts.custom.i18n.resources" value="oscarResources,MessageResources_mcedt"/>
+    <constant name="struts.multipart.maxSize" value="524288000" />
     <!-- Default package extending struts-default -->
 	<package name="default" namespace="/" extends="struts-default">
         <action name="logout" class="ca.openosp.openo.login.Logout2Action">
@@ -275,6 +276,9 @@
             <result name="repcbLongTerm">/oscarRx/prescribe.jsp</result>
             <result name="represcribe">/oscarRx/prescribe.jsp</result>
         </action>
+        <action name="oscarRx/search" class="ca.openosp.openo.prescript.pageUtil.RxWriteScript2Action">
+            <result name="prescribe">/oscarRx/prescribe.jsp</result>
+        </action>
         <action name="oscarRx/saveDigitalSignature" class="ca.openosp.openo.prescript.pageUtil.RxRePrescribe2Action" method="saveDigitalSignature">
             <result name="success">/oscarRx/SearchDrug3.jsp</result>
         </action>
@@ -296,7 +300,7 @@
             <result name="success">/oscarRx/ShowAllergies.jsp</result>
         </action>
         <action name="oscarRx/addAllergy2" class="ca.openosp.openo.prescript.pageUtil.RxAddAllergy2Action">
-            <result name="success">/oscarRx/ShowAllergies2.jsp</result>
+            <result name="success" type="redirect">/oscarRx/ShowAllergies2.jsp</result>
         </action>
         <action name="oscarRx/addReaction" class="ca.openosp.openo.prescript.pageUtil.RxAddReaction2Action">
             <result name="success">/oscarRx/AddReaction.jsp</result>
@@ -946,7 +950,6 @@
             <result name="success">/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
         <action name="oscarEncounter/eRefer" class="ca.openosp.openo.encounter.oceanEReferal.pageUtil.ERefer2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
         <action name="oscarEncounter/RequestConsultation" class="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
             <result name="success">/oscarEncounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
@@ -977,6 +980,7 @@
         <action name="oscarEncounter/EnableConRequestResponse" class="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConEnableReqResp2Action">
             <result name="success">/oscarEncounter/oscarConsultationRequest/config/EnableRequestResponse.jsp</result>
         </action>
+        <action name="oscarEncounter/ConsultationLookup2Action" class="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.ConsultationLookup2Action"/>
         <action name="oscarEncounter/AddService" class="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action">
             <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddService.jsp</result>
         </action>
@@ -1028,7 +1032,7 @@
             <result name="viewAllConsult">/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp</result>
             <result name="success">/search/searchDemographicSearch.jsp</result>
         </action>
-        <action name="CreateInitImmunization" class="oscar.oscarEncounter.immunization.config.pageUtil.EctCreateImmunizationSetInit2Action">
+        <action name="CreateInitImmunization" class="ca.openosp.openo.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
             <result name="success">/immunizationConfig/CreateImmunizationSetConfig.jsp</result>
         </action-->
         <action name="CreateImmunizationSetConfig" class="ca.openosp.openo.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action">
@@ -1087,16 +1091,6 @@
             <result name="success">/oscarEncounter/oscarMeasurements/close.jsp</result>
             <result name="reload">/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
             <result name="failure">/oscarEncounter/oscarMeasurements/FlowUpdate.jsp</result>
-        </action>
-        <action name="oscarEncounter/oscarMeasurements/TrackerUpdate" class="ca.openosp.openo.encounter.oscarMeasurements.pageUtil.FormUpdate2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/close.jsp</result>
-            <result name="reload">/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf?reload</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf</result>
-        </action>
-        <action name="oscarEncounter/oscarMeasurements/TrackerSlimUpdate" class="ca.openosp.openo.encounter.oscarMeasurements.pageUtil.FormUpdate2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/HealthTrackerSlim.jspf?reload</result>
-            <result name="reload">/oscarEncounter/oscarMeasurements/HealthTrackerSlim.jspf?reload</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/HealthTrackerSlim.jspf</result>
         </action>
         <action name="oscarEncounter/Measurements" class="ca.openosp.openo.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
             <result name="success">/oscarEncounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
@@ -1329,6 +1323,7 @@
             <result name="success">/provider/setNoteStaleDate.jsp</result>
             <result name="gen">/provider/setGenProperty.jsp</result>
             <result name="genRxPageSize">/provider/setGenRxPageSizeProperty.jsp</result>
+            <result name="genHl7LabResultPrefs">/provider/setHl7LabResultPrefs.jsp</result>
             <result name="genRxDefaultQuantity">/provider/setGenRxDefaultQuantityProperty.jsp</result>
             <result name="genRxProfileView">/provider/setGenRxProfileViewProperty.jsp</result>
             <result name="genRxUseRx3">/provider/setToUseRx3.jsp</result>
@@ -1454,6 +1449,7 @@
         <action name="oscarBilling/DocumentErrorReportUpload" class="ca.openosp.openo.billings.ca.on.pageUtil.BillingDocumentErrorReportUpload2Action">
             <result name="success">/billing/CA/ON/billingEAreport.jsp</result>
             <result name="outside">/billing/CA/ON/billingLreport.jsp</result>
+            <result name="error">/billing/CA/ON/billingOBECEA.jsp</result>
         </action>
         <!--action name="PMmodule/remoteReferal" class="oscar.remotereferal.OscarRemoteReferal2Action">
             <result name="success">/eform/efmshowform_data.jsp</result>
@@ -1507,8 +1503,10 @@
         </action>
         <action name="form/importLogDownload" class="ca.openosp.openo.demographic.pageUtil.ImportLogDownload2Action">
             <result name="success">/demographic/demographicImport.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="demographic/DemographicExport" class="ca.openosp.openo.demographic.pageUtil.DemographicExportAction42Action">
+            <result name="success">/demographic/demographicExport.jsp</result>
             <result name="fail">/demographic/demographicExport.jsp</result>
         </action>
         <action name="demographic/cihiExportOMD4" class="ca.openosp.openo.demographic.pageUtil.CihiExport2Action" method="execute">
@@ -1542,6 +1540,7 @@
         </action>
         <action name="eform/imageUpload" class="ca.openosp.openo.eform.upload.ImageUpload2Action">
             <result name="success">/eform/partials/upload_image.jsp</result>
+            <result name="error">/eform/partials/upload_image.jsp</result>
         </action>
         <action name="eform/delEForm" class="ca.openosp.openo.eform.actions.DelEForm2Action">
             <result name="success">/eform/efmformmanager.jsp</result>
@@ -1626,6 +1625,7 @@
             <interceptor-ref name="fileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/lab/CA/ALL/testUploader.jsp</result>
+            <result name="input">/lab/CA/ALL/testUploader.jsp</result>
         </action>
         <action name="lab/CA/ALL/oruR01Upload" class="ca.openosp.openo.lab.ca.all.pageUtil.OruR01Upload2Action">
             <result name="result">/common/genericResultPage.jsp</result>
@@ -1922,8 +1922,8 @@
         <action name="provider/OlisPreferences" class="ca.openosp.openo.provider.web.OlisPreferences2Action">
             <result name="form">/provider/olis_preferences.jsp</result>
         </action>
-        <action name="searchProfessionalSpecialist" class="ca.openosp.openo.contactRegistry.ProfessionalSpecialist2Action"/>
-        <action name="getProfessionalSpecialist" class="ca.openosp.openo.contactRegistry.ProfessionalSpecialist2Action"/>
+        <action name="searchProfessionalSpecialist" class="ca.openosp.openo.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
+        <action name="getProfessionalSpecialist" class="ca.openosp.openo.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
         <action name="demographic/Contact" class="ca.openosp.openo.commn.web.Contact2Action">
             <result name="pForm">/demographic/addEditProfessionalContact.jsp</result>
             <result name="cForm">/demographic/addEditContact.jsp</result>
@@ -2261,7 +2261,7 @@
             <result name="success">/billing/CA/ON/billingLreport.jsp</result>
             <result name="failure">/billing/CA/ON/billingLreport.jsp</result>
         </action>
-        <action name="billing/CA/ON/moveMOHFiles" class="org.oscarehr.billing.CA.ON.www.ArchiveMOHFile2Action">
+        <action name="billing/CA/ON/moveMOHFiles" class="ca.openosp.openo.billing.CA.ON.www.ArchiveMOHFile2Action">
             <result name="showInbox">/billing/CA/ON/viewMOHFiles.jsp</result>
         </action-->
         <action name="billing/ca/on/DisplayInvoiceLogo" class="ca.openosp.openo.billing.CA.ON.util.DisplayInvoiceLogo2Action"/>

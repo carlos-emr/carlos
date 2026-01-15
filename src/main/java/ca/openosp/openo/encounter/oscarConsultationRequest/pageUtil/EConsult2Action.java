@@ -27,13 +27,13 @@
 package ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil;
 
 import java.io.File;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.regex.Pattern;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -72,7 +72,7 @@ public class EConsult2Action extends ActionSupport {
     /**
      * Builds a proper eConsult frontend redirect link
      * <p>
-     * ie: /?{oneIdEmail}&{delegateOneIdEmail}#!/{task}?{parameter}
+     * ie: /?{oneIdEmail}&amp;{delegateOneIdEmail}#!/{task}?{parameter}
      */
     public String frontend() {
 
@@ -144,7 +144,7 @@ public class EConsult2Action extends ActionSupport {
 //        HttpResponse httpResponse = httpClient.execute(httpGet);
 //        //Gets the entity from the response and stores it as a JSONObject
 //        String entity = EntityUtils.toString(httpResponse.getEntity());
-//        JSONObject object = new JSONObject(entity);
+//        JSONObject object = objectMapper.createObjectNode();
 
         return null;
     }

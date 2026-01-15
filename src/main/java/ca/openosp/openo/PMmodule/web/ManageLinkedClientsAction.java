@@ -49,7 +49,7 @@ public class ManageLinkedClientsAction {
     private ArrayList<FacilityDemographicPrimaryKey> linkedCaisiIds = new ArrayList<FacilityDemographicPrimaryKey>();
 
     /**
-     * @param linkString should be of the format linked.<ClientLink.Type.name()>.<type specific identifier>
+     * @param linkString should be of the format linked.{ClientLink.Type.name()}.{type specific identifier}
      */
     public void addLinkedId(String linkString) {
         String[] linkStringSplit = linkString.split("\\.");

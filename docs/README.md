@@ -41,6 +41,7 @@ Key testing resources:
 
 | Document | Description |
 |----------|-------------|
+| [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |

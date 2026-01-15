@@ -13,7 +13,7 @@ package ca.openosp.openo.lab.ca.on;
 
 import java.util.*;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.Demographic;
 import ca.openosp.openo.hospitalReportManager.HRMReport;

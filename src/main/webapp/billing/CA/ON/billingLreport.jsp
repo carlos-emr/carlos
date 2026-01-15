@@ -9,7 +9,7 @@
     
 --%>
 <%@page import="java.nio.charset.Charset" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page language="java" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -71,7 +71,7 @@
                     sname = cpath + "/billing/CA/ON/OU.xsl";
                 }
 
-                xml = '<%=StringEscapeUtils.escapeJavaScript(fileContents)%>';
+                xml = '<%=StringEscapeUtils.escapeEcmaScript(fileContents)%>';
                 try {
                     xsl = loadXMLDoc(sname);
 

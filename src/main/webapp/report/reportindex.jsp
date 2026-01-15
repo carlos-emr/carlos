@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed2) {
@@ -39,7 +39,8 @@
     }
 %>
 
-<%@ page import="org.apache.commons.lang.StringUtils" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.ProviderPreference" %>
 <%@ page import="ca.openosp.openo.utility.SessionConstants" %>
 <%
@@ -104,13 +105,6 @@
                 src="<%= request.getContextPath() %>/share/calendar/lang/calendar-en.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
-
-        <script type="text/javascript" src="<%= request.getContextPath() %>/dojoAjax/dojo.js"></script>
-        <script type="text/javascript" language="JavaScript">
-            dojo.require("dojo.date.format");
-            dojo.require("dojo.widget.*");
-            dojo.require("dojo.validate.*");
-        </script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/caisi_report_tools.js"></script>
 
 
@@ -296,13 +290,13 @@
                                                                            ONCLICK="ogo2()">05</a> <% } %>
                 </td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'../share/CalendarPopup.jsp?urlfrom=../report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('startDate')[0].value")%>')">
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('startDate')[0].value", StandardCharsets.UTF_8)%>')">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formFrom"/></a>
                         <%-- any early default start date should suffice for reporting all --%>
                     <INPUT TYPE="text" NAME="startDate" VALUE="<%=today%>" size='10'>
                 </td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'../share/CalendarPopup.jsp?urlfrom=../report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('endDate')[0].value")%>')">
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('endDate')[0].value", StandardCharsets.UTF_8)%>')">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formTo"/></a> <INPUT TYPE="text"
                                                                                NAME="endDate" VALUE="<%=today%>"
                                                                                size='10'></td>
@@ -371,10 +365,10 @@
                     <sup>*</sup><a HREF="#" ONCLICK="go('all')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnAllAppt"/></a><br>&nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.chkRostered"/> <input type="checkbox" id="rosteredOnly" value="true">
                 </td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'../share/CalendarPopup.jsp?urlfrom=../report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value")%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
                                                                        VALUE="<%=today%>" size=10></td>
                 <td><a HREF="#"
-                       onClick="popupPage(310,430,'../share/CalendarPopup.jsp?urlfrom=../report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value")%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
+                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
                                                                       VALUE="<%=today%>" size=10></td>
                 <td><select name="sTime">
                     <%
@@ -648,7 +642,7 @@
                     %> <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.msgStart"/>: <input name="nsdate" type="input" size="8"
                                                                                  id="NoShowDate" value="<%=NoShowEDate%>"> <a
                         HREF="#"
-                        onClick="popupPage(310,430,'../share/CalendarPopup.jsp?urlfrom=../report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('nsdate')[0].value")%>')"><img
+                        onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('nsdate')[0].value", StandardCharsets.UTF_8)%>')"><img
                         title=Calendar " src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"><a>
 
 
@@ -869,7 +863,7 @@
                     <td width="2"><%=j%><%j++;%></td>
                     <td width="1"></td>
                     <td width="300"><a href="javascript:void(0);"
-                                       onclick="popupPage(600,800,'../oscarReport/reportByTemplate/homePage.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.rptbyTemplate"/></a></td>
+                                       onclick="popupPage(600,800,'<%= request.getContextPath() %>/oscarReport/reportByTemplate/homePage.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.rptbyTemplate"/></a></td>
 
                 </tr>
             </security:oscarSec>

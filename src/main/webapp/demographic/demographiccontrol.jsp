@@ -166,12 +166,12 @@
             {"search_detail", "select * from demographic where demographic_no=?"},
             {"search_detail_ptbr", "select * from demographic d left outer join demographic_ptbr dptbr on dptbr.demographic_no = d.demographic_no where d.demographic_no=?"},
 
-            {"search_provider", "select * from providers status='1' order by last_name"},
-            {"search_provider_doc", "select * from providers where provider_type='doctor' and status='1' order by last_name"},
+            {"search_provider", "select * from provider status='1' order by last_name"},
+            {"search_provider_doc", "select * from provider where provider_type='doctor' and status='1' order by last_name"},
             {"search*", "select * from demographic " + ptstatusexp + domainRestriction + orderby + " " + limit},
             {"search_lastfirstnamedob", "select demographic_no from demographic where last_name=? and first_name=? and year_of_birth=? and month_of_birth=? and date_of_birth=?"},
-            {"appt_history", "select appointment_no, appointment_date, start_time, appointment.type, remarks, CONCAT(appointment_date,start_time) AS appttime, end_time, reason, appointment.status, providers.last_name, providers.first_name, appointment.location from appointment LEFT JOIN providers ON appointment.provider_no=providers.provider_no where appointment.demographic_no=? " + orderby + " desc "},
-            {"appt_history_w_deleted", "select appointment_no, appointment_date, start_time, appointment.type, remarks, CONCAT(appointment_date,start_time) AS appttime, end_time, reason, appointment.status, providers.last_name, providers.first_name, appointment.location,'' as archive from appointment LEFT JOIN providers ON appointment.provider_no=providers.provider_no where appointment.demographic_no=? union select appointment_no, appointment_date, start_time, appointment.type, remarks, CONCAT(appointment_date,start_time) AS appttime, end_time, reason, appointment.status, providers.last_name, providers.first_name, appointment.location, 'archive' as archive from appointmentArchive appointment LEFT JOIN providers ON appointment.provider_no=providers.provider_no where appointment.demographic_no=? and appointment_no not in (select appointment_no from appointment) order by appttime desc, appointment_no desc"},
+            {"appt_history", "select appointment_no, appointment_date, start_time, appointment.type, remarks, CONCAT(appointment_date,start_time) AS appttime, end_time, reason, appointment.status, provider.last_name, provider.first_name, appointment.location from appointment LEFT JOIN provider ON appointment.provider_no=provider.provider_no where appointment.demographic_no=? " + orderby + " desc "},
+            {"appt_history_w_deleted", "select appointment_no, appointment_date, start_time, appointment.type, remarks, CONCAT(appointment_date,start_time) AS appttime, end_time, reason, appointment.status, provider.last_name, provider.first_name, appointment.location,'' as archive from appointment LEFT JOIN provider ON appointment.provider_no=provider.provider_no where appointment.demographic_no=? union select appointment_no, appointment_date, start_time, appointment.type, remarks, CONCAT(appointment_date,start_time) AS appttime, end_time, reason, appointment.status, provider.last_name, provider.first_name, appointment.location, 'archive' as archive from appointmentArchive appointment LEFT JOIN provider ON appointment.provider_no=provider.provider_no where appointment.demographic_no=? and appointment_no not in (select appointment_no from appointment) order by appttime desc, appointment_no desc"},
             {"search_ptstatus", "select distinct patient_status from demographic where patient_status != '' and patient_status != 'AC' and patient_status != 'IN' and patient_status != 'DE' and patient_status != 'MO' and patient_status != 'FI'"},
             {"search_rsstatus", "select distinct roster_status from demographic where roster_status != '' and roster_status != 'RO' and roster_status != 'NR' and roster_status != 'TE' and roster_status != 'FS' "},
             {"search_waitingListPosition", "select max(position) as position from waitingList where listID=? AND is_history='N' "},
@@ -192,7 +192,7 @@
             {"pdfchartlabel", "demographicpdfchartlabel.jsp"},
             {"appt_history", "demographicappthistory.jsp"},
             {"Update Record", "demographicupdatearecord.jsp"},
-            {"linkMsg2Demo", "../messenger/msgSearchDemo.jsp"},
+            {"linkMsg2Demo", "/messenger/msgSearchDemo.jsp"},
     };
     apptMainBean.doConfigure(dbQueries, responseTargets);
 

@@ -46,7 +46,7 @@
 <%@page import="ca.openosp.openo.commn.service.BillingONService" %>
 <%@page import="java.text.NumberFormat" %>
 
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingRAImpl" %>
 <%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
 <%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingPageUtil" %>
@@ -61,7 +61,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <% if (session.getAttribute("user") == null)
-    response.sendRedirect("../../../logout.htm");
+    response.sendRedirect(request.getContextPath() + "/logout.htm");
     String userfirstname, userlastname;
 
 
@@ -74,10 +74,10 @@
 
 
     if (userProvider == null)
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     if (session.getAttribute("userrole") == null)
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String roleName$ = (String) session.getAttribute("userrole") + "," + userProviderNo;
 
@@ -750,7 +750,7 @@
                         </tr>
                         <tr>
                             <td style="width:54%"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
-                                                                                         onclick="popupPage(720,860,'../../../demographic/demographiccontrol.jsp?demographic_no=<%=DemoNo %>&displaymode=edit&dboperation=search_detail');return false;">
+                                                                                         onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=DemoNo %>&displaymode=edit&dboperation=search_detail');return false;">
                                 <%=DemoName%>
                             </a> <input type="hidden" name="demo_name"
                                         value="<%=DemoName%>"></td>

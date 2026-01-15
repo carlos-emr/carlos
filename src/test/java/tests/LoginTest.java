@@ -35,7 +35,7 @@ public class LoginTest {
         
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Close the browser
@@ -67,7 +67,7 @@ public class LoginTest {
         
         // Verify the login failed
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertFalse(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertFalse(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login failed with invalid username.");
 
         // Close the browser
@@ -99,7 +99,7 @@ public class LoginTest {
         
         // Verify the login failed
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertFalse(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertFalse(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login failed with invalid passowrd.");   
 
         // Close the browser
@@ -131,7 +131,7 @@ public class LoginTest {
         
         // Verify the login failed
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertFalse(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertFalse(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login failed with invalid username and passowrd.");   
 
         // Close the browser

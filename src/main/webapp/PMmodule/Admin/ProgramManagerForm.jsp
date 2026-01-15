@@ -26,7 +26,7 @@
 
 <%@ page import="ca.openosp.openo.PMmodule.web.formbean.*" %>
 <%@ page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@ page import="org.apache.commons.lang.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="ca.openosp.openo.PMmodule.web.formbean.ProgramManagerViewFormBean" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 

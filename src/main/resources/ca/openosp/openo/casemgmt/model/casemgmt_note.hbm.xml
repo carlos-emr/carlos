@@ -309,7 +309,7 @@
 		note_id from casemgmt_note where demographic_no = ? group by uuid)
 		recent using(note_id) where recent.note_id = casemgmt_note.note_id
 		order by observat3_82_0_ asc <sql-query name="mostRecent"> <return
-		alias="cmn" class="org.oscarehr.casemgmt.model.CaseManagementNote" />
+		alias="cmn" class="ca.openosp.openo.casemgmt.model.CaseManagementNote" />
 		select note_id as {cmn.id}, update_date as {cmn.update_date},
 		observation_date as {cmn.observation_date}, demographic_no as
 		{cmn.demographic_no}, provider_no as {cmn.providerNo}, note as
@@ -330,7 +330,7 @@
 		casemgmt_note where demographic_no = ? group by uuid) recent
 		using(note_id) order by {cmn.observation_date} asc </sql-query>
 		<sql-query name="mostRecentTime"> <return alias="cmn"
-		class="org.oscarehr.casemgmt.model.CaseManagementNote" /> select
+		class="ca.openosp.openo.casemgmt.model.CaseManagementNote" /> select
 		note_id as {cmn.id}, update_date as {cmn.update_date},
 		observation_date as {cmn.observation_date}, demographic_no as
 		{cmn.demographic_no}, provider_no as {cmn.providerNo}, note as

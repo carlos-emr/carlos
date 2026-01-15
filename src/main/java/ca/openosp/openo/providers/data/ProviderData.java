@@ -133,7 +133,7 @@ public class ProviderData {
      * Creates a deep copy of this instance, for proper interoperability with JPA classes.
      *
      * @return
-     * 		Returns a new {@link org.oscarehr.commons.model.ProviderData} instance containing
+     * 		Returns a new {@link ca.openosp.openo.commn.model.ProviderData} instance containing
      * a copy of information in this instance.
      */
     private ca.openosp.openo.commn.model.ProviderData toProvider() {
@@ -542,8 +542,8 @@ public class ProviderData {
     }
 
     /**
-     * getters && setters
-     **/
+     * Getters and setters for provider properties.
+     */
 
     public java.lang.String getPractitionerNo() {
         return practitionerNo;

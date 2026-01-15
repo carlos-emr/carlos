@@ -36,6 +36,42 @@ gh pr create                 # GitHub pull request creation
 - Parameterized queries ONLY - never string concatenation
 - ALL actions MUST include `SecurityInfoManager.hasPrivilege()` checks
 - PHI (Patient Health Information) must NEVER be logged or exposed
+- **Use `PathValidationUtils` for ALL file path operations** (see below)
+
+### PathValidationUtils - File Path Security
+
+**ALWAYS use PathValidationUtils** (`ca.openosp.openo.utility.PathValidationUtils`) for file operations involving user input. It prevents path traversal attacks consistently across the codebase.
+
+**Key Methods:**
+```java
+// For user-provided filenames (sanitizes and validates)
+File safeFile = PathValidationUtils.validatePath(userFilename, allowedDir);
+
+// For validating existing file paths
+PathValidationUtils.validateExistingPath(file, allowedDir);
+
+// For validating uploaded files from Struts2/Tomcat
+PathValidationUtils.validateUpload(uploadedFile);
+
+// For complete upload validation (source + destination)
+File dest = PathValidationUtils.validateUpload(sourceFile, filename, destDir);
+
+// For checking if file is in allowed temp directory
+if (PathValidationUtils.isInAllowedTempDirectory(file)) { ... }
+```
+
+**Migration from old patterns:**
+```java
+// OLD (inconsistent, error-prone)
+if (!file.getCanonicalPath().startsWith(baseDir.getCanonicalPath() + File.separator)) {
+    throw new SecurityException("Invalid path");
+}
+
+// NEW (consistent, robust)
+PathValidationUtils.validateExistingPath(file, baseDir);
+```
+
+**Full documentation**: `docs/path-validation-utils.md`
 
 ## Package Structure (2025 Migration)
 

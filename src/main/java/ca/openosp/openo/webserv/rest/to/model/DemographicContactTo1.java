@@ -31,7 +31,7 @@ import java.util.Date;
 
 public class DemographicContactTo1 implements Serializable {
 
-    //link to the providers table
+    //link to the provider table
     public static final int TYPE_PROVIDER = 0;
     //link to the demographic table
     public static final int TYPE_DEMOGRAPHIC = 1;

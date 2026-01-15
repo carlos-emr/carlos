@@ -29,6 +29,7 @@
     String form_name = "ar2_99_08";
     String username = (String) session.getAttribute("userlastname") + "," + (String) session.getAttribute("userfirstname");
 %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.util.UtilDateUtilities, ca.openosp.openo.form.graphic.*"
          errorPage="/errorpage.jsp" %>
 
@@ -101,7 +102,7 @@
                 document.serviceform.submit();
             }
             if (saveTemp == 1) {
-                popupPage(30, 200, '../provider/notice.htm');
+                popupPage(30, 200, '<%= request.getContextPath() %>/provider/notice.htm');
                 document.serviceform.target = "printlocation";
                 document.serviceform.cmd.value = "Save";
                 document.serviceform.submit();
@@ -124,7 +125,7 @@
 </head>
 <body onLoad="setfocus()" bgproperties="fixed" topmargin="0"
       leftmargin="0" rightmargin="0" bgcolor="#c4e9f6">
-<form name="serviceform" action="../provider/providercontrol.jsp"
+<form name="serviceform" action="<%= request.getContextPath() %>/provider/providercontrol.jsp"
       method="POST" onSubmit="return (onSubmitForm());">
     <%
         //if bNewForm is false (0), then it should be able to display xml data.
@@ -243,7 +244,7 @@
                         //if(bNewList&&!(request.getParameter("patientmaster")!=null) ) {
                         if (bNewList || (request.getParameter("patientmaster") != null)) {
                     %> <a href=#
-                          onClick="popupPage(600,900,'../provider/providercontrol.jsp?appointment_no=<%=request.getParameter("appointment_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&curProvider_no=&bNewForm=1&username=&reason=<%=URLEncoder.encode(request.getParameter("reason")==null?"":request.getParameter("reason"))%>&displaymode=ar1&dboperation=search_demograph');return false;"
+                          onClick="popupPage(600,900,'<%= request.getContextPath() %>/provider/providercontrol.jsp?appointment_no=<%=request.getParameter("appointment_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&curProvider_no=&bNewForm=1&username=&reason=<%=URLEncoder.encode(request.getParameter("reason")==null?"":request.getParameter("reason"), StandardCharsets.UTF_8)%>&displaymode=ar1&dboperation=search_demograph');return false;"
                           title="Antenatal Record 1"> <font color='yellow'>View AR1</font></a>
                     | <a href=#
                          onClick="popupPage(500,600,'<%=request.getContextPath()%>/demographic/formhistory.jsp?demographic_no=<%=request.getParameter("demographic_no")%>')"
@@ -261,13 +262,13 @@
                                                                                                     value="0"> <input
                         type="hidden" name="cmd" value="">
                     <%
-                        String newFormURL = "../provider/providercontrol.jsp?";
+                        String newFormURL = request.getContextPath() + "/provider/providercontrol.jsp?";
                         if (request.getParameter("demographic_no") != null)
                             newFormURL += "demographic_no=" + request.getParameter("demographic_no");
                         if (request.getParameter("appointment_no") != null)
                             newFormURL += "&appointment_no=" + request.getParameter("appointment_no");
                         if (request.getParameter("reason") != null)
-                            newFormURL += "&reason=" + URLEncoder.encode(request.getParameter("reason"));
+                            newFormURL += "&reason=" + URLEncoder.encode(request.getParameter("reason"), StandardCharsets.UTF_8);
                         newFormURL += "&bNewForm=1&displaymode=ar2&dboperation=search_demograph&template=";
 
                     %> <a href="<%=newFormURL%>"><font color="yellow">New Form</font></a>&nbsp;
@@ -1377,7 +1378,7 @@
                 StringBuffer tt;
                 if (f != null) {
                     temp = f.getContent();
-                    Properties savedar1risk1 = risks.getRiskName("../webapps/" + oscarVariables.getProperty("project_home") + "/providers/obarrisks_99_12.xml");
+                    Properties savedar1risk1 = risks.getRiskName(application.getRealPath("/providers/obarrisks_99_12.xml"));
                     for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {
                         tt = new StringBuffer().append(e.nextElement());
                         if (SxmlMisc.getXmlContent(temp, savedar1risk1.getProperty(tt.toString())) != null)
@@ -1567,7 +1568,7 @@
                     if (SxmlMisc.getXmlContent(temp, "<xml_nadref>", "</xml_nadref>") != null)
                         savedar1risk.setProperty("75", "xml_nadref");
                 }
-                out.println(checklist.doStuff(new String("../webapps/" + oscarVariables.getProperty("project_home") + "/providers/obarchecklist_99_12.xml"), savedar1risk));
+                out.println(checklist.doStuff(new String(application.getRealPath("/providers/obarchecklist_99_12.xml")), savedar1risk));
             }
         }
 

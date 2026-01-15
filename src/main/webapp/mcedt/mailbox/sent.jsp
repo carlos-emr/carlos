@@ -140,7 +140,7 @@
                 control.disabled = true;
             }
             var temp = jQuery("#serviceId").val();
-            window.location.href = "resourceInfo.do?resourceId=" + resourceId + "&serviceId=" + jQuery("#serviceId").val();
+            window.location.href = "<%= request.getContextPath() %>/mcedt/resourceInfo.do?resourceId=" + encodeURIComponent(resourceId) + "&serviceId=" + encodeURIComponent(jQuery("#serviceId").val());
             return false;
 
         }
@@ -150,7 +150,7 @@
                 control.disabled = true;
             }
 
-            window.location.href = "reSubmit.do?resourceId=" + resourceId + "&serviceId=" + jQuery("#serviceId").val();
+            window.location.href = "<%= request.getContextPath() %>/mcedt/reSubmit.do?resourceId=" + encodeURIComponent(resourceId) + "&serviceId=" + encodeURIComponent(jQuery("#serviceId").val());
             return false;
 
         }
@@ -251,7 +251,7 @@
 <c:set var="resultSize" value="${sessionScope.resultSize}"/>
 
 <form action="${pageContext.request.contextPath}/mcedt/resourceInfo.do" method="post" id="formSent">
-    <jsp:include page="../messages.jsp"/>
+    <jsp:include page="/mcedt/messages.jsp"/>
     <input id="methodSent" name="method" type="hidden" value=""/>
     <div>
 

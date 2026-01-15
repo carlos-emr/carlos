@@ -23,6 +23,7 @@
     Ontario, Canada
 
 --%>
+<%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String newticklerwarningwindow = null;
@@ -56,44 +57,104 @@ j++;
 return classElements;
 }
 
-jQuery("document").ready(function(){
-setDefaultReasonView();
-})
+document.addEventListener('DOMContentLoaded', function() {
+    setDefaultReasonView();
+});
 
 function setDefaultReasonView() {
-console.log(localStorage);
-let currentDefault = jQuery("#hideReason").val();
-console.log("Show all reasons: " + currentDefault);
+    const hideReasonEl = document.getElementById("hideReason");
+    const currentDefault = hideReasonEl ? hideReasonEl.value : "false";
 
-// True to show the reason. Default is to hide.
-if(currentDefault === "true") {
-jQuery("span").removeClass("hideReason");
-}
+    // True to show the reason. Default is to hide.
+    // Apply default tooltip state to all providers (before per-provider overrides)
+    const showReasonDefault = (currentDefault === "true");
+    if (showReasonDefault) {
+        // Remove hideReason class from all spans
+        document.querySelectorAll("span.hideReason").forEach(function(el) {
+            el.classList.remove("hideReason");
+        });
+    } else {
+        // If default is to hide, also hide reason from all tooltips initially
+        document.querySelectorAll(".appt-reason-tooltip").forEach(function(el) {
+            const titleShort = el.dataset.titleShort;
+            if (titleShort) {
+                el.setAttribute("title", titleShort);
+            }
+        });
+    }
 
-// toggle reason views for each of the provider preferences.
-for( var i = 0; i < localStorage.length; i++ ) {
-var key = localStorage.key(i);
-var value = localStorage.getItem(key);
+    // Toggle reason views for each of the provider preferences.
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
 
-// If true show the reason. If false hide the reason
-if(value === "false") {
-jQuery(key).addClass("hideReason");
-}
-if (value === "true"){
-jQuery(key).removeClass("hideReason");
-}
-}
+        // Keys are stored as "reason_<providerNo>" but used as CSS selectors ".reason_<providerNo>"
+        if (key.startsWith("reason_")) {
+            const selector = "." + key;
+            const providerNo = key.substring(7); // Extract provider number from "reason_<providerNo>"
 
-jQuery(".hideReason").hide();
+            // If true show the reason. If false hide the reason
+            document.querySelectorAll(selector).forEach(function(el) {
+                if (value === "false") {
+                    el.classList.add("hideReason");
+                }
+                if (value === "true") {
+                    el.classList.remove("hideReason");
+                }
+            });
+
+            // Update tooltips based on stored preference
+            const showReason = (value === "true");
+            updateTooltipsForProvider(providerNo, showReason);
+        }
+    }
+
+    // Hide all elements with hideReason class
+    document.querySelectorAll(".hideReason").forEach(function(el) {
+        el.style.display = "none";
+    });
 }
 
 function toggleReason(event, providerNo) {
     event.preventDefault();
-    var id = ".reason_" + providerNo;
-    jQuery(id).toggle();
-    var isVisible = jQuery(id).is(":visible");
-    var storageKey = "reason_" + providerNo;
+    const selector = ".reason_" + providerNo;
+    const elements = document.querySelectorAll(selector);
+    let isVisible = false;
+
+    elements.forEach(function(el) {
+        // Toggle visibility
+        if (el.style.display === "none" || el.classList.contains("hideReason")) {
+            el.style.display = "";
+            el.classList.remove("hideReason");
+            isVisible = true;
+        } else {
+            el.style.display = "none";
+            isVisible = false;
+        }
+    });
+
+    const storageKey = "reason_" + providerNo;
     localStorage.setItem(storageKey, isVisible);
+
+    // Update tooltips for this provider's appointments to respect privacy toggle
+    updateTooltipsForProvider(providerNo, isVisible);
+}
+
+/**
+ * Updates the tooltip (title attribute) for all appointments of a given provider
+ * to show or hide reason/notes based on the visibility flag.
+ *
+ * @param providerNo the provider number
+ * @param showReason true to show full tooltip with reason/notes, false to hide them
+ */
+function updateTooltipsForProvider(providerNo, showReason) {
+    const selector = ".appt-tooltip-provider-" + providerNo;
+    document.querySelectorAll(selector).forEach(function(el) {
+        const titleAttr = showReason ? el.dataset.titleFull : el.dataset.titleShort;
+        if (titleAttr) {
+            el.setAttribute("title", titleAttr);
+        }
+    });
 }
 
 
@@ -310,7 +371,7 @@ setTimeout("refreshTabAlerts('"+id+"')", 10);
 }
 
 function refreshTabAlerts(id) {
-var url = "../provider/tabAlertsRefresh.jsp";
+var url = "<%= request.getContextPath() %>/provider/tabAlertsRefresh.jsp";
 var pars = "id=" + id;
 jQuery.ajax({
 url: url,

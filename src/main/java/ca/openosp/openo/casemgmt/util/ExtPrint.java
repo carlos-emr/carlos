@@ -36,5 +36,5 @@ import com.itextpdf.text.DocumentException;
 
 public interface ExtPrint {
 
-    public void printExt(CaseManagementPrintPdf engine, HttpServletRequest request) throws IOException, DocumentException, com.lowagie.text.DocumentException;
+    public void printExt(CaseManagementPrintPdf engine, HttpServletRequest request) throws IOException, DocumentException;
 }

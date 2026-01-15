@@ -38,6 +38,7 @@ import java.util.zip.ZipOutputStream;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 
 import ca.openosp.OscarProperties;
 
@@ -106,50 +107,36 @@ public class zip {
 
         try {
             ZipFile zipfile = new ZipFile(fullpath);
-            
-            // Get canonical path of the target directory to prevent path traversal
             File targetDir = new File(dirName);
-            String canonicalTargetPath = targetDir.getCanonicalPath();
 
             entries = zipfile.entries();
             while (entries.hasMoreElements()) {
                 entry = entries.nextElement();
                 String zName = entry.getName();
-                
-                // Sanitize the entry name to prevent path traversal
-                // Remove any leading slashes and normalize the path
-                zName = zName.replaceAll("^[/\\\\]+", "");
-                
-                // Skip entries that contain path traversal sequences
-                if (zName.contains("..") || zName.contains("/..") || zName.contains("\\..")) {
-                    logger.error("Skipping potentially malicious zip entry: " + zName);
-                    continue;
-                }
-                
+
                 is = new BufferedInputStream(zipfile.getInputStream(entry));
                 int count;
                 byte data[] = new byte[BUFFER];
                 if (!zName.substring(zName.length() - 4).equalsIgnoreCase(".zip")) {
                     zName = zName + ".xml";
                 }
-                
-                // Create the target file and validate it's within the target directory
-                File z = new File(dirName, zName);
-                String canonicalFilePath = z.getCanonicalPath();
-                
-                // Ensure the file will be extracted within the target directory
-                if (!canonicalFilePath.startsWith(canonicalTargetPath)) {
-                    logger.error("Path traversal attempt detected for entry: " + entry.getName());
+
+                // Validate the zip entry path using PathValidationUtils
+                File z;
+                try {
+                    z = PathValidationUtils.validatePath(zName, targetDir);
+                } catch (SecurityException e) {
+                    logger.error("Skipping potentially malicious zip entry: " + zName);
                     is.close();
                     continue;
                 }
-                
+
                 // Create parent directories if they don't exist
                 File parentDir = z.getParentFile();
                 if (parentDir != null && !parentDir.exists()) {
                     parentDir.mkdirs();
                 }
-                
+
                 FileOutputStream fos = new FileOutputStream(z);
                 dest = new BufferedOutputStream(fos, BUFFER);
                 while ((count = is.read(data, 0, BUFFER)) != -1) {
@@ -165,10 +152,10 @@ public class zip {
             File dir = new File(dirName + "unzip_archive/");
             Boolean success = afile.renameTo(new File(dir, afile.getName()));
             if (!success) {
-                logger.error("oscar.util.zip.unzipXML: the zip file " + fullpath + " was not archived");
+                logger.error("ca.openosp.openo.util.zip.unzipXML: the zip file " + fullpath + " was not archived");
             }
         } catch (Exception e) {
-            logger.error("oscar.util.zip.unzipXML Unhandled exception:", e);
+            logger.error("ca.openosp.openo.util.zip.unzipXML Unhandled exception:", e);
             return result;
         }
         result = true;

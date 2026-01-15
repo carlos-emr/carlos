@@ -31,7 +31,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import ca.openosp.openo.commn.model.Tickler;
 import ca.openosp.openo.managers.TicklerManager;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -66,7 +65,7 @@ public class TicklerData {
 
         String date = service_date;
         if (date != null && !date.equals("now()")) {          //Just a hack for now.
-            date = "'" + StringEscapeUtils.escapeSql(service_date) + "'";
+            date = "'" + service_date + "'";
         }
 
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");

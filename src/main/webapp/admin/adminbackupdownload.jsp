@@ -25,7 +25,7 @@
 
 --%>
 
-<%@ page contentType="text/html; charset=UTF-8" errorPage="/errorpage.jsp" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" errorPage="/errorpage.jsp" %>
 <%@ page import="
       java.util.*,
       java.io.*,
@@ -59,7 +59,7 @@
     reverse="true">
   <%
     authed = false;
-    response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.backup");
+    response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.backup");
   %>
 </security:oscarSec>
 <%

@@ -408,7 +408,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * 	oscar/oscarEncounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequest2Action.java
      */
     @Override
-    public void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException, com.lowagie.text.DocumentException {
+    public void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException, DocumentException {
         checkPrivilege(loggedInInfo, securityInfoManager.READ);
 
         ConsultationRequest consultationRequest = consultationRequestDao.find(consultationRequestId);
@@ -501,7 +501,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      *
      * @param loggedInInfo  The current user's logged in info
      * @param request       The HttpRequest for printing any forms
-     * @param request       The HttpResponse for printing any forms
+     * @param response      The HttpResponse for printing any forms
      * @param demographicNo The demographic number to get the attachments for
      * @return List of ConsultationAttachments containing the file name and data and the attachment id and type,
      * @throws PDFGenerationException Thrown if an error occurs while generating pdf

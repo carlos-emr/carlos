@@ -50,6 +50,7 @@
     int yearLimit = Integer.parseInt(session.getAttribute("schedule_yearlimit") != null ? ((String) session.getAttribute("schedule_yearlimit")) : "10");
     boolean scheduleOverlaps = false;
 %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/errorpage.jsp" %>
@@ -74,7 +75,7 @@
 <%
     String provider_name = URLDecoder.decode(request.getParameter("provider_name"));
     String provider_no = request.getParameter("provider_no");
-    if (provider_no == null || provider_no == "") response.sendRedirect("../logout.jsp");
+    if (provider_no == null || provider_no == "") response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     //to prepare calendar display
     GregorianCalendar now = new GregorianCalendar();
@@ -306,13 +307,13 @@
                             %>
                             <tr>
                                 <td BGCOLOR="#CCFFCC" width="50%" align="center"><a
-                                        href="schedulecreatedate.jsp?provider_no=<%=provider_no%>&provider_name=<%=URLEncoder.encode(provider_name)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
+                                        href="schedulecreatedate.jsp?provider_no=<%=provider_no%>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
                                     &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                                      BORDER="0"
                                                      ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnLastMonthTip"/>'
                                                      vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnLastMonth"/>&nbsp;&nbsp; </a> <b><span
                                         CLASS=title><%=year%>-<%=month%></span></b> <a
-                                        href="schedulecreatedate.jsp?provider_no=<%=provider_no%>&provider_name=<%=URLEncoder.encode(provider_name)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
+                                        href="schedulecreatedate.jsp?provider_no=<%=provider_no%>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
                                     &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnNextMonth"/><img
                                         src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                                         ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnNextMonthTip"/>'

@@ -68,8 +68,9 @@ import ca.openosp.openo.webserv.rest.util.ClinicalConnectUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 
 @Path("/recordUX/")
@@ -77,6 +78,7 @@ import net.sf.json.JSONObject;
 @Consumes(MediaType.APPLICATION_JSON)
 public class RecordUxService extends AbstractServiceImpl {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private SecurityInfoManager securityInfoManager;
@@ -139,8 +141,6 @@ public class RecordUxService extends AbstractServiceImpl {
         //if(securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.labResult", "r", null) ) {
         //	menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Labs/Docs", "record.labsdocs"));
         //}
-
-        menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Health Tracker", "record.tracker"));
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", "r", null)) {
             menulist.add(new MenuItemTo1(idCounter++, "Rx", "../oscarRx/choosePatient.do?demographicNo=" + demographicNo));
@@ -421,16 +421,16 @@ public class RecordUxService extends AbstractServiceImpl {
         return getFullSummmary(demographicNo, SummaryTo1.PREVENTIONS);
     }
 
-    boolean getBoolean(JSONObject jsonobject, String key) {
-        if (jsonobject.containsKey(key)) {
-            return jsonobject.getBoolean(key);
+    boolean getBoolean(ObjectNode jsonobject, String key) {
+        if (jsonobject.has(key)) {
+            return jsonobject.get(key).asBoolean();
         }
         return false;
     }
 
-    String getString(JSONObject jsonobject, String key) {
-        if (jsonobject.containsKey(key)) {
-            return jsonobject.getString(key);
+    String getString(ObjectNode jsonobject, String key) {
+        if (jsonobject.has(key)) {
+            return jsonobject.get(key).asText();
         }
         return null;
     }
@@ -443,7 +443,12 @@ public class RecordUxService extends AbstractServiceImpl {
 
 
         logger.debug("jsonobject " + jsonString);
-        JSONObject jsonobject = JSONObject.fromObject(jsonString);
+        ObjectNode jsonobject = null;
+        try {
+            jsonobject = (ObjectNode) objectMapper.readTree(jsonString);
+        } catch (Exception e) {
+            logger.error("Error parsing JSON", e);
+        }
         //{"printType":"all","cpp":true,"prescript":true,"selectedList":[]}
 
         final Integer demographicNof = demographicNo;
@@ -454,13 +459,13 @@ public class RecordUxService extends AbstractServiceImpl {
         Calendar startCal = null;
         Calendar endCal = null;
         if (printDateRangeNotes) {
-            if (jsonobject.containsKey("dates")) {
-                JSONObject datesJson = jsonobject.getJSONObject("dates");
-                if (datesJson.containsKey("start")) {
-                    startCal = javax.xml.bind.DatatypeConverter.parseDateTime(datesJson.getString("start"));
+            if (jsonobject.has("dates")) {
+                ObjectNode datesJson = (ObjectNode) jsonobject.get("dates");
+                if (datesJson.has("start")) {
+                    startCal = javax.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start") != null ? datesJson.get("start").asText() : null);
                 }
-                if (datesJson.containsKey("end")) {
-                    endCal = javax.xml.bind.DatatypeConverter.parseDateTime(datesJson.getString("end"));
+                if (datesJson.has("end")) {
+                    endCal = javax.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end") != null ? datesJson.get("end").asText() : null);
                 }
             }
             if (startCal != null && endCal != null) {
@@ -478,12 +483,13 @@ public class RecordUxService extends AbstractServiceImpl {
         final boolean printRx = getBoolean(jsonobject, "rx");
         final boolean printLabs = getBoolean(jsonobject, "labs");
         final boolean printPreventions = getBoolean(jsonobject, "preventions");
-        final boolean useDates = jsonobject.containsKey("dates");
+        final boolean printAllergies = getBoolean(jsonobject, "allergies");
+        final boolean useDates = jsonobject.has("dates");
 
-        final JSONArray keyArray = jsonobject.getJSONArray("selectedList");
+        final ArrayNode keyArray = (ArrayNode) jsonobject.get("selectedList");
         final String[] noteIds = new String[keyArray.size()];
         for (int i = 0; i < keyArray.size(); i++) {
-            noteIds[i] = keyArray.getString(i);
+            noteIds[i] = keyArray.get(i).asText();
         }
 
 
@@ -493,7 +499,7 @@ public class RecordUxService extends AbstractServiceImpl {
                     throws IOException, WebApplicationException {
                 try {
                     CaseManagementPrint cmp = new CaseManagementPrint();
-                    cmp.doPrint(loggedInInfo, demographicNof, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, useDates, startCalf, endCalf, requestf, os);
+                    cmp.doPrint(loggedInInfo, demographicNof, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, useDates, startCalf, endCalf, requestf, os);
                 } catch (Exception e) {
                     logger.error("error streaming", e);
                 } finally {
@@ -508,9 +514,9 @@ public class RecordUxService extends AbstractServiceImpl {
     @Path("/searchTemplates")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public EncounterTemplateResponse getEncounterTemplates(JSONObject obj, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
+    public EncounterTemplateResponse getEncounterTemplates(ObjectNode obj, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
 
-        String name = obj.getString("name");
+        String name = obj.get("name") != null ? obj.get("name").asText() : null;
 
         List<EncounterTemplate> et = encounterTemplateDao.findByName(name + "%", startIndex, itemsToReturn);
 
@@ -526,9 +532,9 @@ public class RecordUxService extends AbstractServiceImpl {
     @Path("/template")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public EncounterTemplateResponse getEncounterTemplate(JSONObject obj) {
+    public EncounterTemplateResponse getEncounterTemplate(ObjectNode obj) {
 
-        String name = obj.getString("name");
+        String name = obj.get("name") != null ? obj.get("name").asText() : null;
 
         List<EncounterTemplate> et = new ArrayList<EncounterTemplate>();
 

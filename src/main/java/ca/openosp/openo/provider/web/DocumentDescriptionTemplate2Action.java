@@ -28,7 +28,8 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.commn.dao.DocumentDescriptionTemplateDao;
 import ca.openosp.openo.commn.dao.UserPropertyDAO;
 import ca.openosp.openo.commn.model.DocumentDescriptionTemplate;
@@ -46,6 +47,9 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private DocumentDescriptionTemplateDao documentDescriptionTemplateDao = SpringUtils.getBean(DocumentDescriptionTemplateDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         String method = request.getParameter("method");
@@ -75,7 +79,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         List<DocumentDescriptionTemplate> documentDescriptionTemplate = documentDescriptionTemplateDao.findByDocTypeAndProviderNo(docType, providerNo);
         HashMap<String, Object> hm = new HashMap<String, Object>();
         hm.put("documentDescriptionTemplate", documentDescriptionTemplate);
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes("UTF-8"));
         } catch (IOException e) {
@@ -90,7 +94,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         DocumentDescriptionTemplate documentDescriptionTemplate = documentDescriptionTemplateDao.find(id);
         HashMap<String, Object> hm = new HashMap<String, Object>();
         hm.put("documentDescriptionTemplate", documentDescriptionTemplate);
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes("UTF-8"));
         } catch (IOException e) {

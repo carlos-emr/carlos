@@ -39,7 +39,7 @@
 <html>
     <head>
 
-        <jsp:include page="../head-includes.jsp"/>
+        <jsp:include page="/mcedt/head-includes.jsp"/>
 
         <link href="<%= request.getContextPath() %>/mcedt/mailbox/css/mcedt.css" rel="stylesheet" type="text/css">
 
@@ -79,7 +79,7 @@
             <form action="${pageContext.request.contextPath}/mcedt/addUpload.do" method="post" id="formAddUpload"
                        enctype="multipart/form-data">
 
-                <jsp:include page="../messages.jsp"/>
+                <jsp:include page="/mcedt/messages.jsp"/>
 
                 <input id="methodAddUpload" name="method" type="hidden" value=""/>
                 <label for="addUploadFile">Upload your file</label>

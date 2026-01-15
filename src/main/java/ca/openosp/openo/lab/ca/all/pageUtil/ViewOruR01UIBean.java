@@ -30,8 +30,8 @@ import java.io.UnsupportedEncodingException;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.DataTypeUtils;
 import ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.OruR01;
 import ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils;
@@ -102,7 +102,7 @@ public final class ViewOruR01UIBean {
             sb.append(provider.getAddress());
         }
 
-        return (StringEscapeUtils.escapeHtml(sb.toString()));
+        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     public String getClientDisplayName() {
@@ -118,12 +118,12 @@ public final class ViewOruR01UIBean {
             sb.append(')');
         }
 
-        return (StringEscapeUtils.escapeHtml(sb.toString()));
+        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     public String getHinForDisplay() {
         if (demographic.getHin() == null) return ("");
-        return (StringEscapeUtils.escapeHtml(demographic.getHin()));
+        return (StringEscapeUtils.escapeHtml4(demographic.getHin()));
     }
 
     public String getBirthDayForDisplay() {
@@ -132,12 +132,12 @@ public final class ViewOruR01UIBean {
     }
 
     public String getSubjectForDisplay() {
-        return (StringEscapeUtils.escapeHtml(observationData.subject));
+        return (StringEscapeUtils.escapeHtml4(observationData.subject));
     }
 
     public String getTextMessageForDisplay() {
         if (observationData.textMessage == null) return ("");
-        return (StringEscapeUtils.escapeHtml(observationData.textMessage));
+        return (StringEscapeUtils.escapeHtml4(observationData.textMessage));
     }
 
     public boolean hasBinaryFile() {
@@ -146,7 +146,7 @@ public final class ViewOruR01UIBean {
 
     public String getBinaryFilenameForDisplay() {
         if (observationData.binaryDataFileName == null) return ("");
-        return (StringEscapeUtils.escapeHtml(observationData.binaryDataFileName));
+        return (StringEscapeUtils.escapeHtml4(observationData.binaryDataFileName));
     }
 
     public String getFilename() {

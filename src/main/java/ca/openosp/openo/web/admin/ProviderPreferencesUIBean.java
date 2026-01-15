@@ -30,7 +30,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jfree.util.Log;
 import ca.openosp.openo.commn.dao.EFormDao;
 import ca.openosp.openo.commn.dao.EncounterFormDao;

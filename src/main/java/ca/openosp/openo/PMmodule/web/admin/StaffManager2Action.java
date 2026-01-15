@@ -263,7 +263,7 @@ public class StaffManager2Action extends ActionSupport {
             Provider provider = providerManager.getProvider(id);
 
             if (provider == null) {
-                addActionMessage(getText("providers.missing"));
+                addActionMessage(getText("error.provider.missing"));
                 return list();
             }
             this.setProvider(provider);

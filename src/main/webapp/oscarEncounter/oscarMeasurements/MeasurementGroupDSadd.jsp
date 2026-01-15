@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.measurements" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_admin.measurements");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.measurements");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -72,7 +72,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - Add Decision Support to <em
             class="text-info"><%=groupName%>
     </em> Group </h3>
-    <p><em>The following listed decision support files are available for both the flowsheets and Health Tracker. Make a
+    <p><em>The following listed decision support files are available for the flowsheets. Make a
         selection and press "add" to make that decision support available on the <strong><%=groupName%>
         </strong> measurement group.</em></p>
 

@@ -30,6 +30,7 @@
     The selection logic is in ca.openosp.openo.encounter.pageUtil.EctIncomingEncounter2Action.java
 --%>
 
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.prescript.data.RxPatientData" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -39,7 +40,7 @@
        scope="request"/>
 <%
     long startTime = System.currentTimeMillis();
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String demographic$ = request.getParameter("demographicNo");
     boolean bPrincipalControl = false;
@@ -55,7 +56,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,7 +68,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="<%=eChart$%>"
                    rights="o" reverse="<%=false%>">
     You have no rights to access the data!
-    <% response.sendRedirect("../acctLocked.html"); %>
+    <% response.sendRedirect(request.getContextPath() + "/acctLocked.html"); %>
 </security:oscarSec>
 
 <%-- only principal has the save rights --%>
@@ -104,7 +105,7 @@
 <%@page
         import="ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.dxresearch.bean.*,ca.openosp.openo.util.*" %>
 <%@page
-        import="ca.openosp.openo.eform.*, org.apache.commons.lang.StringEscapeUtils" %>
+        import="ca.openosp.openo.eform.*, org.apache.commons.text.StringEscapeUtils" %>
 
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 
@@ -139,8 +140,21 @@
         String strBeanName = "casemgmt_oscar_bean" + bean.getDemographicNo();
         session.setAttribute(strBeanName, bean);
         session.setAttribute("casemgmt_bean_flag", "true");
-        String hrefurl = request.getContextPath() + "/casemgmt/forward.jsp?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName) + "&appointmentNo=" + request.getParameter("appointmentNo") + "&reason=" + URLEncoder.encode(request.getParameter("reason") == null ? "" : request.getParameter("reason")) + "&appointmentDate=" + request.getParameter("appointmentDate") + "&start_time=" + request.getParameter("startTime") + "&apptProvider=" + request.getParameter("apptProvider_no") + "&providerview=" + request.getParameter("providerview") +
-                "&msgType=" + request.getParameter("msgType") + "&OscarMsgTypeLink=" + request.getParameter("OscarMsgTypeLink") + "&noteId=" + request.getParameter("noteId") + (request.getParameter("noteId") != null ? "&forceNote=true" : "");
+        String hrefurl = request.getContextPath() + "/casemgmt/forward.jsp?action=view" +
+        "&demographicNo=" + bean.demographicNo +
+        "&providerNo=" + bean.providerNo +
+        "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
+        "&appointmentNo=" + (bean.appointmentNo != null ? bean.appointmentNo : "") +
+        "&reason=" + URLEncoder.encode(bean.reason != null ? bean.reason : "", StandardCharsets.UTF_8) +
+        "&reasonCode=" + (bean.reasonCode != null ? bean.reasonCode : "") +
+        "&appointmentDate=" + (bean.appointmentDate != null ? bean.appointmentDate : "") +
+        "&start_time=" + (bean.startTime != null ? bean.startTime : "") +
+        "&apptProvider=" + (bean.curProviderNo != null ? bean.curProviderNo : "") +
+        "&providerview=" + (bean.curProviderNo != null ? bean.curProviderNo : "") +
+        "&msgType=" + request.getParameter("msgType") +
+        "&OscarMsgTypeLink=" + request.getParameter("OscarMsgTypeLink") +
+        "&noteId=" + request.getParameter("noteId") +
+        (request.getParameter("noteId") != null ? "&forceNote=true" : "");
 
         if (request.getParameter("noteBody") != null)
             hrefurl += "&noteBody=" + request.getParameter("noteBody");
@@ -304,7 +318,7 @@
            for(int j=0; j<bean.templateNames.size(); j++) {
               String encounterTmp = bean.templateNames.get(j);
               encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
-              encounterTmp = StringEscapeUtils.escapeJavaScript(encounterTmp);
+              encounterTmp = StringEscapeUtils.escapeEcmaScript(encounterTmp);
             %>
             autoCompleted["<%=encounterTmp%>"] = "ajaxInsertTemplate('<%=encounterTmp%>')";
             autoCompList.push("<%=encounterTmp%>");
@@ -708,34 +722,6 @@
                 return true;
             }
 
-            <%--
-            function tryAnother(){
-            ////
-                var txt = "null";
-                var foundIn = "null";
-                if (window.getSelection){
-                    txt = window.getSelection();
-                    foundIn = 'window.getSelection()';
-                 }else if (document.getSelection){
-                    txt = document.getSelection();
-                    foundIn = 'document.getSelection()';
-                 }else if (document.selection){
-                    txt = document.selection.createRange().text;
-                    foundIn = 'document.selection.createRange()';
-                 }
-                 alert (txt+"\n"+foundIn);
-                ////
-            }
-
-            function selectBox(name) {
-                to = name.options[name.selectedIndex].value;
-                name.selectedIndex =0;
-                if(to!="null")
-                  popupPageK(to);
-            }
-
-            --%>
-
             function measurementLoaded(name) {
                 measurementWindows.push(openWindows[name]);
             }
@@ -748,18 +734,6 @@
             }
 
             function showMenu(menuNumber, eventObj) {
-                //    alert(eventObj);
-                /*hideAllMenus();
-                var menuId = 'menu' + menuNumber;
-                if(changeObjectVisibility(menuId, 'visible')) {
-                var menuTitle = getStyleObject('menuTitle' + menuNumber);
-                menuTitle.backgroundColor = '#ff9900';
-                eventObj.cancelBubble = true;
-                return true;
-                } else {
-                return false;
-                }
-                */
                 var menuId = 'menu' + menuNumber;
                 return showPopup(menuId, eventObj);
             }
@@ -859,21 +833,6 @@
                 return false;
 
             }
-
-            <%--function popLeftColumn(url,div,params) {
-
-                params = "cmd=" + params;
-                var objAjax = new Ajax.Updater(div,url, {method:'post',
-                                                      postBody:params,
-                                                      asynchronous:true,
-                                                      evalScripts:true,
-                                                      onFailure: function(request) {
-
-                                                                $(div).innerHTML = "<h3>Error:</h3>" + request.status;
-                                                      }
-                                              });
-
-            }--%>
 
             function popLeftColumn(url, div, params) {
                 params = "cmd=" + params;
@@ -1243,7 +1202,7 @@
                             NOWRAP>
                             <%
                                 String winName = "Master" + bean.demographicNo;
-                                String url = "../demographic/demographiccontrol.jsp?demographic_no=" + bean.demographicNo + "&displaymode=edit&dboperation=search_detail";
+                                String url = request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + bean.demographicNo + "&displaymode=edit&dboperation=search_detail";
                             %> <a href="#"
                                   style="font-size: 11px; text-decoration: none"
                                   onClick="popupPage(700,1000,'<%=winName%>','<%=url%>'); return false;"
@@ -1253,7 +1212,7 @@
                         </a>&nbsp;<%=bean.patientSex%> <%=bean.patientAge%>
 
                             <a
-                                    href="javascript:popupPage(400,850,'ApptHist','../demographic/demographiccontrol.jsp?demographic_no=<%=bean.demographicNo%>&last_name=<%=bean.patientLastName%>&first_name=<%=bean.patientFirstName%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25')"
+                                    href="javascript:popupPage(400,850,'ApptHist','<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=bean.demographicNo%>&last_name=<%=bean.patientLastName%>&first_name=<%=bean.patientFirstName%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25')"
                                     style="font-size: 11px; text-decoration: none;"
                                     title="Click to see appointment history"><span
                                     style="margin-left: 20px;">Next Appt: <oscar:nextAppt
@@ -1560,7 +1519,7 @@
                                                 <tr>
                                                     <td width='75%'>
                                                         <div class="RowTop"><a href=#
-                                                                               onClick="popupPage(600,700,'<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>','../report/reportecharthistory.jsp?demographic_no=<%=bean.demographicNo%>');return false;">
+                                                                               onClick="popupPage(600,700,'<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>','<%= request.getContextPath() %>/report/reportecharthistory.jsp?demographic_no=<%=bean.demographicNo%>');return false;">
                                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="global.encounter"/>: <%=bean.patientLastName %>
                                                             ,
                                                             <%=bean.patientFirstName%>

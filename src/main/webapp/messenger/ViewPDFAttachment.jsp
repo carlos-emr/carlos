@@ -68,6 +68,7 @@
 <%@ page import="java.util.*, org.w3c.dom.*" %>
 <%@ page import="ca.openosp.openo.util.Doc2PDF" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -77,7 +78,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {

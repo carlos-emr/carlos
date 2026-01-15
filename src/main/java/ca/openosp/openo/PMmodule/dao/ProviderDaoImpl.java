@@ -617,7 +617,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
         return providerList;
     }
 
-    @NativeSql({"providers", "providersite"})
+    @NativeSql({"provider", "providersite"})
     @Override
     public List<String> getActiveTeamsViaSites(String providerNo) {
         // Session session = getSession();
@@ -751,7 +751,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
         }
     }
 
-    @NativeSql({"providers", "appointment"})
+    @NativeSql({"provider", "appointment"})
     @Override
     public List<String> getProviderNosWithAppointmentsOnDate(Date appointmentDate) {
         // Session session = getSession();

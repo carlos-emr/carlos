@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,7 +50,7 @@
 <%@page import="java.text.DateFormatSymbols" %>
 <%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
 <%@page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -101,7 +101,7 @@
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
-                    <option value="<%=functionalCentre.getAccountId()%>"><%=StringEscapeUtils.escapeHtml(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription())%>
+                    <option value="<%=functionalCentre.getAccountId()%>"><%=StringEscapeUtils.escapeHtml4(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription())%>
                     </option>
                     <%
                         }
@@ -121,7 +121,7 @@
                         for (Program program : programs) {
                             if ("Service".equalsIgnoreCase(program.getType())) {
                     %>
-                    <option value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml(program.getName() + " (" + program.getType() + ')')%>
+                    <option value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml4(program.getName() + " (" + program.getType() + ')')%>
                     </option>
                     <%
                             }

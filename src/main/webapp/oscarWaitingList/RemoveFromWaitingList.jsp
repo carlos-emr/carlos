@@ -25,7 +25,7 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page import="java.sql.*, java.util.*, ca.openosp.openo.waitinglist.util.*" %>
 <%@ page import="ca.openosp.openo.waitinglist.util.WLWaitingListUtil" %>

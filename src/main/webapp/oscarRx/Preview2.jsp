@@ -29,7 +29,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page import="ca.openosp.openo.providers.data.ProSignatureData, ca.openosp.openo.providers.data.ProviderData" %>
 <%@ page import="ca.openosp.openo.rx.data.*" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 
 <%@ page import="ca.openosp.*,
                  java.lang.*,
@@ -74,7 +74,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -134,7 +134,7 @@
 
             <%--    function onPrint2(method) {--%>
 
-            <%--            document.getElementById("preview2Form").action = "../form/createcustomedpdf?__title=Rx&__method=" + method;--%>
+            <%--            document.getElementById("preview2Form").action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method;--%>
             <%--            document.getElementById("preview2Form").target="_blank";--%>
             <%--            document.getElementById("preview2Form").submit();--%>
             <%--       return true;--%>
@@ -303,7 +303,7 @@
             showPatientDOB = true;
         }
     %>
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post" styleId="preview2Form">
+    <form action="${pageContext.request.contextPath}/form/formname.do" method="post" id="preview2Form">
         <input type="hidden" name="demographic_no" value="<%=bean.getDemographicNo()%>"/>
         <table>
             <tr>
@@ -347,7 +347,7 @@
                                     }
                                 %>
                                 <input type="hidden" name="doctorName"
-                                       value="<%= StringEscapeUtils.escapeHtml(doctorName) %>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(doctorName) %>"/>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
                                         <%
@@ -361,9 +361,9 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<%= StringEscapeUtils.escapeHtml(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
+                                               value="<%= StringEscapeUtils.escapeHtml4(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
                                         <input type="hidden" name="clinicPhone"
-                                               value="<%= StringEscapeUtils.escapeHtml(finalPhone) %>"/>
+                                               value="<%= StringEscapeUtils.escapeHtml4(finalPhone) %>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:when>
                                     <c:otherwise>
@@ -390,16 +390,16 @@
                                     </c:otherwise>
                                 </c:choose>
                                 <input type="hidden" name="patientName"
-                                       value="<%= StringEscapeUtils.escapeHtml(patient.getFirstName())+ " " +StringEscapeUtils.escapeHtml(patient.getSurname()) %>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(patient.getFirstName())+ " " +StringEscapeUtils.escapeHtml4(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
-                                       value="<%= StringEscapeUtils.escapeHtml(patientDOBStr) %>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(patientDOBStr) %>"/>
                                 <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
                                 <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
-                                <input type="hidden" name="pracNo" value="<%= StringEscapeUtils.escapeHtml(pracNo) %>"/>
+                                <input type="hidden" name="pracNo" value="<%= StringEscapeUtils.escapeHtml4(pracNo) %>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
                                 <input type="hidden" name="patientAddress"
-                                       value="<%= StringEscapeUtils.escapeHtml(patientAddress) %>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(patientAddress) %>"/>
                                 <%
                                     int check = (patientCity.trim().length() > 0 ? 1 : 0) | (patientProvince.trim().length() > 0 ? 2 : 0);
                                     String patientCityPostal = String.format("%s%s%s %s",
@@ -414,18 +414,18 @@
                                     }
                                 %>
                                 <input type="hidden" name="patientCityPostal"
-                                       value="<%= StringEscapeUtils.escapeHtml(patientCityPostal)%>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(patientCityPostal)%>"/>
                                 <input type="hidden" name="patientHIN"
-                                       value="<%= StringEscapeUtils.escapeHtml(patientHin) %>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(patientHin) %>"/>
                                 <input type="hidden" name="patientChartNo"
-                                       value="<%=StringEscapeUtils.escapeHtml(ptChartNo)%>"/>
+                                       value="<%=StringEscapeUtils.escapeHtml4(ptChartNo)%>"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/><%=StringEscapeUtils.escapeHtml(patientPhone) %>"/>
+                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/><%=StringEscapeUtils.escapeHtml4(patientPhone) %>"/>
                                 <input type="hidden" name="rxDate"
-                                       value="<%= StringEscapeUtils.escapeHtml(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
                                 <input type="hidden" name="sigDoctorName"
-                                       value="<%= StringEscapeUtils.escapeHtml(doctorName) %>"/>
+                                       value="<%= StringEscapeUtils.escapeHtml4(doctorName) %>"/>
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
@@ -500,7 +500,7 @@
                         <tr>
                             <th colspan=2 valign=top height="75px">
 								<span style="float: left">
-									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(StringEscapeUtils.escapeHtml(patientDOBStr)) %> <%}%><br>
+									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(StringEscapeUtils.escapeHtml4(patientDOBStr)) %> <%}%><br>
 										<%= Encode.forHtmlContent(patientAddress) %><br>
 										<%= Encode.forHtmlContent(patientCityPostal) %><br>
 										<%= Encode.forHtmlContent(patientPhone) %><br>
@@ -567,13 +567,21 @@
                                         var img = document.getElementById("signature");
                                         img.src = '<%=imageUrl%>&rand=' + counter;
 
-                                        var request = dojo.io.bind({
-                                            url: '<%=statusUrl%>',
-                                            method: "post",
-                                            mimetype: "text/html",
-                                            load: function (type, data, evt) {
-                                                var x = data.trim();
+                                        // Modern fetch API
+                                        fetch('<%=statusUrl%>', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Accept': 'text/html'
                                             }
+                                        })
+                                        .then(function(response) {
+                                            return response.text();
+                                        })
+                                        .then(function(data) {
+                                            var x = data.trim();
+                                        })
+                                        .catch(function(error) {
+                                            console.error('Error checking signature status:', error);
                                         });
                                     }
                                 </script>
@@ -662,7 +670,7 @@
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<%= StringEscapeUtils.escapeHtml(strRx.replaceAll(";","\\\n")) %>"/>
+                               value="<%= StringEscapeUtils.escapeHtml4(strRx.replaceAll(";","\\\n")) %>"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>

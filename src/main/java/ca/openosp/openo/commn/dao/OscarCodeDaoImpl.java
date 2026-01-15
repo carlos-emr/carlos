@@ -29,7 +29,7 @@ import ca.openosp.openo.commn.model.OscarCode;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class OscarCodeDaoImpl extends AbstractDaoImpl<OscarCode> implements OscarCodeDao {
+public class OscarCodeDaoImpl extends AbstractCodeSystemDaoImpl<OscarCode> implements OscarCodeDao {
 
     public OscarCodeDaoImpl() {
         super(OscarCode.class);
@@ -73,5 +73,13 @@ public class OscarCodeDaoImpl extends AbstractDaoImpl<OscarCode> implements Osca
         query.setMaxResults(1);
 
         return getSingleResultOrNull(query);
+    }
+
+    @Override
+    public List<OscarCode> searchCode(String code) {
+        List<OscarCode> results =  getOscarCode(code);
+        if(results.isEmpty())
+            return null;
+        return results;
     }
 }

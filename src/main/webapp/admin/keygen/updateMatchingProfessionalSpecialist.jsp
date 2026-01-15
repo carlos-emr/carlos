@@ -32,7 +32,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -41,7 +41,7 @@
 %>
 <%@page import="ca.openosp.openo.web.admin.KeyManagerUIBean" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%
     String serviceName = request.getParameter("serviceName");
     Integer professionalSpecialistId = null;

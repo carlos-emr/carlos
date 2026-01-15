@@ -30,7 +30,7 @@
 <%@page import="ca.openosp.openo.PMmodule.service.VacancyTemplateManager" %>
 <%@page import="ca.openosp.openo.PMmodule.model.Program" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.util.List" %>
 <%@ include file="/taglibs.jsp" %>
 

@@ -23,6 +23,7 @@
     Ontario, Canada
 
 --%>
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -44,7 +45,7 @@
         import="java.util.*, java.net.URLEncoder, ca.openosp.openo.db.*, ca.openosp.MyDateFormat, ca.openosp.openo.waitinglist.WaitingList, ca.openosp.openo.commn.OtherIdManager" %>
 <%@ page import="ca.openosp.openo.log.*" %>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="org.apache.commons.lang.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 
 <%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
 <%@page import="ca.openosp.openo.PMmodule.service.AdmissionManager" %>
@@ -423,7 +424,7 @@
                 if (start_time2 != null && !start_time2.equals("null")) {
             %>
             <script language="JavaScript">
-                document.addappt.action = "../appointment/addappointment.jsp?user_id=<%=Encode.forJavaScript(request.getParameter("creator"))%>&provider_no=<%=provider_no2%>&bFirstDisp=<%=bFirstDisp2%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=year2%>&month=<%=month2%>&day=<%=day2%>&start_time=<%=start_time2%>&end_time=<%=end_time2%>&duration=<%=duration2%>&name=<%=URLEncoder.encode(bufName.toString())%>&chart_no=<%=URLEncoder.encode(bufChart.toString())%>&bFirstDisp=false&demographic_no=<%=dem.toString()%>&messageID=<%=request.getParameter("messageId")%>&doctor_no=<%=Encode.forJavaScript(bufDoctorNo.toString())%>&notes=<%=Encode.forJavaScript(request.getParameter("notes"))%>&reason=<%=Encode.forJavaScript(request.getParameter("reason"))%>&location=<%=Encode.forJavaScript(request.getParameter("location"))%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forJavaScript(request.getParameter("status"))%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forJavaScript(request.getParameter("creator"))%>&remarks=<%=Encode.forJavaScript(request.getParameter("remarks"))%>";
+                document.addappt.action = "<%= request.getContextPath() %>/appointment/addappointment.jsp?user_id=<%=Encode.forJavaScript(request.getParameter("creator"))%>&provider_no=<%=provider_no2%>&bFirstDisp=<%=bFirstDisp2%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=year2%>&month=<%=month2%>&day=<%=day2%>&start_time=<%=start_time2%>&end_time=<%=end_time2%>&duration=<%=duration2%>&name=<%=URLEncoder.encode(bufName.toString(), StandardCharsets.UTF_8)%>&chart_no=<%=URLEncoder.encode(bufChart.toString(), StandardCharsets.UTF_8)%>&bFirstDisp=false&demographic_no=<%=dem.toString()%>&messageID=<%=request.getParameter("messageId")%>&doctor_no=<%=Encode.forJavaScript(bufDoctorNo.toString())%>&notes=<%=Encode.forJavaScript(request.getParameter("notes"))%>&reason=<%=Encode.forJavaScript(request.getParameter("reason"))%>&location=<%=Encode.forJavaScript(request.getParameter("location"))%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forJavaScript(request.getParameter("status"))%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forJavaScript(request.getParameter("creator"))%>&remarks=<%=Encode.forJavaScript(request.getParameter("remarks"))%>";
                 document.addappt.submit();
             </SCRIPT>
             <% } %>

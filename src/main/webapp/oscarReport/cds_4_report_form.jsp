@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,7 +50,7 @@
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="java.util.GregorianCalendar" %>
 <%@page import="java.text.DateFormatSymbols" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
@@ -176,7 +176,7 @@
                             if (provider.getProviderNo().equals(Provider.SYSTEM_PROVIDER_NO)) continue;
 
                     %>
-                    <option value="<%=provider.getProviderNo()%>"><%=StringEscapeUtils.escapeHtml(provider.getFormattedName())%>
+                    <option value="<%=provider.getProviderNo()%>"><%=StringEscapeUtils.escapeHtml4(provider.getFormattedName())%>
                     </option>
                     <%
                         }
@@ -198,7 +198,7 @@
 
                         for (Program program : programs) {
                     %>
-                    <option value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml(program.getName() + " (" + program.getType() + ")")%>
+                    <option value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml4(program.getName() + " (" + program.getType() + ")")%>
                     </option>
                     <%
                         }

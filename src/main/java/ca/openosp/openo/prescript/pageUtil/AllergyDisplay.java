@@ -39,6 +39,7 @@ public final class AllergyDisplay {
     private String reaction;
     private String startDate;
     private String archived;
+    private String lastUpdateDate;
 
     public Integer getId() {
         return (id);
@@ -130,6 +131,14 @@ public final class AllergyDisplay {
 
     public void setArchived(String archived) {
         this.archived = archived;
+    }
+
+    public String getLastUpdateDate() {
+        return lastUpdateDate;
+    }
+
+    public void setLastUpdateDate(String lastUpdateDate) {
+        this.lastUpdateDate = lastUpdateDate;
     }
 
 }

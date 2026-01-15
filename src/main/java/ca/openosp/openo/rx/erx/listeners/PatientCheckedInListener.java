@@ -56,7 +56,7 @@ public class PatientCheckedInListener implements ApplicationListener<Appointment
      * (non-Javadoc)
      *
      * @see
-     * org.oscarehr.event.interfaces.EventListener#onOscarEvent(org.oscarehr.event.interfaces.EventData)
+     * ca.openosp.openo.event.interfaces.EventListener#onOscarEvent(ca.openosp.openo.event.interfaces.EventData)
      */
     @Override
     public void onApplicationEvent(AppointmentStatusChangeEvent event) {

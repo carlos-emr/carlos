@@ -27,7 +27,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -62,7 +62,7 @@
     %>
     <body>
 
-    <nested:form action="/report/DxresearchReport?method=editDesc">
+    <form action="<%= request.getContextPath() %>/report/DxresearchReport.do?method=editDesc">
 
         <input type="hidden" name="editingCodeType" value=<%=editingCodeType%>/>
         <input type="hidden" name="editingCodeCode" value=<%=editingCodeCode%>/>
@@ -84,7 +84,7 @@
             </tr>
         </table>
 
-    </nested:form>
+    </form>
 
     </body>
 </html>

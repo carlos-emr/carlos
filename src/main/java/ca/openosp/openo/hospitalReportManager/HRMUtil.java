@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 
+import ca.openosp.OscarProperties;
 import ca.openosp.openo.hospitalReportManager.dao.*;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.hospitalReportManager.model.HRMCategory;
@@ -30,6 +31,7 @@ import ca.openosp.openo.utility.PDFGenerationException;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.lab.ca.on.HRMResultsData;
+import ca.openosp.openo.log.LogAction;
 import ca.openosp.openo.util.StringUtils;
 
 public class HRMUtil {
@@ -57,6 +59,14 @@ public class HRMUtil {
      * Because multiple versions of a single HRM document can be received,
      */
     public static ArrayList<HashMap<String, ? extends Object>> listHRMDocuments(LoggedInInfo loggedInInfo, String sortBy, boolean sortAsc, String demographicNo, boolean filterDuplicates) {
+        if (!OscarProperties.getInstance().isOntarioBillingRegion()) {
+            return new ArrayList<>();
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)) {
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), "HRMUtil.listHRMDocuments", "UNAUTHORIZED", "missing required security object (_hrm)", loggedInInfo.getIp(), demographicNo, null);
+            logger.warn("missing required security object (_hrm)");
+            return new ArrayList<>();
+        }
 
         ArrayList<HashMap<String, ? extends Object>> hrmdocslist = new ArrayList<HashMap<String, ?>>();
 

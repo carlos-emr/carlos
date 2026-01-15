@@ -28,7 +28,7 @@ package ca.openosp.openo.lab.ca.all.pageUtil;
 
 import ca.uhn.hl7v2.model.v26.message.ORU_R01;
 import com.opensymphony.xwork2.ActionSupport;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.ClinicDAO;
@@ -43,6 +43,7 @@ import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.utility.WebUtils;
 import ca.openosp.openo.util.DateUtils;
@@ -76,35 +77,26 @@ public class OruR01Upload2Action extends ActionSupport {
             if (formFile == null) {
                 throw new IllegalArgumentException("No file provided");
             }
-            
-            // Get canonical path to resolve any path traversal attempts
-            String canonicalPath = formFile.getCanonicalPath();
-            
-            // Verify it's a regular file (not directory or symlink)
+
+            // SECURITY: Validate the uploaded file is in temp directory FIRST
+            // This must happen before any file operations to prevent path traversal
+            if (!PathValidationUtils.isInAllowedTempDirectory(formFile)) {
+                logger.error("Attempted path traversal detected - file outside temp directory: " + formFile.getPath());
+                throw new SecurityException("Access denied: file outside permitted directory");
+            }
+
+            // Now safe to perform file checks after security validation
             if (!formFile.exists()) {
                 throw new IllegalArgumentException("File does not exist");
             }
-            
+
             if (!formFile.isFile()) {
                 throw new SecurityException("Path is not a regular file");
             }
-            
+
             // Ensure file is readable
             if (!formFile.canRead()) {
                 throw new SecurityException("File is not readable");
-            }
-            
-            // For Struts2 uploads, the file should be in the temporary directory
-            // Get the expected temp directory from servlet context
-            File tempDir = (File) ServletActionContext.getServletContext().getAttribute("javax.servlet.context.tempdir");
-            if (tempDir != null) {
-                String tempDirPath = tempDir.getCanonicalPath();
-                // Ensure the file is within the temp directory
-                if (!canonicalPath.startsWith(tempDirPath + File.separator) && 
-                    !canonicalPath.equals(tempDirPath)) {
-                    logger.error("Attempted path traversal detected - file outside temp directory: " + canonicalPath);
-                    throw new SecurityException("Access denied: file outside permitted directory");
-                }
             }
 
             Demographic demographic = getDemographicObject(form);
@@ -113,8 +105,9 @@ public class OruR01Upload2Action extends ActionSupport {
             observationData.subject = form.getSubject();
             observationData.textMessage = form.getTextMessage();
             observationData.binaryDataFileName = formFile.getName();
-            // Now safe to read the file after validation
-            observationData.binaryData = Files.readAllBytes(formFile.toPath());
+            // Re-validate at point of use for static analysis visibility, then read file
+            File validatedFormFile = PathValidationUtils.validateUpload(formFile);
+            observationData.binaryData = Files.readAllBytes(validatedFormFile.toPath());
 
             Provider sendingProvider = loggedInInfo.getLoggedInProvider();
 

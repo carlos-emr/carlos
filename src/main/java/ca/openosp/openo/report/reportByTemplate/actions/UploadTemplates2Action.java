@@ -39,9 +39,10 @@ package ca.openosp.openo.report.reportByTemplate.actions;
 import ca.openosp.openo.services.security.SecurityManager;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.report.reportByTemplate.ReportManager;
+import ca.openosp.openo.utility.LoggedInInfo;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -64,41 +65,20 @@ public class UploadTemplates2Action extends ActionSupport {
         String message = "Error: Improper request - Action param missing";
         String xml = "";
         
-        // Validate the uploaded file to prevent path traversal attacks
         if (templateFile != null) {
             try {
-                // Ensure the file is within the temp directory created by Struts2
-                // Get canonical path to resolve any relative path components
-                String canonicalPath = templateFile.getCanonicalPath();
-                
-                // Get the system temp directory where Struts2 stores uploaded files
-                String tempDir = System.getProperty("java.io.tmpdir");
-                if (tempDir != null) {
-                    File tempDirFile = new File(tempDir);
-                    String tempDirCanonical = tempDirFile.getCanonicalPath();
-                    
-                    // Verify the file is within the temp directory
-                    if (!canonicalPath.startsWith(tempDirCanonical + File.separator)) {
-                        MiscUtils.getLogger().error("Attempted path traversal attack detected for file: " + canonicalPath);
-                        message = "Error: Invalid file upload";
-                        request.setAttribute("message", message);
-                        request.setAttribute("action", action);
-                        return SUCCESS;
-                    }
-                }
-                
-                // Additional validation: ensure the file exists and is a regular file
-                if (!templateFile.exists() || !templateFile.isFile()) {
-                    MiscUtils.getLogger().error("Invalid file upload: File does not exist or is not a regular file");
-                    message = "Error: Invalid file upload";
-                    request.setAttribute("message", message);
-                    request.setAttribute("action", action);
-                    return SUCCESS;
-                }
-                
+                // Validate the uploaded temp file is from an allowed source
+                File validatedTemplateFile = PathValidationUtils.validateUpload(templateFile);
+
                 // Read the file content
-                byte[] bytes = Files.readAllBytes(templateFile.toPath());
+                byte[] bytes = Files.readAllBytes(validatedTemplateFile.toPath());
                 xml = new String(bytes);
+            } catch (SecurityException se) {
+                MiscUtils.getLogger().warn("SecurityException during file upload: " + se.getMessage(), se);
+                message = "Error: File upload failed due to security policy violation.";
+                request.setAttribute("message", message);
+                request.setAttribute("action", action);
+                return SUCCESS;
             } catch (IOException ioe) {
                 message = "Exception: File Not Found";
                 MiscUtils.getLogger().error("Error reading uploaded file", ioe);

@@ -38,6 +38,8 @@ import java.util.Comparator;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.apache.commons.collections.OrderedMapIterator;
 import org.apache.commons.collections.map.ListOrderedMap;
@@ -249,6 +251,16 @@ public class MeasurementFlowSheet {
 
     public List<String> getMeasurementList() {
         return itemList.asList();
+    }
+
+    public List<String> getVisibleMeasurementList() {
+        return getMeasurementList()
+            .stream()
+            .filter(id -> { 
+                FlowSheetItem item = getFlowSheetItem(id);
+                return item != null && !item.isHide();
+            })
+            .collect(Collectors.toList());
     }
 
     public String getName() {

@@ -54,14 +54,14 @@ INSERT INTO ctl_doctype (module,doctype,status) VALUES ('demographic','radiology
 INSERT INTO ctl_doctype (module,doctype,status) VALUES ('demographic','pathology','A');
 INSERT INTO ctl_doctype (module,doctype,status) VALUES ('demographic','others','A');
 INSERT INTO ctl_doctype (module,doctype,status) VALUES ('demographic','photo','A');
-INSERT INTO ctl_doctype (module,doctype,status) VALUES ('providers','resource','A');
-INSERT INTO ctl_doctype (module,doctype,status) VALUES ('providers','desktop','A');
-INSERT INTO ctl_doctype (module,doctype,status) VALUES ('providers','handout','A');
-INSERT INTO ctl_doctype (module,doctype,status) VALUES ('providers','forms','A');
-INSERT INTO ctl_doctype (module,doctype,status) VALUES ('providers','others','A');
-INSERT INTO ctl_doctype (module,doctype,status) VALUES ('providers','share','A');
-INSERT INTO ctl_doctype (module,doctype,status) VALUES ('providers','photo','A');
-INSERT INTO `ctl_doctype` (`module`, `doctype`, `status`, `id`) VALUES('providers','invoice letterhead','A',null);
+INSERT INTO ctl_doctype (module,doctype,status) VALUES ('provider','resource','A');
+INSERT INTO ctl_doctype (module,doctype,status) VALUES ('provider','desktop','A');
+INSERT INTO ctl_doctype (module,doctype,status) VALUES ('provider','handout','A');
+INSERT INTO ctl_doctype (module,doctype,status) VALUES ('provider','forms','A');
+INSERT INTO ctl_doctype (module,doctype,status) VALUES ('provider','others','A');
+INSERT INTO ctl_doctype (module,doctype,status) VALUES ('provider','share','A');
+INSERT INTO ctl_doctype (module,doctype,status) VALUES ('provider','photo','A');
+INSERT INTO `ctl_doctype` (`module`, `doctype`, `status`, `id`) VALUES('provider','invoice letterhead','A',null);
 
 --
 -- Dumping data for table 'ctl_doc_class'
@@ -982,7 +982,7 @@ INSERT INTO ichppccode VALUES ('203','650','Uncomplicated Pregnancy, normal deli
 --
 
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
-( '02', 'Oxygen Saturatifn', 'Oxygen Saturation', 'percent', '4', '2013-02-01 00:00:00'),
+( '02', 'Oxygen Saturation', 'Oxygen Saturation', 'percent', '4', '2013-02-01 00:00:00'),
 ( '24UA', '24 hour urine albumin', '24 hour urine albumin', 'mg/24h (nnn.n) Range:0-500 Interval:12mo.', '14', '2013-02-01 00:00:00'),
 ( '24UR', '24-hr Urine cr clearance & albuminuria', 'Renal 24-hr Urine cr clearance & albuminuria', 'q 6-12 months, unit mg', '3', '2013-02-01 00:00:00'),
 ( '5DAA', '5 Day Adherence if on ART', '5 Day Adherence if on ART', 'number', '4', '2013-02-01 00:00:00'),
@@ -1171,7 +1171,7 @@ INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `me
 ( 'HPCP', 'Hep C PCR', 'Hep C PCR', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'HPNP', 'Hearing protection/Noise control programs', 'NULL', 'Yes/No', '7', '2013-10-25 13:00:00'),
 ( 'HPYL', 'H Pylori', 'H Pylori', 'result', '17', '2014-05-09 00:00:00'),
-( 'HR', 'P', 'Heart Rate', '', '5', '2013-02-01 00:00:00'),
+( 'HR', 'Heart Rate', 'Heart Rate', '', '5', '2013-02-01 00:00:00'),
 ( 'HRMS', 'Review med use and side effects', 'HTN Review of Medication use and side effects', 'null', '11', '2013-02-01 00:00:00'),
 ( 'HSMC', 'Self Management Challenges', 'HTN Self Management Challenges', 'null', '11', '2013-02-01 00:00:00'),
 ( 'HSMG', 'Self Management Goal', 'HTN Self Management Goal', 'null', '11', '2013-02-01 00:00:00'),
@@ -1190,7 +1190,7 @@ INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `me
 ( 'iPTH', 'iPTH', 'intact Parathyroid Hormone', 'pmol/L Range 1-6', '14', '2014-05-09 00:00:00'),
 ( 'iRef', 'Eye Exam: Refferal Made', 'Refferal Made', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'KEEL', 'Keele Score', 'Keele Score', 'null', '2', '2013-05-07 00:00:00'),
-( 'JVPE', 'JPV Elevation', 'JPV Elevation', 'Yes/No', '7', '2013-02-01 00:00:00'),
+( 'JVPE', 'JVP Elevation', 'JVP Elevation', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'Kpl', 'Potassium', 'Potassium', 'in mmol/L', '2', '2013-02-01 00:00:00'),
 ( 'LcCt', 'Locus of Control Screen', 'Feeling lack of control over daily life', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'LDL', 'LDL', 'Low Density Lipid', 'monitor every 1-3 year', '2', '2013-02-01 00:00:00'),
@@ -1522,6 +1522,7 @@ insert into `secObjectName` (`objectName`) values ('_admin.messenger');
 insert into `secObjectName` (`objectName`) values ('_admin.eform');
 insert into `secObjectName` (`objectName`) values ('_admin.encounter');
 insert into `secObjectName` (`objectName`) values ('_admin.misc');
+insert into `secObjectName` (`objectName`,`description`,`orgapplicable`) values('_admin.flowsheet','Manage Flowsheets',0);
 insert into `secObjectName` (`objectName`,`description`,`orgapplicable`) values('_masterlink', 'Client Master Record',0);
 insert into `secObjectName` (`objectName`) values ('_rx');
 insert into `secObjectName` (`objectName`) values ('_merge');
@@ -1644,6 +1645,7 @@ insert into `secObjPrivilege` values('doctor','_admin.lookupFieldEditor','o',0,9
 insert into `secObjPrivilege` values('doctor','_admin.issueEditor','o',0,999998);
 insert into `secObjPrivilege` values('doctor','_admin.caisiRoles','o',0,999998);
 insert into `secObjPrivilege` values('doctor','_admin.userCreatedForms','o',0,999998);
+insert into `secObjPrivilege` values('doctor','_admin.flowsheet','r',1,'999998');
 
 insert into `secObjPrivilege` values('doctor','_pmm.clientSearch','x',0,999998);
 insert into `secObjPrivilege` values('doctor','_pmm.newClient','x',0,999998);
@@ -1746,6 +1748,7 @@ insert into `secObjPrivilege` values('admin','_admin.email','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.fax.restart','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.userCreatedForms','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.measurements','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.flowsheet','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment.doctorLink','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_pmm.addProgram','x',0,'999998');
@@ -2567,7 +2570,7 @@ insert into `secObjPrivilege` values('admin','_rx.editPharmacy','x',0,'999998');
 
 insert into ProductLocation (name) values ('Default');
 
-INSERT INTO `OscarJobType` VALUES (null,'OSCAR MSG REVIEW','Sends OSCAR Messages to Residents Supervisors when charts need to be reviewed','org.oscarehr.jobs.OscarMsgReviewSender',0,now());
+INSERT INTO `OscarJobType` VALUES (null,'OSCAR MSG REVIEW','Sends OSCAR Messages to Residents Supervisors when charts need to be reviewed','ca.openosp.openo.jobs.OscarMsgReviewSender',0,now());
 INSERT INTO `OscarJob` VALUES (null,'OSCAR Message Review','',(select id from OscarJobType where name = 'OSCAR MSG REVIEW') ,'0 0/30 * * * *','999998',0,now(),null);
 
 INSERT INTO `consentType`(`id`, `type`, `name`, `description`, `active`) VALUES ('1', 'default_consent_entry', 'Demonstraton Consent', 'This is a demonstration consent. Modify the consentType and Consent tables to replace this message with a desired consent description, or to add new consents.', '0');
@@ -2581,7 +2584,7 @@ insert into scheduletemplate Values('Public','P:OnCallClinic','Weekends/Holidays
 
 insert into scheduletemplatecode Values(null,'C','On Call Clinic','15','green','Onc',1);
 
-insert into OscarJobType Values(null,'OSCAR ON CALL CLINIC', 'Notifies MRP if patient seen during on-call clinic','org.oscarehr.jobs.OscarOnCallClinic',false,now());
+insert into OscarJobType Values(null,'OSCAR ON CALL CLINIC', 'Notifies MRP if patient seen during on-call clinic','ca.openosp.openo.jobs.OscarOnCallClinic',false,now());
 
 insert into OscarJob Values(null,'OSCAR On-Call Clinic',null,(select id from OscarJobType where name = 'OSCAR ON CALL CLINIC'),'0 0 4 * * *','999998',false,now(),null);
 

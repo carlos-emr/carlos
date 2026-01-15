@@ -26,13 +26,13 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String user = (String) session.getAttribute("user");
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName2$ = (String) session.getAttribute("userrole") + "," + user;
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,7 +47,7 @@
 <%@ page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
 <%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
 <%@ page import="ca.openosp.openo.form.FrmBCAR2020Record" %>
@@ -186,79 +186,73 @@
                     case "MedicalHistory":
                     <%
                         value = cmgmtMgr.listNotes("MedHistory", providerNo, demoNoStr);
-                        
+
                         if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))
                         {
                             value = StringUtils.lineBreaks(value);
                         }
-                        value = StringEscapeUtils.escapeJavaScript(value);
-                        
-                        out.println("info = '" + value + "'");
+
+                        out.println("info = '" + Encode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "ongoingConcerns":
                     <%
                         value = cmgmtMgr.listNotes("Concerns", providerNo, demoNoStr);
 
-                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))                      
+                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))
                         {
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        value = StringEscapeUtils.escapeJavaScript(value);
-                        out.println("info = '" + value + "'");
+                        out.println("info = '" + Encode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "FamilyHistory":
                     <%
                         value = cmgmtMgr.listNotes("FamHistory", providerNo, demoNoStr);
 
-                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))                      
+                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))
                         {
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        value = StringEscapeUtils.escapeJavaScript(value);
-                        out.println("info = '" + value + "'");
+                        out.println("info = '" + Encode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "SocialHistory":
                     <%
                         value = cmgmtMgr.listNotes("SocHistory", providerNo, demoNoStr);
 
-                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))                      
+                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))
                         {
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        value = StringEscapeUtils.escapeJavaScript(value);
-                        out.println("info = '" + value + "'");
+                        out.println("info = '" + Encode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "OtherMeds":
                     <%
                         value = cmgmtMgr.listNotes("OMeds", providerNo, demoNoStr);
 
-                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))                      
+                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))
                         {
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        value = StringEscapeUtils.escapeJavaScript(value);
-                        out.println("info = '" + value + "'");
+                        out.println("info = '" + Encode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "Reminders":
                     <%
                         value = cmgmtMgr.listNotes("Reminders", providerNo, demoNoStr);
 
-                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))                      
+                        if (pasteFmt == null || pasteFmt.equalsIgnoreCase("single"))
                         {
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        value = StringEscapeUtils.escapeJavaScript(value);
-                        out.println("info = '" + value + "'");
+                        out.println("info = '" + Encode.forJavaScript(value) + "'");
                     %>
                         break;
                 }

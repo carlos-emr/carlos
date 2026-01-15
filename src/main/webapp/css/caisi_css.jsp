@@ -22,7 +22,7 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@page contentType="text/css"%>
+<%@page contentType="text/css; charset=UTF-8" pageEncoding="UTF-8"%>
 
 /* ----- built in changes ----- */
 

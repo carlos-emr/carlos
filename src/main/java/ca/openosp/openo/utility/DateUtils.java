@@ -31,43 +31,91 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 
 import ca.openosp.OscarProperties;
 
+/**
+ * Date and time utility class providing formatting, parsing, and calculation functions.
+ * 
+ * <p>This class provides methods for:</p>
+ * <ul>
+ *   <li>Formatting dates and times according to system-configured formats</li>
+ *   <li>Parsing dates from various string formats</li>
+ *   <li>Converting between different date types (java.util.Date, java.sql.Date, Calendar)</li>
+ *   <li>Calculating date differences and date arithmetic</li>
+ *   <li>Validating date ranges and checking for date ordering</li>
+ * </ul>
+ * 
+ * <p>Date and time formats are configured via OscarProperties:</p>
+ * <ul>
+ *   <li><code>DATE_FORMAT</code> - System-wide date format (e.g., "yyyy-MM-dd")</li>
+ *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
+ * </ul>
+ * 
+ * <p><strong>Thread Safety:</strong> This class is not thread-safe when using SimpleDateFormat.
+ * Consider using java.time package (Java 8+) for thread-safe date/time operations.</p>
+ * 
+ * @see java.time For modern, thread-safe date/time handling (Java 8+)
+ */
 public final class DateUtils {
+    /** JavaScript-compatible ISO date format pattern */
     public static final String JS_ISO_DATE_FORMAT = "yy-mm-dd";
 
+    /**
+     * Constructs a new DateUtils instance.
+     * Note: This is a utility class with static methods; instantiation is not typically needed.
+     */
     public DateUtils() {
     }
 
+    /** System-configured date format from properties */
     private static String dateFormatString = OscarProperties.getInstance().getProperty("DATE_FORMAT");
+    
+    /** System-configured time format from properties */
     private static String timeFormatString = OscarProperties.getInstance().getProperty("TIME_FORMAT");
 
     /**
-     * @param locale can be null
-     * @return if date is null will return a blank string.
+     * Formats a date using the system date format.
+     * 
+     * @param date the date to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted date string, or empty string if date is null
      */
     public static String formatDate(Date date, Locale locale) {
         return (format(dateFormatString, date, locale));
     }
 
     /**
-     * @param locale can be null
-     * @return if date is null will return a blank string.
+     * Formats a time using the system time format.
+     * 
+     * @param date the date/time to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted time string, or empty string if date is null
      */
     public static String formatTime(Date date, Locale locale) {
         return (format(timeFormatString, date, locale));
     }
 
+    /**
+     * Formats a date and time using the system date and time formats.
+     * 
+     * @param date the date/time to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted datetime string with date and time separated by a space
+     */
     public static String formatDateTime(Date date, Locale locale) {
         return (formatDate(date, locale) + ' ' + formatTime(date, locale));
     }
 
     /**
-     * @param locale can be null
-     * @return if date is null will return a blank string.
+     * Formats a date using a custom format string and locale.
+     * 
+     * @param format the date format pattern (e.g., "yyyy-MM-dd")
+     * @param date the date to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted date string, or empty string if date is null
      */
     public static String format(String format, Date date, Locale locale) {
         if (date == null) {

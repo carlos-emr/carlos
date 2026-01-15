@@ -30,15 +30,15 @@ import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JsonConfig;
-import net.sf.json.processors.JsDateJsonBeanProcessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import ca.openosp.openo.commn.dao.ClinicDAO;
 import ca.openosp.openo.commn.dao.DemographicDao;
 import ca.openosp.openo.commn.model.Clinic;
 import ca.openosp.openo.commn.model.Demographic;
 import ca.openosp.openo.managers.SecurityInfoManager;
+import ca.openosp.openo.utility.JsDateSerializer;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.SpringUtils;
 
@@ -56,6 +56,13 @@ public class BillingONReview2Action extends ActionSupport {
     private ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
     private DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    static {
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(java.sql.Date.class, new JsDateSerializer());
+        objectMapper.registerModule(module);
+    }
 
     public String execute() throws Exception {
         if ("getClinic".equals(request.getParameter("method"))) {
@@ -73,19 +80,15 @@ public class BillingONReview2Action extends ActionSupport {
 
         Demographic demographic = demographicDao.getDemographic(demographicNo);
 
-
-        JsonConfig config = new JsonConfig();
-        config.registerJsonBeanProcessor(java.sql.Date.class, new JsDateJsonBeanProcessor());
-
-        JSONObject json = JSONObject.fromObject(demographic, config);
-        response.getOutputStream().write(json.toString().getBytes());
+        String json = objectMapper.writeValueAsString(demographic);
+        response.getOutputStream().write(json.getBytes());
         return null;
     }
 
     public String getClinic() throws IOException {
         Clinic clinic = clinicDao.getClinic();
-        JSONObject json = JSONObject.fromObject(clinic);
-        response.getOutputStream().write(json.toString().getBytes());
+        String json = objectMapper.writeValueAsString(clinic);
+        response.getOutputStream().write(json.getBytes());
         return null;
     }
 }

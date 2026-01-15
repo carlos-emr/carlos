@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,7 @@
 
 <%@page import="ca.openosp.openo.appt.status.service.impl.AppointmentStatusMgrImpl" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
 %>
 
@@ -78,8 +78,8 @@
 <%@ page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
 <%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page import="ca.openosp.openo.managers.LookupListManager" %>
-<%@ page import="org.apache.commons.lang.StringUtils" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
 <%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
 <%@ page import="ca.openosp.openo.commn.dao.AppointmentTypeDao" %>
@@ -162,7 +162,7 @@
 
     String useProgramLocation = OscarProperties.getInstance().getProperty("useProgramLocation");
     String moduleNames = OscarProperties.getInstance().getProperty("ModuleNames");
-    boolean caisiEnabled = moduleNames != null && org.apache.commons.lang.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
+    boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
     String annotation_display = CaseManagementNoteLink.DISP_APPOINTMENT;
@@ -1172,7 +1172,7 @@
                     </td>
                     <td>
                 <input type="text" readonly name="doctorNo" id="mrp" class="form-control"
-                               value="<%=StringEscapeUtils.escapeHtml(providerBean.getProperty(doctorNo,""))%>">
+                               value="<%=StringEscapeUtils.escapeHtml4(providerBean.getProperty(doctorNo,""))%>">
                     </td>
                 </tr>
                 <tr>

@@ -26,6 +26,7 @@ package ca.openosp.openo.dashboard.admin;
 
 import java.io.IOException;
 import java.util.List;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -41,8 +42,8 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONObject;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -54,6 +55,9 @@ public class AssignTickler2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
 
@@ -94,7 +98,7 @@ public class AssignTickler2Action extends ActionSupport {
 
         TicklerHandler ticklerHandler = new TicklerHandler(loggedInInfo, ticklerManager);
         ticklerHandler.createMasterTickler(request.getParameterMap());
-        JSONObject jsonObject = new JSONObject();
+        ObjectNode jsonObject = objectMapper.createObjectNode();
 
         if (ticklerHandler.addTickler(request.getParameter("demographics"))) {
             jsonObject.put("success", "true");
@@ -103,7 +107,7 @@ public class AssignTickler2Action extends ActionSupport {
         }
 
         try {
-            jsonObject.write(response.getWriter());
+            response.getWriter().write(jsonObject.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("JSON response failed", e);
             return "error";

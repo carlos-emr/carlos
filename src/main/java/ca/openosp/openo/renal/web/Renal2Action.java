@@ -26,10 +26,13 @@ package ca.openosp.openo.renal.web;
 
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.utility.*;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.velocity.VelocityContext;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.dao.DemographicDao;
@@ -76,6 +79,9 @@ public class Renal2Action extends ActionSupport {
         }
     }
 
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("checkForDx".equals(method)) {
@@ -106,11 +112,11 @@ public class Renal2Action extends ActionSupport {
 
         boolean exists = dxResearchDao.activeEntryExists(Integer.parseInt(demographicNo), codingSystem, code);
 
-        String str = "{'result':" + exists + "}";
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(str);
+        ObjectNode jsonArray = objectMapper.createObjectNode();
+        jsonArray.put("result", exists);
         response.setContentType("text/x-json");
         try {
-            jsonArray.write(response.getWriter());
+            response.getWriter().write(jsonArray.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -147,11 +153,11 @@ public class Renal2Action extends ActionSupport {
             id = item.getDxresearchNo();
         }
 
-        String str = "{'result':" + id + "}";
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(str);
+        ObjectNode jsonArray = objectMapper.createObjectNode();
+        jsonArray.put("result", id);
         response.setContentType("text/x-json");
         try {
-            jsonArray.write(response.getWriter());
+            response.getWriter().write(jsonArray.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -252,11 +258,12 @@ public class Renal2Action extends ActionSupport {
             }
         }
 
-        String str = "{'result':'" + StringEscapeUtils.escapeJavaScript(nextSteps) + "'}";
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(str);
-        response.setContentType("text/x-json");
+        ObjectNode jsonArray = objectMapper.createObjectNode();
+        jsonArray.put("result", StringEscapeUtils.escapeEcmaScript(nextSteps));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         try {
-            jsonArray.write(response.getWriter());
+             objectMapper.writeValue(response.getWriter(), jsonArray);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -341,7 +348,7 @@ public class Renal2Action extends ActionSupport {
         // String demographicNo = request.getParameter("demographic_no");
         // String error = "";
         // boolean success=true;
-        // JSONObject json = new JSONObject();
+        // ObjectNode json = objectMapper.createObjectNode();
 
         // final Demographic d = demographicDao.getDemographic(demographicNo);
 
@@ -403,7 +410,7 @@ public class Renal2Action extends ActionSupport {
         // json.put("success", String.valueOf(success));
         // json.put("error", error);
         // try {
-        // 	json.write(response.getWriter());
+        // 	response.getWriter().print(json.toString());
         // }catch(IOException e) {
         // 	MiscUtils.getLogger().error("error",e);
         // }

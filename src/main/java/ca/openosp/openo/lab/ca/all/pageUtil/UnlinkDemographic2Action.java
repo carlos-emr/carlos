@@ -25,7 +25,8 @@
 package ca.openosp.openo.lab.ca.all.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.PatientLabRoutingDao;
@@ -58,6 +59,8 @@ public class UnlinkDemographic2Action extends ActionSupport {
 
     public UnlinkDemographic2Action() {
     }
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String execute() {
@@ -105,7 +108,7 @@ public class UnlinkDemographic2Action extends ActionSupport {
             }
         }
 
-        JSONObject jsonObject = new JSONObject();
+        ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put("success", success);
         jsonObject.put("unlinkedDemographicNo", demoNo);
         jsonObject.put("labNo", labNo);

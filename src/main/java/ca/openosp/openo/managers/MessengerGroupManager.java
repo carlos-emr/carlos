@@ -365,7 +365,7 @@ public class MessengerGroupManager {
      * the Oscar Messenger system.
      *
      * @param loggedInInfo
-     * @return Map<String, List < MsgProviderData>>
+     * @return Map of provider data grouped by facility
      */
     public Map<String, List<MsgProviderData>> getAllMessengerContacts(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)) {

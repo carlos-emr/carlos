@@ -57,9 +57,11 @@ import ca.openosp.openo.log.LogAction;
 public class OscarFhirResourceManager {
 
     /**
-     * @param configurationManager
-     * @param demographicNo
-     * @return List<org.oscarehr.integration.fhir.model.Immunization < Prevention> >
+     * Gets immunizations for a patient by demographic number.
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param demographicNo the patient's demographic ID
+     * @return list of immunization records for the patient
      */
     public static final List<Immunization<Prevention>> getImmunizationsByDemographicNo(OscarFhirConfigurationManager configurationManager, int demographicNo) {
         PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
@@ -92,7 +94,7 @@ public class OscarFhirResourceManager {
     /**
      * @param configurationManager
      * @param preventionId
-     * @return org.oscarehr.integration.fhir.model.Immunization<Prevention>
+     * @return ca.openosp.openo.integration.fhir.model.Immunization<Prevention>
      */
     public static final Immunization<Prevention> getImmunizationById(OscarFhirConfigurationManager configurationManager, int preventionId) {
         PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
@@ -111,7 +113,7 @@ public class OscarFhirResourceManager {
     /**
      * @param configurationManager
      * @param demographic_no
-     * @return org.oscarehr.integration.fhir.model.Patient
+     * @return ca.openosp.openo.integration.fhir.model.Patient
      */
     public static final Patient getPatientByDemographicNumber(OscarFhirConfigurationManager configurationManager, int demographic_no) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -128,10 +130,12 @@ public class OscarFhirResourceManager {
     }
 
     /**
-     * @param configurationManager
-     * @param hcn
-     * @param hcnType
-     * @return List<org.oscarehr.integration.fhir.model.Patient>
+     * Gets patients by personal health number (PHN).
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param hcn the health card number
+     * @param hcnType the type of health card
+     * @return list of patients matching the health card number
      */
     public static final List<Patient> getPatientsByPHN(OscarFhirConfigurationManager configurationManager, String hcn, String hcnType) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -180,7 +184,7 @@ public class OscarFhirResourceManager {
     /**
      * @param configurationManager
      * @param providerNo
-     * @return org.oscarehr.integration.fhir.model.PerformingPractitioner
+     * @return ca.openosp.openo.integration.fhir.model.PerformingPractitioner
      */
     public static final PerformingPractitioner getPerformingPractitionerByProviderNumber(OscarFhirConfigurationManager configurationManager, String providerNo) {
         ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
@@ -199,7 +203,7 @@ public class OscarFhirResourceManager {
     /**
      * @param configurationManager
      * @param providerNo
-     * @return org.oscarehr.integration.fhir.model.Practitioner
+     * @return ca.openosp.openo.integration.fhir.model.Practitioner
      */
     public static final Practitioner getPractitionerByProviderNumber(OscarFhirConfigurationManager configurationManager, String providerNo) {
         ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);

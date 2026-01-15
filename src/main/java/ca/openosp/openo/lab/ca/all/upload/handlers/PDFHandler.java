@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.ProviderInboxRoutingDao;
 import ca.openosp.openo.commn.dao.QueueDocumentLinkDao;
 import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.OscarProperties;
@@ -76,29 +77,24 @@ public class PDFHandler implements MessageHandler {
                 logger.error("DOCUMENT_DIR not configured");
                 return null;
             }
-            
-            // Normalize and validate the base directory
-            Path basePath = Paths.get(baseDocDir).normalize().toAbsolutePath();
-            
-            // Normalize and validate the file path
-            Path targetPath = Paths.get(filePath).normalize().toAbsolutePath();
-            
-            // Ensure the target file is within the allowed base directory
-            if (!targetPath.startsWith(basePath)) {
-                logger.error("Path traversal attempt detected: " + filePath);
-                return null;
-            }
-            
+
+            // Validate the file path using PathValidationUtils
+            File baseDir = new File(baseDocDir);
+            File targetFile = new File(filePath);
+            PathValidationUtils.validateExistingPath(targetFile, baseDir);
+
             // Verify the file exists and is a regular file
-            File targetFile = targetPath.toFile();
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + targetPath);
+                logger.error("File does not exist or is not a regular file: " + filePath);
                 return null;
             }
-            
+
             // Use the validated canonical path
             filePath = targetFile.getCanonicalPath();
-            
+
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt detected: " + filePath);
+            return null;
         } catch (IOException e) {
             logger.error("Error validating file path: " + filePath, e);
             return null;

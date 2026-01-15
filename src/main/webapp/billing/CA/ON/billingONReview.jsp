@@ -38,7 +38,7 @@
 <%@ page import="ca.openosp.openo.billing.ca.on.administration.*" %>
 <%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
 <%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*, java.util.Properties" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
@@ -54,7 +54,7 @@
 <%
     //
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 
     String user_no = (String) session.getAttribute("user");
@@ -1241,7 +1241,7 @@
                     String temp = e.nextElement().toString();
             %>
             <input type="hidden" name="<%= temp %>"
-                   value="<%=StringEscapeUtils.escapeHtml(request.getParameter(temp))%>"/>
+                   value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>"/>
             <%
                 }
 
@@ -1311,7 +1311,7 @@
 
     function addToDiseaseRegistry() {
         if (validateItems()) {
-            var url = "<%=request.getContextPath()%>/oscarResearch/dxresearch/dxResearch.do";
+            var url = "<%=request.getContextPath()%>/oscarResearch/oscarDxResearch/dxResearch.do";
             //var data = Form.serialize(dxForm);
             data = jQuery('#dxForm').serialize();
             //new Ajax.Updater('dxListing',url, {method: 'post',postBody: data,asynchronous:true,onComplete: getNewCurrentDxCodeList});
@@ -1341,7 +1341,7 @@
 
     function getNewCurrentDxCodeList(origRequest) {
         //alert("calling get NEW current Dx Code List");
-        var url = "../../../oscarResearch/dxresearch/currentCodeList.jsp";
+        var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/currentCodeList.jsp";
         var ran_number = Math.round(Math.random() * 1000000);
         var params = "demographicNo=<%=demo_no%>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
@@ -1369,7 +1369,7 @@
         <h3>&nbsp;Current Patient Dx List &nbsp;<a href="#" onclick="toggle('dxFullListing'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
-            <jsp:include page="../../../oscarResearch/oscarDxResearch/currentCodeList.jsp">
+            <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
                 <jsp:param name="demographicNo" value="<%=demo_no%>"/>
             </jsp:include>
         </div>
@@ -1385,7 +1385,7 @@
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
-                <jsp:include page="../../../oscarResearch/oscarDxResearch/quickCodeList.jsp">
+                <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
                     <jsp:param name="demographicNo" value="<%=demo_no%>"/>
                 </jsp:include>
             </div>

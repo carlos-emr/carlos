@@ -71,7 +71,7 @@ public class PageNumberStamper extends FooterSupport {
         total.beginText();
         total.setFontAndSize(getFont(), getFontSize());
         total.setTextMatrix(0, 0);
-        total.showText(String.valueOf(writer.getPageNumber() - 1));
+        total.showText(String.valueOf(writer.getPageNumber()));
         total.endText();
     }
 

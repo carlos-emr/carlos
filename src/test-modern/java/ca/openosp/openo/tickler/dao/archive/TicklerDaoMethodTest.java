@@ -19,7 +19,7 @@
  * Magenta Health
  * Toronto, Ontario, Canada
  */
-package ca.openosp.openo.tickler.dao;
+package ca.openosp.openo.tickler.dao.archive;
 
 import ca.openosp.openo.test.base.OpenOTestBase;
 import ca.openosp.openo.commn.dao.TicklerDao;

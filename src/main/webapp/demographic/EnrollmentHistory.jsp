@@ -40,7 +40,7 @@
 %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
@@ -115,7 +115,7 @@
                 &nbsp;
             </td>
             <td class="MainTableRightColumn">
-                <% if (!org.apache.commons.lang.StringUtils.isEmpty(demographic.getRosterStatus())) { %>
+                <% if (!org.apache.commons.lang3.StringUtils.isEmpty(demographic.getRosterStatus())) { %>
                 <h2>Current Enrollment Status</h2>
                 <br/>
                 <table style="width:5%">
@@ -267,7 +267,7 @@
 
 <%!
     String getRosterStatusDisplay(String rosterStatus) {
-        String rs = org.apache.commons.lang.StringUtils.trimToNull(rosterStatus);
+        String rs = org.apache.commons.lang3.StringUtils.trimToNull(rosterStatus);
         if (rs != null) {
             if ("RO".equals(rs)) {
                 return "ROSTERED";

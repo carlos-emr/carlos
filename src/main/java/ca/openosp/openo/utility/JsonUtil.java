@@ -27,9 +27,11 @@ package ca.openosp.openo.utility;
 import java.util.Iterator;
 import java.util.List;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JsonConfig;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /*
  * Author: Dennis Warren
@@ -39,56 +41,79 @@ import net.sf.json.JsonConfig;
  */
 public class JsonUtil {
 
-    private static final JSONArray jsonArray = new JSONArray();
-    private static final JsonConfig jsonConfig = new JsonConfig();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public static final String pojoCollectionToJson(final List<?> pojoList) {
         return pojoCollectionToJson(pojoList, null);
     }
 
     public static final String pojoCollectionToJson(final List<?> pojoList, String[] ignoreMethods) {
-        jsonArray.clear();
+        try {
+            ArrayNode arrayNode = objectMapper.createArrayNode();
 
-        Iterator<?> it = null;
-        if (pojoList.size() > 0) {
-
-            it = pojoList.iterator();
-            while (it.hasNext()) {
-                jsonArray.add(pojoToJson(it.next(), ignoreMethods));
+            if (pojoList != null && !pojoList.isEmpty()) {
+                Iterator<?> it = pojoList.iterator();
+                while (it.hasNext()) {
+                    ObjectNode objNode = pojoToJson(it.next(), ignoreMethods);
+                    arrayNode.add(objNode);
+                }
             }
 
+            return objectMapper.writeValueAsString(arrayNode);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to convert POJO collection to JSON", e);
         }
-
-        return jsonArray.toString();
     }
 
-    public static final JSONObject pojoToJson(final Object pojo) {
+    public static final ObjectNode pojoToJson(final Object pojo) {
         return pojoToJson(pojo, null);
     }
 
-    public static final JSONObject pojoToJson(final Object pojo, final String[] ignoreMethods) {
+    public static final ObjectNode pojoToJson(final Object pojo, final String[] ignoreMethods) {
+        ObjectNode objectNode = objectMapper.valueToTree(pojo);
 
+        // Remove ignored fields if specified
         if (ignoreMethods != null) {
-            jsonConfig.setExcludes(ignoreMethods);
+            for (String field : ignoreMethods) {
+                objectNode.remove(field);
+            }
         }
 
-        return JSONObject.fromObject(pojo, jsonConfig);
+        return objectNode;
     }
 
     public static final List<?> jsonToPojoList(final String json, final Class<?> clazz) {
-        return jsonToPojoList(JSONArray.fromObject(json), clazz);
+        try {
+            JsonNode jsonNode = objectMapper.readTree(json);
+            return jsonToPojoList(jsonNode, clazz);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to parse JSON to POJO list", e);
+        }
     }
 
-    public static final List<?> jsonToPojoList(final JSONArray jsonArray, final Class<?> clazz) {
-        return (List<?>) JSONArray.toCollection(jsonArray, clazz);
+    public static final List<?> jsonToPojoList(final JsonNode jsonNode, final Class<?> clazz) {
+        try {
+            return objectMapper.convertValue(jsonNode,
+                objectMapper.getTypeFactory().constructCollectionType(List.class, clazz));
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Failed to convert JSON node to POJO list", e);
+        }
     }
 
     public static final Object jsonToPojo(final String json, final Class<?> clazz) {
-        return jsonToPojo(JSONObject.fromObject(json), clazz);
+        try {
+            return objectMapper.readValue(json, clazz);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to parse JSON to POJO", e);
+        }
     }
 
-    public static final Object jsonToPojo(final JSONObject jsonObject, final Class<?> clazz) {
-        return JSONObject.toBean(jsonObject, clazz);
+    public static final Object jsonToPojo(final JsonNode jsonNode, final Class<?> clazz) {
+        try {
+            return objectMapper.treeToValue(jsonNode, clazz);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to convert JSON node to POJO", e);
+        }
     }
 
 }

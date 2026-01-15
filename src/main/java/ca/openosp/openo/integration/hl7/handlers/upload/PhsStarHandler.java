@@ -34,6 +34,7 @@ import java.io.IOException;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.OscarProperties;
 
 import ca.openosp.openo.lab.ca.all.upload.MessageUploader;
@@ -53,23 +54,22 @@ public class PhsStarHandler implements MessageHandler {
             // Validate the file path to prevent path traversal attacks
             File file = new File(fileName);
             
-            // Get the canonical path to resolve any relative path components
-            String canonicalPath = file.getCanonicalPath();
-            
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
                 logger.error("File does not exist or is not a regular file: " + fileName);
                 MessageUploader.clean(fileId);
                 throw new IOException("Invalid file: " + fileName);
             }
-            
-            // Additional validation: ensure the file is within the expected document directory
+
+            // Use PathValidationUtils to validate file is within document directory
             OscarProperties props = OscarProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
-                if (!canonicalPath.startsWith(docDir.getCanonicalPath() + File.separator)) {
-                    logger.error("Attempted to access file outside document directory: " + canonicalPath);
+                try {
+                    PathValidationUtils.validateExistingPath(file, docDir);
+                } catch (SecurityException e) {
+                    logger.error("Attempted to access file outside document directory: " + fileName);
                     MessageUploader.clean(fileId);
                     throw new SecurityException("Access denied: file outside permitted directory");
                 }

@@ -24,12 +24,15 @@
 
 --%>
 
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.Allergy" %>
 <%@page import="ca.openosp.openo.PMmodule.caisi_integrator.RemoteDrugAllergyHelper" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="java.util.*,net.sf.json.*,java.lang.reflect.*,java.io.*,org.apache.xmlrpc.*,ca.openosp.openo.rx.util.*,ca.openosp.openo.rx.data.*" %>
+<%@page import="java.util.*,java.lang.reflect.*,java.io.*,org.apache.xmlrpc.*,ca.openosp.openo.rx.util.*,ca.openosp.openo.rx.data.*" %>
+<%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
+<%@page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
 <%@ page import="ca.openosp.openo.commn.dao.SystemPreferencesDao" %>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.SystemPreferences" %>
@@ -43,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,6 +60,8 @@
     boolean rxShowAllAllergyWarnings = systemPreferencesDao.isReadBooleanPreference(SystemPreferences.RX_PREFERENCE_KEYS.rx_show_highest_allergy_warning);
     String atcCode = request.getParameter("atcCode");
     String id = request.getParameter("id");
+
+    ObjectMapper objectMapper = new ObjectMapper();
 
     String disabled = ca.openosp.OscarProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
     if (disabled.equals("false")) {
@@ -84,13 +89,13 @@
 
         Allergy highestSeverityAllergy = null;
 
-        JSONObject result = new JSONObject();
+        ObjectNode result = objectMapper.createObjectNode();
         result.put("id", id);
-        JSONArray allergyResultArray = new JSONArray();
+        ArrayNode allergyResultArray = objectMapper.createArrayNode();
         if (allergyWarnings != null && allergyWarnings.length > 0) {
             highestSeverityAllergy = allergyWarnings[0];
             for (Allergy allergy : allergyWarnings) {
-                JSONObject allergyResult = new JSONObject();
+                ObjectNode allergyResult = objectMapper.createObjectNode();
                 allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(allergy.getDescription()));
                 allergyResult.put("reaction", StringUtils.trimToEmpty(allergy.getReaction()));
                 allergyResult.put("severity", StringUtils.trimToEmpty(allergy.getSeverityOfReactionDesc()));
@@ -106,14 +111,18 @@
             }
         }
         if (rxShowAllAllergyWarnings && highestSeverityAllergy != null) {
-            JSONObject allergyResult = new JSONObject();
+            ObjectNode allergyResult = objectMapper.createObjectNode();
             allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(highestSeverityAllergy.getDescription()));
             allergyResult.put("reaction", StringUtils.trimToEmpty(highestSeverityAllergy.getReaction()));
             allergyResult.put("severity", StringUtils.trimToEmpty(highestSeverityAllergy.getSeverityOfReactionDesc()));
             allergyResultArray.add(allergyResult);
         }
-        result.put("results", allergyResultArray);
-        result.write(out);
+        result.set("results", allergyResultArray);
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        objectMapper.writeValue(out, result);
 
     }
 %>

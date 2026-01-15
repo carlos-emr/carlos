@@ -36,10 +36,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -251,8 +251,10 @@ public final class RxSearchDrug2Action extends ActionSupport {
         d.put("results", data);
         response.setContentType("text/x-json");
 
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(d);
-        Writer jsonWriter = jsonArray.write(response.getWriter());
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode jsonArray = (ObjectNode) mapper.valueToTree(d);
+        Writer jsonWriter = response.getWriter();
+        jsonWriter.write(jsonArray.toString());
 
         jsonWriter.flush();
         jsonWriter.close();

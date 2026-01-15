@@ -22,12 +22,10 @@
  * Hamilton
  * Ontario, Canada
  */
-//package oscar.v23.message;
 package ca.openosp.openo.lab.ca.all.spireHapiExt.v23.message;
 
 import ca.uhn.hl7v2.HL7Exception;
 import ca.openosp.openo.lab.ca.all.spireHapiExt.v23.segment.ZDS;
-//import ca.uhn.hl7v2.model.v23.message.ORU_R01;
 import ca.uhn.hl7v2.model.Structure;
 import ca.uhn.hl7v2.parser.ModelClassFactory;
 

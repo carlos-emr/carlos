@@ -38,6 +38,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import ca.openosp.OscarProperties;
+import ca.openosp.openo.utility.PathValidationUtils;
 
 /**
  * @author Jay Gallagher
@@ -94,25 +95,17 @@ public class GenericDownload extends HttpServlet {
         if (contentType != null) {
             setContentType = contentType;
         }
-        
-        // Security validation: prevent path traversal attacks
-        if (filename == null || filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
-            throw new IllegalArgumentException("Invalid filename");
-        }
-        
-        // Sanitize filename to prevent HTTP response splitting
-        // Remove any CR (\r), LF (\n), and other control characters that could be used for header injection
-        String sanitizedFilename = filename.replaceAll("[\r\n]", "").replaceAll("[\\p{Cntrl}]", "");
-        
+
+        // Use PathValidationUtils for security validation
+        // This sanitizes the filename and validates directory containment
+        File directory = new File(dir).getCanonicalFile();
+        File curfile = PathValidationUtils.validatePath(filename, directory);
+
+        // Sanitize filename for HTTP header (prevent response splitting)
+        String sanitizedFilename = curfile.getName().replaceAll("[\r\n]", "").replaceAll("[\\p{Cntrl}]", "");
+
         res.setContentType(setContentType);
         res.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizedFilename + "\"");
-        File directory = new File(dir).getCanonicalFile();
-        File curfile = new File(directory, sanitizedFilename).getCanonicalFile();
-        
-        // Ensure the resolved file is within the intended directory
-        if (!curfile.getCanonicalPath().startsWith(directory.getCanonicalPath() + File.separator)) {
-            throw new SecurityException("Access denied: attempted to access file outside permitted directory");
-        }
         
         FileInputStream fis = new FileInputStream(curfile);
         int bufferSize;

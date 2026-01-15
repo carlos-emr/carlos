@@ -1,4 +1,4 @@
-<%@page contentType="text/xml" %>
+<%@page contentType="text/xml; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="javax.xml.parsers.*, org.w3c.dom.*, ca.openosp.openo.util.*" %>
 <%@ page import="ca.openosp.openo.util.UtilXML" %>
 <%

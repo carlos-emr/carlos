@@ -87,8 +87,8 @@ public class PDFController {
     private static final Logger _Logger = MiscUtils.getLogger();
     private final String STRING_FILTER = "[^a-zA-Z0-9_' '!.!#]";
 
-    private static String[] ALLOWED_BEAN_PACKAGES = new String[]{"org.oscarehr.commons.model",
-            "oscar.form.pharmaForms.formBPMH.bean"};
+    private static String[] ALLOWED_BEAN_PACKAGES = new String[]{"ca.openosp.openo.commn.model",
+            "ca.openosp.openo.form.pharmaForms.formBPMH.bean"};
 
     private static final String DATE_FORMAT = "MM-dd-yyyy";
 

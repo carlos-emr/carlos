@@ -29,7 +29,8 @@ import java.util.Date;
 
 import ca.openosp.openo.commn.model.FaxJob.STATUS;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class FaxRecipient {
 
@@ -42,9 +43,9 @@ public class FaxRecipient {
         //default
     }
 
-    public FaxRecipient(JSONObject json) {
-        this.name = json.getString("name");
-        this.setFax(json.getString("fax"));
+    public FaxRecipient(ObjectNode json) {
+        this.name = json.get("name").asText();
+        this.setFax(json.get("fax").asText());
     }
 
     public FaxRecipient(String name, String fax) {
@@ -52,6 +53,7 @@ public class FaxRecipient {
         this.setFax(fax);
     }
 
+    
     public String getName() {
         return name;
     }

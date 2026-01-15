@@ -39,8 +39,9 @@ import ca.openosp.openo.utility.LoggedInInfo;
 
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ca.openosp.openo.lab.ca.on.CommonLabResultData;
 
 import com.opensymphony.xwork2.ActionSupport;
@@ -50,7 +51,7 @@ public class FileLabs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
+    private ObjectMapper objectMapper = new ObjectMapper();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public FileLabs2Action() {
@@ -69,27 +70,31 @@ public class FileLabs2Action extends ActionSupport {
 
         String flaggedLabs = request.getParameter("flaggedLabs");
 
-        JSONArray jsonArray = null;
+        ArrayNode jsonArray = null;
         ArrayList<String[]> listFlaggedLabs = new ArrayList<>();
 
         if (flaggedLabs != null && !flaggedLabs.isEmpty()) {
-            JSONObject jsonObject = JSONObject.fromObject(flaggedLabs);
-            jsonArray = (JSONArray) jsonObject.get("files");
+            try {
+                ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(flaggedLabs);
+                jsonArray = (ArrayNode) jsonObject.get("files");
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to parse flaggedLabs JSON", e);
+            }
         }
 
         if (jsonArray != null) {
             String[] labid;
             for (int i = 0; i < jsonArray.size(); i++) {
-                labid = jsonArray.getString(i).split(":");
+                labid = jsonArray.get(i).asText().split(":");
                 listFlaggedLabs.add(labid);
             }
         }
 
         boolean success = CommonLabResultData.fileLabs(listFlaggedLabs, loggedInInfo);
 
-        JSONObject jsonResponse = new JSONObject();
-        jsonResponse.accumulate("success", success);
-        jsonResponse.accumulate("files", jsonArray);
+        ObjectNode jsonResponse = objectMapper.createObjectNode();
+        jsonResponse.put("success", success);
+        jsonResponse.set("files", jsonArray);
 
         try {
             PrintWriter out = response.getWriter();

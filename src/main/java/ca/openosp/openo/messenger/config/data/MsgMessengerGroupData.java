@@ -199,7 +199,7 @@ public class MsgMessengerGroupData {
      * @param locale The locale for internationalization (currently unused but kept for compatibility)
      * @param grpNo The group number/ID as a String to check membership against
      * @param out The JspWriter to output the generated HTML directly to the response
-     * @throws IOException if there's an error writing to the JspWriter (caught internally)
+     * @throws RuntimeException if there's an error writing to the JspWriter (caught internally)
      */
     @SuppressWarnings("unchecked")
     public void printAllProvidersWithMembers(Locale locale, String grpNo, JspWriter out) {

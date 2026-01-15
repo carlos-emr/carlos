@@ -95,7 +95,11 @@
         if (eformLink != null) eForm.setEformLink(eformLink);
 
         String parentAjaxId = request.getParameter("parentAjaxId");
-        if (parentAjaxId != null) eForm.setAction(parentAjaxId);
+        if (parentAjaxId != null) {
+            eForm.setAction(parentAjaxId);
+        } else {
+            eForm.setAction();
+        }
     } else {  //if form is viewed from admin screen
         eForm = new EForm(fid, "-1"); //form cannot be submitted, demographic_no "-1" indicate this specialty
         eForm.setContextPath(request.getContextPath());
@@ -110,6 +114,8 @@
      * Ordering is very important.
      * For Javascript: First is last.
      */
+
+    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.0.2/js/bootstrap.bundle.js");
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.12.1.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.6.4.min.js");
@@ -136,7 +142,6 @@
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));
     eForm.addHiddenInputElement("eFormPDF", (String) request.getAttribute("eFormPDF"));
     eForm.addHiddenInputElement("isDownloadEForm", (String) request.getAttribute("isDownload"));
-    eForm.addHiddenInputElement("newForm", "false");
     eForm.addHiddenInputElement("isSuccess_Autoclose", (String) request.getAttribute("isSuccess_Autoclose"));
     // Add EForm attachments
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

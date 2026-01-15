@@ -44,13 +44,49 @@ import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadException;
 import ca.openosp.openo.utility.MiscUtils;
 
+/**
+ * Servlet for handling document management system file uploads.
+ * 
+ * <p>This servlet processes multipart/form-data file uploads for the document
+ * management system, providing functionality for:</p>
+ * <ul>
+ *   <li>File upload processing with timestamp-based naming</li>
+ *   <li>Temporary file storage during processing</li>
+ *   <li>Document categorization and metadata handling</li>
+ *   <li>Integration with the document management repository</li>
+ * </ul>
+ * 
+ * <p>Files are timestamped upon upload using the format yyyyMMddHmmss to ensure
+ * unique filenames and proper chronological ordering.</p>
+ * 
+ * <p><strong>Note:</strong> This is a legacy servlet. Modern applications should
+ * use Spring MVC controllers with proper multipart handling.</p>
+ * 
+ * @see DocumentUploadServlet
+ */
 public class DocumentMgtUploadServlet extends HttpServlet {
+    /** Buffer size for file operations */
     final static int BUFFER = 2048;
+    
+    /** Current date/time for timestamp generation */
     public java.util.Date today;
+    
+    /** Formatted timestamp output */
     public String output;
+    
+    /** Date formatter for timestamp generation (yyyyMMddHmmss) */
     public SimpleDateFormat formatter;
 
 
+    /**
+     * Handles HTTP requests for document management uploads.
+     * Processes multipart form data and stores uploaded documents with timestamps.
+     * 
+     * @param request the HTTP servlet request containing the uploaded file
+     * @param response the HTTP servlet response
+     * @throws IOException if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     */
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
 

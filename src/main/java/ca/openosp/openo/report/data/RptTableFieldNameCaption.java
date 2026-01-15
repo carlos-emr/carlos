@@ -29,6 +29,8 @@
  */
 package ca.openosp.openo.report.data;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -36,12 +38,12 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.EncounterFormDao;
 import ca.openosp.openo.commn.dao.ReportTableFieldCaptionDao;
 import ca.openosp.openo.commn.model.EncounterForm;
 import ca.openosp.openo.commn.model.ReportTableFieldCaption;
+import ca.openosp.openo.utility.DbConnectionFilter;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
@@ -61,21 +63,33 @@ public class RptTableFieldNameCaption {
     DBHelp dbObj = new DBHelp();
 
     public boolean insertOrUpdateRecord() {
-        boolean ret;
-        String sql = "select id from reportTableFieldCaption where table_name = '"
-                + StringEscapeUtils.escapeSql(table_name) + "' and name='" + StringEscapeUtils.escapeSql(name) + "'";
+        boolean ret = false;
+        String sql = "select id from reportTableFieldCaption where table_name = ? and name = ?";
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
         try {
-            ResultSet rs = DBHelp.searchDBRecord(sql);
+            conn = DbConnectionFilter.getThreadLocalDbConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, table_name);
+            ps.setString(2, name);
+            rs = ps.executeQuery();
             if (rs.next()) {
                 ret = insertRecord();
             } else {
                 ret = updateRecord();
             }
-            rs.close();
         } catch (SQLException e) {
-            logger.error("insertOrUpdateRecord() : sql = " + sql);
+            logger.error("insertOrUpdateRecord() error", e);
+        } finally {
+            if (rs != null) {
+                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
+            }
+            if (ps != null) {
+                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
+            }
         }
-        return false;
+        return ret;
     }
 
 
@@ -118,32 +132,77 @@ public class RptTableFieldNameCaption {
 
     public Properties getNameCaptionProp(String tableName) {
         Properties ret = new Properties();
-        String sql = "select name, caption from reportTableFieldCaption where table_name = '"
-                + StringEscapeUtils.escapeSql(tableName) + "'";
+        String sql = "select name, caption from reportTableFieldCaption where table_name = ?";
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
         try {
-            ResultSet rs = DBHelp.searchDBRecord(sql);
+            conn = DbConnectionFilter.getThreadLocalDbConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, tableName);
+            rs = ps.executeQuery();
             while (rs.next()) {
                 ret.setProperty(DBHelp.getString(rs, "name"), DBHelp.getString(rs, "caption"));
             }
-            rs.close();
         } catch (SQLException e) {
-            logger.error("getNameCaptionProp() : sql = " + sql);
+            logger.error("getNameCaptionProp() error", e);
+        } finally {
+            if (rs != null) {
+                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
+            }
+            if (ps != null) {
+                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
+            }
         }
         return ret;
     }
 
     public Vector getMetaNameList(String tableName) {
         Vector ret = new Vector();
+
+        // Validate table name to prevent SQL injection
+        // Table names should only contain alphanumeric characters, underscores, and hyphens
+        if (tableName == null || !tableName.matches("^[a-zA-Z0-9_-]+$")) {
+            logger.error("Invalid table name: " + tableName);
+            return ret;
+        }
+
+        // Additional validation: check against known form tables
+        List<EncounterForm> forms = encounterFormDao.findAll();
+        boolean isValidTable = false;
+        for (EncounterForm form : forms) {
+            if (tableName.equals(form.getFormTable())) {
+                isValidTable = true;
+                break;
+            }
+        }
+
+        if (!isValidTable) {
+            logger.error("Table name not found in encounterForm list: " + tableName);
+            return ret;
+        }
+
         String sql = "select * from " + tableName + " limit 1";
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
         try {
-            ResultSet rs = DBHelp.searchDBRecord(sql);
+            conn = DbConnectionFilter.getThreadLocalDbConnection();
+            ps = conn.prepareStatement(sql);
+            rs = ps.executeQuery();
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 ret.add(md.getColumnName(i));
             }
-            rs.close();
         } catch (SQLException e) {
-            logger.error("getMetaNameList() : sql = " + sql);
+            logger.error("getMetaNameList() error for table: " + tableName, e);
+        } finally {
+            if (rs != null) {
+                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
+            }
+            if (ps != null) {
+                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
+            }
         }
         return ret;
     }

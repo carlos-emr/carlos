@@ -28,7 +28,7 @@
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.Facility" %>
 <%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.util.LabelValueBean" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -60,7 +60,7 @@
                         for (LabelValueBean program : programs) {
                             String selected = (Integer.parseInt(program.getValue()) == defaultprogramId) ? " selected=\"selected\" " : "";
                 %>
-                <option value="<%=program.getValue()%>" <%=selected%>><%=StringEscapeUtils.escapeHtml(program.getLabel())%>
+                <option value="<%=program.getValue()%>" <%=selected%>><%=StringEscapeUtils.escapeHtml4(program.getLabel())%>
                 </option>
                 <% }
                 }
@@ -74,7 +74,7 @@
 <script type="text/javascript">
     function setLocation() {
         var programIdForLocation = jQuery("#programIdForLocation").val();
-        window.location.href = "providers/providercontrol.jsp?<%=ca.openosp.openo.utility.SessionConstants.CURRENT_PROGRAM_ID%>=" + programIdForLocation;
+        window.location.href = "provider/providercontrol.jsp?<%=ca.openosp.openo.utility.SessionConstants.CURRENT_PROGRAM_ID%>=" + encodeURIComponent(programIdForLocation);
     }
 </script>
 </html>

@@ -30,7 +30,7 @@ package ca.openosp.openo.casemgmt.dao;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.casemgmt.model.ClientImage;
 import ca.openosp.openo.utility.MiscUtils;

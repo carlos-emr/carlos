@@ -30,7 +30,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.ClinicLocation" %>
@@ -72,7 +72,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "dbManageBillingform_add.jsp"
+                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/dbManageBillingform_add.jsp"
                     form.submit()
                 } else {
                 }

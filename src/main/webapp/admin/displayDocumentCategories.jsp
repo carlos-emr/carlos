@@ -11,7 +11,7 @@
 <!DOCTYPE html>
 <%@ page
         import="java.util.*, ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -33,7 +33,7 @@
 
 <%
     ArrayList<String> doctypesD = EDocUtil.getDoctypes("demographic");
-    ArrayList<String> doctypesP = EDocUtil.getDoctypes("providers");
+    ArrayList<String> doctypesP = EDocUtil.getDoctypes("provider");
 %>
 
 <html>
@@ -132,7 +132,7 @@
                     <tr>
                         <td><%=doctypeP%>
                         </td>
-                        <td><%=EDocUtil.getDocStatus("providers", doctypeP)%>
+                        <td><%=EDocUtil.getDocStatus("provider", doctypeP)%>
                         </td>
                     </tr>
                     <% }%>

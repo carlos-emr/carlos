@@ -18,7 +18,7 @@
 
 --%>
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -70,7 +70,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/oscarEncounter/oscarMeasurements/DeleteData.do" method="post">
+    <form action="${pageContext.request.contextPath}/oscarEncounter/oscarMeasurements/DeleteData2.do" method="post">
         <table>
             <tr>
                 <td>

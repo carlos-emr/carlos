@@ -46,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {

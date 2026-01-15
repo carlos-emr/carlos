@@ -28,7 +28,7 @@ package ca.openosp.openo.managers;
 
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import ca.openosp.openo.commn.dao.RBTGroupDao;
 import ca.openosp.openo.commn.model.RBTGroup;
 import ca.openosp.openo.utility.LoggedInInfo;

@@ -32,7 +32,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -81,7 +81,7 @@
 
         <script>
             function cancelJob(jobId) {
-                jQuery.getJSON("../ws/rs/jobs/cancelJob?jobId=" + jobId, {async: true},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/cancelJob?jobId=" + jobId, {async: true},
                     function (xml) {
                         listJobs();
                     });
@@ -89,12 +89,12 @@
 
             function updateJobStatus(jobId, status) {
                 if (status) {
-                    jQuery.getJSON("../ws/rs/jobs/enableJob?jobId=" + jobId, {async: true},
+                    jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/enableJob?jobId=" + jobId, {async: true},
                         function (xml) {
                             listJobs();
                         });
                 } else {
-                    jQuery.getJSON("../ws/rs/jobs/disableJob?jobId=" + jobId, {async: true},
+                    jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/disableJob?jobId=" + jobId, {async: true},
                         function (xml) {
                             listJobs();
                         });
@@ -123,7 +123,7 @@
                 $("#weekday").attr('disabled', 'disabled');
 
                 //do we already have an existing cronExpression
-                jQuery.getJSON("../ws/rs/jobs/job/" + jobId, {async: false},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {async: false},
                     function (xml) {
                         var existingCron = xml.jobs.cronExpression;
                         if (existingCron != undefined && existingCron.length > 0) {
@@ -155,7 +155,7 @@
             }
 
             function editJob(jobId) {
-                jQuery.getJSON("../ws/rs/jobs/job/" + jobId, {},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {},
                     function (xml) {
                         if (xml.jobs) {
                             var job;
@@ -191,7 +191,7 @@
             }
 
             function listJobs() {
-                jQuery.getJSON("../ws/rs/jobs/all", {},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/all", {},
                     function (xml) {
                         clearJobs();
 
@@ -224,7 +224,7 @@
             }
 
             function getJobTypes() {
-                jQuery.getJSON("../ws/rs/jobs/types/all", {async: false},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/types/all", {async: false},
                     function (xml) {
                         if (xml.types) {
                             var arr = new Array();
@@ -247,7 +247,7 @@
             }
 
             function getProviders() {
-                jQuery.getJSON("../ws/rs/providerService/providers_json", {async: false},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/providerService/providers_json", {async: false},
                     function (xml) {
                         if (xml.content instanceof Array) {
                             for (var i = 0; i < xml.content.length; i++) {
@@ -274,7 +274,7 @@
                         "Save Job": {
                             class: "btn btn-primary", text: "Save Job", click: function () {
                                 if (validateSaveJob()) {
-                                    $.post('../ws/rs/jobs/saveJob', $('#jobForm').serialize(), function (data) {
+                                    $.post('<%= request.getContextPath() %>/ws/rs/jobs/saveJob', $('#jobForm').serialize(), function (data) {
                                         listJobs();
                                     });
                                     $(this).dialog("close");
@@ -303,7 +303,7 @@
                             class: "btn btn-primary", text: "Save", click: function () {
                                 //TODO: validate the fields.
                                 //submit the crontab-form , close the dialog.
-                                $.post('../ws/rs/jobs/saveCrontabExpression', $('#crontab-form').serialize(), function (data) {
+                                $.post('<%= request.getContextPath() %>/ws/rs/jobs/saveCrontabExpression', $('#crontab-form').serialize(), function (data) {
                                     listJobs();
                                 });
                                 $(this).dialog("close");

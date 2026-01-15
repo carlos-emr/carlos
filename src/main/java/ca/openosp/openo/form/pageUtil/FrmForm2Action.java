@@ -180,15 +180,12 @@ public class FrmForm2Action extends ActionSupport {
             props.setProperty("surname", demo.getLastName());
             props.setProperty("givenName", demo.getFirstName());
 
-            String diagnosisVT = org.apache.commons.lang.StringEscapeUtils
-                    .escapeSql((String) this.getValue("diagnosisVT"));
+            String diagnosisVT = (String) this.getValue("diagnosisVT");
 
-            String subjective = org.apache.commons.lang.StringEscapeUtils
-                    .escapeSql((String) this.getValue("subjective"));
-            String objective = org.apache.commons.lang.StringEscapeUtils.escapeSql((String) this.getValue("objective"));
-            String assessment = org.apache.commons.lang.StringEscapeUtils
-                    .escapeSql((String) this.getValue("assessment"));
-            String plan = org.apache.commons.lang.StringEscapeUtils.escapeSql((String) this.getValue("plan"));
+            String subjective = (String) this.getValue("subjective");
+            String objective = (String) this.getValue("objective");
+            String assessment = (String) this.getValue("assessment");
+            String plan = (String) this.getValue("plan");
 
             // for VTForm
             props.setProperty("Diagnosis", diagnosisVT);
@@ -215,7 +212,6 @@ public class FrmForm2Action extends ActionSupport {
                 }
 
                 String comments = (String) this.getValue(type + "Comments");
-                comments = org.apache.commons.lang.StringEscapeUtils.escapeSql(comments);
 
                 logger.debug("type: " + type + " inputValue: " + inputValue);
                 // parse the checkbox value

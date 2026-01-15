@@ -4,7 +4,7 @@ FROM tomcat:9.0.97-jdk21-temurin
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
-ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED"
+ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true"
 ENV JPDA_OPTS="-agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
@@ -17,7 +17,6 @@ LABEL author="OpenOSP" \
       version="0.0.2" \
       description="OpenOSP Docker Image for Development Environment"
 
-ARG DRUGREF_DOWNLOAD_URL=https://bitbucket.org/openoscar/drugref/downloads/drugref2.war
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
@@ -29,17 +28,19 @@ WORKDIR /workspace
 # Install required packages and clean up apt lists
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dos2unix curl git wget apt-transport-https ca-certificates gnupg lsb-release \
-    wkhtmltopdf \
+    libjpeg-turbo8 \
     locales iputils-ping gettext fontconfig libc6 libfreetype6 \
-    libpng16-16 libssl-dev libstdc++6 libx11-6 libxcb1 libxext6 libxtst6 libjpeg62 \
+    libpng16-16 libssl-dev libstdc++6 libx11-6 libxcb1 libxext6 libxtst6 \
     libxrender1 libfontconfig1 libxi6 xfonts-75dpi xfonts-base zlib1g maven mariadb-client \
     nano openssh-client vim-tiny \
     python3 python3-pip \
+    inotify-tools \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js (latest LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs
+    && apt-get install -y nodejs \
+    && node --version && npm --version
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -55,15 +56,35 @@ RUN apt-get update && apt-get install -y golang-go
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
 
 # Install Claude Code CLI and Docusaurus
-RUN npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset-classic
+RUN which npm && npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset-classic
 
 # Install Gemini CLI.
 RUN npm install -g @google/gemini-cli
+
+# Install Playwright and Playwright MCP server
+RUN npm install -g @executeautomation/playwright-mcp-server playwright && \
+    npx playwright install chromium firefox --with-deps
 
 # Install pipx and Aider AI coding assistant
 RUN apt-get update && apt-get install -y pipx && \
     pipx install aider-chat && \
     pipx ensurepath
+
+# Install Postfix for mail testing with default values
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y postfix
+
+# Configure Postfix for simple localhost operation
+RUN postconf -e 'myhostname=openo-dev.local' && \
+    postconf -e 'mydestination=openo-dev.local, localhost' && \
+    postconf -e 'mynetworks=127.0.0.0/8' && \
+    postconf -e 'inet_interfaces=loopback-only' && \
+    postconf -e 'maillog_file=/var/log/mail.log' && \
+    # Disable all authentication and encryption
+    postconf -e 'smtpd_sasl_auth_enable=no' && \
+    postconf -e 'smtpd_use_tls=no' && \
+    postconf -e 'smtpd_tls_security_level=none' && \
+    # Allow local connections without auth
+    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject'
 
 # Create custom bashrc with tool reminders
 COPY ./config/bashrc /root/.bashrc
@@ -78,12 +99,13 @@ RUN rm -rf $TOMCAT_PATH/webapps/ROOT/* \
 # Create ROOT folder
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 
-# Download Dependency DrugRef2.war
-RUN curl -sSL -o $TOMCAT_PATH/webapps/drugref2.war $DRUGREF_DOWNLOAD_URL
+# NOTE: DrugRef2 runs in a separate Java 11 container (see .devcontainer/drugref/)
+# Open-Drugref requires Java 11 while Open-O uses Java 21
 
 # Copy scripts and config files
 COPY ./scripts /scripts
 COPY ./setup/setup.sh /setup-dir/setup.sh
+COPY ./setup/setup-hot-reload.sh /setup-dir/setup-hot-reload.sh
 COPY ./config/tomcat/conf/server.xml $TOMCAT_PATH/conf/server.xml
 COPY ./config/shared/volumes/*.properties /root/
 
@@ -107,15 +129,30 @@ RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/archive \
     $OSCAR_DOCUMENT/oscar/oscarEncounter/oscarMeasurements/styles \
     $OSCAR_DOCUMENT/oscar/incomingdocs \
+    $OSCAR_DOCUMENT/oscar/export \
     $DB_DOCS \
-    $DOCS_DEST 
+    $DOCS_DEST
+
+# Set up GPG for PGP encryption (used by demographic export)
+# Create the GNUPGHOME directory and generate a test key for development
+RUN mkdir -p /usr/local/gnupg && chmod 700 /usr/local/gnupg \
+    && gpg --homedir /usr/local/gnupg --batch --passphrase '' --quick-gen-key "OpenO Dev (Development) <dev@openosp.ca>" default default never \
+    && chmod -R 700 /usr/local/gnupg
+
+# Create GPG wrapper script to handle modern GPG argument requirements
+# PGPEncrypt.java expects: bin cmd file recipient -> gpg -e file recipient
+# Modern GPG needs: gpg -e -r recipient file
+# Output file must use .pgp extension (not .gpg) to match Java code expectations
+RUN echo '#!/bin/bash' > /usr/local/bin/gpg-encrypt-wrapper \
+    && echo 'exec /usr/bin/gpg "$1" -r "$3" --batch --yes --trust-model always -o "$2.pgp" "$2"' >> /usr/local/bin/gpg-encrypt-wrapper \
+    && chmod +x /usr/local/bin/gpg-encrypt-wrapper 
 
 # Convert script files from DOS to Unix format (if necessary)
 RUN dos2unix /scripts/* \
     && dos2unix /setup-dir/setup.sh
 
 # Make scripts executable and add to PATH
-RUN chmod +x /scripts/* /setup-dir/setup.sh && /setup-dir/setup.sh
+RUN chmod +x /scripts/* /setup-dir/*.sh && /setup-dir/setup.sh
 ENV PATH="/scripts:${PATH}"
 
 # Expose Tomcat port

@@ -147,8 +147,10 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * can represent both local providers and remote contacts. The member ID is expected
      * to be in a composite format that includes the contact type and identifier.</p>
      * 
-     * @param member The composite member ID to add (format: type:id)
-     * @param group The target group ID, defaults to "0" (root) if not specified
+     * Request parameter "member": The composite member ID to add (format: type:id).
+     * Request parameter "group": The target group ID, defaults to "0" (root) if not specified.
+     *
+     * @return NONE as response is set via request attribute
      */
     @SuppressWarnings("unused")
     public String add() {
@@ -179,8 +181,10 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * </ul>
      * </p>
      * 
-     * @param member The composite member ID to remove (optional)
-     * @param group The group ID to remove from or to delete entirely
+     * Request parameter "member": The composite member ID to remove (optional).
+     * Request parameter "group": The group ID to remove from or to delete entirely.
+     *
+     * @return NONE as response is set via request attribute
      */
     @SuppressWarnings("unused")
     public String remove() {
@@ -218,8 +222,10 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * If no parent is specified, the group is created at the root level (parent ID 0).
      * After creation, the method refreshes the group list by calling fetch().</p>
      * 
-     * @param groupName The name/description for the new group
-     * @param parentId The parent group ID, defaults to "0" (root) if not specified
+     * Request parameter "groupName": The name/description for the new group.
+     * Request parameter "parentId": The parent group ID, defaults to "0" (root) if not specified.
+     *
+     * @return the result of the fetch operation
      */
     public String create() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

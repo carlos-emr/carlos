@@ -30,12 +30,14 @@ import ca.openosp.openo.casemgmt.web.CheckIssueBoxBean;
 
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class CaseManagementEntryFormBean {
     private CaseManagementNote caseNote;
     private CaseManagementCPP cpp;
     private String demoNo;
     private String noteId;
-    private CheckBoxBean[] issueCheckList;
+    private List<CheckBoxBean> issueCheckList;
     private CheckIssueBoxBean[] newIssueCheckList;
     private List newIssueList;
     private String sign;
@@ -109,11 +111,11 @@ public class CaseManagementEntryFormBean {
         this.includeIssue = includeIssue;
     }
 
-    public CheckBoxBean[] getIssueCheckList() {
+    public List<CheckBoxBean> getIssueCheckList() {
         return issueCheckList;
     }
 
-    public void setIssueCheckList(CheckBoxBean[] issueCheckList) {
+    public void setIssueCheckList(List<CheckBoxBean> issueCheckList) {
         this.issueCheckList = issueCheckList;
     }
 
@@ -338,7 +340,7 @@ public class CaseManagementEntryFormBean {
     }
 
     public String getTrimmedNoteText() {
-        return org.apache.commons.lang.StringUtils.trimToNull(this.getCaseNote_note());
+        return StringUtils.trimToNull(this.getCaseNote_note());
     }
 
     public Integer getHourOfEncounterTime() {

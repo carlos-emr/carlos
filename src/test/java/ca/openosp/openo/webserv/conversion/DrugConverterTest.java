@@ -191,7 +191,7 @@ public class DrugConverterTest extends DrugConverterImpl {
         t.setArchived(false);
         t.setArchivedReason("reason");
         t.setArchivedDate((Date) archivedDate.clone());
-        t.setStrength(new Float(10.0));
+        t.setStrength(Float.valueOf(10.0f));
         t.setStrengthUnit("MG");
         t.setExternalProvider("foo");
         t.setLongTerm(false);

@@ -27,7 +27,7 @@
 <%@page import="ca.openosp.openo.commn.model.BillingONPremium, ca.openosp.openo.commn.dao.BillingONPremiumDao" %>
 
 <%@ page import="java.io.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
 <%@page import="ca.openosp.openo.commn.model.RaHeader" %>
 <%@page import="ca.openosp.openo.commn.dao.RaHeaderDao" %>

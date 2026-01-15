@@ -32,7 +32,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.dao.ReportByExamplesFavoriteDao;
 import ca.openosp.openo.commn.model.ReportByExamplesFavorite;
@@ -73,7 +72,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
             // Add to favorite case
             String favoriteName = this.getFavoriteName();
             String query = this.getQuery();
-            String queryWithEscapeChar = StringEscapeUtils.escapeSql(StringUtils.defaultString(query));
+            String queryWithEscapeChar = StringUtils.defaultString(query);
             write2Database(providerNo, favoriteName, queryWithEscapeChar);
         }
 

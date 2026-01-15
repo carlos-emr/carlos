@@ -502,9 +502,11 @@ public class ScheduleService extends AbstractServiceImpl {
 
 
     /**
-     * @param sDate has format "yyyy-MM-dd"
-     * @param eDate has format "yyyy-MM-dd"
-     * @return ProviderApptsCountResponse
+     * Lists appointment counts for all providers within a date range.
+     *
+     * @param sDateStr start date in format "yyyy-MM-dd"
+     * @param eDateStr end date in format "yyyy-MM-dd"
+     * @return ProviderApptsCountResponse containing appointment counts
      */
     @GET
     @Path("/fetchProvidersApptsCount/{sDate}/{eDate}")

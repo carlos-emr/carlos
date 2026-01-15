@@ -47,7 +47,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 
 import ca.openosp.openo.utility.MiscUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.Hl7TextMessage;
 import ca.openosp.openo.managers.LabManager;

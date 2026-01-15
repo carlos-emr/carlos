@@ -110,6 +110,8 @@ public interface DrugDao extends AbstractDao<Drug> {
 
     public List<String> findSpecialInstructions();
 
+    public List<String> findSpecialInstructionsMatching(String spInstructQuery);
+
     public List<Integer> findDemographicIdsUpdatedAfterDate(Date updatedAfterThisDate);
 
     public List<Integer> findNewDrugsSinceDemoKey(String keyName);

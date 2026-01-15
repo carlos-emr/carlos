@@ -49,6 +49,7 @@ public class ProviderInfo2Action extends ActionSupport {
     private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     public String execute() {
+        // Default action is to view
         return view();
     }
 

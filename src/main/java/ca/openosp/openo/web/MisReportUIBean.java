@@ -28,7 +28,7 @@ import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.ProgramDao;
 import ca.openosp.openo.PMmodule.model.Program;
@@ -64,7 +64,7 @@ public final class MisReportUIBean {
 
         private DataRow(int dataReportId, String dataReportDescription, int dataReportResult) {
             this.dataReportId = dataReportId;
-            this.dataReportDescription = StringEscapeUtils.escapeHtml(dataReportDescription);
+            this.dataReportDescription = StringEscapeUtils.escapeHtml4(dataReportDescription);
             this.dataReportResult.add(dataReportResult);
         }
     }
@@ -92,7 +92,7 @@ public final class MisReportUIBean {
         this.endDate = endDate;
 
         FunctionalCentre functionalCentre = functionalCentreDao.find(functionalCentreId);
-        reportByDescription = StringEscapeUtils.escapeHtml(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription());
+        reportByDescription = StringEscapeUtils.escapeHtml4(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription());
         selectedPrograms = programDao.getProgramsByFacilityIdAndFunctionalCentreId(loggedInInfo.getCurrentFacility().getId(), functionalCentreId);
 
         populateAdmissions();
@@ -117,7 +117,7 @@ public final class MisReportUIBean {
             if (programNameList.length() > 0) programNameList.append(", ");
             programNameList.append(program.getName());
         }
-        reportByDescription = StringEscapeUtils.escapeHtml(programNameList.toString());
+        reportByDescription = StringEscapeUtils.escapeHtml4(programNameList.toString());
 
         populateAdmissions();
         generateDataRows();
@@ -134,7 +134,7 @@ public final class MisReportUIBean {
 
     public static String getDateRangeForDisplay(GregorianCalendar startDate, GregorianCalendar endDate) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        return (StringEscapeUtils.escapeHtml(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(endDate.getTime()) + " (inclusive)"));
+        return (StringEscapeUtils.escapeHtml4(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(endDate.getTime()) + " (inclusive)"));
     }
 
     private void populateAdmissions() {

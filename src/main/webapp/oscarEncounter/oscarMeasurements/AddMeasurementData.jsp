@@ -47,7 +47,7 @@
 <%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String demographic_no = request.getParameter("demographic_no");
     String id = request.getParameter("id");
     String measurement = request.getParameter("measurement");
@@ -187,13 +187,13 @@
                 document.getElementById(id).style.display = 'none';
             }
 
-            function showHideNextDate(id, nextDate, nexerWarn) {
+            function showHideNextDate(id, nextDate, neverWarn) {
                 if (document.getElementById(id).style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
                     document.getElementById(nextDate).value = "";
-                    document.getElementById(nexerWarn).checked = false;
+                    document.getElementById(neverWarn).checked = false;
 
                 }
             }
@@ -322,7 +322,7 @@
         </script>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onload="Field.focus('value(inputValue-0)');">
+    <body class="BodyStyle" vlink="#0000FF" onload="Field.focus('inputValue-0');">
 
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
@@ -366,11 +366,11 @@
     </div>
 <% } %>
                 <% String val = "";
-                    String saveAction = "/oscarEncounter/Measurements2";
+                    String saveAction = "oscarEncounter/Measurements2.do";
                     String comment = "";
                     Hashtable h = null;
                     if (id != null) {
-                        saveAction = "/oscarEncounter/oscarMeasurements/DeleteData2";
+                        saveAction = "oscarEncounter/oscarMeasurements/DeleteData2.do";
                         h = EctMeasurementsDataBeanHandler.getMeasurementDataById(id);
                         prevDate = (String) h.get("dateObserved");
                         val = (String) h.get("value");
@@ -390,7 +390,7 @@
                     <div style="float:left;margin-left:30px;">
                         <label for="prevDate<%=iDate%>" class="fields">Obs Date/Time: </label>
 
-                        <input type="text" name="value(date-<%=iDate%>)" id="prevDate<%=iDate%>" value="<%=prevDate%>"
+                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<%=prevDate%>"
                                size="17" onchange="javascript:masterDateFill(this.value);">
                         <% if (id == null) { %>
                         <a id="date<%=iDate%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -409,13 +409,13 @@
                 %>
                 <!-- END of Master Calendar Input -->
 
-                <form action="${pageContext.request.contextPath}/<%=saveAction%>" styleId="measurementForm">
+                <form action="${pageContext.request.contextPath}/<%=saveAction%>" id="measurementForm">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
-                    <input type="hidden" name="value(numType)" value="<%=measurements.length%>"/>
-                    <input type="hidden" name="value(groupName)" value=""/>
-                    <input type="hidden" name="value(css)" value=""/>
-                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
+                    <input type="hidden" name="numType" value="<%=measurements.length%>"/>
+                    <input type="hidden" name="groupName" value=""/>
+                    <input type="hidden" name="css" value=""/>
+                    <input type="hidden" name="demographicNo" value="<%=demographic_no%>"/>
                     <input type="hidden" name="inputFrom" value="AddMeasurementData"/>
                     <input type="hidden" name="template" value="<%=temp%>"/>
 
@@ -448,10 +448,10 @@
 
                     <input type="hidden" name="measurement" value="<%=measurement%>"/>
 
-                    <input type="hidden" name="<%= "value(inputType-" + ctr + ")" %>" value="<%=mtypeBean.getType()%>"/>
-                    <input type="hidden" name="<%= "value(inputTypeDisplayName-" + ctr + ")" %>"
+                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=mtypeBean.getType()%>"/>
+                    <input type="hidden" name="<%= "inputTypeDisplayName-" + ctr %>"
                            value="<%=mtypeBean.getTypeDisplayName()%>"/>
-                    <input type="hidden" name="<%= "value(validation-" + ctr + ")" %>"
+                    <input type="hidden" name="<%= "validation-" + ctr %>"
                            value="<%=mtypeBean.getValidation()%>"/>
 
                     <% if (id != null) { %>
@@ -464,13 +464,13 @@
                             <legend>Measurement : <%=mtypeBean.getTypeDisplayName()%>
                             </legend>
                             <div style="float:left;display:none;">
-                                <input type="radio" name="<%= "value(inputMInstrc-" + ctr + ")" %>"
+                                <input type="radio" name="<%= "inputMInstrc-" + ctr %>"
                                        value="<%=mtypeBean.getMeasuringInstrc()%>" checked/>
                             </div>
                             <div style="float:left;margin-left:30px;">
                                 <label for="prevDate<%=ctr%>" class="fields">Obs Date/Time:</label>
 
-                                <input type="text" name="<%= "value(date-" + ctr + ")" %>" id="prevDate<%=ctr%>"
+                                <input type="text" name="<%= "date-" + ctr %>" id="prevDate<%=ctr%>"
                                        value="<%=prevDate%>" size="17">
 
                                 <% if (id == null) { %>
@@ -479,11 +479,11 @@
                                 <%}%>
                                 <br/>
 
-                                <label for="<%="value(inputValue-"+ctr+")"%>"
+                                <label for="<%="inputValue-"+ctr%>"
                                        class="fields"><%=Encode.forHtmlContent(h2.get("value_name"))%>:</label>
                                 <% if (validations != null && validations.getRegularExp() != null && (validations.getRegularExp().contains("|") || validations.getRegularExp().equals("Yes"))) { %>
-                                <select id="<%="value(inputValue-"+ctr+")"%>"
-                                        name="<%= "value(inputValue-" + ctr + ")" %>">
+                                <select id="<%="inputValue-"+ctr%>"
+                                        name="<%= "inputValue-" + ctr %>">
                                     <option value=""></option>
                                     <% String[] opts = validations.getName().contains("/") ? validations.getName().split("/") : validations.getRegularExp().split("\\|");
                                         for (String opt : opts) {%>
@@ -492,8 +492,8 @@
                                     <% }%>
                                 </select>
                                 <%} else if (validations != null && validations.getName().startsWith("Integer")) { %>
-                                <select id="<%= "value(inputValue-" + ctr + ")" %>"
-                                        name="<%= "value(inputValue-" + ctr + ")" %>">
+                                <select id="<%= "inputValue-" + ctr %>"
+                                        name="<%= "inputValue-" + ctr %>">
                                     <option value=""></option>
                                     <%for (int v = validations.getMinValue().intValue(); v <= validations.getMaxValue().intValue(); v++) { %>
                                     <option value="<%=v%>" <%=sel("" + v, val)%>><%=v%>
@@ -501,8 +501,8 @@
                                     <%} %>
                                 </select>
                                 <%} else {%>
-                                <input type="text" id="<%= "value(inputValue-" + ctr + ")" %>"
-                                       name="<%= "value(inputValue-" + ctr + ")" %>" size="5" value="<%=val%>"/> <br/>
+                                <input type="text" id="<%= "inputValue-" + ctr %>"
+                                       name="<%= "inputValue-" + ctr %>" size="5" value="<%=val%>"/> <br/>
                                 <%}%>
                             </div>
                             <br/>
@@ -514,7 +514,7 @@
                             </div>
                             <fieldset>
                                 <legend>Comments</legend>
-                                <textarea name="<%= "value(comments-" + ctr + ")" %>"><%=comment%></textarea>
+                                <textarea name="<%= "comments-" + ctr %>"><%=comment%></textarea>
                             </fieldset>
                         </fieldset>
 
@@ -578,13 +578,13 @@
         var is_units_metric = true;
 
         var form = document.forms[0];
-        var inputTypes = form.querySelectorAll('[name^="value(inputType-"]');
+        var inputTypes = form.querySelectorAll('[name^="inputType-"]');
 
         for (var i = 0; i < inputTypes.length; i++) {
 
             if (inputTypes[i].value == 'WT') {
-                wt_input = "input[name='value(inputValue-" + i + ")']";
-                wt_instrc = jQuery("input[name='value(inputMInstrc-" + i + ")']").val();
+                wt_input = "input[name='inputValue-" + i + "']";
+                wt_instrc = jQuery("input[name='inputMInstrc-" + i + "']").val();
 
                 if (wt_instrc.toLowerCase().indexOf("kg") == 0) {
                     is_units_metric = false;
@@ -592,8 +592,8 @@
             }
 
             if (inputTypes[i].value == 'HT') {
-                ht_input = "input[name='value(inputValue-" + i + ")']";
-                ht_instrc = jQuery("input[name='value(inputMInstrc-" + i + ")']").val();
+                ht_input = "input[name='inputValue-" + i + "']";
+                ht_instrc = jQuery("input[name='inputMInstrc-" + i + "']").val();
 
                 if (ht_instrc.toLowerCase().indexOf("cm") == 0) {
                     is_units_metric = false;
@@ -602,7 +602,7 @@
             }
 
             if (inputTypes[i].value == 'BMI') {
-                bmi_input = "input[name='value(inputValue-" + i + ")']";
+                bmi_input = "input[name='inputValue-" + i + "']";
             }
         }//end loop
 

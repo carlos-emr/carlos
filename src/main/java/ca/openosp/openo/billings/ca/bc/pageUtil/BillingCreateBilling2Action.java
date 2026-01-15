@@ -27,7 +27,7 @@
 package ca.openosp.openo.billings.ca.bc.pageUtil;
 
 import ca.openosp.openo.commn.model.Demographic;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
@@ -168,20 +168,20 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect("/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
                 return NONE;
             }
             validate00120(errors, demo, billItem, bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect("/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
                 return NONE;
             }
             this.validatePatientManagementCodes(errors, demo, billItem,
                     bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect("/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
                 return NONE;
             }
         }
@@ -204,7 +204,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     if (errs != null && errs.size() > 0) {
                         request.setAttribute("WCBcode", sc);
                         request.setAttribute("WCBFormNeeds", errs);
-                        response.sendRedirect("/billing/CA/BC/billingBC.jsp");
+                        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
                         return NONE;
                     }
                 } else {
@@ -214,7 +214,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             if (errs != null && errs.size() > 0) {
                 MiscUtils.getLogger().debug("Setting form needed 2");
                 request.setAttribute("WCBFormNeeds", errs);
-                response.sendRedirect("/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
                 return NONE;
             }
         }

@@ -34,7 +34,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.PropertyDao;
 import ca.openosp.openo.commn.model.Property;

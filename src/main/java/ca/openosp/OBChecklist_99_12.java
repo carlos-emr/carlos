@@ -39,8 +39,39 @@ import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 
+/**
+ * Obstetrics checklist processor for the 1999/2012 AR1 form.
+ * 
+ * <p>This class processes XML-based obstetrics checklist data using SAX parsing.
+ * It validates and transforms OB checklist information including:</p>
+ * <ul>
+ *   <li>Final Estimated Date of Birth (EDB) validation</li>
+ *   <li>Checklist item parsing and processing</li>
+ *   <li>AR1 form parameter integration</li>
+ * </ul>
+ * 
+ * <p>The class uses {@link OBChecklistHandler_99_12} as the SAX content handler
+ * to process the XML checklist data.</p>
+ * 
+ * @see OBChecklistHandler_99_12
+ * @see OBRisks_99_12
+ */
 public class OBChecklist_99_12 {
 
+    /**
+     * Processes an obstetrics checklist XML file and generates formatted results.
+     * 
+     * <p>This method:</p>
+     * <ol>
+     *   <li>Validates the final EDB date format (yyyy/MM/dd)</li>
+     *   <li>Parses the XML checklist using SAX</li>
+     *   <li>Returns formatted checklist results or error messages</li>
+     * </ol>
+     * 
+     * @param uri the URI or file path to the XML checklist file
+     * @param savedar1params properties containing AR1 form parameters including finalEDB
+     * @return formatted checklist results, or error message if processing fails
+     */
     public String doStuff(String uri, Properties savedar1params) {
         SimpleDateFormat df = new SimpleDateFormat("yyyy/MM/dd");
         try {

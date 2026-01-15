@@ -76,7 +76,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -147,7 +147,7 @@
 <table BORDER="0" CELLPADDING="0" CELLSPACING="2" WIDTH="100%"
        bgcolor="#CCCCFF">
     <form method="post" name="titlesearch"
-          action="../demographic/demographiccontrol.jsp"
+          action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"
           onsubmit="return checkTypeIn()">
         <tr>
             <td colspan="6" class="RowTop"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/></b></td>

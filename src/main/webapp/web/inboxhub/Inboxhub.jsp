@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils,org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="ca.openosp.openo.utility.MiscUtils,org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.apache.logging.log4j.Logger,ca.openosp.openo.commn.dao.OscarLogDao,ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.inboxhub.query.InboxhubQuery" %>
 <%@page import="ca.openosp.openo.mds.data.CategoryData" %>
@@ -52,7 +52,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <title>Inboxhub</title>
 </head>
 <body>
-<jsp:include page="../../images/spinner.jsp" flush="true"/>
+<jsp:include page="/images/spinner.jsp" flush="true"/>
 <script>
     const contextPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
 </script>

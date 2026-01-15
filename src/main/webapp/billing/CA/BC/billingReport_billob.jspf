@@ -112,7 +112,7 @@ int rCount = 0;
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
 		<TD align="left" width="5%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,720, "../../../billing/CA/BC/billingView.do?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
+			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView.do?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
 			title="<%=reason%>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>

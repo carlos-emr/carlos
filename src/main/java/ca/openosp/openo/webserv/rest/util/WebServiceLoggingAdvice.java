@@ -54,7 +54,7 @@ public class WebServiceLoggingAdvice {
 
     private static Logger logger = MiscUtils.getLogger();
 
-    @Pointcut("execution(public * org.oscarehr.webserv.rest.*.*(..))")
+    @Pointcut("execution(public * ca.openosp.openo.webserv.rest.*.*(..))")
     public void pointcut() {
         logger.info("called pointcut");
     }
@@ -66,7 +66,7 @@ public class WebServiceLoggingAdvice {
         return type + "." + methodName;
     }
 
-    @Around("execution(public * org.oscarehr.webserv.rest.*.*(..))")
+    @Around("execution(public * ca.openosp.openo.webserv.rest.*.*(..))")
     public Object logAccess(ProceedingJoinPoint joinpoint) throws Throwable {
         if (logger.isInfoEnabled()) {
             logger.info("Logging access for " + joinpoint);

@@ -578,10 +578,10 @@ public class RxUtil {
                 frequency = changeToStandardFrequencyCode(frequency);
                 String origFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
 
-                Pattern p2 = Pattern.compile("\\s*\\d*\\.*\\d+\\s+" + origFrequency); //allow to detect decimal number.
+                Pattern p2 = Pattern.compile("\\s*\\d*\\.*\\d+\\s+" + Pattern.quote(origFrequency)); //allow to detect decimal number.
                 Matcher m2 = p2.matcher(instructions);
 
-                Pattern p4 = Pattern.compile("\\s*\\d*\\.*\\d+-\\s*\\d*\\.*\\d+\\s+" + frequency); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
+                Pattern p4 = Pattern.compile("\\s*\\d*\\.*\\d+-\\s*\\d*\\.*\\d+\\s+" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
                 Matcher m4 = p4.matcher(instructions);
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
@@ -1342,7 +1342,6 @@ public class RxUtil {
             p("else2");
             if (rx.getBrandName() != null && rx.getBrandName().length() > 1) {
                 p("if2");
-                //String sql2 = "SELECT * FROM drugs WHERE BN='" + StringEscapeUtils.escapeSql(prescript.getBrandName()) + "' order by written_date desc"; //most recent is the first.
 
                 Drug drug = dao.findByBrandNameDemographicAndProvider(rx.getBrandName(), rx.getDemographicNo(), rx.getProviderNo());
 
@@ -1418,7 +1417,7 @@ public class RxUtil {
                 //get date discontinued
                 //get reason for discontinued
                 Date archivedDate = drug.getArchivedDate();
-                // String archDate = rs.getString("archived_date");
+                // String archDate = rs.getProperty("archived_date");
                 String archDate = RxUtil.DateToString(archivedDate);
                 String archReason = drug.getArchivedReason();
 

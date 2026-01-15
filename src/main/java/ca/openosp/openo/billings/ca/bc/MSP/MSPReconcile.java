@@ -1110,8 +1110,8 @@ public class MSPReconcile {
             orderByClause = "order by b.provider_no,bt.sortOrder,bm.service_date,b.demographic_name";
             c12 = currentC12Records();
         }
-        String p = "select providers.first_name,providers.last_name,b.billingtype, b.update_date, bm.billingmaster_no,b.billing_no, " + " b.demographic_name,b.demographic_no,bm.billing_unit,bm.billing_code,bm.bill_amount,bm.billingstatus,bm.mva_claim_code,bm.service_location," + " bm.phn,bm.service_end_time,service_start_time,bm.service_to_day,bm.service_date,bm.oin_sex_code,b.dob,dx_code1,b.provider_no,apptProvider_no,bt.sortOrder "
-                + " from demographic,providers,billing as b left join billingtypes bt on b.billingtype = bt.billingtype ,billingmaster as bm left join billingstatus_types bs on bm.billingstatus = bs.billingstatus" + " where bm.billing_no=b.billing_no " + " and b.provider_no = providers.provider_no " + " and demographic.demographic_no = b.demographic_no " + criteriaQry + " " + orderByClause;
+        String p = "select provider.first_name,provider.last_name,b.billingtype, b.update_date, bm.billingmaster_no,b.billing_no, " + " b.demographic_name,b.demographic_no,bm.billing_unit,bm.billing_code,bm.bill_amount,bm.billingstatus,bm.mva_claim_code,bm.service_location," + " bm.phn,bm.service_end_time,service_start_time,bm.service_to_day,bm.service_date,bm.oin_sex_code,b.dob,dx_code1,b.provider_no,apptProvider_no,bt.sortOrder "
+                + " from demographic,provider,billing as b left join billingtypes bt on b.billingtype = bt.billingtype ,billingmaster as bm left join billingstatus_types bs on bm.billingstatus = bs.billingstatus" + " where bm.billing_no=b.billing_no " + " and b.provider_no = provider.provider_no " + " and demographic.demographic_no = b.demographic_no " + criteriaQry + " " + orderByClause;
 
         if (type.equals(REP_REJ)) {
             rejDetails = this.getRejectionDetails();
@@ -1746,8 +1746,8 @@ public class MSPReconcile {
      */
     public ResultSet getMSPRemittanceQuery(String payeeNo, String s21Id) {
         MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.getMSPRemittanceQuery(payeeNo, s21Id)");
-        String qry = "SELECT billing_code,providers.first_name,providers.last_name,t_practitionerno,t_s00type,billingmaster.service_date as 't_servicedate',t_payment," + "t_datacenter,billing.demographic_name,billing.demographic_no,teleplanS00.t_paidamt,t_exp1,t_exp2,t_exp3,t_exp4,t_exp5,t_exp6,t_dataseq " + " from teleplanS00,billing,billingmaster,providers " + " where teleplanS00.t_officeno = billingmaster.billingmaster_no " + " and teleplanS00.s21_id = " + s21Id
-                + " and billingmaster.billing_no = billing.billing_no " + " and providers.ohip_no= teleplanS00.t_practitionerno " + " and teleplanS00.t_practitionerno NOT LIKE '' and teleplanS00.t_payeeno LIKE '" + payeeNo + "' order by providers.first_name,t_servicedate,billing.demographic_name";
+        String qry = "SELECT billing_code,provider.first_name,provider.last_name,t_practitionerno,t_s00type,billingmaster.service_date as 't_servicedate',t_payment," + "t_datacenter,billing.demographic_name,billing.demographic_no,teleplanS00.t_paidamt,t_exp1,t_exp2,t_exp3,t_exp4,t_exp5,t_exp6,t_dataseq " + " from teleplanS00,billing,billingmaster,provider " + " where teleplanS00.t_officeno = billingmaster.billingmaster_no " + " and teleplanS00.s21_id = " + s21Id
+                + " and billingmaster.billing_no = billing.billing_no " + " and provider.ohip_no= teleplanS00.t_practitionerno " + " and teleplanS00.t_practitionerno NOT LIKE '' and teleplanS00.t_payeeno LIKE '" + payeeNo + "' order by provider.first_name,t_servicedate,billing.demographic_name";
 
         ResultSet rs = null;
         try {
@@ -1926,7 +1926,7 @@ public class MSPReconcile {
      * @param value String
      * @return String
      * @todo complete documentation
-     * oscar.oscarBilling.ca.bc.MSP.MSPReconcile.convCurValue(
+     * ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile.convCurValue(
      */
     public static String convCurValue(String value) {
         BigDecimal curValue = new BigDecimal(0.0);

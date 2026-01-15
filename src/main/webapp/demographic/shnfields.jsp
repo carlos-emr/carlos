@@ -42,7 +42,7 @@
 <%@page import="java.util.*" %>
 <%@page import="ca.openosp.openo.commn.dao.DemographicExtDao" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 
 
 <%

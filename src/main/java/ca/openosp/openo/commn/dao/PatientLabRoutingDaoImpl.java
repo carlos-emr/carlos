@@ -33,7 +33,6 @@ import java.util.List;
 
 import javax.persistence.Query;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import ca.openosp.openo.commn.model.LabPatientPhysicianInfo;
 import ca.openosp.openo.commn.model.LabTestResults;
 import ca.openosp.openo.commn.model.MdsMSH;
@@ -345,7 +344,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
 
         StringBuilder sb = new StringBuilder();
         for (String t : labTypes) {
-            sb.append("'" + StringEscapeUtils.escapeSql(t) + "'");
+            sb.append("'" + t + "'");
         }
 
         String query = "select x from " + this.modelClass.getName() + " x where x.labNo=?1 and x.labType in (" + sb.toString()

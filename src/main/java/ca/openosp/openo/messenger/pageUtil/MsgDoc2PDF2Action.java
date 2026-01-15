@@ -122,7 +122,7 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
                 bean.setAppendPDFAttachment(Doc2PDF.parseString2Bin(request, response, "<HTML>" + srcText + "</HTML>"), pdfTitle);
                 this.setIsPreview(false);
             } else {
-                MiscUtils.getLogger().debug(" oscar.messenger.pageUtil.MsgSessionBean is null");
+                MiscUtils.getLogger().debug(" ca.openosp.openo.messenger.pageUtil.MsgSessionBean is null");
             }
         }
         return SUCCESS;

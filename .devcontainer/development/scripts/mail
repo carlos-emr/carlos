@@ -1,0 +1,28 @@
+#!/bin/bash
+
+command=$1
+
+case $command in
+    start)
+      echo "Starting Postfix..."
+      service postfix start
+    ;;
+    stop)
+      echo "Stopping Postfix..."
+      service postfix stop
+    ;;
+    status)
+      service postfix status
+    ;;
+    restart)
+      echo "Restarting Postfix..."
+      service postfix restart
+    ;;
+    log)
+      tail -f /var/log/mail.log
+    ;;
+    *)
+      echo "Usage: mail {start|stop|restart|status|log}"
+      exit 1
+    ;;
+esac

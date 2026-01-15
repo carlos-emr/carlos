@@ -25,7 +25,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect("../logout.htm");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
 %>
 <%@ page import="java.util.*,java.sql.*"
          errorPage="/errorpage.jsp" %>

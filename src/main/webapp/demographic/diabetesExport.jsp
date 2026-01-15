@@ -50,7 +50,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String demographic_no = request.getParameter("demographic_no");
 
     DemographicSets ds = new DemographicSets();

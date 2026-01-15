@@ -26,7 +26,7 @@
 
 package ca.openosp.openo.encounter.pageUtil;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.EFormData;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -83,7 +83,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + curform.get("fid") + "&demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "','" + curform.get("fid") + "_" + bean.demographicNo + "');";
                     logger.debug("SETTING EFORM URL " + url);
                     key = StringUtils.maxLenString((String) curform.get("formName"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
-                    key = StringEscapeUtils.escapeJavaScript(key);
+                    key = StringEscapeUtils.escapeEcmaScript(key);
                     js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
                     javascript.append(js);
                 }
@@ -119,7 +119,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     String formattedDate = DateUtils.formatDate(eFormData.getFormDate(), request.getLocale());
                     key = StringUtils.maxLenString(eFormData.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + formattedDate + ")";
                     item.setLinkTitle(eFormData.getSubject());
-                    key = StringEscapeUtils.escapeJavaScript(key);
+                    key = StringEscapeUtils.escapeEcmaScript(key);
                     js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
                     javascript.append(js);
                     url += "return false;";

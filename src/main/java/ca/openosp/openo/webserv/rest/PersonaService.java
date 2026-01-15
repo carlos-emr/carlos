@@ -36,8 +36,9 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.OscarProperties;
 
 import org.apache.logging.log4j.Logger;
@@ -131,17 +132,17 @@ public class PersonaService extends AbstractServiceImpl {
     @Path("/hasRights")
     @Consumes("application/json")
     @Produces("application/json")
-    public AbstractSearchResponse<Boolean> hasRights(JSONObject json) {
+    public AbstractSearchResponse<Boolean> hasRights(ObjectNode json) {
         AbstractSearchResponse<Boolean> response = new AbstractSearchResponse<Boolean>();
 
-        JSONArray ja = json.getJSONArray("items");
+        ArrayNode ja = (ArrayNode) json.get("items");
         for (int x = 0; x < ja.size(); x++) {
-            JSONObject o = (JSONObject) ja.get(x);
-            String objectName = o.getString("objectName");
-            String privilege = o.getString("privilege");
+            ObjectNode o = (ObjectNode) ja.get(x);
+            String objectName = o.get("objectName") != null ? o.get("objectName").asText() : null;
+            String privilege = o.get("privilege") != null ? o.get("privilege").asText() : null;
             Integer demographicNo = null;
             if (o.has("demographicNo")) {
-                demographicNo = o.getInt("demographicNo");
+                demographicNo = o.get("demographicNo") != null ? o.get("demographicNo").asInt() : null;
             }
             response.getContent().add(securityInfoManager.hasPrivilege(getLoggedInInfo(), objectName, privilege, (demographicNo != null) ? demographicNo.toString() : null));
         }
@@ -154,10 +155,10 @@ public class PersonaService extends AbstractServiceImpl {
     @Path("/isAllowedAccessToPatientRecord")
     @Consumes("application/json")
     @Produces("application/json")
-    public AbstractSearchResponse<Boolean> isAllowedAccessToPatientRecord(JSONObject json) {
+    public AbstractSearchResponse<Boolean> isAllowedAccessToPatientRecord(ObjectNode json) {
         AbstractSearchResponse<Boolean> response = new AbstractSearchResponse<Boolean>();
 
-        Integer demographicNo = json.getInt("demographicNo");
+        Integer demographicNo = json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null;
 
         response.getContent().add(securityInfoManager.isAllowedAccessToPatientRecord(getLoggedInInfo(), demographicNo));
         response.setTotal(response.getContent().size());
@@ -392,11 +393,11 @@ public class PersonaService extends AbstractServiceImpl {
     @Path("/preferences")
     @Produces("application/json")
     @Consumes("application/json")
-    public PersonaResponse getPreferences(JSONObject obj) {
+    public PersonaResponse getPreferences(ObjectNode obj) {
         Provider provider = getCurrentProvider();
 
         //not yet used..need a way to just load specific groups of properties.
-        String type = obj.getString("type");
+        String type = obj.get("type") != null ? obj.get("type").asText() : null;
 
         PersonaResponse response = new PersonaResponse();
         DashboardPreferences prefs = new DashboardPreferences();
@@ -419,7 +420,7 @@ public class PersonaService extends AbstractServiceImpl {
     @Path("/updatePreference")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updatePreference(JSONObject json) {
+    public GenericRESTResponse updatePreference(ObjectNode json) {
         Provider provider = getCurrentProvider();
         GenericRESTResponse response = new GenericRESTResponse();
 
@@ -428,9 +429,9 @@ public class PersonaService extends AbstractServiceImpl {
         }
 
         UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty up = userPropertyDao.getProp(provider.getProviderNo(), json.getString("key"));
+        UserProperty up = userPropertyDao.getProp(provider.getProviderNo(), json.get("key") != null ? json.get("key").asText() : null);
         if (up != null) {
-            up.setValue(json.getString("value"));
+            up.setValue(json.get("value") != null ? json.get("value").asText() : null);
             userPropertyDao.merge(up);
             response.setSuccess(true);
         }
@@ -442,7 +443,7 @@ public class PersonaService extends AbstractServiceImpl {
     @Path("/updatePreferences")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updatePreferences(JSONObject json) {
+    public GenericRESTResponse updatePreferences(ObjectNode json) {
         Provider provider = getCurrentProvider();
         GenericRESTResponse response = new GenericRESTResponse();
 
@@ -453,7 +454,7 @@ public class PersonaService extends AbstractServiceImpl {
         Boolean value = null;
 
         if (json.has("expiredTicklersOnly")) {
-            value = json.getBoolean("expiredTicklersOnly");
+            value = json.get("expiredTicklersOnly").asBoolean();
         }
 
         if (value != null) {

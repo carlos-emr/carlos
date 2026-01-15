@@ -22,6 +22,9 @@
     Toronto, Ontario, Canada
 
 --%>
+
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+
 <!-- isReadOnly ?? --->
 <script type="text/javascript">
     var hashVal0 = "";

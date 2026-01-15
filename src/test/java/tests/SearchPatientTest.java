@@ -41,7 +41,7 @@ public class SearchPatientTest {
         
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Search' tab on the menu bar
@@ -188,7 +188,7 @@ public class SearchPatientTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Search' tab on the menu bar
@@ -319,7 +319,7 @@ public class SearchPatientTest {
         
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Search' tab on the menu bar
@@ -399,7 +399,7 @@ public class SearchPatientTest {
         
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Search' tab on the menu bar

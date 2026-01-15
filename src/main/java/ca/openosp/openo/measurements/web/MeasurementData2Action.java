@@ -39,9 +39,10 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import ca.openosp.openo.commn.dao.MeasurementDao;
 import ca.openosp.openo.commn.dao.OscarAppointmentDao;
 import ca.openosp.openo.commn.model.Appointment;
@@ -102,6 +103,9 @@ public class MeasurementData2Action extends ActionSupport {
     
     /** Security manager for authorization and audit logging. */
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /** ObjectMapper for JSON operations. */
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Main action execution method that routes requests based on the 'action' parameter.
@@ -188,7 +192,7 @@ public class MeasurementData2Action extends ActionSupport {
             Measurement value = measurementMap.get(key);
             if ((freshMap.get(key) == null) || (freshMap.get(key) != null && value.getAppointmentNo() == Integer.parseInt(appointmentNo))) {
                 //script.append("jQuery(\"[measurement='"+key+"']\").val(\""+value.getDataField().replace("\n", "\\n")+"\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
-                script.append("jQuery(\"[measurement='" + key + "']\").val(\"" + StringEscapeUtils.escapeJavaScript(value.getDataField()) + "\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
+                script.append("jQuery(\"[measurement='" + key + "']\").val(\"" + StringEscapeUtils.escapeEcmaScript(value.getDataField()) + "\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
                 if (apptNo > 0 && apptNo == value.getAppointmentNo()) {
                     script.append("jQuery(\"[measurement='" + key + "']\").addClass('examfieldwhite');\n");
                 }
@@ -264,17 +268,16 @@ public class MeasurementData2Action extends ActionSupport {
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
 
         if (isJsonRequest) {
-            JSONObject json = JSONObject.fromObject(measurementsMap);
-            response.getOutputStream().write(json.toString().getBytes());
+            String json = objectMapper.writeValueAsString(measurementsMap);
+            response.getOutputStream().write(json.getBytes());
         }
         return null;
     }
 
     /**
-     * This function will be used to save a new measurement object to the database
+     * Saves a new measurement object to the database.
+     * Request object contains the demographic number, appointment number, measurement type, value and instruction.
      *
-     * @param request  Request object containing the demographic number, appointment number, measurement type, value & instruction.
-     * @param response Response object to return the JSON data
      * @return JSON object containing boolean to let the user know if the save was successful or not
      */
     public String saveMeasurement() throws NumberFormatException, IOException {
@@ -318,12 +321,12 @@ public class MeasurementData2Action extends ActionSupport {
             measurementDao.persist(measurement);
 
             hashMap.put("success", true);
-            JSONObject json = JSONObject.fromObject(hashMap);
-            response.getOutputStream().write(json.toString().getBytes());
+            String json = objectMapper.writeValueAsString(hashMap);
+            response.getOutputStream().write(json.getBytes());
         } else {
             hashMap.put("success", false);
-            JSONObject json = JSONObject.fromObject(hashMap);
-            response.getOutputStream().write(json.toString().getBytes());
+            String json = objectMapper.writeValueAsString(hashMap);
+            response.getOutputStream().write(json.getBytes());
         }
 
         return null;
@@ -373,16 +376,16 @@ public class MeasurementData2Action extends ActionSupport {
             if (isJsonRequest) {
                 HashMap<String, Object> hashMap = new HashMap<String, Object>();
                 hashMap.put("success", true);
-                JSONObject json = JSONObject.fromObject(hashMap);
-                response.getOutputStream().write(json.toString().getBytes());
+                String json = objectMapper.writeValueAsString(hashMap);
+                response.getOutputStream().write(json.getBytes());
             }
 
         } catch (Exception e) {
             HashMap<String, Object> hashMap = new HashMap<String, Object>();
             hashMap.put("success", false);
             MiscUtils.getLogger().error("Couldn't save measurements", e);
-            JSONObject json = JSONObject.fromObject(hashMap);
-            response.getOutputStream().write(json.toString().getBytes());
+            String json = objectMapper.writeValueAsString(hashMap);
+            response.getOutputStream().write(json.getBytes());
         }
 
         return null;
@@ -393,7 +396,7 @@ public class MeasurementData2Action extends ActionSupport {
         String typeList = request.getParameter("typeList");
         String searchDate = request.getParameter("searchDate");
         String[] type_list = typeList.split(",");
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat sdf2 = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
         Date start = null;
@@ -417,28 +420,30 @@ public class MeasurementData2Action extends ActionSupport {
             }
         }
 
-        response.getOutputStream().write(json.toString().getBytes());
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        objectMapper.writeValue(response.getWriter(), json);
         return null;
     }
 
     /**
-     * This function will be used to retrieve all measurement data of a specific type for a demographic
+     * Retrieves all measurement data of a specific type for a demographic.
+     * Request object contains the demographic number and measurement type to be searched.
      *
-     * @param request  Request object containing the demographic number and measurement type to be searched
-     * @param response Response object to return the JSON data containing measurement information
      * @return JSON object containing measurement data
      */
     public String getMeasurementsByType() throws NumberFormatException, IOException {
         String demographicNo = request.getParameter("demographicNo");
         String measurementType = request.getParameter("measurementType");
 
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         List<Measurement> measurements = measurementDao.findByType(Integer.parseInt(demographicNo), measurementType);
         if (measurements.isEmpty()) {
             json.put("-1", "No Results Found");
         } else {
             for (Measurement measurement : measurements) {
-                json.put(measurement.getId(), measurement);
+                json.set(String.valueOf(measurement.getId()), objectMapper.valueToTree(measurement));
             }
         }
 

@@ -22,7 +22,7 @@
  */
 package ca.openosp.openo.utility;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 public class HinValidator {
     /**

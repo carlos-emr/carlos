@@ -30,6 +30,19 @@ public class ERefer2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
 
+    public String execute() {
+        String method = request.getParameter("method");
+
+        if (method != null) {
+            if (method.equalsIgnoreCase("attachOceanEReferralConsult"))
+                attachOceanEReferralConsult();
+            else if (method.equalsIgnoreCase("editOceanEReferralConsult"))
+                editOceanEReferralConsult();
+        }
+
+        return SUCCESS;
+    }
+
     // Documents (attachments) originate from the consult request window.
     // Users can attach these documents using the attachment GUI on the consult request form.
     // All documents are internal to Oscar.

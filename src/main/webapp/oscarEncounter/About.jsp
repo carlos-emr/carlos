@@ -29,10 +29,14 @@
 
 <html>
     <head>
-        <title>About OSCAR | Open Source Clinical Application Resource</title>
+        <title>About OpenO</title>
 
         <style type="text/css">
             p.build_info {
+                padding-left: 36px;
+            }
+
+            h1 {
                 padding-left: 36px;
             }
 
@@ -72,14 +76,13 @@
 
     <table width="600" cellspacing="0" cellpadding="0" align="center">
 
-        <!--instead of using css for the border I am using an image so the look is seamless between the table and about_oscar.jpg image-->
-        <td background="../images/about_layout/table_body_bkg.jpg">
+        <!--instead of using css for the border I am using an image so the look is seamless between the table and openosp-logo.png image-->
+        <td background="<%= request.getContextPath() %>/images/about_layout/table_body_bkg.jpg">
 
-            <img src="<%= request.getContextPath() %>/images/about_layout/about_oscar.jpg" border="0">
-
-            <!--START about oscar body table-->
+            <!--START about OpenO body table-->
             <table width="560" align="center" cellspacing="0" cellpadding="0">
                 <td>
+                    <h1>About OpenO</h1>
 
                     <p class="build_info">build date: <%= OscarProperties.getBuildDate() %><br/>
                         build tag: <%=OscarProperties.getBuildTag()%>
@@ -89,11 +92,11 @@
                         <td>
                             <p><u>About Us</u></p>
 
-                            <p>OSCAR through its product suite and partnerships offers a unique model for connecting
-                                care and creating community. The OSCAR CMS has been collaboratively developed based on
+                            <p>OpenO through its product suite and partnerships offers a unique model for connecting
+                                care and creating community. The OpenO CMS has been collaboratively developed based on
                                 the collective work, ideas and support of numerous health care providers and developers
-                                across the nation. Together these individuals form the OSCAR community known as the
-                                OSCAR Canada Users Society (OCUS). The enthusiasm of the OSCAR Community to improve
+                                across the nation. Together these individuals form the OpenO community. 
+                                The enthusiasm of the OpenO Community to improve
                                 patient care has brought together dedicated individuals from across the country who work
                                 towards continuously developing the not only the software tools to enable this, but also
                                 a strong community to support it.</p>
@@ -134,7 +137,7 @@
 
                 </td>
             </table>
-            <!--END about oscar body table-->
+            <!--END about OpenO body table-->
 
         </td>
         </tr>

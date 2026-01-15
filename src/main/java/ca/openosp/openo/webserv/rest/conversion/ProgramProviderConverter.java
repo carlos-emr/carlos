@@ -40,8 +40,6 @@ import org.springframework.stereotype.Component;
  */
 public class ProgramProviderConverter extends AbstractConverter<ProgramProvider, ProgramProviderTo1> {
 
-//	private static Logger logger = org.oscarehr.util.MiscUtils.getLogger();
-
     //@Autowired
     private ProgramDao programDao;
 

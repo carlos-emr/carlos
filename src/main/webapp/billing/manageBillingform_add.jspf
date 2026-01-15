@@ -27,6 +27,7 @@
 <%@page import="java.util.List" %>
 <%@page import="ca.openosp.openo.commn.model.CtlBillingService" %>
 <%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <form name="servicetypeform" method="post">
 <table width="75%" border="0" height="285">

@@ -33,7 +33,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.PatientLabRoutingDao;
@@ -62,6 +65,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
     public ReportStatusUpdate2Action() {
     }
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
         if ("addComment".equals(request.getParameter("method"))) {
@@ -129,8 +135,8 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }
 
         String now = ConversionUtils.toDateString(Calendar.getInstance().getTime(), "dd-MMM-yy HH mm");
-        String jsonStr = "{date:" + now + "}";
-        JSONObject json = JSONObject.fromObject(jsonStr);
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("date", now);
         logger.info("JSON " + json.toString());
         response.setContentType("application/json");
         try {

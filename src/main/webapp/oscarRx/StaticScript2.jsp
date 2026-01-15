@@ -40,7 +40,8 @@
 <%@page import="ca.openosp.openo.utility.SessionConstants" %>
 <%@page import="ca.openosp.openo.rx.StaticScriptBean" %>
 <%@page import="ca.openosp.openo.prescript.util.RxUtil" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="java.util.ArrayList" %>
 <%@ page import="ca.openosp.openo.services.security.SecurityManager" %>
@@ -54,7 +55,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -114,7 +115,7 @@
 
         <%
             if (session.getAttribute("user") == null)
-                response.sendRedirect("../logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/logout.jsp");
             String curUser_no = (String) session.getAttribute("user");
             String regionalIdentifier = request.getParameter("regionalIdentifier");
             String cn = request.getParameter("cn");
@@ -314,14 +315,14 @@
                                 <%--  <form action="">
       <input type="hidden" name="drugList" value="<%=drug.localDrugId.toString()%>" />
       <input type="hidden" name="method" value="represcribe">
-                                                  <input type="submit" name="submit" style="width:100px" styleClass="ControlPushButton"  onclick="javascript:reRxDrugSearch3('<%=drug.localDrugId%>');" value="Re-prescribe" />
+                                                  <input type="submit" name="submit" style="width:100px" class="ControlPushButton"  onclick="javascript:reRxDrugSearch3('<%=drug.localDrugId%>');" value="Re-prescribe" />
   </form> --%>
                             <input type="button" align="top" value="Represcribe" style="width: 100px"
                                    class="ControlPushButton"
                                    onclick="javascript:reRxDrugSearch3('<%=drug.localDrugId%>');"/>
                             <input type="button" align="top" value="Add to Favorites" style="width: 100px"
                                    class="ControlPushButton"
-                                   onclick="javascript:addFavorite2(<%=drug.localDrugId%>, '<%=StringEscapeUtils.escapeJavaScript((drug.customName!=null&&(!drug.customName.equalsIgnoreCase("null")))?drug.customName:drug.brandName)%>');"/>
+                                   onclick="javascript:addFavorite2(<%=drug.localDrugId%>, '<%=Encode.forJavaScript((drug.customName!=null&&(!drug.customName.equalsIgnoreCase("null")))?drug.customName:drug.brandName)%>');"/>
 
 
                             <%

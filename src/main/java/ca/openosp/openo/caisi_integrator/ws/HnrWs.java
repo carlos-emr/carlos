@@ -19,25 +19,25 @@ import javax.jws.WebService;
 public interface HnrWs
 {
     @WebMethod
-    @RequestWrapper(localName = "getHnrClient", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.GetHnrClient")
-    @ResponseWrapper(localName = "getHnrClientResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.GetHnrClientResponse")
+    @RequestWrapper(localName = "getHnrClient", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.GetHnrClient")
+    @ResponseWrapper(localName = "getHnrClientResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.GetHnrClientResponse")
     @WebResult(name = "return", targetNamespace = "")
     Client getHnrClient(@WebParam(name = "linkingId", targetNamespace = "") final Integer p0) throws ConnectException_Exception;
     
     @WebMethod
-    @RequestWrapper(localName = "setHnrClientData", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.SetHnrClientData")
-    @ResponseWrapper(localName = "setHnrClientDataResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.SetHnrClientDataResponse")
+    @RequestWrapper(localName = "setHnrClientData", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.SetHnrClientData")
+    @ResponseWrapper(localName = "setHnrClientDataResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.SetHnrClientDataResponse")
     @WebResult(name = "return", targetNamespace = "")
     Integer setHnrClientData(@WebParam(name = "arg0", targetNamespace = "") final Client p0) throws DuplicateHinExceptionException, ConnectException_Exception, InvalidHinExceptionException;
     
     @WebMethod
-    @RequestWrapper(localName = "setHnrClientHidden", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.SetHnrClientHidden")
-    @ResponseWrapper(localName = "setHnrClientHiddenResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.SetHnrClientHiddenResponse")
+    @RequestWrapper(localName = "setHnrClientHidden", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.SetHnrClientHidden")
+    @ResponseWrapper(localName = "setHnrClientHiddenResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.SetHnrClientHiddenResponse")
     void setHnrClientHidden(@WebParam(name = "arg0", targetNamespace = "") final Integer p0, @WebParam(name = "arg1", targetNamespace = "") final boolean p1, @WebParam(name = "arg2", targetNamespace = "") final Calendar p2) throws ConnectException_Exception;
     
     @WebMethod
-    @RequestWrapper(localName = "getMatchingHnrClients", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.GetMatchingHnrClients")
-    @ResponseWrapper(localName = "getMatchingHnrClientsResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "org.oscarehr.caisi_integrator.webserv.GetMatchingHnrClientsResponse")
+    @RequestWrapper(localName = "getMatchingHnrClients", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.GetMatchingHnrClients")
+    @ResponseWrapper(localName = "getMatchingHnrClientsResponse", targetNamespace = "http://ws.caisi_integrator.oscarehr.org/", className = "ca.openosp.openo.caisi_integrator.webserv.GetMatchingHnrClientsResponse")
     @WebResult(name = "return", targetNamespace = "")
     List<MatchingClientScore> getMatchingHnrClients(@WebParam(name = "arg0", targetNamespace = "") final MatchingClientParameters p0) throws ConnectException_Exception;
 }

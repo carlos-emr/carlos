@@ -35,6 +35,7 @@ import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.report.data.ManageLetters;
 
@@ -84,30 +85,22 @@ public class ManagePatientLetters2Action extends ActionSupport {
                 log.error("No report file uploaded");
                 return SUCCESS;
             }
-            
-            // Get canonical path to resolve any relative path components and prevent path traversal
-            String canonicalPath = reportFile.getCanonicalPath();
-            
-            // Get the system temp directory where Struts2 stores uploaded files
-            String tempDir = System.getProperty("java.io.tmpdir");
-            if (tempDir != null) {
-                File tempDirFile = new File(tempDir);
-                String tempDirCanonical = tempDirFile.getCanonicalPath();
-                
-                // Verify the file is within the temp directory to prevent directory traversal
-                if (!canonicalPath.startsWith(tempDirCanonical + File.separator)) {
-                    log.error("Attempted path traversal attack detected for file: " + canonicalPath);
-                    throw new SecurityException("Invalid file upload - path traversal detected");
-                }
+
+            // Use PathValidationUtils to validate the uploaded file is in temp directory
+            if (!PathValidationUtils.isInAllowedTempDirectory(reportFile)) {
+                log.error("Attempted path traversal attack detected for file: " + reportFile.getPath());
+                throw new SecurityException("Invalid file upload - path traversal detected");
             }
-            
+
             // Additional validation: ensure the file exists and is a regular file
             if (!reportFile.exists() || !reportFile.isFile()) {
                 log.error("Invalid file upload: File does not exist or is not a regular file");
                 return SUCCESS;
             }
 
-            fileData = Files.readAllBytes(reportFile.toPath());
+            // Re-validate at point of use for static analysis visibility
+            File validatedReportFile = PathValidationUtils.validateUpload(reportFile);
+            fileData = Files.readAllBytes(validatedReportFile.toPath());
             String reportName = request.getParameter("reportName");
 
             //Getter Stream for letter

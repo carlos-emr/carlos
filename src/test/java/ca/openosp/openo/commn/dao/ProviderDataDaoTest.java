@@ -107,7 +107,7 @@ public class ProviderDataDaoTest extends DaoTestFixtures {
         dao.persist(pd);
 
         Integer id = dao.getLastId();
-        assertEquals(new Integer(-1001), id);
+        assertEquals(Integer.valueOf(-1001), id);
     }
 
     protected ProviderData newProvider(String id) {

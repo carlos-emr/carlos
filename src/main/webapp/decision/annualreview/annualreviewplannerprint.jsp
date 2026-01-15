@@ -39,7 +39,7 @@
              class="ca.openosp.openo.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
 <jsp:useBean id="checklist"
              class="ca.openosp.openo.decision.DesAnnualReviewPlannerChecklist" scope="page"/>
-<%@ include file="../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.DesAnnualReviewPlan" %>
 <%@page import="ca.openosp.openo.commn.dao.DesAnnualReviewPlanDao" %>
@@ -52,13 +52,53 @@
 <%@ page import="ca.openosp.SxmlMisc" %>
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    String folderPath = pageContext.getServletContext().getRealPath("/decision/annualreview/");
+    folderPath = folderPath.endsWith("/") ? folderPath : folderPath + "/";
+
+    if (folderPath == null) {
+        throw new NullPointerException("Cannot resolve real path for /decision/annualreview/ - check deployment configuration");
+    }
 %>
 
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.js"></script>
     <title>Planner</title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+    <style type="text/css">
+        @media print {
+            /* Force background colors and borders to print */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+
+            /* Hide print button when printing */
+            input[type="button"] {
+                display: none;
+            }
+
+            /* Ensure tables print correctly */
+            table {
+                page-break-inside: avoid;
+            }
+
+            /* Preserve all colors */
+            body, td, th {
+                color: black;
+            }
+        }
+
+        @media screen {
+            /* Ensure colors show on screen too */
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
     <script type="text/javascript" language="Javascript">
 
     </script>
@@ -72,14 +112,15 @@
         String risk_content = darp.getRiskContent();
         String checklist_content = darp.getChecklistContent();
 %>
-<xml id="xml_list">
+<script type="text/xml" id="xml_list">
     <planner>
         <%=checklist_content%>
     </planner>
-</xml>
+</script>
+
 <%
         //set the riskdata bean from xml file
-        Properties savedar1risk1 = risks.getRiskName(oscarVariables.getProperty("tomcat_path") + "webapps/" + oscarVariables.getProperty("project_home") + "/decision/annualreview/desannualreviewplannerrisk.xml");
+        Properties savedar1risk1 = risks.getRiskName(folderPath + "desannualreviewplannerrisk.xml");
         StringBuffer tt;
         for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {
             tt = new StringBuffer().append(e.nextElement());
@@ -121,7 +162,7 @@
 </table>
 
 <%
-    out.println(checklist.doStuff(new String(oscarVariables.getProperty("tomcat_path") + "webapps/" + oscarVariables.getProperty("project_home") + "/decision/annualreview/desannualreviewplannerriskchecklist.xml"), riskDataBean));
+    out.println(checklist.doStuff(folderPath + "desannualreviewplannerriskchecklist.xml", riskDataBean));
 %>
 
 </body>

@@ -178,27 +178,17 @@ public class UserPreference2Action extends ActionSupport {
         String currentPassword = getParameter(request, "current_password");
         String newPassword = getParameter(request, "new_password");
 
-        MessageDigest md = MessageDigest.getInstance("SHA");
+        //get password from db
+        Security secRecord = securityDao.getByProviderNo(providerNo);
 
-        //the current password
-        byte[] btOldPasswd = md.digest(currentPassword.getBytes());
-        StringBuilder sbTemp = new StringBuilder();
-        for (int i = 0; i < btOldPasswd.length; i++)
-            sbTemp = sbTemp.append(btOldPasswd[i]);
-        String stroldpasswd = sbTemp.toString();
+        if (Objects.nonNull(secRecord) && this.securityManager.matchesPassword(currentPassword, secRecord.getPassword())) {
+            secRecord.setPassword(this.securityManager.encodePassword(newPassword));
+            securityDao.merge(secRecord);
 
-	//get password from db
-	Security secRecord = securityDao.getByProviderNo(providerNo);
-
-	if (Objects.nonNull(secRecord) && this.securityManager.matchesPassword(currentPassword, secRecord.getPassword())) {
-
-		secRecord.setPassword(this.securityManager.encodePassword(newPassword));
-		securityDao.merge(secRecord);
-
-		logger.info("password changed for providers");
-	} else {					
-		throw new Exception("Current password did not match.");   
-	}
+            logger.info("password changed for providers");
+        } else {					
+            throw new Exception("Current password did not match.");   
+        }
     }
 
     public static String getTextData(Map<String, String> prefs, String key) {

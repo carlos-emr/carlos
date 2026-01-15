@@ -292,11 +292,11 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     /**
-     * Adds a new entry into the billing_history table
+     * Sets the log value for a billing entry.
      *
-     * @param newInvNo String
+     * @param x the entry ID
+     * @param logValue the log value to set
      */
-
     public void setLog(String x, String logValue) {
         if (eFlag.equals("1")) {
             LogTeleplanTx l = this.logTeleplanTxDao.find(Integer.parseInt(x));

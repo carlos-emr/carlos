@@ -32,7 +32,7 @@ import java.util.List;
 import ca.openosp.openo.commn.model.AbstractCodeSystemModel;
 import ca.openosp.openo.commn.model.DiagnosticCode;
 
-public interface DiagnosticCodeDao extends AbstractDao<DiagnosticCode> {
+public interface DiagnosticCodeDao extends AbstractCodeSystemDao<DiagnosticCode> {
     List<DiagnosticCode> findByDiagnosticCode(String diagnosticCode);
 
     List<DiagnosticCode> findByDiagnosticCodeAndRegion(String diagnosticCode, String region);

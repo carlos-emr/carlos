@@ -24,7 +24,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>

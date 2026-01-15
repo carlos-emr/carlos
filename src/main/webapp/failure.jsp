@@ -24,6 +24,7 @@
 
 --%>
 <%@ page session="true" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 
     <html>
@@ -37,7 +38,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>

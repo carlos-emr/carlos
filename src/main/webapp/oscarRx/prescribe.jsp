@@ -45,7 +45,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -233,7 +233,7 @@
                                                                                style="color:red;font-size:13pt;vertical-align:super;text-decoration:none"
                                                                                TITLE="Instruction Examples"><b>*</b></a>
     <a href="javascript:void(0);" tabindex="-1" onclick="displayInstructions('<%=Encode.forJavaScriptAttribute(rand)%>');"><img
-            src="<c:out value="${ctx}/images/icon_help_sml.gif"/>" border="0" TITLE="Instructions Field Reference"></a>
+            src="<%= request.getContextPath() %>/images/icon_help_sml.gif" border="0" TITLE="Instructions Field Reference" /></a>
     <span id="major_<%=Encode.forHtmlAttribute(rand)%>" style="display:none;background-color:red"></span>&nbsp;<span id="moderate_<%=Encode.forHtmlAttribute(rand)%>"
                                                                                             style="display:none;background-color:orange"></span>&nbsp;<span
         id='minor_<%=Encode.forHtmlAttribute(rand)%>' style="display:none;background-color:yellow;"></span>&nbsp;<span id='unknown_<%=Encode.forHtmlAttribute(rand)%>'
@@ -599,7 +599,7 @@
 
 
     .ui-autocomplete-loading {
-        background: white url('../images/ui-anim_basic_16x16.gif') right center no-repeat;
+        background: white url('<%= request.getContextPath() %>/images/ui-anim_basic_16x16.gif') right center no-repeat;
     }
 
     .ui-autocomplete {
@@ -681,7 +681,6 @@
             }
         })
 
-
         <%--   Removed during OMD Re-Evaluation.  This function auto set the LongTerm field
         if number of refills more than 0.  This is not a definitive Long Term drug.
             jQuery("input[id^='repeats_']").keyup(function(){
@@ -692,9 +691,7 @@
                     jQuery(".med-term").trigger('change');
                 }
             }); --%>
-
-
-    });
+       });
 </script>
 
 
@@ -721,21 +718,44 @@
         }
     }
 
-    var specArr = new Array();
-    var specStr = '<%=org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(specStr)%>';
+    YAHOO.example.FnMultipleFields = function () {
+        let url = "<%= request.getContextPath() %>/oscarRx/search.do?parameterValue=searchSpecialInstructions";
+        let oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponse'});
+        oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
+        // Define the schema of the delimited results
+        oDS.responseSchema = {
+            resultsList: "results"
+        };
 
-    specArr = specStr.split("*");// * is used as delimiter
-    //oscarLog("specArr="+specArr);
-    YAHOO.example.BasicLocal = function () {
-        // Use a LocalDataSource
-        var oDS = new YAHOO.util.LocalDataSource(specArr);
-        // Optional to define fields for single-dimensional array
-        oDS.responseSchema = {fields: ["state"]};
-
-        // Instantiate the AutoComplete
-        var oAC = new YAHOO.widget.AutoComplete("siInput_<%=rand%>", "siContainer_<%=rand%>", oDS);
-        oAC.prehighlightClassName = "yui-ac-prehighlight";
+        oDS.subscribe('dataErrorEvent', function(type, args) {
+            console.error('Special Instructions autocomplete failed:', args);
+        });
+        // Enable caching
+        oDS.maxCacheEntries = 0;
+        // oDS.connXhrMode = "cancelStaleRequests";
+        // Instantiate AutoComplete
+        let oAC = new YAHOO.widget.AutoComplete("siInput_<%=rand%>", "siContainer_<%=rand%>", oDS);
         oAC.useShadow = true;
+        oAC.resultTypeList = false;
+        oAC.queryMatchSubset = true;
+        oAC.minQueryLength = 1;
+        oAC.maxResultsDisplayed = 40;
+
+        oAC.doBeforeExpandContainer = function (sQuery, oResponse) {
+            if (oAC._nDisplayedItems < oAC.maxResultsDisplayed) {
+                oAC.setFooter("");
+            } else {
+                oAC.setFooter("<a href='javascript:void(0)' onClick='popupRxSearchWindow();oAC.collapseContainer();'>See more results...</a>");
+            }
+            return true;
+        }
+
+        oAC.containerCollapseEvent.subscribe(function () {
+            $('autocomplete_choices').hide();
+        });
+        oAC.dataRequestEvent.subscribe(function () {
+            $('autocomplete_choices').show();
+        });
 
         return {
             oDS: oDS,

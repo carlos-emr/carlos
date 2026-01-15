@@ -325,9 +325,6 @@ public class MsgMessageData {
             pdfAttach = str.q(pdfAttach);
         }
 
-        sentToWho = org.apache.commons.lang.StringEscapeUtils.escapeSql(sentToWho);
-        userName = org.apache.commons.lang.StringEscapeUtils.escapeSql(userName);
-
         MessageTbl mt = new MessageTbl();
         mt.setDate(new Date());
         mt.setTime(new Date());
@@ -376,9 +373,6 @@ public class MsgMessageData {
         if (pdfAttach != null) {
             pdfAttach = str.q(pdfAttach);
         }
-
-        sentToWho = org.apache.commons.lang.StringEscapeUtils.escapeSql(sentToWho);
-        userName = org.apache.commons.lang.StringEscapeUtils.escapeSql(userName);
 
         MessageTbl mt = new MessageTbl();
         mt.setDate(new Date());

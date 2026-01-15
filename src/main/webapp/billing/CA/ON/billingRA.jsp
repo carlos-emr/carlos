@@ -18,7 +18,7 @@
 
 --%>
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 
 <html>
@@ -52,7 +52,7 @@
 <p>
 <table width="400" border="0">
     <form name="form1" method="post"
-          action="../../../servlet/oscar.DocumentUploadServlet"
+          action="<%= request.getContextPath() %>/servlet/ca.openosp.DocumentUploadServlet"
           ENCTYPE="multipart/form-data" onsubmit="return onSubmit();">
         <tr>
             <td width="181"><b><font face="Arial, Helvetica, sans-serif"

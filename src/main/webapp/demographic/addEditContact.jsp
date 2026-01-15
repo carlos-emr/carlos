@@ -46,7 +46,7 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.Properties" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
 
     String msg = "Enter contact details.";

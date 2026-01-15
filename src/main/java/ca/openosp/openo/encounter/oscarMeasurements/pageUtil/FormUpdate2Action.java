@@ -324,7 +324,6 @@ public class FormUpdate2Action extends ActionSupport {
         }
 
         if (valid) {
-            comments = org.apache.commons.lang.StringEscapeUtils.escapeSql(comments);
             if (!GenericValidator.isBlankOrNull(inputValue)) {
 
                 Measurement measurement = new Measurement();

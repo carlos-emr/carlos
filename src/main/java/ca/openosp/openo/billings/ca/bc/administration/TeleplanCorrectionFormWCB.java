@@ -694,17 +694,17 @@ public class TeleplanCorrectionFormWCB {
         return new String[]{
                 Misc.mysqlEscape(this.w_reportype),
                 Misc.mysqlEscape(billamt),
-                demo.getFirstName(),//oscar.Misc.mysqlEscape(this.firstName),  //
-                demo.getLastName(),//oscar.Misc.mysqlEscape(this.lastName), //
-                "",//oscar.Misc.mysqlEscape(this.w_mname),//
-                demo.getSex(),//oscar.Misc.mysqlEscape(this.w_gender),//
-                DemographicData.getDob(demo, "-"),//oscar.Misc.mysqlEscape(this.DateOfBirth()),//
-                demo.getAddress(),//oscar.Misc.mysqlEscape(this.address),  //
-                demo.getCity(),//oscar.Misc.mysqlEscape(this.city),  //
-                demo.getPostal(),//oscar.Misc.mysqlEscape(this.postal), //
-                Misc.areaCode(demo.getPhone2()),//oscar.Misc.mysqlEscape(this.w_area),//
-                Misc.phoneNumber(demo.getPhone2()),//oscar.Misc.mysqlEscape(this.w_phone),//
-                demo.getHin() + demo.getVer(),//oscar.Misc.mysqlEscape(this.hin),  //
+                demo.getFirstName(),
+                demo.getLastName(),
+                "",
+                demo.getSex(),
+                DemographicData.getDob(demo, "-"),
+                demo.getAddress(),
+                demo.getCity(),
+                demo.getPostal(),
+                Misc.areaCode(demo.getPhone2()),
+                Misc.phoneNumber(demo.getPhone2()),
+                demo.getHin() + demo.getVer(),
                 Misc.mysqlEscape(this.w_empname),
                 Misc.mysqlEscape(this.w_emparea),
                 Misc.mysqlEscape(this.w_empphone),

@@ -36,14 +36,6 @@
 package ca.openosp.openo.lab.ca.all.parsers;
 
 
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-
-import org.apache.commons.lang.StringUtils;
-import org.apache.logging.log4j.Logger;
-
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.Type;
 import ca.uhn.hl7v2.model.Varies;
@@ -57,8 +49,15 @@ import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.parser.XMLParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.util.UtilDateUtilities;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 
 /**
@@ -763,7 +762,6 @@ public class PATHL7Handler implements MessageHandler {
         return (docName);
     }
 
-
     /**
      * Format HL7 datetime into ISO standard date.
      *
@@ -771,28 +769,137 @@ public class PATHL7Handler implements MessageHandler {
      * @return ISO standard
      */
     protected static String formatDateTime(String plain) {
-        if (plain == null || plain.isEmpty()) {
+        if (plain == null || plain.trim().isEmpty()) {
             return "";
         }
 
-        /* pad with "000000" for time if the time string
-         * does not contain the time.
-         */
-        if (plain.trim().length() == 8) {
-            plain += "000100";
-        }
-
-        SimpleDateFormat stringToDate = new SimpleDateFormat("yyyyMMddHHmmss");
-        SimpleDateFormat dateToString = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        plain = plain.trim();
 
         try {
-            Date date = stringToDate.parse(plain);
-            plain = dateToString.format(date);
+            SimpleDateFormat outputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date parsedDate = null;
+
+            if (plain.matches("\\d{4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{2}:\\d{2}")) {
+                // Format: yyyy-MM-dd HH:mm:ss or yyyy-M-d H:mm:ss
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-M-d H:mm:ss");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{2}")) {
+                // Format: yyyy-MM-dd HH:mm or yyyy-M-d H:mm
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-M-d H:mm");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{4}-\\d{1,2}-\\d{1,2}")) {
+                // Format: yyyy-MM-dd or yyyy-M-d
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-M-d");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{4}/\\d{1,2}/\\d{1,2} \\d{1,2}:\\d{2}:\\d{2}")) {
+                // Format: yyyy/MM/dd HH:mm:ss or yyyy/M/d H:mm:ss
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy/M/d H:mm:ss");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{4}/\\d{1,2}/\\d{1,2} \\d{1,2}:\\d{2}")) {
+                // Format: yyyy/MM/dd HH:mm or yyyy/M/d H:mm
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy/M/d H:mm");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{4}/\\d{1,2}/\\d{1,2} \\d{1,2}:")) {
+                // Format: yyyy/MM/dd HH: (incomplete time - missing minutes)
+                String fixedPlain = plain + "00:00"; // Add missing minutes and seconds
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy/M/d H:mm:ss");
+                parsedDate = inputFormat.parse(fixedPlain);
+
+            } else if (plain.matches("\\d{4}/\\d{1,2}/\\d{1,2}")) {
+                // Format: yyyy/MM/dd or yyyy/M/d
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy/M/d");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{1,2}/\\d{1,2}/\\d{4} \\d{1,2}:\\d{2}:\\d{2}")) {
+                // Format: MM/dd/yyyy HH:mm:ss or M/d/yyyy H:mm:ss
+                SimpleDateFormat inputFormat = new SimpleDateFormat("M/d/yyyy H:mm:ss");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{1,2}/\\d{1,2}/\\d{4} \\d{1,2}:\\d{2}")) {
+                // Format: MM/dd/yyyy HH:mm or M/d/yyyy H:mm
+                SimpleDateFormat inputFormat = new SimpleDateFormat("M/d/yyyy H:mm");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{1,2}/\\d{1,2}/\\d{4} \\d{1,2}:")) {
+                // Format: MM/dd/yyyy HH: (incomplete time - missing minutes)
+                String fixedPlain = plain + "00:00"; // Add missing minutes and seconds
+                SimpleDateFormat inputFormat = new SimpleDateFormat("M/d/yyyy H:mm:ss");
+                parsedDate = inputFormat.parse(fixedPlain);
+
+            } else if (plain.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+                // Format: MM/dd/yyyy or M/d/yyyy
+                SimpleDateFormat inputFormat = new SimpleDateFormat("M/d/yyyy");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{1,2}-\\d{1,2}-\\d{4} \\d{1,2}:\\d{2}:\\d{2}")) {
+                // Format: dd-MM-yyyy HH:mm:ss or d-M-yyyy H:mm:ss
+                SimpleDateFormat inputFormat = new SimpleDateFormat("d-M-yyyy H:mm:ss");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{1,2}-\\d{1,2}-\\d{4} \\d{1,2}:\\d{2}")) {
+                // Format: dd-MM-yyyy HH:mm or d-M-yyyy H:mm
+                SimpleDateFormat inputFormat = new SimpleDateFormat("d-M-yyyy H:mm");
+                parsedDate = inputFormat.parse(plain);
+
+            } else if (plain.matches("\\d{1,2}-\\d{1,2}-\\d{4} \\d{1,2}:")) {
+                // Format: dd-MM-yyyy HH: (incomplete time - missing minutes)
+                String fixedPlain = plain + "00:00"; // Add missing minutes and seconds
+                SimpleDateFormat inputFormat = new SimpleDateFormat("d-M-yyyy H:mm:ss");
+                parsedDate = inputFormat.parse(fixedPlain);
+
+            } else if (plain.matches("\\d{1,2}-\\d{1,2}-\\d{4}")) {
+                // Format: dd-MM-yyyy or d-M-yyyy
+                SimpleDateFormat inputFormat = new SimpleDateFormat("d-M-yyyy");
+                parsedDate = inputFormat.parse(plain);
+
+            } else {
+                // Try to handle partial yyyyMMdd formats by padding
+                if (plain.matches("\\d+")) {
+                    String paddedPlain = plain;
+
+                    // Pad to minimum 8 digits for date
+                    while (paddedPlain.length() < 8) {
+                        paddedPlain += "0";
+                    }
+
+                    // If less than 14 digits, pad to include time
+                    if (paddedPlain.length() < 14) {
+                        paddedPlain += "000100"; // Add default time 00:01:00
+                        paddedPlain = paddedPlain.substring(0, 14); // Ensure exactly 14 digits
+                    }
+
+                    SimpleDateFormat inputFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+                    parsedDate = inputFormat.parse(paddedPlain);
+                }
+            }
+
+            if (parsedDate != null) {
+                return outputFormat.format(parsedDate);
+            }
+
         } catch (ParseException e) {
-            MiscUtils.getLogger().error("error while parsing date time: " + plain, e);
+            MiscUtils.getLogger().error("Error while parsing date time: " + plain, e);
+
+            // Try one more fallback: if it looks like an incomplete time format, try to fix it
+            try {
+                if (plain.matches(".*\\d{1,2}:$")) {
+                    String fixedPlain = plain + "00:00";
+                    return formatDateTime(fixedPlain); // Recursive call with fixed string
+                }
+            } catch (Exception ignored) {
+                // If recursive call also fails, continue to return empty string
+            }
         }
-        return plain;
+
+        // If all parsing attempts fail, return empty string for consistency
+        return "";
     }
+
 
     protected static String formatDate(String plain) {
         if (plain == null) {

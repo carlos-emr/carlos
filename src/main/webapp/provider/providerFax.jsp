@@ -32,7 +32,7 @@
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.htm");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no = (String) session.getAttribute("user");
 %>
 <html>

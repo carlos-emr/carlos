@@ -51,7 +51,7 @@
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicWs" %>
 <%@page import="ca.openosp.openo.PMmodule.caisi_integrator.IntegratorFallBackManager" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 
 <%@ page import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.db.*" errorPage="/errorpage.jsp" %>
 <%@ page
@@ -60,7 +60,7 @@
 <%@ page import="ca.openosp.openo.commn.model.CachedAppointmentComparator" %>
 
 <%@page import="ca.openosp.openo.util.DateUtils" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 
@@ -151,9 +151,9 @@
                         <td>Audit Log Information for User : <%=provider.getFormattedName()%>(<%=provider.getId()%>)
                         </td>
                         <td>&nbsp;</td>
-                        <td style="text-align: right"><a href="javascript:popupStart(300,400,'../About.jsp')">
+                        <td style="text-align: right"><a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/About.jsp/About.jsp')">
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'../License.jsp')">
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/License.jsp')">
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
                         </td>
                     </tr>

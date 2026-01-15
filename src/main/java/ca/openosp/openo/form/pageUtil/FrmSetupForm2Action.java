@@ -41,7 +41,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import ca.openosp.Misc;
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.xmlrpc.XmlRpcClient;
 import org.apache.xmlrpc.XmlRpcException;
 import ca.openosp.openo.commn.dao.MeasurementDao;
@@ -169,7 +169,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             //String xmlData = FrmToXMLUtil.convertToXml(measurementTypes, nameProps, props);
             String decisionSupportURL = getPatientRlt(demo);
             MiscUtils.getLogger().debug("decisionSupportURL" + decisionSupportURL);
-            request.setAttribute("decisionSupportURL", StringEscapeUtils.escapeHtml(decisionSupportURL));
+            request.setAttribute("decisionSupportURL", StringEscapeUtils.escapeHtml4(decisionSupportURL));
 
             //Get the most updated data from Miles"
             String xmlStr = getMostRecentRecord(demo);

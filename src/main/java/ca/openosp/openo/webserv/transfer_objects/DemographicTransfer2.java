@@ -26,7 +26,7 @@
 
 package ca.openosp.openo.webserv.transfer_objects;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import ca.openosp.openo.commn.model.Demographic;
 import org.springframework.beans.BeanUtils;
 

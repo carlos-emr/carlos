@@ -28,6 +28,7 @@
 <%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%
 String curProvider_no = (String)session.getAttribute("user");
@@ -205,8 +206,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 					</oscar:oscarPropertiesCheck>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/servlet/oscar.DocumentUploadServlet"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>                       
-		                        <!--  li><a href='javascript:void(0);' onclick ='popupPage(600,900,"${ctx}/billing/CA/ON/billingRA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li-->
+						class="xlink" rel="${ctx}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
 					<!--  li><a href='javascript:void(0);' onclick ='popupPage(600,1000,"${ctx}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/billStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/></a></li>
@@ -357,7 +357,7 @@ String curProvider_no = (String)session.getAttribute("user");
 								
 					<caisi:isModuleLoad moduleName="caisi">		
 						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport" styleClass="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.activityRpt"/></a></li>
+						class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.activityRpt"/></a></li>
 					</caisi:isModuleLoad>			
 								
 					<li><a href="${ctx}/oscarReport/patientlist.jsp"
@@ -580,7 +580,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #CAISI END-->
 
 <!-- #SYSTEM Management-->
-	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document" rights="r" reverse="<%=false%>">
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseEight">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemManagement"/>
@@ -664,7 +664,11 @@ String curProvider_no = (String)session.getAttribute("user");
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/keygen/keyManager.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.keyPairGen"/></a></li>
 <%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarEncounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp">Create New Flowsheet</a></li>
+					</security:oscarSec>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFlowsheets.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+					</security:oscarSec>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 			      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/lotnraddrecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/lotnrsearchrecordshtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
 			

@@ -25,6 +25,7 @@
 
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -36,6 +37,12 @@
 <%
     if (!authed) {
         return;
+    }
+%>
+<%
+    String caseNote_history = (String) request.getAttribute("caseNote_history");
+    if (caseNote_history == null) {
+        caseNote_history = "";
     }
 %>
 
@@ -50,7 +57,7 @@
 
 </head>
 <body bgcolor="#eeeeff">
-<nested:form action="/CaseManagementEntry">
+<form action="<%= request.getContextPath() %>/CaseManagementEntry.do">
 <br>
 <b>Archived Note Update History</b>
 <br>
@@ -86,12 +93,14 @@ Client name:
 <br>
 <table width="400" border="0">
     <tr>
-        <td class="fieldValue"><textarea name="caseNote_history"
-                                         cols="107" rows="29" wrap="soft"><nested:write
-                property="caseNote_history"/></textarea></td>
+        <td class="fieldValue">
+            <textarea name="caseNote_history" cols="107" rows="29" wrap="soft">
+                <%= Encode.forHtml(caseNote_history) %>                       
+            </textarea>
+        </td>
     </tr>
     <br>
 
-    </nested:form>
+    </form>
 </body>
 </html>

@@ -24,13 +24,13 @@
 
 --%>
 
-<%@page contentType="text/html" %>
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
 
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
@@ -71,7 +71,7 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
 
-                <form styleId="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
                     <input type="hidden" name="method" value="<c:out value="${method}"/>">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
                         Invalid input.

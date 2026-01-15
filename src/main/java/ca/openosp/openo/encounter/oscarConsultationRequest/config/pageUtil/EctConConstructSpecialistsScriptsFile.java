@@ -33,6 +33,8 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Vector;
 
+import org.apache.commons.text.StringEscapeUtils;
+
 import ca.openosp.openo.commn.dao.ConsultationServiceDao;
 import ca.openosp.openo.commn.dao.ServiceSpecialistsDao;
 import ca.openosp.openo.commn.model.ConsultationServices;
@@ -154,8 +156,7 @@ public class EctConConstructSpecialistsScriptsFile {
     }
 
     private String escapeString(String s) {
-        s = org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s);
-        //	s = org.apache.commons.lang.StringEscapeUtils.escapeJava(s);
+        s = StringEscapeUtils.escapeEcmaScript(s);
         return s;
     }
 }

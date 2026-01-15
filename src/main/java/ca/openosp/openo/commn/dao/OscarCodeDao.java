@@ -26,7 +26,7 @@ import java.util.List;
 import ca.openosp.openo.commn.model.AbstractCodeSystemModel;
 import ca.openosp.openo.commn.model.OscarCode;
 
-public interface OscarCodeDao extends AbstractDao<OscarCode> {
+public interface OscarCodeDao extends AbstractCodeSystemDao<OscarCode> {
     List<OscarCode> getIcd9Code(String icdCode);
 
     List<OscarCode> getOscarCode(String query);

@@ -28,7 +28,7 @@
 
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");
 

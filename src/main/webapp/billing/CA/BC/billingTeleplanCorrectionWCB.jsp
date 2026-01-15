@@ -24,13 +24,15 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -186,7 +188,7 @@
         <table width="100%">
             <tr>
                 <td colspan="2" class="SectionHead"><a href=#
-                                                       onClick="popup(700,900,'../../../demographic/demographiccontrol.jsp?demographic_no=<%=form.getDemographicNumber()%>&displaymode=edit&dboperation=search_detail','
+                                                       onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=form.getDemographicNumber()%>&displaymode=edit&dboperation=search_detail','
                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>');return false;"
                                                        title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
                     Information</a> <input type="hidden" name="id" id="id" value="<%=form.getId()%>"/>
@@ -549,7 +551,7 @@
                                         <td class="FormLabel">Date Of Injury:</td>
                                         <td>
                                             <input type="text" readonly="readonly" name="w_doi" value="<%=form.getW_doi()%>"
-                                                       styleId="w_doi"/>
+                                                       id="w_doi"/>
                                             <a id="hlIDate">Date</a>
                                         </td>
                                     </tr>
@@ -557,7 +559,7 @@
                                         <td class="FormLabel">Service Date:</td>
                                         <td>
                                             <input type="text" readonly="readonly" name="w_servicedate"
-                                                       value="<%=form.getW_servicedate()%>" styleId="w_servicedate"/>
+                                                       value="<%=form.getW_servicedate()%>" id="w_servicedate"/>
                                             <a id="hlSDate">Date</a>
                                         </td>
                                     </tr>
@@ -565,7 +567,7 @@
                                         <td class="FormLabel">Work Date:</td>
                                         <td>
                                             <input type="text" readonly="readonly" name="w_workdate"
-                                                       value="<%=form.getW_workdate()%>" styleId="w_workdate"/>
+                                                       value="<%=form.getW_workdate()%>" id="w_workdate"/>
                                             <a id="hlWDate">Date</a>
                                         </td>
                                     </tr>
@@ -585,7 +587,7 @@
                                     <tr>
                                         <td class="FormLabel">Estimate Date:</td>
                                         <td><input type="text" readonly="true" name="w_estimatedate"
-                                                       value="<%=form.getW_estimatedate()%>" styleId="w_estimatedate"/>
+                                                       value="<%=form.getW_estimatedate()%>" id="w_estimatedate"/>
                                             <a id="hlEDate">Date</a></td>
                                     </tr>
                                     <tr>

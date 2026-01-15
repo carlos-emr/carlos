@@ -28,7 +28,7 @@
 
 package ca.openosp.openo.managers;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.commn.dao.FaxConfigDao;
 import ca.openosp.openo.commn.model.FaxConfig;
 import ca.openosp.openo.commn.model.FaxJob;
@@ -208,7 +208,42 @@ public interface FaxManager {
 
     public void restartFaxScheduler(LoggedInInfo loggedInInfo);
 
-    public JSONObject getFaxSchedularStatus(LoggedInInfo loggedInInfo);
+    public ObjectNode getFaxSchedularStatus(LoggedInInfo loggedInInfo);
+
+    /**
+     * Validates that a file path is safe and within allowed directories.
+     * Prevents path traversal attacks by checking for malicious patterns and
+     * validating the path is within whitelisted directories.
+     *
+     * @param filePath the file path to validate
+     * @throws SecurityException if the path is invalid or outside allowed directories
+     */
+    void validateFilePath(String filePath);
+
+    /**
+     * Resolves and validates a file path with robust path containment checking.
+     * This method performs comprehensive security validation including:
+     * - Path traversal pattern detection
+     * - Path normalization
+     * - Containment verification within allowed base directories
+     * - File existence and type validation
+     *
+     * @param filePath the file path to resolve and validate
+     * @return the resolved and validated Path object
+     * @throws SecurityException if the path is invalid, outside allowed directories, or fails security checks
+     * @throws IOException if the file does not exist or is not a regular file
+     */
+    Path resolveAndValidateFilePath(String filePath) throws IOException;
+
+    /**
+     * Validates a fax number format.
+     * Ensures the fax number contains only valid characters: digits, spaces, hyphens, plus sign, and parentheses.
+     *
+     * @param faxNumber the fax number to validate
+     * @param fieldName the name of the field being validated (for error messages)
+     * @throws SecurityException if the fax number format is invalid
+     */
+    void validateFaxNumber(String faxNumber, String fieldName);
 
     /**
      * Check if fax services are enabled.

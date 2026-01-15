@@ -2,7 +2,7 @@
 package ca.openosp.openo.contactRegistry;
 
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.model.ProfessionalSpecialist;
 import ca.openosp.openo.managers.ProfessionalSpecialistsManager;
@@ -48,7 +48,7 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
         }
 
         if (professionalSpecialist != null) {
-            JSONObject professionalSpecialistJSON = JsonUtil.pojoToJson(professionalSpecialist);
+            ObjectNode professionalSpecialistJSON = JsonUtil.pojoToJson(professionalSpecialist);
             JSONUtil.jsonResponse(response, professionalSpecialistJSON.toString());
         }
     }

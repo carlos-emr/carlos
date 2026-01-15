@@ -62,7 +62,6 @@ import org.xml.sax.InputSource;
  * @version 1.0
  * @since 2002
  * @see MsgUtil
- * @see MsgSendDocument
  */
 public class MsgCommxml {
     /**

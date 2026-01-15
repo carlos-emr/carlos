@@ -141,6 +141,8 @@ public interface CaseManagementManager {
 
     public CaseManagementNote getNote(String note_id);
 
+    public String getNoteContentForDisplay(String noteContent);
+
     public List<CaseManagementNote> getNotesByUUID(String uuid);
 
     public CaseManagementNote getMostRecentNote(String uuid);
@@ -208,6 +210,8 @@ public interface CaseManagementManager {
     public Issue getIssueInfoByCode(String code);
 
     public Issue getIssueInfoByTypeAndCode(String type, String code);
+
+    public void saveIssue(Issue issue);
 
     public List<Issue> getIssueInfoBySearch(String providerNo, String search, List accessRight);
 

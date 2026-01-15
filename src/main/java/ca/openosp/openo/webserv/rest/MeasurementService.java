@@ -24,8 +24,8 @@
  */
 package ca.openosp.openo.webserv.rest;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.commn.model.Measurement;
 import ca.openosp.openo.managers.MeasurementManager;
 import ca.openosp.openo.managers.SecurityInfoManager;
@@ -129,13 +129,17 @@ public class MeasurementService extends AbstractServiceImpl {
     @Path("/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public MeasurementResponse getMeasurements(JSONObject json, @PathParam("demographicNo") Integer demoId) {
+    public MeasurementResponse getMeasurements(ObjectNode json, @PathParam("demographicNo") Integer demoId) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_measurement", "r", null)) {
             throw new SecurityException("Access Denied: Missing required sec object (_measurement)");
         }
         MeasurementResponse response = new MeasurementResponse();
-        JSONArray jsonArray = json.getJSONArray("types");
-        String[] types = (String[]) JSONArray.toArray(jsonArray, String.class);
+        ArrayNode jsonArray = (ArrayNode) json.get("types");
+        List<String> typesList = new ArrayList<>();
+        for (int i = 0; i < jsonArray.size(); i++) {
+            typesList.add(jsonArray.get(i).asText());
+        }
+        String[] types = typesList.toArray(new String[0]);
         if (types.length < 1) {
             return response;
         }

@@ -118,9 +118,9 @@ public class dxResearch2Action extends ActionSupport {
                 }
 
                 if (count == 0) {
-                    String daoName = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codingSystem));
+                    Class<?> daoClass = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codingSystem));
                     @SuppressWarnings("unchecked")
-                    AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao = (AbstractCodeSystemDao<AbstractCodeSystemModel<?>>) SpringUtils.getBean(daoName);
+                    AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao = (AbstractCodeSystemDao<AbstractCodeSystemModel<?>>) SpringUtils.getBean(daoClass);
 
                     AbstractCodeSystemModel<?> codingSystemEntity = csDao.findByCodingSystem(codingSystem);
                     boolean isCodingSystemAvailable = codingSystemEntity == null;
@@ -150,7 +150,7 @@ public class dxResearch2Action extends ActionSupport {
         }
 
         if (!valid) {
-            response.sendRedirect(request.getContextPath() + "/oscarResearch/dxresearch/dxResearch.jsp");
+            response.sendRedirect(request.getContextPath() + "/oscarResearch/oscarDxResearch/dxResearch.jsp");
             return NONE;
         }
 
@@ -165,7 +165,7 @@ public class dxResearch2Action extends ActionSupport {
         } else if ("codeSearch".equals(forwardTo)) {
             actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch.do");
         } else if ("codeList".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/quickCodeList.jsp");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/quickCodeList.jsp");
         }
         actionforward.append("?demographicNo=").append(demographicNo);
         actionforward.append("&providerNo=").append(providerNo);

@@ -40,7 +40,7 @@ import ca.openosp.openo.utility.MiscUtils;
  * <condition type="doubleValue"  value="&gt;=2.0"/>
  * <condition type="isfemale"/>
  * </rule>
- * <rule consequence="m.setIndicationColor(\"HIGH\");">
+ * &lt;rule consequence="m.setIndicationColor(\"HIGH\");"&gt;
  * <condition type="doubleValue"  value="&gt;=2.0"/>
  * <condition type="isMale"/>
  * </rule>

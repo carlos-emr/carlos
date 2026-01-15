@@ -26,8 +26,8 @@
 
 package ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.utility.WebUtils;
 
 import javax.servlet.http.HttpServletRequest;
@@ -497,7 +497,7 @@ public final class EctConsultationFormRequest2Form {
 
         sb.append(WebUtils.buildQueryString(queryParameters));
 
-        return (StringEscapeUtils.escapeHtml(sb.toString()));
+        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     /**

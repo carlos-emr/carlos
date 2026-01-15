@@ -34,14 +34,14 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
 
 import ca.openosp.OscarProperties;
 
 /**
- * @deprecated 2013-12-09 use org.oscarehr.util.DateUtils instead
+ * @deprecated 2013-12-09 use ca.openosp.openo.util.DateUtils instead
  */
 @Deprecated
 public final class DateUtils {
@@ -619,17 +619,17 @@ public final class DateUtils {
      */
     public static long getDifDays(Date greater, Date lesser) {
         long timeInMillis = greater.getTime() - lesser.getTime();
-        return (timeInMillis / org.apache.commons.lang.time.DateUtils.MILLIS_PER_DAY);
+        return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
     }
 
     public static long getNumberOfDaysBetweenTwoDates(Calendar cal1, Calendar cal2) {
         long timeInMillis = Math.abs(cal1.getTimeInMillis() - cal2.getTimeInMillis());
-        return (timeInMillis / org.apache.commons.lang.time.DateUtils.MILLIS_PER_DAY);
+        return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
     }
 
     public static long getNumberOfDaysBetweenTwoDates(Date date1, Date date2) {
         long timeInMillis = Math.abs(date1.getTime() - date2.getTime());
-        return (timeInMillis / org.apache.commons.lang.time.DateUtils.MILLIS_PER_DAY);
+        return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
     }
 
     /**
@@ -738,7 +738,7 @@ public final class DateUtils {
         if (date1 == null || date2 == null) return (null);
 
         long ms = date2.getTimeInMillis() - date1.getTimeInMillis();
-        return ((int) (ms / org.apache.commons.lang.time.DateUtils.MILLIS_PER_DAY));
+        return ((int) (ms / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY));
     }
 
     public static Integer calculateDayDifference(Calendar date1, Date date2) {

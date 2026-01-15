@@ -55,9 +55,6 @@ import ca.uhn.hl7v2.parser.ModelClassFactory;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
-//import ca.uhn.hl7v2.model.v23.message.ORU_R01;
-//import ca.uhn.hl7v2.parser.Parser;
-//import oscar.oscarLab.ca.all.spireHapiExt.v23.segment.ZDS;
 
 class Lines {
     private String message = "";
@@ -272,7 +269,7 @@ public class SpireHandler implements MessageHandler {
     public void init(String hl7Body) throws HL7Exception {
         hl7Body = fixMessage(hl7Body);
 
-        ModelClassFactory cmf = new CustomModelClassFactory("oscar.oscarLab.ca.all.spireHapiExt");
+        ModelClassFactory cmf = new CustomModelClassFactory("ca.openosp.openo.lab.ca.all.spireHapiExt");
         PipeParser p = new PipeParser(cmf);
         p.setValidationContext(new NoValidation());
 

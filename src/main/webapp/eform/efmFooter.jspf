@@ -42,7 +42,7 @@
 
 
 <script>
-$(document).ready(function($) {
+$(document).ready(function() {
     // Prevent re-initialization
     if (window.confirmModalInitialized) { return; }
     window.confirmModalInitialized = true;
@@ -81,6 +81,8 @@ $(document).ready(function($) {
                 var msg = "Sorry but there was an error: ";
                 $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
             }
+            // Re-initialize Bootstrap dropdowns for dynamically loaded content
+            $("#dynamic-content .dropdown-toggle").dropdown();
         });
     });
 });

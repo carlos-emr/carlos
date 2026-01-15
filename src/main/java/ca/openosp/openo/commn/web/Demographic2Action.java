@@ -27,6 +27,8 @@ package ca.openosp.openo.commn.web;
 import com.opensymphony.xwork2.ActionSupport;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.DemographicArchiveDao;
@@ -61,6 +63,9 @@ public class Demographic2Action extends ActionSupport {
     private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("getSubdivisionCodes".equals(method)) {
@@ -80,45 +85,45 @@ public class Demographic2Action extends ActionSupport {
 
         String selectedCountry = request.getParameter("country");
 
-        org.codehaus.jettison.json.JSONArray results = new org.codehaus.jettison.json.JSONArray();
-        org.codehaus.jettison.json.JSONObject obj = null;
+        ArrayNode results = objectMapper.createArrayNode();
+        ObjectNode obj = null;
 
         try {
             InputStream in = this.getClass().getClassLoader()
                     .getResourceAsStream("iso-3166-2.json");
             String theString = IOUtils.toString(in, "UTF-8");
-            obj = new org.codehaus.jettison.json.JSONObject(theString);
+            obj = (ObjectNode) objectMapper.readTree(theString);
         } catch (Exception e) {
             MiscUtils.getLogger().warn("Warning", e);
         }
 
         if (obj != null) {
             if (selectedCountry == null) {
-                Iterator iter = obj.keys();
+                Iterator<String> iter = obj.fieldNames();
                 while (iter.hasNext()) {
-                    String countryCode = (String) iter.next();
-                    String countryName = ((org.codehaus.jettison.json.JSONObject) obj.get(countryCode)).getString("name");
-                    org.codehaus.jettison.json.JSONObject r = new org.codehaus.jettison.json.JSONObject();
+                    String countryCode = iter.next();
+                    String countryName = ((ObjectNode) obj.get(countryCode)).get("name").asText();
+                    ObjectNode r = objectMapper.createObjectNode();
                     r.put("value", countryCode);
                     r.put("label", countryName);
-                    results.put(r);
+                    results.add(r);
                 }
             } else {
-                org.codehaus.jettison.json.JSONObject country = (org.codehaus.jettison.json.JSONObject) obj.get(selectedCountry);
-                org.codehaus.jettison.json.JSONObject divisions = (org.codehaus.jettison.json.JSONObject) country.get("divisions");
-                Iterator iter = divisions.keys();
+                ObjectNode country = (ObjectNode) obj.get(selectedCountry);
+                ObjectNode divisions = (ObjectNode) country.get("divisions");
+                Iterator<String> iter = divisions.fieldNames();
                 while (iter.hasNext()) {
-                    String divisionCode = (String) iter.next();
-                    String divisionName = divisions.getString(divisionCode);
-                    org.codehaus.jettison.json.JSONObject r = new org.codehaus.jettison.json.JSONObject();
+                    String divisionCode = iter.next();
+                    String divisionName = divisions.get(divisionCode).asText();
+                    ObjectNode r = objectMapper.createObjectNode();
                     r.put("value", divisionCode);
                     r.put("label", divisionName);
-                    results.put(r);
+                    results.add(r);
                 }
             }
         }
 
-        results.write(response.getWriter());
+        response.getWriter().write(results.toString());
 
         return null;
     }
@@ -129,14 +134,14 @@ public class Demographic2Action extends ActionSupport {
         String selectedCountry = request.getParameter("country");
         //	String selectedSubDivision = request.getParameter("subdividion");
 
-        org.codehaus.jettison.json.JSONArray results = new org.codehaus.jettison.json.JSONArray();
+        ArrayNode results = objectMapper.createArrayNode();
 
-        org.codehaus.jettison.json.JSONObject obj = null;
+        ObjectNode obj = null;
         try {
             InputStream in = this.getClass().getClassLoader()
                     .getResourceAsStream("iso-3166-2.json");
             String theString = IOUtils.toString(in, "UTF-8");
-            obj = new org.codehaus.jettison.json.JSONObject(theString);
+            obj = (ObjectNode) objectMapper.readTree(theString);
         } catch (Exception e) {
             MiscUtils.getLogger().warn("Warning", e);
         }
@@ -144,33 +149,33 @@ public class Demographic2Action extends ActionSupport {
         if (obj != null) {
 
             if (selectedCountry == null) {
-                Iterator iter = obj.keys();
+                Iterator<String> iter = obj.fieldNames();
                 while (iter.hasNext()) {
-                    String countryCode = (String) iter.next();
-                    String countryName = ((org.codehaus.jettison.json.JSONObject) obj.get(countryCode)).getString("name");
-                    org.codehaus.jettison.json.JSONObject r = new org.codehaus.jettison.json.JSONObject();
+                    String countryCode = iter.next();
+                    String countryName = ((ObjectNode) obj.get(countryCode)).get("name").asText();
+                    ObjectNode r = objectMapper.createObjectNode();
                     r.put("value", countryCode);
                     r.put("label", countryName);
-                    results.put(r);
+                    results.add(r);
                 }
             } else if ("".equals(selectedCountry)) {
 
             } else {
-                org.codehaus.jettison.json.JSONObject country = (org.codehaus.jettison.json.JSONObject) obj.get(selectedCountry);
-                org.codehaus.jettison.json.JSONObject divisions = (org.codehaus.jettison.json.JSONObject) country.get("divisions");
-                Iterator iter = divisions.keys();
+                ObjectNode country = (ObjectNode) obj.get(selectedCountry);
+                ObjectNode divisions = (ObjectNode) country.get("divisions");
+                Iterator<String> iter = divisions.fieldNames();
                 while (iter.hasNext()) {
-                    String divisionCode = (String) iter.next();
-                    String divisionName = divisions.getString(divisionCode);
-                    org.codehaus.jettison.json.JSONObject r = new org.codehaus.jettison.json.JSONObject();
+                    String divisionCode = iter.next();
+                    String divisionName = divisions.get(divisionCode).asText();
+                    ObjectNode r = objectMapper.createObjectNode();
                     r.put("value", divisionCode);
                     r.put("label", divisionName);
-                    results.put(r);
+                    results.add(r);
                 }
             }
         }
 
-        results.write(response.getWriter());
+        response.getWriter().write(results.toString());
 
         return null;
     }

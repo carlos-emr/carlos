@@ -17,21 +17,72 @@ import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.List;
 
+/**
+ * Document creator for generating reports in various formats using JasperReports.
+ * 
+ * <p>This class provides functionality to create and export reports in multiple formats:</p>
+ * <ul>
+ *   <li><strong>PDF</strong> - Portable Document Format with optional JavaScript</li>
+ *   <li><strong>CSV</strong> - Comma-Separated Values for data export</li>
+ *   <li><strong>Excel</strong> - Excel spreadsheet format (XLSX)</li>
+ * </ul>
+ * 
+ * <p>Supports various data sources:</p>
+ * <ul>
+ *   <li>Java Collections (List of beans)</li>
+ *   <li>JDBC ResultSet</li>
+ *   <li>Database Connection</li>
+ *   <li>Custom JRDataSource implementations</li>
+ *   <li>Empty data source for parameter-only reports</li>
+ * </ul>
+ * 
+ * <p>Example usage:</p>
+ * <pre>
+ * OscarDocumentCreator creator = new OscarDocumentCreator();
+ * HashMap params = new HashMap();
+ * params.put("title", "Monthly Report");
+ * InputStream template = creator.getDocumentStream("reports/monthly.jrxml");
+ * creator.fillDocumentStream(params, outputStream, OscarDocumentCreator.PDF, template, dataList);
+ * </pre>
+ */
 public class OscarDocumentCreator {
+    /** PDF document format constant */
     public static final String PDF = "pdf";
+    
+    /** CSV document format constant */
     public static final String CSV = "csv";
+    
+    /** Excel spreadsheet format constant */
     public static final String EXCEL = "excel";
 
+    /**
+     * Constructs a new OscarDocumentCreator instance.
+     */
     public OscarDocumentCreator() {
 
     }
 
+    /**
+     * Loads a report template from the classpath.
+     * 
+     * @param path the classpath path to the report template file
+     * @return InputStream for the report template, or null if not found
+     */
     public InputStream getDocumentStream(String path) {
         InputStream reportInstream = null;
         reportInstream = getClass().getClassLoader().getResourceAsStream(path);
         return reportInstream;
     }
 
+    /**
+     * Fills and exports a report without PDF JavaScript.
+     * 
+     * @param parameters report parameters (e.g., title, date ranges)
+     * @param sos output stream to write the generated document
+     * @param docType document format (PDF, CSV, or EXCEL)
+     * @param xmlDesign input stream containing the JasperReport XML design
+     * @param dataSrc data source (List, Connection, ResultSet, JRDataSource, or null for empty)
+     */
     @SuppressWarnings("rawtypes")
     public void fillDocumentStream(HashMap parameters, OutputStream sos,
                                    String docType, InputStream xmlDesign,
@@ -39,6 +90,20 @@ public class OscarDocumentCreator {
         fillDocumentStream(parameters, sos, docType, xmlDesign, dataSrc, null);
     }
 
+    /**
+     * Fills and exports a report with optional PDF JavaScript.
+     * 
+     * <p>This method compiles the report design, fills it with data, and exports
+     * it to the specified format. PDF reports can include JavaScript for actions
+     * like auto-printing.</p>
+     * 
+     * @param parameters report parameters (e.g., title, date ranges)
+     * @param sos output stream to write the generated document
+     * @param docType document format (PDF, CSV, or EXCEL)
+     * @param xmlDesign input stream containing the JasperReport XML design
+     * @param dataSrc data source (List, Connection, ResultSet, JRDataSource, or null for empty)
+     * @param exportPdfJavascript optional JavaScript code to embed in PDF (e.g., "this.print();")
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void fillDocumentStream(HashMap parameters, OutputStream sos,
                                    String docType, InputStream xmlDesign,

@@ -30,7 +30,7 @@
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String curUser_no = (String) session.getAttribute("user");
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);

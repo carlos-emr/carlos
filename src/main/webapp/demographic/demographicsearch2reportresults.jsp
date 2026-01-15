@@ -57,6 +57,7 @@
 %>
 
 <%@ page import="java.util.*, java.sql.*,java.net.*, ca.openosp.*" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.Demographic" %>
@@ -184,7 +185,7 @@
     <table width="100%" border="0" cellpadding="0" cellspacing="1"
            bgcolor="#C0C0C0">
         <form method="post" name="addform"
-              action="../appointment/addappointment.jsp">
+              action="<%= request.getContextPath() %>/appointment/addappointment.jsp">
             <tr class="title">
                 <TH width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/></b></TH>
                 <TH width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.lastName"/></b></TH>
@@ -222,11 +223,11 @@
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
                 onClick="<% if(caisi) { out.print("addNameCaisi");}
-						else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName())%>','<%=URLEncoder.encode(demo.getFirstName())%>','<%=URLEncoder.encode(demo.getChartNo())%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
+						else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
 
                 <td><input type="submit" class="mbttn" name="demographic_no" value="<%=demo.getDemographicNo()%>"
                            onClick="<% if(caisi) {out.print("addNameCaisi");}
-					else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName())%>','<%=URLEncoder.encode(demo.getFirstName())%>','<%=URLEncoder.encode(demo.getChartNo())%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
+					else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
                 </td>
                 <td><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                 </td>
@@ -282,12 +283,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "demographicsearch2reportresults.jsp?originalpage=<%=request.getParameter("originalpage")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%=request.getParameter("originalpage")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "demographicsearch2reportresults.jsp?originalpage=<%=request.getParameter("originalpage")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%=request.getParameter("originalpage")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 

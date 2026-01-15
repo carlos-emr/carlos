@@ -32,7 +32,8 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 
 import ca.openosp.openo.commn.dao.BillingONPaymentDao;
@@ -51,6 +52,9 @@ public class PaymentType2Action extends ActionSupport {
 
     private BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
     private BillingONPaymentDao billPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         String method = request.getParameter("method");
@@ -84,7 +88,7 @@ public class PaymentType2Action extends ActionSupport {
         if (null != paymentType && !paymentType.isEmpty()) {
             BillingPaymentType billingPaymentType = null;
             Map<String, String> retMap = new HashMap<String, String>();
-            JSONObject json = null;
+            ObjectNode json = null;
             try {
                 billingPaymentType = billingPaymentTypeDao.getPaymentTypeByName(paymentType);
 
@@ -104,7 +108,7 @@ public class PaymentType2Action extends ActionSupport {
             }
 
             try {
-                json = JSONObject.fromObject(retMap);
+                json = objectMapper.valueToTree(retMap);
                 response.getWriter().write(json.toString());
             } catch (IOException e) {
                 // TODO Auto-generated catch block
@@ -121,7 +125,7 @@ public class PaymentType2Action extends ActionSupport {
         if (oldPaymentType != null && !oldPaymentType.isEmpty() && null != paymentType && !paymentType.isEmpty()) {
             BillingPaymentType old = null;
             Map<String, String> retMap = new HashMap<String, String>();
-            JSONObject json = null;
+            ObjectNode json = null;
             try {
                 old = billingPaymentTypeDao.getPaymentTypeByName(oldPaymentType);
                 if (old == null) {
@@ -144,7 +148,7 @@ public class PaymentType2Action extends ActionSupport {
             }
 
             try {
-                json = JSONObject.fromObject(retMap);
+                json = objectMapper.valueToTree(retMap);
                 response.getWriter().write(json.toString());
             } catch (IOException e) {
                 // TODO Auto-generated catch block
@@ -157,7 +161,7 @@ public class PaymentType2Action extends ActionSupport {
 
     public String removeType() {
         int paymentTypeId = 0;
-        JSONObject ret = new JSONObject();
+        ObjectNode ret = objectMapper.createObjectNode();
         try {
             paymentTypeId = Integer.parseInt(request.getParameter("paymentTypeId"));
         } catch (Exception e) {

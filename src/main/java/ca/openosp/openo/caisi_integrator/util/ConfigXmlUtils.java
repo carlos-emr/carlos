@@ -2,7 +2,7 @@ package ca.openosp.openo.caisi_integrator.util;
 
 import java.util.Iterator;
 import java.util.ArrayList;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import java.io.IOException;
 import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;

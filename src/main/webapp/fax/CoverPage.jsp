@@ -31,6 +31,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -38,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_fax" rights="r" reverse="<%=true%>">
 	<%authed=false; %>
-	<%response.sendRedirect("../securityError.jsp?type=_fax");%>
+	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_fax");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -184,7 +185,7 @@
 
 </head>
 <body>
-<jsp:include page="../images/spinner.jsp" flush="true"/>
+<jsp:include page="/images/spinner.jsp" flush="true"/>
 <div id="bodyrow" class="container-fluid">
 
     <div id="bodycolumn" class="col-sm-12">
@@ -195,7 +196,7 @@
                 <tr>
                     <td id="oscarFaxHeaderLeftColumn"><h1>OSCAR Fax</h1></td>
 
-                    <td id="oscarFaxHeaderCenterColumn">${ transactionType }</td>
+                    <td id="oscarFaxHeaderCenterColumn"><e:forHtml value="${ transactionType }" /></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>
 						<span class="HelpAboutLogout"> 
 							<a style="font-size: 10px; font-style: normal;" href="${ ctx }oscarEncounter/About.jsp"
@@ -217,16 +218,16 @@
 			
 			<form id="coverPageForm" class="form-inline" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>
 			
-				<input type="hidden" name="requestId" value="${ reqId }" />
-				<input type="hidden" name="reqId" value="${ reqId }" />
-				<input type="hidden" name="transactionId" value="${ not empty reqId ? reqId : transactionId }" />
-				<input type="hidden" name="transactionType" value="${ transactionType }" />
-				<input type="hidden" name="demographicNo" value="${ not empty demographicNo ? demographicNo : param.demographicNo }" />
-		  		<input type="hidden" name="faxFilePath" value="${ faxFilePath }" />
+				<input type="hidden" name="requestId" value="<e:forHtmlAttribute value='${ reqId }' />" />
+				<input type="hidden" name="reqId" value="<e:forHtmlAttribute value='${ reqId }' />" />
+				<input type="hidden" name="transactionId" value="<e:forHtmlAttribute value='${ not empty reqId ? reqId : transactionId }' />" />
+				<input type="hidden" name="transactionType" value="<e:forHtmlAttribute value='${ transactionType }' />" />
+				<input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='${ not empty demographicNo ? demographicNo : param.demographicNo }' />" />
+		  		<input type="hidden" name="faxFilePath" value="<e:forHtmlAttribute value='${ faxFilePath }' />" />
 		  		
 		  		<%-- to be removed soon below --%>
-		  		<input type="hidden" name="documents" value="${ documents }" />		  		
-		  		<input type="hidden" name="transType" value="${ transType }" />
+		  		<input type="hidden" name="documents" value="<e:forHtmlAttribute value='${ documents }' />" />
+		  		<input type="hidden" name="transType" value="<e:forHtmlAttribute value='${ transType }' />" />
 							
 				<div class="panel panel-default">
 				  	<div class="panel-heading">
@@ -239,14 +240,14 @@
 							  <label for="senderFaxAccount">Fax account</label>
 							  <select class="form-control" name="senderFaxNumber"  id="senderFaxAccount">
 									<c:forEach items="${ requestScope.accounts }" var="account">
-							    		<option value="${ account.faxNumber }" ${ account.id eq requestScope.faxAccount or account.faxNumber eq param.letterheadFax ? 'selected' : '' } >
+							    		<option value="<e:forHtmlAttribute value='${ account.faxNumber }' />" ${ account.id eq requestScope.faxAccount or account.faxNumber eq param.letterheadFax ? 'selected' : '' } >
 							    			<c:out value="${ account.accountName }"/> <c:out value="(${ account.faxNumber })"/>
 							    		</option>
 									</c:forEach>
 							  </select>
 	
 							  <%-- to be removed soon below --%>
-							  <input type="hidden" name="sendersFax" value="${ not empty letterheadFax ? letterheadFax : param.letterheadFax }" />
+							  <input type="hidden" name="sendersFax" value="<e:forHtmlAttribute value='${ not empty letterheadFax ? letterheadFax : param.letterheadFax }' />" />
 							</div>
 							</div>
 							<!-- <div class="row">
@@ -279,12 +280,12 @@
 						  	<div class="row" id="fax-recipients">	
 								<div class="col-sm-6 form-group">
 									<label for="searchProfessionalSpecialist_name">Name</label>
-								 	<input class="autocomplete form-control" type="text" name="recipient" value="${ professionalSpecialistName }"
+								 	<input class="autocomplete form-control" type="text" name="recipient" value="<e:forHtmlAttribute value='${ professionalSpecialistName }' />"
 								 		id="searchProfessionalSpecialist_name" placeholder="Search: last, first" required/>
 								 </div>	
 								 <div class="col-sm-6 form-group">
 									<label for="searchProfessionalSpecialist_fax">Fax</label>
-									<input class="form-control" type="text" name="recipientFaxNumber" value="${ not empty fax ? fax : param.fax }"
+									<input class="form-control" type="text" name="recipientFaxNumber" value="<e:forHtmlAttribute value='${ not empty fax ? fax : param.fax }' />"
 										id="searchProfessionalSpecialist_fax" placeholder="xxx-xxx-xxxx"  required/>
 								</div>
 							</div>
@@ -317,26 +318,29 @@
 							        </button>
 							   </div>
 						 	</div>
-						
-					  		<c:forEach items="${ copyToRecipients }" var="recipient" >
-						  			<div class="row">							  			
-							  			<div class="col-sm-12 input-group recipientGroup">
-							  				<label></label>
-										      <input type="text" class="form-control" value="${ recipient.name } ${ recipient.fax }" disabled/>
-										      <span class="input-group-btn">
-										        <button class="btn btn-danger" type="button">
-										        	<span class="glyphicon glyphicon-remove"></span>
-										        </button>
-										      </span>
-                                    </div>
-                                    <input type="hidden" name="copyToRecipients"
-                                           value="'name':'${ recipient.name }','fax':'${ recipient.fax }'"/>
 
-                                        <%-- to be removed below --%>
-                                    <input type="hidden" name="faxRecipients"
-                                           value="'name':'${ recipient.name }','fax':'${ recipient.fax }'"/>
-                                </div>
-                            </c:forEach>
+					  		<%-- Only show existing recipients if not displaying submission results --%>
+					  		<c:if test="${ empty faxSuccessful }">
+						  		<c:forEach items="${ copyToRecipients }" var="recipient" >
+							  			<div class="row">
+								  			<div class="col-sm-12 input-group recipientGroup">
+								  				<label></label>
+											      <input type="text" class="form-control" value="<e:forHtmlAttribute value='${ recipient.name }' /> <e:forHtmlAttribute value='${ recipient.fax }' />" disabled/>
+											      <span class="input-group-btn">
+											        <button class="btn btn-danger" type="button">
+											        	<span class="glyphicon glyphicon-remove"></span>
+											        </button>
+											      </span>
+	                                    </div>
+	                                    <input type="hidden" name="copyToRecipients"
+	                                           value='"name":"<e:forHtmlAttribute value='${ recipient.name }' />","fax":"<e:forHtmlAttribute value='${ recipient.fax }' />"'/>
+
+	                                        <%-- to be removed below --%>
+	                                    <input type="hidden" name="faxRecipients"
+	                                           value='"name":"<e:forHtmlAttribute value='${ recipient.name }' />","fax":"<e:forHtmlAttribute value='${ recipient.fax }' />"'/>
+	                                </div>
+	                            </c:forEach>
+                            </c:if>
                         </div>
                     </div>
                 </div>
@@ -352,7 +356,7 @@
                                     <ol class="list-group col-sm-12">
                                         <c:forEach items="${ documents }" var="document">
                                             <li class="list-group-item"><c:out value="${ document }"/></li>
-                                            <input type="hidden" name="documents" value=${ document }/>
+                                            <input type="hidden" name="documents" value="<e:forHtmlAttribute value='${ document }' />"/>
                                         </c:forEach>
                                     </ol>
                                 </div>
@@ -408,7 +412,8 @@
                     </div>
                 </div>
             </form>
-            <c:if test="${ transactionType ne 'CONSULTATION' }">
+            <%-- Only show preview before submission, not after --%>
+            <c:if test="${ transactionType ne 'CONSULTATION' and empty faxSuccessful }">
                 <div class="panel panel-default" id="preview-panel">
                     <div class="panel-heading">
                         <h3 class="panel-title">Preview</h3>
@@ -416,7 +421,7 @@
                     <div class="panel-body">
                         <div class="container">
                             <object id="previewPDF"
-                                    data="${ctx}/fax/faxAction.do?method=getPreview&faxFilePath=${faxFilePath}"
+                                    data="${ctx}/fax/faxAction.do?method=getPreview&faxFilePath=<e:forUriComponent value='${faxFilePath}' />"
                                     type="application/pdf" width="100%" height="800">
                             </object>
                         </div>
@@ -449,7 +454,7 @@
 </div>
 
 <script type="text/javascript">
-    var ctx = "${ ctx }";
+    var ctx = "<e:forJavaScript value='${ ctx }' />";
     
     // HTML entity encoding function to prevent XSS
     function escapeHtml(text) {
@@ -526,12 +531,12 @@
             var inputValue = escapeHtml(name + " " + fax);
             
             // For the data format the server expects
-            // First escape single quotes in the actual values to prevent breaking the format
-            var safeName = name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-            var safeFax = fax.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-            
-            // Build the format the server expects
-            var submitValue = "'name':'" + safeName + "','fax':'" + safeFax + "'";
+            // First escape double quotes and backslashes in the actual values to prevent breaking the JSON format
+            var safeName = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+            var safeFax = fax.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+            // Build the format the server expects (proper JSON format with double quotes)
+            var submitValue = '"name":"' + safeName + '","fax":"' + safeFax + '"';
 
             $("#fax-additional-recipients").append(
                 '<div class="row">\
@@ -543,8 +548,8 @@
 						        </button>\
 						      </span>\
 					    </div>\
-						<input type="hidden" name="copyToRecipients" value="' + submitValue + '" />\
-						<input type="hidden" name="faxRecipients" value="' + submitValue + '" />\
+						<input type="hidden" name="copyToRecipients" value=\'' + submitValue + '\' />\
+						<input type="hidden" name="faxRecipients" value=\'' + submitValue + '\' />\
 					</div>'
             );
 

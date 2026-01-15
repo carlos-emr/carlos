@@ -60,7 +60,8 @@ import ca.openosp.openo.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.log.LogAction;
 
@@ -85,6 +86,8 @@ public class DashboardManagerImpl implements DashboardManager {
     private Map<String, String> requestedProviderNumMap = new HashMap<String, String>();
 
     private Logger logger = MiscUtils.getLogger();
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Toggles the active status of a given class name.
@@ -273,7 +276,7 @@ public class DashboardManagerImpl implements DashboardManager {
      */
     @Override
     public String importIndicatorTemplate(LoggedInInfo loggedInInfo, byte[] bytearray) {
-        JSONObject message = new JSONObject();
+        ObjectNode message = objectMapper.createObjectNode();
         IndicatorTemplate indicatorTemplate = null;
         // Boolean isValid = Boolean.FALSE;
 
@@ -734,9 +737,9 @@ public class DashboardManagerImpl implements DashboardManager {
         user.setUsername(provider.getProviderNo());
         user.setRole("providers");
 
-        JSONObject response = new JSONObject();
-        response.put("clinic", clinic);
-        response.put("user", user);
+        ObjectNode response = objectMapper.createObjectNode();
+        response.set("clinic", objectMapper.valueToTree(clinic));
+        response.set("user", objectMapper.valueToTree(user));
 
         String json = response.toString();
 

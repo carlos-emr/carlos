@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -89,8 +89,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Antenatal Record 2</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css"
-              href="<%=bView?"arStyleView.css" : "arStyle.css"%>">
+        <link rel="stylesheet" type="text/css" href="<%=bView? request.getContextPath() + "/form/arStyleView.css" : request.getContextPath() + "/form/arStyle.css" %>">
     </head>
 
     <script type="text/javascript" language="Javascript">

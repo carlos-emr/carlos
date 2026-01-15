@@ -30,9 +30,10 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONArray;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
-import org.apache.commons.lang.WordUtils;
+import org.apache.commons.text.WordUtils;
 import ca.openosp.openo.commn.dao.AbstractCodeSystemDao;
 import ca.openosp.openo.commn.model.AbstractCodeSystemModel;
 import ca.openosp.openo.utility.SpringUtils;
@@ -48,6 +49,7 @@ public class CodeSearchService2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String execute() throws Exception {
@@ -63,8 +65,8 @@ public class CodeSearchService2Action extends ActionSupport {
             }
         }
         response.setContentType("text/x-json");
-        JSONArray jsonArray = JSONArray.fromObject(results);
-        jsonArray.write(response.getWriter());
+        ArrayNode jsonArray = objectMapper.valueToTree(results);
+        response.getWriter().write(jsonArray.toString());
 
         return null;
     }

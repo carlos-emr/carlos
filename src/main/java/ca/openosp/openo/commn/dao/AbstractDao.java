@@ -30,6 +30,7 @@ import ca.openosp.openo.commn.model.AbstractModel;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 public interface AbstractDao<T extends AbstractModel<?>> {
     public static final int MAX_LIST_RETURN_SIZE = 5000;
@@ -66,7 +67,7 @@ public interface AbstractDao<T extends AbstractModel<?>> {
 
     int getCountAll();
 
-    List<Object[]> runNativeQuery(String sql);
+    List<Object[]> runParameterizedNativeQuery(String sql, Map<String, Object> params);
 
     T saveEntity(T entity);
 

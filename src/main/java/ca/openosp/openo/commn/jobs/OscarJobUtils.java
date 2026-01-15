@@ -48,7 +48,7 @@ public class OscarJobUtils {
         try {
             Class clazz = Class.forName(oscarJobType.getClassName());
             for (Class i : clazz.getInterfaces()) {
-                if (i.getName().equals("org.oscarehr.commons.jobs.OscarRunnable")) {
+                if (i.getName().equals("ca.openosp.openo.commn.jobs.OscarRunnable")) {
                     return true;
                 }
             }

@@ -221,9 +221,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 response.getOutputStream().write(bos.getBytes(), 0, bos.getCount());
             }
 
-        } catch (com.lowagie.text.DocumentException de) {
-            error = "DocumentException";
-            exception = de;
         } catch (DocumentException de) {
             error = "DocumentException";
             exception = de;

@@ -28,7 +28,7 @@ import java.io.Serializable;
 import java.util.Date;
 import javax.persistence.*;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 @Entity
 @Table(name = "documentDescriptionTemplate")

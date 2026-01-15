@@ -27,7 +27,7 @@
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page import="java.lang.*" %>
 <%@page import="ca.openosp.OscarProperties" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 
 <%
     boolean fromMessenger = request.getParameter("fromMessenger") == null ? false : (request.getParameter("fromMessenger")).equalsIgnoreCase("true") ? true : false;
@@ -143,7 +143,7 @@
             </select>
 
             <input class="wideInput form-control" type="search" placeholder="Search Patient" NAME="keyword"
-                   VALUE="<%=StringEscapeUtils.escapeHtml(keyWord)%>" SIZE="17" MAXLENGTH="100"
+                   VALUE="<%=StringEscapeUtils.escapeHtml4(keyWord)%>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
 

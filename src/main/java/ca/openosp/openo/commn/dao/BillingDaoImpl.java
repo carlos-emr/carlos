@@ -255,7 +255,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     }
 
     @Override
-    @NativeSql({"billing", "providers", "billingmaster"})
+    @NativeSql({"billing", "provider", "billingmaster"})
     public List<Object[]> findByManyThings(String statusType, String providerNo, String startDate, String endDate, String demoNo, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC) {
         StringBuilder queryBuilder = new StringBuilder();
         Map<String, Object> params = new HashMap<>();

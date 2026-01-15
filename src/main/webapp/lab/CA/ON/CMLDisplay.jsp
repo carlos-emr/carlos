@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -132,14 +132,14 @@
     }
 
     function linkreq(rptId, reqId) {
-        var link = "../../LinkReq.jsp?table=labPatientPhysicianInfo&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + demographicID : ""%>";
+        var link = "<%= request.getContextPath() %>/lab/LinkReq.jsp?table=labPatientPhysicianInfo&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + demographicID : ""%>";
         window.open(link, "linkwin", "width=500, height=200");
     }
 </script>
 
 <body>
 <!-- form forwarding of the lab -->
-<form name="reassignForm" method="post" action="Forward.do"><input
+<form name="reassignForm" method="post" action="<%= request.getContextPath() %>/lab/CA/ON/Forward.do"><input
         type="hidden" name="flaggedLabs"
         value="<%= segmentID %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
@@ -172,7 +172,7 @@
                                    onclick="return getComment();"> <% } %> <input type="button"
                                                                                   class="smallButton"
                                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                                                                                  onClick="popupStart(397, 700, '../../../oscarMDS/SelectProvider.jsp', 'providerselect')">
+                                                                                  onClick="popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/SelectProvider.jsp', 'providerselect')">
                             <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
                                                                     value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
@@ -625,7 +625,7 @@
                                    onclick="getComment()"> <% } %> <input type="button"
                                                                           class="smallButton"
                                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                                                                          onClick="popupStart(397, 700, '../../../oscarMDS/SelectProvider.jsp', 'providerselect')">
+                                                                          onClick="popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/SelectProvider.jsp', 'providerselect')">
                             <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
                                    onClick="window.close()"> <input type="button"
                                                                     value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "

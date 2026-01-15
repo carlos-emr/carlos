@@ -26,15 +26,19 @@
 
 package ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ca.openosp.openo.fax.core.FaxAccount;
 import ca.openosp.openo.fax.core.FaxRecipient;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
 public final class EctConsultationFaxForm {
+
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     private String method;
     private String recipient;
@@ -155,8 +159,12 @@ public final class EctConsultationFaxForm {
         if (copiedTo == null) {
             copiedTo = new HashSet<FaxRecipient>();
             for (String faxRecipient : getFaxRecipients()) {
-                JSONObject jsonObject = JSONObject.fromObject("{" + faxRecipient + "}");
-                copiedTo.add(new FaxRecipient(jsonObject));
+                try {
+                    ObjectNode jsonObject = (ObjectNode) objectMapper.readTree("{" + faxRecipient + "}");
+                    copiedTo.add(new FaxRecipient(jsonObject));
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to parse fax recipient JSON", e);
+                }
             }
         }
         return copiedTo;

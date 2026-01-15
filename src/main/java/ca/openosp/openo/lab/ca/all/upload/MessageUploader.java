@@ -40,7 +40,7 @@ import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.lab.ca.all.parsers.*;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.OtherIdManager;
@@ -677,7 +677,7 @@ public final class MessageUploader {
 
 
 				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
-				if( hinMod != null ) {
+				if(hinMod != null && !hinMod.trim().isEmpty()) {
 					if (OscarProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
 						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
 					} else {

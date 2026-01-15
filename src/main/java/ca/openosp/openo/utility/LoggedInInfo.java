@@ -29,7 +29,7 @@ import java.util.Locale;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import ca.openosp.openo.commn.model.Facility;
 import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.commn.model.Security;

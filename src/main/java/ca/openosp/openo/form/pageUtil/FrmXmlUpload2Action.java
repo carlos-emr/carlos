@@ -30,6 +30,7 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.util.JDBCUtil;
 
@@ -72,12 +73,12 @@ public class FrmXmlUpload2Action extends ActionSupport {
         }
         
         File normalizedFile = file1.toPath().normalize().toFile();
-        String safeDirPath = safeDir.getCanonicalPath() + File.separator;
-        String filePath = normalizedFile.getCanonicalPath();
 
-        // Ensure that it is not in an invalid file path
-        if (!filePath.startsWith(safeDirPath)) {
-            throw new IllegalArgumentException("Invalid file path: " + filePath);
+        // Validate file path using PathValidationUtils
+        try {
+            PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
+        } catch (SecurityException e) {
+            throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }
 
        try (InputStream is = new FileInputStream(normalizedFile);

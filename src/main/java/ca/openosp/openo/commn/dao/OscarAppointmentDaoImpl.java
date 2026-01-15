@@ -27,7 +27,7 @@
 
 package ca.openosp.openo.commn.dao;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.PMmodule.model.Program;
 import ca.openosp.openo.commn.NativeSql;
 import ca.openosp.openo.commn.model.Appointment;
@@ -705,7 +705,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
-    @NativeSql({"demographic", "appointment", "drugs", "providers"})
+    @NativeSql({"demographic", "appointment", "drugs", "provider"})
     @Override
     public List<Object[]> findAppointmentsByDemographicIds(Set<String> demoIds, Date from, Date to) {
         String sql = "" +

@@ -47,7 +47,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.unlockAccount" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.userAdmin&type=_admin.unlockAccount");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin&type=_admin.unlockAccount");%>
 </security:oscarSec>
 <%
     if (!authed) {

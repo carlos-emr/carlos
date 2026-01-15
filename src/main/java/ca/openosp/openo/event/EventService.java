@@ -43,7 +43,7 @@ public class EventService implements ApplicationEventPublisherAware {
     /*
      * Event is fired:
          src/main/webapp/appointment/appointmentupdatearecord.jsp -- edit appt screen
-         src/main/webapp/providers/provideraddstatus.jsp  -- in appt screen when user clicks on the icon to change the appt status
+         src/main/webapp/provider/provideraddstatus.jsp  -- in appt screen when user clicks on the icon to change the appt status
      *
      */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {

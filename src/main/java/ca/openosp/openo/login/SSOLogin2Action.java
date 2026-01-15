@@ -30,7 +30,8 @@ import com.onelogin.saml2.exception.Error;
 import com.onelogin.saml2.exception.SettingsException;
 import com.onelogin.saml2.settings.Saml2Settings;
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
@@ -76,6 +77,7 @@ public final class SSOLogin2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private static final String LOG_PRE = "Login!@#$: ";
 
+    private ObjectMapper objectMapper = new ObjectMapper();
     private SsoAuthenticationManager ssoAuthenticationManager = SpringUtils.getBean(SsoAuthenticationManager.class);
 
     private ProviderManager providerManager = (ProviderManager) SpringUtils.getBean(ProviderManager.class);
@@ -185,11 +187,11 @@ public final class SSOLogin2Action extends ActionSupport {
             }
 
             if (ajaxResponse) {
-                JSONObject json = new JSONObject();
+                ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
                 json.put("error", "Database connect error" + e.getMessage() + ".");
                 response.setContentType("text/x-json");
-                json.write(response.getWriter());
+                response.getWriter().write(json.toString());
                 return null;
             }
             response.sendRedirect(newURL);

@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -32,7 +32,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -112,7 +112,7 @@
         formdata.setRestrictToProgram(currentDoc.isRestrictToProgram());
         lastUpdate = currentDoc.getDateTimeStamp();
         fileName = currentDoc.getFileName();
-        formdata.setAbnormal((currentDoc.getAbnormal().equals("1")) ? "checked" : "");
+        formdata.setAbnormal((currentDoc.getAbnormal().equals("true")) ? "checked" : "");
         formdata.setReceivedDate(currentDoc.getReceivedDate());
 
         extraReviewers = documentExtraReviewerDao.findByDocumentNo(Integer.parseInt(editDocumentNo));
@@ -434,7 +434,7 @@
         <tr>
             <td colspan=2>
                 <input type="button" value="Annotation"
-                       onclick="window.open('../annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=annotation_tableid%>&demo=<%=moduleid%>','anwin','width=400,height=500');"/>
+                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=annotation_tableid%>&demo=<%=moduleid%>','anwin','width=400,height=500');"/>
             </td>
         </tr>
         <tr>

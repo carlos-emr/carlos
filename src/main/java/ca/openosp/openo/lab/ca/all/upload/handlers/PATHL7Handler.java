@@ -44,10 +44,12 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import ca.openosp.OscarProperties;
 import ca.openosp.openo.lab.ca.all.upload.MessageUploader;
 import ca.openosp.openo.lab.ca.all.upload.RouteReportResults;
 
@@ -72,13 +74,17 @@ public class PATHL7Handler implements MessageHandler {
                 throw new IllegalArgumentException("Filename cannot be null or empty");
             }
 
-            // Base directory
-            String baseDir = "/some/safe/path/";
-            Path basePath = Paths.get(baseDir).toAbsolutePath().normalize();
-            Path targetPath = basePath.resolve(fileName).normalize();
+            // Base directory - validate using PathValidationUtils
+            String baseDir = OscarProperties.getInstance().getDocumentDirectory();
+            java.io.File baseDirFile = new java.io.File(baseDir);
+            java.io.File targetFile = new java.io.File(fileName);
 
-            if (!targetPath.startsWith(basePath)) {
-                throw new IllegalArgumentException("Invalid file name (path traversal): " + fileName);
+            // Validate the existing file is within the allowed directory
+            PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
+
+            if (!targetFile.exists() || !targetFile.isFile()) {
+                logger.error("File does not exist or is not a regular file: " + fileName);
+                return null;
             }
 
             DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
@@ -86,10 +92,14 @@ public class PATHL7Handler implements MessageHandler {
             docFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             docFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
             docFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            docFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+            // Disable XInclude
             docFactory.setXIncludeAware(false);
+            // Disabled expansion of entity references
             docFactory.setExpandEntityReferences(false);
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
-            doc = docBuilder.parse(targetPath.toFile());
+            doc = docBuilder.parse(targetFile);
 
         } catch (IllegalArgumentException e) {
             logger.error("Invalid file name: " + fileName, e);

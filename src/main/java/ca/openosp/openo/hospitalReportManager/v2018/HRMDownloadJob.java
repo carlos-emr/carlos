@@ -26,7 +26,7 @@ package ca.openosp.openo.hospitalReportManager.v2018;
 
 import java.io.File;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.UserPropertyDAO;
 import ca.openosp.openo.commn.jobs.OscarRunnable;

@@ -37,7 +37,7 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 /**
- * @deprecated 2013-04-28 use org.oscarehr.util.DateUtils instead
+ * @deprecated 2013-04-28 use ca.openosp.openo.util.DateUtils instead
  */
 @Deprecated
 public class UtilDateUtilities {
@@ -130,6 +130,11 @@ public class UtilDateUtilities {
      */
     public static String calcAgeAtDate(Date DOB, Date pointInTime) {
         if (DOB == null) return (null);
+
+        // If as of date is before birth, return "Not born"
+        if (pointInTime.before(DOB)) {
+            return ResourceBundle.getBundle("oscarResources").getString("global.notBorn");
+        }
 
         GregorianCalendar now = new GregorianCalendar();
         now.setTime(pointInTime);

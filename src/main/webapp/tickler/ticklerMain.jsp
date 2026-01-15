@@ -62,7 +62,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -717,9 +717,21 @@
                             }
                         %>
                     </div>
-                    <div class="pull-right form-group"
-                         style="text-align: right; vertical-align: bottom; padding:20px 15px 15px 15px;">
-                        <label for="formSubmitBtn"></label>
+                    <div class="form-group">
+					    <label for="ticklerview">Filter</label>
+                        <select id="ticklerview" class="form-control" name="ticklerview">
+                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
+                                <fmt:setBundle basename="oscarResources"/>
+                                <fmt:message key="tickler.ticklerMain.formActive"/></option>
+                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>>
+                                <fmt:setBundle basename="oscarResources"/>
+                                <fmt:message key="tickler.ticklerMain.formCompleted"/></option>
+                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>>
+                                <fmt:setBundle basename="oscarResources"/>
+                                <fmt:message key="tickler.ticklerMain.formDeleted"/></option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="padding-top:15px;">
                         <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>"
                                onclick="document.forms['serviceform'].Submit.value='Create Report'; document.forms['serviceform'].submit();">
@@ -858,12 +870,12 @@
                                                        class="noprint"></td>
                     <td class="<%=cellColour%>">
                         <a href="javascript:void(0)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.editTickler"/>"
-                           onClick="window.open('../tickler/ticklerEdit.jsp?tickler_no=<%=tickler.getId()%>', 'edit_tickler', 'width=800, height=650')">
+                           onClick="window.open('<%= request.getContextPath() %>/tickler/ticklerEdit.jsp?tickler_no=<%=tickler.getId()%>', 'edit_tickler', 'width=800, height=650')">
                             <span class="glyphicon glyphicon-pencil"></span>
                         </a>
                     </td>
                     <td class="<%=cellColour%>"><a href="javascript:void(0)"
-                                                   onClick="popupPage(600,800,'../demographic/demographiccontrol.jsp?demographic_no=<%=demo.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')">
+                                                   onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demo.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')">
                         <%=Encode.forHtmlContent(demo.getLastName())%>,<%=Encode.forHtmlContent(demo.getFirstName())%>
                     </a></td>
                     <td class="<%=cellColour%>"><%=tickler.getProvider() == null ? "N/A" : Encode.forHtmlContent(tickler.getProvider().getFormattedName())%>
@@ -898,13 +910,13 @@
                         } else if (LabResultData.isCML(type)) {
                         %>
                         <a title="View attachment"
-                           href="javascript:reportWindow('../lab/CA/ON/CMLDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
+                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
                                 class="glyphicon glyphicon-paperclip"></i></a>
                         <%
                         } else if (LabResultData.isHL7TEXT(type)) {
                         %>
                         <a title="View attachment"
-                           href="javascript:reportWindow('../lab/CA/ALL/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
+                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
                                 class="glyphicon glyphicon-paperclip"></i></a>
                         <%
                         } else if (LabResultData.isDocument(type)) {
@@ -922,7 +934,7 @@
                         } else {
                         %>
                         <a title="View attachment"
-                           href="javascript:reportWindow('../lab/CA/BC/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
+                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
                                 class="glyphicon glyphicon-paperclip"></i></a>
                         <%
                             }

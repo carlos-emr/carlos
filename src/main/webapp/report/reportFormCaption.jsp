@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -16,7 +16,7 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*, ca.openosp.openo.report.data.*" %>
 <%@ page import="ca.openosp.openo.login.*" %>
-<%@ page import="org.apache.commons.lang.*" %>
+<%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="ca.openosp.openo.report.data.RptReportItem" %>
 <%@ page import="ca.openosp.openo.report.data.RptTableFieldNameCaption" %>
 <%
@@ -120,8 +120,8 @@
                             String fieldCaption = "";
                             String action = " Add ";
                             if (strTemp.length > 1) {
-                                fieldName = StringEscapeUtils.escapeHtml(strTemp[1]);
-                                fieldCaption = StringEscapeUtils.escapeHtml(strTemp[0].trim());
+                                fieldName = StringEscapeUtils.escapeHtml4(strTemp[1]);
+                                fieldCaption = StringEscapeUtils.escapeHtml4(strTemp[0].trim());
                             }
                             if (fieldCaption.length() > 1) {
                                 color = "gold";

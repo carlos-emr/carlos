@@ -29,7 +29,7 @@
 <%@ page import="java.util.ResourceBundle"%>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");
     String tite = (String) request.getAttribute("provider.title");

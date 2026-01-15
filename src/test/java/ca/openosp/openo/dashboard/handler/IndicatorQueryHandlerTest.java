@@ -163,7 +163,7 @@ public class IndicatorQueryHandlerTest extends DaoTestFixtures {
             total = (total + subtotal);
         }
 
-        assertEquals(new Double(14), total);
+        assertEquals(Double.valueOf(14), total);
     }
 
 }

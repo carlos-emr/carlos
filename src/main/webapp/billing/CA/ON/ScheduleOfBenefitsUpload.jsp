@@ -169,7 +169,7 @@
                 4. Click "Update" checkbox to select All<br>
 
                 <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange.do" method="POST"
-                        styleId="sbForm">
+                        id="sbForm">
                     <table class="table table-striped  table-condensed">
                         <tr>
                             <th nowrap><oscar:oscarPropertiesCheck property="SOB_CHECKALL"

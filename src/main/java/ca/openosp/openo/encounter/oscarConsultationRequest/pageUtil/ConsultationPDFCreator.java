@@ -289,7 +289,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     }
 
     /**
-     * @deprecated use the createLogo method in the ClinicLogoUtility at org.oscarehr.util
+     * @deprecated use the createLogo method in the ClinicLogoUtility at ca.openosp.openo.utility
      */
     @Deprecated
     private PdfPTable createLogoHeader() {

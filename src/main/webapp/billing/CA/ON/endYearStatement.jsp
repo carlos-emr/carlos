@@ -44,7 +44,7 @@
 
         function demographicSearch() {
             var search_param = $('#nameForlooksOnly').val();
-            var url = '../../../demographic/demographicsearch2reportresults.jsp';
+            var url = '<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp';
             url += '?originalpage=' + escape('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';

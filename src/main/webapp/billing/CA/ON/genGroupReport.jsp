@@ -19,7 +19,7 @@
 --%>
 <%@ page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.billing.ca.on.OHIP.*, java.net.*"
          errorPage="/errorpage.jsp" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
 
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>

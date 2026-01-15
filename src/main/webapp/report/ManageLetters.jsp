@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -42,7 +42,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page
-        import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*,ca.openosp.openo.report.data.*,ca.openosp.openo.prevention.pageUtil.*,java.net.*,ca.openosp.openo.eform.*" %>
+        import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*,ca.openosp.openo.report.data.*,ca.openosp.openo.prevention.pageUtil.*,java.net.*,ca.openosp.openo.eform.*,org.owasp.encoder.Encode" %>
 <%@ page import="ca.openosp.openo.report.data.ManageLetters" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -97,13 +97,13 @@
                 document.getElementById(id).style.display = 'none';
             }
 
-            function showHideNextDate(id, nextDate, nexerWarn) {
+            function showHideNextDate(id, nextDate, neverWarn) {
                 if (document.getElementById(id).style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
                     document.getElementById(nextDate).value = "";
-                    document.getElementById(nexerWarn).checked = false;
+                    document.getElementById(neverWarn).checked = false;
 
                 }
             }
@@ -221,17 +221,17 @@
                         Hashtable h = (Hashtable) list.get(i);
                     %>
                     <tr>
-                        <td><%=h.get("ID")%>
+                        <td><%= Encode.forHtml(String.valueOf(h.get("ID"))) %>
                         </td>
-                        <td><%=h.get("provider_no")%>
+                        <td><%= Encode.forHtml(String.valueOf(h.get("provider_no"))) %>
                         </td>
-                        <td><%=h.get("report_name")%>
+                        <td><%= Encode.forHtml(String.valueOf(h.get("report_name"))) %>
                         </td>
-                        <td><a href="DownloadLetter.do?reportID=<%=h.get("ID")%>"><%=h.get("file_name")%>
+                        <td><a href="<%= request.getContextPath() %>/report/DownloadLetter.do?reportID=<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%= Encode.forHtml(String.valueOf(h.get("file_name")))%>
                         </a></td>
-                        <td><%=h.get("date_time")%>
+                        <td><%= Encode.forHtml(String.valueOf(h.get("date_time"))) %>
                         </td>
-                        <td><a href="DeleteLetter.do?reportID=<%=h.get("ID")%>">del</a></td>
+                        <td><form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter.do" style="display:inline;margin:0;"><input type="hidden" name="reportID" value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID"))) %>"/><button type="submit" style="background:none;border:none;color:blue;text-decoration:underline;cursor:pointer;padding:0;">del</button></form></td>
                     </tr>
                     <%}%>
                 </table>

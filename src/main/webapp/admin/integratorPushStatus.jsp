@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page contentType="text/html" %>
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@page import="ca.openosp.openo.commn.model.UserProperty" %>

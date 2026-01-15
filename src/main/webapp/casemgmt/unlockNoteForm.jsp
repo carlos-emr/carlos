@@ -58,7 +58,7 @@
 <h5 style="color: red">This note will only be unlocked for the
     duration of your session. To permanently unlock, click on Edit Note, and
     remove the password.</h5>
-<nested:form action="/CaseManagementView">
+<form action="<%= request.getContextPath() %>/CaseManagementView.do">
     <input type="hidden" name="method" value="do_unlock"/>
     <input type="hidden" name="noteId" id="noteId"/>
     <table>
@@ -73,7 +73,7 @@
             </td>
         </tr>
     </table>
-</nested:form>
+</form>
 </body>
 
 </html>

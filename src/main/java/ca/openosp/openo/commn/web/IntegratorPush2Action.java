@@ -32,7 +32,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.openo.services.security.SecurityManager;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import ca.openosp.openo.PMmodule.web.forms.IntegratorPushItem;
 import ca.openosp.openo.PMmodule.web.forms.IntegratorPushResponse;
@@ -55,6 +56,9 @@ public class IntegratorPush2Action extends ActionSupport {
     private UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
     private IntegratorPushManager integratorPushManager = SpringUtils.getBean(IntegratorPushManager.class);
 
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public String execute() {
         if ("getPushData".equals(request.getParameter("method"))) {
             return getPushData();
@@ -67,7 +71,7 @@ public class IntegratorPush2Action extends ActionSupport {
 
     public String getPushData() {
 
-        JSONObject json = null;
+        ObjectNode json = null;
 
         SecurityManager securityMgr = new SecurityManager();
         if (securityMgr.hasReadAccess("_admin", request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
@@ -84,13 +88,13 @@ public class IntegratorPush2Action extends ActionSupport {
             IntegratorPushResponse ipResponse = new IntegratorPushResponse();
             ipResponse.setItems(results);
             ipResponse.setPaused(integratorPushManager.isPauseFlagSet());
-            //jsonArray = JSONArray.fromObject( results );
-            json = JSONObject.fromObject(ipResponse);
+            //jsonArray = objectMapper.valueToTree( results );
+            json = objectMapper.valueToTree(ipResponse);
 
         }
 
         try {
-            json.write(response.getWriter());
+            response.getWriter().write(json.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Couldn't return result", e);
         }
@@ -99,17 +103,13 @@ public class IntegratorPush2Action extends ActionSupport {
     }
 
     /**
-     * We basically just set a system property in the DB so that the next time the job runs, it either, does or not based on the property
+     * We basically just set a system property in the DB so that the next time the job runs, it either, does or not based on the property.
      *
-     * @param mapping
-     * @param form
-     * @param request
-     * @param response
-     * @return
+     * @return JSON result string
      */
     public String disableNextAndFuturePushes() {
 
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
 
         SecurityManager securityMgr = new SecurityManager();
         if (securityMgr.hasReadAccess("_admin", request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
@@ -137,7 +137,7 @@ public class IntegratorPush2Action extends ActionSupport {
         }
 
         try {
-            json.write(response.getWriter());
+            response.getWriter().write(json.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Couldn't return result", e);
         }
@@ -146,7 +146,7 @@ public class IntegratorPush2Action extends ActionSupport {
     }
 
     public String togglePause() {
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
 
         String in = request.getParameter("pause");
         boolean doPause = false;
@@ -178,7 +178,7 @@ public class IntegratorPush2Action extends ActionSupport {
         }
 
         try {
-            json.write(response.getWriter());
+            response.getWriter().write(json.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Couldn't return result", e);
         }

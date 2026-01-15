@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -14,7 +14,7 @@
 %>
 
 <%@ page errorPage="/errorpage.jsp" import="java.util.*" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
     int nS = 1;
     int nE = 10;
@@ -65,7 +65,7 @@
         cfgGraphic = request.getParameterValues("__cfgGraphicFile");
     }
 
-    //response.sendRedirect("<%= request.getContextPath() %>/form/createpdf");
+    //response.sendRedirect(request.getContextPath() + "/form/createpdf");
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
@@ -107,7 +107,7 @@
             }
     %>
     <input type="hidden" name="<%= temp %>"
-           value="<%=StringEscapeUtils.escapeHtml(request.getParameter(temp))%>"/>
+           value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>"/>
     <%
         }
     %>
@@ -133,7 +133,7 @@
             String temp = e.nextElement().toString();
     %>
     <input type="hidden" name="<%= temp %>"
-           value="<%=StringEscapeUtils.escapeHtml(prop.getProperty(temp, ""))%>"/>
+           value="<%=StringEscapeUtils.escapeHtml4(prop.getProperty(temp, ""))%>"/>
     <%
         }
     %>

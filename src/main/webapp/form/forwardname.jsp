@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
                    rights="r" reverse="<%=true%>">
-    <%response.sendRedirect("../logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 <%
     // forward to the page 'form_link'

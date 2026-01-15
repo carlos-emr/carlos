@@ -29,11 +29,13 @@ package ca.openosp.openo.commn.dao;
 
 import ca.openosp.openo.commn.model.AbstractCodeSystemModel;
 import ca.openosp.openo.commn.model.Icd10;
+import org.springframework.stereotype.Repository;
 
 import javax.persistence.Query;
 import java.util.Collections;
 import java.util.List;
 
+@Repository
 public class Icd10DaoImpl extends AbstractDaoImpl<Icd10> implements Icd10Dao {
 
     public Icd10DaoImpl() {

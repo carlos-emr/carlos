@@ -27,7 +27,7 @@ Ontario, Canada
 <%
     //Lists forms available to add to patient
     if (session.getValue("user") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String demographic_no = request.getParameter("demographic_no");
     String country = request.getLocale().getCountry();
@@ -53,7 +53,7 @@ Ontario, Canada
 <%
     String user = (String) session.getAttribute("user");
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String roleName$ = (String) session.getAttribute("userrole") + "," + user;
 

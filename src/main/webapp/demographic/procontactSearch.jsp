@@ -47,14 +47,14 @@
 <%@ page import="ca.openosp.openo.commn.web.Contact2Action" %>
 <%@ page import="ca.openosp.openo.commn.model.ProfessionalContact" %>
 <%@ page import="ca.openosp.openo.commn.model.Contact" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
-<%@ page import="org.apache.commons.lang.WordUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.WordUtils" %>
 
 <%@ include file="/taglibs.jsp" %>
 
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String strLimit1 = "0";
     String strLimit2 = "10";
@@ -205,9 +205,9 @@
 	</tr>
 </table  -->
 
-        <input type='hidden' name='form' value="<%=StringEscapeUtils.escapeHtml(form)%>"/>
-        <input type='hidden' name='elementName' value="<%=StringEscapeUtils.escapeHtml(elementName)%>"/>
-        <input type='hidden' name='elementId' value="<%=StringEscapeUtils.escapeHtml(elementId)%>"/>
+        <input type='hidden' name='form' value="<%=StringEscapeUtils.escapeHtml4(form)%>"/>
+        <input type='hidden' name='elementName' value="<%=StringEscapeUtils.escapeHtml4(elementName)%>"/>
+        <input type='hidden' name='elementId' value="<%=StringEscapeUtils.escapeHtml4(elementId)%>"/>
 
     </form>
 
@@ -233,7 +233,7 @@
                 javax.servlet.jsp.jstl.core.LoopTagStatus i = (javax.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
                 String strOnClick;
-                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + StringEscapeUtils.escapeJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + StringEscapeUtils.escapeEcmaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
             %>
             <tr bgcolor="<%=bgColor%>"
@@ -284,7 +284,7 @@
 
         <tr>
             <td>
-                <a href="Contact.do?method=addProContact&keyword=<%= keyword %>&contactRole=${ param.contactRole }&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= keyword %>&contactRole=${ param.contactRole }&contactType=3"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
                 </a>
@@ -296,12 +296,12 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 

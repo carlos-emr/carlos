@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -15,7 +15,7 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*, ca.openosp.openo.report.data.*" %>
 <%@ page import="ca.openosp.openo.login.*" %>
-<%@ page import="org.apache.commons.lang.*" %>
+<%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="ca.openosp.openo.report.data.RptReportConfigData" %>
 <%@ page import="ca.openosp.openo.report.data.RptReportItem" %>
 <%
@@ -119,8 +119,8 @@
                             for (int i = 0; i < vecConfigObj.size(); i++) {
                                 String color = i % 2 == 0 ? "trOdd" : "trEven"; //"#EEEEFF" : "";
                                 Properties prop = (Properties) vecConfigObj.get(i);
-                                String fieldName = StringEscapeUtils.escapeHtml(prop.getProperty("name", ""));
-                                String fieldCaption = StringEscapeUtils.escapeHtml(prop.getProperty("caption", ""));
+                                String fieldName = StringEscapeUtils.escapeHtml4(prop.getProperty("name", ""));
+                                String fieldCaption = StringEscapeUtils.escapeHtml4(prop.getProperty("caption", ""));
                                 String fieldId = prop.getProperty("id", "");
                                 String fieldPosition = prop.getProperty("order_no", "");
                                 String action = " Add ";

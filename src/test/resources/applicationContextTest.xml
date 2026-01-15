@@ -35,7 +35,6 @@
 	<!-- setup hibernate -->
 	<import resource="classpath:spring_hibernate_test.xml" />
 
-
 <!-- hibernated DAO -->
         <bean id="gstControlDao" class="ca.openosp.openo.billing.CA.dao.GstControlDao" autowire="byName" />
 	<bean id="programDao" class="ca.openosp.openo.PMmodule.dao.ProgramDao" autowire="byName" />
@@ -94,7 +93,7 @@
 	
 	<!-- <bean id="rourke2009Dao" class="ca.openosp.openo.form.dao.Rourke2009DAO" autowire="byName" /> -->
 	<!-- <bean id="Rourke2017Dao" class="ca.openosp.openo.form.dao.Rourke2017Dao" autowire="byName"/> -->
-    <!-- <bean id="FormBooleanValueDao" class="ca.openosp.openo.form.dao.FormBooleanValueDao" autowire="byName"/> -->
+  <!-- <bean id="FormBooleanValueDao" class="ca.openosp.openo.form.dao.FormBooleanValueDao" autowire="byName"/> -->
 	<!-- <bean id="ocanSubmissionLogDao" class="ca.openosp.openo.PMmodule.dao.OcanSubmissionLogDao" autowire="byName" /> -->
 	<!-- bean id="Perinatal2017Dao" class="ca.openosp.openo.form.dao.ONPerinatal2017Dao" autowire="byName"/ -->
 	<!-- bean id="Perinatal2017CommentDao" class="ca.openosp.openo.form.dao.ONPerinatal2017CommentDao" autowire="byName"/ -->
@@ -116,7 +115,7 @@
 	
 	<bean id="template" class="org.springframework.orm.hibernate3.HibernateTemplate">  
     <property name="sessionFactory" ref="sessionFactory"></property>  
-    </bean>  
+  </bean>  
 
 	<bean id="hibernateTestDao" class="ca.openosp.openo.util.HibernateTestDao">
     <property name="template" ref="template"/>

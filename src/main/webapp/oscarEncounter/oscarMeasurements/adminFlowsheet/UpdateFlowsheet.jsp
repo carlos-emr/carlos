@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_flowsheet");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_flowsheet");%>
 </security:oscarSec>
 <%
     if (!authed2) {
@@ -62,9 +62,9 @@
 
 <%
     long startTimeToGetP = System.currentTimeMillis();
-    if (session.getValue("user") == null) response.sendRedirect("../../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     //TODO: MOVE THIS TO AN ACTION
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     FlowSheetCustomizationDao flowSheetCustomizationDao = (FlowSheetCustomizationDao) ctx.getBean(FlowSheetCustomizationDao.class);
@@ -74,20 +74,6 @@ String flowsheet   = request.getParameter("flowsheet");
 String measurement = request.getParameter("measurement");
 String demographic = request.getParameter("demographic");
 String scope = request.getParameter("scope");
-
-    long start = System.currentTimeMillis();
-
-    List<FlowSheetCustomization> custList = null;
-
-if(scope != null && "clinic".equals(scope)) {
-    custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet);
-} else {
-    if(demographic == null || demographic.isEmpty()) {
-        custList = flowSheetCustomizationDao.getFlowSheetCustomizations( flowsheet,(String) session.getAttribute("user"));
-    } else {
-        custList = flowSheetCustomizationDao.getFlowSheetCustomizationsForPatient(flowsheet,demographic);
-    }
-}
 
     String module = "";
     String htQueryString = "";
@@ -101,6 +87,19 @@ if(scope != null && "clinic".equals(scope)) {
         htQueryString = htQueryString + "=slim";
     }
 
+    long start = System.currentTimeMillis();
+
+    List<FlowSheetCustomization> custList = null;
+
+if(scope != null && "clinic".equals(scope)) {
+    custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet);
+} else {
+    if(demographic == null || demographic.isEmpty()) {
+        custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"));
+    } else {
+        custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"), Integer.parseInt(demographic));
+    }
+}
 
     MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(flowsheet, custList);
     long end = System.currentTimeMillis();
@@ -109,6 +108,7 @@ if(scope != null && "clinic".equals(scope)) {
     Map h2 = mFlowsheet.getMeasurementFlowSheetInfo(measurement);
     List<Recommendation> dsR = mFlowsheet.getDSElements((String) h2.get("measurement_type"));
     FlowSheetItem fsi = mFlowsheet.getFlowSheetItem(measurement);
+
 //EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
 %>
 
@@ -149,9 +149,7 @@ display:inline-block;
     <body id="updateFlowsheetBody">
 
     <%
-        if (request.getParameter("htracker") == null || (request.getParameter("htracker") != null && !request.getParameter("htracker").equals("slim"))) {
-
-            if (request.getParameter("demographic") == null) { %>
+        if (request.getParameter("demographic") == null) { %>
 <div class="navbar" id="demoHeader"><div class="navbar-inner">
     <a class="brand" href="javascript:void(0)">Update Flowsheet Measurement</a>
     <em>for <strong><%=flowsheet%></strong> flowsheet </em>
@@ -160,7 +158,6 @@ display:inline-block;
     <%@ include file="/share/templates/patient.jspf" %>
     <div style="height:60px;"></div>
     <%
-            }
         }
     %>
 
@@ -168,11 +165,6 @@ display:inline-block;
 
         <div class="span8">
 <form action="FlowSheetCustomAction.do" onsubmit="return validateRuleValue();">
-
-                <%if (request.getParameter("htracker") != null) { %>
-                <input type="hidden" name="htracker" value="<%=module%>">
-                <%}%>
-
                 <input type="hidden" name="method" value="update"/>
                 <input type="hidden" name="flowsheet" value="<%=flowsheet%>"/>
                 <input type="hidden" name="measurement" value="<%=measurement%>"/>
@@ -489,9 +481,9 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>" class="btn">Cancel</a>
+                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn">Cancel</a>
                         <%} else { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&demographic=<%=demographic%><%=htQueryString%>"
+                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&demographic=<%=demographic%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>"
                            class="btn">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>

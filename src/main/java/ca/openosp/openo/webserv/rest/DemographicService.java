@@ -42,7 +42,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
@@ -125,7 +126,7 @@ public class DemographicService extends AbstractServiceImpl {
             this.value = value;
         }
 
-        public String getValue() {
+    public String getValue() {
             return value;
         }
     }
@@ -612,8 +613,8 @@ public class DemographicService extends AbstractServiceImpl {
      * <p>
      * Currently supports LastName[,FirstName] and address searches.
      *
-     * @param id Id of the demographic to get data for
-     * @return Returns data for the demographic provided
+     * @param query the search query string
+     * @return Returns search results for demographics matching the query
      */
     @GET
     @Path("/quickSearch")
@@ -674,7 +675,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/search")
     @Produces("application/json")
     @Consumes("application/json")
-    public AbstractSearchResponse<DemographicSearchResult> search(JSONObject json, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
+    public AbstractSearchResponse<DemographicSearchResult> search(ObjectNode json, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
         AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
@@ -692,7 +693,7 @@ public class DemographicService extends AbstractServiceImpl {
 
         List<DemographicSearchResult> results = new ArrayList<DemographicSearchResult>();
 
-        if (json.getString("term").length() >= 1) {
+        if (json.get("term") != null && json.get("term").asText().length() >= 1) {
 
             int count = demographicManager.searchPatientsCount(getLoggedInInfo(), req);
 
@@ -710,7 +711,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/searchIntegrator")
     @Produces("application/json")
     @Consumes("application/json")
-    public AbstractSearchResponse<DemographicSearchResult> searchIntegrator(JSONObject json, @QueryParam("itemsToReturn") Integer itemsToReturn) {
+    public AbstractSearchResponse<DemographicSearchResult> searchIntegrator(ObjectNode json, @QueryParam("itemsToReturn") Integer itemsToReturn) {
         AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
@@ -719,7 +720,7 @@ public class DemographicService extends AbstractServiceImpl {
 
         List<DemographicSearchResult> results = new ArrayList<DemographicSearchResult>();
 
-        if (json.getString("term").length() >= 1) {
+        if (json.get("term") != null && json.get("term").asText().length() >= 1) {
 
             MatchingDemographicParameters matches = CaisiIntegratorManager.getMatchingDemographicParameters(getLoggedInInfo(), convertFromJSON(json));
             List<MatchingDemographicTransferScore> integratorSearchResults = null;
@@ -762,10 +763,10 @@ public class DemographicService extends AbstractServiceImpl {
         return response;
     }
 
-    private DemographicSearchRequest convertFromJSON(JSONObject json) {
+    private DemographicSearchRequest convertFromJSON(ObjectNode json) {
         if (json == null) return null;
 
-        String searchType = json.getString("type");
+        String searchType = json.get("type") != null ? json.get("type").asText() : null;
 
         DemographicSearchRequest req = new DemographicSearchRequest();
 
@@ -774,21 +775,23 @@ public class DemographicService extends AbstractServiceImpl {
             req.setMode(SEARCHMODE.Name);
         }
 
-        req.setKeyword(json.getString("term"));
-        req.setActive(Boolean.valueOf(json.getString("active")));
-        req.setIntegrator(Boolean.valueOf(json.getString("integrator")));
-        req.setOutOfDomain(Boolean.valueOf(json.getString("outofdomain")));
+        req.setKeyword(json.get("term") != null ? json.get("term").asText() : null);
+        req.setActive(Boolean.valueOf(json.get("active") != null ? json.get("active").asText() : "false"));
+        req.setIntegrator(Boolean.valueOf(json.get("integrator") != null ? json.get("integrator").asText() : "false"));
+        req.setOutOfDomain(Boolean.valueOf(json.get("outofdomain") != null ? json.get("outofdomain").asText() : "false"));
 
         Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
 
-        JSONObject params = json.getJSONObject("params");
+        ObjectNode params = (ObjectNode) json.get("params");
         if (params != null) {
-            for (Object key : params.keySet()) {
-                Matcher nameMtchr = namePtrn.matcher((String) key);
+            java.util.Iterator<String> fieldNames = params.fieldNames();
+            while (fieldNames.hasNext()) {
+                String key = fieldNames.next();
+                Matcher nameMtchr = namePtrn.matcher(key);
                 if (nameMtchr.find()) {
                     String var = nameMtchr.group(1);
                     req.setSortMode(SORTMODE.valueOf(var));
-                    req.setSortDir(SORTDIR.valueOf(params.getString((String) key)));
+                    req.setSortDir(SORTDIR.valueOf(params.get(key).asText()));
                 }
             }
         }

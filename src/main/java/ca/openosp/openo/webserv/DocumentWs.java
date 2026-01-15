@@ -34,7 +34,7 @@ import javax.jws.WebParam;
 import javax.jws.WebService;
 import javax.xml.ws.WebServiceException;
 
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.cxf.annotations.GZIP;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.service.ProgramManager;

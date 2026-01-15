@@ -45,7 +45,7 @@
 
 
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 
     //String user_no = (String) session.getAttribute("user");

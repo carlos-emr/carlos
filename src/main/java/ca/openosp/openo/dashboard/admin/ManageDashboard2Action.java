@@ -26,7 +26,8 @@
 package ca.openosp.openo.dashboard.admin;
 
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.dom4j.Document;
@@ -68,6 +69,9 @@ public class ManageDashboard2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
 
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public String execute() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -79,8 +83,8 @@ public class ManageDashboard2Action extends ActionSupport {
         String method = request.getParameter("method");
         if ("importTemplate".equals(method)) {
             return importTemplate();
-        } else if ("importTemplate".equals(method)) {
-            return importTemplate();
+        } else if ("exportTemplate".equals(method)) {
+            return exportTemplate();
         } else if ("assignDashboard".equals(method)) {
             return assignDashboard();
         } else if ("saveDashboard".equals(method)) {
@@ -104,13 +108,13 @@ public class ManageDashboard2Action extends ActionSupport {
         }
 
         byte[] filebytes = null;
-        JSONObject json = null;
+        ObjectNode json = null;
 
         if (indicatorTemplateFile != null) {
             try {
                 filebytes = Files.readAllBytes(indicatorTemplateFile.toPath());
             } catch (Exception e) {
-                json = new JSONObject();
+                json = objectMapper.createObjectNode();
                 json.put("status", "error");
                 json.put("message", e.getMessage());
                 MiscUtils.getLogger().error("Failed to transfer file. ", e);
@@ -179,17 +183,21 @@ public class ManageDashboard2Action extends ActionSupport {
 
             if (isOscarXml) {
                 message = dashboardManager.importIndicatorTemplate(loggedInInfo, filebytes);
-                json = JSONObject.fromObject(message);
+                try {
+                    json = (ObjectNode) objectMapper.readTree(message);
+                } catch (Exception e) {
+                    MiscUtils.getLogger().error("Failed to read json. ", e);
+                }
             } else {
-                json = new JSONObject();
+                json = objectMapper.createObjectNode();
                 json.put("status", "error");
                 json.put("message", "There is a validation error");
             }
         }
 
         Map<String, String> messageMap = new HashMap<String, String>();
-        messageMap.put("status", json.getString("status"));
-        messageMap.put("message", json.getString("message"));
+        messageMap.put("status", json.get("status").asText());
+        messageMap.put("message", json.get("message").asText());
 
         setRequest(loggedInInfo, request, messageMap);
 
@@ -263,7 +271,7 @@ public class ManageDashboard2Action extends ActionSupport {
         int dashboardId = 0;
         int indicatorId = 0;
 
-        JSONObject jsonObject = new JSONObject();
+        ObjectNode jsonObject = objectMapper.createObjectNode();
 
         if (dashboard != null && !dashboard.isEmpty()) {
             dashboardId = Integer.parseInt(dashboard);
@@ -280,7 +288,7 @@ public class ManageDashboard2Action extends ActionSupport {
         }
 
         try {
-            jsonObject.write(response.getWriter());
+            response.getWriter().write(jsonObject.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("JSON response failed", e);
             return "error";

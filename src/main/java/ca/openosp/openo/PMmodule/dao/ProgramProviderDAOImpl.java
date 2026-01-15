@@ -27,7 +27,7 @@
 
 package ca.openosp.openo.PMmodule.dao;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.model.ProgramProvider;
 import ca.openosp.openo.commn.model.Facility;

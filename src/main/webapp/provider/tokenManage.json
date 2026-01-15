@@ -1,6 +1,5 @@
-<%@page import="net.sf.json.JSONObject"%>
-<%@page import="net.sf.json.JSONArray"%>
-<%@page import="net.sf.json.JSONSerializer"%>
+<%@page import="com.fasterxml.jackson.databind.ObjectMapper"%>
+<%@page import="com.fasterxml.jackson.databind.node.ObjectNode"%>
 <%@page import="ca.openosp.openo.utility.SpringUtils"%>
 <%@ page import="ca.openosp.openo.commn.dao.ServiceRequestTokenDao" %>
 <%@ page import="ca.openosp.openo.commn.dao.ServiceAccessTokenDao" %>
@@ -18,9 +17,10 @@
 <%
 	boolean success = false;
     String error = "";
-	String method = request.getParameter("method");	
-	
-	JSONObject json = new JSONObject();
+	String method = request.getParameter("method");
+
+	ObjectMapper mapper = new ObjectMapper();
+	ObjectNode json = mapper.createObjectNode();
 	json.put("method", method);
 
 	if ("deleteRequestToken".equals(method)) {
@@ -67,12 +67,12 @@
 		error = "Invalid method supplied.";
 	}
 	
-	    response.setContentType("text/x-json");    
-		
+	    response.setContentType("application/json");
+
 		json.put("success", success);
 		json.put("error", error);
-		
-	    json.write(out);    	
+
+	    out.print(mapper.writeValueAsString(json));    	
 	
 %>
 

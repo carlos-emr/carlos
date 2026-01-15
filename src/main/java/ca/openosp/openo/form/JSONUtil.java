@@ -24,7 +24,8 @@
  */
 package ca.openosp.openo.form;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
 
@@ -37,8 +38,9 @@ public abstract class JSONUtil {
     private static final String ENCODING = "UTF-8";
     private static final String CONTENT_TYPE = "application/json";
     private static final Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static void jsonResponse(HttpServletResponse response, JSONObject jsonObject) {
+    public static void jsonResponse(HttpServletResponse response, ObjectNode jsonObject) {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
             response.setCharacterEncoding(ENCODING);
@@ -61,7 +63,7 @@ public abstract class JSONUtil {
     }
 
     public static void jsonResponse(HttpServletResponse response, String name, String value) {
-        JSONObject jsonObject = new JSONObject();
+        ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put(name, value);
         jsonResponse(response, jsonObject);
     }

@@ -27,7 +27,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.utility.WebUtils" %>
 <%@page import="ca.openosp.openo.commn.dao.DrugDao" %>
 <%@page import="ca.openosp.openo.commn.model.Drug" %>
@@ -83,7 +83,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -115,7 +115,7 @@
                    objectName='<%="_rx$"+demoNo%>' rights="o"
                    reverse="<%=false%>">
     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.accessDenied"/>
-    <% response.sendRedirect("../acctLocked.html"); %>
+    <% response.sendRedirect(request.getContextPath() + "/acctLocked.html"); %>
 </security:oscarSec>
 
 <%
@@ -904,7 +904,7 @@
                         <td valign="top" align="left">
                             <%if (securityManager.hasWriteAccess("_rx", roleName2$, true)) {%>
                             <form action="${pageContext.request.contextPath}/oscarRx/searchDrug.do" onsubmit="return checkEnterSendRx();"
-                                       style="display: inline; margin-bottom:0;" styleId="drugForm" name="drugForm" id="drugForm" method="post">
+                                       style="display: inline; margin-bottom:0;" id="drugForm" name="drugForm" method="post">
                                 <div id="interactingDrugErrorMsg" style="display:none"></div>
                                 <div id="rxText" style="float:left;"></div>
                                 <br style="clear:left;">
@@ -1206,7 +1206,7 @@
                                                 <tr>
                                                     <td><%=formatter.format(note.getCreate_date()) %>
                                                     </td>
-                                                    <td><%=StringEscapeUtils.escapeHtml(str)%>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(str)%>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -1496,7 +1496,7 @@
 
         function displayInstructions(randomId) {
             var data = "randomId=" + randomId;
-            mb.show(randomId, 'displayInstructions', '600px');
+            mb.show(randomId, '<%= request.getContextPath() %>/oscarRx/displayInstructions', '600px');
 
         }
 
@@ -2084,7 +2084,7 @@
                 var data = "randomId=" + randomId + "&favoriteName=" + favoriteName;
                 new Ajax.Request(url, {
                     method: 'get', parameters: data, onSuccess: function (transport) {
-                        window.location.href = "oscarRx/SearchDrug3.jsp";
+                        window.location.href = "<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp";
                     }
                 })
             }
@@ -2150,8 +2150,6 @@
             $('showHideNumber').update(numberOfHiddenResources);
 
         }
-
-        // var totalHiddenResources=0;
 
         var addTextView = 0;
 
@@ -2569,65 +2567,65 @@ function getReRxCheckboxByUiRefId(uiRefId) {
             jQuery('input[name^="rxDate__"]').each(function () {
                 var str1 = jQuery(this).val();
 
-                var dt = str1.split("-");
-                if (dt.length > 3) {
-                    jQuery(this).focus();
-                    alert('Start Date wrong format! Must be yyyy or yyyy-mm or yyyy-mm-dd');
-                    x = false;
-                    return;
-                }
+                 var dt = str1.split("-");
+                 if (dt.length>3) {
+                 	jQuery(this).focus();
+                     alert('Start Date wrong format! Must be yyyy or yyyy-mm or yyyy-mm-dd');
+                     x = false;
+                     return;
+                 }
 
-                var dt1 = 1, mon1 = 0, yr1 = parseInt(dt[0], 10);
-                if (isNaN(yr1) || yr1 < 0 || yr1 > 9999) {
-                    jQuery(this).focus();
-                    alert('Invalid Start Date! Please check the year');
-                    x = false;
-                    return;
-                }
-                if (dt.length > 1) {
-                    mon1 = parseInt(dt[1], 10) - 1;
-                    if (isNaN(mon1) || mon1 < 0 || mon1 > 11) {
-                        jQuery(this).focus();
-                        alert('Invalid Start Date! Please check the month');
-                        x = false;
-                        return;
-                    }
-                }
-                if (dt.length > 2) {
-                    dt1 = parseInt(dt[2], 10);
-                    if (isNaN(dt1) || dt1 < 1 || dt1 > 31) {
-                        jQuery(this).focus();
-                        alert('Invalid Start Date! Please check the day');
-                        x = false;
-                        return;
-                    }
-                }
-                var date1 = new Date(yr1, mon1, dt1);
-                var now = new Date();
+                 var dt1=1, mon1=0, yr1=parseInt(dt[0],10);
+                 if (isNaN(yr1) || yr1<0 || yr1>9999) {
+                 	jQuery(this).focus();
+                     alert('Invalid Start Date! Please check the year');
+                     x = false;
+                     return;
+                 }
+                 if (dt.length>1) {
+                 	mon1 = parseInt(dt[1],10)-1;
+                 	if (isNaN(mon1) || mon1<0 || mon1>11) {
+                 		jQuery(this).focus();
+                 		alert('Invalid Start Date! Please check the month');
+                         x = false;
+                         return;
+                 	}
+                 }
+                 if (dt.length>2) {
+                 	dt1 = parseInt(dt[2],10);
+                     if (isNaN(dt1) || dt1<1 || dt1>31) {
+                     	jQuery(this).focus();
+                         alert('Invalid Start Date! Please check the day');
+                         x = false;
+                         return;
+                     }
+                 }
+                 var date1 = new Date(yr1, mon1, dt1);
+                 var now  = new Date();
 
-                if (date1 > now) {
-                    jQuery(this).focus();
-                    alert('Start Date cannot be in the future. (' + str1 + ')');
-                    x = false;
-                    return;
-                }
-            });
-            return x;
-        }
-
+                 if(date1 > now) {
+                 	jQuery(this).focus();
+                     alert('Start Date cannot be in the future. (' + str1 +')');
+                     x = false;
+                     return;
+     	        }
+             });
+             return x;
+         }
+      
         function validateWrittenDate() {
-            var x = true;
-            jQuery('input[name^="writtenDate_"]').each(function () {
-                var str1 = jQuery(this).val();
-
+          var x = true;
+            jQuery('input[name^="writtenDate_"]').each(function(){
+                var str1  = jQuery(this).val();
+    
                 var dt = str1.split("-");
-                if (dt.length > 3) {
-                    jQuery(this).focus();
+                if (dt.length>3) {
+                  jQuery(this).focus();
                     alert('Written Date wrong format! Must be yyyy or yyyy-mm or yyyy-mm-dd');
                     x = false;
                     return;
                 }
-
+    
                 var dt1 = 1, mon1 = 0, yr1 = parseInt(dt[0], 10);
                 if (isNaN(yr1) || yr1 < 0 || yr1 > 9999) {
                     jQuery(this).focus();
@@ -2655,7 +2653,7 @@ function getReRxCheckboxByUiRefId(uiRefId) {
                 }
                 var date1 = new Date(yr1, mon1, dt1);
                 var now = new Date();
-
+    
                 if (date1 > now) {
                     jQuery(this).focus();
                     alert('Written Date cannot be in the future. (' + str1 + ')');
@@ -2665,49 +2663,49 @@ function getReRxCheckboxByUiRefId(uiRefId) {
             });
             return x;
         }
-
-
-    function updateSaveAllDrugsPrintCheckContinue() {
-        updateSaveAllDrugsPrintContinue();
-    }
-
-    function updateSaveAllDrugsCheckContinue() {
-        updateSaveAllDrugsContinue();
-    }
-
-    const CONFIRMATION_MESSAGE = {
-        SINGLE: 'is 1 unstaged ReRx drug',
-        MULTIPLE: (count) => "are " + count + " unstaged ReRx drugs"
-    };
-
-    const SAVE_WARNING = 'If you continue, the unstaged ReRx drug(s) will not be re-prescribed.';
-    const SAVE_PROMPT = 'Are you sure you want to save this prescription?';
-
-    function showUnstagedReRxConfirmation(onConfirm) {
-        if (selectedReRxIDs.length === 0) {
-            onConfirm();
-            return;
+    
+    
+        function updateSaveAllDrugsPrintCheckContinue() {
+            updateSaveAllDrugsPrintContinue();
         }
-
-        const message = buildConfirmationMessage(selectedReRxIDs.length);
-        if (confirm(message)) {
-            cancelAndClearSelection();
-            onConfirm();
+    
+        function updateSaveAllDrugsCheckContinue() {
+            updateSaveAllDrugsContinue();
         }
-    }
-
-    function buildConfirmationMessage(count) {
-        const statusMessage = count === 1
-            ? CONFIRMATION_MESSAGE.SINGLE
-            : CONFIRMATION_MESSAGE.MULTIPLE(count);
-        return "There " + statusMessage + ".\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
-    }
-
+    
+        const CONFIRMATION_MESSAGE = {
+            SINGLE: 'is 1 unstaged ReRx drug',
+            MULTIPLE: (count) => "are " + count + " unstaged ReRx drugs"
+        };
+    
+        const SAVE_WARNING = 'If you continue, the unstaged ReRx drug(s) will not be re-prescribed.';
+        const SAVE_PROMPT = 'Are you sure you want to save this prescription?';
+    
+        function showUnstagedReRxConfirmation(onConfirm) {
+            if (selectedReRxIDs.length === 0) {
+                onConfirm();
+                return;
+            }
+    
+            const message = buildConfirmationMessage(selectedReRxIDs.length);
+            if (confirm(message)) {
+                cancelAndClearSelection();
+                onConfirm();
+            }
+        }
+    
+        function buildConfirmationMessage(count) {
+            const statusMessage = count === 1
+                ? CONFIRMATION_MESSAGE.SINGLE
+                : CONFIRMATION_MESSAGE.MULTIPLE(count);
+            return "There " + statusMessage + ".\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
+        }
+    
 <%
 		// MyMeds study functionality removed
 %>
-
-
+    
+    
         function updateSaveAllDrugsPrintContinue() {
             if (!validateWrittenDate()) {
                 return false;
@@ -2715,154 +2713,155 @@ function getReRxCheckboxByUiRefId(uiRefId) {
             if (!validateRxDate()) {
                 return false;
             }
-
-            <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
-            if (!checkMedTerm()) {
-                return false;
-            }
-            <%}%>
-            setPharmacyId();
-            var data = Form.serialize($('drugForm'));
-            var url = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand=" + Math.floor(Math.random() * 10001);
+    
+        <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
+        if(!checkMedTerm()){
+          return false;
+        }
+        <%}%>
+        setPharmacyId();
+            var data=Form.serialize($('drugForm'));
+            var url= "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
             new Ajax.Request(url,
-                {
-                    method: 'post', postBody: data, asynchronous: false,
-                    onSuccess: function (transport) {
-
-                        callReplacementWebService("ListDrugs.jsp", 'drugProfile');
+            {
+                method: 'post', postBody: data, asynchronous: false,
+                onSuccess: function (transport) {
+                    callReplacementWebService("ListDrugs.jsp", 'drugProfile');
+                    const hasDrugs = jQuery("[id^='drugName_']").length > 0;
+                    if (hasDrugs) {
                         popForm2(null);
-                        resetReRxDrugList();
+                    } else {
+                        alert("Please add at least one drug first");
                     }
-                });
+                    resetReRxDrugList();
+                }
+            });
             return false;
         }
-
-        function updateSaveAllDrugsContinue() {
-            if (!validateWrittenDate()) {
-                return false;
-            }
-            if (!validateRxDate()) {
-                return false;
-            }
-
-            <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
-            if (!checkMedTerm()) {
-                return false;
-            }
-            <%}%>
-            setPharmacyId();
+        
+        function updateSaveAllDrugsContinue(){
+          if(!validateWrittenDate()) {
+            return false;
+          }
+        if(!validateRxDate()) {
+            return false;
+          }
+        
+        <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
+        if(!checkMedTerm()){
+          return false;
+        }
+        <%}%>		
+        setPharmacyId();
             var data = Form.serialize($('drugForm'));
-            var url = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand=" + Math.floor(Math.random() * 10001);
+            var url = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
             new Ajax.Request(url,
-                {
-                    method: 'post', postBody: data, asynchronous: false,
-                    onSuccess: function (transport) {
-                        callReplacementWebService("ListDrugs.jsp", 'drugProfile');
-                        resetReRxDrugList();
-                        resetStash();
-                    }
-                });
+            {
+              method: 'post', postBody: data, asynchronous: false,
+              onSuccess: function (transport) {
+                  callReplacementWebService("ListDrugs.jsp", 'drugProfile');
+                  resetReRxDrugList();
+                  resetStash();
+              }
+            });
             return false;
         }
-
+        
         /**
-         * Gets the selected preferred pharmacy id and then sets it into the
-         * rxPharmacyId hidden input for submission with each drug in
-         * a prescription.
-         */
+        * Gets the selected preferred pharmacy id and then sets it into the 
+        * rxPharmacyId hidden input for submission with each drug in 
+        * a prescription. 
+        */
         function setPharmacyId() {
             var selectedPharmacy = jQuery("#Calcs option:selected").val();
             var selectedPharmacyId = "";
-            if (selectedPharmacy) {
-                selectedPharmacyId = JSON.parse(selectedPharmacy).id;
+            if(selectedPharmacy) {
+              selectedPharmacyId = JSON.parse(selectedPharmacy).id;
             }
             jQuery("#rxPharmacyId").val(selectedPharmacyId);
         }
-
+    
         function checkEnterSendRx() {
             popupRxSearchWindow();
             return false;
         }
-
-
-        <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
-
-        function checkMedTerm() {
-
-            var randId = 0;
-            var isAnyTermChecked = false;
-            jQuery("fieldset[id^='set_']").each(function () {
-                randId = jQuery(this).attr("id").replace('set_', '');
-                isAnyTermChecked = isMedTermChecked(randId);
-            });
-
-            if (!isAnyTermChecked) {
-                alert("Please review drug(s) and specify medication term!");
-            } else {
-                return true;
-            }
-
-            return false;
-        }// end checkMedTerm
-
-        function isMedTermChecked(rnd) {
-            var termChecked = false;
-            var longTermY = jQuery("#longTermY_" + rnd);
-            var longTermN = jQuery("#longTermN_" + rnd);
-
-            var shortTerm = jQuery("#shortTerm_" + rnd);
-            var medTermWrap = jQuery("#medTerm_" + rnd);
-
-            if (longTermY.is(":checked") || longTermN.is(":checked")) {
-                termChecked = true;
-                medTermWrap.css('color', 'black');
-            } else {
-                termChecked = false;
-                medTermWrap.css('color', 'red');
-            }
-
-            return termChecked;
-        }
-
-        <%} //end rx_strict_med_term check %>
-
-
-        function medTermCheckOne(rnd, el) {
-            var longTerm = jQuery("#longTerm_" + rnd);
-            var shortTerm = jQuery("#shortTerm_" + rnd);
-
-            if (el.prop("checked")) {
-                if (el.attr("id") == "longTerm_" + rnd) {
-                    shortTerm.attr("checked", false);
-                } else {
-                    longTerm.attr("checked", false);
-                }
-            }
-        }
-
-
-        jQuery(document).ready(function () {
-            jQuery(document).on('change', '.med-term', function () {
-                var randId = jQuery(this).attr("id").split("_").pop();
-
-                <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
-                isMedTermChecked(randId);
-                <%}%>
-
-                //var el = jQuery( this );
-                //medTermCheckOne(randId, el);
-            });
+    
+    
+    <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
+    function checkMedTerm() {
+        var randId = 0;
+        var isAnyTermChecked = false;
+        jQuery("fieldset[id^='set_']").each(function() {
+            randId = jQuery(this).attr("id").replace('set_','');
+            isAnyTermChecked = isMedTermChecked(randId);
         });
-    </script>
+        
+        if (!isAnyTermChecked) {
+          alert("Please review drug(s) and specify medication term!");
+        } else {
+          return true;
+        }
+        
+        return false;
+    }// end checkMedTerm
+    
+    function isMedTermChecked(rnd){
+        var termChecked = false;
+        var longTermY = jQuery("#longTermY_" + rnd);
+        var longTermN = jQuery("#longTermN_" + rnd);
+        
+        var shortTerm = jQuery("#shortTerm_" + rnd);
+        var medTermWrap = jQuery("#medTerm_" + rnd);
+          
+        if(longTermY.is(":checked") || longTermN.is(":checked")) {
+          termChecked = true;
+          medTermWrap.css('color', 'black');	
+        } else {
+          termChecked = false; 
+          medTermWrap.css('color', 'red');
+        }
+        
+        return termChecked;
+    }
+    
+    <%} //end rx_strict_med_term check %>
+
+
+    function medTermCheckOne(rnd, el){
+        var longTerm = jQuery("#longTerm_" + rnd);
+        var shortTerm = jQuery("#shortTerm_" + rnd);
+      
+        if(el.prop( "checked" )){
+          if(el.attr("id")=="longTerm_" + rnd){
+            shortTerm.attr("checked",false);
+          }else{
+            longTerm.attr("checked",false);
+          }
+        }	
+    }
+
+
+    jQuery( document ).ready(function() {
+        jQuery( document ).on( 'change', '.med-term', function() {
+            var randId = jQuery( this ).attr("id").split("_").pop();
+           
+            <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>   
+            isMedTermChecked(randId);
+            <%}%> 
+            
+            //var el = jQuery( this );
+            //medTermCheckOne(randId, el);
+          });
+    });
+</script>
 
     <script>
-        function updateShortTerm(rand, val) {
-            if (val) {
-                jQuery("#shortTerm_" + rand).prop("checked", true);
+        function updateShortTerm(rand,val) {
+            if(val) {
+                jQuery("#shortTerm_" + rand).prop("checked",true);
             } else {
-                jQuery("#shortTerm_" + rand).prop("checked", false);
+                jQuery("#shortTerm_" + rand).prop("checked",false);
             }
-
         }
 
         function updateLongTerm(rand, repeatEl) {

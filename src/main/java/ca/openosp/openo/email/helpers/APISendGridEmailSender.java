@@ -28,10 +28,12 @@ import ca.openosp.openo.utility.SpringUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class APISendGridEmailSender {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     private LoggedInInfo loggedInInfo;
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -93,7 +95,7 @@ public class APISendGridEmailSender {
     }
 
     private String createEmailJSON() throws EmailSendingException {
-        JSONObject emailJson = new JSONObject();
+        ObjectNode emailJson = objectMapper.createObjectNode();
         addTo(emailJson);
         addFrom(emailJson);
         addSubject(emailJson);
@@ -104,13 +106,13 @@ public class APISendGridEmailSender {
         return emailJson.toString();
     }
 
-    private void addTo(JSONObject emailJson) {
-        JSONArray personalizations = new JSONArray();
-        JSONObject personalization = new JSONObject();
+    private void addTo(ObjectNode emailJson) {
+        ArrayNode personalizations = objectMapper.createArrayNode();
+        ObjectNode personalization = objectMapper.createObjectNode();
 
-        JSONArray toList = new JSONArray();
+        ArrayNode toList = objectMapper.createArrayNode();
         for (String recipient : recipients) {
-            JSONObject to = new JSONObject();
+            ObjectNode to = objectMapper.createObjectNode();
             to.put("email", recipient);
             toList.add(to);
         }
@@ -121,31 +123,31 @@ public class APISendGridEmailSender {
         emailJson.put("personalizations", personalizations);
     }
 
-    private void addFrom(JSONObject emailJson) {
-        JSONObject from = new JSONObject();
+    private void addFrom(ObjectNode emailJson) {
+        ObjectNode from = objectMapper.createObjectNode();
         from.put("email", emailConfig.getSenderEmail());
         from.put("name", emailConfig.getSenderFullName());
         emailJson.put("from", from);
     }
 
-    private void addSubject(JSONObject emailJson) {
+    private void addSubject(ObjectNode emailJson) {
         emailJson.put("subject", subject);
     }
 
-    private void addBody(JSONObject emailJson) {
-        JSONArray content = new JSONArray();
-        JSONObject contentObj = new JSONObject();
+    private void addBody(ObjectNode emailJson) {
+        ArrayNode content = objectMapper.createArrayNode();
+        ObjectNode contentObj = objectMapper.createObjectNode();
         contentObj.put("type", "text/plain");
         contentObj.put("value", body);
         content.add(contentObj);
         emailJson.put("content", content);
     }
 
-    private void addAttachments(JSONObject emailJson) throws EmailSendingException {
-        JSONArray jsonAttachments = new JSONArray();
+    private void addAttachments(ObjectNode emailJson) throws EmailSendingException {
+        ArrayNode jsonAttachments = objectMapper.createArrayNode();
         for (EmailAttachment emailAttachment : attachments) {
             try {
-                JSONObject jsonAttachment = new JSONObject();
+                ObjectNode jsonAttachment = objectMapper.createObjectNode();
                 Path path = Paths.get(emailAttachment.getFilePath());
                 jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
@@ -159,11 +161,11 @@ public class APISendGridEmailSender {
         emailJson.put("attachments", jsonAttachments);
     }
 
-    private void addAdditionalParams(JSONObject emailJson) throws EmailSendingException {
+    private void addAdditionalParams(ObjectNode emailJson) throws EmailSendingException {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private void addApiKey(JSONObject emailJson) throws EmailSendingException {
+    private void addApiKey(ObjectNode emailJson) throws EmailSendingException {
         emailJson.put("apiKey", getAPIKey());
     }
 

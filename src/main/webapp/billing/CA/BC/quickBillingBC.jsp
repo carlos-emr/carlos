@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -276,7 +276,7 @@
             <li>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.billProvider"/>
 
-                <select id="provider" name="provider">
+                <select id="providers" name="provider">
                     <option value="empty">- Select Provider -</option>
                     <c:forEach var="provider" items="${ quickBillingBC.providerList }">
 

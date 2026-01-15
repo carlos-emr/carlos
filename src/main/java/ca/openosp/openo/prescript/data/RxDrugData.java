@@ -31,8 +31,8 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Vector;
 
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import ca.openosp.openo.commn.model.Allergy;
 import ca.openosp.openo.utility.MiscUtils;
 

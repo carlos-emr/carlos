@@ -48,6 +48,7 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.encounter.oscarConsultation.data.EctConProviderData;
 import ca.openosp.openo.util.ConversionUtils;
+import ca.openosp.openo.util.StringUtils;
 import ca.openosp.openo.util.UtilDateUtilities;
 
 @Deprecated
@@ -63,6 +64,7 @@ public class EctSessionBean implements java.io.Serializable {
     public String appointmentNo;
     public String curProviderNo;
     public String reason;
+    public String reasonCode;
     public String encType;
     public String appointmentDate;
     public String startTime;
@@ -157,19 +159,15 @@ public class EctSessionBean implements java.io.Serializable {
         roster = d.getRosterStatus();
         patientSex = d.getSex();
 
-        if (yearOfBirth.equals("null") || yearOfBirth == "") {
-            yearOfBirth = "0";
-        }
-        if (monthOfBirth.equals("null") || monthOfBirth == "") {
-            monthOfBirth = "0";
-        }
-        if (dateOfBirth.equals("null") || dateOfBirth == "") {
-            dateOfBirth = "0";
-        }
+        // Normalize birth date fields - set to "0" if null, empty, or "null" string
+        yearOfBirth = (StringUtils.empty(yearOfBirth) || "null".equals(yearOfBirth)) ? "0" : yearOfBirth;
+        monthOfBirth = (StringUtils.empty(monthOfBirth) || "null".equals(monthOfBirth)) ? "0" : monthOfBirth;
+        dateOfBirth = (StringUtils.empty(dateOfBirth) || "null".equals(dateOfBirth)) ? "0" : dateOfBirth;
 
-        if (yearOfBirth != "" && yearOfBirth != null)
+        if (StringUtils.filled(yearOfBirth) && !"0".equals(yearOfBirth)) {
             patientAge = UtilDateUtilities
                     .calcAge(UtilDateUtilities.calcDate(yearOfBirth, monthOfBirth, dateOfBirth));
+        }
 
         OscarAppointmentDao apptDao = SpringUtils.getBean(OscarAppointmentDao.class);
         for (Appointment appt : apptDao.findByProviderAndDate(curProviderNo, ConversionUtils.fromDateString(appointmentDate))) {
@@ -250,6 +248,17 @@ public class EctSessionBean implements java.io.Serializable {
         demographicNo = "" + appt.getDemographicNo();
         this.appointmentNo = appointmentNo;
         reason = appt.getReason();
+        reasonCode = appt.getReasonCode() != null ? appt.getReasonCode().toString() : null;
+
+        // If reason text is empty but reasonCode exists, use the reasonCode label
+        if ((reason == null || reason.trim().isEmpty()) && appt.getReasonCode() != null) {
+            ca.openosp.openo.commn.dao.LookupListItemDao lookupListItemDao = SpringUtils.getBean(ca.openosp.openo.commn.dao.LookupListItemDao.class);
+            ca.openosp.openo.commn.model.LookupListItem item = lookupListItemDao.find(appt.getReasonCode());
+            if (item != null && item.getLabel() != null && !item.getLabel().trim().isEmpty()) {
+                reason = item.getLabel().trim();
+            }
+        }
+
         encType = new String("face to face encounter with client");
         appointmentDate = ConversionUtils.toDateString(appt.getAppointmentDate());
         startTime = ConversionUtils.toDateString(appt.getStartTime());
@@ -387,8 +396,6 @@ public class EctSessionBean implements java.io.Serializable {
 
     public String getTeam() {
         if (team == null) {
-            //          oscar.oscarEncounter.oscarConsultation.data.ProviderData providerData;
-            //          providerData = new oscar.oscarEncounter.oscarConsultation.data.ProviderData();
             EctConProviderData providerData = new EctConProviderData();
             team = providerData.getTeam(providerNo);
         }

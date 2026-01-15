@@ -28,8 +28,6 @@ package ca.openosp.openo.eform.data;
 
 import java.util.ArrayList;
 
-import org.apache.commons.lang.StringEscapeUtils;
-
 public class DatabaseAP {
     private String apName;
     private String apSQL;
@@ -168,8 +166,6 @@ public class DatabaseAP {
         String sql;
         if (inSql) sql = dbap.getApInSQL();
         else sql = dbap.getApSQL();
-
-        var = StringEscapeUtils.escapeSql(var);
 
         sql = DatabaseAP.parserReplace(name, var, sql);
 

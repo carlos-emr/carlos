@@ -25,6 +25,7 @@
 package ca.openosp.openo.documentManager;
 
 
+// Flying Saucer's ITextFSImage requires the old lowagie Image class
 import com.lowagie.text.BadElementException;
 import com.lowagie.text.Image;
 import org.apache.commons.io.IOUtils;

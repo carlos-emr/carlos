@@ -555,7 +555,7 @@
 <%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
 <%@page import="ca.openosp.openo.commn.model.Site" %>
 <%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
 <%@page import="ca.openosp.openo.commn.dao.ProviderPreferenceDao" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>

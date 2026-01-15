@@ -30,6 +30,7 @@
 <%@page import="ca.openosp.openo.commn.dao.OscarLogDao" %>
 <%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
 <%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -87,6 +88,7 @@
     <th align="left">Action</th>
     <th align="left">Content</th>
     <th align="left">Content ID</th>
+    <th align="left">Data</th>
 
     </thead>
     <tbody>
@@ -110,7 +112,9 @@
         </td>
         <td><%=log.getContent() %>
         </td>
-        <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? log.getContentId() : "" %>
+        <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? Encode.forHtml(log.getContentId()) : "" %>
+        </td>
+        <td><%=log.getData() != null && !"null".equals(log.getData()) ? Encode.forHtml(log.getData()) : "" %>
         </td>
 
 

@@ -8,7 +8,7 @@
     and "gnu.org/licenses/gpl-2.0.html".
 
 --%>
-<%@page contentType="text/html" %>
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="java.util.*,ca.openosp.openo.lab.ca.on.CommonLabResultData,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.commn.dao.QueueDao, ca.openosp.openo.mds.data.ProviderData" %>
 <%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao, ca.openosp.openo.commn.model.Provider" %>
 <%@page import="ca.openosp.OscarProperties" %>
@@ -23,7 +23,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -136,7 +136,7 @@
             <button id="cancel" type="reset" class="cancel">Cancel upload</button>
             <br>
             <span>
-				<input type="hidden" id="provider" name="providers" value="<%=provider%>"/>
+				<input type="hidden" id="providers" name="providers" value="<%=provider%>"/>
 				<input type="hidden" id="queue" name="queue" value="<%=queueId%>"/>
                                 <input type="hidden" id="destination" name="destination" value="<%=destination%>"/>
                                 <input type="hidden" id="destFolder" name="destFolder" value="<%=destFolder%>"/>

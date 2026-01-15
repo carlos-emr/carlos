@@ -690,7 +690,7 @@ public class HHSEmrDownloadHandler extends DefaultGenericHandler implements Mess
 //
 
     /*
-     * Custom segment added by medseek because the HL7 messages did not contain "who" that we can route to the right providers in oscar.
+     * Custom segment added by medseek because the HL7 messages did not contain "who" that we can route to the right providers in ca.openosp.openo.
      *
      */
     @Override

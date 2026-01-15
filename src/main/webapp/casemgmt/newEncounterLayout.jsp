@@ -27,7 +27,7 @@
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
-<%@page import="java.util.Enumeration, org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.casemgmt.web.formbeans.*, ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
 <%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO, ca.openosp.OscarProperties" %>
 <%@page import="ca.openosp.openo.commn.model.UserProperty" %>
@@ -42,6 +42,7 @@
 <%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteExt" %>
 <%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -96,7 +97,7 @@
 
         <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger-theme-future.js"></script>
-        <script type="text/javascript" src="/oscar/casemgmt/newEncounterLayout.js.jsp"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/newEncounterLayout.js.jsp"></script>
 
             <%-- for popup menu of forms --%>
         <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js" type="text/javascript"></script>
@@ -211,7 +212,7 @@
                      paramValue = request.getParameter(paramName);
 
                  %>
-                params += "&<%=paramName%>=<%=StringEscapeUtils.escapeJavaScript(paramValue)%>";
+                params += "&<%=paramName%>=<%=Encode.forJavaScript(paramValue)%>";
                 <%
 
                  }
@@ -582,7 +583,7 @@
         </script>
     </head>
     <body id="body">
-    <jsp:include page="../images/spinner.jsp" flush="true"/>
+    <jsp:include page="/images/spinner.jsp" flush="true"/>
     <div id="header">
         <jsp:include page="newEncounterHeader.jsp"/>
     </div>
@@ -811,6 +812,15 @@
                              alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.togglePrintPreventions.title"/>"
                              onclick="return printInfo(this, 'printPreventions');"
                              src='<c:out value="${ctx}"/>/oscarEncounter/graphics/printer.png'>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Preventions.title"/></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><img style="cursor: pointer;"
+                             title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.print.title"/>"
+                             id='imgPrintAllergies'
+                             alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.togglePrintAllergies.title"/>"
+                             onclick="return printInfo(this, 'printAllergies');"
+                             src='<c:out value="${ctx}"/>/oscarEncounter/graphics/printer.png'>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Allergies.title"/></td>
                 </tr>
                 <!--  extension point -->
                 <tr id="printDateRow">

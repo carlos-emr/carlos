@@ -24,9 +24,9 @@
 
 --%>
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
-<%@page contentType="text/xml" %>
+<%@page contentType="text/xml; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page
         import="ca.openosp.openo.encounter.oscarMeasurements.bean.*,ca.openosp.openo.encounter.oscarMeasurements.data.*" %>
 <%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>

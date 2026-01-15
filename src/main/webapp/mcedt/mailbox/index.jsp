@@ -125,17 +125,17 @@
         }
 
         function userUpload() {
-            window.location.href = "upload.do";
+            window.location.href = "<%= request.getContextPath() %>/mcedt/upload.do";
             return false;
         }
 
         function changePass() {
-            window.location.href = "kaichpass.do";
+            window.location.href = "<%= request.getContextPath() %>/mcedt/kaichpass.do";
             return false;
         }
 
         function autoDownload(control) {
-            window.location.href = "kaiautodl.do";
+            window.location.href = "<%= request.getContextPath() %>/mcedt/kaiautodl.do";
             return false;
         }
 
@@ -144,7 +144,7 @@
         }
 
         function submitSelected(control) {
-            window.location.href = "autoUpload.do";
+            window.location.href = "<%= request.getContextPath() %>/mcedt/autoUpload.do";
             return false;
         }
 
@@ -153,7 +153,7 @@
             if (control) {
                 control.disabled = true;
             }
-            window.location.href = "info.do?resourceId=" + resourceId;
+            window.location.href = "<%= request.getContextPath() %>/mcedt/info.do?resourceId=" + resourceId;
             return false;
         } */
 

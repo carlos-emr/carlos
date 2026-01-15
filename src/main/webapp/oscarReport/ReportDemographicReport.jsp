@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,6 +44,23 @@
 
 <%@ page import="ca.openosp.openo.report.data.RptSearchData,java.util.*" %>
 <%@ page import="ca.openosp.openo.report.data.RptDemographicColumnNames" %>
+<%@ page import="ca.openosp.openo.report.pageUtil.RptDemographicReport2Form" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%!
+    // Helper method to check if a value exists in an array
+    private boolean containsValue(String[] array, String value) {
+        if (array == null || value == null) return false;
+        for (String s : array) {
+            if (value.equals(s)) return true;
+        }
+        return false;
+    }
+
+    // Helper to safely get string value with HTML encoding
+    private String safeValue(String value) {
+        return value == null ? "" : Encode.forHtmlAttribute(value);
+    }
+%>
 
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -51,7 +68,7 @@
 <script src="<%=request.getContextPath()%>/js/jquery-1.9.1.min.js"></script>
 <script>
     $(document).ready(function () {
-        $("#demographicNoCheckbox").bind('change', function () {
+        $("#select_demographic_no").bind('change', function () {
             updateSetBox();
             //alert('test');
         });
@@ -59,7 +76,7 @@
     });
 
     function updateSetBox() {
-        if ($("#demographicNoCheckbox").is(":checked")) {
+        if ($("#select_demographic_no").is(":checked")) {
             $("#submitPatientSet").show();
         } else {
             $("#submitPatientSet").hide();
@@ -80,6 +97,12 @@
     String studyId = request.getParameter("studyId");
     if (studyId == null) {
         studyId = (String) request.getAttribute("studyId");
+    }
+
+    // Get form bean from action for repopulating values
+    RptDemographicReport2Form formBean = (RptDemographicReport2Form) request.getAttribute("formBean");
+    if (formBean == null) {
+        formBean = new RptDemographicReport2Form();
     }
 %>
 
@@ -224,7 +247,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_demographic_no" value="demographic_no"/>
+                                        <input type="checkbox" name="select" id="select_demographic_no" value="demographic_no" <%= containsValue(formBean.getSelect(), "demographic_no") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Demographic #
@@ -232,7 +255,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_last_name" value="last_name"/>
+                                        <input type="checkbox" name="select" id="select_last_name" value="last_name" <%= containsValue(formBean.getSelect(), "last_name") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Last Name
@@ -240,7 +263,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_first_name" value="first_name"/>
+                                        <input type="checkbox" name="select" id="select_first_name" value="first_name" <%= containsValue(formBean.getSelect(), "first_name") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         First Name
@@ -248,7 +271,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_address" value="address"/>
+                                        <input type="checkbox" name="select" id="select_address" value="address" <%= containsValue(formBean.getSelect(), "address") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Address
@@ -256,7 +279,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_city" value="city"/>
+                                        <input type="checkbox" name="select" id="select_city" value="city" <%= containsValue(formBean.getSelect(), "city") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         City
@@ -264,7 +287,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_province" value="province"/>
+                                        <input type="checkbox" name="select" id="select_province" value="province" <%= containsValue(formBean.getSelect(), "province") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Province
@@ -272,7 +295,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_postal_code" value="postal"/>
+                                        <input type="checkbox" name="select" id="select_postal_code" value="postal" <%= containsValue(formBean.getSelect(), "postal") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Postal Code
@@ -280,7 +303,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_phone" value="phone"/>
+                                        <input type="checkbox" name="select" id="select_phone" value="phone" <%= containsValue(formBean.getSelect(), "phone") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Phone
@@ -288,7 +311,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_phone_2" value="phone2"/>
+                                        <input type="checkbox" name="select" id="select_phone_2" value="phone2" <%= containsValue(formBean.getSelect(), "phone2") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Phone 2
@@ -296,7 +319,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_email" value="email"/>
+                                        <input type="checkbox" name="select" id="select_email" value="email" <%= containsValue(formBean.getSelect(), "email") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportscpbDemo.msgEmail"/>
@@ -304,7 +327,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_year_of_birth" value="year_of_birth"/>
+                                        <input type="checkbox" name="select" id="select_year_of_birth" value="year_of_birth" <%= containsValue(formBean.getSelect(), "year_of_birth") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Year of Birth
@@ -312,7 +335,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_month_of_birth" value="month_of_birth"/>
+                                        <input type="checkbox" name="select" id="select_month_of_birth" value="month_of_birth" <%= containsValue(formBean.getSelect(), "month_of_birth") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Month of Birth
@@ -320,7 +343,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_date_of_birth" value="date_of_birth"/>
+                                        <input type="checkbox" name="select" id="select_date_of_birth" value="date_of_birth" <%= containsValue(formBean.getSelect(), "date_of_birth") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Date of Birth
@@ -328,7 +351,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_hin" value="hin"/>
+                                        <input type="checkbox" name="select" id="select_hin" value="hin" <%= containsValue(formBean.getSelect(), "hin") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         HIN
@@ -336,7 +359,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_ver" value="ver"/>
+                                        <input type="checkbox" name="select" id="select_ver" value="ver" <%= containsValue(formBean.getSelect(), "ver") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Version Code
@@ -344,7 +367,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_roster_status" value="roster_status"/>
+                                        <input type="checkbox" name="select" id="select_roster_status" value="roster_status" <%= containsValue(formBean.getSelect(), "roster_status") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Roster Status
@@ -352,7 +375,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_patient_status" value="patient_status"/>
+                                        <input type="checkbox" name="select" id="select_patient_status" value="patient_status" <%= containsValue(formBean.getSelect(), "patient_status") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Patient Status
@@ -360,7 +383,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_date_joined" value="date_joined"/>
+                                        <input type="checkbox" name="select" id="select_date_joined" value="date_joined" <%= containsValue(formBean.getSelect(), "date_joined") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Date Joined
@@ -368,7 +391,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_chart_no" value="chart_no"/>
+                                        <input type="checkbox" name="select" id="select_chart_no" value="chart_no" <%= containsValue(formBean.getSelect(), "chart_no") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Chart #
@@ -376,7 +399,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_provider_no" value="provider_no"/>
+                                        <input type="checkbox" name="select" id="select_provider_no" value="provider_no" <%= containsValue(formBean.getSelect(), "provider_no") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Provider #
@@ -384,7 +407,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_provider_name" value="provider_name"/>
+                                        <input type="checkbox" name="select" id="select_provider_name" value="provider_name" <%= containsValue(formBean.getSelect(), "provider_name") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Provider Name
@@ -392,7 +415,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_sex" value="sex"/>
+                                        <input type="checkbox" name="select" id="select_sex" value="sex" <%= containsValue(formBean.getSelect(), "sex") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Sex
@@ -400,7 +423,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_end_date" value="end_date"/>
+                                        <input type="checkbox" name="select" id="select_end_date" value="end_date" <%= containsValue(formBean.getSelect(), "end_date") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         End Date
@@ -408,7 +431,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_eff_date" value="eff_date"/>
+                                        <input type="checkbox" name="select" id="select_eff_date" value="eff_date" <%= containsValue(formBean.getSelect(), "eff_date") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Eff. Date
@@ -416,7 +439,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_pcn_indicator" value="pcn_indicator"/>
+                                        <input type="checkbox" name="select" id="select_pcn_indicator" value="pcn_indicator" <%= containsValue(formBean.getSelect(), "pcn_indicator") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Pcn indicator
@@ -424,7 +447,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_hc_type" value="hc_type"/>
+                                        <input type="checkbox" name="select" id="select_hc_type" value="hc_type" <%= containsValue(formBean.getSelect(), "hc_type") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Health Card Type
@@ -432,7 +455,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_hc_renew_date" value="hc_renew_date"/>
+                                        <input type="checkbox" name="select" id="select_hc_renew_date" value="hc_renew_date" <%= containsValue(formBean.getSelect(), "hc_renew_date") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         HC Renew Date
@@ -440,7 +463,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_family_doctor" value="family_doctor"/>
+                                        <input type="checkbox" name="select" id="select_family_doctor" value="family_doctor" <%= containsValue(formBean.getSelect(), "family_doctor") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         Family Doctor
@@ -448,19 +471,19 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="select" id="select_newsletter" value="newsletter"/>
+                                        <input type="checkbox" name="select" id="select_newsletter" value="newsletter" <%= containsValue(formBean.getSelect(), "newsletter") ? "checked" : "" %>/>
                                     </td>
                                     <td>
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoReport.frmNewsletter"/>
                                     </td>
                                 </tr>
                             </table>
-                            <input type="text" name="queryName" id="queryName" /><br>
+                            <input type="text" name="queryName" id="queryName" value="<%= safeValue(formBean.getQueryName()) %>"/><br>
                             <input type="submit" value="Save Query" name="query"/>
                             <input type="submit" value="Run Query" name="query"/><br/>
                             <span id="submitPatientSet">
 	<input type="submit" value="Run Query And Save to Patient Set" name="query"/>&nbsp;<input type="text" name="setName"
-                                                                                              placeholder="Set Name"/>
+                                                                                              placeholder="Set Name" value="<%= safeValue(formBean.getSetName()) %>"/>
 </span>
                             <%if (studyId != null && !studyId.equals("") && !studyId.equalsIgnoreCase("null")) {%>
                             <input type="submit" value="Add to Study" name="query"/>
@@ -481,25 +504,25 @@
                                     </td>
                                     <td>
                                         <select name="age" id="age">
-                                            <option value="0">---NO AGE SPECIFIED---</option>
-                                            <option value="1">younger than</option>
-                                            <option value="2">older than</option>
-                                            <option value="3">equal too</option>
-                                            <option value="4">ages between</option>
+                                            <option value="0" <%= "0".equals(formBean.getAge()) || formBean.getAge() == null ? "selected" : "" %>>---NO AGE SPECIFIED---</option>
+                                            <option value="1" <%= "1".equals(formBean.getAge()) ? "selected" : "" %>>younger than</option>
+                                            <option value="2" <%= "2".equals(formBean.getAge()) ? "selected" : "" %>>older than</option>
+                                            <option value="3" <%= "3".equals(formBean.getAge()) ? "selected" : "" %>>equal too</option>
+                                            <option value="4" <%= "4".equals(formBean.getAge()) ? "selected" : "" %>>ages between</option>
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="text" name="startYear" size="4" />
-                                        <input type="text" name="endYear" size="4" />
+                                        <input type="text" name="startYear" size="4" value="<%= safeValue(formBean.getStartYear()) %>"/>
+                                        <input type="text" name="endYear" size="4" value="<%= safeValue(formBean.getEndYear()) %>"/>
                                     </td>
                                     <td>
 
                                         Age Style:
                                         Exact:
-                                        <input type="radio" name="ageStyle" value="1"/>
+                                        <input type="radio" name="ageStyle" value="1" <%= "1".equals(formBean.getAgeStyle()) ? "checked" : "" %>/>
                                         In the year
-                                        <input type="radio" name="ageStyle" value="2"/>
-                                        As of : <input type="text" name="asofDate" size="9" id="asofDate"/> <a
+                                        <input type="radio" name="ageStyle" value="2" <%= "2".equals(formBean.getAgeStyle()) ? "checked" : "" %>/>
+                                        As of : <input type="text" name="asofDate" size="9" id="asofDate" value="<%= safeValue(formBean.getAsofDate()) %>"/> <a
                                             id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
                                                            border="0"/></a> <br>
                                     </td>
@@ -510,13 +533,13 @@
                                         First Name
                                     </td>
                                     <td>
-                                        <input type="text" name="firstName" id="firstName" />
+                                        <input type="text" name="firstName" id="firstName" value="<%= safeValue(formBean.getFirstName()) %>"/>
                                     </td>
                                     <td>
                                         Last Name
                                     </td>
                                     <td>
-                                        <input type="text" name="lastName" id="lastName" />
+                                        <input type="text" name="lastName" id="lastName" value="<%= safeValue(formBean.getLastName()) %>"/>
                                     </td>
                                 </tr>
 
@@ -533,7 +556,7 @@
                                                     for (int i = 0; i < rosterArray.size(); i++) {
                                                         String ros = (String) rosterArray.get(i);%>
                                                 <td><%=ros%><br>
-                                                    <input type="checkbox" name="rosterStatus" value="<%=ros%>" />
+                                                    <input type="checkbox" name="rosterStatus" value="<%=ros%>" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/>
                                                 </td>
                                                 <%
                                                     }
@@ -554,9 +577,9 @@
                                     </td>
                                     <td>
                                         <select name="sex" id="sex">
-                                            <option value="0">---NO SEX SPECIFIED---</option>
-                                            <option value="1">Female</option>
-                                            <option value="2">Male</option>
+                                            <option value="0" <%= "0".equals(formBean.getSex()) || formBean.getSex() == null ? "selected" : "" %>>---NO SEX SPECIFIED---</option>
+                                            <option value="1" <%= "1".equals(formBean.getSex()) ? "selected" : "" %>>Female</option>
+                                            <option value="2" <%= "2".equals(formBean.getSex()) ? "selected" : "" %>>Male</option>
                                         </select>
                                     </td>
                                     <td colspan='2'>
@@ -576,7 +599,7 @@
                                                     if (pro != null && !"".equals(pro)) {
                                             %>
                                             <li><%=providerBean.getProperty(pro, pro)%>
-                                                <input type="checkbox" name="providerNo" value="<%=pro%>"/>
+                                                <input type="checkbox" name="providerNo" value="<%=pro%>" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
                                             </li>
                                             <%
                                                     }
@@ -598,7 +621,7 @@
                                                     for (int i = 0; i < patientArray.size(); i++) {
                                                         String pat = (String) patientArray.get(i);%>
                                                 <td><%=pat%><br>
-                                                    <input type="submit" name="patientStatus" value="<%=pat%>"/>
+                                                    <input type="checkbox" name="patientStatus" value="<%=pat%>" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/>
                                                 </td>
                                                 <%
                                                     }
@@ -614,7 +637,7 @@
                                         Demographic ID(s):
                                     </td>
                                     <td colspan="3">
-                                        <textarea name="demoIds" cols="60" rows="5"> </textarea>
+                                        <textarea name="demoIds" cols="60" rows="5"><%= formBean.getDemoIds() != null ? Encode.forHtml(formBean.getDemoIds()) : "" %></textarea>
                                     </td>
                                 </tr>
                                 <tr>
@@ -623,34 +646,34 @@
                                     </td>
                                     <td>
                                         <select name="orderBy" id="orderBy">
-                                            <option value="0">---NO ORDER---</option>
-                                            <option value="Demographic #">Demographic #</option>
-                                            <option value="Last Name">Last Name</option>
-                                            <option value="First Name">First Name</option>
-                                            <option value="Address">Address</option>
-                                            <option value="City">City</option>
-                                            <option value="Province">Province</option>
-                                            <option value="Postal Code">Postal Code</option>
-                                            <option value="Phone">Phone</option>
-                                            <option value="Phone 2">Phone 2</option>
-                                            <option value="Year of Birth">Year of Birth</option>
-                                            <option value="Month of Birth">Month of Birth</option>
-                                            <option value="Date of Birth">Date of Birth</option>
-                                            <option value="HIN">HIN</option>
-                                            <option value="Version Code">Version Code</option>
-                                            <option value="Roster Status">Roster Status</option>
-                                            <option value="Patient Status">Patient Status</option>
-                                            <option value="Date Joined">Date Joined</option>
-                                            <option value="Chart #">Chart #</option>
-                                            <option value="Provider #">Provider #</option>
-                                            <option value="Sex">Sex</option>
-                                            <option value="End Date">End Date</option>
-                                            <option value="Eff. Date">Eff. Date</option>
-                                            <option value="Pcn indicator">Pcn indicator</option>
-                                            <option value="HC Type">HC Type</option>
-                                            <option value="HC Renew Date">HC Renew Date</option>
-                                            <option value="Family Doctor">Family Doctor</option>
-                                            <option value="Random">Random</option>
+                                            <option value="0" <%= "0".equals(formBean.getOrderBy()) || formBean.getOrderBy() == null || formBean.getOrderBy().isEmpty() ? "selected" : "" %>>---NO ORDER---</option>
+                                            <option value="Demographic #" <%= "Demographic #".equals(formBean.getOrderBy()) ? "selected" : "" %>>Demographic #</option>
+                                            <option value="Last Name" <%= "Last Name".equals(formBean.getOrderBy()) ? "selected" : "" %>>Last Name</option>
+                                            <option value="First Name" <%= "First Name".equals(formBean.getOrderBy()) ? "selected" : "" %>>First Name</option>
+                                            <option value="Address" <%= "Address".equals(formBean.getOrderBy()) ? "selected" : "" %>>Address</option>
+                                            <option value="City" <%= "City".equals(formBean.getOrderBy()) ? "selected" : "" %>>City</option>
+                                            <option value="Province" <%= "Province".equals(formBean.getOrderBy()) ? "selected" : "" %>>Province</option>
+                                            <option value="Postal Code" <%= "Postal Code".equals(formBean.getOrderBy()) ? "selected" : "" %>>Postal Code</option>
+                                            <option value="Phone" <%= "Phone".equals(formBean.getOrderBy()) ? "selected" : "" %>>Phone</option>
+                                            <option value="Phone 2" <%= "Phone 2".equals(formBean.getOrderBy()) ? "selected" : "" %>>Phone 2</option>
+                                            <option value="Year of Birth" <%= "Year of Birth".equals(formBean.getOrderBy()) ? "selected" : "" %>>Year of Birth</option>
+                                            <option value="Month of Birth" <%= "Month of Birth".equals(formBean.getOrderBy()) ? "selected" : "" %>>Month of Birth</option>
+                                            <option value="Date of Birth" <%= "Date of Birth".equals(formBean.getOrderBy()) ? "selected" : "" %>>Date of Birth</option>
+                                            <option value="HIN" <%= "HIN".equals(formBean.getOrderBy()) ? "selected" : "" %>>HIN</option>
+                                            <option value="Version Code" <%= "Version Code".equals(formBean.getOrderBy()) ? "selected" : "" %>>Version Code</option>
+                                            <option value="Roster Status" <%= "Roster Status".equals(formBean.getOrderBy()) ? "selected" : "" %>>Roster Status</option>
+                                            <option value="Patient Status" <%= "Patient Status".equals(formBean.getOrderBy()) ? "selected" : "" %>>Patient Status</option>
+                                            <option value="Date Joined" <%= "Date Joined".equals(formBean.getOrderBy()) ? "selected" : "" %>>Date Joined</option>
+                                            <option value="Chart #" <%= "Chart #".equals(formBean.getOrderBy()) ? "selected" : "" %>>Chart #</option>
+                                            <option value="Provider #" <%= "Provider #".equals(formBean.getOrderBy()) ? "selected" : "" %>>Provider #</option>
+                                            <option value="Sex" <%= "Sex".equals(formBean.getOrderBy()) ? "selected" : "" %>>Sex</option>
+                                            <option value="End Date" <%= "End Date".equals(formBean.getOrderBy()) ? "selected" : "" %>>End Date</option>
+                                            <option value="Eff. Date" <%= "Eff. Date".equals(formBean.getOrderBy()) ? "selected" : "" %>>Eff. Date</option>
+                                            <option value="Pcn indicator" <%= "Pcn indicator".equals(formBean.getOrderBy()) ? "selected" : "" %>>Pcn indicator</option>
+                                            <option value="HC Type" <%= "HC Type".equals(formBean.getOrderBy()) ? "selected" : "" %>>HC Type</option>
+                                            <option value="HC Renew Date" <%= "HC Renew Date".equals(formBean.getOrderBy()) ? "selected" : "" %>>HC Renew Date</option>
+                                            <option value="Family Doctor" <%= "Family Doctor".equals(formBean.getOrderBy()) ? "selected" : "" %>>Family Doctor</option>
+                                            <option value="Random" <%= "Random".equals(formBean.getOrderBy()) ? "selected" : "" %>>Random</option>
                                         </select>
                                     </td>
                                     <td colspan='2'>
@@ -663,14 +686,14 @@
                                     </td>
                                     <td>
                                         <select name="resultNum" id="resultNum">
-                                            <option value="0">---NO LIMIT---</option>
-                                            <option value="10">10</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="150">150</option>
-                                            <option value="200">200</option>
-                                            <option value="250">250</option>
-                                            <option value="300">300</option>
+                                            <option value="0" <%= "0".equals(formBean.getResultNum()) || formBean.getResultNum() == null || formBean.getResultNum().isEmpty() ? "selected" : "" %>>---NO LIMIT---</option>
+                                            <option value="10" <%= "10".equals(formBean.getResultNum()) ? "selected" : "" %>>10</option>
+                                            <option value="50" <%= "50".equals(formBean.getResultNum()) ? "selected" : "" %>>50</option>
+                                            <option value="100" <%= "100".equals(formBean.getResultNum()) ? "selected" : "" %>>100</option>
+                                            <option value="150" <%= "150".equals(formBean.getResultNum()) ? "selected" : "" %>>150</option>
+                                            <option value="200" <%= "200".equals(formBean.getResultNum()) ? "selected" : "" %>>200</option>
+                                            <option value="250" <%= "250".equals(formBean.getResultNum()) ? "selected" : "" %>>250</option>
+                                            <option value="300" <%= "300".equals(formBean.getResultNum()) ? "selected" : "" %>>300</option>
 
                                         </select>
                                     </td>

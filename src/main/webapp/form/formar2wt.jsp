@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -41,6 +41,7 @@
 <%
     int oox = 0, ooy = 0;
 %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.sql.*, java.net.*, ca.openosp.openo.util.*, ca.openosp.openo.form.graphic.*"
         errorPage="/errorpage.jsp" %>
@@ -114,7 +115,7 @@
 <div ID="graphic"
      STYLE="position:absolute; visibility:visible; z-index:2; left:<%=100+oox%>px; top:<%=50+ooy%>px; width:600px; height:600px;">
     <embed type="image/svg+xml"
-           src="formar2wtsvg.jsp?bgimage=<%=URLEncoder.encode("graphics/pregnancyweightgain.jpg")%>&bgimagewidth=580&bgimageheight=498<%=urlparam%>"
+           src="formar2wtsvg.jsp?bgimage=<%=URLEncoder.encode("graphics/pregnancyweightgain.jpg", StandardCharsets.UTF_8)%>&bgimagewidth=580&bgimageheight=498<%=urlparam%>"
            width="600" height="600" wmode="transparent"/>
 </div>
 <%

@@ -27,7 +27,7 @@ package ca.openosp.openo.commn.web;
 import java.io.Serializable;
 import java.util.Date;
 
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 
 /*
  * Used by address/phone history popup in master demographic.

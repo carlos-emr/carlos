@@ -24,7 +24,8 @@
 package ca.openosp.openo.casemgmt.web;
 
 import ca.openosp.openo.util.UtilDateUtilities;
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.SecUserRoleDao;
 import ca.openosp.openo.casemgmt.common.Colour;
@@ -462,7 +463,7 @@ public class CaseManagementViewAction {
                 if (key.contains(" Date")) {
                     val = UtilDateUtilities.DateToString(cme.getDateValue(), "yyyy-MM-dd");
                 } else {
-                    val = org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(cme.getValue());
+                    val = StringEscapeUtils.escapeEcmaScript(cme.getValue());
                 }
                 return val;
             }

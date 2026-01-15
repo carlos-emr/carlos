@@ -28,12 +28,12 @@
 <%@ page import="ca.openosp.openo.util.UtilDict" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment"
                    rights="r" reverse="<%=true%>">
-    <%response.sendRedirect("../logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 <%
     // associate each operation with an output JSP file -- displaymode
@@ -44,8 +44,8 @@
             {"Add Appt & PrintPreview", "appointmentaddrecordprint.jsp"},
             {"Add Appt & PrintCard", "appointmentaddrecordcard.jsp"},
             {"PrintCard", "appointmentviewrecordcard.jsp"},
-            {"TicklerSearch", "../tickler/ticklerAdd.jsp"},
-            {"Search ", "../demographic/demographiccontrol.jsp"},
+            {"TicklerSearch", "/tickler/ticklerAdd.jsp"},
+            {"Search ", "/demographic/demographiccontrol.jsp"},
             {"Search", "appointmentsearchrecords.jsp"},
             {"edit", "editappointment.jsp"},
             {"Update Appt", "appointmentupdatearecord.jsp"},

@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.PMmodule.model.VacancyTemplate" %>
 <%@page import="ca.openosp.openo.PMmodule.model.Criteria" %>
 <%@page import="ca.openosp.openo.PMmodule.model.CriteriaType" %>

@@ -425,7 +425,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
     * C = corrected
     * X = deleted (available on request; not always preceded by non-X OBRs in an earlier transmission)
     *
-    * @see oscar.oscarLab.ca.all.parsers.MessageHandler#getOrderStatus()
+    * @see ca.openosp.openo.lab.ca.all.parsers.MessageHandler#getOrderStatus()
     */
     public String getOrderStatus(){
     	Set<String> orderStatusSet = new HashSet<>();

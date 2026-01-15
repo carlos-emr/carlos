@@ -36,7 +36,7 @@ public class OscarStatus2Action extends ActionSupport {
 
         try {
             if (servletRequest.getSession().getAttribute("userrole") == null)
-                servletResponse.sendRedirect("../logout.jsp");
+                servletResponse.sendRedirect(servletRequest.getContextPath() + "/logout.jsp");
         } catch (Exception e) {
             return "failure";
         }

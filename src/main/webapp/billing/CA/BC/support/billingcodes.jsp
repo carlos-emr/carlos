@@ -27,7 +27,7 @@
 <%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 %>
 <html>

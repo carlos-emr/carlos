@@ -95,9 +95,10 @@ public class UploadImage extends HttpServlet {
 
         // Call the output page.
         PrintWriter out = response.getWriter();
+        String contextPath = request.getContextPath();
         out.println("<head>");
         out.println("<script language=\"JavaScript\">");
-        out.println("setTimeout(\"top.location.href = '../eform/uploadimages.jsp'\",1000);");
+        out.println("setTimeout(\"top.location.href = '" + contextPath + "/eform/uploadimages.jsp'\",1000);");
         out.println("</script>");
         out.println("</head>");
         out.println("<body>");

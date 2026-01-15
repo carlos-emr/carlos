@@ -29,7 +29,7 @@
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
 %>
 
-<%@ include file="../../../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
 <%
     GregorianCalendar now = new GregorianCalendar();
@@ -101,7 +101,7 @@
             f1 = document.serviceform.xml_dig_search1.value;
             // f2 = escape(document.serviceform.elements["File2Data"].value);
             // fname = escape(document.Compose.elements["FName"].value);
-            awnd = rs('att', '../billingDigSearch.jsp?name=' + f0 + '&search=' + f1, 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=' + f1, 600, 600, 1);
             awnd.focus();
         }
 
@@ -113,7 +113,7 @@
             // f1 = document.serviceform.xml_dig_search1.value;
             // f2 = escape(document.serviceform.elements["File2Data"].value);
             // fname = escape(document.Compose.elements["FName"].value);
-            awnd = rs('att', '../billingCodeSearch.jsp?name=' + t0 + '&name1=' + "" + '&name2=' + "" + '&search=', 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/billingCodeSearch.jsp?name=' + t0 + '&name1=' + "" + '&name2=' + "" + '&search=', 600, 600, 1);
             awnd.focus();
         }
 

@@ -30,18 +30,30 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 
 /**
+ * Calendar table grid bean for managing date information in a monthly view.
+ * 
+ * <p>This bean provides functionality for:</p>
+ * <ul>
+ *   <li>Tracking current year, month, and day</li>
+ *   <li>Calendar calculations for monthly grid display</li>
+ *   <li>Navigation between months and years</li>
+ * </ul>
+ * 
+ * <p>Useful for generating calendar-based UI components and schedule views.</p>
+ * 
  * @author Martin
- * prepare to be a calendar Table Grid bean
  * @version 1.0
  * @since JDK 1.3
  */
-
 public class DateInMonthTable {
     private int curYear = 0;
     private int curMonth = 0;
     private int curDay = 0;
     GregorianCalendar calendar = null;
 
+    /**
+     * Constructs a DateInMonthTable initialized to the current date.
+     */
     public DateInMonthTable() {
         GregorianCalendar now = new GregorianCalendar();
         curYear = now.get(Calendar.YEAR);
@@ -49,12 +61,24 @@ public class DateInMonthTable {
         curDay = now.get(Calendar.DAY_OF_MONTH);
     }
 
+    /**
+     * Constructs a DateInMonthTable with a specific date.
+     * 
+     * @param year the year (e.g., 2024)
+     * @param month the month (0-11, where 0=January)
+     * @param day the day of month (1-31)
+     */
     public DateInMonthTable(int year, int month, int day) {
         curYear = year;
         curMonth = month;
         curDay = day;
     }
 
+    /**
+     * Gets the current year.
+     * 
+     * @return the year
+     */
     public int getCurYear() {
         return curYear;
     }

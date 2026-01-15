@@ -24,7 +24,7 @@
  */
 package ca.openosp.openo.managers;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.dao.AbstractCodeSystemDao;
 import ca.openosp.openo.commn.dao.AbstractCodeSystemDaoImpl;
 import ca.openosp.openo.commn.model.AbstractCodeSystemModel;
@@ -36,9 +36,9 @@ public class CodingSystemManager {
 
     public String getCodeDescription(String codingSystem, String code) {
         if (codingSystem != null && !codingSystem.isEmpty() && code != null && !code.isEmpty()) {
-            String daoName = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDaoImpl.codingSystem.valueOf(codingSystem));
-            if (daoName != null) {
-                AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao = (AbstractCodeSystemDao<AbstractCodeSystemModel<?>>) SpringUtils.getBean(daoName);
+            Class<?> daoClass = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDaoImpl.codingSystem.valueOf(codingSystem));
+            if (daoClass != null) {
+                AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao = (AbstractCodeSystemDao<AbstractCodeSystemModel<?>>) SpringUtils.getBean(daoClass);
                 if (csDao != null) {
                     AbstractCodeSystemModel<?> codingSystemEntity = csDao.findByCode(code);
                     if (codingSystemEntity != null) {

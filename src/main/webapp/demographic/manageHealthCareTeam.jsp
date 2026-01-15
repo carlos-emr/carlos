@@ -24,7 +24,7 @@
 
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ page import="java.util.List, org.apache.commons.lang.StringUtils" %>
+<%@ page import="java.util.List, org.apache.commons.lang3.StringUtils" %>
 <%@ page import="ca.openosp.openo.commn.web.Contact2Action" %>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.Provider" %>
@@ -252,7 +252,7 @@
             var windowspecs = "width=500,height=600,left=100,top=100, scrollbars=yes, resizable=yes";
 
             popupWindow = window.open(
-                'procontactSearch.jsp?form=updatedelete' +
+                '<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=updatedelete' +
                 '&elementName=contactName' +
                 '&elementId=contactId' +
                 '&keyword=' + searchfield +

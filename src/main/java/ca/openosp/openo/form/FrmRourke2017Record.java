@@ -199,7 +199,7 @@ public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPri
                 FormRourke2017 frmRourke = rourkeDao.find(existingID);
 
                 if (frmRourke != null) {
-                    Class cRourke = Class.forName("oscar.form.model.FormRourke2017");
+                    Class cRourke = FormRourke2017.class;
                     Object returnVal;
                     String value;
                     for (int idx = 0; idx < names.length; ++idx) {
@@ -378,8 +378,6 @@ public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPri
                 MiscUtils.getLogger().error("Illegal Access of FormRourke Method", e);
             } catch (InvocationTargetException e) {
                 MiscUtils.getLogger().error("Cannot Call Method on Target", e);
-            } catch (ClassNotFoundException e) {
-                MiscUtils.getLogger().error("Cannot Find FormRourke2017 Class", e);
             }
 
         }

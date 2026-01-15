@@ -213,7 +213,7 @@
             </form> --%>
             <div>
                 <form action="${pageContext.request.contextPath}/mcedt/autoUpload.do" method="post" id="form">
-                    <jsp:include page="../messages.jsp"/>
+                    <jsp:include page="/mcedt/messages.jsp"/>
                     <jsp:include page="spinner.jsp" flush="true"/>
                     <input id="method" name="method" type="hidden" value=""/>
                     <input type="hidden" id="description" name="description" value=""/>

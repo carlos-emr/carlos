@@ -24,7 +24,7 @@
  */
 package ca.openosp.openo.webserv.rest.conversion;
 
-import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import ca.openosp.openo.commn.model.Document;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.webserv.rest.to.model.OtnEconsult;

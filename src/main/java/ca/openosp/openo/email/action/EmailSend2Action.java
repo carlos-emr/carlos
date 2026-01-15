@@ -69,7 +69,7 @@ public class EmailSend2Action extends ActionSupport {
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
-                response.sendRedirect("/eform/efmshowform_data.jsp?fdid="  + request.getParameter("fdid") + "&parentAjaxId=eforms");
+                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data.jsp?fdid="  + request.getParameter("fdid") + "&parentAjaxId=eforms");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -38,7 +38,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.xml.security.exceptions.Base64DecodingException;
 import org.apache.xml.security.utils.Base64;
@@ -128,16 +128,16 @@ public class EctViewRequest2Action extends ActionSupport {
     }
 
 
-        public static void fillFormValues(LoggedInInfo loggedInInfo, EctConsultationFormRequest2Form thisForm, Integer requestId) {
-        	checkPrivilege(loggedInInfo);
+    public static void fillFormValues(LoggedInInfo loggedInInfo, EctConsultationFormRequest2Form thisForm, Integer requestId) {
+        checkPrivilege(loggedInInfo);
 
-            ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
-            ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
-            List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(requestId);
-            Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
+        ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+        ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
+        List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(requestId);
+        Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
 
-            ConsultationRequestDao consultDao = (ConsultationRequestDao)SpringUtils.getBean(ConsultationRequestDao.class);;
-            ConsultationRequest consult = consultDao.find(requestId);
+        ConsultationRequestDao consultDao = (ConsultationRequestDao)SpringUtils.getBean(ConsultationRequestDao.class);;
+        ConsultationRequest consult = consultDao.find(requestId);
 
         thisForm.setAllergies(consult.getAllergies());
         thisForm.setReasonForConsultation(consult.getReasonForReferral());
@@ -190,16 +190,21 @@ public class EctViewRequest2Action extends ActionSupport {
         Provider prov = provDao.getProvider(consult.getProviderNo());
         thisForm.setProviderName(prov.getFormattedName());
 
-            boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
-            thisForm.seteReferral(isEReferral);
-            if (isEReferral) {
-                thisForm.setProfessionalSpecialistName(extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), ""));
-                thisForm.seteReferralService(extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey(), ""));
-                thisForm.seteReferralId(extraMap.get(ConsultationRequestExtKey.EREFERRAL_REF.getKey()));
-            }
-
-            thisForm.setFdid(consult.getFdid());
+        boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
+        thisForm.seteReferral(isEReferral);
+        if (isEReferral) {
+            thisForm.setProfessionalSpecialistName(extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), ""));
+            thisForm.seteReferralService(extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey(), ""));
+            thisForm.seteReferralId(extraMap.get(ConsultationRequestExtKey.EREFERRAL_REF.getKey()));
         }
+
+        thisForm.setLetterheadName(consult.getLetterheadName());
+        thisForm.setLetterheadAddress(consult.getLetterheadAddress());
+        thisForm.setLetterheadPhone(consult.getLetterheadPhone());
+        thisForm.setLetterheadFax(consult.getLetterheadFax());
+
+        thisForm.setFdid(consult.getFdid());
+    }
 
     public static void fillFormValues(EctConsultationFormRequest2Form thisForm, EctConsultationFormRequestUtil consultUtil) {
         thisForm.setAllergies(consultUtil.allergies);
@@ -242,6 +247,11 @@ public class EctViewRequest2Action extends ActionSupport {
         thisForm.setPatientAge(consultUtil.patientAge);
 
         thisForm.setProviderName(consultUtil.getProviderName(consultUtil.providerNo));
+
+        thisForm.setLetterheadName(consultUtil.letterheadName);
+        thisForm.setLetterheadAddress(consultUtil.letterheadAddress);
+        thisForm.setLetterheadPhone(consultUtil.letterheadPhone);
+        thisForm.setLetterheadFax(consultUtil.letterheadFax);
 
         thisForm.seteReferral(false);
 

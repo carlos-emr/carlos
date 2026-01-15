@@ -28,6 +28,8 @@ import java.util.Date;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @XmlRootElement(name = "measurement")
 public class MeasurementTo1 {
 
@@ -38,7 +40,10 @@ public class MeasurementTo1 {
     private String dataField = "";
     private String measuringInstruction = "";
     private String comments = "";
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dateObserved;
+    
     private Integer appointmentNo;
     private Date createDate = new Date();
 

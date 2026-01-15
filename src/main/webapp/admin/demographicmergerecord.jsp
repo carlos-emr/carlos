@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -347,7 +347,7 @@
                 %>
                 <td width="15%" align="center" height="25">
                     <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <a href="javascript:popupWindow('../demographic/demographiccontrol.jsp?demographic_no=<%= head %>&displaymode=edit&dboperation=search_detail')"><%=demographicNo%>
+                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= head %>&displaymode=edit&dboperation=search_detail')"><%=demographicNo%>
                         </a>
                     </caisi:isModuleLoad></td>
                 <td align="center" width="20%" height="25"><%=demo.getLastName()%>

@@ -26,7 +26,7 @@
 
 package ca.openosp.openo.commn.model;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -37,7 +37,7 @@ public class Property extends AbstractModel<Integer> implements Serializable {
 
     public enum PROPERTY_KEY {
         invoice_payee_display_clinic, invoice_payee_info, default_billing_provider, default_billing_form,
-        bc_default_service_location, auto_populate_refer
+        bc_default_service_location, auto_populate_refer, auto_link_to_mrp, hl7_offer_file_for_others, hl7_allow_others_file_for_you
     }
 
     public enum PROPERTY_VALUE {clinicdefault}

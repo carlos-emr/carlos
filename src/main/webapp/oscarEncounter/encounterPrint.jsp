@@ -34,7 +34,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -43,7 +43,7 @@
 %>
 
 <%@page import="ca.openosp.openo.encounter.data.*,java.net.*" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="ca.openosp.OscarProperties" %>
 
@@ -204,7 +204,7 @@
                                 <tr>
                                     <td class="TableWithBorder" valign="top" style="text-align: left">
                                         <pre name='enTextarea'
-                                             style="font-size: 8pt;"><%=StringEscapeUtils.escapeHtml(bean.encounter)%></pre>
+                                             style="font-size: 8pt;"><%=StringEscapeUtils.escapeHtml4(bean.encounter)%></pre>
                                     </td>
                                 </tr>
                             </table>

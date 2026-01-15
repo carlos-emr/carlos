@@ -186,7 +186,7 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      * 
      * @param demographicNo Integer the patient's demographic ID
      * @param types String[] array of measurement type codes to retrieve
-     * @return HashMap<String, Measurement> map of type codes to their latest measurements
+     * @return map of type codes to their latest measurements
      */
     public HashMap<String, Measurement> getMeasurements(Integer demographicNo, String[] types);
 
@@ -203,7 +203,7 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      * 
      * @param demoNo Integer the patient's demographic ID
      * @param loincCode String the LOINC code to search for
-     * @return List<Object[]> measurement data arrays matching the LOINC code
+     * @return measurement data arrays matching the LOINC code
      */
     public List<Object[]> findMeasurementsByDemographicIdAndLocationCode(Integer demoNo, String loincCode);
 

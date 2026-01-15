@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -42,6 +42,7 @@
     if (request.getParameter("oox") != null) oox = Integer.parseInt(request.getParameter("oox"));
     if (request.getParameter("ooy") != null) ooy = Integer.parseInt(request.getParameter("ooy"));
 %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.net.*, ca.openosp.openo.util.*, ca.openosp.openo.form.graphic.*"
         errorPage="/errorpage.jsp" %>
@@ -767,7 +768,7 @@
 <div ID="graphic"
      STYLE="position:absolute; visibility:visible; z-index:2; left:<%=3+oox%>px; top:<%=653+ooy%>px; width:221px; height:276px;">
     <embed type="image/svg+xml"
-           src="formar2svg.jsp?bgimage=<%=URLEncoder.encode("../images/formar2_99_08gra.gif")%>&bgimagewidth=222&bgimageheight=276<%=urlparam%>"
+        src="formar2svg.jsp?bgimage=<%=URLEncoder.encode("../images/formar2_99_08gra.gif", StandardCharsets.UTF_8)%>&bgimagewidth=222&bgimageheight=276<%=urlparam%>"
            width="221" height="276" wmode="transparent"/>
 </div>
 <%

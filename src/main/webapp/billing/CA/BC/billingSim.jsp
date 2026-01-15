@@ -18,6 +18,7 @@
 
 --%>
 
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -25,7 +26,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_admin&type=_admin.billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -39,7 +40,7 @@
 %>
 
 <%@ page import="java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.Provider" %>
 <%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
@@ -184,12 +185,12 @@
                 Service Date: </b></font></td>
             <td><font size="1" face="Arial, Helvetica, sans-serif"> <a
                     href="#"
-                    onClick="openBrWindow('../../../share/CalendarPopup.jsp?urlfrom=../billing/CA/BC/billingSim.jsp&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_vdate.value")%>','','top=0,left=0,width=430,height=310'); return false;">
+                    onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/billingSim.jsp&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_vdate.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
                 From:</a></font> <input type="text" name="xml_vdate" maxlength="10"
                                         value="<%=xml_vdate%>" readonly></td>
             <td><font size="1" face="Arial, Helvetica, sans-serif"> <a
                     href="#"
-                    onClick="openBrWindow('../../../share/CalendarPopup.jsp?urlfrom=../billing/CA/BC/billingSim.jsp&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_appointment_date.value")%>','','top=0,left=0,width=430,height=310'); return false;">
+                    onClick="openBrWindow('<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/billing/CA/BC/billingSim.jsp&year=<%=curYear%>&month=<%=curMonth%>&param=<%=URLEncoder.encode("&formdatebox=document.forms[0].xml_appointment_date.value", StandardCharsets.UTF_8)%>','','top=0,left=0,width=430,height=310'); return false;">
                 To:</a></font> <input type="text" name="xml_appointment_date" maxlength="10"
                                       value="<%=xml_appointment_date%>" readonly></td>
             <td><input type="submit" name="Submit" value="Create Report">

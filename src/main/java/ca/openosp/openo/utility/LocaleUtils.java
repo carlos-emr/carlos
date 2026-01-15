@@ -48,7 +48,7 @@ public final class LocaleUtils {
     }
 
     public static Locale toLocale(String localeString) {
-        return org.apache.commons.lang.LocaleUtils.toLocale(localeString);
+        return org.apache.commons.lang3.LocaleUtils.toLocale(localeString);
     }
 
     public static String getMessage(ServletRequest request, String key) {

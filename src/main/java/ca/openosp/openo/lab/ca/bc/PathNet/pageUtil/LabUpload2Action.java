@@ -37,6 +37,7 @@ import ca.openosp.OscarProperties;
 import ca.openosp.openo.lab.FileUploadCheck;
 import ca.openosp.openo.lab.ca.bc.PathNet.Connection;
 import ca.openosp.openo.lab.ca.bc.PathNet.HL7.Message;
+import ca.openosp.openo.utility.PathValidationUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -63,8 +64,28 @@ public class LabUpload2Action extends ActionSupport {
         String outcome = "";
 
         try {
+            // Validate the uploaded file to prevent path traversal attacks
+            if (importFile == null) {
+                _logger.error("No file provided for upload");
+                outcome = "exception";
+                request.setAttribute("outcome", outcome);
+                return SUCCESS;
+            }
+
+            // Validate file is from an allowed temp directory
+            try {
+                importFile = PathValidationUtils.validateUpload(importFile);
+            } catch (SecurityException e) {
+                _logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
+                outcome = "exception";
+                request.setAttribute("outcome", outcome);
+                return SUCCESS;
+            }
+
             MiscUtils.getLogger().debug("Lab Upload content type = " + importFile.getName());
-            InputStream is = Files.newInputStream(importFile.toPath());
+            // Re-validate at point of use for static analysis visibility
+            File validatedImportFile = PathValidationUtils.validateUpload(importFile);
+            InputStream is = Files.newInputStream(validatedImportFile.toPath());
             filename = importFile.getName();
 
             int check = FileUploadCheck.addFile(filename, is, proNo);

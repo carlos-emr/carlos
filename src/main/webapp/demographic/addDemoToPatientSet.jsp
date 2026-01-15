@@ -53,7 +53,7 @@
         newSet.add(demoNo);
         ds.addDemographicSet(patientSet, newSet);
     }
-    response.sendRedirect("../close.html");
+    response.sendRedirect(request.getContextPath() + "/close.html");
 %>
 
 <html>

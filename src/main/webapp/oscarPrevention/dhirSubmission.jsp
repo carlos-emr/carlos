@@ -74,6 +74,7 @@
 <%@page import="org.apache.http.HttpResponse" %>
 <%@page import="org.codehaus.jettison.json.*" %>
 
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%
     DHIRSubmissionManager submissionManager = SpringUtils.getBean(DHIRSubmissionManager.class);

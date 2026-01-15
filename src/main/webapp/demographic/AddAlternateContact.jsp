@@ -128,7 +128,7 @@
             <td valign="top" class="MainTableRightColumn">
 
                 <form id="ADDAPPT" method="post"
-                      action="../appointment/appointmentcontrol.jsp">
+                      action="<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp">
                     <div>Name: <input type="text" name="keyword" size="25" value=""/>
 
                         <input type="submit" name="Submit" value="Search"/> <input
@@ -144,7 +144,7 @@
                         <input
                                 type="hidden" name="search_mode" value="<%=searchMode%>"/> <input
                                 type="hidden" name="originalpage"
-                                value="../demographic/AddAlternateContact.jsp"/> <input
+                                value="<%= request.getContextPath() %>/demographic/AddAlternateContact.jsp"/> <input
                                 type="hidden" name="limit1" value="0"/> <input type="hidden"
                                                                                name="limit2" value="5"/> <input
                                 type="hidden" name="displaymode"

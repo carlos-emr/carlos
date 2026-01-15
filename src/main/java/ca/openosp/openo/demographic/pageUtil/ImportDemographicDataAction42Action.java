@@ -62,11 +62,12 @@ import cdsDt.DiabetesMotivationalCounselling.CounsellingPerformed;
 import cdsDt.PersonNameStandard.LegalName;
 import cdsDt.PersonNameStandard.OtherNames;
 import com.opensymphony.xwork2.ActionSupport;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.math.NumberUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.xmlbeans.XmlException;
@@ -87,11 +88,14 @@ import ca.openosp.openo.managers.NioFileManager;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
+import ca.openosp.openo.utility.SessionConstants;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.webserv.LabUploadWs;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.demographic.data.DemographicAddResult;
 import ca.openosp.openo.demographic.data.DemographicData;
+import ca.openosp.openo.demographic.data.DemographicRelationship;
 import ca.openosp.openo.encounter.data.EctProgram;
 import ca.openosp.openo.encounter.oscarMeasurements.data.ImportExportMeasurements;
 import ca.openosp.openo.lab.FileUploadCheck;
@@ -221,19 +225,17 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
          * save the upload stream to a temp directory.  This should allow the HTTP
          * thread to close gracefully while the import is being processed.
          */
-        String filename = importFile.getName();
+        String filename = importFileFileName;
         Path filePath = importFile.toPath().normalize();
 
         // Get context of the temp directory, get the file path to the the temp directory
         ServletContext servletContext = ServletActionContext.getServletContext();
 
-        // Validate the paths
+        // Validate the paths using PathValidationUtils
         File safeDir = (File) servletContext.getAttribute("javax.servlet.context.tempdir"); // Use a safe directory
-
-        String safeDirPath = safeDir.getCanonicalPath() + File.separator;
-
-        // Validate that the file path is within the safe directory
-        if (!filePath.startsWith(safeDirPath)) {
+        try {
+            PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir);
+        } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
         }
 
@@ -322,7 +324,15 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
          * It gets offered as a download to the end user.
          * TODO this log should be stored so that it can be retrieved later by the end user.
          */
-        File importLog = makeImportLog(logs, directory.getParent().toString());
+        // Check if any files were processed before creating import log
+        if (logs.isEmpty()) {
+            warnings.add("No valid XML files found to import. Please check the uploaded file structure.");
+            // Create empty log entry so makeImportLog doesn't crash
+            logs.add(new String[]{"No files processed"});
+        }
+
+        // Save import log to servlet context temp directory (safeDir) so ImportLogDownload2Action can find it
+        File importLog = makeImportLog(logs, safeDir.getCanonicalPath());
 
         //channel warnings and importlog to browser
         request.setAttribute("warnings", warnings);
@@ -370,7 +380,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     else {
                         List<Path> possibleXmlFileList = searchFileByExtension(stream, warnings);
                         for (Path possibleXmlFile : possibleXmlFileList) {
-                            if (Files.exists(xmlFile)) {
+                            if (Files.exists(possibleXmlFile)) {
                                 processXmlFile(loggedInInfo, possibleXmlFile, warnings, logs, request, timeshiftInDays, students, courseId);
                             }
                         }
@@ -391,36 +401,24 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
      */
     private Path unzipFile(Path zipFilePath) throws IOException {
         Path directoryPath = zipFilePath.getParent();
-        // Get canonical path of the target directory to prevent path traversal
-        String canonicalTargetPath = directoryPath.toFile().getCanonicalPath();
-        
+        File targetDir = directoryPath.toFile();
+
         byte[] buffer = new byte[1024];
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(Paths.get(zipFilePath.toString())))) {
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
                 String entryName = zipEntry.getName();
-                
-                // Sanitize the entry name to prevent path traversal
-                // Remove any leading slashes and normalize the path
-                entryName = entryName.replaceAll("^[/\\\\]+", "");
-                
-                // Skip entries that contain path traversal sequences
-                if (entryName.contains("..") || entryName.contains("/..") || entryName.contains("\\..")) {
+
+                // Validate the zip entry path using PathValidationUtils
+                File newFile;
+                try {
+                    newFile = PathValidationUtils.validatePath(entryName, targetDir);
+                } catch (SecurityException e) {
                     logger.error("Skipping potentially malicious zip entry: " + entryName);
                     zipEntry = zis.getNextEntry();
                     continue;
                 }
-                
-                File newFile = Paths.get(directoryPath.toString(), entryName).toFile();
-                
-                // Validate that the file will be extracted within the target directory
-                String canonicalFilePath = newFile.getCanonicalPath();
-                if (!canonicalFilePath.startsWith(canonicalTargetPath + File.separator)) {
-                    logger.error("Path is not in the correct directory: " + entryName);
-                    zipEntry = zis.getNextEntry();
-                    continue;
-                }
-                
+
                 if (zipEntry.isDirectory()) {
                     if (!newFile.isDirectory() && !newFile.mkdirs()) {
                         throw new IOException("Failed to create directory " + newFile);
@@ -675,9 +673,40 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
             String contactNote = StringUtils.noNull(contt[i].getNote());
             String cDemoNo = dd.getDemoNoByNamePhoneEmail(loggedInInfo, cFirstName, cLastName, homePhone, workPhone, cEmail);
+            String cPatient = cLastName + "," + cFirstName;
+
+            // If contact not found, create as "Contact-only" demographic
+            if (StringUtils.empty(cDemoNo)) {
+                String psDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
+                DemographicAddResult demoRes = dd.addDemographic(loggedInInfo,
+                        "", cLastName, cFirstName, "", // title, last, first, middleNames
+                        "", "", "", "", // address, city, province, postal
+                        "", "", "", "", // residentialAddress, residentialCity, residentialProvince, residentialPostal
+                        homePhone, workPhone, // phone, phone2
+                        "", "", "", "", "", // year_of_birth, month, date, hin, ver
+                        "Contact-only", psDate, "", "", "", // roster_status, roster_date, termination_date, termination_reason, enrolledTo
+                        "IN", psDate, "", "", // patient_status, patient_status_date, date_joined, chart_no
+                        "", "", "", // official_lang, spoken_lang, provider_no
+                        "U", "", "", "", "", "", "", // sex, end_date, eff_date, pcn_indicator, hc_type, hc_renew_date, family_doctor
+                        cEmail, "", "", "", "", "", ""); // email, alias, previousAddress, children, sourceOfIncome, citizenship, sin
+                cDemoNo = demoRes.getId();
+
+                // Save phone extensions and cellPhone to demographicExt
+                String providerNo = loggedInInfo.getLoggedInProviderNo();
+                if (StringUtils.filled(workExt)) {
+                    demographicExtDao.addKey(providerNo, Integer.parseInt(cDemoNo), "wPhoneExt", workExt);
+                }
+                if (StringUtils.filled(homeExt)) {
+                    demographicExtDao.addKey(providerNo, Integer.parseInt(cDemoNo), "hPhoneExt", homeExt);
+                }
+                if (StringUtils.filled(cellPhone)) {
+                    demographicExtDao.addKey(providerNo, Integer.parseInt(cDemoNo), "demo_cell", cellPhone);
+                }
+
+                insertIntoAdmission(cDemoNo);
+            }
 
             logger.info("adding contacts: " + cLastName + "," + cFirstName + " = " + cDemoNo);
-
 
             cdsDt.PurposeEnumOrPlainText[] contactPurposes = contt[i].getContactPurposeArray();
             String sdm = "", emc = "", cPurpose = null;
@@ -705,88 +734,23 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
+            // Create demographic relationships
             if (StringUtils.filled(cDemoNo)) {
-                //this contact was found as a patient in the system, so we will link as an "internal"
+                Facility facility = (Facility) request.getSession().getAttribute(SessionConstants.CURRENT_FACILITY);
+                Integer facilityId = null;
+                if (facility != null) facilityId = facility.getId();
 
                 for (int j = 0; j < rel.length; j++) {
                     if (rel[j] == null) continue;
 
-                    DemographicContact demoContact = new DemographicContact();
-                    demoContact.setCreated(new Date());
-                    demoContact.setUpdateDate(new Date());
-                    demoContact.setDemographicNo(patient.getDemographicNo());
-                    demoContact.setContactId(cDemoNo);
-                    demoContact.setType(1);
-                    demoContact.setCategory("personal");
-                    demoContact.setRole(rel[j]);
-                    demoContact.setEc(emc);
-                    demoContact.setSdm(sdm);
-                    demoContact.setNote(contactNote);
-                    demoContact.setCreator(loggedInInfo.getLoggedInProviderNo());
-                    contactDao.persist(demoContact);
+                    DemographicRelationship demoRel = new DemographicRelationship();
+                    demoRel.addDemographicRelationship(demographicNo, cDemoNo, rel[j], sdm.equals("true"), emc.equals("true"), contactNote, admProviderNo, facilityId);
 
                     //clear emc, sdm, contactNote after 1st save
                     emc = "";
                     sdm = "";
                     contactNote = "";
                 }
-
-            } else {
-                //this contact was NOT found in the DB, so we will create an external contact
-                logger.info("need to create external contact for " + cLastName + "," + cFirstName);
-
-                // String cDemoNo = dd.getDemoNoByNamePhoneEmail(loggedInInfo, cFirstName, cLastName, homePhone, workPhone, cEmail);
-
-                Contact c = new Contact();
-                c.setLastName(cLastName);
-                c.setFirstName(cFirstName);
-                c.setPhone(homePhone);
-                c.setWorkPhone(workPhone);
-                c.setEmail(cEmail);
-
-                ContactDao cDao = SpringUtils.getBean(ContactDao.class);
-                cDao.persist(c);
-
-                for (int j = 0; j < rel.length; j++) {
-                    if (rel[j] == null) continue;
-
-                    DemographicContact demoContact = new DemographicContact();
-                    demoContact.setCreated(new Date());
-                    demoContact.setUpdateDate(new Date());
-                    demoContact.setDemographicNo(patient.getDemographicNo());
-                    demoContact.setContactId(String.valueOf(c.getId()));
-                    demoContact.setType(DemographicContact.TYPE_CONTACT);
-                    demoContact.setCategory("personal");
-                    demoContact.setRole(rel[j]);
-                    demoContact.setEc(emc);
-                    demoContact.setSdm(sdm);
-                    demoContact.setNote(contactNote);
-                    demoContact.setCreator(loggedInInfo.getLoggedInProviderNo());
-                    contactDao.persist(demoContact);
-
-                    //clear emc, sdm, contactNote after 1st save
-                    emc = "";
-                    sdm = "";
-                    contactNote = "";
-                }
-/*
-            		Facility facility = (Facility) request.getSession().getAttribute(SessionConstants.CURRENT_FACILITY);
-			        Integer facilityId = null;
-			        if (facility!=null) facilityId = facility.getId();
-
-			        for (int j=0; j<rel.length; j++) {
-			        	if (rel[j]==null) continue;
-
-						DemographicRelationship demoRel = new DemographicRelationship();
-						demoRel.addDemographicRelationship(demographicNo, cDemoNo, rel[j], sdm.equals("true"), emc.equals("true"), contactNote, admProviderNo, facilityId);
-
-                    	//clear emc, sdm, contactNote after 1st save
-                    	emc = "";
-                    	sdm = "";
-                    	contactNote = "";
-			        }
-            	}
-*/
             }
         }
 
@@ -1135,6 +1099,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
         }
+
         if (StringUtils.filled(homePhone)) patientPhone = homePhone + " " + homeExt;
         else if (StringUtils.filled(workPhone)) patientPhone = workPhone + " " + workExt;
         else if (StringUtils.filled(cellPhone)) patientPhone = cellPhone;
@@ -2651,7 +2616,17 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                         byte[] b = null;
                         if (repCt != null && repCt.getMedia() != null) b = repCt.getMedia();
-                        else if (repCt != null && repCt.getTextContent() != null) b = repCt.getTextContent().getBytes();
+                        else if (repCt != null && repCt.getTextContent() != null) {
+                            // TextContent may contain base64-encoded binary data (for images, PDFs, etc.)
+                            // or actual text content. Check if it's binary format and decode accordingly.
+                            if (binaryFormat) {
+                                // Binary formats (images, PDFs, etc.) are base64-encoded in TextContent
+                                b = Base64.decodeBase64(repCt.getTextContent());
+                            } else {
+                                // Text formats are stored as-is
+                                b = repCt.getTextContent().getBytes();
+                            }
+                        }
                         if (b == null && filePath == null) {
                             err_othe.add("Error! No report file in xml (" + (i + 1) + ")");
                         } else {
@@ -2842,7 +2817,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                         err_data.add("Error! No value for Waist Circumference in Care Element (" + (i + 1) + ")");
                     if (wc.getWaistCircumferenceUnit() == null)
                         err_data.add("Error! No unit for Waist Circumference in Care Element (" + (i + 1) + ")");
-                    ImportExportMeasurements.saveMeasurements("WC", demographicNo, admProviderNo, dataField, dataUnit, dateObserved);
+                    ImportExportMeasurements.saveMeasurements("WAIS", demographicNo, admProviderNo, dataField, dataUnit, dateObserved);
                     addOneEntry(CAREELEMENTS);
                 }
                 cdsDt.BloodPressure[] bloodp = ce.getBloodPressureArray();
@@ -3024,7 +2999,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 if (StringUtils.empty(encounter)) {
                     err_data.add("Empty clinical note (" + (i + 1) + ")");
                     //continue;
-                    encounter = org.apache.commons.lang.StringUtils.trimToEmpty(encounter);
+                    encounter = org.apache.commons.lang3.StringUtils.trimToEmpty(encounter);
                 }
 
 
@@ -3063,6 +3038,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                     //participating providers
                     if (p < participatingProviders.length) {
+                        // Participating providers are editors, not signers
+                        cmNote.setSigned(false);
+
                         if (participatingProviders[p].getDateTimeNoteCreated() == null)
                             cmNote.setUpdate_date(new Date());
                         else
@@ -3663,7 +3641,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 isu.setType(type);
                 isu.setUpdate_date(new Date());
-                issueDao.saveIssue(isu);
+                caseManagementManager.saveIssue(isu);
             }
             if (isu != null && isu.getId() != null) {
                 CaseManagementIssue cmIssu = new CaseManagementIssue();
@@ -3710,7 +3688,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
                 isu.setType(type);
                 isu.setUpdate_date(new Date());
-                issueDao.saveIssue(isu);
+                caseManagementManager.saveIssue(isu);
             }
             if (isu != null && isu.getId() != null) {
                 CaseManagementIssue cmIssu = new CaseManagementIssue();
@@ -3851,6 +3829,27 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             ret = true;
         }
         return ret;
+    }
+
+    /**
+     * Extracts the string value from a ResultNormalAbnormalFlag complex type.
+     * Per the XSD schema, this is defined as xs:choice so valid XML should only have one child element set.
+     * If both are unexpectedly set, enum takes precedence for consistency with HL7CreateFile.java.
+     *
+     * @param flag the ResultNormalAbnormalFlag object to extract from
+     * @return the flag value as a string (e.g., "H", "L", "N"), or null if the flag is null
+     */
+    String getResultNormalAbnormalFlag(cdsDt.ResultNormalAbnormalFlag flag) {
+        if (flag == null) return null;
+
+        if (flag.getResultNormalAbnormalFlagAsEnum() != null) {
+            // Using toString() to match HL7CreateFile.java pattern; returns HL7 abnormal flag codes (e.g., "H", "L", "A")
+            return flag.getResultNormalAbnormalFlagAsEnum().toString();
+        }
+        if (flag.getResultNormalAbnormalFlagAsPlainText() != null) {
+            return flag.getResultNormalAbnormalFlagAsPlainText();
+        }
+        return null;
     }
 
     String mapPreventionTypeByCode(cdsDt.Code imCode) {
@@ -4054,7 +4053,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             }
         }
 
-        appendIfNotNull(s, "ResultNormalAbnormalFlag", "" + labRes.getResultNormalAbnormalFlag());
+        appendIfNotNull(s, "ResultNormalAbnormalFlag", getResultNormalAbnormalFlag(labRes.getResultNormalAbnormalFlag()));
         appendIfNotNull(s, "TestResultsInformationreportedbytheLaboratory", labRes.getTestResultsInformationReportedByTheLab());
         appendIfNotNull(s, "NotesFromLab", labRes.getNotesFromLab());
         appendIfNotNull(s, "PhysiciansNotes", labRes.getPhysiciansNotes());
@@ -4602,6 +4601,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
     private File importFile = null;
+    private String importFileFileName;
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
     private String courseId;
@@ -4612,6 +4612,14 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     public void setImportFile(File importFile) {
         this.importFile = importFile;
+    }
+
+    public String getImportFileFileName() {
+        return importFileFileName;
+    }
+
+    public void setImportFileFileName(String importFileFileName) {
+        this.importFileFileName = importFileFileName;
     }
 
     public boolean isMatchProviderNames() {

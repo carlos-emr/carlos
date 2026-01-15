@@ -11,7 +11,7 @@ import org.apache.openjpa.enhance.RedefinitionHelper;
 import org.apache.openjpa.enhance.PersistenceCapable;
 import org.apache.openjpa.enhance.PCRegistry;
 import ca.openosp.openo.caisi_integrator.util.MiscUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.openjpa.enhance.StateManager;
 import javax.persistence.Column;
 import javax.persistence.EnumType;

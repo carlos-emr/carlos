@@ -33,7 +33,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.openo.utility.MiscUtils;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.UserDSMessagePrefsDao;
@@ -55,6 +56,9 @@ public class ProviderNotification2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     private UserDSMessagePrefsDao userDsMessagePrefsDao = SpringUtils.getBean(UserDSMessagePrefsDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -81,14 +85,14 @@ public class ProviderNotification2Action extends ActionSupport {
 
         userDsMessagePrefsDao.persist(pref);
 
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("id", pref.getId());
         json.put("status", "success");
 
         Writer writer = null;
         try {
             writer = new OutputStreamWriter(response.getOutputStream());
-            json.write(writer);
+            writer.write(objectMapper.writeValueAsString(json));
             writer.flush();
         } finally {
             writer.close();

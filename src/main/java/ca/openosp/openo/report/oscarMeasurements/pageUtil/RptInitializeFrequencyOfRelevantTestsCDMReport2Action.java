@@ -68,7 +68,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         int nbPatient = 0;
 
         if (!validateForm()) {
-            response.sendRedirect("/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport.jsp");
+            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport.jsp");
             return NONE;
         }
 

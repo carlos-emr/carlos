@@ -64,6 +64,7 @@ public class EChartPrint2Action extends ActionSupport {
 
 
     public String execute() throws Exception {
+        // Default action is to print
         return print();
     }
 

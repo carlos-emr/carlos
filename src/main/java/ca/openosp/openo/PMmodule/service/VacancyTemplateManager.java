@@ -31,8 +31,8 @@ package ca.openosp.openo.PMmodule.service;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.PMmodule.dao.CriteriaDao;
 import ca.openosp.openo.PMmodule.dao.CriteriaSelectionOptionDao;
 import ca.openosp.openo.PMmodule.dao.CriteriaTypeDao;
@@ -268,7 +268,7 @@ public interface VacancyTemplateManager {
             for (CriteriaTypeOption option : options) {
                 boolean skip = false;
                 String label = option.getOptionLabel();
-                String htmlEscapedName = StringEscapeUtils.escapeHtml(label);
+                String htmlEscapedName = StringEscapeUtils.escapeHtml4(label);
                 String selectedOrNot = "";
                 if (option.getOptionValue() != null && option.getOptionValue().equalsIgnoreCase(value))
                     //if(option.getId()!=null && String.valueOf(option.getId()).equalsIgnoreCase(value))
@@ -287,7 +287,7 @@ public interface VacancyTemplateManager {
                 if (skip)
                     continue;
 
-                sb.append("<option " + selectedOrNot + " value=\"" + StringEscapeUtils.escapeHtml(option.getOptionValue()) + "\" title=\"" + htmlEscapedName + "\">" + htmlEscapedName + "</option>");
+                sb.append("<option " + selectedOrNot + " value=\"" + StringEscapeUtils.escapeHtml4(option.getOptionValue()) + "\" title=\"" + htmlEscapedName + "\">" + htmlEscapedName + "</option>");
 
             }
 
@@ -388,10 +388,10 @@ public interface VacancyTemplateManager {
                 //value in criteria_selection_option is the id in criteria_type_option, this makes more sense as the value may not be unique or may be null
                 //CriteriaTypeOption option2 = criteriaTypeOptionDAO.getCriteriaTypeOptionByOptionId(Integer.parseInt(cso.getOptionValue()));
                 String label = option2.getOptionLabel();
-                String htmlEscapedName = StringEscapeUtils.escapeHtml(label);
+                String htmlEscapedName = StringEscapeUtils.escapeHtml4(label);
                 //String selected = (CdsClientFormData.containsAnswer(existingAnswers, option.getCdsDataCategory()) ? "selected=\"selected\"" : "");
                 String selected = "selected";
-                sb.append("<option " + selected + " value=\"" + StringEscapeUtils.escapeHtml(option2.getOptionValue()) + "\" title=\"" + htmlEscapedName + "\">" + htmlEscapedName + "</option>");
+                sb.append("<option " + selected + " value=\"" + StringEscapeUtils.escapeHtml4(option2.getOptionValue()) + "\" title=\"" + htmlEscapedName + "\">" + htmlEscapedName + "</option>");
             }
 
             sb.append("</select>");

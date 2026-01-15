@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -280,7 +280,7 @@
                                                                                      value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                                                                                      onClick="window.print()">
                                 <input type="button" value="Plot" class="btn btn-primary DoNotPrint"
-                                       onclick="window.location = 'labValuesGraph.jsp?demographic_no=<%=demographicNo%>&labType=<%=labType%>&identifier=<%=identifier%>&testName=<%=testName%>';"/>
+                                       onclick="window.location = '<%= Encode.forJavaScript(request.getContextPath()) %>/lab/CA/ON/labValuesGraph.jsp?demographic_no=<%= Encode.forUriComponent(String.valueOf(demographicNo)) %>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%= Encode.forUriComponent(identifier) %>&testName=<%= Encode.forUriComponent(testName) %>';"/>
 
                             </td>
                         </tr>

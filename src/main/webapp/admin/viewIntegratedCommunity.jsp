@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -40,7 +40,7 @@
 %>
 
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils" %>
+<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@page import="ca.openosp.openo.caisi_integrator.ws.CachedFacility" %>
 <%@page import="java.util.List" %>

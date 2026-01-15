@@ -24,8 +24,8 @@
 package ca.openosp.openo.commn.model;
 
 import org.apache.commons.beanutils.BeanUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import ca.openosp.openo.PMmodule.utility.DateTimeFormatUtils;
 import ca.openosp.openo.PMmodule.utility.Utility;
 import ca.openosp.openo.utility.MiscUtils;

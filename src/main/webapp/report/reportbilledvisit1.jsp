@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -61,7 +61,7 @@
     params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(edate));
 
 // get nurse name list
-    String sql = "select provider_no, last_name, first_name from providers where provider_type like 'nurse%'";
+    String sql = "select provider_no, last_name, first_name from provider where provider_type like 'nurse%'";
     ResultSet rs = db.queryResults(sql);
     while (rs.next()) {
         vNurse.add(ca.openosp.Misc.getString(rs, "last_name") + ", " + ca.openosp.Misc.getString(rs, "first_name"));
@@ -69,7 +69,7 @@
     }
 
 // get total patPhys
-    sql = "select count(distinct(b.demographic_no)) from billing b, providers p where b.creator=p.provider_no  and b.billing_date>='" + sdate + "' and b.billing_date<='" + edate + "' and b.status!='D' and p.provider_type='doctor'";
+    sql = "select count(distinct(b.demographic_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>='" + sdate + "' and b.billing_date<='" + edate + "' and b.status!='D' and p.provider_type='doctor'";
     rs = db.queryResults(sql);
     while (rs.next()) {
         props.setProperty("patPhys", ca.openosp.Misc.getString(rs, 1));
@@ -81,7 +81,7 @@ out.println("busy ... busy ... busy ............................................
 out.flush();
 */
 // get patRes
-    sql = "select count(distinct(b.demographic_no)) from billing b, providers p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='resident'";
+    sql = "select count(distinct(b.demographic_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='resident'";
     rs = db.queryResults(sql, params);
     while (rs.next()) {
         props.setProperty("patRes", ca.openosp.Misc.getString(rs, 1));
@@ -112,7 +112,7 @@ out.flush();
 
 //----------------------------------------------------------------------------------------------
 // get visPhys
-    sql = "select count(distinct(b.billing_no)) from billing b, providers p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='doctor'";
+    sql = "select count(distinct(b.billing_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='doctor'";
     rs = db.queryResults(sql, params);
     while (rs.next()) {
         props.setProperty("visPhys", ca.openosp.Misc.getString(rs, 1));
@@ -126,7 +126,7 @@ out.flush();
 */
 
 // get visRes
-    sql = "select count(distinct(b.billing_no)) from billing b, providers p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='resident'";
+    sql = "select count(distinct(b.billing_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='resident'";
     rs = db.queryResults(sql, params);
     while (rs.next()) {
         props.setProperty("visRes", ca.openosp.Misc.getString(rs, 1));

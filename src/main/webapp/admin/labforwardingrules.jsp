@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -42,7 +42,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -181,7 +181,7 @@
                 </td>
                 <td>
                     <button type="submit" class="btn btn-small"
-                            onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= StringEscapeUtils.escapeJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= StringEscapeUtils.escapeJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')"
+                            onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')"
                             title="remove provider"><i class="icon-trash"></i> remove
                     </button>
                 </td>

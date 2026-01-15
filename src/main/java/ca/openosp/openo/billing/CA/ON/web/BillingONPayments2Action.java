@@ -35,8 +35,9 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.BillingONCHeader1Dao;
@@ -79,6 +80,9 @@ public class BillingONPayments2Action extends ActionSupport {
     private BillingONExtDao billingONExtDao = SpringUtils.getBean(BillingONExtDao.class);
     private BillingOnItemPaymentDao billingOnItemPaymentDao = SpringUtils.getBean(BillingOnItemPaymentDao.class);
     private BillingOnTransactionDao billingOnTransactionDao = SpringUtils.getBean(BillingOnTransactionDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -237,7 +241,7 @@ public class BillingONPayments2Action extends ActionSupport {
             toUpdateChl = true;
         }
 
-        JSONObject ret = new JSONObject();
+        ObjectNode ret = objectMapper.createObjectNode();
         if (sumPaid.compareTo(BigDecimal.ZERO) == 0
                 && sumDiscount.compareTo(BigDecimal.ZERO) == 0
                 && sumRefund.compareTo(BigDecimal.ZERO) == 0
@@ -477,20 +481,20 @@ public class BillingONPayments2Action extends ActionSupport {
         if (itemPaymentList == null) {
             return "failure";
         }
-        JSONArray payDetail = new JSONArray();
+        ArrayNode payDetail = objectMapper.createArrayNode();
 
         // payment date object
-        JSONObject paymentDateObj = new JSONObject();
+        ObjectNode paymentDateObj = objectMapper.createObjectNode();
         paymentDateObj.put("paymentDate", new SimpleDateFormat("yyyy-MM-dd").format(billPayment.getPaymentDate()));
         payDetail.add(paymentDateObj);
 
         // payment type object
-        JSONObject typeObj = new JSONObject();
+        ObjectNode typeObj = objectMapper.createObjectNode();
         typeObj.put("paymentType", billPayment.getPaymentTypeId());
         payDetail.add(typeObj);
 
         for (BillingOnItemPayment itemPayment : itemPaymentList) {
-            JSONObject itemObj = new JSONObject();
+            ObjectNode itemObj = objectMapper.createObjectNode();
             itemObj.put("id", itemPayment.getBillingOnItemId());
             if (itemPayment.getRefund().compareTo(BigDecimal.ZERO) == 0) {
                 itemObj.put("type", "payment");

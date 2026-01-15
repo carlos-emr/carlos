@@ -44,6 +44,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -219,15 +220,18 @@ public class MEDITECHHandler implements MessageHandler {
         File file = new File(fileName);
         Path filePath = file.toPath().toAbsolutePath().normalize();
         
-        // Check if the file is within the allowed base directory or its subdirectories
-        // Allow files that are already in the document directory or temp directory
-        if (!filePath.startsWith(basePath)) {
-            // Also check if it's in the temp directory (for temporary uploads)
-            Path tempPath = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
-            if (!filePath.startsWith(tempPath)) {
-                logger.error("Path traversal attempt detected: " + fileName);
-                throw new IllegalArgumentException("Invalid file path - access denied");
-            }
+        // Check if the file is within the allowed base directory or temp directory
+        boolean isValidPath = false;
+        try {
+            PathValidationUtils.validateExistingPath(file, basePath.toFile());
+            isValidPath = true;
+        } catch (SecurityException e) {
+            // Try allowed temp directories as fallback
+            isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
+        }
+        if (!isValidPath) {
+            logger.error("Path traversal attempt detected: " + fileName);
+            throw new IllegalArgumentException("Invalid file path - access denied");
         }
         
         // Ensure the file exists and is readable

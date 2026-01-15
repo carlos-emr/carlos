@@ -28,9 +28,10 @@ import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.form.*;
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import org.apache.commons.lang.WordUtils;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.text.WordUtils;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -59,6 +60,7 @@ public class Pregnancy2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     static String labReqVersion;
 
@@ -128,7 +130,7 @@ public class Pregnancy2Action extends ActionSupport {
                 //empty
             }
         }
-        JSONObject json = JSONObject.fromObject(new LabelValueBean("formId", String.valueOf(formId)));
+        ObjectNode json = objectMapper.valueToTree(new LabelValueBean("formId", String.valueOf(formId)));
         response.getWriter().println(json);
         return null;
     }
@@ -336,7 +338,7 @@ public class Pregnancy2Action extends ActionSupport {
             output.append("\n");
         }
 
-        JSONObject json = JSONObject.fromObject(new LabelValueBean("allergies", output.toString().trim()));
+        ObjectNode json = objectMapper.valueToTree(new LabelValueBean("allergies", output.toString().trim()));
         response.getWriter().println(json);
         return null;
     }
@@ -365,7 +367,7 @@ public class Pregnancy2Action extends ActionSupport {
             }
         }
 
-        JSONObject json = JSONObject.fromObject(new LabelValueBean("meds", output.toString().trim()));
+        ObjectNode json = objectMapper.valueToTree(new LabelValueBean("meds", output.toString().trim()));
         response.getWriter().println(json);
         return null;
     }
@@ -373,7 +375,7 @@ public class Pregnancy2Action extends ActionSupport {
     public String saveFormAjax() throws IOException {
         int newID = 0;
         FrmRecord rec = null;
-        JSONObject jsonObj = null;
+        ObjectNode jsonObj = null;
 
         try {
             FrmRecordFactory recorder = new FrmRecordFactory();
@@ -422,12 +424,12 @@ public class Pregnancy2Action extends ActionSupport {
                     .getParameter("form_class"), "" + newID, ip, request.getParameter("demographic_no"));
 
 
-            jsonObj = JSONObject.fromObject(new LabelValueBean("result", String.valueOf(newID)));
+            jsonObj = objectMapper.valueToTree(new LabelValueBean("result", String.valueOf(newID)));
 
 
         } catch (Exception ex) {
             MiscUtils.getLogger().error("error", ex);
-            jsonObj = JSONObject.fromObject(new LabelValueBean("result", "error"));
+            jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "error"));
 
         }
 
@@ -443,7 +445,7 @@ public class Pregnancy2Action extends ActionSupport {
         MeasurementDao md = SpringUtils.getBean(MeasurementDao.class);
         List<Measurement> m = md.findByType(Integer.parseInt(demographicNo), type);
 
-        JSONArray json = JSONArray.fromObject(m);
+        ArrayNode json = objectMapper.valueToTree(m);
         response.getWriter().print(json.toString());
 
         return null;
@@ -471,7 +473,7 @@ public class Pregnancy2Action extends ActionSupport {
 
         md.persist(m);
 
-        JSONObject jsonObj = JSONObject.fromObject(new LabelValueBean("result", "success"));
+        ObjectNode jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "success"));
         response.getWriter().print(jsonObj);
 
         return null;
@@ -498,16 +500,16 @@ public class Pregnancy2Action extends ActionSupport {
     public String getAR1Labs() throws IOException {
         String demographicNo = request.getParameter("demographicNo");
 
-        JSONArray json = new JSONArray();
+        ArrayNode json = objectMapper.createArrayNode();
 
         MeasurementDao md = SpringUtils.getBean(MeasurementDao.class);
         List<Measurement> m = md.findByType(Integer.parseInt(demographicNo), "HEMO");
         if (m.size() > 0) {
-            json.add(m.get(0));
+            json.add(objectMapper.valueToTree(m.get(0)));
         }
         m = md.findByType(Integer.parseInt(demographicNo), "MCV");
         if (m.size() > 0) {
-            json.add(m.get(0));
+            json.add(objectMapper.valueToTree(m.get(0)));
         }
 
         response.getWriter().print(json.toString());
@@ -646,7 +648,7 @@ Repeat antibody screen
             }
         }
 
-        JSONArray jsonObj = JSONArray.fromObject(results);
+        ArrayNode jsonObj = objectMapper.valueToTree(results);
         response.getWriter().print(jsonObj);
 
         return null;
@@ -779,7 +781,7 @@ Repeat antibody screen
         for (PrintResourceLog l : results) {
             l.setProviderName(providerDao.getProviderName(l.getProviderNo()));
         }
-        JSONArray json = JSONArray.fromObject(results);
+        ArrayNode json = objectMapper.valueToTree(results);
         response.getWriter().print(json.toString());
         return null;
     }

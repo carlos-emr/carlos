@@ -48,8 +48,9 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
      * This query should never return more than one consentType. Returns consents
      * that are not deleted only.
      *
-     * @param int demographic_no
-     * @param int consentTypeId
+     * @param demographic_no the demographic ID
+     * @param consentTypeId the consent type ID
+     * @return the consent record, or null if not found
      */
     @Override
     public Consent findByDemographicAndConsentTypeId(int demographic_no, int consentTypeId) {

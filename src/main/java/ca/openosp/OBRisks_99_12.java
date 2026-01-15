@@ -38,8 +38,39 @@ import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 
+/**
+ * Obstetrics risk assessment processor for the 1999/2012 AR1 form.
+ * 
+ * <p>This class processes XML-based obstetrics risk assessment data using SAX parsing.
+ * It identifies and formats patient risk factors for antenatal care including:</p>
+ * <ul>
+ *   <li>Medical history risks</li>
+ *   <li>Current pregnancy risks</li>
+ *   <li>Social and lifestyle factors</li>
+ *   <li>Previous pregnancy complications</li>
+ * </ul>
+ * 
+ * <p>The class uses {@link OBRisksHandler_99_12} as the SAX content handler
+ * to process the XML risk assessment data and generate formatted output.</p>
+ * 
+ * @see OBRisksHandler_99_12
+ * @see OBChecklist_99_12
+ */
 public class OBRisks_99_12 {
 
+    /**
+     * Processes an obstetrics risk assessment XML file and generates formatted results.
+     * 
+     * <p>This method:</p>
+     * <ol>
+     *   <li>Creates a SAX parser</li>
+     *   <li>Parses the XML risk assessment file</li>
+     *   <li>Returns formatted risk assessment results or error messages</li>
+     * </ol>
+     * 
+     * @param uri the URI or file path to the XML risk assessment file
+     * @return formatted risk assessment results, or error message if processing fails
+     */
     public String doStuff(String uri) {
         try {
             SAXParserFactory factory = SAXParserFactory.newInstance();

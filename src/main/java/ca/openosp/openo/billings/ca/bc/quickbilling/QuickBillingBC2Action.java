@@ -33,7 +33,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import ca.openosp.openo.commn.model.ProviderData;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -61,11 +62,14 @@ public class QuickBillingBC2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private JSONObject billingEntry;
+    private ObjectNode billingEntry;
     private QuickBillingBCHandler quickBillingHandler;
 
     public QuickBillingBC2Action() {
     }
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
         String creator = (String) request.getSession().getAttribute("user");
@@ -76,7 +80,7 @@ public class QuickBillingBC2Action extends ActionSupport {
 
         if (request.getParameter("data") != null) {
 
-            billingEntry = JSONObject.fromObject(request.getParameter("data"));
+            billingEntry = (ObjectNode) objectMapper.readTree(request.getParameter("data"));
             billingEntry.put("creator", creator);
 
             // check if the main header items are set.

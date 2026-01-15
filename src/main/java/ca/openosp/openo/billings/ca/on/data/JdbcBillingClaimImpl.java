@@ -28,8 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.billing.CA.ON.dao.BillingONDiskNameDao;
 import ca.openosp.openo.billing.CA.ON.dao.BillingONFilenameDao;
@@ -131,7 +130,7 @@ public class JdbcBillingClaimImpl {
             b.setAppointmentNo(null);
         }
 
-        b.setDemographicName(StringEscapeUtils.escapeSql(val.demographic_name));
+        b.setDemographicName(val.demographic_name);
         b.setSex(val.sex);
         b.setProvince(val.province);
         if (val.billing_date.length() > 0)
@@ -157,7 +156,7 @@ public class JdbcBillingClaimImpl {
         }
 
         b.setStatus(val.status);
-        b.setComment(StringEscapeUtils.escapeSql(val.comment));
+        b.setComment(val.comment);
         b.setVisitType(val.visittype);
         b.setProviderOhipNo(val.provider_ohip_no);
         b.setProviderRmaNo(val.provider_rma_no);
@@ -374,8 +373,8 @@ public class JdbcBillingClaimImpl {
             BillingONExt billingONExt = new BillingONExt();
             billingONExt.setBillingNo(id);
             billingONExt.setDemographicNo(Integer.parseInt(demoNo));
-            billingONExt.setKeyVal(StringEscapeUtils.escapeSql(temp[i]));
-            billingONExt.setValue(StringEscapeUtils.escapeSql(val));
+            billingONExt.setKeyVal(temp[i]);
+            billingONExt.setValue(val);
             billingONExt.setDateTime(new Date());
             billingONExt.setStatus('1');
             extDao.persist(billingONExt);

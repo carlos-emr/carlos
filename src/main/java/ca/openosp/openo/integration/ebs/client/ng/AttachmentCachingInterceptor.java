@@ -14,7 +14,7 @@ import org.apache.cxf.phase.Phase;
  *
  * <h3>Implementation notes</h3>
  * 
- * This interceptor is invoked at {@link Phase.PRE_PROTOCOL} phase and expects attachments
+ * This interceptor is invoked at PRE_PROTOCOL phase and expects attachments
  * to be already parsed and configured on the {@link Message} instance before it is invoked.
  * It then sets the attachments in the thread local scope for further processing.
  * 

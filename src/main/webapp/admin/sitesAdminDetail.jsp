@@ -29,7 +29,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -56,7 +56,7 @@
     </head>
 
     <body vlink="#0000FF" class="BodyStyle" onload="document.getElementById('colorField').style.backgroundColor = document.getElementById('colorField').value;">
-    <nested:form action="/admin/ManageSites">
+    <form action="<%= request.getContextPath() %>/admin/ManageSites.do">
         <table class="MainTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn">admin</td>
@@ -82,41 +82,41 @@
                     <table>
                         <tr>
                             <td>Site Name:<sup style="color:red">*</sup></td>
-                            <td><nested:text property="site.name" maxlength="30"></nested:text></td>
+                            <td><input type="text" name="site.name" maxlength="30" /></td>
                         </tr>
                         <tr>
                             <td>Short Name:<sup style="color:red">*</sup></td>
-                            <td><nested:text property="site.shortName" maxlength="10"></nested:text></td>
+                            <td><input type="text" name="site.shortName" maxlength="10" /></td>
                         </tr>
                         <tr>
                             <td>Theme Color:<sup style="color:red">*</sup></td>
-                            <td><nested:text styleId="colorField" property="site.bgColor" type="color"
-                                             onchange="this.style.backgroundColor = this.value;"></nested:text>
+                            <td><input type="text" id="colorField" name="site.bgColor" type="color"
+                                             onchange="this.style.backgroundColor = this.value;" />
                             </td>
                         </tr>
                         <tr>
                             <td>Active:</td>
-                            <td><nested:checkbox property="site.status" value="1"/></td>
+                            <td><input type="checkbox" name="site.status" value="1" /></td>
                         </tr>
                         <tr>
                             <td>Telephone:</td>
-                            <td><nested:text property="site.phone"></nested:text></td>
+                            <td><input type="text" name="site.phone" /></td>
                         </tr>
                         <tr>
                             <td>FAX:</td>
-                            <td><nested:text property="site.fax"></nested:text></td>
+                            <td><input type="text" name="site.fax" /></td>
                         </tr>
                         <tr>
                             <td>Address:</td>
-                            <td><nested:text property="site.address"></nested:text></td>
+                            <td><input type="text" name="site.address" /></td>
                         </tr>
                         <tr>
                             <td>City:</td>
-                            <td><nested:text property="site.city"></nested:text></td>
+                            <td><input type="text" name="site.city" /></td>
                         </tr>
                         <tr>
                             <td>Province:</td>
-                            <td><nested:select property="site.province">
+                            <td><select name="site.province">
                                 <option value="AB">AB-Alberta</option>
                                 <option value="BC">BC-British Columbia</option>
                                 <option value="MB">MB-Manitoba</option>
@@ -130,28 +130,28 @@
                                 <option value="QC">QC-Quebec</option>
                                 <option value="SK">SK-Saskatchewan</option>
                                 <option value="YT">YT-Yukon</option>
-                            </nested:select></td>
+                            </select></td>
                         </tr>
                         <tr>
                             <td>Postal Code:</td>
-                            <td><nested:text property="site.postal"></nested:text></td>
+                            <td><input type="text" name="site.postal" /></td>
                         </tr>
                         <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
                         <tr>
                             <td>ProviderID From:</td>
-                            <td><nested:text property="site.providerIdFrom"></nested:text></td>
+                            <td><input type="text" name="site.providerIdFrom" /></td>
                         </tr>
                         <tr>
                             <td>ProviderID To:</td>
-                            <td><nested:text property="site.providerIdTo"></nested:text></td>
+                            <td><input type="text" name="site.providerIdTo" /></td>
                         </tr>
                         <% } %>
                     </table>
 
-                    <nested:hidden property="site.siteId"/>
-                    <input name="method" type="hidden" value="save"></input>
-                    <nested:submit styleClass="button">Save</nested:submit> <nested:submit styleClass="button"
-                                                                                           onclick="this.form.method.value='view'">Cancel</nested:submit>
+                    <input type="hidden" name="site.siteId" />
+                    <input type="hidden" name="method" value="save" />
+                    <input type="submit" class="button" value="Save" /> <input type="submit" class="button"
+                                                                                           onclick="this.form.method.value='view'" value="Cancel" />
 
                 </td>
             </tr>
@@ -161,7 +161,7 @@
                 <td class="MainTableBottomRowRightColumn">&nbsp;</td>
             </tr>
         </table>
-    </nested:form>
+    </form>
 
 
 </html>

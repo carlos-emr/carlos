@@ -11,7 +11,8 @@
 package ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil;
 
 import com.itextpdf.text.DocumentException;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.ClinicDAO;
 import ca.openosp.openo.commn.dao.FaxConfigDao;
@@ -66,6 +67,8 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
     public EctConsultationFormFax2Action() {
     }
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String execute() {
@@ -345,8 +348,13 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         if (copiedTo == null) {
             copiedTo = new HashSet<FaxRecipient>();
             for (String faxRecipient : getFaxRecipients()) {
-                JSONObject jsonObject = JSONObject.fromObject("{" + faxRecipient + "}");
-                copiedTo.add(new FaxRecipient(jsonObject));
+                try {
+                    ObjectNode jsonObject = (ObjectNode) objectMapper.readTree("{" + faxRecipient + "}");
+                    copiedTo.add(new FaxRecipient(jsonObject));
+                }
+                catch (Exception e) {
+                    logger.error("Error parsing copied to fax recipient: " + faxRecipient, e);
+                }
             }
         }
         return copiedTo;

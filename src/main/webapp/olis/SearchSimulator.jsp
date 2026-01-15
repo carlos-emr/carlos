@@ -13,9 +13,9 @@
         import="java.util.*,ca.openosp.openo.report.reportByTemplate.*,ca.openosp.openo.olis.*,ca.openosp.openo.olis.model.*, ca.openosp.openo.olis.dao.*, ca.openosp.openo.utility.SpringUtils, org.joda.time.DateTime, org.joda.time.format.DateTimeFormat, org.joda.time.format.DateTimeFormatter" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    if (session.getAttribute("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <html>
 <head>

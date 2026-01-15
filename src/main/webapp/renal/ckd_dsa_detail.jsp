@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_measurement" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_measurement");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_measurement");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -179,7 +179,7 @@
 
     dxs = dxResearchDao.findByDemographicNoResearchCodeAndCodingSystem(Integer.parseInt(demographicNo), "585", "icd9");
     if (dxs.size() == 0) {
-        String popupUrl = request.getContextPath() + "/oscarResearch/dxresearch/dxResearch.do"
+        String popupUrl = request.getContextPath() + "/oscarResearch/oscarDxResearch/dxResearch.do"
                         + "?selectedCodingSystem=icd9"
                         + "&xml_research1=585"
                         + "&xml_research2="

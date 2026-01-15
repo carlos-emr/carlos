@@ -29,13 +29,15 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -68,23 +70,23 @@
             String allergyToArchive = (String) request.getAttribute("allergyToArchive");
             String nkdaId = (String) request.getAttribute("nkdaId");
 
-            String reaction = new String();
-            String startDate = new String();
-            String ageOfOnset = new String();
-            String lifeStage = new String();
-            String severity = new String();
-            String onsetOfReaction = new String();
+            String reaction = "";
+            String startDate = "";
+            String ageOfOnset = "";
+            String lifeStage = "";
+            String severity = "";
+            String onsetOfReaction = "";
             Boolean nonDrug = null;
 
             if (allergyToArchive != null && !allergyToArchive.isEmpty()) {
                 Allergy a = patient.getAllergy(Integer.parseInt(allergyToArchive));
                 if (a != null) {
-                    reaction = a.getReaction();
-                    startDate = a.getStartDateFormatted();
-                    ageOfOnset = a.getAgeOfOnset();
-                    lifeStage = a.getLifeStage();
-                    severity = a.getSeverityOfReaction();
-                    onsetOfReaction = a.getOnsetOfReaction();
+                    reaction = a.getReaction() != null ? a.getReaction() : "";
+                    startDate = a.getStartDateFormatted() != null ? a.getStartDateFormatted() : "";
+                    ageOfOnset = a.getAgeOfOnset() != null ? a.getAgeOfOnset() : "";
+                    lifeStage = a.getLifeStage() != null ? a.getLifeStage() : "";
+                    severity = a.getSeverityOfReaction() != null ? a.getSeverityOfReaction() : "";
+                    onsetOfReaction = a.getOnsetOfReaction() != null ? a.getOnsetOfReaction() : "";
                     nonDrug = a.isNonDrug();
                 }
                 if (a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
@@ -127,7 +129,7 @@
                     </tr>
                     <tr>
                         <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/oscarRx/addAllergy2.do"
-                                                               focus="reactionDescription">
+                                                               name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
 
                             <script type="text/javascript">
                                 function checkStartDate() {
@@ -192,9 +194,7 @@
                                 <tr valign="center">
                                     <td>
                                         <span class="label">Comment: </span>
-                                        <textarea name="reactionDescription" cols="40" rows="3">
-                                                       <%=reaction%>
-                                        </textarea>
+                                        <textarea name="reactionDescription" cols="40" rows="3"><%=Encode.forHtml(reaction)%></textarea>
                                         <input type="hidden" name="ID" value="<%=drugrefId%>"/>
                                         <input type="hidden" name="name" id="name" value="<%=name%>"/>
                                         <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<%=allergyToArchive%>"/>
@@ -242,13 +242,13 @@
 
                                 <tr valign="center">
                                     <td><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.title"/>:</span>
-                                        <select name="lifeStage" value="<%=lifeStage%>">
-                                            <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.notset"/></option>
-                                            <option value="N"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.newborn"/></option>
-                                            <option value="I"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.infant"/></option>
-                                            <option value="C"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.child"/></option>
-                                            <option value="T"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.adolescent"/></option>
-                                            <option value="A"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.adult"/></option>
+                                        <select name="lifeStage">
+                                            <option value="" <%="".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.notset"/></option>
+                                            <option value="N" <%="N".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.newborn"/></option>
+                                            <option value="I" <%="I".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.infant"/></option>
+                                            <option value="C" <%="C".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.child"/></option>
+                                            <option value="T" <%="T".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.adolescent"/></option>
+                                            <option value="A" <%="A".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.adult"/></option>
                                         </select>
                                     </td>
                                 </tr>
@@ -259,22 +259,22 @@
                                 <% } else { %>
                                 <tr valign="center">
                                     <td><span class="label">Severity Of Reaction:</span> <select
-                                            name="severityOfReaction" value="<%=severity%>">
-                                        <option value="4">Unknown</option>
-                                        <option value="1">Mild</option>
-                                        <option value="2">Moderate</option>
-                                        <option value="3">Severe</option>
-                                        <option value="5">No Reaction</option>
+                                            name="severityOfReaction">
+                                        <option value="4" <%="4".equals(severity) || "".equals(severity) ? "selected" : ""%>>Unknown</option>
+                                        <option value="1" <%="1".equals(severity) ? "selected" : ""%>>Mild</option>
+                                        <option value="2" <%="2".equals(severity) ? "selected" : ""%>>Moderate</option>
+                                        <option value="3" <%="3".equals(severity) ? "selected" : ""%>>Severe</option>
+                                        <option value="5" <%="5".equals(severity) ? "selected" : ""%>>No Reaction</option>
                                     </select></td>
                                 </tr>
 
                                 <tr valign="center">
                                     <td><span class="label">Onset Of Reaction:</span> <select
-                                            name="onSetOfReaction" value="<%=onsetOfReaction%>">
-                                        <option value="4">Unknown</option>
-                                        <option value="1">Immediate</option>
-                                        <option value="2">Gradual</option>
-                                        <option value="3">Slow</option>
+                                            name="onSetOfReaction">
+                                        <option value="4" <%="4".equals(onsetOfReaction) || "".equals(onsetOfReaction) ? "selected" : ""%>>Unknown</option>
+                                        <option value="1" <%="1".equals(onsetOfReaction) ? "selected" : ""%>>Immediate</option>
+                                        <option value="2" <%="2".equals(onsetOfReaction) ? "selected" : ""%>>Gradual</option>
+                                        <option value="3" <%="3".equals(onsetOfReaction) ? "selected" : ""%>>Slow</option>
                                     </select></td>
                                 </tr>
 

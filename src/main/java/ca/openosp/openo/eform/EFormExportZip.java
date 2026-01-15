@@ -48,7 +48,7 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
- * @author apavel & not Jay - Jay is too lazy to make this, so he makes Paul do the work for him
+ * Utility class for exporting eForms as ZIP archives.
  */
 public class EFormExportZip {
     private static final Logger _log = MiscUtils.getLogger();

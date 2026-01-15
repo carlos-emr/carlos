@@ -29,7 +29,7 @@ package ca.openosp.openo.decisionSupport.model;
 import java.util.Hashtable;
 import java.util.List;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.decisionSupport.model.conditionValue.DSValue;
 import ca.openosp.openo.utility.MiscUtils;

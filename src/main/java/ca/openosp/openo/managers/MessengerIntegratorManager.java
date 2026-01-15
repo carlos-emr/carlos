@@ -24,6 +24,7 @@
  */
 package ca.openosp.openo.managers;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.caisi_integrator.ws.CachedFacility;
@@ -51,8 +52,9 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * FOR USE WITH INTEGRATOR MESSAGING ONLY
@@ -61,6 +63,8 @@ import net.sf.json.JSONObject;
 public class MessengerIntegratorManager {
 
     private enum JSON_KEY {subject, message, from, copyto, demographic, demographicNo, sourceFacility, linked}
+
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private MessageListDao messageListDao;
@@ -226,10 +230,10 @@ public class MessengerIntegratorManager {
          */
         List<MsgIntegratorDemoMap> unlinkedDemoMap = messengerDemographicManager.getUnlinkedIntegratedDemographicList(loggedInInfo, (int) messageId);
 
-        /* temporary work around through use of a JSONObject. This could be a future upgrade on the Integrator
+        /* temporary work around through use of a ObjectNode. This could be a future upgrade on the Integrator
          * side if inter-facility messaging becomes more popular.
          */
-        JSONObject jsonString = new JSONObject();
+        ObjectNode jsonString = objectMapper.createObjectNode();
         jsonString.put(JSON_KEY.subject.name(), messageTbl.getSubject());
         jsonString.put(JSON_KEY.message.name(), messageTbl.getMessage());
         jsonString.put(JSON_KEY.from.name(), messageTbl.getSentBy());
@@ -274,7 +278,7 @@ public class MessengerIntegratorManager {
 
     /**
      * This method checks against the destination facility for demographic files that are already linked
-     * and then prepares a JSONObject of all the demographic numbers and sourceFacility ids
+     * and then prepares a ObjectNode of all the demographic numbers and sourceFacility ids
      * that should be attached to a message.
      * <p>
      * The demographic number is sent as "unlinked" if the demographic is not found to be linked
@@ -301,8 +305,8 @@ public class MessengerIntegratorManager {
      * @param sourceFacilityId
      * @return
      */
-    private JSONArray createAttachedDemographicObject(LoggedInInfo loggedInInfo, List<MsgDemoMap> msgDemoMapList, int destinationFacilityId) {
-        JSONArray jsonArray = new JSONArray();
+    private ArrayNode createAttachedDemographicObject(LoggedInInfo loggedInInfo, List<MsgDemoMap> msgDemoMapList, int destinationFacilityId) {
+        ArrayNode jsonArray = objectMapper.createArrayNode();
 
         for (MsgDemoMap msgDemoMap : msgDemoMapList) {
             int demographicNo = msgDemoMap.getDemographic_no();
@@ -310,7 +314,7 @@ public class MessengerIntegratorManager {
             /*
              * First check if the given demographic is linked in the destination facility
              */
-            JSONArray linkedDemographicIdArray = getLinkedDemographicIdList(loggedInInfo, demographicNo, destinationFacilityId);
+            ArrayNode linkedDemographicIdArray = getLinkedDemographicIdList(loggedInInfo, demographicNo, destinationFacilityId);
 
             /*
              * Linked demographics were found, attach them to this list
@@ -340,16 +344,16 @@ public class MessengerIntegratorManager {
      * @param unlinkedDemoMap
      * @return
      */
-    private JSONArray createAttachedDemographicObject(List<MsgIntegratorDemoMap> unlinkedDemoMap) {
-        JSONArray jsonArray = new JSONArray();
-        JSONArray demographicObjectArray = null;
+    private ArrayNode createAttachedDemographicObject(List<MsgIntegratorDemoMap> unlinkedDemoMap) {
+        ArrayNode jsonArray = objectMapper.createArrayNode();
+        ArrayNode demographicObjectArray = null;
 
         for (MsgIntegratorDemoMap unlinkedDemo : unlinkedDemoMap) {
             if (demographicObjectArray == null) {
-                demographicObjectArray = new JSONArray();
+                demographicObjectArray = objectMapper.createArrayNode();
             }
 
-            JSONObject demographicObject = createDemographicJSONObject(unlinkedDemo.getSourceDemographicNo(), unlinkedDemo.getSourceFacilityId(), Boolean.TRUE);
+            ObjectNode demographicObject = createDemographicJSONObject(unlinkedDemo.getSourceDemographicNo(), unlinkedDemo.getSourceFacilityId(), Boolean.TRUE);
             demographicObjectArray.add(demographicObject);
         }
 
@@ -360,12 +364,12 @@ public class MessengerIntegratorManager {
         return jsonArray;
     }
 
-    private JSONArray getUnLinkedDemographicIdList(int demographicNo, int destinationFacilityId, boolean linked) {
+    private ArrayNode getUnLinkedDemographicIdList(int demographicNo, int destinationFacilityId, boolean linked) {
         /*
          * Single results need to be in an array to maintain consistency.
          */
-        JSONArray demographicObjectArray = new JSONArray();
-        JSONObject demographicObject = createDemographicJSONObject(demographicNo, destinationFacilityId, linked);
+        ArrayNode demographicObjectArray = objectMapper.createArrayNode();
+        ObjectNode demographicObject = createDemographicJSONObject(demographicNo, destinationFacilityId, linked);
         demographicObjectArray.add(demographicObject);
 
         return demographicObjectArray;
@@ -382,16 +386,16 @@ public class MessengerIntegratorManager {
      * @param destinationFacilityId
      * @return
      */
-    private JSONArray getLinkedDemographicIdList(LoggedInInfo loggedInInfo, final int demographicNo, int destinationFacilityId) {
+    private ArrayNode getLinkedDemographicIdList(LoggedInInfo loggedInInfo, final int demographicNo, int destinationFacilityId) {
         List<Integer> linkedDemographicNumberList = messengerDemographicManager.getLinkedDemographicIdsFromSourceFacility(loggedInInfo, demographicNo, destinationFacilityId);
-        JSONArray demographicObjectArray = null;
+        ArrayNode demographicObjectArray = null;
 
         for (Integer linkedDemographicNumber : linkedDemographicNumberList) {
             if (demographicObjectArray == null) {
-                demographicObjectArray = new JSONArray();
+                demographicObjectArray = objectMapper.createArrayNode();
             }
 
-            JSONObject demographicObject = createDemographicJSONObject(linkedDemographicNumber, destinationFacilityId, Boolean.TRUE);
+            ObjectNode demographicObject = createDemographicJSONObject(linkedDemographicNumber, destinationFacilityId, Boolean.TRUE);
 
             demographicObjectArray.add(demographicObject);
         }
@@ -399,8 +403,8 @@ public class MessengerIntegratorManager {
         return demographicObjectArray;
     }
 
-    private JSONObject createDemographicJSONObject(int demographicNumber, int facilityId, boolean linked) {
-        JSONObject demographicObject = new JSONObject();
+    private ObjectNode createDemographicJSONObject(int demographicNumber, int facilityId, boolean linked) {
+        ObjectNode demographicObject = objectMapper.createObjectNode();
         demographicObject.put(JSON_KEY.demographicNo.name(), demographicNumber);
         demographicObject.put(JSON_KEY.sourceFacility.name(), facilityId);
         demographicObject.put(JSON_KEY.linked.name(), linked);
@@ -416,7 +420,7 @@ public class MessengerIntegratorManager {
      * @throws UnsupportedEncodingException
      */
     public List<Integer> receiveIntegratedMessages(LoggedInInfo loggedInInfo, List<ProviderCommunicationTransfer> providerCommunicationList)
-            throws UnsupportedEncodingException {
+            throws IOException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
@@ -430,11 +434,11 @@ public class MessengerIntegratorManager {
 
             MessageTbl messageTbl = new MessageTbl();
             String messageString = new String(providerCommunication.getData(), "UTF-8");
-            JSONObject jsonObject = JSONObject.fromObject(messageString);
-            String subject = jsonObject.getString(JSON_KEY.subject.name());
-            String message = jsonObject.getString(JSON_KEY.message.name());
-            String from = jsonObject.getString(JSON_KEY.from.name());
-            String copyto = jsonObject.getString(JSON_KEY.copyto.name());
+            ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(messageString);
+            String subject = jsonObject.get(JSON_KEY.subject.name()).asText();
+            String message = jsonObject.get(JSON_KEY.message.name()).asText();
+            String from = jsonObject.get(JSON_KEY.from.name()).asText();
+            String copyto = jsonObject.get(JSON_KEY.copyto.name()).asText();
             String sourceProviderIds = providerCommunication.getSourceProviderId();
 
 
@@ -543,8 +547,8 @@ public class MessengerIntegratorManager {
                 /*
                  * Attach any demographic files that came in with the message.
                  */
-                if (jsonObject.containsKey(JSON_KEY.demographic.name())) {
-                    attachIncomingDemographcToMessage(loggedInInfo, jsonObject.getJSONArray(JSON_KEY.demographic.name()), messageId);
+                if (jsonObject.has(JSON_KEY.demographic.name())) {
+                    attachIncomingDemographcToMessage(loggedInInfo, (ArrayNode) jsonObject.get(JSON_KEY.demographic.name()), messageId);
                 }
 
                 receivedMessages.add(providerCommunication.getId());
@@ -555,21 +559,20 @@ public class MessengerIntegratorManager {
     }
 
     @SuppressWarnings("unchecked")
-    private void attachIncomingDemographcToMessage(LoggedInInfo loggedInInfo, final JSONArray demographicList, final int messageId) {
+    private void attachIncomingDemographcToMessage(LoggedInInfo loggedInInfo, final ArrayNode demographicList, final int messageId) {
 
-        Iterator<JSONArray> demographicArray = demographicList.iterator();
-        while (demographicArray.hasNext()) {
-            Iterator<JSONObject> demographicObject = demographicArray.next().iterator();
-            while (demographicObject.hasNext()) {
-                JSONObject demographic = demographicObject.next();
-                int demographicNo = Integer.parseInt(demographic.getString(JSON_KEY.demographicNo.name()));
-                int sourceFacility = Integer.parseInt(demographic.getString(JSON_KEY.sourceFacility.name()));
+        for (int i = 0; i < demographicList.size(); i++) {
+            ArrayNode demographicArray = (ArrayNode) demographicList.get(i);
+            for (int j = 0; j < demographicArray.size(); j++) {
+                ObjectNode demographic = (ObjectNode) demographicArray.get(j);
+                int demographicNo = Integer.parseInt(demographic.get(JSON_KEY.demographicNo.name()).asText());
+                int sourceFacility = Integer.parseInt(demographic.get(JSON_KEY.sourceFacility.name()).asText());
 
                 /*
                  *  This is a local demographic if the demographic is linked
                  *  and the source facility id matches this facility
                  */
-                if (demographic.getBoolean(JSON_KEY.linked.name())
+                if (demographic.get(JSON_KEY.linked.name()).asBoolean()
                         && getThisFacilityId(loggedInInfo) == sourceFacility) {
                     messengerDemographicManager.attachDemographicToMessage(loggedInInfo, messageId, demographicNo);
                 }

@@ -27,19 +27,22 @@
  */
 package ca.openosp.openo.commn.dao;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.InputStream;
 import java.util.Iterator;
 
 import javax.persistence.Query;
 
 import org.apache.commons.io.IOUtils;
-import org.codehaus.jettison.json.JSONObject;
 import ca.openosp.openo.commn.model.ISO36612;
 import ca.openosp.openo.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class ISO36612DaoImpl extends AbstractDaoImpl<ISO36612> implements ISO36612Dao {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public ISO36612DaoImpl() {
         super(ISO36612.class);
@@ -73,11 +76,11 @@ public class ISO36612DaoImpl extends AbstractDaoImpl<ISO36612> implements ISO366
     public boolean reloadTable() {
 
         InputStream in = null;
-        JSONObject topLevelObj = null;
+        ObjectNode topLevelObj = null;
         try {
             in = this.getClass().getClassLoader().getResourceAsStream("iso-3166-2.json");
             String theString = IOUtils.toString(in, "UTF-8");
-            topLevelObj = new JSONObject(theString);
+            topLevelObj = (ObjectNode) objectMapper.readTree(theString);
         } catch (Exception e) {
             MiscUtils.getLogger().warn("Warning", e);
             return false;
@@ -88,16 +91,16 @@ public class ISO36612DaoImpl extends AbstractDaoImpl<ISO36612> implements ISO366
         deleteAll();
 
         try {
-            Iterator<String> iter = topLevelObj.keys();
+            Iterator<String> iter = topLevelObj.fieldNames();
             while (iter.hasNext()) {
                 String countryCode = iter.next();
-                JSONObject country = topLevelObj.getJSONObject(countryCode);
-                String countryName = country.getString("name");
-                JSONObject divisions = (JSONObject) country.get("divisions");
-                Iterator<String> iter2 = divisions.keys();
+                ObjectNode country = (ObjectNode) topLevelObj.get(countryCode);
+                String countryName = country.get("name").asText();
+                ObjectNode divisions = (ObjectNode) country.get("divisions");
+                Iterator<String> iter2 = divisions.fieldNames();
                 while (iter2.hasNext()) {
                     String divisionCode = iter2.next();
-                    String divisionName = divisions.getString(divisionCode);
+                    String divisionName = divisions.get(divisionCode).asText();
 
                     ISO36612 item = new ISO36612();
                     item.setCode(divisionCode);

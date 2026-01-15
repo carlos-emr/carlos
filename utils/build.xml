@@ -182,7 +182,7 @@
 	</target>
 
 	<target name="javadoc" depends="init">
-		<javadoc sourcepath="${src}" destdir="${build}/doc" packagenames="oscar.*" classpath="${classpath}" />
+		<javadoc sourcepath="${src}" destdir="${build}/doc" packagenames="ca.openosp.*" classpath="${classpath}" />
 	</target>
 
 	<target name="jsp" depends="init">

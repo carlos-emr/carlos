@@ -16,7 +16,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -24,7 +24,7 @@
     }
 %>
 
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.hospitalReportManager.model.HRMCategory" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMCategoryDao" %>
@@ -118,8 +118,8 @@
                             src="<%=request.getContextPath()%>/images/icons/101.png" alt="alert"></a></td>
                     <td><a href="hrmCategories.jsp?id=<%=category.getId()%>"><%=category.getId()%>
                     </a></td>
-                    <td><%=StringEscapeUtils.escapeHtml(category.getCategoryName())%>&nbsp;</td>
-                    <td><%=StringEscapeUtils.escapeHtml(category.getSubClassNameMnemonic())%>&nbsp;</td>
+                    <td><%=StringEscapeUtils.escapeHtml4(category.getCategoryName())%>&nbsp;</td>
+                    <td><%=StringEscapeUtils.escapeHtml4(category.getSubClassNameMnemonic())%>&nbsp;</td>
                 </tr>
                 <%
                     }

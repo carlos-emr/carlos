@@ -31,7 +31,7 @@
 <%@ page import="ca.openosp.openo.eform.EFormUtil" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String country = request.getLocale().getCountry();
 
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -160,5 +160,6 @@
 
         <%@ include file="efmFooter.jspf" %>
     </div>
+
     </body>
 </html>

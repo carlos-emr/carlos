@@ -30,6 +30,7 @@ import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.casemgmt.model.ClientImage;
 import ca.openosp.openo.casemgmt.service.ClientImageManager;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import javax.servlet.ServletContext;
@@ -69,27 +70,16 @@ public class ClientImage2Action extends ActionSupport {
 
         log.info("extension = " + type);
 
-        // Ensure that the upload directory is correcnt and create a new image object that will be saved to the client
+        // Ensure that the upload directory is correct and create a new image object that will be saved to the client
         try {
-            // Get context of the temp directory, get the file path to the the temp directory
-            ServletContext servletContext = ServletActionContext.getServletContext();
-            File tmpdirAttribute = (File) servletContext.getAttribute("javax.servlet.context.tempdir");
-            String tmpdir = tmpdirAttribute.toString();
-
-            // Set safe directory and client image canonical files
-            File safeDirectory = new File(tmpdir).getCanonicalFile();
-            File resolvedFile = clientImage.getCanonicalFile();
-
-            // Get safe path and resolved canonical paths
-            String safePath = safeDirectory.getCanonicalPath();
-            String resolvedPath = resolvedFile.getCanonicalPath();
-
-            // Ensure the file is within the safe directory
-            if (!resolvedPath.startsWith(safePath + File.separator)) {
-                throw new IllegalArgumentException("Invalid file path: " + resolvedPath);
+            // Validate that the uploaded file is in an allowed temp directory
+            if (!PathValidationUtils.isInAllowedTempDirectory(clientImage)) {
+                throw new IllegalArgumentException("Invalid file path: " + clientImage.getPath());
             }
 
-            byte[] imageData = Files.readAllBytes(resolvedFile.toPath());
+            // Re-validate at point of use for static analysis visibility
+            File validatedImage = PathValidationUtils.validateUpload(clientImage);
+            byte[] imageData = Files.readAllBytes(validatedImage.toPath());
 
             ClientImage clientImageObj = new ClientImage();
             clientImageObj.setDemographic_no(Integer.parseInt(id));

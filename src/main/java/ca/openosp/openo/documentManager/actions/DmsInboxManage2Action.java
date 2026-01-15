@@ -29,8 +29,8 @@ package ca.openosp.openo.documentManager.actions;
 import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.daos.security.SecObjectNameDao;
 import ca.openosp.openo.model.security.Secobjectname;
-import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringEscapeUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.http.impl.cookie.DateUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.SecUserRoleDao;
@@ -75,6 +75,9 @@ public class DmsInboxManage2Action extends ActionSupport {
     private SecObjectNameDao secObjectNameDao = SpringUtils.getBean(SecObjectNameDao.class);
     private SecUserRoleDao secUserRoleDao = SpringUtils.getBean(SecUserRoleDao.class);
     private QueueDao queueDAO = SpringUtils.getBean(QueueDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         String mtd = request.getParameter("method");
@@ -177,7 +180,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         HttpSession session = request.getSession();
         try {
             if (session.getAttribute("userrole") == null)
-                response.sendRedirect("../logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/logout.jsp");
         } catch (Exception e) {
             MiscUtils.getLogger().error("error", e);
         }
@@ -212,11 +215,11 @@ public class DmsInboxManage2Action extends ActionSupport {
         boolean providerSearch = !"-1".equals(searchProviderNo);
 
         MiscUtils.getLogger().debug("SEARCH " + searchProviderNo);
-        String patientFirstName = StringEscapeUtils.escapeSql(request.getParameter("fname"));
-        String patientLastName = StringEscapeUtils.escapeSql(request.getParameter("lname"));
-        String patientHealthNumber = StringEscapeUtils.escapeSql(request.getParameter("hnum"));
-        String startDate = StringEscapeUtils.escapeSql(request.getParameter("startDate"));
-        String endDate = StringEscapeUtils.escapeSql(request.getParameter("endDate"));
+        String patientFirstName = request.getParameter("fname");
+        String patientLastName = request.getParameter("lname");
+        String patientHealthNumber = request.getParameter("hnum");
+        String startDate = request.getParameter("startDate");
+        String endDate = request.getParameter("endDate");
 
         if (patientFirstName == null) {
             patientFirstName = "";
@@ -256,7 +259,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
         } catch (Exception e) {
             logger.error("Error", e);
         }
@@ -267,10 +270,10 @@ public class DmsInboxManage2Action extends ActionSupport {
         CommonLabResultData comLab = new CommonLabResultData();
         // String providerNo = request.getParameter("providerNo");
         String providerNo = (String) session.getAttribute("user");
-        String searchProviderNo = StringEscapeUtils.escapeSql(request.getParameter("searchProviderNo"));
-        String ackStatus = StringEscapeUtils.escapeSql(request.getParameter("status"));
-        String demographicNo = StringEscapeUtils.escapeSql(request.getParameter("demographicNo")); // used when searching for labs by patient instead of providers
-        String scannedDocStatus = StringEscapeUtils.escapeSql(request.getParameter("scannedDocument"));
+        String searchProviderNo = request.getParameter("searchProviderNo");
+        String ackStatus = request.getParameter("status");
+        String demographicNo = request.getParameter("demographicNo"); // used when searching for labs by patient instead of providers
+        String scannedDocStatus = request.getParameter("scannedDocument");
         Integer page = 0;
         try {
             page = Integer.parseInt(request.getParameter("page"));
@@ -289,8 +292,8 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         scannedDocStatus = "I";
 
-        String startDateStr = StringEscapeUtils.escapeSql(request.getParameter("startDate"));
-        String endDateStr = StringEscapeUtils.escapeSql(request.getParameter("endDate"));
+        String startDateStr = request.getParameter("startDate");
+        String endDateStr = request.getParameter("endDate");
 
 
         String view = request.getParameter("view");
@@ -357,9 +360,9 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
 
         InboxResultsDao inboxResultsDao = (InboxResultsDao) SpringUtils.getBean(InboxResultsDao.class);
-        String patientFirstName = StringEscapeUtils.escapeSql(request.getParameter("fname"));
-        String patientLastName = StringEscapeUtils.escapeSql(request.getParameter("lname"));
-        String patientHealthNumber = StringEscapeUtils.escapeSql(request.getParameter("hnum"));
+        String patientFirstName = request.getParameter("fname");
+        String patientLastName = request.getParameter("lname");
+        String patientHealthNumber = request.getParameter("hnum");
 
         ArrayList<LabResultData> labdocs = new ArrayList<LabResultData>();
 
@@ -616,7 +619,7 @@ public class DmsInboxManage2Action extends ActionSupport {
 
         HashMap<String, Boolean> hm = new HashMap<String, Boolean>();
         hm.put("addNewQueue", success);
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes());
         } catch (java.io.IOException ioe) {
@@ -654,7 +657,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         HashMap<String, Object> hm = new HashMap<String, Object>();
         hm.put("isLinkedToDemographic", success);
         hm.put("demoId", demoId);
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes());
         } catch (java.io.IOException ioe) {
@@ -684,7 +687,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         HashMap<String, Object> hm = new HashMap<>();
         hm.put("isLinkedToDemographic", success);
         hm.put("demoId", demoId);
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes());
         } catch (java.io.IOException ioe) {
@@ -707,7 +710,7 @@ public class DmsInboxManage2Action extends ActionSupport {
     public String getDocumentsInQueues() {
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
         } catch (Exception e) {
             logger.error("Error", e);
         }

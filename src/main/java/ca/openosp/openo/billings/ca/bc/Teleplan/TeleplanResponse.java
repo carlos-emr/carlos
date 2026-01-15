@@ -37,6 +37,7 @@ import java.nio.file.Path;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 
 import ca.openosp.OscarProperties;
 
@@ -85,16 +86,13 @@ public class TeleplanResponse {
             if (this.getFilename() != null && !this.getFilename().trim().equals("")) {
                 File file = new File(tempFile);
                 realFilename = "teleplan" + this.getFilename() + randNum;
-                File file2 = new File(directory + realFilename);
-                
-                // Define allowed directory (configure this based on your needs)
+
+                // Use PathValidationUtils to validate destination path
                 File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
-                
-                // Convert to Path and normalize
-                Path filePath = file2.toPath().normalize().toAbsolutePath();
-                Path allowedPath = allowedDir.toPath().normalize().toAbsolutePath();
-                
-                if (!filePath.startsWith(allowedPath)) {
+                File file2;
+                try {
+                    file2 = PathValidationUtils.validatePath(realFilename, allowedDir);
+                } catch (SecurityException e) {
                     throw new SecurityException("File access not allowed outside designated directory");
                 }
 

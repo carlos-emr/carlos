@@ -29,8 +29,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import ca.openosp.openo.PMmodule.dao.ProgramDao;
 import ca.openosp.openo.PMmodule.model.Program;
 import ca.openosp.openo.commn.Gender;
@@ -124,7 +124,7 @@ public class CdsForm4 {
     public static String getEscapedClientName(Integer clientId) {
         Demographic demographic = demographicDao.getDemographicById(clientId);
         if (demographic != null) {
-            return (StringEscapeUtils.escapeHtml(demographic.getLastName() + ", " + demographic.getFirstName()));
+            return (StringEscapeUtils.escapeHtml4(demographic.getLastName() + ", " + demographic.getFirstName()));
         } else {
             return (null);
         }
@@ -168,7 +168,7 @@ public class CdsForm4 {
         else sb.append(DateFormatUtils.ISO_DATE_FORMAT.format(admission.getDischargeDate()));
         sb.append(" )");
 
-        return (StringEscapeUtils.escapeHtml(sb.toString()));
+        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     public static List<CdsFormOption> getCdsFormOptions(String category) {
@@ -192,7 +192,7 @@ public class CdsForm4 {
                 CdsFormOption option = getOptionFromAnswerId(options, answer.getAnswer());
                 if (option != null) {
                     if (sb.length() != 0) sb.append("<br />");
-                    sb.append(StringEscapeUtils.escapeHtml(option.getCdsDataCategoryName()));
+                    sb.append(StringEscapeUtils.escapeHtml4(option.getCdsDataCategoryName()));
                 }
             }
 
@@ -219,11 +219,11 @@ public class CdsForm4 {
         sb.append("<option value=\"\" title=\"\">--- no selection ---</option>");
 
         for (CdsFormOption option : options) {
-            String htmlEscapedName = StringEscapeUtils.escapeHtml(option.getCdsDataCategoryName());
+            String htmlEscapedName = StringEscapeUtils.escapeHtml4(option.getCdsDataCategoryName());
             String lengthLimitedEscapedName = limitLengthAndEscape(option.getCdsDataCategoryName());
             String selected = (CdsClientFormData.containsAnswer(existingAnswers, option.getCdsDataCategory()) ? "selected=\"selected\"" : "");
 
-            sb.append("<option " + selected + " value=\"" + StringEscapeUtils.escapeHtml(option.getCdsDataCategory()) + "\" title=\"" + htmlEscapedName + "\">" + lengthLimitedEscapedName + "</option>");
+            sb.append("<option " + selected + " value=\"" + StringEscapeUtils.escapeHtml4(option.getCdsDataCategory()) + "\" title=\"" + htmlEscapedName + "\">" + lengthLimitedEscapedName + "</option>");
         }
 
         return (sb.toString());
@@ -267,7 +267,7 @@ public class CdsForm4 {
         StringBuilder sb = new StringBuilder();
         boolean alreadyHaveOneChecked = false;
         for (CdsFormOption option : options) {
-            String htmlEscapedName = StringEscapeUtils.escapeHtml(option.getCdsDataCategoryName());
+            String htmlEscapedName = StringEscapeUtils.escapeHtml4(option.getCdsDataCategoryName());
             String lengthLimitedEscapedName = limitLengthAndEscape(option.getCdsDataCategoryName());
 
             String selected = "";
@@ -278,7 +278,7 @@ public class CdsForm4 {
                 selected = "checked=\"checked\"";
             }
 
-            sb.append("<div title=\"" + htmlEscapedName + "\"><input type=\"radio\" " + selected + " name=\"" + question + "\" value=\"" + StringEscapeUtils.escapeHtml(option.getCdsDataCategory()) + "\" /> " + lengthLimitedEscapedName + "</div>");
+            sb.append("<div title=\"" + htmlEscapedName + "\"><input type=\"radio\" " + selected + " name=\"" + question + "\" value=\"" + StringEscapeUtils.escapeHtml4(option.getCdsDataCategory()) + "\" /> " + lengthLimitedEscapedName + "</div>");
         }
 
         return (sb.toString());
@@ -293,11 +293,11 @@ public class CdsForm4 {
         StringBuilder sb = new StringBuilder();
 
         for (CdsFormOption option : options) {
-            String htmlEscapedName = StringEscapeUtils.escapeHtml(option.getCdsDataCategoryName());
+            String htmlEscapedName = StringEscapeUtils.escapeHtml4(option.getCdsDataCategoryName());
             String lengthLimitedEscapedName = limitLengthAndEscape(option.getCdsDataCategoryName());
             String checked = (CdsClientFormData.containsAnswer(existingAnswers, option.getCdsDataCategory()) ? "checked=\"checked\"" : "");
 
-            sb.append("<div title=\"" + htmlEscapedName + "\"><input type=\"checkBox\" " + checked + " name=\"" + question + "\" value=\"" + StringEscapeUtils.escapeHtml(option.getCdsDataCategory()) + "\" /> " + lengthLimitedEscapedName + "</div>");
+            sb.append("<div title=\"" + htmlEscapedName + "\"><input type=\"checkBox\" " + checked + " name=\"" + question + "\" value=\"" + StringEscapeUtils.escapeHtml4(option.getCdsDataCategory()) + "\" /> " + lengthLimitedEscapedName + "</div>");
         }
 
         return (sb.toString());
@@ -305,7 +305,7 @@ public class CdsForm4 {
 
     public static String limitLengthAndEscape(String s) {
         if (s.length() > MAX_DISPLAY_NAME_LENGTH) s = s.substring(0, MAX_DISPLAY_NAME_LENGTH - 3) + "...";
-        return (StringEscapeUtils.escapeHtml(s));
+        return (StringEscapeUtils.escapeHtml4(s));
     }
 
     private static List<CdsClientFormData> getAnswers(Integer cdsClientFormId, String question) {

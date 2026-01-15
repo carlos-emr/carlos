@@ -29,7 +29,7 @@
 
 
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils" %>
+<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 
 
 <script type="text/javascript">
@@ -46,7 +46,7 @@
         ff = eval("document.forms[0].elements['" + name2 + "']");
         f0 = ff.value;
         f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-        awnd = rs('att', '../billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+        awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
         awnd.focus();
     }
 </script>

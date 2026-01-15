@@ -41,7 +41,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Caseload' tab on the menu bar
@@ -62,8 +62,8 @@ public class OpenWindowsFromMainMenuTest {
         }
 
         if (!is500Error) {
-            wait.until(ExpectedConditions.urlContains("providers/providercontrol.jsp"));
-            Assert.assertTrue(driver.getCurrentUrl().contains("providers/providercontrol.jsp"));
+            wait.until(ExpectedConditions.urlContains("provider/providercontrol.jsp"));
+            Assert.assertTrue(driver.getCurrentUrl().contains("provider/providercontrol.jsp"));
             System.out.println("Caseload page opened successfully.");
         }
 
@@ -99,7 +99,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Report' tab on the menu bar
@@ -172,7 +172,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Billing' tab on the menu bar
@@ -245,7 +245,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Inbox' tab on the menu bar
@@ -318,7 +318,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Msg' tab on the menu bar
@@ -391,7 +391,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Consultations' tab on the menu bar
@@ -464,7 +464,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'eDoc' tab on the menu bar
@@ -537,7 +537,7 @@ public class OpenWindowsFromMainMenuTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Tickler' tab on the menu bar

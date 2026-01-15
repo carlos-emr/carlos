@@ -32,7 +32,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_admin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -43,7 +43,7 @@
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no;
     user_no = (String) session.getAttribute("user");
     String docdownload = oscarVariables.getProperty("project_home");
@@ -62,7 +62,7 @@
 <p><font face="Arial, Helvetica, sans-serif" size="2"><b>Teleplan
     Billing Report Generator</b></font></p>
 <form name="form1" method="post"
-      action="../../../servlet/oscar.DocumentTeleplanReportUploadServlet"
+      action="<%= request.getContextPath() %>/servlet/oscar.DocumentTeleplanReportUploadServlet"
       ENCTYPE="multipart/form-data"><font
         face="Arial, Helvetica, sans-serif" size="2"> </font>
     <table width="400" border="0">

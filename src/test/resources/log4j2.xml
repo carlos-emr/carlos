@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
     <Appenders>
-<!--        <File name="File" fileName="${catalina.base}/logs/oscar.log" append="true">-->
+<!--        <File name="File" fileName="${catalina.base}/logs/openo.log" append="true">-->
 <!--            <Log4j1XmlLayout />-->
 <!--        </File>-->
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d %-5p %C{2} (%F:%L) - %m%n"/>
         </Console>
 <!--        <RollingFile name="rollingFile"-->
-<!--                     fileName="logs/oscar.log" filePattern="logs/oscar-%d{yyyy-MM-dd-HH-mm}-%i.log">-->
+<!--                     fileName="logs/openo.log" filePattern="logs/openo-%d{yyyy-MM-dd-HH-mm}-%i.log">-->
 <!--            <PatternLayout>-->
 <!--                <Pattern>%d{yyyy-MM-dd-HH:mm:ss} %-5p %m%n</Pattern>-->
 <!--            </PatternLayout>-->

@@ -27,7 +27,7 @@
 <%@page import="ca.openosp.openo.utility.SessionConstants" %>
 <%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String styleClass = "data2";
 %>
@@ -167,14 +167,14 @@
                                             <c:out value="${waitingListBean.position}"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('../demographic/demographiccontrol.jsp?demographic_no=${waitingListBean.demographicNo}&displaymode=edit&dboperation=search_detail'); return false;">
+                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=${waitingListBean.demographicNo}&displaymode=edit&dboperation=search_detail'); return false;">
                                                 <c:out value="${waitingListBean.patientName}"/>
                                             </a>
                                             <input type="button" value="Update" name="update_${ctr.index}" style="font-size: 7pt;"
                                                    onClick="updateWaitingList('${waitingListBean.waitingListID}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <textarea cols="45" name="note" indexed="true" styleClass="data3" onblur="setParameters(this);"></textarea>
+                                            <textarea cols="45" name="note" indexed="true" class="data3" onblur="setParameters(this);"></textarea>
                                         </td>
                                         <td class="${styleClass}">
                                             <input type="text" name="onListSince" indexed="true" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
@@ -198,7 +198,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.patientName}', '${waitingListBean.demographicNo}', '${today}', 400, 780, '../schedule/scheduleflipview.jsp?originalpage=../oscarWaitingList/DisplayWaitingList.jsp'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.patientName}', '${waitingListBean.demographicNo}', '${today}', 400, 780, '<%= request.getContextPath() %>/schedule/scheduleflipview.jsp?originalpage=<%= request.getContextPath() %>/oscarWaitingList/DisplayWaitingList.jsp'); return false;">
                                                 make_appt
                                             </a>
                                         </td>

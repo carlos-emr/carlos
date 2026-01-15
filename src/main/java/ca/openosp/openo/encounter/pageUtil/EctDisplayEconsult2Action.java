@@ -51,7 +51,6 @@ public class EctDisplayEconsult2Action extends EctDisplayAction {
      * @param bean     Current session information
      * @param request  Current request
      * @param Dao      View DAO responsible for rendering encounter
-     * @param messages i18n message bundle
      * @return Always returns a true boolean
      */
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {

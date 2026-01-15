@@ -9,7 +9,7 @@
 
 --%>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="org.apache.commons.lang.StringUtils,ca.openosp.openo.log.*" %>
+<%@page import="org.apache.commons.lang3.StringUtils,ca.openosp.openo.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ page import="ca.openosp.OscarProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -22,7 +22,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_hrm" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_hrm");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_hrm");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -478,9 +478,9 @@
 
             <%
                 if (hrmReport.isBinary()) {
-                    String reportFileData = hrmReport.getFileData();
-                    String noMessageIdFileData = reportFileData.replaceAll("<MessageUniqueID>.*?</MessageUniqueID>", "<MessageUniqueID></MessageUniqueID>");
-                    String noMessageIdHash = org.apache.commons.codec.digest.DigestUtils.md5Hex(noMessageIdFileData);
+                    // Use the hash stored in the database instead of recalculating it
+                    // This ensures compatibility with reports uploaded before UTF-8 encoding migration
+                    String noMessageIdHash = document.getReportHash();
 
                     if (hrmReport.getFileExtension() != null && (".gif".equals(hrmReport.getFileExtension()) || ".jpg".equals(hrmReport.getFileExtension()) || ".png".equals(hrmReport.getFileExtension()))) {
             %><img

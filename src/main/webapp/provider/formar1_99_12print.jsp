@@ -25,7 +25,7 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     int oox = 0, ooy = 0;
     if (request.getParameter("oox") != null) oox += Integer.parseInt(request.getParameter("oox"));
     if (request.getParameter("ooy") != null) ooy += Integer.parseInt(request.getParameter("ooy"));

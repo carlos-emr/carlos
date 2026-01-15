@@ -42,8 +42,8 @@ public interface MessageHandler {
      * the beginning of the file must be included at the beginning of each
      * hl7_message.
      * <p>
-     * If the hl7 message is a lab and 'oscar.oscarLab.ca.all.parsers.XXXXHandler'
-     * has been created 'oscar.oscarLab.ca.all.upload.MessageUploader  routeReport("XXXX", hl7_message)'
+     * If the hl7 message is a lab and 'ca.openosp.openo.lab.ca.all.parsers.XXXXHandler'
+     * has been created 'ca.openosp.openo.lab.ca.all.upload.MessageUploader  routeReport("XXXX", hl7_message)'
      * should be used to upload the message to the database.
      * <p>
      * If any exceptions are encountered the method should return 'null'

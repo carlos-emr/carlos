@@ -47,6 +47,7 @@ import java.util.ResourceBundle;
 import ca.openosp.openo.commn.dao.UserPropertyDAO;
 import ca.openosp.openo.commn.model.UserProperty;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -54,7 +55,8 @@ public final class IncomingDocUtil {
     private static final Logger logger = MiscUtils.getLogger();
     
     /**
-     * Validates that a path component does not contain path traversal sequences
+     * Validates that a path component does not contain path traversal sequences.
+     * Delegates to PathValidationUtils for consistent validation.
      * @param pathComponent The path component to validate
      * @return true if the component is safe, false otherwise
      */
@@ -62,28 +64,20 @@ public final class IncomingDocUtil {
         if (pathComponent == null || pathComponent.isEmpty()) {
             return false;
         }
-        
-        // Check for path traversal patterns
-        if (pathComponent.contains("..") || 
-            pathComponent.contains("./") ||
-            pathComponent.contains("/") ||
-            pathComponent.contains("\\") ||
-            pathComponent.equals(".") ||
-            pathComponent.equals("..")) {
+
+        // Use PathValidationUtils to validate - try to construct a safe path
+        try {
+            File tempDir = new File(System.getProperty("java.io.tmpdir"));
+            PathValidationUtils.validatePath(pathComponent, tempDir);
+            return true;
+        } catch (SecurityException e) {
             return false;
         }
-        
-        // Additional checks for special characters that could be problematic
-        if (pathComponent.contains("~") || 
-            pathComponent.startsWith(".")) {
-            return false;
-        }
-        
-        return true;
     }
-    
+
     /**
-     * Validates that a constructed path is within the allowed base directory
+     * Validates that a constructed path is within the allowed base directory.
+     * Delegates to PathValidationUtils for consistent validation.
      * @param basePath The base directory path
      * @param targetPath The path to validate
      * @return true if the path is within bounds, false otherwise
@@ -92,8 +86,9 @@ public final class IncomingDocUtil {
         try {
             File baseDir = new File(basePath).getCanonicalFile();
             File targetFile = new File(targetPath).getCanonicalFile();
-            return targetFile.getPath().startsWith(baseDir.getPath());
-        } catch (IOException e) {
+            PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            return true;
+        } catch (SecurityException | IOException e) {
             logger.error("Error validating path bounds", e);
             return false;
         }
@@ -231,19 +226,18 @@ public final class IncomingDocUtil {
                 || pdfDir.equals("Refile"))) {
             
             try {
-                File baseDir = new File(OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR")).getCanonicalFile();
+                File baseDir = new File(OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
                 File deletedPathDir = new File(filePath, pdfDir + "_deleted");
+
+                // Validate path is within bounds using PathValidationUtils
+                PathValidationUtils.validateExistingPath(deletedPathDir, baseDir);
+
                 File canonicalDeletedDir = deletedPathDir.getCanonicalFile();
-                
-                // Validate path is within bounds
-                if (!canonicalDeletedDir.getPath().startsWith(baseDir.getPath())) {
-                    throw new SecurityException("Path traversal attempt blocked");
-                }
-                
+
                 if (!canonicalDeletedDir.exists()) {
                     canonicalDeletedDir.mkdirs();
                 }
-                
+
                 filePath = canonicalDeletedDir.getPath();
             } catch (IOException e) {
                 throw new SecurityException("Failed to validate deleted directory path", e);
@@ -305,22 +299,20 @@ public final class IncomingDocUtil {
         
         File filePathDir = new File(filePath);
         
-        // Additional validation using canonical path
+        // Validate path is within bounds using PathValidationUtils
         try {
+            File baseDirFile = new File(baseDir);
+            PathValidationUtils.validateExistingPath(filePathDir, baseDirFile);
+
             File canonicalDir = filePathDir.getCanonicalFile();
-            File canonicalBaseDir = new File(baseDir).getCanonicalFile();
-            
-            if (!canonicalDir.getPath().startsWith(canonicalBaseDir.getPath())) {
-                throw new SecurityException("Path traversal attempt blocked");
-            }
-            
+
             if (!canonicalDir.exists()) {
                 boolean created = canonicalDir.mkdirs();
                 if (!created) {
                     logger.warn("Failed to create directory: " + canonicalDir.getPath());
                 }
             }
-            
+
             return canonicalDir.getPath();
         } catch (IOException e) {
             throw new SecurityException("Failed to validate directory path", e);

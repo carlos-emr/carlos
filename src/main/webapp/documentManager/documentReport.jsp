@@ -58,7 +58,7 @@
 
 <%@ page import="java.util.*" %>
 <%@ page import="ca.openosp.openo.commn.dao.CtlDocClassDao" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.utility.SessionConstants" %>
 <%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
 <%@ page import="ca.openosp.openo.documentManager.EDoc" %>

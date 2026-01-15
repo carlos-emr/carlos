@@ -117,7 +117,7 @@ public class WCBAction22Action extends ActionSupport {
 
 
         MiscUtils.getLogger().debug("OVER AND OUT.");
-        response.sendRedirect("/billing/CA/BC/formwcb.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/formwcb.jsp");
         return NONE;
     }
 

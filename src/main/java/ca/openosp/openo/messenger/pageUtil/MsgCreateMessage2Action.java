@@ -27,7 +27,8 @@
 package ca.openosp.openo.messenger.pageUtil;
 
 import ca.openosp.openo.messenger.data.MsgMessageData;
-import net.sf.json.JSONArray;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import ca.openosp.openo.commn.dao.UserPropertyDAO;
 import ca.openosp.openo.commn.model.OscarMsgType;
 import ca.openosp.openo.commn.model.UserProperty;
@@ -100,6 +101,9 @@ public class MsgCreateMessage2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks message write permissions
      */
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -197,8 +201,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
         request.setAttribute("messageBody", this.getMessage());
         request.setAttribute("demographic_no", this.getDemographic_no());
         List<ContactIdentifier> replyList = MessagingManagerImpl.createContactIdentifierList(this.getProvider());
-        JSONArray jsonArray = new JSONArray();
-        request.setAttribute("replyList", jsonArray.addAll(replyList));
+        ArrayNode jsonArray = objectMapper.createArrayNode();
+        for (ContactIdentifier contact : replyList) {
+            jsonArray.add(objectMapper.valueToTree(contact));
+        }
+        request.setAttribute("replyList", jsonArray);
         return "error";
     }
     

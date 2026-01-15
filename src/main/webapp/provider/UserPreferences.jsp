@@ -89,7 +89,7 @@
             var ff = eval("document.forms[0].elements['pref.<%=UserProperty.DEFAULT_DX_CODE%>']");
             var f0 = ff.value;
             var f1 = escape("document.forms[0].elements[\'pref.<%=UserProperty.DEFAULT_DX_CODE%>\'].value");
-            awnd = rs('att', '../billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
             awnd.focus();
         }
     </script>

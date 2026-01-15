@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -39,11 +39,11 @@
 %>
 
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils" %>
+<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="ca.openosp.openo.PMmodule.model.Program" %>
 <%@page import="java.util.HashSet" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
 <%@page import="ca.openosp.openo.commn.model.Provider" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
@@ -52,7 +52,7 @@
 <%@page import="java.util.List" %>
 <%@page import="ca.openosp.openo.commn.model.CdsFormOption" %>
 <%@page import="ca.openosp.openo.web.Cds4ReportUIBean" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     ProviderManager2 providerManager = (ProviderManager2) SpringUtils.getBean(ProviderManager2.class);
@@ -110,14 +110,14 @@
 <%
     if (providerIdList != null) {
 %>
-<span style="font-weight:bold">Providers : </span><%=StringEscapeUtils.escapeHtml(providerNamesList.toString())%>
+<span style="font-weight:bold">Providers : </span><%=StringEscapeUtils.escapeHtml4(providerNamesList.toString())%>
 <br/>
 <%
     }
 
     if (programIds != null) {
 %>
-<span style="font-weight:bold">Programs : </span><%=StringEscapeUtils.escapeHtml(programNamesList.toString())%>
+<span style="font-weight:bold">Programs : </span><%=StringEscapeUtils.escapeHtml4(programNamesList.toString())%>
 <br/>
 <%
     }
@@ -146,9 +146,9 @@
             int[] dataRow = cds4ReportUIBean.getDataRow(cdsFormOption);
     %>
     <tr>
-        <td><%=StringEscapeUtils.escapeHtml(cdsFormOption.getCdsDataCategory())%>
+        <td><%=StringEscapeUtils.escapeHtml4(cdsFormOption.getCdsDataCategory())%>
         </td>
-        <td><%=StringEscapeUtils.escapeHtml(cdsFormOption.getCdsDataCategoryName())%>
+        <td><%=StringEscapeUtils.escapeHtml4(cdsFormOption.getCdsDataCategoryName())%>
         </td>
         <%
             for (int dataElement : dataRow) {

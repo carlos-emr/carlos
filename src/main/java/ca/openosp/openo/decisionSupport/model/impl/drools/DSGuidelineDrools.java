@@ -40,7 +40,7 @@ import javax.persistence.Entity;
 import javax.persistence.PostUpdate;
 import javax.persistence.Transient;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.drools.FactException;
 import org.drools.RuleBase;
@@ -71,7 +71,7 @@ public class DSGuidelineDrools extends DSGuideline {
     public static final Namespace javaNamespace = Namespace.getNamespace("java", "http://drools.org/semantics/java");
     // public static final Namespace xsNs = Namespace.getNamespace("xs", "http://www.w3.org/2001/XMLSchema-instance");
 
-    private static final String demographicAccessObjectClassPath = "org.oscarehr.decisionSupport.model.DSDemographicAccess";
+    private static final String demographicAccessObjectClassPath = "ca.openosp.openo.decisionSupport.model.DSDemographicAccess";
 
     @Transient
     private RuleBase _ruleBase = null;

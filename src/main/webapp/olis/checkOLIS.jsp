@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page import="com.indivica.olis.parameters.*,com.indivica.olis.*,com.indivica.olis.queries.*,org.apache.commons.lang.time.DateUtils" %>
+<%@page import="com.indivica.olis.parameters.*,com.indivica.olis.*,com.indivica.olis.queries.*,org.apache.commons.lang3.time.DateUtils" %>
 <%@page
         import="ca.openosp.OscarProperties,java.net.InetAddress,java.io.*,java.util.List,java.util.*,javax.net.ssl.*,java.security.*,java.security.cert.*" %>
 <%@page
@@ -38,11 +38,11 @@
 <%
     if (session.getAttribute("userrole") == null) {
 
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %><security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>"><%
-    response.sendRedirect("../logout.jsp");
+    response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %></security:oscarSec>
 <%
 
@@ -90,7 +90,7 @@
         Connection c = DbConnectionFilter.getThreadLocalDbConnection(); //select only
         try {
 
-            PreparedStatement ps_findConfiguredProviders = c.prepareStatement("select * from providers where practitionerNo != ''");
+            PreparedStatement ps_findConfiguredProviders = c.prepareStatement("select * from provider where practitionerNo != ''");
             PreparedStatement ps_prop = c.prepareStatement("select * from property where provider_no = ? and name = ?");
             ResultSet rs = ps_findConfiguredProviders.executeQuery();
 
@@ -134,7 +134,7 @@
     <%
             }
         } catch (Exception e) {
-            error = org.apache.commons.lang.exception.ExceptionUtils.getStackTrace(e);
+            error = org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(e);
         }
     %>
 </table>

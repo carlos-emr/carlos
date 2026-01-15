@@ -186,7 +186,7 @@ public class FrmRourke2009Record extends FrmRecord {
                 FormRourke2009 frmRourke = rourkeDao.find(existingID);
 
                 if (frmRourke != null) {
-                    Class cRourke = Class.forName("oscar.form.model.FormRourke2009");
+                    Class cRourke = FormRourke2009.class;
                     Object returnVal;
                     String value;
                     for (int idx = 0; idx < names.length; ++idx) {
@@ -365,8 +365,6 @@ public class FrmRourke2009Record extends FrmRecord {
                 MiscUtils.getLogger().error("Illegal Access of FormRourke Method", e);
             } catch (InvocationTargetException e) {
                 MiscUtils.getLogger().error("Cannot Call Method on Target", e);
-            } catch (ClassNotFoundException e) {
-                MiscUtils.getLogger().error("Cannot Find FormRourke2009 Class", e);
             }
 
         }

@@ -29,7 +29,8 @@
 package ca.openosp.openo.form;
 
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -50,6 +51,7 @@ public final class Frm2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    private final ObjectMapper objectMapper = new ObjectMapper();
     Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -294,11 +296,11 @@ public final class Frm2Action extends ActionSupport {
                     (StringUtils.isNotEmpty(props.getProperty("appointmentNo")) ? "&appointmentNo=" + props.getProperty("appointmentNo") : "") +
                     "&formId=" + newFormId;
 
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.element("success", true);
-            jsonObject.element("newFormId", newFormId);
-            jsonObject.element("newNewUrl", newUrl);
-            jsonObject.element("formAutosaveDate", new SimpleDateFormat("h:mm a").format(new Date()));
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", true);
+            jsonObject.put("newFormId", newFormId);
+            jsonObject.put("newNewUrl", newUrl);
+            jsonObject.put("formAutosaveDate", new SimpleDateFormat("h:mm a").format(new Date()));
             JSONUtil.jsonResponse(response, jsonObject);
 
         } catch (Exception e) {

@@ -38,8 +38,8 @@ import javax.xml.ws.ResponseWrapper;
 public interface WaitListService {
 
     /**
-     * @param arg0
-     * @return returns java.util.List<org.caisi.wl.MatchBO>
+     * @param arg0 the query parameters for matching
+     * @return returns a list of MatchBO objects
      */
     @WebMethod
     @WebResult(targetNamespace = "")
@@ -60,8 +60,8 @@ public interface WaitListService {
             @WebParam(name = "arg0", targetNamespace = "") VacancyQuery arg0);
 
     /**
-     * @param arg0
-     * @return returns java.util.List<org.caisi.wl.VacancyDisplayBO>
+     * @param arg0 the program query parameters
+     * @return returns a list of VacancyDisplayBO objects
      */
     @WebMethod
     @WebResult(targetNamespace = "")
@@ -71,8 +71,8 @@ public interface WaitListService {
             @WebParam(name = "arg0", targetNamespace = "") ProgramQuery arg0);
 
     /**
-     * @param arg0
-     * @return returns java.util.List<org.caisi.wl.VacancyDisplayBO>
+     * @param arg0 the program query parameters
+     * @return returns a list of VacancyDisplayBO objects
      */
     @WebMethod
     @WebResult(targetNamespace = "")
@@ -82,8 +82,8 @@ public interface WaitListService {
             @WebParam(name = "arg0", targetNamespace = "") ProgramQuery arg0);
 
     /**
-     * @param arg0
-     * @return returns java.util.List<org.caisi.wl.ClientWLEntryBO>
+     * @param arg0 the client query parameters
+     * @return returns a list of ClientWLEntryBO objects
      */
     @WebMethod
     @WebResult(targetNamespace = "")

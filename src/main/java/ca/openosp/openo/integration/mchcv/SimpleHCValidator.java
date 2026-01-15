@@ -26,7 +26,7 @@ package ca.openosp.openo.integration.mchcv;
 
 import ca.ontario.health.hcv.HcvResults;
 import ca.ontario.health.hcv.Requests;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.integration.ebs.client.ng.EdtClientBuilder;
 
 public class SimpleHCValidator implements HCValidator {

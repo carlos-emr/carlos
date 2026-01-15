@@ -29,13 +29,13 @@
 <%@page import="ca.openosp.openo.PMmodule.dao.CriteriaDao" %>
 <%@page import="ca.openosp.openo.PMmodule.model.CriteriaType" %>
 <%@page import="ca.openosp.openo.PMmodule.service.VacancyTemplateManager" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.ArrayList" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="java.util.Date" %>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.util.ResourceBundle" %>
 <%@page import="java.text.SimpleDateFormat" %>
 

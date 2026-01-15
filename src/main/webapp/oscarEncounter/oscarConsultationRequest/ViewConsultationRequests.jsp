@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -58,7 +58,6 @@
 <%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
 <%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
 <%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -257,7 +256,6 @@ background-color:rgb(212, 212, 254);
 //setTimeout("window.location.reload();",5000);
         }
 
-        ///
         function popupOscarConsultationConfig(vheight, vwidth, varpage) { //open a new popup window
             var page = varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
@@ -268,9 +266,6 @@ background-color:rgb(212, 212, 254);
                 }
             }
         }
-
-
-        //
 
         function setOrder(val) {
             if (document.forms[0].orderby.value == val) {
@@ -358,7 +353,7 @@ background-color:rgb(212, 212, 254);
                                     <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.formTeamNotApplicable"/></option>
                                     <% }
                                         for (int i = 0; i < consultUtil.teamVec.size(); i++) {
-                                            String te = (String) consultUtil.teamVec.elementAt(i);
+                                            String te = (String) consultUtil.teamVec.get(i);
                                             if (te.equals(team)) {
                                     %>
                                     <option value="<%=te%>" selected><%=te%>
@@ -475,27 +470,27 @@ background-color:rgb(212, 212, 254);
                                     for (int i = 0; i < theRequests.ids.size(); i++) {
                                         //multisites. skip record if not belong to same site/team
                                         if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
-                                            if (providerMap.get(theRequests.providerNo.elementAt(i)) == null) continue;
+                                            if (providerMap.get(theRequests.providerNo.get(i)) == null) continue;
                                         }
 
-                                        String id = theRequests.ids.elementAt(i);
-                                        String status = theRequests.status.elementAt(i);
-                                        String patient = theRequests.patient.elementAt(i);
-                                        String provide = theRequests.provider.elementAt(i);
-                                        String service = theRequests.service.elementAt(i);
-                            boolean eReferral = theRequests.eReferral.get(i);
-                                        String date = theRequests.date.elementAt(i);
-                                        String demo = theRequests.demographicNo.elementAt(i);
-                                        String appt = theRequests.apptDate.elementAt(i);
-                                        String patBook = theRequests.patientWillBook.elementAt(i);
-                                        String urgency = theRequests.urgency.elementAt(i);
-                                        String sendTo = theRequests.teams.elementAt(i);
+                                        String id = theRequests.ids.get(i);
+                                        String status = theRequests.status.get(i);
+                                        String patient = theRequests.patient.get(i);
+                                        String provide = theRequests.provider.get(i);
+                                        String service = theRequests.service.get(i);
+                                        boolean eReferral = theRequests.eReferral.get(i);
+                                        String date = theRequests.date.get(i);
+                                        String demo = theRequests.demographicNo.get(i);
+                                        String appt = theRequests.apptDate.get(i);
+                                        String patBook = theRequests.patientWillBook.get(i);
+                                        String urgency = theRequests.urgency.get(i);
+                                        String sendTo = theRequests.teams.get(i);
                                         if (sendTo == null) sendTo = "-1";
-                                        String specialist = theRequests.vSpecialist.elementAt(i);
-                                        String followUpDate = theRequests.followUpDate.elementAt(i);
+                                        String specialist = theRequests.vSpecialist.get(i);
+                                        String followUpDate = theRequests.followUpDate.get(i);
                                         String siteName = "";
                                         if (bMultisites) {
-                                            siteName = theRequests.siteName.elementAt(i);
+                                            siteName = theRequests.siteName.get(i);
                                         }
                                         if (status.equals("1") && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
                                             tickerList.add(demo);

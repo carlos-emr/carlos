@@ -31,10 +31,11 @@ import com.itextpdf.text.pdf.BaseFont;
 import com.itextpdf.text.pdf.ColumnText;
 import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfWriter;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.PMmodule.model.Program;
 import ca.openosp.openo.PMmodule.model.ProgramProvider;
 import ca.openosp.openo.casemgmt.model.CaseManagementNote;
+import ca.openosp.openo.commn.model.Allergy;
 import ca.openosp.openo.commn.model.Prevention;
 import ca.openosp.openo.commn.printing.FontSettings;
 import ca.openosp.openo.commn.printing.PdfWriterFactory;
@@ -264,11 +265,109 @@ public class CaseManagementPrintPdf {
                 document.add(p);
             }
         }
-        if (preventions.size() == 0) {
-            curFont = normal;
-            phrase = new Phrase(LEADING, "", curFont);
-            phrase.add("No preventions found");
+        if (preventions.isEmpty()) {
+            p = new Paragraph();
+            p.setAlignment(Paragraph.ALIGN_LEFT);
+            Phrase noPreventionsPhrase = new Phrase(LEADING, "", normal);
+            noPreventionsPhrase.add("No preventions found");
+            p.add(noPreventionsPhrase);
+            document.add(p);
+        }
+    }
+
+    public void printAllergies(List<Allergy> allergies) throws DocumentException {
+        if (allergies == null) {
+            return;
+        }
+
+        if (newPage)
+            document.newPage();
+        else
+            newPage = true;
+
+        Paragraph p = new Paragraph();
+        Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
+        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        p.setAlignment(Paragraph.ALIGN_CENTER);
+        phrase.add("Patient Allergies");
+        p.add(phrase);
+        document.add(p);
+
+        Font normal = new Font(bf, FONTSIZE, Font.NORMAL);
+        Font curFont;
+        for (int idx = 0; idx < allergies.size(); idx++) {
+            Allergy allergy = allergies.get(idx);
+
+            // Print allergen name (bold)
+            p = new Paragraph();
+            p.setAlignment(Paragraph.ALIGN_LEFT);
+            phrase = new Phrase(LEADING, "", obsfont);
+            phrase.add(StringUtils.defaultIfBlank(allergy.getDescription(), "Unknown"));
             p.add(phrase);
+            document.add(p);
+            curFont = normal;
+
+            if (allergy.getStartDate() != null) {
+                p = new Paragraph();
+                p.setAlignment(Paragraph.ALIGN_LEFT);
+                phrase = new Phrase(LEADING, "Start Date: ", curFont);
+                phrase.add(formatter.format(allergy.getStartDate()));
+                p.add(phrase);
+                document.add(p);
+            }
+
+            if (allergy.getReaction() != null && !allergy.getReaction().trim().isEmpty()) {
+                p = new Paragraph();
+                p.setAlignment(Paragraph.ALIGN_LEFT);
+                phrase = new Phrase(LEADING, "Reaction: ", curFont);
+                phrase.add(allergy.getReaction());
+                p.add(phrase);
+                document.add(p);
+            }
+
+            if (allergy.getSeverityOfReaction() != null) {
+                p = new Paragraph();
+                p.setAlignment(Paragraph.ALIGN_LEFT);
+                phrase = new Phrase(LEADING, "Severity: ", curFont);
+                phrase.add(allergy.getSeverityOfReactionDesc());
+                p.add(phrase);
+                document.add(p);
+            }
+
+            if (allergy.getOnsetOfReaction() != null) {
+                p = new Paragraph();
+                p.setAlignment(Paragraph.ALIGN_LEFT);
+                phrase = new Phrase(LEADING, "Onset: ", curFont);
+                phrase.add(allergy.getOnSetOfReactionDesc());
+                p.add(phrase);
+                document.add(p);
+            }
+
+            if (allergy.getLifeStage() != null) {
+                p = new Paragraph();
+                p.setAlignment(Paragraph.ALIGN_LEFT);
+                phrase = new Phrase(LEADING, "Life Stage: ", curFont);
+                phrase.add(allergy.getLifeStageDesc());
+                p.add(phrase);
+                document.add(p);
+            }
+
+            if (allergy.getAgeOfOnset() != null && !allergy.getAgeOfOnset().trim().isEmpty()) {
+                p = new Paragraph();
+                p.setAlignment(Paragraph.ALIGN_LEFT);
+                phrase = new Phrase(LEADING, "Age of Onset: ", curFont);
+                phrase.add(allergy.getAgeOfOnset());
+                p.add(phrase);
+                document.add(p);
+            }
+            document.add(new Phrase("\n", curFont));
+        }
+        if (allergies.isEmpty()) {
+            p = new Paragraph();
+            p.setAlignment(Paragraph.ALIGN_LEFT);
+            Phrase noAllergiesPhrase = new Phrase(LEADING, "", normal);
+            noAllergiesPhrase.add("No allergies found");
+            p.add(noAllergiesPhrase);
             document.add(p);
         }
     }

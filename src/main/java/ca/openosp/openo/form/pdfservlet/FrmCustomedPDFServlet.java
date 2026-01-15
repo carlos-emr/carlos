@@ -56,6 +56,7 @@ import ca.openosp.openo.managers.FaxManager.TransactionType;
 import ca.openosp.openo.utility.LocaleUtils;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.web.PrescriptionQrCodeUIBean;
 
@@ -107,40 +108,29 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     String pdfFile = "prescription_" + pdfid + ".pdf";
                     String document_dir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
                     
-                    // Use proper path validation
-                    Path basePath = Paths.get(document_dir).normalize().toAbsolutePath();
-                    Path filepath = basePath.resolve(pdfFile).normalize();
-                    
-                    // Ensure the path stays within document directory
-                    if (!filepath.startsWith(basePath)) {
-                        throw new SecurityException("Invalid file path");
-                    }
-                    
+                    // Use PathValidationUtils for proper path validation
+                    File baseDirFile = new File(document_dir);
+                    File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
+                    Path filepath = validatedPdfFile.toPath();
+
                     if (!Files.exists(filepath)) {
                         baosPDF.writeTo(Files.newOutputStream(filepath));
                     }
 
-                    // write to temporary file??
+                    // write to temporary file
                     String tempPath = OscarProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
-                    Path tempBasePath = Paths.get(tempPath).normalize().toAbsolutePath();
-                    Path tempPdf = tempBasePath.resolve("prescription_" + pdfid + ".pdf").normalize();
-                    
-                    // Ensure temp path stays within temp directory
-                    if (!tempPdf.startsWith(tempBasePath)) {
-                        throw new SecurityException("Invalid temp file path");
-                    }
-                    
+                    File tempDirFile = new File(tempPath);
+                    File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
+                    Path tempPdf = validatedTempPdf.toPath();
+
                     // Copying the fax pdf.
                     if (Files.exists(filepath) && !Files.exists(tempPdf)) {
                         FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
                     }
 
                     // tracking file
-                    Path txtFilePath = tempBasePath.resolve("prescription_" + pdfid + ".txt").normalize();
-                    if (!txtFilePath.startsWith(tempBasePath)) {
-                        throw new SecurityException("Invalid tracking file path");
-                    }
-                    String txtFile = txtFilePath.toString();
+                    File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
+                    String txtFile = validatedTxtFile.toString();
                     try (FileWriter fstream = new FileWriter(txtFile);
                          BufferedWriter out = new BufferedWriter(fstream)) {
                         if (faxNo != null) {
@@ -440,11 +430,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 patientHeading.append(newline).append(this.patientAddress).append(newline).append(this.patientCityPostal).append(newline).append(this.patientPhone);
 
                 if (patientHIN != null && patientHIN.trim().length() > 0) {
-                    patientHeading.append(newline).append(geti18nTagValue(locale, "oscar.oscarRx.hin")).append(" ").append(patientHIN);
+                    patientHeading.append(newline).append(geti18nTagValue(locale, "ca.openosp.openo.rx.hin")).append(" ").append(patientHIN);
                 }
 
                 if (patientChartNo != null && !patientChartNo.isEmpty()) {
-                    String chartNoTitle = geti18nTagValue(locale, "oscar.oscarRx.chartNo");
+                    String chartNoTitle = geti18nTagValue(locale, "ca.openosp.openo.rx.chartNo");
                     patientHeading.append(newline).append(chartNoTitle).append(patientChartNo);
                 }
 

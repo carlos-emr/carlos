@@ -10,7 +10,7 @@ import org.apache.openjpa.enhance.FieldSupplier;
 import org.apache.openjpa.enhance.RedefinitionHelper;
 import org.apache.openjpa.enhance.PersistenceCapable;
 import org.apache.openjpa.enhance.PCRegistry;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.openjpa.enhance.StateManager;
 import org.apache.openjpa.persistence.jdbc.Index;
 import javax.persistence.Column;

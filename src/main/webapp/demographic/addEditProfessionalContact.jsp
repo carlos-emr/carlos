@@ -28,7 +28,7 @@
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="java.util.List, ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.commn.dao.ContactSpecialtyDao" %>
 <%@ page import="ca.openosp.openo.commn.model.ContactSpecialty" %>
 
@@ -56,7 +56,7 @@
                 var firstName = '${ pcontact.firstName }';
                 var lastName = '${ pcontact.lastName }';
 
-                if (keyword && keyword.contains(",")) {
+                if (keyword && keyword.includes(",")) {
                     keywordLastName = keyword.split(",")[0].trim();
                     keywordFirstName = keyword.split(",")[1].trim();
                 } else if (keyword) {
@@ -195,7 +195,7 @@
         </tr>
     </table>
 
-    <form action="/demographic/Contact" styleId="addEditProfessionalForm">
+    <form action="<%= request.getContextPath() %>/demographic/Contact.do" id="addEditProfessionalForm" name="contactForm">
 
         <c:if test="${ pcontact.id gt 0 }">
             <input type="hidden" name="pcontact.id" value="${ pcontact.id }"/>
@@ -328,10 +328,11 @@
                 <td align="right"><b>Specialty</b></td>
                 <td>
                     <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM" value="true">
-
+                        <%-- Determine which specialty value to use for selection: contactRole (from DemographicContact) or pcontact.specialty --%>
+                        <c:set var="selectedSpecialty" value="${ not empty requestScope.contactRole ? requestScope.contactRole : pcontact.specialty }"/>
                         <select id="pcontact.specialty" name="pcontact.specialty">
                             <c:forEach items="${ specialties }" var="specialtyType">
-                                <option value="${ specialtyType.id }" ${ specialtyType.id eq requestScope.contactRole ? 'selected' : '' } >
+                                <option value="${ specialtyType.id }" ${ specialtyType.id == selectedSpecialty ? 'selected' : '' } >
                                     <c:out value="${ specialtyType.specialty }"/>
                                 </option>
                             </c:forEach>

@@ -302,7 +302,7 @@ public class TeleplanAPI {
      * Parameters to TeleplanBroker are
      * filechar = $filetype which can be:
      * V = VENDORS TEST SELECTION ONLY
-     * I = MSP ICD9 Codes (4&3 some 5)
+     * I = MSP ICD9 Codes (4 and 3 some 5)
      * D = Diagnostic Facility's Codes
      * G = Geographic Differential Payment Codes
      * R = Rural Retention Premium Codes
@@ -331,7 +331,7 @@ public class TeleplanAPI {
      * This section and command restricted to MoH Internal staff access
      * filechar = $filetype which can be:
      * V = VENDORS TEST SELECTION ONLY
-     * I = MSP ICD9 Codes (4&3 some 5)
+     * I = MSP ICD9 Codes (4 and 3 some 5)
      * D = Diagnostic Facility's Codes
      * G = Geographic Differential Payment Codes
      * R = Rural Retention Premium Codes
@@ -431,7 +431,7 @@ public class TeleplanAPI {
      * Note: Internal field names(Patient Visit Charge) reflect Subsidy Insured Service
      * We cannot change Internal modules but you may reflect externally, see Browser screens
      * <p>
-     * Procedure parameters: & Parameters to TeleplanBroker:
+     * Procedure parameters and TeleplanBroker inputs:
      * PHN	  	       	= $phn			(string representing valid PHN Number)
      * dateOfBirthyyyy	= $dateofbirthyyyy	(string denoting numeric year)
      * dateOfBirthmm		= $dateofbirthmm	(string denoting numeric month)
@@ -444,7 +444,7 @@ public class TeleplanAPI {
      * PatientRestriction 	= $patientrestriction	(string representing a boolean true/false)
      * ExternalAction 	= "AcheckE45"
      * Results from TeleplanBroker are:
-     * Still to be determined but "SUCCESS" & "FAILURE" will be returned
+     * Still to be determined but "SUCCESS" and "FAILURE" will be returned
      */
     public TeleplanResponse checkElig(String phn, String dateofbirthyyyy, String dateofbirthmm, String dateofbirthdd,
                                       String dateofserviceyyyy, String dateofservicemm, String dateofservicedd,

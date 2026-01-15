@@ -33,8 +33,10 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
@@ -604,6 +606,8 @@ public class ReportBuilder {
 
         logger.debug("in buildQuery " + frm);
 
+        // Initialize parameters map for parameterized query
+        Map<String, Object> params = new HashMap<>();
 
         StringBuilder stringBuffer = new StringBuilder("select demographic_no from demographic d "); // had , provider p / but i don't think i meed that
 
@@ -630,11 +634,13 @@ public class ReportBuilder {
         } catch (NumberFormatException e) {
         }
 
-        String asofDate = "CURRENT_DATE";
+        String asofDateSql = "CURRENT_DATE"; // SQL representation (either CURRENT_DATE or :asofDate parameter)
         logger.error("what is date " + frm.getAgeAsOf());
         if (yearStyle != null && yearStyle == 1) {
             Format formatter = new SimpleDateFormat("yyyy-MM-dd");
-            asofDate = "'" + formatter.format(frm.getAgeAsOf()) + "'";
+            String asofDateValue = formatter.format(frm.getAgeAsOf());
+            asofDateSql = ":asofDate";
+            params.put("asofDate", asofDateValue);
         }
 
         // is this needed ??? oscar.messenger.util.MsgStringQuote s = new oscar.messenger.util.MsgStringQuote();
@@ -657,27 +663,32 @@ public class ReportBuilder {
                     theWhereFlag = whereClause(stringBuffer, theWhereFlag);
                     logger.info("where 1? " + theWhereFlag);
                     if (yearStyle != null && yearStyle.equals("1")) {
-                        stringBuffer.append(" ( ( YEAR(" + asofDate + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDate + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) <  " + startYear + " ) ");
+                        params.put("startYear1", startYear);
+                        stringBuffer.append(" ( ( YEAR(" + asofDateSql + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDateSql + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) <  :startYear1 ) ");
                     } else {
-                        stringBuffer.append(" ( YEAR(" + asofDate + ") - d.year_of_birth < " + startYear + "  ) ");
+                        params.put("startYear1b", startYear);
+                        stringBuffer.append(" ( YEAR(" + asofDateSql + ") - d.year_of_birth < :startYear1b  ) ");
                     }
                     theFirstFlag = false;
                     break;
                 case 2:
                     theWhereFlag = whereClause(stringBuffer, theWhereFlag);
                     //if (ageStyle.equals("1")){
-                    stringBuffer.append(" ( ( YEAR(" + asofDate + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDate + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) >  " + startYear + " ) ");
+                    params.put("startYear2", startYear);
+                    stringBuffer.append(" ( ( YEAR(" + asofDateSql + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDateSql + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) >  :startYear2 ) ");
                     //}else{
-                    //   stringBuffer.append(" ( YEAR("+asofDate+") - year_of_birth > "+startYear+"  ) ");
+                    //   stringBuffer.append(" ( YEAR("+asofDateSql+") - year_of_birth > "+startYear+"  ) ");
                     //}
                     theFirstFlag = false;
                     break;
                 case 3:
                     theWhereFlag = whereClause(stringBuffer, theWhereFlag);
                     if (yearStyle != null && yearStyle.equals("1")) {
-                        stringBuffer.append(" ( ( YEAR(" + asofDate + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDate + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) =  " + startYear + " ) ");
+                        params.put("startYear3", startYear);
+                        stringBuffer.append(" ( ( YEAR(" + asofDateSql + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDateSql + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) =  :startYear3 ) ");
                     } else {
-                        stringBuffer.append(" ( YEAR(" + asofDate + ") - d.year_of_birth = " + startYear + "  ) ");
+                        params.put("startYear3b", startYear);
+                        stringBuffer.append(" ( YEAR(" + asofDateSql + ") - d.year_of_birth = :startYear3b  ) ");
                     }
                     theFirstFlag = false;
                     break;
@@ -685,25 +696,30 @@ public class ReportBuilder {
                     theWhereFlag = whereClause(stringBuffer, theWhereFlag);
                     MiscUtils.getLogger().debug("age style " + ageStyle);
                     if (yearStyle != null && !yearStyle.equals("2")) {
-                        // stringBuffer.append(" ( ( YEAR("+asofDate+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDate+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >  "+startYear+" and ( YEAR("+asofDate+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDate+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) <  "+endYear+"  ) ");
+                        // stringBuffer.append(" ( ( YEAR("+asofDateSql+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDateSql+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >  "+startYear+" and ( YEAR("+asofDateSql+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDateSql+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) <  "+endYear+"  ) ");
                         MiscUtils.getLogger().debug("VERIFYING INT" + startYear);
                         //check to see if its a number
                         if (verifyInt(startYear)) {
-                            stringBuffer.append(" ( ( YEAR(" + asofDate + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDate + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) >=  " + startYear + " ) ");
+                            params.put("startYear4", startYear);
+                            stringBuffer.append(" ( ( YEAR(" + asofDateSql + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDateSql + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) >=  :startYear4 ) ");
                         } else {
+                            // Note: MySQL INTERVAL syntax cannot be parameterized, but getInterval() validates the input
                             String interval = getInterval(startYear);
-                            stringBuffer.append(" ( date_sub(" + asofDate + ",interval " + interval + ") >= DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d')   ) ");
+                            stringBuffer.append(" ( date_sub(" + asofDateSql + ",interval " + interval + ") >= DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d')   ) ");
                         }
                         stringBuffer.append(" and ");
                         if (verifyInt(endYear)) {
-                            stringBuffer.append(" ( ( YEAR(" + asofDate + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDate + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) <=  " + endYear + "  ) ");
+                            params.put("endYear4", endYear);
+                            stringBuffer.append(" ( ( YEAR(" + asofDateSql + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDateSql + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) <=  :endYear4  ) ");
                         } else {
-                            ///
+                            // Note: MySQL INTERVAL syntax cannot be parameterized, but getInterval() validates the input
                             String interval = getInterval(endYear);
-                            stringBuffer.append(" ( date_sub(" + asofDate + ",interval " + interval + ") < DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d')   ) ");
+                            stringBuffer.append(" ( date_sub(" + asofDateSql + ",interval " + interval + ") < DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d')   ) ");
                         }
                     } else {
-                        stringBuffer.append(" ( YEAR(" + asofDate + ") - d.year_of_birth > " + startYear + "  and YEAR(" + asofDate + ") - d.year_of_birth < " + endYear + "  ) ");
+                        params.put("startYear4b", startYear);
+                        params.put("endYear4b", endYear);
+                        stringBuffer.append(" ( YEAR(" + asofDateSql + ") - d.year_of_birth > :startYear4b  and YEAR(" + asofDateSql + ") - d.year_of_birth < :endYear4b  ) ");
                     }
                     theFirstFlag = false;
                     break;
@@ -775,7 +791,7 @@ public class ReportBuilder {
             MiscUtils.getLogger().info(stringBuffer.toString());
 
             FormsDao dao = SpringUtils.getBean(FormsDao.class);
-            List<Object[]> demographicList = dao.runNativeQuery(stringBuffer.toString());
+            List<Object[]> demographicList = dao.runParameterizedNativeQuery(stringBuffer.toString(), params);
             logger.debug(" number of results from query " + demographicList.size());
             for (Object[] o : demographicList) {
                 if (o == null) {

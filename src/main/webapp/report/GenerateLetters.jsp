@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -40,6 +40,7 @@
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@page
@@ -99,13 +100,13 @@
                 document.getElementById(id).style.display = 'none';
             }
 
-            function showHideNextDate(id, nextDate, nexerWarn) {
+            function showHideNextDate(id, nextDate, neverWarn) {
                 if (document.getElementById(id).style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
                     document.getElementById(nextDate).value = "";
-                    document.getElementById(nexerWarn).checked = false;
+                    document.getElementById(neverWarn).checked = false;
 
                 }
             }
@@ -199,7 +200,7 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
             <td valign="top" class="MainTableRightColumn"><form
                     action="${pageContext.request.contextPath}/report/GenerateLetters.do" method="POST"
-                    styleId="listDemographic">
+                    id="listDemographic">
 
                 <%
                     ManageLetters mLetter = new ManageLetters();
@@ -273,7 +274,7 @@
             // if ( firstLetter.size() > 0 ) {
             //    String queryStr = getUrlParamList(firstLetter, "demo");
             //
-            //&message=<%=java.net.URLEncoder.encode("Letter 1 Reminder Letter sent for :" + request.getAttribute("prevType"), "UTF-8")
+            //&message=<%=java.net.URLEncoder.encode("Letter 1 Reminder Letter sent for :" + request.getAttribute("prevType"), StandardCharsets.UTF_8)
             //&followupType=
             //&followupValue=L1
     %>

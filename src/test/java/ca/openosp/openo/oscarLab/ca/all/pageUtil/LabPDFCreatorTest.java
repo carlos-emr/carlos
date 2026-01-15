@@ -44,6 +44,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import ca.openosp.openo.lab.ca.all.pageUtil.LabPDFCreator;
+import com.itextpdf.text.DocumentException;
 import org.apache.commons.io.IOUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -154,7 +155,7 @@ public class LabPDFCreatorTest {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
-            } catch (com.lowagie.text.DocumentException e) {
+            } catch (DocumentException e) {
                 e.printStackTrace();
             } finally {
                 try {

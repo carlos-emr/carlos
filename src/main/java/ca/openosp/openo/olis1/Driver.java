@@ -210,13 +210,17 @@ public class Driver {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 
             try {
-                // Disable external entities
+                // Disable external entities to prevent XXE attacks
                 dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
                 dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
                 dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
                 dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
                 dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                
+                // Disable XInclude
                 dbf.setXIncludeAware(false);
+                
+                // Disabled expansion of entity references
                 dbf.setExpandEntityReferences(false);
 
             } catch (ParserConfigurationException e) {

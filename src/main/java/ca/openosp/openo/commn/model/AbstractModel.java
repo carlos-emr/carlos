@@ -43,7 +43,7 @@ public abstract class AbstractModel<T> implements java.io.Serializable {
         if (getId() == null) {
             StackTraceElement[] stack = new Throwable().getStackTrace();
             for (int i = 0; i < stack.length; i++) {
-                if (stack[i].getClassName().equals("org.oscarehr.commons.model.AbstractModel")
+                if (stack[i].getClassName().equals("ca.openosp.openo.commn.model.AbstractModel")
                         && stack[i].getMethodName().equals("toString")) {
                     return super.hashCode();
                 }

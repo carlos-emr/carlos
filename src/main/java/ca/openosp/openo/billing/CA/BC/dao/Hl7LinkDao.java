@@ -83,17 +83,17 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     }
 
     public List<Object[]> findProvidersWithReports() {
-        String sql = "SELECT DISTINCT providers.ProviderNo, providers.LastName, providers.FirstName FROM Hl7Link hl7_link, Demographic demographic, Provider providers " +
+        String sql = "SELECT DISTINCT provider.ProviderNo, provider.LastName, provider.FirstName FROM Hl7Link hl7_link, Demographic demographic, Provider provider " +
                 "WHERE hl7_link.demographicNo = demographic.DemographicNo " +
-                "AND demographic.ProviderNo = providers.ProviderNo " +
+                "AND demographic.ProviderNo = provider.ProviderNo " +
                 "AND demographic.ProviderNo IS NOT NULL";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }
 
     public List<Object[]> findReportsByProvider(String providerNo) {
-        String sql = "FROM Hl7Link hl7_link, Demographic demographic, Hl7Pid hl7_pid, Hl7Obr hl7_obr, Hl7Message hl7_message, Provider providers " +
-                "WHERE demographic.ProviderNo = providers.ProviderNo " +
+        String sql = "FROM Hl7Link hl7_link, Demographic demographic, Hl7Pid hl7_pid, Hl7Obr hl7_obr, Hl7Message hl7_message, Provider provider " +
+                "WHERE demographic.ProviderNo = provider.ProviderNo " +
                 "AND hl7_link.id = hl7_obr.pidId " +
                 "AND hl7_link.id = hl7_pid.id " +
                 "AND demographic.ProviderNo = :providerNo " +

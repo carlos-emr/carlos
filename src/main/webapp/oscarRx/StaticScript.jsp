@@ -45,7 +45,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -229,7 +229,7 @@
                         <td><br/>
                             <br/>
                             <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                                   onclick="javascript:window.location.href='oscarRx/SearchDrug.jsp';"/></td>
+                                   onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp';"/></td>
                     </tr>
                     <!----End new rows here-->
                     <tr height="100%">

@@ -45,6 +45,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.itextpdf.text.DocumentException;
 import ca.openosp.openo.commn.model.ConsultDocs;
 import ca.openosp.openo.commn.model.ConsultResponseDoc;
 import ca.openosp.openo.commn.model.ConsultationRequest;
@@ -110,7 +111,7 @@ public interface ConsultationManager {
 
     public boolean isConsultResponseEnabled();
 
-    public void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException, com.lowagie.text.DocumentException;
+    public void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException, DocumentException;
 
     public void importEconsult(LoggedInInfo loggedInInfo, OtnEconsult otnEconsult) throws Exception;
 

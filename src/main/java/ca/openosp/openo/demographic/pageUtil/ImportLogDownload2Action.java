@@ -48,6 +48,7 @@ import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 public class ImportLogDownload2Action extends ActionSupport {
@@ -91,19 +92,18 @@ public class ImportLogDownload2Action extends ActionSupport {
             
             // Construct the file path within the temp directory
             File importLogFile = new File(tempDir, sanitizedFilename);
-            
-            // Validate using canonical paths to prevent directory traversal
-            String canonicalTempPath = tempDir.getCanonicalPath();
-            String canonicalFilePath = importLogFile.getCanonicalPath();
-            
-            if (!canonicalFilePath.startsWith(canonicalTempPath + File.separator)) {
+
+            // Validate using PathValidationUtils to prevent directory traversal
+            try {
+                PathValidationUtils.validateExistingPath(importLogFile, tempDir);
+            } catch (SecurityException e) {
                 logger.error("Path is not in the correct directory: " + importLogParam);
                 return "error";
             }
-            
-            // Check if file exists and is readable
-            if (!importLogFile.exists() || !importLogFile.isFile() || !importLogFile.canRead()) {
-                logger.warn("Import log file not found or not readable: " + sanitizedFilename);
+
+            // Check if file is readable
+            if (!importLogFile.canRead()) {
+                logger.warn("Import log file not readable: " + sanitizedFilename);
                 return "error";
             }
             

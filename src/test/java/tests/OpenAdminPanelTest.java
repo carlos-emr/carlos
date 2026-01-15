@@ -37,7 +37,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -110,7 +110,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -186,7 +186,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -262,7 +262,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -338,7 +338,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -414,7 +414,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -490,7 +490,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -566,7 +566,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar
@@ -642,7 +642,7 @@ public class OpenAdminPanelTest {
 
         // Verify the login was successful
         String currentUrl = driver.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("providers/providercontrol.jsp"));
+        Assert.assertTrue(currentUrl.contains("provider/providercontrol.jsp"));
         System.out.println("Login successful, the current URL is: " + currentUrl);
 
         // Click on the 'Administration' tab on the menu bar

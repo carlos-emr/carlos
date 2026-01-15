@@ -51,15 +51,15 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../logout.jsp");
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet"
                    rights="r" reverse="<%=true%>">
     "You have no right to access this page!"
-    <% response.sendRedirect("../../noRights.html"); %>
+    <% response.sendRedirect(request.getContextPath() + "/noRights.html"); %>
 </security:oscarSec>
 
 
@@ -483,15 +483,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <%if (request.getParameter("htracker") != null) {%>
-                <a href="HealthTrackerPage.jspf?demographic_no=<%=demographic_no%>&template=<%=temp%>"
+                <a href="<%= request.getContextPath() %>/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>"
                    title="go back to <%=temp%>">&lt;&lt; <%=flowSheet%>
                 </a> <br/>
-                <%} else {%>
-                <a href="TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>"
-                   title="go back to <%=temp%>">&lt;&lt; <%=flowSheet%>
-                </a> <br/>
-                <%} %>
                 <a href="JavaScript:void(0);" class="back" title="go back to <%=flowSheet%>"></a>
 
                 <%} else {%>
@@ -810,7 +804,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             //////PREV END
                     %>
                     <div class="preventionProcedure" <%=hider%>
-                         onclick="javascript:popup(465,635,'../../oscarPrevention/AddPreventionData.jsp?id=<%=hdata.get("id")%>&amp;demographic_no=<%=demographic_no%>','addPreventionData')">
+                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/oscarPrevention/AddPreventionData.jsp?id=<%=hdata.get("id")%>&amp;demographic_no=<%=demographic_no%>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
                                 title="fade=[on] header=[<%=hdata.get("age")%> -- Date:<%=hdata.get("prevention_date")%>] body=[<%=com%>]">
                             Age: <%=hdata.get("age")%> <br/>

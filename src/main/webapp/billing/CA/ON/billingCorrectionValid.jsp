@@ -18,7 +18,7 @@
 
 --%>
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../../logout.htm");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
 %>
 
 <html>

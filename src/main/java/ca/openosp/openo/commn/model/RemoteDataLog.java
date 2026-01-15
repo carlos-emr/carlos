@@ -43,7 +43,7 @@ import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 /**
- * This class is a log table. It is used to keep track of what documents a providers has sent or retrieved from a remote system. The purpose is that we need to be able to audit what has or has not been sent or seen by the providers. In general no on will
+ * This class is a log table. It is used to keep track of what documents a provider has sent or retrieved from a remote system. The purpose is that we need to be able to audit what has or has not been sent or seen by the provider. In general no one will
  * ever look in this table so it's going to be modeled like a write-only log. Little to no consideration will be made for read/reporting purposes, that's not the intent for this table. In general code should no be reading from this table, you should not
  * attempt to use this table as a cache for remote data. You should not use this to determine what data has been synchronised with a server. This log should be written to each time data is retrieved from a remote server, not if it's retrieved / viewed from
  * a local cache like say if it's stored in the session space or an in memory cache.

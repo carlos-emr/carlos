@@ -25,7 +25,7 @@
 --%>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.utility.LocaleUtils" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.prescript.pageUtil.AllergyHelperBean" %>
 <%@page import="ca.openosp.openo.prescript.pageUtil.AllergyDisplay" %>
 <%@page import="java.util.List" %>
@@ -46,7 +46,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -166,16 +166,16 @@
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
-                    window.location = "addReaction.do?ID=0&type=0&name=" + encodeURIComponent(name);
+                    window.location = "<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=0&type=0&name=" + encodeURIComponent(name);
                 }
             }
 
             function moveAllergyDown(allergyId) {
-                window.location = "showAllergy.do?method=reorder&direction=down&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
+                window.location = "<%= request.getContextPath() %>/oscarRx/showAllergy.do?method=reorder&direction=down&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
             }
 
             function moveAllergyUp(allergyId) {
-                window.location = "showAllergy.do?method=reorder&direction=up&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
+                window.location = "<%= request.getContextPath() %>/oscarRx/showAllergy.do?method=reorder&direction=up&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
             }
 
             function show_Search_Criteria() {
@@ -295,6 +295,7 @@
                                                 <td>&nbsp;</td>
                                                 <td><b>Status</b></td>
                                                 <td><b>Entry Date</b></td>
+                                                <td><b>Last Updated Date</b></td>
                                                 <td><b>Description</b></td>
                                                 <td><b>Allergy Type</b></td>
                                                 <td><b>Severity</b></td>
@@ -374,19 +375,21 @@
                                                     </td>
                                                     <td><%=labelStatus%>
                                                     </td>
-                                                    <td><%=StringEscapeUtils.escapeHtml(displayAllergy.getEntryDate())%>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getEntryDate())%>
                                                     </td>
-                                                    <td><%=StringEscapeUtils.escapeHtml(displayAllergy.getDescription())%>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getLastUpdateDate() != null ? displayAllergy.getLastUpdateDate() : "")%>
                                                     </td>
-                                                    <td><%=StringEscapeUtils.escapeHtml(displayAllergy.getTypeDesc())%>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getDescription())%>
                                                     </td>
-                                                    <td bgcolor="<%=sevColour%>"><%=StringEscapeUtils.escapeHtml(displayAllergy.getSeverityDesc())%>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getTypeDesc())%>
                                                     </td>
-                                                    <td><%=StringEscapeUtils.escapeHtml(displayAllergy.getOnSetDesc())%>
+                                                    <td bgcolor="<%=sevColour%>"><%=StringEscapeUtils.escapeHtml4(displayAllergy.getSeverityDesc())%>
                                                     </td>
-                                                    <td><%=StringEscapeUtils.escapeHtml(displayAllergy.getReaction())%>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getOnSetDesc())%>
                                                     </td>
-                                                    <td><%=StringEscapeUtils.escapeHtml(displayAllergy.getStartDate())%>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getReaction())%>
+                                                    </td>
+                                                    <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getStartDate())%>
                                                     </td>
                                                     <td>
                                                         <%
@@ -394,7 +397,7 @@
                                                             if (displayAllergy.getRemoteFacilityId() == null) {
                                                         %>
                                                         <a href="#" title="Annotation"
-                                                           onclick="window.open('../annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=displayAllergy.getId()%>&demo=${patient.demographicNo}','anwin','width=400,height=500');"><img
+                                                           onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=displayAllergy.getId()%>&demo=${patient.demographicNo}','anwin','width=400,height=500');"><img
                                                                 src="<%= request.getContextPath() %>/images/notes.gif" border="0"></a>
                                                         <%
                                                             }
@@ -404,7 +407,7 @@
                                                         <%
                                                             if (displayAllergy.getRemoteFacilityId() == null && securityManager.hasDeleteAccess("_allergies", roleName2$)) {
                                                         %>
-                                                        <a href="deleteAllergy.do?ID=<%= String.valueOf(displayAllergy.getId()) %>&demographicNo=<%=demoNo %>&action=<%=actionPath %>"
+                                                        <a href="<%= request.getContextPath() %>/oscarRx/deleteAllergy.do?ID=<%= String.valueOf(displayAllergy.getId()) %>&demographicNo=<%=demoNo %>&action=<%=actionPath %>"
                                                            onClick="return confirm('Are you sure you want to set the allergy <%=displayAllergy.getDescription() %> to <%=labelConfirmAction%>?');"><%=labelAction%>
                                                         </a>
                                                         <% } %>

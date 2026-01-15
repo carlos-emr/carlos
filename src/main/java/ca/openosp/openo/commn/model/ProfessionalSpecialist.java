@@ -23,7 +23,7 @@
 
 package ca.openosp.openo.commn.model;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.integration.fhir.interfaces.ContactInterface;
 import ca.openosp.openo.integration.fhir.resources.constants.ContactRelationship;
 import ca.openosp.openo.integration.fhir.resources.constants.ContactType;

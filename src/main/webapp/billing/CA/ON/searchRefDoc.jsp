@@ -32,7 +32,7 @@
 %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String strLimit1 = "0";
     String strLimit2 = "10";

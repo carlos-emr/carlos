@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BillingStatusPrep {
-    //private static final Logger _logger = org.oscarehr.util.MiscUtils.getLogger();
     private static final String ANY_PROVIDER = "all";
     private static final String ANY_STATUS_TYPE = "%";
     private static final String ANY_SERVICE_CODE = "%";

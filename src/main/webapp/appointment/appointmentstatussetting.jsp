@@ -29,7 +29,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.userAdmin,_admin.schedule" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect("../logout.jsp");%>
+    <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 
 

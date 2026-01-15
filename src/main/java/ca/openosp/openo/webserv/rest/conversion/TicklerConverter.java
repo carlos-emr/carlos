@@ -130,7 +130,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         if (includeUpdates) {
             for (TicklerUpdate tu : t.getUpdates()) {
                 TicklerUpdateTo1 tut = new TicklerUpdateTo1();
-                BeanUtils.copyProperties(tu, tut, new String[]{"id", "providers"});
+                BeanUtils.copyProperties(tu, tut, new String[]{"id", "provider"});
                 tut.setProviderName(tu.getProvider() != null ? tu.getProvider().getFormattedName() : "N/A");
 
                 d.getTicklerUpdates().add(tut);

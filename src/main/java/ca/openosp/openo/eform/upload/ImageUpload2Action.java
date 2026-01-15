@@ -31,6 +31,7 @@ import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.OscarProperties;
 
@@ -41,8 +42,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 public class ImageUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -58,30 +57,62 @@ public class ImageUpload2Action extends ActionSupport {
         }
 
         try {
-            if (!imageFileName.matches("^[a-zA-Z0-9._-]+$")) {
-                throw new IllegalArgumentException("Invalid image file name");
+            if (imageFileName == null || imageFileName.isEmpty()) {
+                MiscUtils.getLogger().warn("Image upload rejected: no filename provided");
+                addActionError("Upload failed: no file was selected.");
+                return ERROR;
             }
-            
-            OutputStream fos = ImageUpload2Action.getEFormImageOutputStream(imageFileName);
-            InputStream fis = Files.newInputStream(image.toPath());
-            byte[] buffer = new byte[4096]; 
-            int bytesRead;
-            while ((bytesRead = fis.read(buffer)) != -1) {
-                fos.write(buffer, 0, bytesRead);
-            }
-            fos.flush();
 
+            // Sanitize the filename and track if it changed
+            String originalFileName = imageFileName;
+            imageFileName = MiscUtils.sanitizeFileName(imageFileName);
+            boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
+
+            // Validate that sanitized filename is not empty
+            if (imageFileName == null || imageFileName.isEmpty()) {
+                MiscUtils.getLogger().warn("Image upload rejected: filename '{}' empty after sanitization", originalFileName);
+                addActionError("Invalid filename: filename cannot be empty after sanitization");
+                return ERROR;
+            }
+
+            // Ensure upload directory exists (throws IOException if creation fails)
+            File imageFolder = getImageFolder();
+            if (!imageFolder.exists()) {
+                MiscUtils.getLogger().error("Image folder does not exist after creation attempt: {}", imageFolder.getAbsolutePath());
+                addActionError("Upload failed: unable to prepare upload directory");
+                return ERROR;
+            }
+
+            // Validate upload: source file location + destination path traversal protection
+            File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
+
+            // Upload the file
+            try (InputStream fis = Files.newInputStream(image.toPath());
+                 OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+                fos.flush();
+            }
+
+            // Pass sanitization info to JSP for display in success message
+            if (fileNameWasSanitized) {
+                request.setAttribute("sanitizedFileName", imageFileName);
+            }
             request.setAttribute("status", "uploaded");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return SUCCESS;
-    }
+            return SUCCESS;
 
-    public static OutputStream getEFormImageOutputStream(String imageFileName) throws IOException {
-        Path path = Paths.get(OscarProperties.getInstance().getEformImageDirectory(), imageFileName);
-        return Files.newOutputStream(path);
-        
+        } catch (SecurityException se) {
+            MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
+            addActionError("Upload failed: invalid file or security policy violation");
+            return ERROR;
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Image upload failed for file: {}", imageFileName, e);
+            addActionError("Upload failed: an error occurred while saving the image. Please try again or contact support.");
+            return ERROR;
+        }
     }
 
     public static File getImageFolder() throws IOException {

@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_report");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -40,7 +40,7 @@
 %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 
 <%@ page import="ca.openosp.openo.report.oscarMeasurements.pageUtil.*" %>

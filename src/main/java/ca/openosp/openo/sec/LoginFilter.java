@@ -102,7 +102,7 @@ public class LoginFilter implements Filter {
             "/EFormImageViewForPdfGenerationServlet",
             "/oscar/provider/providercontrol.jsp",
             "/oscar/js",
-            "/oscar/providers/tabAlertsRefresh.jsp",
+            "/oscar/provider/tabAlertsRefresh.jsp",
             "/oscar/SystemMessage.do",
             "/oscar/FacilityMessage.do",
             "/js/jquery-1.7.1.min.js",

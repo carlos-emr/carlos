@@ -26,12 +26,13 @@
 
 <%-- Updated by Eugene Petruhin on 11 dec 2008 while fixing #2356548 & #2393547 --%>
 
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <% long loadPage = System.currentTimeMillis(); %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementHelper" %>
@@ -185,7 +186,7 @@
                 String curDay = Integer.toString(today.getDay());
                 String Hour = Integer.toString(today.getHours());
                 String Min = Integer.toString(today.getMinutes());
-                String eURL = "/oscarEncounter/IncomingEncounter.do?casetoEncounter=true&providerNo=" + bean.providerNo + "&appointmentNo=" + bean.appointmentNo + "&demographicNo=" + bean.demographicNo + "&curProviderNo=" + bean.providerNo + "&reason=" + java.net.URLEncoder.encode(" ") + "&userName=" + java.net.URLEncoder.encode(bean.patientFirstName + " " + bean.patientLastName) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + curYear + "-" + curMonth + "-" + curDay + "&startTime=" + Hour + ":" + Min + "&status=t";%>
+                String eURL = "/oscarEncounter/IncomingEncounter.do?casetoEncounter=true&providerNo=" + bean.providerNo + "&appointmentNo=" + bean.appointmentNo + "&demographicNo=" + bean.demographicNo + "&curProviderNo=" + bean.providerNo + "&reason=" + java.net.URLEncoder.encode(" ", StandardCharsets.UTF_8) + "&userName=" + java.net.URLEncoder.encode(bean.patientFirstName + " " + bean.patientLastName, StandardCharsets.UTF_8) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + curYear + "-" + curMonth + "-" + curDay + "&startTime=" + Hour + ":" + Min + "&status=t";%>
             <caisirole:SecurityAccess accessName="medical encounter" accessType="access"
                                       providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
                                       programId="<%=pgId%>">
@@ -216,7 +217,7 @@
                     <% if (bean.status.indexOf('B') == -1) { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/billing.do?billRegion=<%=java.net.URLEncoder.encode(province)%>&billForm=<%=java.net.URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=<%=java.net.URLEncoder.encode("")%>&appointment_no=<%=bean.appointmentNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=Hour+":"+Min%>&demographic_name=<%=java.net.URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&bNewForm=1&status=t');return false;">Billing</a>
+                               onClick="popupPage('<%=bsurl%>/billing.do?billRegion=<%=java.net.URLEncoder.encode(province, StandardCharsets.UTF_8)%>&billForm=<%=java.net.URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=java.net.URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=bean.appointmentNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=Hour+":"+Min%>&demographic_name=<%=java.net.URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&bNewForm=1&status=t');return false;">Billing</a>
                         </td>
                     </tr>
                     <%} else { %>
@@ -321,7 +322,7 @@
                                       demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/tickler/ticklerAdd.jsp?demographic_no=<%=bean.demographicNo%>&name=<%=StringEscapeUtils.escapeJavaScript(bean.getPatientLastName() +"," + bean.getPatientFirstName())%>');return false;">Add
+                           onClick="popupPage('<%=bsurl%>/tickler/ticklerAdd.jsp?demographic_no=<%=bean.demographicNo%>&name=<%=StringEscapeUtils.escapeEcmaScript(bean.getPatientLastName() +"," + bean.getPatientFirstName())%>');return false;">Add
                         Tickler</a></td>
                 </tr>
             </caisirole:SecurityAccess>

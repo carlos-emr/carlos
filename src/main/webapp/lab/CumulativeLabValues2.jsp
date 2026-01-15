@@ -24,6 +24,7 @@
 
 --%>
 
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page
         import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.lab.ca.on.*,ca.openosp.openo.util.*,ca.openosp.openo.lab.*" %>
 <%@ page import="ca.openosp.openo.lab.ca.on.CommonLabTestValues" %>
@@ -38,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -112,7 +113,7 @@
             function addLabToProfile(labType, testName) {
 
                 alert("calling addLabToProfile");
-                var url = "../lab/DisplayLabValue.jsp";
+                var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
                 alert(params);
@@ -133,7 +134,7 @@
 
                 var newNode = document.createElement('div');
                 var img = document.createElement('img');
-                img.setAttribute('src', '../images/osx-pinwheel.gif');
+                img.setAttribute('src', '<%= request.getContextPath() %>/images/osx-pinwheel.gif');
 
                 newNode.appendChild(img)
                 var ran_number = Math.round(Math.random() * 1000000);
@@ -143,7 +144,7 @@
                 $('cumulativeLab').appendChild(newNode);
                 //alert(req.responseText);
 
-                var url = "../lab/DisplayLabValue.jsp";
+                var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
                 ///alert(params);  //'d'+ran_number
@@ -228,7 +229,7 @@
                       
                       if (prevName == null){prevName ="";} %>
                      <li style="margin-top:2px;">
-                        <a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName) %>');">                        
+                        <a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');">                        
                            <%=StringUtils.maxLenString(prevName, 13, 8, "...")%>
                         </a>
                      </li>          

@@ -44,6 +44,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.*;
 import java.net.SocketException;
+import java.net.URL;
 
 /**
  * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client, or source=hnr_client. Depending on the source, you may optionally need more parameters, as examples a local_client
@@ -111,7 +112,8 @@ public final class ImageRenderingServlet extends HttpServlet {
         if (image != null)
             response.setContentLength(image.length);
         BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream());
-        bos.write(image);
+        if (image != null)
+            bos.write(image);
         bos.flush();
     }
 
@@ -251,17 +253,17 @@ public final class ImageRenderingServlet extends HttpServlet {
                 }
                 
                 String tempFilePath = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
-                
-                // Additional validation: ensure the resolved path is within the temp directory
-                File tempDir = new File(System.getProperty("java.io.tmpdir")).getCanonicalFile();
-                File targetFile = new File(tempFilePath).getCanonicalFile();
-                
-                if (!targetFile.getCanonicalPath().startsWith(tempDir.getCanonicalPath() + File.separator)) {
+
+                // Use PathValidationUtils to validate the temp file path
+                File targetFile = new File(tempFilePath);
+                if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
                     logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", tempFilePath);
                     throw new IllegalArgumentException("Invalid file path");
                 }
-                
-                fileInputStream = new FileInputStream(targetFile);
+
+                // Re-validate at point of use for static analysis visibility
+                File validatedTargetFile = PathValidationUtils.validateUpload(targetFile);
+                fileInputStream = new FileInputStream(validatedTargetFile);
                 byte[] imageBytes = new byte[1024 * 256];
                 fileInputStream.read(imageBytes);
                 renderImage(response, imageBytes, "jpeg");
@@ -315,7 +317,6 @@ public final class ImageRenderingServlet extends HttpServlet {
     }
 
     private static void renderClinicLogoStored(HttpServletRequest request, HttpServletResponse response) throws IOException {
-
         // sec check
         HttpSession session = request.getSession();
         Provider provider = (Provider) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER);
@@ -324,8 +325,18 @@ public final class ImageRenderingServlet extends HttpServlet {
             return;
         }
 
+        // Get the default logo from the web resources
+        URL defaultResourceUrl = session.getServletContext()
+                .getResource("/WEB-INF/classes/loginResource/openosp_logo.png");
+        String defaultClinicLogo = (defaultResourceUrl != null) ? defaultResourceUrl.getPath() : null;
+
         try {
-            String filename = OscarProperties.getInstance().getProperty("CLINIC_LOGO_FILE");
+            // Set the filename from properties or use the default logo
+            String filename = OscarProperties.getInstance().getProperty("CLINIC_LOGO_FILE", defaultClinicLogo);
+            if (filename == null || filename.isEmpty()) {
+                filename = defaultClinicLogo;
+            }
+
             if (filename != null) {
                 File f = new File(filename);
                 if (f != null && f.exists()) {

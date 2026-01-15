@@ -44,6 +44,7 @@ import ca.openosp.openo.commn.model.MeasurementCSSLocation;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.OscarProperties;
@@ -126,17 +127,8 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             File uploadDir = new File(uploadPath);
             uploadDir.mkdirs();
             
-            // Create the destination file using sanitized filename
-            File destinationFile = new File(uploadDir, sanitizedFileName);
-            
-            // Validate that the canonical path is within the upload directory
-            String canonicalDestPath = destinationFile.getCanonicalPath();
-            String canonicalUploadPath = uploadDir.getCanonicalPath();
-            
-            if (!canonicalDestPath.startsWith(canonicalUploadPath)) {
-                MiscUtils.getLogger().error("Path traversal attempt blocked - destination outside upload directory: " + fileName);
-                throw new SecurityException("Invalid file destination - path traversal detected");
-            }
+            // Create and validate the destination file using PathValidationUtils
+            File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, uploadDir);
 
             // Write the file to the validated destination
             try (FileInputStream fis = new FileInputStream(file)) {

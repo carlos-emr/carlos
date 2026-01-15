@@ -47,7 +47,7 @@ import ca.openosp.openo.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 
 import ca.openosp.openo.log.LogAction;
 import ca.openosp.openo.lab.ca.all.pageUtil.LabPDFCreator;

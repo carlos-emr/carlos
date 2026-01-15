@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -209,40 +209,38 @@
 
                             <form action="${pageContext.request.contextPath}/oscarEncounter/AddSpecialist.do" method="post">
                                 <%
-                                    if (request.getAttribute("specId") != null) {
-                                        EctConAddSpecialistForm thisForm;
-                                        thisForm = (EctConAddSpecialistForm) request.getAttribute("EctConAddSpecialistForm");
-                                        if (thisForm == null) {
-                                            thisForm = new EctConAddSpecialistForm();
-                                            request.setAttribute("EctConAddSpecialistForm", thisForm);
-                                        }
+                                    EctConAddSpecialistForm thisForm;
+                                    thisForm = (EctConAddSpecialistForm) request.getAttribute("EctConAddSpecialistForm");
+                                    if (thisForm == null) {
+                                        thisForm = new EctConAddSpecialistForm();
+                                        request.setAttribute("EctConAddSpecialistForm", thisForm);
+                                    }
 
-                                        if (thisForm != null) {
-                                            thisForm.setFirstName((String) request.getAttribute("fName"));
-                                            thisForm.setLastName((String) request.getAttribute("lName"));
-                                            thisForm.setProLetters((String) request.getAttribute("proLetters"));
-                                            thisForm.setAddress((String) request.getAttribute("address"));
-                                            thisForm.setPhone((String) request.getAttribute("phone"));
-                                            thisForm.setFax((String) request.getAttribute("fax"));
-                                            thisForm.setWebsite((String) request.getAttribute("website"));
-                                            thisForm.setEmail((String) request.getAttribute("email"));
-                                            thisForm.setSpecType((String) request.getAttribute("specType"));
-                                            thisForm.setSpecId((String) request.getAttribute("specId"));
-                                            thisForm.seteDataUrl((String) request.getAttribute("eDataUrl"));
-                                            thisForm.seteDataOscarKey((String) request.getAttribute("eDataOscarKey"));
-                                            thisForm.seteDataServiceKey((String) request.getAttribute("eDataServiceKey"));
-                                            thisForm.seteDataServiceName((String) request.getAttribute("eDataServiceName"));
-                                            thisForm.setAnnotation((String) request.getAttribute("annotation"));
-                                            thisForm.setReferralNo((String) request.getAttribute("referralNo"));
-                                            thisForm.setInstitution((String) request.getAttribute("institution"));
-                                            thisForm.setDepartment((String) request.getAttribute("department"));
-                                            thisForm.setPrivatePhoneNumber((String) request.getAttribute("privatePhoneNumber"));
-                                            thisForm.setCellPhoneNumber((String) request.getAttribute("cellPhoneNumber"));
-                                            thisForm.setPagerNumber((String) request.getAttribute("pagerNumber"));
-                                            thisForm.setSalutation((String) request.getAttribute("salutation"));
-                                            thisForm.setHideFromView((Boolean) request.getAttribute("hideFromView"));
-                                            thisForm.setEformId((Integer) request.getAttribute("eformId"));
-                                        }
+                                    if (request.getAttribute("specId") != null) {
+                                        thisForm.setFirstName((String) request.getAttribute("fName"));
+                                        thisForm.setLastName((String) request.getAttribute("lName"));
+                                        thisForm.setProLetters((String) request.getAttribute("proLetters"));
+                                        thisForm.setAddress((String) request.getAttribute("address"));
+                                        thisForm.setPhone((String) request.getAttribute("phone"));
+                                        thisForm.setFax((String) request.getAttribute("fax"));
+                                        thisForm.setWebsite((String) request.getAttribute("website"));
+                                        thisForm.setEmail((String) request.getAttribute("email"));
+                                        thisForm.setSpecType((String) request.getAttribute("specType"));
+                                        thisForm.setSpecId((String) request.getAttribute("specId"));
+                                        thisForm.seteDataUrl((String) request.getAttribute("eDataUrl"));
+                                        thisForm.seteDataOscarKey((String) request.getAttribute("eDataOscarKey"));
+                                        thisForm.seteDataServiceKey((String) request.getAttribute("eDataServiceKey"));
+                                        thisForm.seteDataServiceName((String) request.getAttribute("eDataServiceName"));
+                                        thisForm.setAnnotation((String) request.getAttribute("annotation"));
+                                        thisForm.setReferralNo((String) request.getAttribute("referralNo"));
+                                        thisForm.setInstitution((String) request.getAttribute("institution"));
+                                        thisForm.setDepartment((String) request.getAttribute("department"));
+                                        thisForm.setPrivatePhoneNumber((String) request.getAttribute("privatePhoneNumber"));
+                                        thisForm.setCellPhoneNumber((String) request.getAttribute("cellPhoneNumber"));
+                                        thisForm.setPagerNumber((String) request.getAttribute("pagerNumber"));
+                                        thisForm.setSalutation((String) request.getAttribute("salutation"));
+                                        thisForm.setHideFromView((Boolean) request.getAttribute("hideFromView"));
+                                        thisForm.setEformId((Integer) request.getAttribute("eformId"));
                                 %>
                                 <script>
                                     $(document).ready(function () {

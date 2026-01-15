@@ -29,6 +29,8 @@
 package ca.openosp.openo.managers;
 
 import org.apache.logging.log4j.Logger;
+
+import ca.openosp.openo.commn.dao.CtlSpecialInstructionsDao;
 import ca.openosp.openo.commn.dao.DrugDao;
 import ca.openosp.openo.commn.dao.FavoriteDao;
 import ca.openosp.openo.commn.exception.AccessDeniedException;
@@ -66,13 +68,15 @@ public class RxManagerImpl implements RxManager {
     @Autowired
     protected FavoriteDao favoriteDao;
 
+    @Autowired
+    private CtlSpecialInstructionsDao ctlSpecialInstructionsDao;
+
     /**
      * Gets drugs for the given demographic that are marked as current.
      *
      * @param info          details regarding the current user
      * @param demographicNo the demographic to get current drugs for.
      * @param status        the status to filter on the meds, one of {ALL, CURRENT, ARCHIVED}
-      * @param status        the status to filter on the meds, one of {ALL, CURRENT, ARCHIVED}
      * @return a list of the drugs that are marked as current in the demographics record.
      * @throws UnsupportedOperationException when a status that is not supported is requested.
      */
@@ -684,6 +688,21 @@ public class RxManagerImpl implements RxManager {
         return true;
     }
 
-    // statuses for drugs
+    @Override
+    public Set<String> getStoredInstructionsMatching(String storedInstructQuery) {
+        if (storedInstructQuery == null || storedInstructQuery.trim().isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        List<String> specialInstructions = this.ctlSpecialInstructionsDao.findDescriptionsMatching(storedInstructQuery);
+        List<String> drugStoredInstructions = this.drugDao.findSpecialInstructionsMatching(storedInstructQuery);
+
+        Set<String> matchingResult = new HashSet<>();
+
+        matchingResult.addAll(specialInstructions);
+        matchingResult.addAll(drugStoredInstructions);
+
+        return matchingResult;
+    }
 
 }

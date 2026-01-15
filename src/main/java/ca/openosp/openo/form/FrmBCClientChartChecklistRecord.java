@@ -17,7 +17,7 @@ import ca.openosp.openo.login.DBHelp;
 import ca.openosp.openo.db.DBHandler;
 import ca.openosp.openo.util.UtilDateUtilities;
 
-//	 Referenced classes of package oscar.form:
+//	 Referenced classes of package ca.openosp.openo.form:
 //	            FrmRecord, FrmRecordHelp
 
 public class FrmBCClientChartChecklistRecord extends FrmRecord {

@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -139,7 +139,7 @@
     int curMonth = (now.get(Calendar.MONTH) + 1);
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 
-%><% //String providerview=request.getParameter("providers")==null?"":request.getParameter("providers");
+%><%
     String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
     String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay) : request.getParameter("xml_appointment_date");
 %>
@@ -267,9 +267,9 @@
             function validate(form, writeToEncounter) {
                 if (validateDemoNo(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
                     if (writeToEncounter) {
-                        form.action = "dbTicklerAdd.jsp?writeToEncounter=true";
+                        form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
                     } else {
-                        form.action = "dbTicklerAdd.jsp?updateTicklerNav=true";
+                        form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?updateTicklerNav=true";
                     }
                     form.submit();
                 }
@@ -385,7 +385,7 @@
     </table>
 
     <div class="container-fluid well">
-        <form name="ADDAPPT" method="post" action="../appointment/appointmentcontrol.jsp">
+        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp">
             <table class="table-condensed">
                 <tr>
                     <td colspan="2">
@@ -415,7 +415,7 @@
                     }
                 %>
                 <INPUT TYPE="hidden" name="search_mode" VALUE="<%=searchMode%>">
-                <INPUT TYPE="hidden" name="originalpage" VALUE="../tickler/ticklerAdd.jsp">
+                <INPUT TYPE="hidden" name="originalpage" VALUE="<%= request.getContextPath() %>/tickler/ticklerAdd.jsp">
                 <INPUT TYPE="hidden" name="limit1" VALUE="0">
                 <INPUT TYPE="hidden" name="limit2" VALUE="5">
                 <!--input type="hidden" name="displaymode" value="TicklerSearch" -->

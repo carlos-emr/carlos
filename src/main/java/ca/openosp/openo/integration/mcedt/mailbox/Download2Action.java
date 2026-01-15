@@ -42,7 +42,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.openo.utility.MiscUtils;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.integration.mcedt.DelegateFactory;
 import ca.openosp.openo.integration.mcedt.McedtMessageCreator;

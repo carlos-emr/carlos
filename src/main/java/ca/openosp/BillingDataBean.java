@@ -27,56 +27,79 @@
 package ca.openosp;
 
 /**
- * Description - BillingDataBean
+ * Data bean representing billing transaction information in the system.
+ * 
+ * <p>This bean encapsulates all billing-related data including:</p>
+ * <ul>
+ *   <li>Billing identifiers (billing number, appointment number)</li>
+ *   <li>Provider and demographic information</li>
+ *   <li>Health insurance numbers and provider identifiers</li>
+ *   <li>Billing dates, times, and status</li>
+ *   <li>Visit information and billing content</li>
+ * </ul>
+ * 
+ * <p>This is a serializable JavaBean used for transferring billing data
+ * between application layers.</p>
  */
-
-
-/**
- * JavaDoc comment for this bean
- */
-
 public class BillingDataBean extends java.lang.Object implements java.io.Serializable {
 
-    /*   *
-     * Instance variable for the BillingData properties
-     */
-
+    /** Billing transaction number */
     protected String billing_no = "";
+    /** Clinic identifier */
     protected String clinic_no = "";
+    /** Demographic (patient) identifier */
     protected String demographic_no = "";
+    /** Associated appointment number */
     protected String appointment_no = "";
+    /** Provider identifier */
     protected String provider_no = "";
+    /** Organization specialty code */
     protected String organization_spec_code = "";
+    /** Demographic (patient) name */
     protected String demographic_name = "";
+    /** Health insurance number */
     protected String hin = "";
+    /** Last update date */
     protected String update_date = "";
+    /** Last update time */
     protected String update_time = "";
+    /** Billing transaction date */
     protected String billing_date = "";
+    /** Billing transaction time */
     protected String billing_time = "";
+    /** Clinic reference code */
     protected String clinic_ref_code = "";
+    /** Billing content/details */
     protected String content = "";
+    /** Total billing amount */
     protected String total = "";
+    /** Billing status */
     protected String status = "";
+    /** Patient date of birth */
     protected String dob = "";
+    /** Visit date */
     protected String visitdate = "";
+    /** Visit type */
     protected String visittype = "";
+    /** Provider OHIP number */
     protected String provider_ohip_no = "";
+    /** Provider RMA number */
     protected String provider_rma_no = "";
 
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
+    /**
+     * Sets the billing transaction number.
      *
-     * @param value the new value for the property
+     * @param value the new billing number
      */
     public void setBilling_no(String value) {
         billing_no = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
+    /**
+     * Gets the billing transaction number.
      *
-     * @return the value of the property
+     * @return the billing number
      */
     public String getBilling_no() {
         return billing_no;

@@ -23,13 +23,13 @@
 
 --%>
 
-
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.eform.EFormUtil" %>
 <%@ page import="java.util.*" %>
 <%@ page import="ca.openosp.openo.PMmodule.model.ProgramQueue" %>
 <%@ page import="ca.openosp.openo.PMmodule.web.admin.ProgramManager2Action.RemoteQueueEntry" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils" %>
+<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.Demographic" %>
 <%@page import="ca.openosp.openo.PMmodule.dao.ProgramProviderDAO" %>
@@ -299,7 +299,7 @@
                     String url = request.getContextPath() + "/eform/efmshowform_data.jsp?fdid= " + curform.get("fdid") + "&appointment=" + demographic_no;
                     if (ppd.isThisProgramInProgramDomain(curUser_no, Integer.valueOf(programId))) {
 
-                        String eURL = request.getContextPath() + "/oscarEncounter/IncomingEncounter.do?programId=" + programId + "&providerNo=" + curUser_no + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&curProviderNo=" + curUser_no + "&reason=" + java.net.URLEncoder.encode(reason) + "&encType=" + java.net.URLEncoder.encode("face to face encounter with client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(userfirstname + " " + userlastname) + "&curDate=null&appointmentDate=null&startTime=0:0" + "&status=" + status + "&source=cm";
+                        String eURL = request.getContextPath() + "/oscarEncounter/IncomingEncounter.do?programId=" + programId + "&providerNo=" + curUser_no + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&curProviderNo=" + curUser_no + "&reason=" + java.net.URLEncoder.encode(reason, StandardCharsets.UTF_8) + "&encType=" + java.net.URLEncoder.encode("face to face encounter with client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(userfirstname + " " + userlastname, StandardCharsets.UTF_8) + "&curDate=null&appointmentDate=null&startTime=0:0" + "&status=" + status + "&source=cm";
         %>
         <a href=#
            onClick="popupPage(710, 1024,'<%=eURL%>');return false;"

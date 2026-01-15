@@ -56,15 +56,15 @@ public class FilterDefinitionTransfer {
     public static FilterDefinitionTransfer fromFilterDefinition(FilterDefinition f) {
         FilterDefinitionTransfer fdt = new FilterDefinitionTransfer();
 
-        if ("org.oscarehr.appointment.search.filters.FutureApptFilter".equals(f.getFilterClassName())) {
+        if ("ca.openosp.openo.appointment.search.filters.FutureApptFilter".equals(f.getFilterClassName())) {
             fdt.filterClassName = "FAF";
-        } else if ("org.oscarehr.appointment.search.filters.ExistingAppointmentFilter".equals(f.getFilterClassName())) {
+        } else if ("ca.openosp.openo.appointment.search.filters.ExistingAppointmentFilter".equals(f.getFilterClassName())) {
             fdt.filterClassName = "EAF";
-        } else if ("org.oscarehr.appointment.search.filters.MultiUnitFilter".equals(f.getFilterClassName())) {
+        } else if ("ca.openosp.openo.appointment.search.filters.MultiUnitFilter".equals(f.getFilterClassName())) {
             fdt.filterClassName = "MUF";
-        } else if ("org.oscarehr.appointment.search.filters.OpenAccessFilter".equals(f.getFilterClassName())) {
+        } else if ("ca.openosp.openo.appointment.search.filters.OpenAccessFilter".equals(f.getFilterClassName())) {
             fdt.filterClassName = "OAF";
-        } else if ("org.oscarehr.appointment.search.filters.SufficientContiguousTimeFilter".equals(f.getFilterClassName())) {
+        } else if ("ca.openosp.openo.appointment.search.filters.SufficientContiguousTimeFilter".equals(f.getFilterClassName())) {
             fdt.filterClassName = "SCTF";
         }
 

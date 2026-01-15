@@ -21,12 +21,12 @@ public class ExternalEDocConverter implements EDocConverterInterface {
 
     /**
      * Converts HTML to PDF using an external CLI tool, such as wkhtmltopdf.
-     * Please set the WKHTMLTOPDF_COMMAND to your external CLI tool, 
+     * Please set the WKHTMLTOPDF_COMMAND to your external CLI tool,
      * and WKHTMLTOPDF_ARGS to your arguments that will be attached to the CLI tool call
-     * 
-     * @param html the complete HTML string to convert to PDF
-     * @param os the {@link ByteArrayOutputStream} where the generated PDF content will be written
-     * @throws Exception if the external process fails or PDF conversion is unsuccessful
+     *
+     * @param document the complete HTML string to convert to PDF
+     * @param os the OutputStream where the generated PDF content will be written
+     * @throws IOException if the external process fails or PDF conversion is unsuccessful
     */
     @Override
     public void convert(String document, OutputStream os) throws IOException {

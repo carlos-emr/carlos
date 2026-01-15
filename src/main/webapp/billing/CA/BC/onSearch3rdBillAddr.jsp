@@ -25,7 +25,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -37,7 +37,7 @@
 <%
     //
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String strLimit1 = "0";
     String strLimit2 = "20";
@@ -66,13 +66,13 @@
         if ("search_name".equals(search_mode)) {
             String[] temp = keyword.split("\\,\\p{Space}*");
             if (temp.length > 1) {
-                where = "company_name like '" + StringEscapeUtils.escapeSql(temp[0]) + "%' and company_name like '"
-                        + StringEscapeUtils.escapeSql(temp[1]) + "%'";
+                where = "company_name like '" + temp[0] + "%' and company_name like '"
+                        + temp[1] + "%'";
             } else {
-                where = "company_name like '" + StringEscapeUtils.escapeSql(temp[0]) + "%'";
+                where = "company_name like '" + temp[0] + "%'";
             }
         } else {
-            where = search_mode + " like '" + StringEscapeUtils.escapeSql(keyword) + "%'";
+            where = search_mode + " like '" + keyword + "%'";
         }
         String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy;// + " limit "
 //						+ strLimit1 + "," + strLimit2;
@@ -96,8 +96,8 @@
 %>
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.sql.*,java.net.*" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
-<%@ page import="org.apache.commons.lang.WordUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -187,9 +187,9 @@
             </tr>
     </table>
     <input type='hidden' name='param'
-           value="<%=StringEscapeUtils.escapeHtml(param)%>">
+           value="<%=StringEscapeUtils.escapeHtml4(param)%>">
     <input type='hidden' name='param2'
-           value="<%=StringEscapeUtils.escapeHtml(param2)%>">
+           value="<%=StringEscapeUtils.escapeHtml4(param2)%>">
     <table width="95%" border="0">
         <tr>
             <td align="left">Results based on keyword(s): <%=keyword == null ? "" : keyword%>
@@ -214,13 +214,13 @@
                     prop = (Properties) vec.get(i);
                     String bgColor = i % 2 == 0 ? "#EEEEFF" : "ivory";
                     String strOnClick = param.length() > 0 ? "typeInData1('"
-                            + StringEscapeUtils.escapeJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
-                            + StringEscapeUtils.escapeJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
-                            + StringEscapeUtils.escapeJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
-                            + StringEscapeUtils.escapeJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
-                            + StringEscapeUtils.escapeJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + "\n"))
-                            + StringEscapeUtils.escapeJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
-                            + StringEscapeUtils.escapeJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
+                            + StringEscapeUtils.escapeEcmaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
+                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
+                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
+                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
+                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + "\n"))
+                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
+                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
                             + "')" : "typeInData1('"
                             + prop.getProperty("city", "") + "')";
 
@@ -264,12 +264,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
@@ -301,6 +301,6 @@
         if (d == null || d.trim().equals("")) {
             return "";
         }
-        return StringEscapeUtils.escapeJavaScript(d);
+        return StringEscapeUtils.escapeEcmaScript(d);
     }
 %>

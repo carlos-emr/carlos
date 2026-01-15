@@ -25,9 +25,6 @@
 
 
 package ca.openosp;
-/**
- * Description - BillingDataServlet
- */
 
 import java.io.IOException;
 
@@ -36,14 +33,36 @@ import javax.servlet.http.HttpServlet;
 
 import ca.openosp.openo.utility.MiscUtils;
 
-
+/**
+ * Servlet for processing billing data form submissions.
+ * 
+ * <p>This servlet handles HTTP POST requests containing billing information
+ * and populates a {@link BillingDataBean} with the request parameters.</p>
+ * 
+ * <p>Expected request parameters:</p>
+ * <ul>
+ *   <li>billing_no - Billing transaction number</li>
+ *   <li>hin - Health insurance number</li>
+ *   <li>visittype - Type of visit</li>
+ *   <li>visitdate - Date of visit</li>
+ *   <li>status - Billing status</li>
+ * </ul>
+ * 
+ * <p><strong>Note:</strong> This is a legacy servlet. Modern applications should
+ * use Spring MVC controllers or JAX-RS resources instead.</p>
+ * 
+ * @see BillingDataBean
+ */
 public class BillingDataServlet extends HttpServlet implements java.io.Serializable {
 
-    /*   ****************************************************************************
-     * Process incoming requests for information
+    /**
+     * Processes incoming POST requests for billing data.
+     * Extracts billing information from request parameters and populates a BillingDataBean.
      *
-     * @param request Object that encapsulates the request to the servlet
-     * @param response Object that encapsulates the response from the servlet
+     * @param request the HTTP servlet request containing billing data parameters
+     * @param response the HTTP servlet response
+     * @throws IOException if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
      */
     public void doPost(javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response) throws IOException, ServletException {
         try {

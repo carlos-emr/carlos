@@ -30,23 +30,68 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.StringTokenizer;
 
+/**
+ * Bean representing a recurring schedule configuration for providers.
+ * 
+ * <p>This bean manages provider recurring schedule information including:</p>
+ * <ul>
+ *   <li>Provider identification and creator tracking</li>
+ *   <li>Schedule date range (start date to end date)</li>
+ *   <li>Days of week specification</li>
+ *   <li>Available hours configuration</li>
+ *   <li>Active/inactive status</li>
+ * </ul>
+ * 
+ * <p>The bean supports multiple day-of-week formats including:</p>
+ * <ul>
+ *   <li>Standard weekday tags: SUN, MON, TUE, WED, THU, FRI, SAT</li>
+ *   <li>Site-specific day tags: A7, A1, A2, A3, A4, A5, A6</li>
+ * </ul>
+ */
 public class RscheduleBean {
 
+    /** Provider number */
     public String provider_no = "";
+    /** Schedule start date */
     public String sdate = "";
+    /** Schedule end date */
     public String edate = "";
+    /** Availability indicator */
     public String available = "";
+    /** Day of week specification */
     public String day_of_week = "";
+    /** Available hours begin */
     public String avail_hourB = "";
+    /** Available hours */
     public String avail_hour = "";
+    /** Creator identifier */
     public String creator = "";
+    /** Active status (A = active) */
     public String active = "A";
+    
+    /** Standard weekday tag names */
     private String weekdaytag[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+    /** Site-specific day tag names */
     private String sitedaytag[] = {"A7", "A1", "A2", "A3", "A4", "A5", "A6"};
 
+    /**
+     * Constructs a new empty RscheduleBean.
+     */
     public RscheduleBean() {
     }
 
+    /**
+     * Constructs a new RscheduleBean with all schedule properties.
+     * 
+     * @param provider_no1 the provider number
+     * @param sdate1 the start date
+     * @param edate1 the end date
+     * @param bAvailable1 the availability indicator
+     * @param day_of_week1 the day of week specification
+     * @param avail_hourB1 the beginning of available hours
+     * @param avail_hour1 the available hours
+     * @param creator1 the creator identifier
+     */
     public RscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
         provider_no = provider_no1;
         sdate = sdate1;
@@ -58,6 +103,18 @@ public class RscheduleBean {
         creator = creator1;
     }
 
+    /**
+     * Sets all schedule properties.
+     * 
+     * @param provider_no1 the provider number
+     * @param sdate1 the start date
+     * @param edate1 the end date
+     * @param bAvailable1 the availability indicator
+     * @param day_of_week1 the day of week specification
+     * @param avail_hourB1 the beginning of available hours
+     * @param avail_hour1 the available hours
+     * @param creator1 the creator identifier
+     */
     public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
         provider_no = provider_no1;
         sdate = sdate1;
@@ -69,6 +126,20 @@ public class RscheduleBean {
         creator = creator1;
     }
 
+    /**
+     * Sets all schedule properties with two separate day-of-week specifications.
+     * The day specifications are combined with a pipe (|) separator.
+     * 
+     * @param provider_no1 the provider number
+     * @param sdate1 the start date
+     * @param edate1 the end date
+     * @param bAvailable1 the availability indicator
+     * @param day_of_week1 the first day of week specification
+     * @param day_of_week2 the second day of week specification
+     * @param avail_hourB1 the beginning of available hours
+     * @param avail_hour1 the available hours
+     * @param creator1 the creator identifier
+     */
     public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String day_of_week2, String avail_hourB1, String avail_hour1, String creator1) {
         provider_no = provider_no1;
         sdate = sdate1;

@@ -34,10 +34,11 @@ import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.v26.message.ORU_R01;
 import ca.uhn.hl7v2.model.v26.message.REF_I12;
 import com.opensymphony.xwork2.ActionSupport;
-import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.time.DateUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.OruR01;
@@ -47,6 +48,7 @@ import ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.SendingUtils;
 import ca.openosp.openo.commn.model.enumerator.DocumentType;
 import ca.openosp.openo.commn.model.enumerator.ModuleType;
 import ca.openosp.openo.documentManager.DocumentAttachmentManager;
+import com.itextpdf.text.DocumentException;
 import ca.openosp.openo.documentManager.EDoc;
 import ca.openosp.openo.documentManager.EDocUtil;
 import ca.openosp.openo.fax.core.FaxRecipient;
@@ -85,6 +87,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String execute() throws ServletException, IOException {
@@ -421,9 +425,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
             if (faxRecipients != null) {
                 for (String recipient : faxRecipients) {
-                    JSONObject jsonObject = JSONObject.fromObject(recipient);
-                    String fax = jsonObject.getString("fax");
-                    String name = jsonObject.getString("name");
+                    ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(recipient);
+                    String fax = jsonObject.get("fax").asText();
+                    String name = jsonObject.get("name").asText();
                     copytoRecipients.add(new FaxRecipient(name, fax));
                 }
             }
@@ -581,7 +585,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 int statusCode = SendingUtils.send(loggedInInfo, hl7Message, professionalSpecialist);
                 if (HttpServletResponse.SC_OK != statusCode)
                     throw (new ServletException("Error, received status code:" + statusCode));
-            } catch (com.lowagie.text.DocumentException e) {
+            } catch (DocumentException e) {
                 logger.error("Unexpected error.", e);
             }
         }
@@ -611,7 +615,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
     private void generatePDFResponse(HttpServletRequest request, HttpServletResponse response) {
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put("errorMessage", (String) request.getAttribute("errorMessage"));
@@ -1096,7 +1100,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         sb.append(WebUtils.buildQueryString(queryParameters));
 
-        return (StringEscapeUtils.escapeHtml(sb.toString()));
+        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     /**

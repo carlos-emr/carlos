@@ -23,7 +23,6 @@
     Ontario, Canada
 
 --%>
-<%-- @ taglib uri="../WEB-INF/taglibs-log.tld" prefix="log" --%>
 <%
     String demographic$ = request.getParameter("demographic_no");
 %>
@@ -47,7 +46,7 @@
                    reverse="<%=false%>">
     You have no rights to access the data!
     <% authed = false; %>
-    <% response.sendRedirect("../noRights.html"); %>
+    <% response.sendRedirect(request.getContextPath() + "/noRights.html"); %>
 </security:oscarSec>
 
 <%

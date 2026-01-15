@@ -89,6 +89,7 @@ public class PatientManagement2Action extends BasePatientAction {
 </action>
 
 <!-- Modern 2Action implementation -->
+<!-- Included new package namespace in the class attribute to use for migration -->
 <action name="patientManagement2" 
         class="ca.openosp.openo.patient.PatientManagement2Action">
     <result name="success">/patient/modern-view.jsp</result>

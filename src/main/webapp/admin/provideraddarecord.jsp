@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -56,7 +56,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="ca.openosp.openo.commn.model.Site" %>
 
-<%@ page import="org.apache.commons.lang.StringEscapeUtils,ca.openosp.openo.providers.data.ProviderBillCenter" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils,ca.openosp.openo.providers.data.ProviderBillCenter" %>
 
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.Provider" %>

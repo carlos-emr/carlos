@@ -30,8 +30,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 import java.util.Date;
+import java.util.HashMap;
 
 import ca.openosp.openo.commn.dao.MessageListDao;
 import ca.openosp.openo.commn.dao.MessageTblDao;
@@ -74,7 +76,7 @@ import ca.openosp.openo.util.ConversionUtils;
  *   <li>Provider-specific message isolation</li>
  * </ul>
  * 
- * @deprecated Use org.oscarehr.managers.MessagingManager and JPA model.
+ * @deprecated Use ca.openosp.openo.managers.MessagingManager and JPA model.
  *             This class uses outdated patterns and should be replaced with
  *             modern service-oriented architecture.
  * @version 1.0
@@ -187,25 +189,26 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
     }
 
     /**
-     * Generates SQL WHERE clause fragment for search filtering.
-     * 
+     * Generates parameterized SQL WHERE clause fragment for search filtering.
+     *
      * <p>Creates a SQL condition that searches for the filter string
-     * across multiple specified columns using LIKE operators.</p>
-     * 
-     * @param colsToSearch String[] array of column names to search
-     * @return String SQL WHERE clause fragment, empty if no filter
+     * across multiple specified columns using LIKE operators with a named parameter.
+     * This method is safe from SQL injection as it uses parameterized queries.</p>
+     *
+     * @param colsToSearch String[] array of column names to search (must be safe hardcoded names)
+     * @return String SQL WHERE clause fragment with :filterParam placeholder, empty if no filter
      */
-    public String getSQLSearchFilter(String[] colsToSearch) {
-        if (filter == null || colsToSearch.length == 0) {
+    public String getSQLSearchFilterParameterized(String[] colsToSearch) {
+        if (filter == null || filter.isEmpty() || colsToSearch.length == 0) {
             return "";
         } else {
-            // Build OR condition across all specified columns
+            // Build OR condition across all specified columns using parameterized query
             String search = " and (";
             int numOfCols = colsToSearch.length;
             for (int i = 0; i < numOfCols - 1; i++) {
-                search = search + colsToSearch[i] + " like '%" + filter + "%' or ";
+                search = search + colsToSearch[i] + " like :filterParam or ";
             }
-            search = search + colsToSearch[numOfCols - 1] + " like '%" + filter + "%') ";
+            search = search + colsToSearch[numOfCols - 1] + " like :filterParam) ";
             return search;
         }
     }
@@ -505,23 +508,35 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
         int recordsToDisplay = 25;
         int fromRecordNum = (recordsToDisplay * page) - recordsToDisplay;
-        String limitSql = " limit " + fromRecordNum + ", " + recordsToDisplay;
 
         try {
+            // Build parameterized SQL query
             String sql = "(select m.messageid is null as isnull, "
                     + "(select map.demographic_no from msgDemoMap map "
                     + "where map.messageID = m.messageid limit 1) as demographic_no, "
                     + "ml.message, ml.status,  m.thesubject, m.thedate, m.theime, m.attachment, m.pdfattachment, m.sentby, m.type "
                     + "from messagelisttbl ml, messagetbl m  "
-                    + "where ml.provider_no = '" + providerNo + "' "
-                    + "and status not like \'del\' and remoteLocation = '" + getCurrentLocationId() + "' "
+                    + "where ml.provider_no = :providerNo "
+                    + "and status not like 'del' and remoteLocation = :remoteLocation "
                     + " and ml.message = m.messageid "
-                    + getSQLSearchFilter(searchCols)
+                    + getSQLSearchFilterParameterized(searchCols)
                     + " order by " + getOrderBy(orderby)
-                    + limitSql + ")";
+                    + " limit :offset, :limit)";
+
+            // Build parameters map
+            Map<String, Object> params = new HashMap<>();
+            params.put("providerNo", providerNo);
+            params.put("remoteLocation", getCurrentLocationId());
+            params.put("offset", fromRecordNum);
+            params.put("limit", recordsToDisplay);
+
+            // Add filter parameter if filter is active
+            if (filter != null && filter.length() > 0) {
+                params.put("filterParam", "%" + filter + "%");
+            }
 
             FormsDao dao = SpringUtils.getBean(FormsDao.class);
-            for (Object[] o : dao.runNativeQuery(sql)) {
+            for (Object[] o : dao.runParameterizedNativeQuery(sql, params)) {
                 String demographic_no = String.valueOf(o[1]);
                 String message = String.valueOf(o[2]);
                 String status = String.valueOf(o[3]);
@@ -596,17 +611,25 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
         String[] searchCols = {"m.thesubject", "m.themessage", "m.sentby", "m.sentto", "m.type"};
 
         try {
+            // Build parameterized SQL query
             String sql = "select map.messageID is null as isnull, map.demographic_no, m.messageid, m.thesubject, m.thedate, m.theime, m.attachment, m.pdfattachment, m.sentby, m.type  "
-                    + "from  messagetbl m, msgDemoMap map where map.demographic_no = '"
-                    + demographic_no
-                    + "'  "
+                    + "from  messagetbl m, msgDemoMap map where map.demographic_no = :demographicNo  "
                     + "and m.messageid = map.messageID "
-                    + getSQLSearchFilter(searchCols)
+                    + getSQLSearchFilterParameterized(searchCols)
                     + " order by "
                     + getOrderBy(orderby);
 
+            // Build parameters map
+            Map<String, Object> params = new HashMap<>();
+            params.put("demographicNo", demographic_no);
+
+            // Add filter parameter if filter is active
+            if (filter != null && filter.length() > 0) {
+                params.put("filterParam", "%" + filter + "%");
+            }
+
             FormsDao dao = SpringUtils.getBean(FormsDao.class);
-            List<Object[]> os = dao.runNativeQuery(sql);
+            List<Object[]> os = dao.runParameterizedNativeQuery(sql, params);
             for (Object[] o : os) {
                 String demo_no = String.valueOf(o[1]);
                 String messageid = String.valueOf(o[2]);
@@ -710,24 +733,34 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
         int recordsToDisplay = 25;
         int fromRecordNum = (recordsToDisplay * page) - recordsToDisplay;
-        String limitSql = " limit " + fromRecordNum + ", " + recordsToDisplay;
 
         try {
+            // Build parameterized SQL query
             String sql = "select map.messageID is null as isnull, map.demographic_no, ml.message, ml.status, m.thesubject, m.thedate, m.theime, m.attachment, m.pdfattachment, m.sentby, m.type "
                     + "from messagelisttbl ml, messagetbl m "
                     + " left outer join msgDemoMap map on (map.messageID = m.messageid) "
-                    + " where provider_no = '"
-                    + providerNo
-                    + "' and status like \'del\' and remoteLocation = '"
-                    + getCurrentLocationId()
-                    + "' "
+                    + " where provider_no = :providerNo"
+                    + " and status like 'del' and remoteLocation = :remoteLocation "
                     + " and ml.message = m.messageid "
-                    + getSQLSearchFilter(searchCols)
+                    + getSQLSearchFilterParameterized(searchCols)
                     + " order by "
-                    + getOrderBy(orderby) + limitSql;
+                    + getOrderBy(orderby)
+                    + " limit :offset, :limit";
+
+            // Build parameters map
+            Map<String, Object> params = new HashMap<>();
+            params.put("providerNo", providerNo);
+            params.put("remoteLocation", getCurrentLocationId());
+            params.put("offset", fromRecordNum);
+            params.put("limit", recordsToDisplay);
+
+            // Add filter parameter if filter is active
+            if (filter != null && filter.length() > 0) {
+                params.put("filterParam", "%" + filter + "%");
+            }
 
             FormsDao dao = SpringUtils.getBean(FormsDao.class);
-            for (Object[] o : dao.runNativeQuery(sql)) {
+            for (Object[] o : dao.runParameterizedNativeQuery(sql, params)) {
                 String demographic_no = String.valueOf(o[1]);
                 String message = String.valueOf(o[2]);
                 String thesubject = String.valueOf(o[4]);
@@ -857,23 +890,32 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
         int recordsToDisplay = 25;
         int fromRecordNum = (recordsToDisplay * page) - recordsToDisplay;
-        String limitSql = " limit " + fromRecordNum + ", " + recordsToDisplay;
 
         try {
+            // Build parameterized SQL query
             String sql = "select map.messageID is null as isnull, map.demographic_no, m.messageid as status, m.messageid, thedate, theime, thesubject, sentby, sentto, attachment, pdfattachment "
                     + "from messagetbl m left outer join msgDemoMap map on (map.messageID = m.messageid) "
-                    + "where sentbyNo = '"
-                    + providerNo
-                    + "' and sentByLocation = '"
-                    + getCurrentLocationId()
-                    + "'  "
-                    + getSQLSearchFilter(searchCols)
+                    + "where sentbyNo = :providerNo"
+                    + " and sentByLocation = :sentByLocation  "
+                    + getSQLSearchFilterParameterized(searchCols)
                     + " order by "
                     + getOrderBy(orderby)
-                    + limitSql;
+                    + " limit :offset, :limit";
+
+            // Build parameters map
+            java.util.Map<String, Object> params = new java.util.HashMap<>();
+            params.put("providerNo", providerNo);
+            params.put("sentByLocation", getCurrentLocationId());
+            params.put("offset", fromRecordNum);
+            params.put("limit", recordsToDisplay);
+
+            // Add filter parameter if filter is active
+            if (filter != null && filter.length() > 0) {
+                params.put("filterParam", "%" + filter + "%");
+            }
 
             FormsDao dao = SpringUtils.getBean(FormsDao.class);
-            for (Object[] o : dao.runNativeQuery(sql)) {
+            for (Object[] o : dao.runParameterizedNativeQuery(sql, params)) {
                 String demographic_no = String.valueOf(o[1]);
                 String status = String.valueOf(o[2]);
                 String thedate = String.valueOf(o[4]);

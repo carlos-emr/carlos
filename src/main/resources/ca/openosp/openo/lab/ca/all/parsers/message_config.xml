@@ -5,7 +5,7 @@
 	<handler name="BIOTEST" className="ca.openosp.openo.lab.ca.all.parsers.BioTestHandler"/>
 	<handler name="CDL" className="ca.openosp.openo.lab.ca.all.parsers.CDLHandler"/>
     <handler name="CLS"		className="ca.openosp.openo.lab.ca.all.parsers.CLSHandler"/>
-	<handler name="CML" className="ca.openosp.openo.lab.ca.all.upload.handlers.CMLHandler"/>
+	<handler name="CML" className="ca.openosp.openo.lab.ca.all.parsers.CMLHandler"/>
 	<handler name="EPSILON" className="ca.openosp.openo.lab.ca.all.parsers.EpsilonHandler" />
 	<handler name="ExcellerisON" className="ca.openosp.openo.lab.ca.all.parsers.ExcellerisOntarioHandler" />
 	<handler name="GDML" className="ca.openosp.openo.lab.ca.all.parsers.GDMLHandler"/>

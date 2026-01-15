@@ -32,8 +32,10 @@ import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
@@ -86,18 +88,29 @@ public class RptLabReportData {
         try {
             ResultSet rs;
             // mysql function for dates = select date_sub(now(),interval 1 month);
+            // Note: MySQL INTERVAL syntax cannot be parameterized, but we validate it's an integer
+            if (!verifyInt(days)) {
+                throw new IllegalArgumentException("Invalid days parameter: " + days);
+            }
+
+            // Build parameterized SQL query
             String sql = "select distinct l.demographic_no from formLabReq07 l , demographic d where "
                     + " ( to_days( now() ) - to_days(formCreated) ) <= " + " ( to_days( now() ) - to_days( date_sub(now(),interval " + days + " month) ) )"
                     + " and l.demographic_no = d.demographic_no ";
+
+            // Build parameters map
+            Map<String, Object> params = new HashMap<>();
+
             if (!providerNo.equals("-1")) {
-                sql = sql + " and d.provider_no = '" + providerNo + "' ";
+                sql = sql + " and d.provider_no = :providerNo ";
+                params.put("providerNo", providerNo);
             }
             sql = sql + "  order by d.last_name ";
 
             FormsDao dao = SpringUtils.getBean(FormsDao.class);
             demoList = new ArrayList();
             DemoLabDataStruct d;
-            for (Object[] o : dao.runNativeQuery(sql)) {
+            for (Object[] o : dao.runParameterizedNativeQuery(sql, params)) {
                 d = new DemoLabDataStruct();
                 d.demoNo = String.valueOf(o[0]);
                 demoList.add(d);
@@ -119,13 +132,19 @@ public class RptLabReportData {
 
         public ArrayList getLabReqs() {
             try {
-                String sql = " select ID, formCreated, provider_no from formLabReq07 where demographic_no = '"
-                        + demoNo + "' " + " and to_days(now()) - to_days(formCreated) <=  " + " (to_days( now() ) - to_days( date_sub( now(), interval "
-                        + days + " month ) ) )";
+                // Note: MySQL INTERVAL syntax cannot be parameterized, but days is validated in labReportGenerate()
+                // Build parameterized SQL query
+                String sql = " select ID, formCreated, provider_no from formLabReq07 where demographic_no = :demoNo "
+                        + " and to_days(now()) - to_days(formCreated) <=  " + " (to_days( now() ) - to_days( date_sub( now(), interval " + days + " month ) ) )";
+
+                // Build parameters map
+                Map<String, Object> params = new HashMap<>();
+                params.put("demoNo", demoNo);
+
                 Consult con;
                 consultList = new ArrayList();
                 FormsDao dao = SpringUtils.getBean(FormsDao.class);
-                for (Object[] o : dao.runNativeQuery(sql)) {
+                for (Object[] o : dao.runParameterizedNativeQuery(sql, params)) {
                     String id = String.valueOf(o[0]);
                     String formCreated = String.valueOf(o[1]);
                     String provider_no = String.valueOf(o[2]);
@@ -270,4 +289,20 @@ public class RptLabReportData {
     }
 
     ;
+
+    /**
+     * Validates that a string can be parsed as an integer.
+     * Used to validate user input before concatenating into SQL INTERVAL clauses.
+     *
+     * @param str The string to validate
+     * @return true if the string is a valid integer, false otherwise
+     */
+    private boolean verifyInt(String str) {
+        try {
+            Integer.parseInt(str);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }

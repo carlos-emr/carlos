@@ -39,6 +39,7 @@ import org.apache.commons.io.FilenameUtils;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.OscarProperties;
@@ -76,28 +77,18 @@ public class DelImage2Action extends ActionSupport {
         File image = new File(imageDir, sanitizedFilename);
         
         try {
-            // Validate using canonical path to prevent any remaining path traversal attempts
-            String canonicalImageDirPath = imageDir.getCanonicalPath();
-            String canonicalImagePath = image.getCanonicalPath();
-            
-            // Ensure the resolved path is within the expected directory
-            if (!canonicalImagePath.startsWith(canonicalImageDirPath + File.separator)) {
-                return ERROR;
-            }
-            
-            // Only delete if the file exists and is a regular file (not a directory)
-            if (image.exists() && image.isFile()) {
-                try {
-                    Path imagePath = image.toPath();
-                    Files.delete(imagePath); 
-                } catch (IOException e) {
-                    MiscUtils.getLogger().error("Error deleting the image file: " + imgpath, e);
-                    return ERROR;
-                }
-            }
-            
+            // Validate using PathValidationUtils to ensure the path is within the expected directory
+            PathValidationUtils.validateExistingPath(image, imageDir);
+
+            // Delete the file
+            Path imagePath = image.toPath();
+            Files.delete(imagePath);
+
+        } catch (SecurityException e) {
+            // Path validation failed
+            return ERROR;
         } catch (IOException e) {
-            // Log error if needed, but don't expose details to user
+            MiscUtils.getLogger().error("Error deleting the image file: " + imgpath, e);
             return ERROR;
         }
         

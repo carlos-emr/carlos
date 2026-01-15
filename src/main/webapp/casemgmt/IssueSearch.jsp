@@ -1,4 +1,4 @@
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean" %><%--
+<%--
 
 
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -24,8 +24,10 @@
 --%>
 
 
+
 <%-- Updated by Eugene Petruhin on 08 jan 2009 while fixing #2482832 & #2494061 --%>
 
+<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -56,7 +58,7 @@
 </head>
 
 <body>
-<nested:form action="/CaseManagementEntry">
+<form action="<%= request.getContextPath() %>/CaseManagementEntry.do">
     <c:url value="/casemgmt/CaseManagementEntry.jsp?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
            var="url"/>
     <script type="text/javascript">
@@ -92,10 +94,10 @@
     <br><br>
 
     <P><b>Search the Issue </b></P>
-    <nested:text property="searString"></nested:text>
-    <nested:submit value="search" onclick="this.form.method.value='issueSearch';"/>
+    <input type="text" name="searString" />
+    <input type="submit" value="search" onclick="this.form.method.value='issueSearch';" />
 
-    <nested:equal property="showList" value="true">
+    <c:if test="${showList == 'true'}">
         <P><b>Issue List</b></P>
         <table width="100%" border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
             <tr class="title">
@@ -132,18 +134,17 @@
         <br>
         <input type="button" value="add checked issue" name="submit_add_issue"
                onclick="this.form.method.value='issueAdd'; this.disabled = true; this.className='processing' ;this.form.submit();"/>
-    </nested:equal>
+    </c:if>
 
     <c:if test="${from == 'casemgmt'}">
-        <nested:submit value="back to notes"
-                       onclick="this.form.method.value='edit';backToNote('casemgmt');return false;"/>
+        <input type="submit" value="back to notes" onclick="this.form.method.value='edit';backToNote('casemgmt');return false;" />
     </c:if>
     <c:choose>
         <c:when test="${from != 'casemgmt'}">
-            <nested:submit value="back to notes" onclick="this.form.method.value='edit';backToNote(); return false;"/>
+            <input type="submit" value="back to notes" onclick="this.form.method.value='edit';backToNote(); return false;" />
         </c:when>
     </c:choose>
 
-</nested:form>
+</form>
 </body>
 </html>

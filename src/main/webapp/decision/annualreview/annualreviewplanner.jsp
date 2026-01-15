@@ -44,6 +44,7 @@
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     String folderPath = pageContext.getServletContext().getRealPath("/decision/annualreview/");
+    folderPath = folderPath.endsWith("/") ? folderPath : folderPath + "/";
 
     if (folderPath == null) {
         throw new NullPointerException("Cannot resolve real path for /decision/annualreview/ - check deployment configuration");
@@ -56,7 +57,7 @@
              class="ca.openosp.openo.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
 <jsp:useBean id="checklist"
              class="ca.openosp.openo.decision.DesAnnualReviewPlannerChecklist" scope="page"/>
-<%@ include file="../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.DesAnnualReviewPlan" %>
 <%@page import="ca.openosp.openo.commn.dao.DesAnnualReviewPlanDao" %>
@@ -69,6 +70,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.js"></script>
     <title>ANNUAL HEALTH REVIEW PLANNER</title>
     <script type="text/javascript" language="Javascript">
         function onExit() {
@@ -94,55 +96,54 @@
 <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
 <form name="planner" method="post"
       action="annualreviewplanner.jsp?demographic_no=<%=demographic_no%>&formId=<%=form_no%>">
-    <!--%@ include file="zgetarriskdata.jsp" % --> <%
-    //save risk&checklist data if required
-    if (request.getParameter("submit") != null &&
-            (request.getParameter("submit").equals(" Save ") || request.getParameter("submit").equals("Save and Exit"))) {
-
-        String risk_content = "", checklist_content = "";
-
-        risk_content = SxmlMisc.createXmlDataString(request, "risk_");
-        checklist_content = SxmlMisc.createXmlDataString(request, "checklist_");
-
-        DesAnnualReviewPlan darp = new DesAnnualReviewPlan();
-        darp.setDesDate(new java.util.Date());
-        darp.setDesTime(new java.util.Date());
-        darp.setProviderNo(curUser_no);
-        darp.setRiskContent(risk_content);
-        darp.setChecklistContent(checklist_content);
-        darp.setDemographicNo(Integer.parseInt(demographic_no));
-        darp.setFormNo(Integer.parseInt(form_no));
-        desAnnualReviewPlanDao.persist(darp);
-    }
-
-    //save & exit if required
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save and Exit")) {
-        out.print("<script type='text/javascript' language='Javascript'>window.close();</script>");
-
-        return;
-    }
-
-    //initial prop bean with "0"
-    //  for(int i=0;i<riskdataname.length;i++) {
-    //	  riskDataBean.setProperty(riskdataname[i][0],"0");
-    //  }
-    //get the risk data from table desaprisk for other risk factors
-
-    DesAnnualReviewPlan darp = desAnnualReviewPlanDao.search(Integer.parseInt(form_no), Integer.parseInt(demographic_no));
-
-    if (darp != null) {
-        String risk_content = darp.getRiskContent();
-        String checklist_content = darp.getChecklistContent();
-%>
-    <xml id="xml_list">
-        <planner><%= risk_content %> <%= checklist_content %>
-        </planner>
-    </xml>
     <%
-            //set the riskdata bean from xml file
-            Properties savedar1risk1 = risks.getRiskName(folderPath + "desannualreviewplannerrisk.xml");
-            StringBuffer tt;
+        //save risk&checklist data if required
+        if (request.getParameter("submit") != null &&
+                (request.getParameter("submit").equals(" Save ") || request.getParameter("submit").equals("Save and Exit"))) {
 
+            String risk_content = "", checklist_content = "";
+
+            risk_content = SxmlMisc.createXmlDataString(request, "risk_");
+            checklist_content = SxmlMisc.createXmlDataString(request, "checklist_");
+
+            DesAnnualReviewPlan darp = new DesAnnualReviewPlan();
+            darp.setDesDate(new java.util.Date());
+            darp.setDesTime(new java.util.Date());
+            darp.setProviderNo(curUser_no);
+            darp.setRiskContent(risk_content);
+            darp.setChecklistContent(checklist_content);
+            darp.setDemographicNo(Integer.parseInt(demographic_no));
+            darp.setFormNo(Integer.parseInt(form_no));
+            desAnnualReviewPlanDao.persist(darp);
+        }
+
+        //save & exit if required
+        if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save and Exit")) {
+            out.print("<script type='text/javascript' language='Javascript'>window.close();</script>");
+
+            return;
+        }
+
+        //initial prop bean with "0"
+        //  for(int i=0;i<riskdataname.length;i++) {
+        //	  riskDataBean.setProperty(riskdataname[i][0],"0");
+        //  }
+        //get the risk data from table desaprisk for other risk factors
+
+        DesAnnualReviewPlan darp = desAnnualReviewPlanDao.search(Integer.parseInt(form_no), Integer.parseInt(demographic_no));
+
+        String risk_content = "";
+        String checklist_content = "";
+
+        // Load all possible risk names from XML file
+        Properties savedar1risk1 = risks.getRiskName(folderPath + "desannualreviewplannerrisk.xml");
+
+        if (darp != null) {
+            // If we have saved data, populate riskDataBean from saved risks only
+            risk_content = darp.getRiskContent();
+            checklist_content = darp.getChecklistContent();
+
+            StringBuffer tt;
             for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {
                 tt = new StringBuffer().append(e.nextElement());
 
@@ -150,7 +151,15 @@
                     riskDataBean.setProperty(tt.toString(), savedar1risk1.getProperty(tt.toString()));
                 }
             }
+        } else {
+            // On first load (no saved data), show all possible checklist items
+            // by adding all risks to riskDataBean
+            for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {
+                String riskKey = (String) e.nextElement();
+                riskDataBean.setProperty(riskKey, savedar1risk1.getProperty(riskKey));
+            }
         }
+
         //find the age and sex of the patient from demographic table
         Demographic d = demographicDao.getDemographic(demographic_no);
         int age = 0;
@@ -177,6 +186,9 @@
             }
         }
     %>
+    <script type="text/xml" id="xml_list">
+        <planner><%= risk_content %> <%= checklist_content %></planner>
+    </script>
     <table bgcolor='silver' width='100%'>
         <tr>
             <td align="left"><input type="submit" name="submit"
@@ -203,9 +215,9 @@
                 %>
             </td>
             <td>
-                    <%
-            out.println(checklist.doStuff(folderPath + "desannualreviewplannerriskchecklist.xml", riskDataBean));
-%>
+            <%
+                out.println(checklist.doStuff(folderPath + "desannualreviewplannerriskchecklist.xml", riskDataBean));
+            %>
 
         </tr>
     </table>

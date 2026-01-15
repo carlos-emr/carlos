@@ -29,7 +29,7 @@
 <%@ page import="java.sql.*, java.util.*,ca.openosp.*" errorPage="/errorpage.jsp" %>
 <%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
 <%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.dao.BillingDao" %>

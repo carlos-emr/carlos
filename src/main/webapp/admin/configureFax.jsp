@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -80,7 +80,7 @@
             $("#submit").click(function (e) {
                 e.preventDefault();
 
-                var url = "<%=request.getContextPath() %>/admin/ManageFax.do";
+                var url = "<%=request.getContextPath() %>/admin/ManageFax.do?method=configure";
                 var data = $("#configFrm").serialize();
 
                 $.ajax({
@@ -240,7 +240,7 @@
 
 
 <body>
-<jsp:include page="../images/spinner.jsp" flush="true"/>
+<jsp:include page="/images/spinner.jsp" flush="true"/>
 <div class="container-fluid">
     <form id="configFrm" method="post">
         <input type="hidden" name="method" value="configure"/>

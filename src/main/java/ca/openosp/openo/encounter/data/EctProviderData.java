@@ -25,7 +25,7 @@
 
 package ca.openosp.openo.encounter.data;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.utility.SpringUtils;
 

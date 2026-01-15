@@ -94,7 +94,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                 SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm");
                 Provider p = loggedInInfo.getLoggedInProvider();
                 if (appt != null) {
-                    url = "popupPage(755,1200,'" + winName + "','../billing.do?billRegion=ON&billForm=" + billform + "&hotclick=&appointment_no=" + appointmentNo + "&demographic_name=" + d.getFormattedName() + "&status=" + appt.getStatus() + "&demographic_no=" + bean.demographicNo + "&providerview=" + p.getProviderNo() + "&user_no=" + p.getProviderNo() + "&apptProvider_no=" + appt.getProviderNo() + "&appointment_date=" + dateFormatter.format(appt.getAppointmentDate()) + "&start_time=" + timeFormatter.format(appt.getStartTime()) + "&bNewForm=1');return false;";
+                    url = "popupPage(755,1200,'" + winName + "','" + request.getContextPath() + "/billing.do?billRegion=ON&billForm=" + billform + "&hotclick=&appointment_no=" + appointmentNo + "&demographic_name=" + d.getFormattedName() + "&status=" + appt.getStatus() + "&demographic_no=" + bean.demographicNo + "&providerview=" + p.getProviderNo() + "&user_no=" + p.getProviderNo() + "&apptProvider_no=" + appt.getProviderNo() + "&appointment_date=" + dateFormatter.format(appt.getAppointmentDate()) + "&start_time=" + timeFormatter.format(appt.getStartTime()) + "&bNewForm=1');return false;";
                     Dao.setRightURL(url);
                 }
             }

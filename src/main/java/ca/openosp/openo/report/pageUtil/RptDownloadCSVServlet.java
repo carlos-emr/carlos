@@ -79,7 +79,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 MiscUtils.getLogger().debug("contentType: " + contentType);
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
                 while (n <= len - FIXED_LEN) {
-                    out.write(b, n, FIXED_LEN); // out.write(b);
+                    out.write(b, n, FIXED_LEN); // b.flush();
                     n += FIXED_LEN;
                 }
                 if (n > len - FIXED_LEN) {

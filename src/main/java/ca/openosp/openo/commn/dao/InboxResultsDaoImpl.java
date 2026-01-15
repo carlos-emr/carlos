@@ -26,6 +26,7 @@ import javax.persistence.Query;
 import ca.openosp.openo.utility.MiscUtils;
 import org.apache.http.impl.cookie.DateUtils;
 import org.apache.logging.log4j.Logger;
+import ca.openosp.openo.commn.model.Document;
 import ca.openosp.openo.commn.model.SystemPreferences;
 import ca.openosp.openo.utility.SpringUtils;
 
@@ -293,16 +294,16 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc, "
                         + " (SELECT * FROM "
-                        + " (SELECT DISTINCT plr.id, plr.lab_type  FROM providerLabRouting plr, ctl_document cd "
+                        + " (SELECT DISTINCT plr.id, plr.lab_type FROM providerLabRouting plr, ctl_document cd "
                         + " WHERE 	" + " (cd.module_id = :demographicNo "
                         + "	AND cd.document_no = plr.lab_no"
                         + "	AND plr.lab_type = 'DOC'  	"
                         + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
-                        + (searchProvider ? " AND plr.provider_no = :providerNo " : " )")
+                        + (searchProvider ? " AND plr.provider_no = :providerNo )" : " )")
                         + " ORDER BY id DESC) AS Y"
                         + " UNION"
                         + " SELECT * FROM"
-                        + " (SELECT DISTINCT plr.id, plr.lab_type  FROM providerLabRouting plr, patientLabRouting plr2"
+                        + " (SELECT DISTINCT plr.id, plr.lab_type FROM providerLabRouting plr, patientLabRouting plr2"
                         + " WHERE"
                         + "	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7'"
                         + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
@@ -565,10 +566,15 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
                 logger.debug("DOCUMENT " + lbData.isMatchedToPatient());
                 lbData.accessionNumber = "";
-                lbData.resultStatus = "N";
 
                 DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
-                Date contentDateTime = documentDao.findActiveByDocumentNo(Integer.parseInt(getStringValue(r[docNoLoc]))).get(0).getContentdatetime();
+                Document document = documentDao.findActiveByDocumentNo(Integer.parseInt(getStringValue(r[docNoLoc]))).get(0);
+                Date contentDateTime = document.getContentdatetime();
+
+                // Set result status based on document abnormal flag
+                // "A" for abnormal (displays in red), "N" for normal
+                lbData.resultStatus = document.isAbnormal() ? "A" : "N";
+                lbData.abn = document.isAbnormal();
 
                 if (!StringUtils.isNullOrEmpty(getStringValue(r[obsDateLoc]))) {
                     //if observation is not null, set that as date
@@ -642,7 +648,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
                 lbData.lastUpdateDate = getStringValue(r[updateDateLoc]);
 
-                lbData.finalResultsCount = 0;//rs.getInt("final_result_count");
+                lbData.finalResultsCount = 0;
                 labResults.add(lbData);
             }
 

@@ -37,9 +37,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.ws.WebServiceException;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.dao.CriteriaDao;
@@ -146,6 +147,9 @@ public class ProgramManager2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
     private IMatchManager matchManager = new MatchManager();
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public void setFacilityDao(FacilityDao facilityDao) {
         this.facilityDao = facilityDao;
@@ -672,7 +676,7 @@ public class ProgramManager2Action extends ActionSupport {
         ProgramProvider pp = programManager.getProgramProvider(String.valueOf(provider.getId()));
 
         if (pp == null) {
-            addActionMessage(getText("program_provider.missing"));
+            addActionMessage(getText("error.provider.missing"));
             setEditAttributes(request, String.valueOf(program.getId()));
             return edit();
         }
@@ -1587,7 +1591,7 @@ public class ProgramManager2Action extends ActionSupport {
             success = false;
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", success);
         obj.put("error", error);
 

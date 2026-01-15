@@ -43,7 +43,7 @@
 <%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
 <%@ page import="ca.openosp.openo.managers.FaxManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.PMmodule.service.ProviderManager" %>
 <%@ page import="ca.openosp.openo.commn.model.*" %>
 <%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
@@ -68,7 +68,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -266,11 +266,11 @@
                 useSC = true;
                 <%for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
-                    scAddress = "<%=Encode.forUriComponent(StringEscapeUtils.unescapeHtml((String)vecAddress.get(i)))%>";
+                    scAddress = "<%=Encode.forUriComponent(StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i)))%>";
                 }
                 <%}
             }%>
-                let action = "../form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
                 document.getElementById("preview").contentWindow.document.getElementById("preview2Form").action = action;
                 if (method !== "oscarRxFax") {
                     document.getElementById("preview").contentWindow.document.getElementById("preview2Form").target = "_blank";
@@ -343,7 +343,7 @@
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                         // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?StringEscapeUtils.escapeJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
+                        text = "[Rx faxed to " + '<%= pharmacy!=null?StringEscapeUtils.escapeEcmaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                         text += " prescribed by <%= Encode.forJavaScript(loggedInInfo.getLoggedInProvider().getFormattedName())%>";
@@ -669,7 +669,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         }
 
                                         function clearPendingFax() {
-                                            parent.window.location = "../oscarRx/close.html";
+                                            parent.window.location = "<%= request.getContextPath() %>/oscarRx/close.html";
                                             parent.myLightWindow.deactivate();
                                         }
 

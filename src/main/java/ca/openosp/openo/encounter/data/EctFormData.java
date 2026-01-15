@@ -40,7 +40,7 @@ import java.util.List;
 
 import javax.persistence.PersistenceException;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.caisi_integrator.IntegratorFallBackManager;
@@ -141,20 +141,22 @@ public class EctFormData {
             c = DbConnectionFilter.getThreadLocalDbConnection();
 
             if (!table.equals("form")) {
-                String sql = "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + table + " WHERE demographic_no=" + demoNo + " group by lastEdited";
+                String sql = "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + table + " WHERE demographic_no=? group by lastEdited";
 
-                Statement s = c.createStatement();
-                ResultSet rs = s.executeQuery(sql);
+                java.sql.PreparedStatement ps = c.prepareStatement(sql);
+                ps.setInt(1, Integer.parseInt(demoNo));
+                ResultSet rs = ps.executeQuery();
 
                 while (rs.next()) {
                     PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
                     forms.add(frm);
                 }
             } else {
-                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=" + demoNo + " order by form_no desc";
+                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
 
-                Statement s = c.createStatement();
-                ResultSet rs = s.executeQuery(sql);
+                java.sql.PreparedStatement ps = c.prepareStatement(sql);
+                ps.setInt(1, Integer.parseInt(demoNo));
+                ResultSet rs = ps.executeQuery();
 
                 while (rs.next()) {
                     PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
@@ -200,10 +202,11 @@ public class EctFormData {
             c = DbConnectionFilter.getThreadLocalDbConnection();
 
             if (!table.equals("form")) {
-                String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table + " WHERE demographic_no=" + demoNo + " ORDER BY ID DESC";
+                String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table + " WHERE demographic_no=? ORDER BY ID DESC";
 
-                Statement s = c.createStatement();
-                ResultSet rs = s.executeQuery(sql);
+                java.sql.PreparedStatement ps = c.prepareStatement(sql);
+                ps.setInt(1, Integer.parseInt(demoNo));
+                ResultSet rs = ps.executeQuery();
 
                 while (rs.next()) {
                     PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
@@ -214,10 +217,11 @@ public class EctFormData {
                     forms.add(frm);
                 }
             } else {
-                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=" + demoNo + " order by form_no desc";
+                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
 
-                Statement s = c.createStatement();
-                ResultSet rs = s.executeQuery(sql);
+                java.sql.PreparedStatement ps = c.prepareStatement(sql);
+                ps.setInt(1, Integer.parseInt(demoNo));
+                ResultSet rs = ps.executeQuery();
 
                 while (rs.next()) {
                     PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));

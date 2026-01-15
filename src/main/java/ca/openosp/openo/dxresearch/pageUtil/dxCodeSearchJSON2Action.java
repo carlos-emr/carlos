@@ -43,7 +43,8 @@ import ca.openosp.openo.utility.JsonUtil;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -52,7 +53,7 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
@@ -111,14 +112,10 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     }
 
     /**
-     * This method searches the table by text description only. NOT by code
+     * This method searches the table by text description only. NOT by code.
      * This is intentional for smooth operation in BC Billing.
      *
-     * @param mapping
-     * @param form
-     * @param request
-     * @param response
-     * @return
+     * @return JSON result string
      */
     @SuppressWarnings("unused")
     public String searchMSP() {
@@ -148,13 +145,13 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
         boolean dxvalid = codingSystemManager.isCodeAvailable(codeSystem, code);
 
-        JSONObject jsonResponse = new JSONObject();
-        jsonResponse.accumulate("dxvalid", dxvalid);
+        ObjectNode jsonResponse = objectMapper.createObjectNode();
+        jsonResponse.put("dxvalid", dxvalid);
 
         response.setContentType("text/x-json");
 
         try (PrintWriter pout = response.getWriter()) {
-            jsonResponse.write(pout);
+            pout.write(jsonResponse.toString());
         } catch (IOException e) {
             logger.error("JSON Error", e);
         }
@@ -173,15 +170,15 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         String description = codingSystemManager.getCodeDescription(codeSystem, code);
         boolean dxvalid = (description != null);
 
-        JSONObject jsonResponse = new JSONObject();
-        jsonResponse.accumulate("dxvalid", dxvalid);
-        jsonResponse.accumulate("description", description);
-        jsonResponse.accumulate("code", code);
+        ObjectNode jsonResponse = objectMapper.createObjectNode();
+        jsonResponse.put("dxvalid", dxvalid);
+        jsonResponse.put("description", description);
+        jsonResponse.put("code", code);
 
         response.setContentType("text/x-json");
 
         try (PrintWriter pout = response.getWriter()) {
-            jsonResponse.write(pout);
+            pout.write(jsonResponse.toString());
         } catch (IOException e) {
             logger.error("JSON Error", e);
         }

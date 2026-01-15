@@ -193,7 +193,7 @@
                             </li>
                             <li role="separator" class="divider"></li>
                             <li>
-                                <a href="/web/dashboard/display/AssignTickler.do" class="dropdown-item"
+                                <a href="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler.do" class="dropdown-item"
                                    title="Assign Tickler to Checked Rows." id="assignTicklerChecked">
                                     Assign Tickler
                                 </a>

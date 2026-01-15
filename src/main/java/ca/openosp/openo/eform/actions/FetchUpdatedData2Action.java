@@ -18,8 +18,9 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -36,7 +37,7 @@ public final class FetchUpdatedData2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
+    private ObjectMapper objectMapper = new ObjectMapper();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws IOException {
@@ -75,8 +76,8 @@ public final class FetchUpdatedData2Action extends ActionSupport {
                         sql = DatabaseAP.parserClean(sql);  //replaces all other ${apName} expressions with 'apName'
 
                         if (ap.isJsonOutput()) {
-                            JSONArray values = EFormUtil.getJsonValues(names, sql);
-                            output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
+                            ArrayNode values = EFormUtil.getJsonValues(names, sql);
+                            output = values.toString(); //in case of JsonOutput, return the whole ArrayNode and let the javascript deal with it
                         } else {
                             ArrayList<String> values = EFormUtil.getValues(names, sql);
                             if (values.size() != names.size()) {
@@ -93,7 +94,7 @@ public final class FetchUpdatedData2Action extends ActionSupport {
             }
         }
 
-        JSONObject json = JSONObject.fromObject(outValues);
+        ObjectNode json = objectMapper.valueToTree(outValues);
 
         response.getOutputStream().write(json.toString().getBytes());
 

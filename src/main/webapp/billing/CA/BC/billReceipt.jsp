@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -42,7 +42,7 @@
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@page import="java.util.*, ca.openosp.openo.demographic.data.*" %>
 <%@page import="ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.billing.ca.bc.pageUtil.*,ca.openosp.*,ca.openosp.oscarClinic.*" %>
@@ -63,6 +63,7 @@
 <%@ page import="ca.openosp.openo.commn.model.Demographic" %>
 <%@ page import="ca.openosp.OscarProperties" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     double totalPayments = 0;
     double totalRefunds = 0;

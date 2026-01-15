@@ -32,7 +32,7 @@
 
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no, userfirstname, userlastname;
     curUser_no = (String) session.getAttribute("user");
     ProSignatureData sig = new ProSignatureData();
@@ -78,8 +78,8 @@
                 %> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgCurrentSignature"/> <u><%=sig.getSignature(curUser_no)%>
             </u>
                 <br>
-                <a href="provider/editSignature.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgChangeIt"/> <% } else {%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgSigNotSet"/><br>
-                <a href="provider/editSignature.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgCreate"/> <%}%>
+                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgChangeIt"/> <% } else {%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgSigNotSet"/><br>
+                <a href="<%= request.getContextPath() %>/provider/editSignature.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerSignature.msgCreate"/> <%}%>
             </td>
         </tr>
         <tr>

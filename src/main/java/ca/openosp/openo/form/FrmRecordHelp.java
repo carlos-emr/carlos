@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Properties;
 
 import ca.openosp.Misc;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.utility.MiscUtils;
 import org.w3c.dom.Document;
 

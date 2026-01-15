@@ -84,8 +84,10 @@ public final class AllergyHelperBean {
 
             String entryDate = partialDateDao.getDatePartial(allergy.getEntryDate(), PartialDate.ALLERGIES, allergy.getAllergyId(), PartialDate.ALLERGIES_ENTRYDATE);
             String startDate = partialDateDao.getDatePartial(allergy.getStartDate(), PartialDate.ALLERGIES, allergy.getAllergyId(), PartialDate.ALLERGIES_STARTDATE);
+            String lastUpdateDate = DateUtils.formatDate(allergy.getLastUpdateDate(), locale);
             allergyDisplay.setEntryDate(entryDate);
             allergyDisplay.setStartDate(startDate);
+            allergyDisplay.setLastUpdateDate(lastUpdateDate);
 
             results.add(allergyDisplay);
         }

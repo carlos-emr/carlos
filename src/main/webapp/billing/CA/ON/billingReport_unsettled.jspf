@@ -96,7 +96,7 @@
 			face="Arial, Helvetica, sans-serif"><%=note%></font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,720, "../../../billing/CA/BC/billingView.do?billing_no=<%=b.getId()%>&dboperation=search_bill&hotclick=0")'
+			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView.do?billing_no=<%=b.getId()%>&dboperation=search_bill&hotclick=0")'
 			title="<%=reason%>"> <%=b.getId()%></a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;

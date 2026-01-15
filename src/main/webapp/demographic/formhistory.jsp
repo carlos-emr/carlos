@@ -143,7 +143,7 @@
                 <input type="checkbox" name="<%="form_no"+i%>"
                        value="<%=f.getId()%>"> <font color="blue">
                 <a href=#
-                   onClick="popupPage(600,800,'../provider/providercontrol.jsp?form_no=<%=f.getId()%>&dboperation=search_form&displaymodevariable=form<%=f.getFormName()%>.jsp&displaymode=vary&bNewForm=0')">
+                   onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol.jsp?form_no=<%=f.getId()%>&dboperation=search_form&displaymodevariable=form<%=f.getFormName()%>.jsp&displaymode=vary&bNewForm=0')">
                     <%=f.getFormName()%>
                 </a></font> by <%=f.getProviderNo()%><br>
                 <%

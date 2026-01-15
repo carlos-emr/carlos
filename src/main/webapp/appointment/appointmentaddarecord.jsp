@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -32,7 +32,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -208,7 +208,7 @@
 
         %>
         <form name="updateWLFrm"
-              action="../oscarWaitingList/RemoveFromWaitingList.jsp"><input
+              action="<%= request.getContextPath() %>/oscarWaitingList/RemoveFromWaitingList.jsp"><input
                 type="hidden" name="listId"
                 value="<%=wl1.getListId()%>"/><input
                 type="hidden" name="demographicNo"
@@ -217,7 +217,7 @@
                     LANGUAGE="JavaScript">
                 var removeList = confirm("Click OK to remove patient from the waiting list: <%=wln.getName()%>");
                 if (removeList) {
-                    document.forms[0].action = "../oscarWaitingList/RemoveFromWaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listID=<%=wl1.getListId()%>";
+                    document.forms[0].action = "<%= request.getContextPath() %>/oscarWaitingList/RemoveFromWaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listID=<%=wl1.getListId()%>";
                     document.forms[0].submit();
                 }
             </script>

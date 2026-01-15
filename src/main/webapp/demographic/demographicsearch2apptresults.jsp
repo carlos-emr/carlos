@@ -48,13 +48,14 @@
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.caisi_integrator.ws.CachedProvider" %>
 <%@page import="ca.openosp.openo.caisi_integrator.ws.FacilityIdStringCompositePk" %>
 <%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="org.apache.commons.lang.time.DateFormatUtils" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.util.DateUtils" %>
 <%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicTransfer" %>
 <%@page import="ca.openosp.openo.caisi_integrator.ws.MatchingDemographicTransferScore" %>
@@ -195,7 +196,7 @@
         </svg>
         Search Patient
     </h2>
-    <form method="post" name="titlesearch" action="../demographic/demographiccontrol.jsp"
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"
           onSubmit="return checkTypeIn()">
         <div id="demographicSearch" class="searchBox input-group select-group" style="margin-bottom:10px;">
             <%--    <ul style="display: flex;">--%>
@@ -306,7 +307,7 @@
             <%--   </li>--%>
             <% if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {%>
             <%--        <li>--%>
-            <jsp:include page="../admin/IntegratorStatus.jspf"></jsp:include>
+            <jsp:include page="/admin/IntegratorStatus.jspf"></jsp:include>
             <%--        </li>--%>
             <% } %>
             <%--    </ul>--%>
@@ -333,7 +334,7 @@
                 if (remoteFacilityId == '') {
                     document.addform.action = "<%=request.getParameter("originalpage")%>?";
                 } else {
-                    document.addform.action = "<%=request.getContextPath()%>/appointment/copyRemoteDemographic.jsp?originalPage=<%=URLEncoder.encode(request.getParameter("originalpage"))%>&";
+                    document.addform.action = "<%=request.getContextPath()%>/appointment/copyRemoteDemographic.jsp?originalPage=<%=URLEncoder.encode(request.getParameter("originalpage"), StandardCharsets.UTF_8)%>&";
                 }
 
                 document.addform.action = document.addform.action + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo + "&remoteFacilityId=" + remoteFacilityId;
@@ -367,7 +368,7 @@
         </script>
 
 
-        <form method="post" name="addform" action="../appointment/addappointment.jsp">
+        <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment.jsp">
             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
             <table class="table table-condensed table-striped table-responsive">
@@ -498,12 +499,12 @@
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName())%>','<%=URLEncoder.encode(demo.getFirstName())%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo())%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>','')">
+                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>','')">
 
                     <td class="demoId">
                         <input type="submit" class="mbttn btn btn-default btn-sm" name="demographic_no"
                                value="<%=demo.getDemographicNo()%>"
-                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName())%>','<%=URLEncoder.encode(demo.getFirstName())%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo())%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>','')">
+                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>','')">
                     </td>
                     <td class="lastName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                     </td>
@@ -539,7 +540,7 @@
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demographicTransfer.getCaisiDemographicId()%>;addName('<%=demographicTransfer.getCaisiDemographicId()%>','<%=URLEncoder.encode(demographicTransfer.getLastName())%>','<%=URLEncoder.encode(demographicTransfer.getFirstName())%>','','<%=request.getParameter("messageId")%>','<%=demographicTransfer.getCaisiProviderId()%>','<%=demographicTransfer.getIntegratorFacilityId()%>')">
+                    onClick="document.forms[0].demographic_no.value=<%=demographicTransfer.getCaisiDemographicId()%>;addName('<%=demographicTransfer.getCaisiDemographicId()%>','<%=URLEncoder.encode(demographicTransfer.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demographicTransfer.getFirstName(), StandardCharsets.UTF_8)%>','','<%=request.getParameter("messageId")%>','<%=demographicTransfer.getCaisiProviderId()%>','<%=demographicTransfer.getIntegratorFacilityId()%>')">
                     <td class="demoId" colspan="8">
                         <input type="submit" class="mbttn btn btn-default btn-sm" name="demographic_no"
                                value="Integrator <%=CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), demographicTransfer.getIntegratorFacilityId()).getName()%>:<%=demographicTransfer.getCaisiDemographicId()%>"/>
@@ -660,12 +661,12 @@
         <script language="JavaScript">
 
             function last() {
-                document.nextform.action = "../demographic/demographiccontrol.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "../demographic/demographiccontrol.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
@@ -674,7 +675,7 @@
         <a href="#" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
            class="rightButton top">Search</a>
         <div class="bottomBar" style="margin-bottom:10px; margin-top:10px;">
-            <form method="post" name="nextform" action="../demographic/demographiccontrol.jsp">
+            <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp">
                 <%
                     if (nLastPage >= 0) {
                 %>

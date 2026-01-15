@@ -49,8 +49,7 @@ import javax.persistence.PersistenceException;
 
 import ca.openosp.Misc;
 import ca.openosp.openo.utils.Utility;
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.Criteria;
 import org.hibernate.HibernateException;
@@ -1765,7 +1764,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
     /*
      * (non-Javadoc)
      *
-     * @see org.oscarehr.PMmodule.daos.DemographicDao#exists(java.lang.Integer)
+     * @see ca.openosp.openo.PMmodule.daos.DemographicDao#clientExists(java.lang.Integer)
      */
     @Override
     public boolean clientExists(Integer demographicNo) {
@@ -1855,13 +1854,11 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         if (bean.getFirstName() != null && bean.getFirstName().length() > 0) {
             firstName = bean.getFirstName();
-            // firstName = StringEscapeUtils.escapeSql(firstName);
             firstNameL = firstName + "%";
         }
 
         if (bean.getLastName() != null && bean.getLastName().length() > 0) {
             lastName = bean.getLastName();
-            // lastName = StringEscapeUtils.escapeSql(lastName);
             lastNameL = lastName + "%";
         }
 
@@ -1985,13 +1982,11 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         if (bean.getFirstName() != null && bean.getFirstName().length() > 0) {
             firstName = bean.getFirstName();
-            firstName = StringEscapeUtils.escapeSql(firstName);
             firstNameL = "%" + firstName + "%";
         }
 
         if (bean.getLastName() != null && bean.getLastName().length() > 0) {
             lastName = bean.getLastName();
-            lastName = StringEscapeUtils.escapeSql(lastName);
             lastNameL = "%" + lastName + "%";
         }
 

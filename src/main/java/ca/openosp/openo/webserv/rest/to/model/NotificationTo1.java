@@ -28,7 +28,8 @@ import java.util.Calendar;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @XmlRootElement(name = "notification")
 public class NotificationTo1 {
@@ -102,16 +103,16 @@ public class NotificationTo1 {
         return createdAtCalendar;
     }
 
-    public static NotificationTo1 fromJSON(JSONObject json) {
+    public static NotificationTo1 fromJSON(JsonNode json) {
         NotificationTo1 notification = new NotificationTo1();
 
-        notification.author = json.optString("author");
-        notification.body = json.optString("body");
-        notification.authorId = json.optString("createdBy");
-        notification.referenceURL = json.optString("referenceURL");
-        notification.summary = json.optString("summary");
-        notification.uuid = json.optString("uuid");
-        notification.createdAt = json.optString("createdAt");
+        notification.author = json.has("author") ? json.get("author").asText() : "";
+        notification.body = json.has("body") ? json.get("body").asText() : "";
+        notification.authorId = json.has("createdBy") ? json.get("createdBy").asText() : "";
+        notification.referenceURL = json.has("referenceURL") ? json.get("referenceURL").asText() : "";
+        notification.summary = json.has("summary") ? json.get("summary").asText() : "";
+        notification.uuid = json.has("uuid") ? json.get("uuid").asText() : "";
+        notification.createdAt = json.has("createdAt") ? json.get("createdAt").asText() : "";
         //"createdAt":"2016-01-24T23:29:46.381-05:00",
 
         return notification;

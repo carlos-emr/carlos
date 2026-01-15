@@ -35,11 +35,6 @@ document.addEventListener("DOMContentLoaded", function(){
 			})
 		}
 
-		/**
-		 *  Enable Are-you-sure dirty page detection.
-		 */
-		jQuery("form:first").areYouSure();
-
 	const isSuccessAndAutoclose = document.getElementById("isSuccess_Autoclose") &&
 		document.getElementById("isSuccess_Autoclose").value === 'true';
 	if (isSuccessAndAutoclose) {
@@ -59,6 +54,27 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
     jQuery.post(context + "/eform/logEformError.do", eform);
 }
 
+function getEForm() {
+	let ef = document.forms['saveEForm'];
+	if (!ef) {
+		ef = Array.prototype.find.call(
+			document.forms,
+			f => f.action && f.action.includes('addEForm.do')
+		);
+	}
+	return ef;
+}
+
+function submitEForm() {
+	const ef = getEForm();
+	if (!ef) {
+		showErrorAlert();
+		return false;
+	}
+	ef.submit();
+	return true;
+}
+
 	/**
 	 * Triggers the eForm save/submit function
 	 */
@@ -70,63 +86,48 @@ function remoteSave() {
 			ShowSpin(true);
 		});
 
-    moveSubject();
+		appendImageInputs();
 
-		if (typeof releaseDirtyFlag === "function") {
-			console.log("Releasing dirty window flag by releaseDirtyFlag function")
-			window["releaseDirtyFlag"]();
-		}
-
-    // don't need the dirty form notification if the form is being autosaved.
-    if (isFormDirty()) {
-        jQuery("form:first").trigger('reinitialize.areYouSure');
-    }
+		moveSubject();
 
 		if (typeof saveRTL === "function") {
-			console.log("Saving RTL or RTL template");
 			window["saveRTL"]();
 			document.RichTextLetter.submit();
 			return true;
 		}
 
 		if (document.getElementsByName("SubmitButton") && document.getElementsByName("SubmitButton")[0]) {
-			console.log("Saving by remote click of the SubmitButton");
 			try {
 				document.getElementsByName("SubmitButton")[0].click();
 				return true;
 			} catch (error) {
 				showErrorAlert();
-				console.log(error);
 			}
 		}
 
-		if(typeof submission === "function")
+		if(typeof releaseDirtyFlag === "function")
 		{
-			console.log("Executing submission method before submitting first form directly");
+			window["releaseDirtyFlag"]();
+		}
+
+		if (typeof submission === "function") {
 			try {
 				window["submission"]();
-				document.forms[0].submit();
-				return true;
-			} catch (error) {
+				return submitEForm();
+			} catch (e) {
 				showErrorAlert();
-				console.log(error);
 			}
 		}
 
-		try
-		{
-			console.log("Submitting first form in document directly");
-			document.forms[0].submit();
-			return true;
-		} catch (error) {
+		try {
+			return submitEForm();
+		} catch (e) {
 			showErrorAlert();
-			console.log(error);
 		}
 
 		HideSpin();
 	} catch (e) {
 		showErrorAlert();
-		console.error(e);
 	}
 
 	return false;
@@ -425,29 +426,22 @@ function remotePrint() {
         hailMary()
     }
 
-    /*
-     * Needs to be saved if this is
-     * a new eForm or it has been altered.
-     */
-    if (isFormDirty()) {
-        console.log("eForm needs to be saved.")
-        remoteSave();
-    }
-}
+		/*
+		 * Needs to be saved if this is
+		 * a new eForm or it has been altered.
+		 */
+		if(typeof needToConfirm !== 'undefined' && needToConfirm) {
+			console.log("eForm needs to be saved.")
+			remoteSave();
+		}
 
-/**
- *  detect if this form is dirty enough to be auto-saved.
- * @returns {boolean}
- */
-function isFormDirty() {
-    // new forms are always dirty
-    const formElement = jQuery("#newForm");
-    if (formElement && formElement.val() === "true") {
-        return true;
-    }
-
-    // if the form has be edited added to.
-    return jQuery('form:first').hasClass('dirty');
+		/*
+		 * for situations when the eForm does not contain dirty form
+		 * detection; save it everytime.
+		 */
+		else if(typeof needToConfirm === 'undefined') {
+			remoteSave();
+	}
 }
 
 function hailMary() {
@@ -807,27 +801,40 @@ function HideSpin() {
     }, 300);
 }
 
-/**
- * A counter hack for a hack.
- * This method moves the image SRC values into hidden place-holders in the Form element
- * A counter-measure to ensure images that are set by Javascript methods are captured
- * when the form is saved or rendered into a pdf.
- */
-jQuery(window).on('load', function () {
-    const imageTags = jQuery('img');
-    if (imageTags) {
-        imageTags.each(function () {
-            const id = jQuery(this).attr('id') || "";
-            const value = jQuery(this).attr('src') || "";
-            jQuery('<input>', {
-                id: Math.random().toString(36) + '-' + id,
-                name: 'openosp-image-link',
-                value: JSON.stringify({id: id, value: value}),
-                type: 'hidden'
-            }).appendTo("form[method='POST']");
-        })
-    }
-})
+	/**
+	 * A counter hack for a hack.
+	 * This method moves the image SRC values into hidden place-holders in the Form element
+	 * A counter-measure to ensure images that are set by Javascript methods are captured
+	 * when the form is saved or rendered into a pdf.
+	 */
+	function appendImageInputs() {
+		jQuery("form[method='POST'] img").each(function () {
+			const id = jQuery(this).attr('id');
+			const src = jQuery(this).attr('src') || "";
+
+			// Skip image if it doesn't have an ID
+			if (!id || id.trim() === "") {
+				return true;
+			}
+
+			const inputId = 'openosp-img-' + id;
+
+			// Remove any existing hidden input for this image
+			jQuery("input[type='hidden'][id='" + inputId + "']").remove();
+
+			// Add a fresh hidden input
+			jQuery('<input>', {
+				id: inputId,
+				name: 'openosp-image-link',
+				value: JSON.stringify({ id: id, value: src }),
+				type: 'hidden'
+			}).appendTo("form[method='POST']");
+		});
+	}
+
+	jQuery(window).on('load', function() {
+		appendImageInputs();
+	})
 
 	function handleEmailPrivilege() {
 		// Get the value of the element with ID 'hasEmailPrivilege'

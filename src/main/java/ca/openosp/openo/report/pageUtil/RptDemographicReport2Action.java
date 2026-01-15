@@ -59,12 +59,15 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
 
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        
+
         String query = form.getQuery();
         String[] select = form.getSelect();
         String studyId = form.getStudyId();
 
-        if (query.equals("Run Query")) {
+        // Always pass the form to the JSP for repopulating field values
+        request.setAttribute("formBean", form);
+
+        if ("Run Query".equals(query)) {
             MiscUtils.getLogger().debug("run query");
             RptDemographicQuery2Builder demoQ = new RptDemographicQuery2Builder();
             ArrayList searchedArray = demoQ.buildQuery(loggedInInfo, form);
@@ -72,14 +75,14 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
             request.setAttribute("searchedArray", searchedArray);
             request.setAttribute("selectArray", select);
             request.setAttribute("studyId", studyId);
-        } else if (query.equals("Save Query")) {
+        } else if ("Save Query".equals(query)) {
             RptDemographicQuery2Saver demoS = new RptDemographicQuery2Saver();
             demoS.saveQuery(form);
-        } else if (query.equals("Load Query")) {
+        } else if ("Load Query".equals(query)) {
             RptDemographicQuery2Loader demoL = new RptDemographicQuery2Loader();
             RptDemographicReport2Form dRF = demoL.queryLoader(form);
             request.setAttribute("formBean", dRF);
-        } else if (query.equals("Add to Study")) {
+        } else if ("Add to Study".equals(query)) {
             RptDemographicQuery2Builder demoQ = new RptDemographicQuery2Builder();
             ArrayList searchedArray = demoQ.buildQuery(loggedInInfo, form);
             request.setAttribute("searchedArray", searchedArray);
@@ -88,7 +91,7 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
             request.setAttribute("selectArray", select);
             request.setAttribute("studyId", studyId);
             return "addToStudy";
-        } else if (query.equals("Run Query And Save to Patient Set")) {
+        } else if ("Run Query And Save to Patient Set".equals(query)) {
             MiscUtils.getLogger().debug("run query and save to patient set");
             RptDemographicQuery2Builder demoQ = new RptDemographicQuery2Builder();
             ArrayList searchedArray = demoQ.buildQuery(loggedInInfo, form);

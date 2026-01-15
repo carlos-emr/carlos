@@ -36,6 +36,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
 <%@page import="ca.openosp.openo.documentManager.EDocUtil,ca.openosp.openo.documentManager.EDoc" %>
 <%@page import="ca.openosp.openo.util.UtilDateUtilities" %>
@@ -52,7 +53,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -378,7 +379,7 @@ Remote documents not supported
         }
 
         function DocAnnotation() {
-            popup(350, 500, '../annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=demographicID%>', 'anwin');
+            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=demographicID%>', 'anwin');
         }
 
         function DocEdit() {

@@ -24,11 +24,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.opensymphony.xwork2.ActionSupport;
+
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.inboxhub.inboxdata.LabDataController;
 import ca.openosp.openo.inboxhub.query.InboxhubQuery;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.lab.ca.on.LabResultData;
 import ca.openosp.openo.mds.data.CategoryData;
@@ -39,6 +42,8 @@ public class ManageInboxhub2Action extends ActionSupport {
     
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private InboxhubQuery query = new InboxhubQuery();
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     /**
      * Struts action execute function that is called by default
@@ -132,11 +137,13 @@ public class ManageInboxhub2Action extends ActionSupport {
         try {
             pageNum = Integer.parseInt(page);
         } catch (NumberFormatException e) {
+            logger.error("Setting default page number of: " + defaultPage + " due to an error parsing page parameter:", e);
             pageNum = defaultPage;
         }
         try {
             pageSizeNum = Integer.parseInt(pageSize);
         } catch (NumberFormatException e) {
+            logger.error("Setting default page size of: " + defaultPageSize + " due to an error parsing pageSize parameter:", e);
             pageSizeNum = defaultPageSize;
         }
 

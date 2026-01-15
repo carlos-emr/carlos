@@ -40,7 +40,7 @@ import java.util.Vector;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.DxresearchDAO;
 import ca.openosp.openo.commn.model.Dxresearch;
@@ -173,7 +173,7 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                         //String formattedDate = DateUtils.getDate(date,dateFormat,request.getLocale());
                         key = StringUtils.maxLenString(dsConsequence.getText(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES);
                         item.setLinkTitle(dsGuideline.getTitle());
-                        key = StringEscapeUtils.escapeJavaScript(key);
+                        key = StringEscapeUtils.escapeEcmaScript(key);
                         js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
                         javascript.append(js);
                         url += "return false;";

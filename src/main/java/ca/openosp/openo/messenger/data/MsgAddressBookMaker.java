@@ -56,7 +56,7 @@ import ca.openosp.openo.messenger.docxfer.util.MsgCommxml;
  * </ul>
  * </p>
  * 
- * <p>This is a modified version of oscar.comm.client.AddressBook adapted for the
+ * <p>This is a modified version of ca.openosp.openo.comm.client.AddressBook adapted for the
  * OpenO messaging system.</p>
  * 
  * @version 1.0

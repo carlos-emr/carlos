@@ -67,7 +67,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
         if (!validateForm()) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect("/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport.jsp");
+            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport.jsp");
             return NONE;
         }
 

@@ -665,11 +665,11 @@ public class HomelessPopulationReport extends AbstractModel<Integer> implements 
     }
     
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
-        fieldConsumer.storeObjectField(13 + HomelessPopulationReport.pcInheritedFieldCount, (Object)new Integer(((IntId)o).getId()));
+        fieldConsumer.storeObjectField(13 + HomelessPopulationReport.pcInheritedFieldCount, (Object)Integer.valueOf(((IntId)o).getId()));
     }
     
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
-        this.id = new Integer(((IntId)o).getId());
+        this.id = Integer.valueOf(((IntId)o).getId());
     }
     
     public Object pcNewObjectIdInstance(final Object o) {

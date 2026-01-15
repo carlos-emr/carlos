@@ -67,7 +67,7 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
                         MeasurementCSSLocation location = lDao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
                         if (location != null) {
                             addActionError(getText("error.oscarEncounter.Measurements.cannotDeleteStyleSheet", new String[]{location.getLocation()}));
-                            response.sendRedirect("/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp");
+                            response.sendRedirect(request.getContextPath() + "/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp");
                             return NONE;
                         }
 

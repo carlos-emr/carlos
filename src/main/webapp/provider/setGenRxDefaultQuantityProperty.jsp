@@ -29,7 +29,7 @@
 
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");
     String tite = (String) request.getAttribute("provider.title");
@@ -67,7 +67,7 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> <!--c:out value="${rxDefaultQuantityProperty.value}" /-->
-                <form styleId="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
                     <input type="hidden" name="method" value="<c:out value="${method}"/>">
                     <input type="text" id="numericFormField" name="rxDefaultQuantityProperty.value" value="<c:out value='${quantity.value}'/>" />
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">

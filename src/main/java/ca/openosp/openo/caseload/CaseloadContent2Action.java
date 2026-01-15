@@ -13,6 +13,7 @@ package ca.openosp.openo.caseload;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -21,10 +22,11 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import ca.openosp.openo.commn.dao.CaseloadDao;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -46,6 +48,9 @@ public class CaseloadContent2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         String mtd = request.getParameter("method");
@@ -136,11 +141,11 @@ public class CaseloadContent2Action extends ActionSupport {
 
         CaseloadDao caseloadDao = (CaseloadDao) SpringUtils.getBean(CaseloadDao.class);
         List<Integer> demoSearchResult = caseloadDao.getCaseloadDemographicSet(clSearchQuery, clSearchParams, clSortParams, caseloadCategory, sortAscending ? "ASC" : "DESC", caseloadPage, caseloadPageSize);
-        JSONArray data = generateCaseloadDataForDemographics(request, response, caseloadProv, demoSearchResult);
+        ArrayNode data = generateCaseloadDataForDemographics(request, response, caseloadProv, demoSearchResult);
 
 
         response.setContentType("text/x-json");
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("data", data);
 
         if (caseloadPage == 0) {
@@ -151,7 +156,7 @@ public class CaseloadContent2Action extends ActionSupport {
         LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request), "CaseloadContent2Action", "view caseload");
 
         try {
-            json.write(response.getWriter());
+            response.getWriter().write(json.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Couldn't get data for caseload", e);
         }
@@ -412,11 +417,11 @@ public class CaseloadContent2Action extends ActionSupport {
 
         CaseloadDao caseloadDao = (CaseloadDao) SpringUtils.getBean(CaseloadDao.class);
         List<Integer> demoSearchResult = caseloadDao.getCaseloadDemographicSet(clSearchQuery, clSearchParams, clSortParams, caseloadCategory, sortAscending ? "ASC" : "DESC", caseloadPage, caseloadPageSize);
-        JSONArray data = generateCaseloadDataForDemographics(request, response, caseloadProv, demoSearchResult);
+        ArrayNode data = generateCaseloadDataForDemographics(request, response, caseloadProv, demoSearchResult);
 
-        response.setContentType("text/x-json");
-        JSONObject json = new JSONObject();
-        json.put("data", data);
+        response.setContentType("application/json");
+        ObjectNode json = objectMapper.createObjectNode();
+        json.set("data", data);
 
         if (caseloadPage == 0) {
             Integer size = caseloadDao.getCaseloadDemographicSearchSize(clSearchQuery, clSearchParams);
@@ -424,7 +429,7 @@ public class CaseloadContent2Action extends ActionSupport {
         }
 
         try {
-            json.write(response.getWriter());
+            response.getWriter().write(json.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Couldn't get data for caseload", e);
         }
@@ -433,10 +438,10 @@ public class CaseloadContent2Action extends ActionSupport {
     }
 
 
-    private JSONArray generateCaseloadDataForDemographics(HttpServletRequest request, HttpServletResponse response, String caseloadProv, List<Integer> demoSearchResult) {
-        JSONArray entry;
+    private ArrayNode generateCaseloadDataForDemographics(HttpServletRequest request, HttpServletResponse response, String caseloadProv, List<Integer> demoSearchResult) {
+        ArrayNode entry;
         String buttons;
-        JSONArray data = new JSONArray();
+        ArrayNode data = objectMapper.createArrayNode();
 
         CaseloadDao caseloadDao = (CaseloadDao) SpringUtils.getBean(CaseloadDao.class);
 
@@ -477,7 +482,7 @@ public class CaseloadContent2Action extends ActionSupport {
         for (Integer result : demoSearchResult) {
 
             String demographic_no = result.toString();
-            entry = new JSONArray();
+            entry = objectMapper.createArrayNode();
             // name
             String demographicQuery = "cl_demographic_query";
             String[] demographicParam = new String[1];
@@ -486,7 +491,7 @@ public class CaseloadContent2Action extends ActionSupport {
 
             String clLastName = demographicResult.get(0).get("last_name").toString();
             String clFirstName = demographicResult.get(0).get("first_name").toString();
-            String clFullName = StringEscapeUtils.escapeJavaScript(clLastName + ", " + clFirstName).toUpperCase();
+            String clFullName = StringEscapeUtils.escapeEcmaScript(clLastName + ", " + clFirstName).toUpperCase();
             entry.add(clFullName);
 
             // add E button to string
@@ -499,44 +504,44 @@ public class CaseloadContent2Action extends ActionSupport {
                     } catch (UnsupportedEncodingException e) {
                         MiscUtils.getLogger().error("Couldn't encode string", e);
                     }
-                    String eURL = "../oscarEncounter/IncomingEncounter.do?providerNo=" + curUser_no + "&appointmentNo=0&demographicNo=" + demographic_no + "&curProviderNo=" + caseloadProv + "&reason=&encType=" + encType + "&userName=" + URLEncoder.encode(userfirstname + " " + userlastname) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + year + "-" + month + "-" + day + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=T" + "&apptProvider_no=" + caseloadProv + "&providerview=" + caseloadProv;
+                    String eURL = contextPath + "/oscarEncounter/IncomingEncounter.do?providerNo=" + curUser_no + "&appointmentNo=0&demographicNo=" + demographic_no + "&curProviderNo=" + caseloadProv + "&reason=&encType=" + encType + "&userName=" + URLEncoder.encode(userfirstname + " " + userlastname, StandardCharsets.UTF_8) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + year + "-" + month + "-" + day + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=T" + "&apptProvider_no=" + caseloadProv + "&providerview=" + caseloadProv;
                     buttons += "<a href='#' onClick=\"popupWithApptNo(710, 1024,'" + eURL + "', 'encounter');return false;\" title='Encounter'>E</a> ";
                 }
 
                 // add form links to string
                 if (hasPrivilege("_billing", roleName$)) {
-                    buttons += bShortcutForm ? "| <a href=# onClick='popupPage2( \"../form/forwardshortcutname.do?formname=" + formName + "&demographic_no=" + demographic_no + "\")' title='form'>" + formNameShort + "</a> " : "";
-                    buttons += bShortcutForm2 ? "| <a href=# onClick='popupPage2( \"../form/forwardshortcutname.do?formname=" + formName2 + "&demographic_no=" + demographic_no + "\")' title='form'>" + formName2Short + "</a> " : "";
+                    buttons += bShortcutForm ? "| <a href=# onClick='popupPage2( \"" + contextPath + "/form/forwardshortcutname.do?formname=" + formName + "&demographic_no=" + demographic_no + "\")' title='form'>" + formNameShort + "</a> " : "";
+                    buttons += bShortcutForm2 ? "| <a href=# onClick='popupPage2( \"" + contextPath + "/form/forwardshortcutname.do?formname=" + formName2 + "&demographic_no=" + demographic_no + "\")' title='form'>" + formName2Short + "</a> " : "";
                     buttons += (bShortcutIntakeForm) ? "| <a href='#' onClick='popupPage(700, 1024, \"formIntake.jsp?demographic_no=" + demographic_no + "\")'>In</a> " : "";
                 }
 
                 // add B button to string
                 if (hasPrivilege("_billing", roleName$)) {
                     if (OscarProperties.getInstance().isOntarioBillingRegion()) {
-                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'../billing.do?skipReload=true&billRegion=" + URLEncoder.encode(prov) + "&billForm=" + URLEncoder.encode(oscarProperties.getProperty("default_view")) + "&hotclick=&appointment_no=0&demographic_name=" + URLEncoder.encode(clLastName) + "%2C" + URLEncoder.encode(clFirstName) + "&demographic_no=" + demographic_no + "&providerview=1&user_no=" + curUser_no + "&apptProvider_no=none&appointment_date=" + year + "-" + month + "-" + day + "&start_time=00:00:00&bNewForm=1&status=t');return false;\" title='Billing'>B</a> ";
-                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'../billing/CA/ON/billinghistory.jsp?demographic_no=" + demographic_no + "&last_name=" + URLEncoder.encode(clLastName) + "&first_name=" + URLEncoder.encode(clFirstName) + "&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=10');return false;\" title='Billing'>BHx</a> ";
+                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'" + contextPath + "/billing.do?skipReload=true&billRegion=" + URLEncoder.encode(prov, StandardCharsets.UTF_8) + "&billForm=" + URLEncoder.encode(oscarProperties.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no=0&demographic_name=" + URLEncoder.encode(clLastName, StandardCharsets.UTF_8) + "%2C" + URLEncoder.encode(clFirstName, StandardCharsets.UTF_8) + "&demographic_no=" + demographic_no + "&providerview=1&user_no=" + curUser_no + "&apptProvider_no=none&appointment_date=" + year + "-" + month + "-" + day + "&start_time=00:00:00&bNewForm=1&status=t');return false;\" title='Billing'>B</a> ";
+                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'" + contextPath + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + demographic_no + "&last_name=" + URLEncoder.encode(clLastName, StandardCharsets.UTF_8) + "&first_name=" + URLEncoder.encode(clFirstName, StandardCharsets.UTF_8) + "&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=10');return false;\" title='Billing'>BHx</a> ";
                     }
                     if (OscarProperties.getInstance().isBritishColumbiaBillingRegion()) {
-                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'../billing.do?billRegion=" + URLEncoder.encode(prov) + "&billForm=" + URLEncoder.encode(oscarProperties.getProperty("default_view")) + "&hotclick=&appointment_no=0&demographic_name=" + URLEncoder.encode(clLastName) + "%2C" + URLEncoder.encode(clFirstName) + "&demographic_no=" + demographic_no + "&providerview=" + curUser_no + "&user_no=" + curUser_no + "&apptProvider_no=none&appointment_date=" + year + "-" + month + "-" + day + "&start_time=00:00:00&bNewForm=1&status=t');return false;\" title='Billing'>B</a> ";
-                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'../billing/CA/BC/billStatus.jsp?lastName=" + URLEncoder.encode(clLastName) + "&firstName=" + URLEncoder.encode(clFirstName) + "&filterPatient=true&demographicNo=" + demographic_no + "');return false;\" title='Billing'>BHx</a> ";
+                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'" + contextPath + "/billing.do?billRegion=" + URLEncoder.encode(prov, StandardCharsets.UTF_8) + "&billForm=" + URLEncoder.encode(oscarProperties.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no=0&demographic_name=" + URLEncoder.encode(clLastName, StandardCharsets.UTF_8) + "%2C" + URLEncoder.encode(clFirstName, StandardCharsets.UTF_8) + "&demographic_no=" + demographic_no + "&providerview=" + curUser_no + "&user_no=" + curUser_no + "&apptProvider_no=none&appointment_date=" + year + "-" + month + "-" + day + "&start_time=00:00:00&bNewForm=1&status=t');return false;\" title='Billing'>B</a> ";
+                        buttons += "| <a href='#' onClick=\"popupPage(700,1000,'" + contextPath + "/billing/CA/BC/billStatus.jsp?lastName=" + URLEncoder.encode(clLastName, StandardCharsets.UTF_8) + "&firstName=" + URLEncoder.encode(clFirstName, StandardCharsets.UTF_8) + "&filterPatient=true&demographicNo=" + demographic_no + "');return false;\" title='Billing'>BHx</a> ";
                     }
                 }
 
                 // add M button to string
                 if (hasPrivilege("_masterLink", roleName$)) {
-                    buttons += "| <a href='#' onClick=\"popupPage(700,1000,'../demographic/demographiccontrol.jsp?demographic_no=" + demographic_no + "&displaymode=edit&dboperation=search_detail');return false;\" title='Master File'>M</a> ";
+                    buttons += "| <a href='#' onClick=\"popupPage(700,1000,'" + contextPath + "/demographic/demographiccontrol.jsp?demographic_no=" + demographic_no + "&displaymode=edit&dboperation=search_detail');return false;\" title='Master File'>M</a> ";
                 }
 
                 // add Rx button to string
                 if (isModuleLoaded(request, "TORONTO_RFQ", true) && hasPrivilege("_appointment.doctorLink", roleName$)) {
-                    buttons += "| <a href='#' onClick=\"popupOscarRx(700,1027,'../oscarRx/choosePatient.do?providerNo=" + curUser_no + "&demographicNo=" + demographic_no + "');return false;\">Rx</a> ";
+                    buttons += "| <a href='#' onClick=\"popupOscarRx(700,1027,'" + contextPath + "/oscarRx/choosePatient.do?providerNo=" + curUser_no + "&demographicNo=" + demographic_no + "');return false;\">Rx</a> ";
                 }
 
                 // add Tickler button to string
-                buttons += "| <a href='#' onclick=\"popupPage('700', '1000', '../tickler/ticklerAdd.jsp?name=" + URLEncoder.encode(clLastName) + "%2C" + URLEncoder.encode(clFirstName) + "&chart_no=&bFirstDisp=false&demographic_no=" + demographic_no + "&messageID=null&doctor_no=" + curUser_no + "'); return false;\">T</a> ";
+                buttons += "| <a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/tickler/ticklerAdd.jsp?name=" + URLEncoder.encode(clLastName, StandardCharsets.UTF_8) + "%2C" + URLEncoder.encode(clFirstName, StandardCharsets.UTF_8) + "&chart_no=&bFirstDisp=false&demographic_no=" + demographic_no + "&messageID=null&doctor_no=" + curUser_no + "'); return false;\">T</a> ";
 
                 // add Msg button to string
-                buttons += "| <a href='#' onclick=\"popupPage('700', '1000', '../messenger/SendDemoMessage.do?demographic_no=" + demographic_no + "'); return false;\">Msg</a> ";
+                buttons += "| <a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/messenger/SendDemoMessage.do?demographic_no=" + demographic_no + "'); return false;\">Msg</a> ";
 
                 entry.add(buttons);
             }
@@ -565,7 +570,7 @@ public class CaseloadContent2Action extends ActionSupport {
                     String clLappt = lapptResult.get(0).get("max(appointment_date)").toString();
 
 
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + demographic_no + "&last_name=" + URLEncoder.encode(clLastName) + "&first_name=" + URLEncoder.encode(clFirstName) + "&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25'); return false;\">" + clLappt + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + demographic_no + "&last_name=" + URLEncoder.encode(clLastName, StandardCharsets.UTF_8) + "&first_name=" + URLEncoder.encode(clFirstName, StandardCharsets.UTF_8) + "&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25'); return false;\">" + clLappt + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -577,7 +582,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 List<Map<String, Object>> napptResult = caseloadDao.getCaseloadDemographicData(napptQuery, demographicParam);
                 if (!napptResult.isEmpty() && napptResult.get(0).get("min(appointment_date)") != null && !napptResult.get(0).get("min(appointment_date)").toString().equals("")) {
                     String clNappt = napptResult.get(0).get("min(appointment_date)").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + demographic_no + "&last_name=" + URLEncoder.encode(clLastName) + "&first_name=" + URLEncoder.encode(clFirstName) + "&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25'); return false;\">" + clNappt + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + demographic_no + "&last_name=" + URLEncoder.encode(clLastName, StandardCharsets.UTF_8) + "&first_name=" + URLEncoder.encode(clFirstName, StandardCharsets.UTF_8) + "&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25'); return false;\">" + clNappt + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -606,7 +611,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 if (!newLabResult.isEmpty() && newLabResult.get(0).get("count(*)") != null && !newLabResult.get(0).get("count(*)").toString().equals("") && !newLabResult.get(0).get("count(*)").toString().equals("0")) {
                     String clNewLab = newLabResult.get(0).get("count(*)").toString();
 
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=" + curUser_no + "&selectedCategory=CATEGORY_PATIENT_SUB&selectedCategoryPatient=" + demographic_no + "&selectedCategoryType=CATEGORY_TYPE_HL7'); return false;\">" + clNewLab + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=" + curUser_no + "&selectedCategory=CATEGORY_PATIENT_SUB&selectedCategoryPatient=" + demographic_no + "&selectedCategoryType=CATEGORY_TYPE_HL7'); return false;\">" + clNewLab + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -618,7 +623,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 List<Map<String, Object>> newDocResult = caseloadDao.getCaseloadDemographicData(newDocQuery, userDemoParam);
                 if (!newDocResult.isEmpty() && newDocResult.get(0).get("count(*)") != null && !newDocResult.get(0).get("count(*)").toString().equals("") && !newDocResult.get(0).get("count(*)").toString().equals("0")) {
                     String clNewDoc = newDocResult.get(0).get("count(*)").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=" + curUser_no + "&selectedCategory=CATEGORY_PATIENT_SUB&selectedCategoryPatient=" + demographic_no + "&selectedCategoryType=CATEGORY_TYPE_DOC'); return false;\">" + clNewDoc + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=" + curUser_no + "&selectedCategory=CATEGORY_PATIENT_SUB&selectedCategoryPatient=" + demographic_no + "&selectedCategoryType=CATEGORY_TYPE_DOC'); return false;\">" + clNewDoc + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -642,7 +647,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 List<Map<String, Object>> newMsgResult = caseloadDao.getCaseloadDemographicData(newMsgQuery, demographicParam);
                 if (!newMsgResult.isEmpty() && newMsgResult.get(0).get("count(*)") != null && !newMsgResult.get(0).get("count(*)").toString().equals("") && !newMsgResult.get(0).get("count(*)").toString().equals("0")) {
                     String clNewMsg = newMsgResult.get(0).get("count(*)").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=" + demographic_no + "&providerNo=" + curUser_no + "&userName=" + URLEncoder.encode(userfirstname + " " + userlastname) + "'); return false;\">" + clNewMsg + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=" + demographic_no + "&providerNo=" + curUser_no + "&userName=" + URLEncoder.encode(userfirstname + " " + userlastname, StandardCharsets.UTF_8) + "'); return false;\">" + clNewMsg + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -660,7 +665,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clBmi = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=BMI'); return false;\">" + clBmi + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=BMI'); return false;\">" + clBmi + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -672,7 +677,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clBp = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=BP'); return false;\">" + clBp + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=BP'); return false;\">" + clBp + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -684,7 +689,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clWt = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=WT'); return false;\">" + clWt + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=WT'); return false;\">" + clWt + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -696,7 +701,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clSmk = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=SMK'); return false;\">" + clSmk + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=SMK'); return false;\">" + clSmk + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -708,7 +713,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clA1c = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=A1C'); return false;\">" + clA1c + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=A1C'); return false;\">" + clA1c + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -720,7 +725,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clAcr = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=ACR'); return false;\">" + clAcr + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=ACR'); return false;\">" + clAcr + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -732,7 +737,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clScr = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=SCR'); return false;\">" + clScr + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=SCR'); return false;\">" + clScr + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -744,7 +749,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clLdl = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=LDL'); return false;\">" + clLdl + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=LDL'); return false;\">" + clLdl + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -756,7 +761,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clHdl = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=HDL'); return false;\">" + clHdl + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=HDL'); return false;\">" + clHdl + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -768,7 +773,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clTchd = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=TCHD'); return false;\">" + clTchd + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=TCHD'); return false;\">" + clTchd + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -780,7 +785,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clEgfr = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=EGFR'); return false;\">" + clEgfr + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=EGFR'); return false;\">" + clEgfr + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }
@@ -792,7 +797,7 @@ public class CaseloadContent2Action extends ActionSupport {
                 msmtResult = caseloadDao.getCaseloadDemographicData(msmtQuery, msmtParam);
                 if (!msmtResult.isEmpty() && msmtResult.get(0).get("dataField") != null && !msmtResult.get(0).get("dataField").toString().equals("")) {
                     String clEyee = msmtResult.get(0).get("dataField").toString();
-                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '../oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=EYEE'); return false;\">" + clEyee + "</a>");
+                    entry.add("<a href='#' onclick=\"popupPage('700', '1000', '" + contextPath + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?demographicNo=" + demographic_no + "&type=EYEE'); return false;\">" + clEyee + "</a>");
                 } else {
                     entry.add("&nbsp;");
                 }

@@ -433,21 +433,52 @@ public class CategoryData {
     }
 
     public int getLabCountForDemographic(String demographicNo) throws SQLException {
-        String sql = " SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(1) as count "
-                + " FROM patientLabRouting cd,  demographic d, providerLabRouting plr "
-                + " WHERE   d.demographic_no = " + demographicNo
-                + " 	AND cd.demographic_no = d.demographic_no "
-                + " 	AND cd.lab_no = plr.lab_no "
-                + " 	AND plr.lab_type = 'HL7' "
-                + " 	AND cd.lab_type = 'HL7' "
-                + " 	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = '" + status + "' ")
-                + (providerSearch ? "AND plr.provider_no = '" + searchProviderNo + "' " : "")
-                + " GROUP BY demographic_no ";
-
+        if (demographicNo == null || demographicNo.trim().isEmpty()) {
+            throw new IllegalArgumentException("demographicNo cannot be null or empty");
+        }
+    
+        // Build SQL with placeholders
+        StringBuilder sql = new StringBuilder();
+        sql.append(" SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(1) as count ");
+        sql.append(" FROM patientLabRouting cd, demographic d, providerLabRouting plr ");
+        sql.append(" WHERE d.demographic_no = ? ");
+        sql.append(" AND cd.demographic_no = d.demographic_no ");
+        sql.append(" AND cd.lab_no = plr.lab_no ");
+        sql.append(" AND plr.lab_type = 'HL7' ");
+        sql.append(" AND cd.lab_type = 'HL7' ");
+        
+        if ("".equals(status)) {
+            sql.append(" AND plr.status IS NOT NULL ");
+        } else {
+            sql.append(" AND plr.status = ? ");
+        }
+        
+        if (providerSearch) {
+            sql.append(" AND plr.provider_no = ? ");
+        }
+        
+        sql.append(" GROUP BY demographic_no ");
+        
         Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-        PreparedStatement ps = c.prepareStatement(sql);
-        ResultSet rs = ps.executeQuery(sql);
-        return (rs.next() ? rs.getInt("count") : 0);
+        
+        // Try-with-resources automatically closes resources
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            
+            int paramIndex = 1;
+            ps.setString(paramIndex++, demographicNo);
+            
+            if (!"".equals(status)) {
+                ps.setString(paramIndex++, status);
+            }
+            
+            if (providerSearch) {
+                ps.setString(paramIndex++, searchProviderNo);
+            }
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                return (rs.next() ? rs.getInt("count") : 0);
+            }
+        }
     }
 
     /*

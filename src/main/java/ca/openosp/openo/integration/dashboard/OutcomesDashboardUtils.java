@@ -59,11 +59,13 @@ import ca.openosp.openo.utility.SpringUtils;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.OscarProperties;
 
 public class OutcomesDashboardUtils {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private static Logger logger = MiscUtils.getLogger();
 
@@ -140,14 +142,14 @@ public class OutcomesDashboardUtils {
         metricSet.setName(metricSetName);
         metricSet.setDate(formatter.format(new Date()));
 
-        JSONObject plots = JSONObject.fromObject(indicatorBean.getOriginalJsonPlots());
+        ObjectNode plots = (ObjectNode) objectMapper.readTree(indicatorBean.getOriginalJsonPlots());
 
-        JSONArray arr = plots.getJSONArray("results");
+        ArrayNode arr = (ArrayNode) plots.get("results");
 
         for (int i = 0; i < arr.size(); i++) {
-            JSONObject obj = (JSONObject) arr.get(i);
-            String name = (String) obj.names().get(0);
-            int value = obj.getInt(name);
+            ObjectNode obj = (ObjectNode) arr.get(i);
+            String name = obj.fieldNames().next();
+            int value = obj.get(name).asInt();
 
             //map name
             if (mappings.get(name) != null) {
@@ -157,10 +159,10 @@ public class OutcomesDashboardUtils {
             metricSet.getMetricData().add(createMetricData(metricDataId, name, value));
         }
 
-        JSONObject data = new JSONObject();
-        data.put("clinic", clinic);
-        data.put("metricOwner", metricOwner);
-        data.put("metricSet", metricSet);
+        ObjectNode data = objectMapper.createObjectNode();
+        data.set("clinic", objectMapper.valueToTree(clinic));
+        data.set("metricOwner", objectMapper.valueToTree(metricOwner));
+        data.set("metricSet", objectMapper.valueToTree(metricSet));
 
         List<NameValuePair> urlParameters = new ArrayList<NameValuePair>();
         urlParameters.add(new BasicNameValuePair("version", "1.1"));

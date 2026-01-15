@@ -6,7 +6,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.email" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.email");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.email");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -238,7 +238,7 @@
     </script>
 
 <body>
-<jsp:include page="../images/spinner.jsp" flush="true"/>
+<jsp:include page="/images/spinner.jsp" flush="true"/>
 
 <div id="bodyrow" class="container-fluid">
     <div id="bodycolumn" class="col-sm-12">

@@ -78,6 +78,12 @@
 	<bean id="authenticationInWSS4JInterceptor" class="ca.openosp.openo.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
 	<bean id="oscarUsernameTokenValidator" class="ca.openosp.openo.webserv.OscarUsernameTokenValidator" autowire="byType" />
 
+	<!-- HTTP policy for lab upload service to handle long-running batch operations -->
+	<bean id="labUploadHttpServerPolicy" class="org.apache.cxf.transports.http.configuration.HTTPServerPolicy">
+		<!-- 5 minute timeout for processing multiple lab results in a single upload -->
+		<property name="receiveTimeout" value="300000"/>
+	</bean>
+
 	<!-- www service endpoints -->
 	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService"/>		
 	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />	
@@ -152,6 +158,9 @@
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
+		<jaxws:properties>
+			<entry key="org.apache.cxf.transports.http.configuration.HTTPServerPolicy" value-ref="labUploadHttpServerPolicy"/>
+		</jaxws:properties>
 	</jaxws:endpoint>	
 	
 	<context:component-scan base-package="ca.openosp.openo.webserv.rest"/>

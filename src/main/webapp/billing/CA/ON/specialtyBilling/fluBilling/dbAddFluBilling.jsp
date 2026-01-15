@@ -117,7 +117,7 @@
         }
 
         if (request.getParameter("goPrev") != null && request.getParameter("goPrev").equals("goPrev") && billSaved) {
-            response.sendRedirect("../../../../../oscarPrevention/AddPreventionData.jsp?prevention=Flu&demographic_no=" + demoNo);
+            response.sendRedirect(request.getContextPath() + "/oscarPrevention/AddPreventionData.jsp?prevention=Flu&demographic_no=" + demoNo);
         }
     }
 %>

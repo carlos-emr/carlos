@@ -136,17 +136,18 @@ public class EmailManager {
 
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object (_email)");
         }
 
+        Date newTimestamp = (!emailStatus.equals(EmailStatus.RESOLVED)) ? new Date() : emailLog.getTimestamp();
+
+        emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
+
+        // Update object in memory so caller still has the right values
         emailLog.setStatus(emailStatus);
-        if (errorMessage != null) {
-            emailLog.setErrorMessage(errorMessage);
-        }
-        if (!emailStatus.equals(EmailStatus.RESOLVED)) {
-            emailLog.setTimestamp(new Date());
-        }
-        emailLogDao.merge(emailLog);
+        emailLog.setErrorMessage(errorMessage);
+        emailLog.setTimestamp(newTimestamp);
+
         return emailLog;
     }
 

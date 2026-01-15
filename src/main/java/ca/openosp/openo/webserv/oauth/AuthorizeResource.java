@@ -95,7 +95,7 @@ public class AuthorizeResource {
         rd.forward(request, response); // response committed by forward
     }
 
-    /** POST /ws/oauth/authorize — approve & redirect (or OOB) */
+    /** POST /ws/oauth/authorize — approve and redirect (or OOB) */
     @POST
     @Path("/authorize")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)

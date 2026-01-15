@@ -126,6 +126,6 @@ public class TicklerComment extends AbstractModel<Integer> {
     }
 
     public boolean isUpdateDateToday() {
-        return org.apache.commons.lang.time.DateUtils.isSameDay(updateDate, new Date());
+        return org.apache.commons.lang3.time.DateUtils.isSameDay(updateDate, new Date());
     }
 }

@@ -5,7 +5,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -334,7 +334,7 @@
 
 //            document.forms[0].action = "<%= request.getContextPath() %>/form/createpdf?__title=Ovulation+Form&__cfgfile=ovulationPrintCfgPg1&__template=bcar1";
                 document.forms[0].action = "<%= request.getContextPath() %>/form/createpdf?__title=Ovulation+Form&__cfgfile=ovulationPrintCfgPg1&__cfgfile=ovulationPrintCfgPg2&__template=OvulationForm_95";
-//			  document.forms[0].action = "../form/formGrowthChartPrint.jsp?print=1&__title=GrowthCharts&__cfgfile=<//%=bGirl?"growthChartGirlPrint":"growthChartBoyPrint"%>&__cfgGraphicFile=<//%=bGirl?"growthChartGirlGraphic":"growthChartBoyGraphic"%>&__cfgGraphicFile=<//%=bGirl?"growthChartGirlGraphic2":"growthChartBoyGraphic2"%>&__template=<//%=bGirl?"growthChartGirlStatureWeight":"growthChartBoyStatureWeight"%>";
+//			  document.forms[0].action = "<%= request.getContextPath() %>/form/formGrowthChartPrint.jsp?print=1&__title=GrowthCharts&__cfgfile=<//%=bGirl?"growthChartGirlPrint":"growthChartBoyPrint"%>&__cfgGraphicFile=<//%=bGirl?"growthChartGirlGraphic":"growthChartBoyGraphic"%>&__cfgGraphicFile=<//%=bGirl?"growthChartGirlGraphic2":"growthChartBoyGraphic2"%>&__template=<//%=bGirl?"growthChartGirlStatureWeight":"growthChartBoyStatureWeight"%>";
 
 
 //alert("formovulation.jsp/onPrint(): action = " + document.forms[0].action);

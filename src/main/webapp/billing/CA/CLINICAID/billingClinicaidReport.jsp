@@ -155,7 +155,7 @@
 
             prop.setProperty("DESCRIPTION", reason);
 
-            String clinicaid_link = "../../billing/billingClinicAid.jsp?" +
+            String clinicaid_link = request.getContextPath() + "/billing/billingClinicAid.jsp?" +
                     "billing_action=create_invoice&" +
                     "demographic_no=" + demographic_no + "&service_start_date=" +
                     URLEncoder.encode(service_start_date, "UTF-8") +
@@ -177,7 +177,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="ca.openosp.openo.commn.model.Site" %>
 <%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -240,7 +240,7 @@
                     href="billingReportCenter.jsp">OSCARbilling</a></font></b></p>
         </td>
         <td align="right"><a href=#
-                             onClick="popupPage(700,720,'../../../oscarReport/manageProvider.jsp?action=billingreport')">
+                             onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">
             <font size="1">Manage Provider List </font></a></td>
     </tr>
 </table>

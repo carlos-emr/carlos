@@ -47,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -261,22 +262,22 @@ public class IHAPOIHandler implements MessageHandler {
             documentDir = System.getProperty("java.io.tmpdir");
         }
         
-        // Normalize the base directory path
-        Path basePath = Paths.get(documentDir).toAbsolutePath().normalize();
-        
-        // Create File object and get its canonical path
+        // Create File object
         File file = new File(fileName);
-        Path filePath = file.toPath().toAbsolutePath().normalize();
-        
-        // Check if the file is within the allowed base directory or its subdirectories
-        // Allow files that are already in the document directory or temp directory
-        if (!filePath.startsWith(basePath)) {
-            // Also check if it's in the temp directory (for temporary uploads)
-            Path tempPath = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
-            if (!filePath.startsWith(tempPath)) {
-                logger.error("Path traversal attempt detected: " + fileName);
-                throw new IllegalArgumentException("Invalid file path - access denied");
-            }
+        File baseDirFile = new File(documentDir);
+
+        // Check if the file is within the allowed base directory or temp directory
+        boolean isValidPath = false;
+        try {
+            PathValidationUtils.validateExistingPath(file, baseDirFile);
+            isValidPath = true;
+        } catch (SecurityException e) {
+            // Try allowed temp directories as fallback
+            isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
+        }
+        if (!isValidPath) {
+            logger.error("Path traversal attempt detected: " + fileName);
+            throw new IllegalArgumentException("Invalid file path - access denied");
         }
         
         // Ensure the file exists and is readable

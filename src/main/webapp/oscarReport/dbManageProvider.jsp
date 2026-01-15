@@ -80,7 +80,7 @@
 
         for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
             temp = e.nextElement().toString();
-            if (temp.indexOf("providers") == -1) continue;
+            if (temp.indexOf("provider") == -1) continue;
 
 
             provider_no = request.getParameter(temp).substring(0, request.getParameter(temp).indexOf("|"));

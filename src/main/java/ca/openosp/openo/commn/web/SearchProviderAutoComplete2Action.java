@@ -32,8 +32,8 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import ca.openosp.openo.utility.SpringUtils;
 
@@ -49,6 +49,9 @@ import org.apache.struts2.ServletActionContext;
 public class SearchProviderAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
         if ("labSearch".equals(request.getParameter("method"))) {
@@ -67,8 +70,8 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         d.put("results", provList);
 
         response.setContentType("text/x-json");
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(d);
-        jsonArray.write(response.getWriter());
+        ObjectNode jsonArray = objectMapper.valueToTree(d);
+        response.getWriter().write(jsonArray.toString());
         return null;
 
     }

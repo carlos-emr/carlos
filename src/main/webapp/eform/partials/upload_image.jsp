@@ -25,10 +25,12 @@
 --%>
 <!DOCTYPE html>
 <%@ page import="ca.openosp.openo.eform.data.*, ca.openosp.OscarProperties, ca.openosp.openo.eform.*, java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="s" uri="/struts-tags" %>
 
 <html>
 
@@ -80,9 +82,22 @@
         <div class="alert alert-success">
             <button type="button" class="close" data-dismiss="alert">&times;</button>
             <strong>Success!</strong> Your image was uploaded.
+            <c:if test="${ not empty sanitizedFileName }">
+                <br/>Saved as: <strong>${Encode.formHtmlContent(sanitizedFileName)}</strong>
+            </c:if>
         </div>
         <script>
-            window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+            <c:choose>
+                <c:when test="${ not empty sanitizedFileName }">
+                    // Delay redirect so user can see the sanitized filename
+                    setTimeout(function() {
+                        window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                    }, 2500);
+                </c:when>
+                <c:otherwise>
+                    window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                </c:otherwise>
+            </c:choose>
         </script>
     </c:if>
 
@@ -90,18 +105,16 @@
         <div class="well">
             <form action="${pageContext.request.contextPath}/eform/imageUpload.do" enctype="multipart/form-data" method="post">
 
-                <div class="text-error message row-fluid"><% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %></div>
+                <s:if test="hasActionErrors()">
+                    <div class="alert alert-danger">
+                        <s:actionerror/>
+                    </div>
+                </s:if>
+                <s:if test="hasActionMessages()">
+                    <div class="alert alert-info">
+                        <s:actionmessage/>
+                    </div>
+                </s:if>
                 <div class="control-group">
                     <div class="controls">
                         <label class="control-label" for="zippedForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgFileName"/></label>

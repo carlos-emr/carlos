@@ -31,22 +31,72 @@ import java.util.Properties;
 
 import javax.servlet.http.HttpServletRequest;
 
-public class SxmlMisc extends Properties {
+import org.apache.log4j.Logger;
 
-    //get the xml string
+import ca.openosp.openo.caisi_integrator.util.MiscUtils;
+
+/**
+ * Simple XML manipulation utility class for working with XML-like data structures.
+ * 
+ * <p>This class provides helper methods for:</p>
+ * <ul>
+ *   <li>Creating XML strings from HTTP request parameters</li>
+ *   <li>Extracting content between XML tags</li>
+ *   <li>Replacing or adding XML tag content</li>
+ *   <li>HTML entity encoding for XML safety</li>
+ *   <li>String replacement operations</li>
+ * </ul>
+ * 
+ * <p><strong>Note:</strong> This is a legacy utility class. For robust XML processing,
+ * consider using standard Java XML APIs like DOM, SAX, or StAX, or libraries like
+ * JDOM or XOM.</p>
+ */
+public class SxmlMisc extends Properties {
+    private static final Logger log = MiscUtils.getLogger();
+
+    /**
+     * Creates an XML string from HTTP request parameters that start with a specified prefix.
+     * Parameter names must be alphanumeric with underscores or hyphens only.
+     * Empty parameter values are skipped.
+     * 
+     * <p>Example: If request has parameters "field_name=John" and "field_age=25",
+     * calling with prefix "field_" produces:</p>
+     * <pre>{@code <field_name>John</field_name><field_age>25</field_age>}</pre>
+     * 
+     * @param req the HTTP servlet request containing parameters
+     * @param strPrefix the prefix to filter parameters by
+     * @return XML string containing the filtered parameters, with HTML content escaped
+     */
     public static String createXmlDataString(HttpServletRequest req, String strPrefix) {
         String temp = null, content = "";//default is not null
         StringBuilder sbContent = new StringBuilder("");
         for (Enumeration e = req.getParameterNames(); e.hasMoreElements(); ) {
             temp = e.nextElement().toString();
             if (!temp.startsWith(strPrefix) || req.getParameter(temp).equals("")) continue;
+
+            // Validate element name - only allow alphanumeric, underscore, hyphen
+            if (!temp.matches("^[a-zA-Z0-9_-]+$")) {
+                log.error("Invalid XML element name: " + temp);
+                continue; // Skip invalid parameter names
+            }
+
             sbContent = sbContent.append("<").append(temp).append(">").append(SxmlMisc.replaceHTMLContent(req.getParameter(temp))).append("</").append(temp).append(">");    //Content+="<" +temp+ ">" +request.getParameter(temp)+ "</" +temp+ ">";
         }
         content = sbContent.toString();
         return content;
     }
 
-    //get a string
+    /**
+     * Creates a data string from indexed HTTP request parameters.
+     * Parameters must have the format: prefix + numeric_index (e.g., "data0", "data1").
+     * The result is a string where each character corresponds to the parameter at that index.
+     * 
+     * @param req the HTTP servlet request containing indexed parameters
+     * @param strPrefix the prefix for parameter names (e.g., "data" for "data0", "data1", etc.)
+     * @param defaultValue the default character to use for empty or space-only parameters
+     * @param maxsize the maximum size of the result array
+     * @return a string constructed from the indexed parameter values
+     */
     public static String createDataString(HttpServletRequest req, String strPrefix, String defaultValue, int maxsize) {
         String temp = null;//default is not null
         //StringBuilder sbContent=new StringBuilder("");
@@ -66,14 +116,28 @@ public class SxmlMisc extends Properties {
         return new String(abyte, 0, n);
     }
 
-    //parse the xml string and store their properties
+    /**
+     * Parses an XML string and stores the tag-value pairs as properties.
+     * 
+     * <p><strong>Note:</strong> This method appears to be incomplete in the current implementation.</p>
+     * 
+     * @param strXml the XML string to parse
+     */
     public void setXmlStringProp(String strXml) {
         //parse strXml
         String name = "", val = null;
         setProperty(name.toUpperCase(), val);
     }
 
-    //get the value between the tags from a string
+    /**
+     * Extracts the content between specified start and end tags from a string.
+     * Returns empty string if either tag is not found.
+     * 
+     * @param str the string to search in
+     * @param sTag the start tag (including angle brackets, e.g., "&lt;name&gt;")
+     * @param eTag the end tag (including angle brackets, e.g., "&lt;/name&gt;")
+     * @return the content between the tags, or empty string if tags not found or str is null
+     */
     public static String getXmlContent(String str, String sTag, String eTag) {
         if (str == null) return null;
 
@@ -86,17 +150,39 @@ public class SxmlMisc extends Properties {
         return val;
     }
 
+    /**
+     * Extracts the content for a specified XML tag name.
+     * Convenience method that automatically adds angle brackets to the tag name.
+     * 
+     * @param str the string to search in
+     * @param sTagValue the tag name without angle brackets (e.g., "name")
+     * @return the content between the tags, or empty string if not found
+     */
     public static String getXmlContent(String str, String sTagValue) {
         return (getXmlContent(str, "<" + sTagValue + ">", "</" + sTagValue + ">"));
     }
 
-    //change the input string from null to "", or non-null to non-null
+    /**
+     * Converts a potentially null string to an empty string for safe display.
+     * 
+     * @param str the string to check
+     * @return empty string if str is null, otherwise the original string
+     */
     public static String getReadableString(String str) {
         String val = str == null ? "" : str;
         return val;
     }
 
-    //replace the new value between the tags from a string
+    /**
+     * Replaces the content between specified XML tags with a new value.
+     * If either tag is not found, returns the original string unchanged.
+     * 
+     * @param str the original string
+     * @param sTag the start tag (including angle brackets)
+     * @param eTag the end tag (including angle brackets)
+     * @param newVal the new value to insert between the tags
+     * @return the string with replaced content, or original string if tags not found
+     */
     public static String replaceXmlContent(String str, String sTag, String eTag, String newVal) {
         int s = str.indexOf(sTag);
         int e = str.indexOf(eTag);
@@ -107,7 +193,15 @@ public class SxmlMisc extends Properties {
         return newStr;
     }
 
-    //replace or add the new value between the tags from a string
+    /**
+     * Replaces the content between XML tags, or adds the tags with content if they don't exist.
+     * 
+     * @param str the original string
+     * @param sTag the start tag (including angle brackets)
+     * @param eTag the end tag (including angle brackets)
+     * @param newVal the value to insert between the tags
+     * @return the string with replaced/added content
+     */
     public static String replaceOrAddXmlContent(String str, String sTag, String eTag, String newVal) {
         int s = str.indexOf(sTag);
         int e = str.indexOf(eTag);
@@ -120,7 +214,14 @@ public class SxmlMisc extends Properties {
         return newStr;
     }
 
-    //replace the new value of the old value
+    /**
+     * Replaces all occurrences of a substring with a new substring.
+     * 
+     * @param str the original string
+     * @param oldstr the substring to replace
+     * @param newstr the replacement substring
+     * @return the string with all replacements applied
+     */
     public static String replaceString(String str, String oldstr, String newstr) {
         int s = str.indexOf(oldstr);
         int stemp = 0;
@@ -135,6 +236,16 @@ public class SxmlMisc extends Properties {
         return str;
     }
 
+    /**
+     * Escapes HTML special characters for safe inclusion in XML content.
+     * Replaces &amp;, &gt;, and &lt; with their corresponding HTML entities.
+     * 
+     * <p><strong>Note:</strong> For better security, consider using
+     * {@link org.apache.commons.text.StringEscapeUtils#escapeXml11(String)} instead.</p>
+     * 
+     * @param str the string to escape
+     * @return the escaped string safe for XML content
+     */
     public static String replaceHTMLContent(String str) {
         str = SxmlMisc.replaceString(str, "&", "&amp;");
         str = SxmlMisc.replaceString(str, ">", "&gt;");

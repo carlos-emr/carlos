@@ -22,7 +22,7 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@ include file="../../../taglibs.jsp" %>
+<%@ include file="/taglibs.jsp" %>
 <%@page import="ca.openosp.openo.commons.KeyConstants" %>
 
 

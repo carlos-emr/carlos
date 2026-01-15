@@ -26,12 +26,13 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
+    String context = request.getContextPath();
     String roleName2$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(context + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -41,7 +42,7 @@
 <%@ page import="ca.openosp.openo.form.graphic.*, ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*" %>
 <%@ page import="ca.openosp.openo.commn.web.Pregnancy2Action" %>
 <%@ page import="java.util.List" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page import="ca.openosp.openo.util.LabelValueBean" %>
 <%@ page import="ca.openosp.openo.util.UtilMisc" %>
@@ -53,7 +54,6 @@
 <%@ page import="ca.openosp.openo.form.graphic.FrmGraphicAR" %>
 <%@ page import="ca.openosp.OscarProperties" %>
 <%
-    String ctx = request.getContextPath();
     String formClass = "ONAREnhanced";
     String formLink = "formonarenhancedpg2.jsp";
 
@@ -69,7 +69,7 @@
     props.setProperty("c_lastVisited", "pg2");
 
     //get project_home
-    String project_home = ctx.substring(1);
+    String project_home = context.substring(1);
 
     //load eform groups
     List<LabelValueBean> cytologyForms = Pregnancy2Action.getEformsByGroup("Cytology");
@@ -123,23 +123,23 @@
 <html>
     <head>
         <title>Antenatal Record 2</title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <script type="text/javascript" src="<%= ctx %>/js/global.js"></script>
-        <link rel="stylesheet" type="text/css" href="<%=bView?"arStyleView.css" : "arStyle.css"%>">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + context + "/" %>">
+        <script type="text/javascript" src="<%= context %>/js/global.js"></script>
+        <link rel="stylesheet" type="text/css" href="<%=bView ? context + "/form/arStyleView.css" : context + "/form/arStyle.css"%>">
+        <link rel="stylesheet" type="text/css" media="all" href="<%= context %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+        <script type="text/javascript" src="<%= context %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-1.7.1.min.js"></script>
-        <script src="<%=ctx%>/js/jquery-ui-1.8.18.custom.min.js"></script>
-        <script src="<%=ctx%>/js/fg.menu.js"></script>
-        <script type="text/javascript" src="<%=ctx%>/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
-        <link rel="stylesheet" type="text/css" href="<%=ctx%>/js/fancybox/jquery.fancybox-1.3.4.css" media="screen"/>
+                src="<%= context %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+        <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
+        <script type="text/javascript" src="<%= context %>/js/jquery-1.7.1.min.js"></script>
+        <script src="<%= context %>/js/jquery-ui-1.8.18.custom.min.js"></script>
+        <script src="<%= context %>/js/fg.menu.js"></script>
+        <script type="text/javascript" src="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
+        <link rel="stylesheet" type="text/css" href="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.css" media="screen"/>
 
 
-        <link rel="stylesheet" href="<%=ctx%>/css/cupertino/jquery-ui-1.8.18.custom.css">
-        <link rel="stylesheet" href="<%=ctx%>/css/fg.menu.css">
+        <link rel="stylesheet" href="<%= context %>/css/cupertino/jquery-ui-1.8.18.custom.css">
+        <link rel="stylesheet" href="<%= context %>/css/fg.menu.css">
 
         <style type="text/css">
             body {
@@ -241,7 +241,7 @@
                 <%
 			} else if(cytologyForms.size() == 1) {
 				%>
-                popPage('<%=ctx%>/eform/efmformadd_data.jsp?fid=<%=cytologyForms.get(0).getValue()%>&demographic_no=<%=demoNo%>&appointment=0', 'cytology');
+                popPage('<%= context %>/eform/efmformadd_data.jsp?fid=<%=cytologyForms.get(0).getValue()%>&demographic_no=<%=demoNo%>&appointment=0', 'cytology');
                 <%
 			} else {
 				%>$("#cytology-eform-form").dialog("open");
@@ -260,7 +260,7 @@
                 <%
 				} else if(ultrasoundForms.size() == 1) {
 					%>
-                popPage('<%=ctx%>/eform/efmformadd_data.jsp?fid=<%=ultrasoundForms.get(0).getValue()%>&demographic_no=<%=demoNo%>&appointment=0', 'ultrasound');
+                popPage('<%= context %>/eform/efmformadd_data.jsp?fid=<%=ultrasoundForms.get(0).getValue()%>&demographic_no=<%=demoNo%>&appointment=0', 'ultrasound');
                 <%
 				} else {
 					%>$("#ultrasound-eform-form").dialog("open");
@@ -280,7 +280,7 @@
                 <%
 			} else if(customForms.size() == 1) {
 				%>
-                popPage('<%=ctx%>/eform/efmformadd_data.jsp?fid=<%=customForms.get(0).getValue()%>&demographic_no=<%=demoNo%>&appointment=0', '<%=customEformGroup%>form');
+                popPage('<%= context %>/eform/efmformadd_data.jsp?fid=<%=customForms.get(0).getValue()%>&demographic_no=<%=demoNo%>&appointment=0', '<%=customEformGroup%>form');
                 <%
 			} else {
 				%>$("#custom-eform-form").dialog("open");
@@ -339,11 +339,11 @@
             }
 
             $(document).ready(function () {
-                $("select[name='ar2_strep']").val('<%= StringEscapeUtils.escapeJavaScript(props.getProperty("ar2_strep", "")) %>');
+                $("select[name='ar2_strep']").val('<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("ar2_strep", "")) %>');
                 $("select[name='ar2_bloodGroup']").val('<%= abo %>');
                 $("select[name='ar2_rh']").val('<%= rh %>');
-                $("select[name='ar2_labCustom1Label']").val('<%= StringEscapeUtils.escapeJavaScript(props.getProperty("ar2_labCustom1Label", "")) %>');
-                $("select[name='ar2_labCustom2Label']").val('<%= StringEscapeUtils.escapeJavaScript(props.getProperty("ar2_labCustom2Label", "")) %>');
+                $("select[name='ar2_labCustom1Label']").val('<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("ar2_labCustom1Label", "")) %>');
+                $("select[name='ar2_labCustom2Label']").val('<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("ar2_labCustom2Label", "")) %>');
 
 
                 if ($("select[name='ar2_rh']").val() == 'NEG'/* && getGAWeek() >= 9*/) {
@@ -356,11 +356,11 @@
                     $("#rhogam_warn").hide();
                 }
 
-                if ('<%=StringEscapeUtils.escapeJavaScript(props.getProperty("pg1_labRubella", ""))%>' == 'Non-Immune') {
+                if ('<%=StringEscapeUtils.escapeEcmaScript(props.getProperty("pg1_labRubella", ""))%>' == 'Non-Immune') {
                     $("#rubella_warn").show();
                 }
 
-                if ('<%=StringEscapeUtils.escapeJavaScript(props.getProperty("pg1_labHBsAg", ""))%>' == 'POS') {
+                if ('<%=StringEscapeUtils.escapeEcmaScript(props.getProperty("pg1_labHBsAg", ""))%>' == 'POS') {
                     $("#hbsag_warn").show();
                 }
 
@@ -455,7 +455,7 @@
                 return total;
             }
 
-            function addRiskFactor() {
+            async function addRiskFactor() {
                 if (adjustDynamicListTotalsRF("rf_", 20, false) >= 20) {
                     alert('Maximum number of rows is 20');
                     return;
@@ -464,11 +464,18 @@
                 var total = jQuery("#rf_num").val();
                 total++;
                 jQuery("#rf_num").val(total);
-                jQuery.ajax({
-                    url: 'onarenhanced_rf.jsp?n=' + total, async: false, success: function (data) {
-                        jQuery("#rf_container tbody").append(data);
+
+                try {
+                    const response = await fetch('form/onarenhanced_rf.jsp?n=' + total);
+                    if (!response.ok) {
+                        throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                     }
-                });
+                    const html = await response.text();
+                    document.querySelector('#rf_container tbody').insertAdjacentHTML('beforeend', html);
+                } catch (error) {
+                    console.error('Error adding risk factor:', error);
+                    alert('Error adding risk factor. Please try again.');
+                }
             }
 
             function deleteRiskFactor(id) {
@@ -493,13 +500,13 @@
                 });
             }
 
-            function addBulkSubsequentVisit(times) {
+            async function addBulkSubsequentVisit(times) {
                 for (var x = 0; x < parseInt(times); x++) {
-                    addSubsequentVisit();
+                    await addSubsequentVisit();
                 }
             }
 
-            function addSubsequentVisit() {
+            async function addSubsequentVisit() {
                 if (adjustDynamicListTotalsSV("sv_", 70, false) >= 70) {
                     alert('Maximum number of rows is 70');
                     return;
@@ -508,11 +515,18 @@
                 var total = jQuery("#sv_num").val();
                 total++;
                 jQuery("#sv_num").val(total);
-                jQuery.ajax({
-                    url: 'onarenhanced_sv.jsp?n=' + total, async: false, success: function (data) {
-                        jQuery("#sv_tbody").append(data);
+
+                try {
+                    const response = await fetch('form/onarenhanced_sv.jsp?n=' + total);
+                    if (!response.ok) {
+                        throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                     }
-                });
+                    const html = await response.text();
+                    document.querySelector('#sv_tbody').insertAdjacentHTML('beforeend', html);
+                } catch (error) {
+                    console.error('Error adding subsequent visit:', error);
+                    alert('Error adding subsequent visit. Please try again.');
+                }
             }
 
             function deleteSubsequentVisit(id) {
@@ -522,7 +536,7 @@
 
             }
 
-            function addUltraSound() {
+            async function addUltraSound() {
                 if (adjustDynamicListTotalsUS("us_", 12, false) >= 12) {
                     alert('Maximum number of rows is 12');
                     return;
@@ -531,35 +545,50 @@
                 var total = jQuery("#us_num").val();
                 total++;
                 jQuery("#us_num").val(total);
-                jQuery.ajax({
-                    url: 'onarenhanced_us.jsp?n=' + total, async: false, success: function (data) {
-                        jQuery("#us_container tbody").append(data);
-                    }
-                });
 
-                Calendar.setup({
-                    inputField: "ar2_uDate" + total,
-                    ifFormat: "%Y/%m/%d",
-                    showsTime: false,
-                    button: "ar2_uDate" + total + "_cal",
-                    singleClick: true,
-                    step: 1
-                });
+                try {
+                    const response = await fetch('form/onarenhanced_us.jsp?n=' + total);
+                    if (!response.ok) {
+                        throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
+                    }
+                    const html = await response.text();
+                    document.querySelector('#us_container tbody').insertAdjacentHTML('beforeend', html);
+
+                    // Initialize calendar immediately after DOM insertion - no setTimeout needed
+                    var inputField = "ar2_uDate" + total;
+                    var buttonField = inputField + "_cal";
+                    if (document.getElementById(inputField) && document.getElementById(buttonField)) {
+                        Calendar.setup({
+                            inputField: inputField,
+                            ifFormat: "%Y/%m/%d",
+                            showsTime: false,
+                            button: buttonField,
+                            singleClick: true,
+                            step: 1
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error adding ultrasound:', error);
+                    alert('Error adding ultrasound. Please try again.');
+                }
             }
 
 
             function createCalendarSetupOnLoad() {
-                var numItems = $('.ar2uDate').length;
-                for (var x = 1; x <= numItems; x++) {
-                    Calendar.setup({
-                        inputField: "ar2_uDate" + x,
-                        ifFormat: "%Y/%m/%d",
-                        showsTime: false,
-                        button: "ar2_uDate" + x + "_cal",
-                        singleClick: true,
-                        step: 1
-                    });
-                }
+                $('.ar2uDate').each(function() {
+                    var inputId = $(this).attr('id');
+                    var buttonId = inputId + "_cal";
+                    if (document.getElementById(inputId) && document.getElementById(buttonId)) {
+                        Calendar.setup({
+                            inputField: inputId,
+                            ifFormat: "%Y/%m/%d",
+                            showsTime: false,
+                            button: buttonId,
+                            singleClick: true,
+                            step: 1
+                        });
+                    }
+                });
             }
 
 
@@ -570,117 +599,116 @@
 
             }
 
-            jQuery(document).ready(function () {
+            async function initializeFormContent() {
+                try {
+                    // Load Risk Factors
+                    <%
+                    String rf = props.getProperty("rf_num", "0");
+                    if(rf.length() == 0)
+                        rf = "0";
+                    int rfNum = Integer.parseInt(rf);
 
-                <%
-		String rf = props.getProperty("rf_num", "0");
-		if(rf.length() == 0)
-			rf = "0";
-		int rfNum = Integer.parseInt(rf);
-		for(int x=0;x<rfNum;x++) {
-			int y=x+1;
-		%>
-                jQuery.ajax({
-                    url: 'onarenhanced_rf.jsp?n=' +<%=y%>, async: false, success: function (data) {
-                        jQuery("#rf_container tbody").append(data);
-                        setInput(<%=y%>, "c_riskFactors", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("c_riskFactors"+y, "")) %>');
-                        setInput(<%=y%>, "c_planManage", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("c_planManage"+y, "")) %>');
+                    if(rfNum > 0) {
+                        for(int x=0; x<rfNum; x++) {
+                            int y=x+1;
+                    %>
+                    const rfResponse<%=y%> = await fetch('form/onarenhanced_rf.jsp?n=<%=y%>');
+                    if (!rfResponse<%=y%>.ok) {
+                        throw new Error('HTTP error ' + rfResponse<%=y%>.status + ': ' + rfResponse<%=y%>.statusText);
                     }
-                });
-                <%
-		}
-		if(rfNum == 0) {
-			%>addRiskFactor();
-                <%
-		}
-		if(bView) {
-			%>
-                $("a").each(function () {
-                    if ($(this).html() == '[x]') {
-                        $(this).hide();
+                    const rfHtml<%=y%> = await rfResponse<%=y%>.text();
+                    document.querySelector('#rf_container tbody').insertAdjacentHTML('beforeend', rfHtml<%=y%>);
+                    setInput(<%=y%>, "c_riskFactors", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("c_riskFactors"+y, "")) %>');
+                    setInput(<%=y%>, "c_planManage", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("c_planManage"+y, "")) %>');
+                    <%
+                        }
+                    } else {
+                    %>
+                    addRiskFactor();
+                    <%
                     }
-                });
-                <%
-		}
-	%>
+                    %>
 
+                    // Load Subsequent Visits
+                    <%
+                    String sv = props.getProperty("sv_num", "0");
+                    if(sv.length() == 0)
+                        sv = "0";
+                    int svNum = Integer.parseInt(sv);
 
-                <%
-	String sv = props.getProperty("sv_num", "0");
-	if(sv.length() == 0)
-		sv = "0";
-	int svNum = Integer.parseInt(sv);
-	for(int x=0;x<svNum;x++) {
-		int y=x+1;
-	%>
-                jQuery.ajax({
-                    url: 'onarenhanced_sv.jsp?n=' +<%=y%>, async: false, success: function (data) {
-                        jQuery("#sv_tbody").append(data);
-                        setInput(<%=y%>, "pg2_date", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_date"+y, "")) %>');
-                        setInput(<%=y%>, "pg2_gest", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_gest"+y, "")) %>');
-                        setInput(<%=y%>, "pg2_wt", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_wt"+y, "")) %>');
-                        setInput(<%=y%>, "pg2_BP", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_BP"+y, "")) %>');
-                        setInput(<%=y%>, "pg2_urinePr", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_urinePr"+y, "")) %>');
-                        //removed urineGl
-                        setInput(<%=y%>, "pg2_ht", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_ht"+y, "")) %>');
-                        setInput(<%=y%>, "pg2_presn", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_presn"+y, "")) %>');
-                        setInput(<%=y%>, "pg2_FHR", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_FHR"+y, "")) %>');
-                        setInput(<%=y%>, "pg2_comments", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("pg2_comments"+y, "")) %>');
+                    if(svNum > 0) {
+                        for(int x=0; x<svNum; x++) {
+                            int y=x+1;
+                    %>
+                    const svResponse<%=y%> = await fetch('form/onarenhanced_sv.jsp?n=<%=y%>');
+                    if (!svResponse<%=y%>.ok) {
+                        throw new Error('HTTP error ' + svResponse<%=y%>.status + ': ' + svResponse<%=y%>.statusText);
                     }
-                });
-                <%
-	}
-	if(svNum == 0) {
-		%>addSubsequentVisit();
-                <%
-	}
-
-	if(bView) {
-		%>
-                $("a").each(function () {
-                    if ($(this).html() == '[x]') {
-                        $(this).hide();
+                    const svHtml<%=y%> = await svResponse<%=y%>.text();
+                    document.querySelector('#sv_tbody').insertAdjacentHTML('beforeend', svHtml<%=y%>);
+                    setInput(<%=y%>, "pg2_date", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_date"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_gest", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_gest"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_wt", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_wt"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_BP", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_BP"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_urinePr", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_urinePr"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_ht", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_ht"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_presn", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_presn"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_FHR", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_FHR"+y, "")) %>');
+                    setInput(<%=y%>, "pg2_comments", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("pg2_comments"+y, "")) %>');
+                    <%
+                        }
+                    } else {
+                    %>
+                    addSubsequentVisit();
+                    <%
                     }
-                });
-                <%
-	}
-%>
+                    %>
 
+                    // Load Ultrasounds
+                    <%
+                    String us = props.getProperty("us_num", "0");
+                    if(us.length() == 0)
+                        us = "0";
+                    int usNum = Integer.parseInt(us);
 
-                <%
-String us = props.getProperty("us_num", "0");
-if(us.length() == 0)
-	us = "0";
-int usNum = Integer.parseInt(us);
-for(int x=1;x<usNum+1;x++) {
-%>
-                jQuery.ajax({
-                    url: 'onarenhanced_us.jsp?n=' +<%=x%>, async: false, success: function (data) {
-                        jQuery("#us_container tbody").append(data);
-                        setInput(<%=x%>, "ar2_uDate", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("ar2_uDate"+x, "")) %>');
-                        setInput(<%=x%>, "ar2_uGA", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("ar2_uGA"+x, "")) %>');
-                        setInput(<%=x%>, "ar2_uResults", '<%= StringEscapeUtils.escapeJavaScript(props.getProperty("ar2_uResults"+x, "")) %>');
+                    if(usNum > 0) {
+                        for(int x=1; x<usNum+1; x++) {
+                    %>
+                    const usResponse<%=x%> = await fetch('form/onarenhanced_us.jsp?n=<%=x%>');
+                    if (!usResponse<%=x%>.ok) {
+                        throw new Error('HTTP error ' + usResponse<%=x%>.status + ': ' + usResponse<%=x%>.statusText);
                     }
-                });
-                <%
-}
-if(usNum == 0) {
-	%>addUltraSound();
-                <%
-}
-if(bView) {
-	%>
-                $("a").each(function () {
-                    if ($(this).html() == '[x]') {
-                        $(this).hide();
+                    const usHtml<%=x%> = await usResponse<%=x%>.text();
+                    document.querySelector('#us_container tbody').insertAdjacentHTML('beforeend', usHtml<%=x%>);
+                    setInput(<%=x%>, "ar2_uDate", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("ar2_uDate"+x, "")) %>');
+                    setInput(<%=x%>, "ar2_uGA", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("ar2_uGA"+x, "")) %>');
+                    setInput(<%=x%>, "ar2_uResults", '<%= StringEscapeUtils.escapeEcmaScript(props.getProperty("ar2_uResults"+x, "")) %>');
+                    <%
+                        }
+                    } else {
+                    %>
+                    addUltraSound();
+                    <%
                     }
-                });
-                <%
-}
-%>
+                    %>
 
-                createCalendarSetupOnLoad();
+                    // Hide delete links in view mode
+                    <%if(bView) { %>
+                    document.querySelectorAll('a').forEach(function(link) {
+                        if (link.textContent.trim() === '[x]') {
+                            link.style.display = 'none';
+                        }
+                    });
+                    <%}%>
 
+                    createCalendarSetupOnLoad();
+                } catch (error) {
+                    console.error('Error loading form content:', error);
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                initializeFormContent();
             });
 
 
@@ -705,7 +733,7 @@ if(bView) {
                 haveLock = false;
                 $.ajax({
                         type: "POST",
-                        url: "<%=ctx%>/PageMonitoringService.do",
+                        url: "<%= context %>/PageMonitoringService.do",
                         data: {method: "update", page: "formonarenhanced", pageId: "<%=demoNo%>", lock: lock},
                         dataType: 'json',
                         success: function (data, textStatus) {
@@ -803,7 +831,7 @@ if(bView) {
             		urlExt.append("&multiple="+(multiple+1));
             	}
             	%>
-                        document.forms[0].action = "<%= request.getContextPath() %>/form/createpdf?__title=Antenatal+Record+Part+2&__cfgfile=onar2enhancedPrintCfgPg1&__cfgGraphicFile=onar2PrintGraphCfgPg1&__template=onar2<%=urlExt.toString()%>&postProcessor=ONAR2EnhancedPostProcessor";
+                        document.forms[0].action = "<%= context %>/form/createpdf?__title=Antenatal+Record+Part+2&__cfgfile=onar2enhancedPrintCfgPg1&__cfgGraphicFile=onar2PrintGraphCfgPg1&__template=onar2<%=urlExt.toString()%>&postProcessor=ONAR2EnhancedPostProcessor";
                         document.forms[0].target = "_blank";
                     }
 
@@ -961,7 +989,7 @@ if(bView) {
                 return ret && ret1;
             }
 
-            function onPageChange(url) {
+            async function onPageChange(url) {
                 var result = false;
                 var newID = 0;
                 document.forms[0].submit.value = "save";
@@ -973,21 +1001,32 @@ if(bView) {
                     if (ret) {
                         window.onunload = null;
                         adjustDynamicListTotals();
-                        jQuery.ajax({
-                            url: '<%=ctx%>/Pregnancy.do?method=saveFormAjax',
-                            data: $("form").serialize(),
-                            async: false,
-                            dataType: 'json',
-                            success: function (data) {
-                                if (data.value == 'error') {
-                                    alert('Error saving form.');
-                                    result = false;
-                                } else {
-                                    result = true;
-                                    newID = parseInt(data.value);
-                                }
+
+                        try {
+                            const response = await fetch('<%= context %>/Pregnancy.do?method=saveFormAjax', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                },
+                                body: $("form").serialize()
+                            });
+                            if (!response.ok) {
+                                throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                             }
-                        });
+                            const data = await response.json();
+
+                            if (data.value == 'error') {
+                                alert('Error saving form.');
+                                result = false;
+                            } else {
+                                result = true;
+                                newID = parseInt(data.value);
+                            }
+                        } catch (error) {
+                            console.error('Error saving form:', error);
+                            alert('Error saving form.');
+                            result = false;
+                        }
                     } else {
                         url = url.replace('#id', '<%=formId%>');
                         location.href = url;
@@ -1501,19 +1540,24 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     width: 450,
                     modal: true,
                     buttons: {
-                        "Generate Requisition": function () {
+                        "Generate Requisition": async function () {
                             $(this).dialog("close");
                             var penicillin = $("#penicillin").attr('checked');
                             var demographic = '<%=props.getProperty("demographic_no", "0")%>';
                             var user = '<%=session.getAttribute("user")%>';
-                            url = '<%=ctx%>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=' + demographic + '&formId=0&provNo=' + user + '&fromSession=true';
-                            jQuery.ajax({
-                                url: '<%=ctx%>/Pregnancy.do?method=createGBSLabReq&demographicNo=' + demographic + '&penicillin=' + penicillin,
-                                async: false,
-                                success: function (data) {
-                                    popupRequisitionPage(url);
+                            url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=' + demographic + '&formId=0&provNo=' + user + '&fromSession=true';
+
+                            try {
+                                const response = await fetch('<%= context %>/Pregnancy.do?method=createGBSLabReq&demographicNo=' + demographic + '&penicillin=' + penicillin);
+                                if (!response.ok) {
+                                    throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                                 }
-                            });
+                                await response.text();
+                                popupRequisitionPage(url);
+                            } catch (error) {
+                                console.error('Error creating GBS lab requisition:', error);
+                                alert('Error creating lab requisition.');
+                            }
                         },
                         Cancel: function () {
                             $(this).dialog("close");
@@ -1555,7 +1599,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             if (printLocation.length > 0) {
                                 jQuery.ajax({
                                     type: "POST",
-                                    url: '<%=ctx%>/Pregnancy.do?method=recordPrint',
+                                    url: '<%= context %>/Pregnancy.do?method=recordPrint',
                                     data: {
                                         printLocation: printLocation,
                                         printMethod: printMethod,
@@ -1574,7 +1618,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             if (ret == true) {
                                 document.forms[0].submit.value = "print";
                                 document.forms[0].target = "_blank";
-                                var url = "<%= request.getContextPath() %>/form/createpdf?";
+                                var url = "<%= context %>/form/createpdf?";
                                 var multiple = 0;
                                 if (!(typeof printAr1 == "undefined")) {
                                     url += "__title=Antenatal+Record+Part+1&__cfgfile=onar1enhancedPrintCfgPg1&__template=onar1&__numPages=1&postProcessor=ONAR1EnhancedPostProcessor";
@@ -1675,7 +1719,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 $("#print_log_menu").bind('click', function () {
                     jQuery.ajax({
                         type: "POST",
-                        url: '<%=ctx%>/Pregnancy.do?method=getPrintData',
+                        url: '<%= context %>/Pregnancy.do?method=getPrintData',
                         data: {resourceName: 'ONAREnhanced', resourceId: $('#episodeId').val()},
                         dataType: 'json',
                         async: true,
@@ -1712,7 +1756,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 }
 
                 function getFundalImageUrl(c) {
-                    var url = "<%=ctx%>/Pregnancy.do?method=getFundalImage";
+                    var url = "<%= context %>/Pregnancy.do?method=getFundalImage";
                     //gest,ht
                     var params = "";
                     var n = getGestHtVal();
@@ -1808,20 +1852,27 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     width: 450,
                     modal: true,
                     buttons: {
-                        "Generate Requisition": function () {
+                        "Generate Requisition": async function () {
                             $(this).dialog("close");
                             var gct_hb = $("#gct_hb").attr('checked');
                             var gct_urine = $("#gct_urine").attr('checked');
                             var gct_ab = $("#gct_ab").attr('checked');
                             var gct_glu = $("#gct_glu").attr('checked');
                             var user = '<%=session.getAttribute("user")%>';
-                            url = '<%=ctx%>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
-                            var pregUrl = '<%=ctx%>/Pregnancy.do?method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + gct_hb + '&urine=' + gct_urine + '&antibody=' + gct_ab + '&glucose=' + gct_glu;
-                            jQuery.ajax({
-                                url: pregUrl, async: false, success: function (data) {
-                                    popupRequisitionPage(url);
+                            url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
+                            var pregUrl = '<%= context %>/Pregnancy.do?method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + gct_hb + '&urine=' + gct_urine + '&antibody=' + gct_ab + '&glucose=' + gct_glu;
+
+                            try {
+                                const response = await fetch(pregUrl);
+                                if (!response.ok) {
+                                    throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                                 }
-                            });
+                                await response.text();
+                                popupRequisitionPage(url);
+                            } catch (error) {
+                                console.error('Error creating GCT lab requisition:', error);
+                                alert('Error creating lab requisition.');
+                            }
                         },
                         Cancel: function () {
                             $(this).dialog("close");
@@ -1838,17 +1889,24 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     width: 450,
                     modal: true,
                     buttons: {
-                        "Generate Requisition": function () {
+                        "Generate Requisition": async function () {
                             $(this).dialog("close");
                             var gtt_glu = $("#gtt_glu").attr('checked');
                             var user = '<%=session.getAttribute("user")%>';
-                            url = '<%=ctx%>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
-                            var pregUrl = '<%=ctx%>/Pregnancy.do?method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + gtt_glu;
-                            jQuery.ajax({
-                                url: pregUrl, async: false, success: function (data) {
-                                    popupRequisitionPage(url);
+                            url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
+                            var pregUrl = '<%= context %>/Pregnancy.do?method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + gtt_glu;
+
+                            try {
+                                const response = await fetch(pregUrl);
+                                if (!response.ok) {
+                                    throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                                 }
-                            });
+                                await response.text();
+                                popupRequisitionPage(url);
+                            } catch (error) {
+                                console.error('Error creating GTT lab requisition:', error);
+                                alert('Error creating lab requisition.');
+                            }
                         },
                         Cancel: function () {
                             $(this).dialog("close");
@@ -2213,17 +2271,17 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     </tr>
                     <tr id="24wk_visit">
                         <td>24 week Visit<span style="float:right"><img id="24wk_visit_menu"
-                                                                        src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                                                                        src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                                         border="0"></span></td>
                     </tr>
                     <tr id="35wk_visit">
                         <td>35 week Visit<span style="float:right"><img id="35wk_visit_menu"
-                                                                        src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                                                                        src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                                         border="0"></span></td>
                     </tr>
                     <!--
 			<tr id="dd_visit">
-				<td>Due Date<span style="float:right"><img id="dd_visit_menu" src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png" border="0"></span></td>
+				<td>Due Date<span style="float:right"><img id="dd_visit_menu" src="<%= context %>/images/right-circle-arrow-Icon.png" border="0"></span></td>
 			</tr>
 			-->
                 </table>
@@ -2237,7 +2295,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <tr id="graph">
                         <td>
                             <span id="fundal_graph_text">Fundus Height Graph</span><span style="float:right"><img
-                                id="graph_menu" src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png" border="0"></span>
+                                id="graph_menu" src="<%= context %>/images/right-circle-arrow-Icon.png" border="0"></span>
                             <div style="display:none"><a href="#" id="fundal_link">dummy link</a></div>
                         </td>
                     </tr>
@@ -2245,7 +2303,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         <td>
                             Printing Log
                             <span style="float:right"><img id="print_log_menu"
-                                                           src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                                                           src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                            border="0"></span>
                         </td>
                     </tr>
@@ -2259,7 +2317,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     </tr>
                     <tr id="edb_warn" style="display:none">
                         <td>Update EDB<span style="float:right"><img id="edb_menu"
-                                                                     src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                                                                     src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                                      border="0"></span></td>
                     </tr>
                     <tr id="rh_warn" style="display:none">
@@ -2282,19 +2340,19 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 
                     <tr id="gct_warn" style="display:none">
                         <td>Perform 1hr GCT<span style="float:right"><img id="gct_menu"
-                                                                          src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                                                                          src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                                           border="0"></span></td>
                     </tr>
 
                     <tr id="gct_diabetes_warn" style="display:none">
                         <td>Gestational Diabetes<span style="float:right"><img id="gd_menu"
-                                                                               src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                                                                               src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                                                border="0"></span></td>
                     </tr>
 
                     <tr id="2hrgtt_prompt" style="display:none">
                         <td>GTT Req<span style="float:right"><img id="gtt_menu"
-                                                                  src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                                                                  src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                                   border="0"></span></td>
                     </tr>
 
@@ -2307,18 +2365,18 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     </tr>
 
                     <tr id="lab_prompt">
-                        <td>Labs<span style="float:right"><img id="lab_menu" src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                        <td>Labs<span style="float:right"><img id="lab_menu" src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                                border="0"></span></td>
                     </tr>
 
                     <tr id="forms_prompt">
                         <td>Forms<span style="float:right"><img id="forms_menu"
-                                                                src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png" border="0"></span>
+                                                                src="<%= context %>/images/right-circle-arrow-Icon.png" border="0"></span>
                         </td>
                     </tr>
 
                     <tr id="strep_prompt" style="display:none">
-                        <td>GBS<span style="float:right"><img id="gbs_menu" src="<%= request.getContextPath() %>/images/right-circle-arrow-Icon.png"
+                        <td>GBS<span style="float:right"><img id="gbs_menu" src="<%= context %>/images/right-circle-arrow-Icon.png"
                                                               border="0"></span></td>
                     </tr>
 
@@ -2548,7 +2606,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 					<b>Rh IG Given:</b>
 					<input type="text" name="ar2_rhIG" id="ar2_rhIG" size="7" maxlength="10"
                            value="<%= UtilMisc.htmlEscape(props.getProperty("ar2_rhIG", "")) %>">
-					<img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_rhIG_cal">
+					<img src="<%= context %>/images/cal.gif" id="ar2_rhIG_cal">
 				</span>
                         </td>
 
@@ -2987,7 +3045,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             Order 1 Hour GCT
                             <a href="javascript:void(0);" onclick="return false;"
                                title="Click on 'Labs' menu item under Prompts, and choose 1 Hour GCT"><img border="0"
-                                                                                                           src="<%= request.getContextPath() %>/images/icon_help_sml.gif"/></a>
+                                                                                                           src="<%= context %>/images/icon_help_sml.gif"/></a>
                         </td>
                     </tr>
                     </tbody>
@@ -3006,7 +3064,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             Order GBS Lab
                             <a href="javascript:void(0);" onclick="return false;"
                                title="Click on 'Labs' menu item under Prompts, and choose GBS"><img border="0"
-                                                                                                    src="<%= request.getContextPath() %>/images/icon_help_sml.gif"/></a>
+                                                                                                    src="<%= context %>/images/icon_help_sml.gif"/></a>
                         </td>
                     </tr>
                     <tr>
@@ -3014,7 +3072,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             Consider ultrasound for position
                             <a href="javascript:void(0);" onclick="return false;"
                                title="Click on 'Forms' menu item under Prompts, and choose Ultrasound"><img border="0"
-                                                                                                            src="<%= request.getContextPath() %>/images/icon_help_sml.gif"/></a>
+                                                                                                            src="<%= context %>/images/icon_help_sml.gif"/></a>
                         </td>
                     </tr>
                     </tbody>
@@ -3089,7 +3147,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     %>
                     <tr>
                         <td>
-                            <button onClick="popPage('<%=ctx%>/eform/efmformadd_data.jsp?fid=<%=bean.getValue()%>&demographic_no=<%=demoNo%>&appointment=0','cytology');return false;">
+                            <button onClick="popPage('<%= context %>/eform/efmformadd_data.jsp?fid=<%=bean.getValue()%>&demographic_no=<%=demoNo%>&appointment=0','cytology');return false;">
                                 Open
                             </button>
                         </td>
@@ -3118,7 +3176,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     %>
                     <tr>
                         <td>
-                            <button onClick="popPage('<%=ctx%>/eform/efmformadd_data.jsp?fid=<%=bean.getValue()%>&demographic_no=<%=demoNo%>&appointment=0','ultrasound');return false;">
+                            <button onClick="popPage('<%= context %>/eform/efmformadd_data.jsp?fid=<%=bean.getValue()%>&demographic_no=<%=demoNo%>&appointment=0','ultrasound');return false;">
                                 Open
                             </button>
                         </td>
@@ -3147,7 +3205,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     %>
                     <tr>
                         <td>
-                            <button onClick="popPage('<%=ctx%>/eform/efmformadd_data.jsp?fid=<%=bean.getValue()%>&demographic_no=<%=demoNo%>&appointment=0','<%=customEformGroup%>form');return false;">
+                            <button onClick="popPage('<%= context %>/eform/efmformadd_data.jsp?fid=<%=bean.getValue()%>&demographic_no=<%=demoNo%>&appointment=0','<%=customEformGroup%>form');return false;">
                                 Open
                             </button>
                         </td>
@@ -3238,13 +3296,15 @@ if (!fedb.equals("") && fedb.length()==10 ) {
     </div>
 
     <script type="text/javascript">
-        Calendar.setup({
-            inputField: "ar2_rhIG",
-            ifFormat: "%Y/%m/%d",
-            showsTime: false,
-            button: "ar2_rhIG_cal",
-            singleClick: true,
-            step: 1
+        $(document).ready(function() {
+            Calendar.setup({
+                inputField: "ar2_rhIG",
+                ifFormat: "%Y/%m/%d",
+                showsTime: false,
+                button: "ar2_rhIG_cal",
+                singleClick: true,
+                step: 1
+            });
         });
     </script>
     </body>

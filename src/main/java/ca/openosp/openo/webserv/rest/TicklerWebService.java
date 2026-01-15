@@ -37,8 +37,10 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import ca.openosp.openo.PMmodule.model.ProgramProvider;
 import ca.openosp.openo.commn.dao.UserPropertyDAO;
@@ -80,7 +82,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/search")
     @Produces("application/json")
     @Consumes("application/json")
-    public TicklerResponse search(JSONObject json, @QueryParam("startIndex") int startIndex, @QueryParam("limit") int limit) {
+    public TicklerResponse search(JsonNode json, @QueryParam("startIndex") int startIndex, @QueryParam("limit") int limit) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
             throw new RuntimeException("Access Denied");
@@ -88,23 +90,23 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         CustomFilter cf = new CustomFilter(true);
 
-        if (json.containsKey("status")) {
-            cf.setStatus(json.getString("status"));
+        if (json.has("status")) {
+            cf.setStatus(json.get("status").asText());
         }
-        if (json.containsKey("priority")) {
-            cf.setPriority(json.getString("priority"));
+        if (json.has("priority")) {
+            cf.setPriority(json.get("priority").asText());
         }
-        if (json.containsKey("assignee")) {
-            cf.setAssignee(json.getString("assignee"));
+        if (json.has("assignee")) {
+            cf.setAssignee(json.get("assignee").asText());
         }
-        if (json.containsKey("demographicNo")) {
-            cf.setDemographicNo(json.getString("demographicNo"));
+        if (json.has("demographicNo")) {
+            cf.setDemographicNo(json.get("demographicNo").asText());
         }
 
         //this will need refactor...needs a manager layer and some useful methods.
         //basically if overdueOnly='property', I check Persona for what to return, this
         //avoids cliend needing to know their preferences and passing them back.
-        if (json.containsKey("overdueOnly") && "property".equals(json.getString("overdueOnly"))) {
+        if (json.has("overdueOnly") && "property".equals(json.get("overdueOnly").asText())) {
             UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
             String strVal = propDao.getStringValue(getCurrentProvider().getProviderNo(), "dashboard.expiredTicklersOnly");
             if (strVal != null && "true".equalsIgnoreCase(strVal)) {
@@ -263,7 +265,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/complete")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse completeTicklers(JSONObject json) {
+    public GenericRESTResponse completeTicklers(JsonNode json) {
         GenericRESTResponse response = new GenericRESTResponse();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -273,7 +275,7 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         MiscUtils.getLogger().info(json.toString());
 
-        JSONArray ticklerIds = json.getJSONArray("ticklers");
+        ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
 
         for (Object id : ticklerIds) {
             int ticklerNo = (Integer) id;
@@ -287,7 +289,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/delete")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse deleteTicklers(JSONObject json) {
+    public GenericRESTResponse deleteTicklers(JsonNode json) {
         GenericRESTResponse response = new GenericRESTResponse();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -296,7 +298,7 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         MiscUtils.getLogger().info(json.toString());
 
-        JSONArray ticklerIds = json.getJSONArray("ticklers");
+        ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
 
         for (Object id : ticklerIds) {
             int ticklerNo = (Integer) id;
@@ -310,7 +312,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/update")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updateTickler(JSONObject json) {
+    public GenericRESTResponse updateTickler(JsonNode json) {
         GenericRESTResponse response = new GenericRESTResponse();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -319,24 +321,24 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         MiscUtils.getLogger().info(json.toString());
 
-        Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.getInt("id"));
+        Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.get("id") != null ? json.get("id").asInt() : null);
 
         if (tickler == null) {
             throw new RuntimeException("Tickler not found");
         }
 
         //TODO: verify it's good data associations
-        tickler.setTaskAssignedTo(json.getString("taskAssignedTo"));
+        tickler.setTaskAssignedTo(json.get("taskAssignedTo").asText());
 
-        tickler.setStatusAsChar(json.getString("status").charAt(0));
+        tickler.setStatusAsChar(json.get("status").asText().charAt(0));
 
-        tickler.setPriorityAsString(json.getString("priority"));
+        tickler.setPriorityAsString(json.get("priority").asText());
 
-        tickler.setMessage(json.getString("message"));
+        tickler.setMessage(json.get("message").asText());
 
         //tickler.setUpdateDate(new Date());
 
-        String dt = json.getString("serviceDate");
+        String dt = json.get("serviceDate").asText();
         tickler.setServiceDate(javax.xml.bind.DatatypeConverter.parseDateTime(dt).getTime());
 
         response.setSuccess(ticklerManager.updateTickler(getLoggedInInfo(), tickler));
@@ -344,12 +346,12 @@ public class TicklerWebService extends AbstractServiceImpl {
         if (response.isSuccess()) {
 
             if (json.has("ticklerComments")) {
-                JSONArray arr = json.getJSONArray("ticklerComments");
+                ArrayNode arr = (ArrayNode) json.get("ticklerComments");
                 for (int x = 0; x < arr.size(); x++) {
-                    JSONObject c = (JSONObject) arr.get(x);
+                    ObjectNode c = (ObjectNode) arr.get(x);
 
                     if (c.has("newComment")) {
-                        ticklerManager.addComment(getLoggedInInfo(), tickler.getId(), c.getString("providerNo"), c.getString("message"));
+                        ticklerManager.addComment(getLoggedInInfo(), tickler.getId(), c.get("providerNo").asText(), c.get("message").asText());
                     }
                 }
             }

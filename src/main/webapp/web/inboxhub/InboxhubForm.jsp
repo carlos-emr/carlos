@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils,org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="ca.openosp.openo.utility.MiscUtils,org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.apache.logging.log4j.Logger,ca.openosp.openo.commn.dao.OscarLogDao,ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.inboxhub.query.InboxhubQuery" %>
 <%@ page import="ca.openosp.openo.mds.data.CategoryData" %>
@@ -61,7 +61,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             <div class="accordion-body">
                  <form action="${pageContext.request.contextPath}/web/inboxhub/Inboxhub.do?method=displayInboxForm" method="post" id="inboxSearchForm" onsubmit="return validatePatientOptions();">
                     <div class="m-2">
-                        <input type="checkbox" name="query.viewMode" id="btnViewMode" autocomplete="off" hidden ${query.viewMode ? 'checked' : ''}>
+                        <input type="hidden" name="query.viewMode" id="btnViewMode" value="${query.viewMode ? 'true' : 'false'}">
 
                         <div class="mb-1">
                             <!--Provider-->
@@ -537,7 +537,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function fetchInboxhubDataByMode(btnViewMode2) {
-        jQuery('#btnViewMode').prop('checked', btnViewMode2.checked);
+        jQuery('#btnViewMode').val(btnViewMode2.checked ? 'true' : 'false');
     	jQuery("#btnViewModeLabel").html(btnViewMode2.checked ? 'List Mode' : 'Preview Mode');
         fetchInboxhubData();
     }
@@ -546,7 +546,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         const viewModeBtn = document.getElementById("btnViewMode");
         viewModeBtn.disabled = true;
         resetDataPageCount();
-        if (viewModeBtn.checked) {
+        if (viewModeBtn.value === 'true') {
             fetchInboxhubViewData();
         } else {
             fetchInboxhubListData();
@@ -601,35 +601,48 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function addDataInInboxhubListTable(data) {
-        let inboxhubListTable = jQuery('#inbox_table').DataTable();
-
         if (page == 1) {
             jQuery("#inboxhubMode").html(data);
-            inboxhubListTable.draw(false); // `draw(false)` prevents resetting the scroll position
+            jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
             showInboxhubStats();
             startInboxhubListProgress();
             updateInboxhubListProgress();
             return;
         }
 
-        // Parse only the inboxhub table rows from response
-        let tempDiv = document.createElement('div');
-        tempDiv.innerHTML = data;
-        let newRows = tempDiv.querySelectorAll('#inboxhubListModeTableBody tr');
+        let inboxhubListTable = jQuery('#inbox_table').DataTable();
 
-        if (newRows.length === 0) {
-            hasMoreData = false; // stop further fetches
+        // Check if the string contains <script> tags
+        if (!containsScriptTag(data)) {
+            // Split the concatenated rows by the closing </tr> tag, and re-add </tr> to each split part
+            const splitRows = data.split(/<\/tr>/i).map(row => row + '</tr>').filter(row => row.trim() !== '</tr>');
+            // Add rows to DataTable without destroying it
+            jQuery.each(splitRows, function(index, row) {
+                inboxhubListTable.row.add(jQuery(row));
+            });
+
+            // Redraw the table
+            inboxhubListTable.draw(false); // `draw(false)` prevents resetting the scroll position
+        } else {
+            jQuery("#inboxhubMode").append(data);
         }
 
-        // Add rows to DataTable
-        newRows.forEach(row => {
-            // Extract cell data from the row
-            let rowData = Array.from(row.children).map(cell => cell.innerHTML);
-            inboxhubListTable.row.add(rowData);
-        });
-
-        inboxhubListTable.draw(false);
         updateInboxhubListProgress();
+    }
+
+    /**
+     * Helper function to detect presence of <script> tags (in any weird browser-accepted form) in an HTML string.
+     */
+    function containsScriptTag(htmlString) {
+        try {
+            const parser = new DOMParser();
+            // Parse as text/html for browser compliance
+            const doc = parser.parseFromString(htmlString, 'text/html');
+            return doc.getElementsByTagName('script').length > 0;
+        } catch (e) {
+            // If parsing fails, err on the side of caution
+            return true;
+        }
     }
 
     function addDataInInboxhubViewTable(data) {

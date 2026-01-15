@@ -2,6 +2,7 @@
 <%@page import="ca.openosp.openo.commn.dao.EFormDao" %>
 <%@page import="ca.openosp.openo.commn.model.EForm" %>
 <%@page import="java.util.List" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%
 	EFormDao eformDao = SpringUtils.getBean(EFormDao.class);

@@ -34,6 +34,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -72,38 +73,36 @@ public class ExcellerisOntarioHandler implements MessageHandler {
                 return null;
             }
             
-            // Create canonical file objects for validation
+            // Use PathValidationUtils for validation
             File docDir = new File(documentDir).getCanonicalFile();
             if (!docDir.exists() || !docDir.isDirectory()) {
                 logger.error("Document directory does not exist or is not a directory: " + documentDir);
                 return null;
             }
-            
-            // Create file object and immediately validate its canonical path
+
+            // Create file object and validate using PathValidationUtils
             File file = new File(fileName);
-            String canonicalPath = file.getCanonicalPath();
-            
-            // Ensure the canonical path is within the document directory
-            // Must check this BEFORE any file operations
-            if (!canonicalPath.startsWith(docDir.getCanonicalPath() + File.separator)) {
-                logger.error("Attempted path traversal detected - file outside document directory: " + canonicalPath);
+            try {
+                PathValidationUtils.validateExistingPath(file, docDir);
+            } catch (SecurityException e) {
+                logger.error("Attempted path traversal detected - file outside document directory: " + fileName);
                 throw new SecurityException("Access denied: file outside permitted directory");
             }
-            
+
             // Now safe to check if file exists and is a regular file
             if (!file.exists()) {
-                logger.error("File does not exist: " + canonicalPath);
+                logger.error("File does not exist: " + fileName);
                 return null;
             }
-            
+
             if (!file.isFile()) {
-                logger.error("Path is not a regular file: " + canonicalPath);
+                logger.error("Path is not a regular file: " + fileName);
                 return null;
             }
-            
+
             // Ensure file is readable
             if (!file.canRead()) {
-                logger.error("File is not readable: " + canonicalPath);
+                logger.error("File is not readable: " + fileName);
                 return null;
             }
             
@@ -112,6 +111,12 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             docFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             docFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
             docFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            docFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            
+            // Disable XInclude
+            docFactory.setXIncludeAware(false);
+            
+            // Disabled expansion of entity references
             docFactory.setExpandEntityReferences(false);
             
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();

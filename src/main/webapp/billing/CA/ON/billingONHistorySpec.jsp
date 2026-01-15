@@ -31,7 +31,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curProvider_no;
     curProvider_no = (String) session.getAttribute("user");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

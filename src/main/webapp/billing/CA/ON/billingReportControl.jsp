@@ -94,7 +94,7 @@
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr>
         <td align="right"><a href=#
-                             onClick="popupPage(700,720,'../../../oscarReport/manageProvider.jsp?action=billingreport')">
+                             onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">
             <font size="1">Manage Provider List </font></a></td>
     </tr>
 </table>

@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.XMLConstants;
@@ -56,10 +57,10 @@ import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang.RandomStringUtils;
-import org.apache.commons.lang.WordUtils;
-import org.apache.commons.lang.math.NumberUtils;
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.text.WordUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.xmlbeans.XmlOptions;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
@@ -102,8 +103,6 @@ import ca.openosp.openo.commn.model.PartialDate;
 import ca.openosp.openo.commn.model.PharmacyInfo;
 import ca.openosp.openo.commn.model.ProfessionalSpecialist;
 import ca.openosp.openo.commn.model.Provider;
-//import org.oscarehr.e2e.director.E2ECreator;
-//import org.oscarehr.e2e.util.EverestUtils;
 import ca.openosp.openo.hospitalReportManager.dao.HRMDocumentCommentDao;
 import ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao;
 import ca.openosp.openo.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -137,6 +136,7 @@ import cds.MedicationsAndTreatmentsDocument.MedicationsAndTreatments;
 import cds.OmdCdsDocument;
 import cds.PastHealthDocument.PastHealth;
 import cds.PatientRecordDocument.PatientRecord;
+import cds.PersonalHistoryDocument;
 import cds.ProblemListDocument.ProblemList;
 import cds.ReportsDocument.Reports;
 import cds.ReportsDocument.Reports.OBRContent;
@@ -176,12 +176,12 @@ import ca.openosp.openo.util.ConversionUtils;
 import ca.openosp.openo.util.StringUtils;
 import ca.openosp.openo.util.UtilDateUtilities;
 
-/**
- * @author Ronnie Cheng
- */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * @author Ronnie Cheng
+ */
 public class DemographicExportAction42Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -232,15 +232,14 @@ public class DemographicExportAction42Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object (_demographic)");
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographicExport", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographicExport)");
+            throw new SecurityException("missing required security object (_demographicExport)");
         }
 
         String setName = this.getPatientSet();
-        //String pgpReady = defrm.getPgpReady();
         String templateOption = this.getTemplate();
 
         boolean exPersonalHistory = WebUtils.isChecked(request, "exPersonalHistory");
@@ -594,7 +593,21 @@ public class DemographicExportAction42Action extends ActionSupport {
                         if (StringUtils.filled(chartNo)) demo.setChartNumber(chartNo);
 
                         String email = demographic.getEmail();
-                        if (StringUtils.filled(email)) demo.setEmail(email);
+                        String remainingEmails = "";
+                        if (StringUtils.filled(email)) {
+                            String[] emails = email.split("[,;\\s]+");
+                            if (emails.length > 0) {
+                                demo.setEmail(emails[0].trim());
+                                if (emails.length > 1) {
+                                    remainingEmails = String.join(", ", Arrays.copyOfRange(emails, 1, emails.length));
+                                }
+                            }
+                        }
+
+                        String existingNote = StringUtils.filled(demo.getNoteAboutPatient()) ? demo.getNoteAboutPatient() + "\n" : "";
+                        if (StringUtils.filled(remainingEmails)) {
+                            demo.setNoteAboutPatient(existingNote + "\nEmail: " + remainingEmails);
+                        }
 
                         String providerNo = demographic.getProviderNo();
                         if (StringUtils.filled(providerNo)) {
@@ -686,9 +699,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                             PharmacyInfo pi = pharmacyInfoDao.find(dp.getPharmacyId());
                             if (pi != null) {
                                 PreferredPharmacy preferredPharmacy = demo.addNewPreferredPharmacy();
-                                PhoneNumber pn = preferredPharmacy.addNewPhoneNumber();
-                                if (!StringUtils.isNullOrEmpty(pi.getFax())) {
-                                    addPhone(pi.getFax(), "", cdsDt.PhoneNumberType.W, pn);
+                                if(!StringUtils.isNullOrEmpty(pi.getPhone1())) {
+                                    PhoneNumber pn =  preferredPharmacy.addNewPhoneNumber();
+                                    addPhone(pi.getPhone1(), "", cdsDt.PhoneNumberType.W,pn);
+                                }
+
+                                if (StringUtils.filled(pi.getFax())) {
+                                    cdsDt.PhoneNumber pharmacyFax = preferredPharmacy.addNewFaxNumber();
+                                    pharmacyFax.setPhoneNumberType(cdsDt.PhoneNumberType.W);
+                                    pharmacyFax.setPhoneNumber(pi.getFax());
                                 }
 
 
@@ -819,7 +838,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         }
                                     }
                                     summary = Util.addSummary(summary, "Notes", annotation);
-                                    //	patientRec.addNewPersonalHistory().setCategorySummaryLine(summary);
+                                    PersonalHistoryDocument.PersonalHistory personalHistory = patientRec.addNewPersonalHistory();
+                                    ResidualInformation residualInformation = Util.fillResidualInfoSummary(summary);
+                                    if (residualInformation != null) {
+                                        personalHistory.addNewResidualInfo().set(residualInformation);
+                                    }
                                 }
                             }
                             if (exFamilyHistory) {
@@ -1118,6 +1141,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                                             summary = Util.addSummary(summary, "Diagnosis", isu.getIssue().getDescription());
                                         }
                                     }
+
+                                    ResidualInformation residualInformation = Util.fillResidualInfoSummary(summary);
+                                    if (residualInformation != null) {
+                                        rFact.addNewResidualInfo().set(residualInformation);
+                                    }
                                     //	rFact.setCategorySummaryLine(summary);
                                 }
                             }
@@ -1255,7 +1283,12 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String code = dx.getCodingSystem().equalsIgnoreCase("icd9") ? Util.formatIcd9(dx.getDxresearchCode()) : dx.getDxresearchCode();
                                     diagnosis.setStandardCode(code);
 
-                                    AbstractCodeSystemDao dao = (AbstractCodeSystemDao) SpringUtils.getBean(WordUtils.uncapitalize(dx.getCodingSystem()) + "Dao");
+                                    AbstractCodeSystemDao dao = null;
+                                    try {
+                                        dao = (AbstractCodeSystemDao) SpringUtils.getBean(Class.forName("ca.openosp.openo.commn.dao." + org.apache.commons.lang3.StringUtils.capitalize(dx.getCodingSystem()) + "Dao"));
+                                    } catch (ClassNotFoundException e) {
+                                        logger.warn("DAO class not found for coding system: " + dx.getCodingSystem(), e);
+                                    }
                                     if (dao != null) {
                                         AbstractCodeSystemModel result = dao.findByCode(dx.getDxresearchCode());
                                         if (result != null) {
@@ -1524,6 +1557,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 if (StringUtils.empty(imSummary)) {
                                     exportError.add("Error! No Category Summary Line (Immunization) for Patient " + demoNo + " (" + (cnt) + ")");
                                 }
+
+                                ResidualInformation residualInformation = Util.fillResidualInfoSummary(imSummary);
+                                if (residualInformation != null) {
+                                    immu.addNewResidualInfo().set(residualInformation);
+                                }
                                 //	immu.setCategorySummaryLine(StringUtils.noNull(imSummary));
                             }
                         }
@@ -1593,7 +1631,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String[] strength = arr[p].getDosage().split(" ");
 
                                     cdsDt.DrugMeasure drugM = medi.addNewStrength();
-                                    if (Util.leadingNum(strength[0]).equals(strength[0])) {//amount & unit separated by space
+                                    if (Util.leadingNumWithFraction(strength[0]).equals(strength[0])) {//amount & unit separated by space
                                         drugM.setAmount(strength[0]);
                                         if (strength.length > 1) drugM.setUnitOfMeasure(strength[1]);
                                         else drugM.setUnitOfMeasure("unit"); //UnitOfMeasure cannot be null
@@ -1601,14 +1639,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     } else {//amount & unit not separated, probably e.g. 50mg / 2tablet
                                         if (strength.length > 1 && strength[1].equals("/")) {
                                             if (strength.length > 2) {
-                                                String unit1 = Util.leadingNum(strength[2]).equals("") ? "1" : Util.leadingNum(strength[2]);
+                                                String unit1 = Util.leadingNumWithFraction(strength[2]).equals("") ? "1" : Util.leadingNumWithFraction(strength[2]);
                                                 String unit2 = Util.trailingTxt(strength[2]).equals("") ? "unit" : Util.trailingTxt(strength[2]);
 
-                                                drugM.setAmount(Util.leadingNum(strength[0]) + "/" + unit1);
+                                                drugM.setAmount(Util.leadingNumWithFraction(strength[0]) + "/" + unit1);
                                                 drugM.setUnitOfMeasure(Util.trailingTxt(strength[0]) + "/" + unit2);
                                             }
                                         } else {
-                                            drugM.setAmount(Util.leadingNum(strength[0]));
+                                            drugM.setAmount(Util.leadingNumWithFraction(strength[0]));
                                             drugM.setUnitOfMeasure(Util.trailingTxt(strength[0]));
                                         }
                                     }
@@ -1678,8 +1716,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 if (StringUtils.filled(duration)) {
                                     String durunit = StringUtils.noNull(arr[p].getDurationUnit());
                                     Integer fctr = 1;
-                                    if (durunit.equals("W")) fctr = 7;
-                                    else if (durunit.equals("M")) fctr = 30;
+                                    if (durunit.equalsIgnoreCase("W")) fctr = 7;
+                                    else if (durunit.equalsIgnoreCase("M")) fctr = 30;
+                                    else if (durunit.equalsIgnoreCase("Y")) fctr = 365;
 
                                     if (NumberUtils.isDigits(duration)) {
                                         duration = String.valueOf(Integer.parseInt(duration) * fctr);
@@ -1828,51 +1867,31 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 MessageHandler h = Factory.getHandler(hl7TextMessage.getType(), hl7Body);
                                 if (h == null) continue;
 
+                                String testNameReportedByLab = null;
+                                String comments = null;
                                 for (int i = 0; i < h.getOBRCount(); i++) {
                                     for (int j = 0; j < h.getOBXCount(i); j++) {
                                         String result = h.getOBXResult(i, j);
-                                        String comments = null;
+                                        comments = null;
+                                        testNameReportedByLab = h.getOBXName(i, j);
                                         for (int k = 0; k < h.getOBXCommentCount(i, j); k++) {
                                             comments = Util.addLine(comments, h.getOBXComment(i, j, k));
                                         }
 
                                         if (StringUtils.filled(result) || StringUtils.filled(comments)) {
-                                            HashMap<String, String> labMeaValues = new HashMap<String, String>();
-                                            labMeaValues.put("labType", hl7TextMessage.getType());
-                                            labMeaValues.put("identifier", h.getOBXIdentifier(i, j));
-                                            labMeaValues.put("name", h.getOBXName(i, j));
-                                            labMeaValues.put("labname", h.getPatientLocation());
-                                            labMeaValues.put("datetime", h.getTimeStamp(i, j));
-                                            labMeaValues.put("abnormal", h.getOBXAbnormalFlag(i, j));
-                                            labMeaValues.put("unit", h.getOBXUnits(i, j));
-                                            labMeaValues.put("accession", h.getAccessionNum());
-                                            if (!"-".equals(h.getOBXReferenceRange(i, j))) {
-                                                labMeaValues.put("range", h.getOBXReferenceRange(i, j));
-                                            }
-                                            labMeaValues.put("request_datetime", h.getRequestDate(i));
-                                            labMeaValues.put("olis_status", h.getOBXResultStatus(i, j));
-                                            labMeaValues.put("lab_no", String.valueOf(hl7TxtInfo.getLabNumber()));
-                                            labMeaValues.put("blocked", h.isTestResultBlocked(i, j) ? "BLOCKED" : "");
-                                            labMeaValues.put("other_id", i + "-" + j);
+                                           exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, result, comments, demoNo, i, j);
+                                        }
+                                    }
 
-                                            if (StringUtils.filled(result)) {
-                                                labMeaValues.put("measureData", result);
-                                                labMeaValues.put("comments", comments);
-                                            } else {
-                                                labMeaValues.put("measureData", comments);
+                                    if (!h.getMsgType().equals("PFHT")) {
+                                        testNameReportedByLab = null;
+                                        for (int k=0; k < h.getOBRCommentCount(i); k++) {
+                                            if (h.getOBXName(i, 0).equals("")) { testNameReportedByLab = h.getOBRName(i); }
+                                            comments = h.getOBRComment(i, k);
+                                            if (StringUtils.filled(comments)) {
+                                                comments = comments.replace("<br />", "\\.br\\");
                                             }
-
-                                            String range = labMeaValues.get("range");
-                                            if (StringUtils.filled(range)) {
-                                                String rangeLimits[] = range.split("-");
-                                                if (rangeLimits.length == 2) {
-                                                    labMeaValues.put("minimum", rangeLimits[0]);
-                                                    labMeaValues.put("maximum", rangeLimits[1]);
-                                                }
-                                            }
-
-                                            LaboratoryResults labResults2 = patientRec.addNewLaboratoryResults();
-                                            exportLabResult(labMeaValues, labResults2, demoNo);
+                                            exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, "-", comments, demoNo, i, 0);
                                         }
                                     }
                                 }
@@ -2000,6 +2019,12 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     exportError.add("Error! Document \"" + f.getName() + "\" too big to be exported. Not enough memory!");
                                 } else {
                                     Reports rpr = patientRec.addNewReports();
+                                    if (edoc.getType() != null) {
+                                        cdsDt.ReportMedia.Enum mediaEnum = cdsDt.ReportMedia.Enum.forString(formatHrmEnum(edoc.getType()));
+                                        if (mediaEnum != null) {
+                                            rpr.setMedia(mediaEnum);
+                                        }
+                                    }
                                     rpr.setFormat(cdsDt.ReportFormat.TEXT);
 
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
@@ -2464,7 +2489,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         exportError.add("Error! No Date for Diabetes Self-management Collaborative Goal Setting (id=" + meas.getId() + ") for Patient " + demoNo);
                                     }
                                     dsco.setCodeValue(cdsDt.DiabetesSelfManagementCollaborative.CodeValue.X_44943_9);
-                                    dsco.setDocumentedGoals(meas.getDataField());
+                                    String documentedGoals = meas.getDataField();
+                                    if (!StringUtils.empty(meas.getComments())) {
+                                        documentedGoals = StringUtils.empty(documentedGoals)
+                                            ? meas.getComments()
+                                            : documentedGoals + " - " + meas.getComments();
+                                    }
+                                    dsco.setDocumentedGoals(documentedGoals);
                                     addOneEntry(CAREELEMENTS);
                                 } else if (meas.getType().equals("HYPE")) { //Hypoglycemic Episodes
                                     if (StringUtils.isInteger(meas.getDataField().trim())) {
@@ -2551,6 +2582,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
+                    // Sanitize zipName to prevent path traversal
+                    zipName = MiscUtils.sanitizeFileName(zipName);
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
                         logger.debug("Error! Failed to zip export files");
                     }
@@ -2560,23 +2593,28 @@ public class DemographicExportAction42Action extends ActionSupport {
                         PGPEncrypt pgp = new PGPEncrypt();
                         if (pgp.encrypt(zipName, tmpDir)) {
 
-                            // Sharing Center removed - always download file
+                            // Set success cookie before download so JS knows export completed
+                            setExportStatusCookie(response, "success");
                             Util.downloadFile(zipName + ".pgp", tmpDir, response);
                             Util.cleanFile(zipName + ".pgp", tmpDir);
                             ffwd = "success";
 
                         } else {
+                            setExportStatusCookie(response, "error");
                             request.getSession().setAttribute("pgp_ready", "No");
+                            ffwd = "fail";
                         }
                     } else {
 
                         if (!"true".equals(OscarProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
                             logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
 
-                            // Sharing Center removed - always download file
+                            // Set success cookie before download so JS knows export completed
+                            setExportStatusCookie(response, "success");
                             Util.downloadFile(zipName, tmpDir, response);
                             ffwd = "success";
                         } else {
+                            setExportStatusCookie(response, "error");
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
                         }
@@ -3052,7 +3090,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                 }
                 if (StringUtils.filled(contactNote)) contact.setNote(contactNote);
 
-                fillContactInfo(loggedInInfo, contact, contactId[j], demoNo, j, demoContact.getType());
+                String remainingEmails = fillContactInfo(loggedInInfo, contact, contactId[j], demoNo, j, demoContact.getType());
+				if (StringUtils.filled(remainingEmails)) {
+					String existingNote = StringUtils.filled(contact.getNote()) ? contact.getNote() + "\n" : "";
+					contact.setNote(existingNote + "\nEmail: " + remainingEmails);
+				}
             }
         }
     }
@@ -3108,13 +3150,17 @@ public class DemographicExportAction42Action extends ActionSupport {
                 }
                 if (StringUtils.filled(contactNote)) contact.setNote(contactNote);
 
-                fillContactInfo(loggedInInfo, contact, contactId[j], demoNo, j, DemographicContact.TYPE_DEMOGRAPHIC);
+                String remainingEmails = fillContactInfo(loggedInInfo, contact, contactId[j], demoNo, j, DemographicContact.TYPE_DEMOGRAPHIC);
+				if (StringUtils.filled(remainingEmails)) {
+					String existingNote = StringUtils.filled(contact.getNote()) ? contact.getNote() + "\n" : "";
+					contact.setNote(existingNote + "\nEmails: " + remainingEmails);
+				}
             }
         }
     }
 
-    private void fillContactInfo(LoggedInInfo loggedInInfo, Demographics.Contact contact, String contactId, String demoNo, int index, int type) {
-
+    private String fillContactInfo(LoggedInInfo loggedInInfo, Demographics.Contact contact, String contactId, String demoNo, int index, int type) {
+        String remainingEmails = "";
         if (type == DemographicContact.TYPE_DEMOGRAPHIC) {
             Demographic relDemo = new DemographicData().getDemographic(loggedInInfo, contactId);
             HashMap<String, String> relDemoExt = new HashMap<String, String>();
@@ -3128,7 +3174,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                 exportError.add("Error! No Last Name for contact (" + index + ") for Patient " + demoNo);
             }
 
-            if (StringUtils.filled(relDemo.getEmail())) contact.setEmailAddress(relDemo.getEmail());
+            String email = relDemo.getEmail();
+			if (StringUtils.filled(email)) {
+				String[] emails = email.split("[,;\\s]+");
+				if (emails.length > 0) {
+					contact.setEmailAddress(emails[0].trim());
+					if (emails.length > 1) {
+						remainingEmails = String.join(", ", Arrays.copyOfRange(emails, 1, emails.length));
+					}
+				}
+			}
 
             boolean phoneExtTooLong = false;
             if (phoneNoValid(relDemo.getPhone())) {
@@ -3162,7 +3217,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                     exportError.add("Error! No Last Name for contact (" + index + ") for Patient " + demoNo);
                 }
 
-                if (StringUtils.filled(c.getEmail())) contact.setEmailAddress(c.getEmail());
+                String email = c.getEmail();
+				if (StringUtils.filled(email)) {
+					String[] emails = email.split("[,;\\s]+");
+					if (emails.length > 0) {
+						contact.setEmailAddress(emails[0].trim());
+						if (emails.length > 1) {
+							remainingEmails = String.join(", ", Arrays.copyOfRange(emails, 1, emails.length));
+						}
+					}
+				}
 
                 boolean phoneExtTooLong = false;
                 if (phoneNoValid(c.getPhone())) {
@@ -3187,6 +3251,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             }
 
         }
+        return remainingEmails;
     }
 
     private void fillContactPurpose(String rel, Demographics.Contact contact) {
@@ -3257,6 +3322,45 @@ public class DemographicExportAction42Action extends ActionSupport {
 	}
 	*/
 
+    private void exportLabResult(PatientRecord patientRec, Hl7TextMessage hl7TextMessage, Hl7TextInfo hl7TxtInfo, MessageHandler h, String name, String result, String comments, String demoNo, int i, int j) {
+		HashMap<String,String> labMeaValues = new HashMap<String,String>();
+		labMeaValues.put("labType", hl7TextMessage.getType());
+		labMeaValues.put("identifier", h.getOBXIdentifier(i, j));
+		labMeaValues.put("name", name);
+		labMeaValues.put("labname", h.getPatientLocation());
+		labMeaValues.put("datetime", h.getTimeStamp(i, j));
+		labMeaValues.put("abnormal", h.getOBXAbnormalFlag(i, j));
+		labMeaValues.put("unit", h.getOBXUnits(i, j));
+		labMeaValues.put("accession", h.getAccessionNum());
+		if ( !"-".equals(h.getOBXReferenceRange(i, j)) ) {
+			labMeaValues.put("range", h.getOBXReferenceRange(i, j));
+		}
+		labMeaValues.put("request_datetime", h.getRequestDate(i));
+		labMeaValues.put("olis_status", h.getOBXResultStatus(i, j));
+		labMeaValues.put("lab_no", String.valueOf(hl7TxtInfo.getLabNumber()));
+		labMeaValues.put("blocked", h.isTestResultBlocked(i, j) ? "BLOCKED" : "");
+		labMeaValues.put("other_id", i+"-"+j);
+		
+		if (StringUtils.filled(result)) {
+			labMeaValues.put("measureData", result);
+			labMeaValues.put("comments", comments);
+		} else {
+			labMeaValues.put("measureData", comments);
+		}
+		
+		String range = labMeaValues.get("range");
+		if( StringUtils.filled(range)) {
+			String rangeLimits[] = range.split("-");
+			if( rangeLimits.length == 2 ) {
+				labMeaValues.put("minimum", rangeLimits[0]);
+				labMeaValues.put("maximum", rangeLimits[1]);
+			}
+		}
+
+		LaboratoryResults labResults = patientRec.addNewLaboratoryResults();
+		exportLabResult(labMeaValues, labResults, demoNo);
+	}
+
     private void exportLabResult(HashMap<String, String> labMea, LaboratoryResults labResults, String demoNo) {
 
         //lab test code, test name, test name reported by lab
@@ -3293,7 +3397,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         String measureData = StringUtils.noNull(labMea.get("measureData"));
         if (StringUtils.filled(measureData)) {
             LaboratoryResults.Result result = labResults.addNewResult();
-            if (measureData.length() > 120) {
+            if (measureData.length() > 120 && !Base64.isBase64(measureData)) {
                 measureData = measureData.substring(0, 120);
                 exportError.add("Error! Result text length > 120 - truncated; Lab Test " + labResults.getLabTestCode() + " for Patient " + demoNo);
             }
@@ -3439,8 +3543,8 @@ public class DemographicExportAction42Action extends ActionSupport {
             // Disable XInclude
             factory.setXIncludeAware(false);
             
-            // enabled expansion of entity references
-            factory.setExpandEntityReferences(true);
+            // Disabled expansion of entity references
+            factory.setExpandEntityReferences(false);
         } catch (ParserConfigurationException e) {
             logger.error("Failed to configure XML parser security features", e);
             return false;
@@ -3696,6 +3800,24 @@ public class DemographicExportAction42Action extends ActionSupport {
 
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
+    }
+
+    /**
+     * Sets a cookie to signal export status to the client-side JavaScript.
+     * This allows the UI to know when the export has completed or failed.
+     *
+     * <p>The Secure flag is set based on the request protocol - only set for HTTPS
+     * to ensure the cookie works in both development (HTTP) and production (HTTPS).</p>
+     *
+     * @param response the HTTP response to add the cookie to
+     * @param status the export status ("success" or "error")
+     */
+    private void setExportStatusCookie(HttpServletResponse response, String status) {
+        Cookie cookie = new Cookie("exportStatus", status);
+        cookie.setPath("/");
+        cookie.setMaxAge(60);
+        cookie.setSecure(request.isSecure());
+        response.addCookie(cookie);
     }
 }
 

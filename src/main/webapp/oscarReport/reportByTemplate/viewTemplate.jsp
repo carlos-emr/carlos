@@ -29,7 +29,7 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
-<%@ page import="ca.openosp.openo.report.reportByTemplate.*, org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="ca.openosp.openo.report.reportByTemplate.*, org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.report.reportByTemplate.ReportManager" %>
 <%@ page import="ca.openosp.openo.report.reportByTemplate.ReportObject" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -80,7 +80,7 @@
     <%}%>
 
     <div class="xmlBorderDiv">
-        <pre style="font-size: 11px;"><%=StringEscapeUtils.escapeHtml(xml)%></pre>
+        <pre style="font-size: 11px;"><%=StringEscapeUtils.escapeHtml4(xml)%></pre>
     </div>
 
     <div id="viewTemplateActions" class="form-actions noprint">

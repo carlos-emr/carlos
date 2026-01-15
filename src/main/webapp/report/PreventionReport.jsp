@@ -32,7 +32,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -851,7 +851,7 @@
 
             var today = [year, month, day].join('-');
 
-            var urlToOpen = "../billing/CA/ON/billingOB.jsp?billRegion=ON&billForm=GP&hotclick=&appointment_no=0&demographic_name=&demographic_no=" + demographicNo + "&providerview=&user_no=&apptProvider_no=none&appointment_date=" + today + "&start_time=00:00:00&bNewForm=1&status=t&serviceUnit0=1&serviceCode0=" + billingCode;
+            var urlToOpen = "<%=request.getContextPath()%>/billing/CA/ON/billingOB.jsp?billRegion=ON&billForm=GP&hotclick=&appointment_no=0&demographic_name=&demographic_no=" + demographicNo + "&providerview=&user_no=&apptProvider_no=none&appointment_date=" + today + "&start_time=00:00:00&bNewForm=1&status=t&serviceUnit0=1&serviceCode0=" + billingCode;
             console.log("urlToOpen", urlToOpen);
 
             window.open(urlToOpen);
@@ -937,7 +937,7 @@
         }
 
         $scope.openDemo = function (demo) {
-            window.open("../demographic/demographiccontrol.jsp?demographic_no=" + demo + "&displaymode=edit&dboperation=search_detail", 'MasterDemographic');
+            window.open("<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=" + demo + "&displaymode=edit&dboperation=search_detail", 'MasterDemographic');
             <%--','MasterDemographic')"><%=dis.demographicNo%></a>) --%>
         }
     });

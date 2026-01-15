@@ -17,6 +17,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.billing.CA.ON.model.BillingPercLimit" %>
 <%@page import="ca.openosp.openo.billing.CA.ON.dao.BillingPercLimitDao" %>
 <%@page import="ca.openosp.openo.commn.model.BillingService" %>
@@ -27,7 +28,7 @@
 <%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 
     String user_no = (String) session.getAttribute("user");
@@ -45,7 +46,7 @@
 <%@ page errorPage="/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, ca.openosp.openo.util.*, ca.openosp.*" %>
 
 <%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
@@ -452,8 +453,8 @@
             } else {
                 msg += "<script language=\"JavaScript\">window.location = 'billingShortcutPg1.jsp?billRegion=&billForm="
                         + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view"))) + "&hotclick=&appointment_no=0&demographic_name="
-                        + URLEncoder.encode(demoLast) + "%2C"
-                        + URLEncoder.encode(demoFirst) + "&demographic_no="
+                        + URLEncoder.encode(demoLast, StandardCharsets.UTF_8) + "%2C"
+                        + URLEncoder.encode(demoFirst, StandardCharsets.UTF_8) + "&demographic_no="
                         + demo_no + "&providerview=1&user_no="
                         + user_no + "&apptProvider_no=none&appointment_date="
                         + curYear + "-" + curMonth + "-" + curDay + "&start_time=0:00:00&bNewForm=1&status=t'</script>";
@@ -629,7 +630,7 @@
                 String temp = e.nextElement().toString();
         %>
         <input type="hidden" name="<%= temp %>"
-               value="<%=StringEscapeUtils.escapeHtml(request.getParameter(temp))%>">
+               value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>">
         <%
             }
         %>

@@ -27,17 +27,59 @@
 package ca.openosp;
 
 
+/**
+ * String tokenizer utility that can return empty tokens.
+ * 
+ * <p>This class provides similar functionality to {@link java.util.StringTokenizer}
+ * but with important differences:</p>
+ * <ul>
+ *   <li>Can return empty tokens (consecutive delimiters produce empty strings)</li>
+ *   <li>Uses a single delimiter (character or string) rather than a set of delimiters</li>
+ *   <li>Preserves empty fields in delimited data</li>
+ * </ul>
+ * 
+ * <p>Example usage with character delimiter:</p>
+ * <pre>
+ * StringSplitter splitter = new StringSplitter("a,b,,d", ',');
+ * while (splitter.hasMoreTokens()) {
+ *     String token = splitter.nextToken();
+ *     // Returns: "a", "b", "", "d"
+ * }
+ * </pre>
+ * 
+ * <p>Example usage with string delimiter:</p>
+ * <pre>
+ * StringSplitter splitter = new StringSplitter("foo::bar::::baz", "::");
+ * while (splitter.hasMoreTokens()) {
+ *     String token = splitter.nextToken();
+ *     // Returns: "foo", "bar", "", "baz"
+ * }
+ * </pre>
+ */
 public class StringSplitter {
-    // to be used like StringTokenizer, but it can
-    // return empty "tokens", and takes only one delim;
-    // this may be a character or a string.
+    
+    /** The string being split into tokens */
     String theString;
+    
+    /** The delimiter character (when using character-based splitting) */
     char theDelim;
+    
+    /** Current position in the string */
     int thePos;
+    
+    /** The delimiter string (when using string-based splitting), null if using character delimiter */
     String theDelimStr = null;
+    
+    /** Length of the delimiter (1 for character, length of string for string delimiter) */
     int theDelimLength;
-    // nextToken is the token beginning at thePos
-
+    
+    /**
+     * Constructs a StringSplitter with a character delimiter starting at a specific position.
+     * 
+     * @param S the string to split
+     * @param d the delimiter character
+     * @param p the starting position (0-based index)
+     */
     public StringSplitter(String S, char d, int p) {
         theString = S;
         theDelim = d;
@@ -46,10 +88,23 @@ public class StringSplitter {
         if (thePos >= theString.length()) thePos = -1;
     }
 
+    /**
+     * Constructs a StringSplitter with a character delimiter starting at position 0.
+     * 
+     * @param S the string to split
+     * @param d the delimiter character
+     */
     public StringSplitter(String S, char d) {
         this(S, d, 0);
     }
 
+    /**
+     * Constructs a StringSplitter with a string delimiter starting at a specific position.
+     * 
+     * @param S the string to split
+     * @param d the delimiter string
+     * @param p the starting position (0-based index)
+     */
     public StringSplitter(String S, String d, int p) {
         theString = S;
         theDelimStr = d;
@@ -58,14 +113,33 @@ public class StringSplitter {
         if (thePos >= theString.length()) thePos = -1;
     }
 
+    /**
+     * Constructs a StringSplitter with a string delimiter starting at position 0.
+     * 
+     * @param S the string to split
+     * @param d the delimiter string
+     */
     public StringSplitter(String S, String d) {
         this(S, d, 0);
     }
 
+    /**
+     * Checks if there are more tokens available.
+     * 
+     * @return true if there are more tokens to retrieve, false otherwise
+     */
     public boolean hasMoreTokens() {
         return thePos >= 0;
     }
 
+    /**
+     * Returns the next token from the string.
+     * The token is the substring from the current position up to (but not including)
+     * the next occurrence of the delimiter. If no delimiter is found, returns the
+     * remainder of the string.
+     * 
+     * @return the next token, or null if no more tokens are available
+     */
     public String nextToken() {
         if (thePos < 0) return null;
         int nextPos;
@@ -82,4 +156,4 @@ public class StringSplitter {
         return R;
     }
 
-} // end of StringSplitter utility class
+}

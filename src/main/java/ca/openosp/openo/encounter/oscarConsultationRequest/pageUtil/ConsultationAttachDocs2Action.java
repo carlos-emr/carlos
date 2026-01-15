@@ -39,7 +39,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.itextpdf.text.DocumentException;
 import com.sun.xml.messaging.saaj.util.ByteOutputStream;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.ConsultDocs;
 import ca.openosp.openo.commn.model.EFormData;
@@ -50,6 +51,7 @@ import ca.openosp.openo.managers.FaxManager;
 import ca.openosp.openo.managers.FormsManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.documentManager.EDoc;
@@ -71,6 +73,9 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
 
     private final Logger logger = MiscUtils.getLogger();
     FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         return fetchAll();
@@ -216,7 +221,7 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
                 generateResponse(response, getBase64(byteOutputStream.getBytes()));
             }
             tempLabPDF.delete();
-        } catch (IOException e) {
+        } catch (DocumentException | IOException e) {
             logger.error("An error occurred: " + e.getMessage(), e);
         }
     }
@@ -278,7 +283,7 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
     }
 
     private void generateResponse(HttpServletResponse response, String base64Data) {
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("base64Data", base64Data);
         response.setContentType("text/javascript");
         try {
@@ -328,19 +333,16 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
                 return null;
             }
 
-            // Create the base directory path and normalize it
-            Path baseDir = Paths.get(documentDir).normalize().toAbsolutePath();
-            
-            // Create the full path by combining base directory with file name
-            // Since we've already validated that fileName contains no path separators,
-            // this is safe
-            Path filePath = baseDir.resolve(fileName).normalize().toAbsolutePath();
-            
-            // Verify the resolved path is still within the base directory
-            if (!filePath.startsWith(baseDir)) {
+            // Validate file path using PathValidationUtils
+            File baseDirFile = new File(documentDir);
+            File validatedFile;
+            try {
+                validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
+            } catch (SecurityException e) {
                 logger.error("Path traversal attempt: resolved path escapes base directory");
                 return null;
             }
+            Path filePath = validatedFile.toPath();
             
             // Verify the file exists and is a regular file
             if (!Files.exists(filePath)) {

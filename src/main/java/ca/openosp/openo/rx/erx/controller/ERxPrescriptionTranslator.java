@@ -40,16 +40,16 @@ import ca.openosp.openo.prescript.util.RxUtil;
  * An object that translates between Prescription objects and ERxPrescription
  * objects.
  * <p>
- * FUTURE: org.oscarehr.rx.erx should, in the future, support more than one
+ * FUTURE: ca.openosp.openo.rx.erx should, in the future, support more than one
  * external prescription service, which is unlikely to use the current
  * prescription data model. When this support is added, this class should be
- * renamed to org.oscarehr.rx.erx.PrescriptionTranslator,
+ * renamed to ca.openosp.openo.rx.erx.PrescriptionTranslator,
  * which should implement a new interface named
- * org.oscarehr.rx.erx.controller.ERxPrescriptionTranslator. This new
+ * ca.openosp.openo.rx.erx.controller.ERxPrescriptionTranslator. This new
  * interface should define two methods: ERxPrescription
  * translateToExternal(Prescription) and Prescription
  * translateToInternal(ERxPrescription). Then,
- * org.oscarehr.rx.erx.PrescriptionTranslator will need to be
+ * ca.openosp.openo.rx.erx.PrescriptionTranslator will need to be
  * re-factored as such. Likely at this point, any lookups will be moved
  * internally.
  */

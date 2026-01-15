@@ -24,7 +24,6 @@
  */
 package ca.openosp.openo.webserv.rest.to.model;
 
-//import net.sf.json.JSONObject;
 
 import java.io.Serializable;
 import java.util.Collections;

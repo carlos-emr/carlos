@@ -24,7 +24,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.dao.SiteDao;
 import ca.openosp.openo.commn.model.Site;
 import ca.openosp.openo.utility.SpringUtils;

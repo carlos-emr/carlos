@@ -25,7 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- Log4j Version -->
-        <log4j2.version>2.25.1</log4j2.version>
+        <log4j2.version>2.25.3</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
@@ -108,6 +108,32 @@
                 <artifactId>mina-core</artifactId>
                 <version>2.1.10</version>
             </dependency>
+
+            <!-- Transitive Hibernate/JPA dependencies -->
+            <!-- Hibernate core -->
+            <dependency>
+                <groupId>org.hibernate</groupId>
+                <artifactId>hibernate-core</artifactId>
+                <version>5.6.15.Final</version>
+            </dependency>
+            <!-- Hibernate commons annotations - transitive from hibernate-core -->
+            <dependency>
+                <groupId>org.hibernate.common</groupId>
+                <artifactId>hibernate-commons-annotations</artifactId>
+                <version>5.1.2.Final</version>
+            </dependency>
+            <!-- JPA API (javax namespace) - transitive from Hibernate 5.x -->
+            <dependency>
+                <groupId>javax.persistence</groupId>
+                <artifactId>javax.persistence-api</artifactId>
+                <version>2.2</version>
+            </dependency>
+            <!-- JPA API (jakarta namespace) - transitive from jaxws-ri -->
+            <dependency>
+                <groupId>jakarta.persistence</groupId>
+                <artifactId>jakarta.persistence-api</artifactId>
+                <version>2.2.3</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -128,14 +154,6 @@
     </reporting>
 
     <dependencies>
-        <!-- For Jasper Reports and backwards compatibility -->
-        <!-- throws an compilation error when removed/commented -->
-        <dependency>
-            <groupId>com.lowagie</groupId>
-            <artifactId>itext</artifactId>
-            <version>4.2.2</version>
-        </dependency>
-
         <!-- https://mvnrepository.com/artifact/net.bull.javamelody/javamelody-core -->
         <!-- Updated to latest javax.servlet compatible version -->
         <dependency>
@@ -198,11 +216,6 @@
         </dependency>
 
         <!-- commons -->
-        <dependency>
-            <groupId>commons-lang</groupId>
-            <artifactId>commons-lang</artifactId>
-            <version>2.4</version>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/commons-validator/commons-validator -->
         <dependency>
             <groupId>commons-validator</groupId>
@@ -329,6 +342,11 @@
                     <groupId>commons-lang</groupId>
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
+                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead (see version of log4j-1.2-api) -->
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -434,7 +452,21 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>5.8.16</version>
+            <version>6.3.9</version>
+        </dependency>
+
+        <!-- Spring Cache Support with EhCache 2.x -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context-support</artifactId>
+            <version>5.3.39</version>
+        </dependency>
+
+        <!-- EhCache 2.x for Spring Cache -->
+        <dependency>
+            <groupId>net.sf.ehcache</groupId>
+            <artifactId>ehcache</artifactId>
+            <version>2.10.9.2</version>
         </dependency>
 
         <dependency>
@@ -515,52 +547,16 @@
         <dependency>
             <groupId>com.github.openosp</groupId>
             <artifactId>ultrabuk-htmltopdf-java</artifactId>
-            <version>1.0.10.1</version>
+            <version>1.0.11</version>
         </dependency>
 
-        <!-- rtf / lowagie -->
+        <!-- Modern RTF support via OpenRTF (actively maintained, released Aug 2025) -->
         <dependency>
-            <groupId>com.lowagie</groupId>
-            <artifactId>itext-rtf</artifactId>
-            <version>2.1.7</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>bouncycastle</groupId>
-                    <artifactId>bcprov-jdk14</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>bouncycastle</groupId>
-                    <artifactId>bcmail-jdk14</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.bouncycastle</groupId>
-                    <artifactId>bcprov-jdk14</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.bouncycastle</groupId>
-                    <artifactId>bctsp-jdk14</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openrtf</artifactId>
+            <version>2.0.0</version>
         </dependency>
 
-        <!-- json -->
-        <dependency>
-            <groupId>net.sf.json-lib</groupId>
-            <artifactId>json-lib</artifactId>
-            <version>2.4</version>
-            <classifier>jdk15</classifier>
-            <exclusions>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>commons-beanutils</groupId>
-                    <artifactId>commons-beanutils</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
 
         <!-- apache xmlrpc -->
         <dependency>
@@ -701,7 +697,7 @@
         <dependency>
             <groupId>com.sun.mail</groupId>
             <artifactId>jakarta.mail</artifactId>
-            <version>2.0.1</version>
+            <version>1.6.8</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.jfree/jfreechart -->
@@ -853,11 +849,11 @@
             <version>20111111</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on-->
+        <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>1.79</version>
         </dependency>
 
         <!-- Added for axis2 1.8.0 -->
@@ -865,7 +861,7 @@
         <dependency>
             <groupId>org.glassfish.jersey.core</groupId>
             <artifactId>jersey-client</artifactId>
-            <version>2.39.1</version>
+            <version>2.46</version>
             <!-- Exclude it to avoid conflict with the apache.cxf's jakarta.ws.rs-api -->
             <exclusions>
                 <exclusion>
@@ -1149,13 +1145,6 @@
             <groupId>com.github.scribejava</groupId>
             <artifactId>scribejava-core</artifactId>
             <version>8.3.3</version>
-        </dependency>
-
-        <!-- Apache Tika - MimeType handling for downloaded files (ie. XDS) -->
-        <dependency>
-            <groupId>org.apache.tika</groupId>
-            <artifactId>tika-core</artifactId>
-            <version>1.28.5</version>
         </dependency>
 
         <dependency>
@@ -1710,12 +1699,12 @@
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-core</artifactId>
-                        <version>7.7.0</version>
+                        <version>7.10.0</version>
                     </dependency>
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-java</artifactId>
-                        <version>7.7.0</version>
+                        <version>7.10.0</version>
                     </dependency>
                 </dependencies>
             </plugin>

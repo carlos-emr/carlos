@@ -31,9 +31,9 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAO;
 import ca.openosp.openo.casemgmt.model.CaseManagementIssue;
@@ -107,16 +107,16 @@ public final class SendOruR01UIBean {
             // fill demographic info
             String demographicId = caseManagementNote.getDemographic_no();
             Demographic demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicId);
-            clientFirstName = StringEscapeUtils.escapeHtml(StringUtils.trimToEmpty(demographic.getFirstName()));
-            clientLastName = StringEscapeUtils.escapeHtml(StringUtils.trimToEmpty(demographic.getLastName()));
-            clientHin = StringEscapeUtils.escapeHtml(StringUtils.trimToEmpty(demographic.getHin()));
+            clientFirstName = StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getFirstName()));
+            clientLastName = StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getLastName()));
+            clientHin = StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getHin()));
             GregorianCalendar cal = demographic.getBirthDay();
             if (cal != null)
-                clientBirthDate = StringEscapeUtils.escapeHtml(DateFormatUtils.ISO_DATE_FORMAT.format(cal));
-            clientGender = StringEscapeUtils.escapeHtml(StringUtils.trimToEmpty(demographic.getSex()));
+                clientBirthDate = StringEscapeUtils.escapeHtml4(DateFormatUtils.ISO_DATE_FORMAT.format(cal));
+            clientGender = StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getSex()));
 
             // fill note info
-            subject = StringEscapeUtils.escapeHtml("Encounter Note");
+            subject = StringEscapeUtils.escapeHtml4("Encounter Note");
             StringBuilder sb = new StringBuilder();
             sb.append(caseManagementNote.getNote());
 
@@ -142,7 +142,7 @@ public final class SendOruR01UIBean {
                 sb.append("\n---------- No Attached Issues ---------");
             }
 
-            textMessage = StringEscapeUtils.escapeHtml(sb.toString());
+            textMessage = StringEscapeUtils.escapeHtml4(sb.toString());
         }
     }
 
@@ -191,7 +191,7 @@ public final class SendOruR01UIBean {
             sb.append(provider.getAddress());
         }
 
-        return (StringEscapeUtils.escapeHtml(sb.toString()));
+        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     public static List<ProfessionalSpecialist> getRemoteCapableProfessionalSpecialists() {
@@ -220,7 +220,7 @@ public final class SendOruR01UIBean {
             sb.append(professionalSpecialist.getStreetAddress());
         }
 
-        return (StringEscapeUtils.escapeHtml(sb.toString()));
+        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     public Integer getProfessionalSpecialistId() {

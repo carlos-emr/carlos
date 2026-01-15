@@ -22,7 +22,6 @@
  * Hamilton
  * Ontario, Canada
  */
-//package oscar.v23.segment;
 package ca.openosp.openo.lab.ca.all.spireHapiExt.v23.segment;
 
 import ca.openosp.openo.utility.MiscUtils;

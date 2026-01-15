@@ -4,7 +4,7 @@ package ca.openosp.openo.casemgmt.service;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.encounter.data.EctProviderData;
 import ca.openosp.openo.encounter.pageUtil.EctSessionBean;
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.model.ProgramProvider;
@@ -17,7 +17,9 @@ import ca.openosp.openo.casemgmt.model.Issue;
 import ca.openosp.openo.casemgmt.util.ExtPrint;
 import ca.openosp.openo.casemgmt.web.NoteDisplay;
 import ca.openosp.openo.casemgmt.web.NoteDisplayLocal;
+import ca.openosp.openo.commn.model.Allergy;
 import ca.openosp.openo.commn.model.Prevention;
+import ca.openosp.openo.commn.dao.AllergyDao;
 import ca.openosp.openo.managers.PreventionManager;
 import ca.openosp.openo.managers.ProgramManager2;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -61,11 +63,13 @@ public class CaseManagementPrint {
 
     private PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
 
+    private AllergyDao allergyDao = SpringUtils.getBean(AllergyDao.class);
+
     /*
      *This method was in CaseManagementEntry2Action but has been moved out so that both the classic Echart and the flat echart can use the same printing method.
      *
      */
-    public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, com.lowagie.text.DocumentException, com.itextpdf.text.DocumentException {
+    public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean printAllergies, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, DocumentException {
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -210,6 +214,11 @@ public class CaseManagementPrint {
             preventions = preventionManager.getPreventionsByDemographicNo(loggedInInfo, Integer.parseInt(demono));
         }
 
+        List<Allergy> allergies = null;
+        if (printAllergies) {
+            allergies = allergyDao.findAllergies(demographicNo);
+        }
+
         SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
         Date now = new Date();
         String headerDate = headerFormat.format(now);
@@ -236,6 +245,9 @@ public class CaseManagementPrint {
             printer.printCPP(cpp);
             printer.printRx(demoNo, othermeds);
             printer.printPreventions(preventions);
+            if (printAllergies && allergies != null) {
+                printer.printAllergies(allergies);
+            }
             printer.printNotes(notes);
 
             /* check extensions */

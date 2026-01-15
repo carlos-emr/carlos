@@ -38,7 +38,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
-//import oscar.util.SqlUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -93,7 +92,7 @@ public final class Billing2Action extends ActionSupport {
                 }
 
                 request.getSession().setAttribute("billingSessionBean", bean);
-
+                
                 try {
                     _log.debug("Start of billing rules");
                     List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user"));

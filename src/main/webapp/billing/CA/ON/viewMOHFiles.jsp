@@ -9,6 +9,7 @@
     and "gnu.org/licenses/gpl-2.0.html".
     
 --%>
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.*,ca.openosp.*,java.io.*,java.net.*,ca.openosp.openo.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,ca.openosp.openo.billing.CA.ON.util.EDTFolder,ca.openosp.openo.utility.MiscUtils"%>
 <%@ page import="ca.openosp.openo.util.FileSortByDate" %>
 <%@ page import="ca.openosp.openo.util.zip" %>
@@ -44,7 +45,7 @@
                 location.href = "<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp";
                 return;
             } else if (fileType == "P" || fileType == "S") {
-                form.action = "/<%= OscarProperties.getInstance().getProperty("project_home") %>/servlet/oscar.DocumentUploadServlet";
+                form.action = "<%= request.getContextPath() %>/servlet/ca.openosp.DocumentUploadServlet";
             } else if (fileType == "L") {
                 form.action = "<%= request.getContextPath() %>/billing/CA/ON/billingLreport.jsp";
             } else {
@@ -147,10 +148,10 @@
                     bodd = bodd ? false : true;
                     if (contents[i].isDirectory() || contents[i].getName().startsWith(".")) continue;
                     if (contents[i].getName().endsWith(".sh")) continue;
-                    String archiveElement = "<td ><input type='checkbox' name='mohFile' value='" + URLEncoder.encode(contents[i].getName()) + "' title='select to archive'/></td>";
+                    String archiveElement = "<td ><input type='checkbox' name='mohFile' value='" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8) + "' title='select to archive'/></td>";
                     if (folder == EDTFolder.INBOX || folder == EDTFolder.ARCHIVE) {
-                        out.println("<tr>" + (folder == EDTFolder.INBOX ? archiveElement : "") + "<td><a HREF='#' onclick='viewMOHFile(\"" + URLEncoder.encode(contents[i].getName()) + "\")'>" + contents[i].getName() + unzipMSG + "</a></td>");
-                        out.println("<td><a href=\"" + request.getContextPath() + "/servlet/BackupDownload?filename=" + URLEncoder.encode(contents[i].getName()) + "\">Download</a></td>");
+                        out.println("<tr>" + (folder == EDTFolder.INBOX ? archiveElement : "") + "<td><a HREF='#' onclick='viewMOHFile(\"" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8) + "\")'>" + contents[i].getName() + unzipMSG + "</a></td>");
+                        out.println("<td><a href=\"" + request.getContextPath() + "/servlet/BackupDownload?filename=" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8) + "\">Download</a></td>");
                     } else {
                         out.println("<tr><td>" + contents[i].getName() + "</td>");
                     }

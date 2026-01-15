@@ -35,7 +35,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import ca.openosp.openo.util.DateUtils;
-import net.sf.json.JSONArray;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import ca.openosp.openo.commn.dao.PageMonitorDao;
 import ca.openosp.openo.commn.model.PageMonitor;
@@ -52,6 +53,9 @@ public class PageMonitoring2Action extends ActionSupport {
 
 
     PageMonitorDao pageMonitorDao = SpringUtils.getBean(PageMonitorDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception{
         if ("update".equals(request.getParameter("method"))) {
@@ -164,7 +168,7 @@ public class PageMonitoring2Action extends ActionSupport {
 
         } //end of synchronized block
 
-        JSONArray jsonArray = JSONArray.fromObject(otherMonitors);
+        ArrayNode jsonArray = objectMapper.valueToTree(otherMonitors);
         response.getWriter().print(jsonArray);
         return null;
     }

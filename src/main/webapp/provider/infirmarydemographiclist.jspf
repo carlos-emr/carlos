@@ -83,7 +83,7 @@
 					<c:if test="${demographic_no == 0}">
 						<c:choose>
 							<c:when test="${not empty tickler_no}">
-									<a href="#" onClick="popupPage(700, 1000, '../tickler/ticklerDemoMain.jsp?demoview=0'); return false;" title="${tickler_note}">
+									<a href="#" onClick="popupPage(700, 1000, '<%= request.getContextPath() %>/tickler/ticklerDemoMain.jsp?demoview=0'); return false;" title="${tickler_note}">
 										<font color="red">!</font>
 									</a>
 							</c:when>

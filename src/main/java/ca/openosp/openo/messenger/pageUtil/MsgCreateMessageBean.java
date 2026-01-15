@@ -47,6 +47,7 @@ package ca.openosp.openo.messenger.pageUtil;
  * @since 2003
  * @see MsgSessionBean
  */
+@Deprecated
 public class MsgCreateMessageBean {
     /**
      * Sample property with default initialization value.

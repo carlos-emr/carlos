@@ -24,9 +24,9 @@
  */
 package ca.openosp.openo.documentManager;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -306,12 +306,7 @@ public final class ConvertToEdoc {
      */
     private static void renderPDF(final String document, ByteArrayOutputStream os)
             throws DocumentException, IOException {
-
-        OscarProperties props = OscarProperties.getInstance();
-        String cmd = props.getProperty("WKHTMLTOPDF_COMMAND", DEFAULT_WKHTMLTOPDF_COMMAND);
-        String args = props.getProperty("WKHTMLTOPDF_ARGS", DEFAULT_WKHTMLTOPDF_ARGS);
-
-        EDocConverterInterface converter = "internal".equalsIgnoreCase(cmd) ? new InternalEDocConverter() : new ExternalEDocConverter(cmd, args);
+        EDocConverterInterface converter = new InternalEDocConverter();
 
         try {
             converter.convert(document, os);
@@ -347,7 +342,14 @@ public final class ConvertToEdoc {
         
         renderer.setDocumentFromString(doc.outerHtml(), null);
         renderer.layout();
-        renderer.createPDF(os, true);
+        try {
+            renderer.createPDF(os, true);
+        } catch (com.lowagie.text.DocumentException e) {
+            // Flying Saucer uses OpenPDF library which has a different DocumentException class
+            // Wrap it to maintain API consistency with iText-based PDF generation
+            logger.error("Failed to create PDF with Flying Saucer", e);
+            throw new DocumentException(e);
+        }
     }
 
     /**

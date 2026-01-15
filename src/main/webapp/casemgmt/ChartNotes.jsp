@@ -32,7 +32,7 @@
 <%@page import="java.util.Enumeration" %>
 <%@page import="ca.openosp.openo.encounter.pageUtil.NavBarDisplayDAO" %>
 <%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.casemgmt.model.*,ca.openosp.openo.casemgmt.service.* " %>
 <%@page import="ca.openosp.openo.casemgmt.web.formbeans.*" %>
 <%@page import="ca.openosp.openo.PMmodule.model.*" %>
@@ -196,8 +196,8 @@
         <input type="hidden" name="providerNo" value="<%=provNo%>"/>
         <input type="hidden" name="tab" value="Current Issues"/>
         <input type="hidden" name="hideActiveIssue" id="hideActiveIssue"/>
-        <input type="hidden" name="ectWin.rowOneSize" styleId="rowOneSize"/>
-        <input type="hidden" name="ectWin.rowTwoSize" styleId="rowTwoSize"/>
+        <input type="hidden" name="ectWin.rowOneSize" id="rowOneSize"/>
+        <input type="hidden" name="ectWin.rowTwoSize" id="rowTwoSize"/>
         <input type="hidden" name="chain" value="list">
         <input type="hidden" name="method" value="view">
         <input type="hidden" id="check_issue" name="check_issue">
@@ -492,7 +492,7 @@
                         List<EncounterTemplate> allTemplates = encounterTemplateDao.findAll();
 
                         for (EncounterTemplate encounterTemplate : allTemplates) {
-                            String templateName = StringEscapeUtils.escapeHtml(encounterTemplate.getEncounterTemplateName());
+                            String templateName = StringEscapeUtils.escapeHtml4(encounterTemplate.getEncounterTemplateName());
                     %>
                     <option value="<%=request.getContextPath()+"/admin/providertemplate.jsp?dboperation=Edit&name="+templateName%>"><%=templateName%>
                     </option>
@@ -580,6 +580,7 @@
     <input type="hidden" name="printRx" id="printRx" value="false">
     <input type="hidden" name="printLabs" id="printLabs" value="false">
     <input type="hidden" name="printPreventions" id="printPreventions" value="false">
+    <input type="hidden" name="printAllergies" id="printAllergies" value="false">
     <input type="hidden" name="encType" id="encType" value="">
     <input type="hidden" name="pType" id="pType" value="">
     <input type="hidden" name="pStartDate" id="pStartDate" value="">

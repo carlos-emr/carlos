@@ -27,28 +27,40 @@
 package ca.openosp;
 
 /**
- * Description - BillingPatientDataBean
+ * Data bean representing patient demographic and insurance information for billing purposes.
+ * 
+ * <p>This bean encapsulates patient-specific data required for billing transactions:</p>
+ * <ul>
+ *   <li>Patient demographic information (name, address, city, province, postal code)</li>
+ *   <li>Personal details (sex, date of birth)</li>
+ *   <li>Health insurance number (HIN)</li>
+ *   <li>Billing status</li>
+ * </ul>
+ * 
+ * <p>This is a serializable JavaBean typically used in conjunction with
+ * {@link BillingDataBean} for complete billing transaction processing.</p>
+ * 
+ * @see BillingDataBean
  */
-
-
-/**
- * JavaDoc comment for this bean
- */
-
 public class BillingPatientDataBean extends java.lang.Object implements java.io.Serializable {
 
-    /*   *
-     * Instance variable for the BillingData properties
-     */
-
+    /** Patient demographic name */
     protected String demoname = "";
+    /** Patient address */
     protected String address = "";
+    /** Province/state */
     protected String province = "";
+    /** Postal/zip code */
     protected String postal = "";
+    /** City */
     protected String city = "";
+    /** Patient sex/gender */
     protected String sex = "";
+    /** Health insurance number */
     protected String hin = "";
+    /** Patient date of birth */
     protected String dob = "";
+    /** Billing status */
     protected String status = "";
 
 

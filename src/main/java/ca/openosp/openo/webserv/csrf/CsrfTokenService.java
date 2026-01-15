@@ -25,7 +25,8 @@
 
 package ca.openosp.openo.webserv.csrf;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.webserv.oauth.AbstractServiceImpl;
 import org.owasp.csrfguard.CsrfGuard;
 import org.springframework.stereotype.Component;
@@ -41,12 +42,14 @@ import javax.ws.rs.core.MediaType;
 @Consumes(MediaType.APPLICATION_JSON)
 public class CsrfTokenService extends AbstractServiceImpl {
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     @POST
     @Path("/getToken")
     @Produces("application/json")
     public String getToken() {
         CsrfGuard csrfGuard = CsrfGuard.getInstance();
-        JSONObject token = new JSONObject();
+        ObjectNode token = objectMapper.createObjectNode();
         token.put("name", csrfGuard.getTokenName());
         token.put("value", csrfGuard.getTokenValue(getHttpServletRequest()));
         return token.toString();

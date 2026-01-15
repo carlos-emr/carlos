@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -167,13 +167,13 @@
             document.getElementById(id).style.display = 'none';
         }
 
-        function showHideNextDate(id, nextDate, nexerWarn) {
+        function showHideNextDate(id, nextDate, neverWarn) {
             if (document.getElementById(id).style.display == 'none') {
                 showItem(id);
             } else {
                 hideItem(id);
                 document.getElementById(nextDate).value = "";
-                document.getElementById(nexerWarn).checked = false;
+                document.getElementById(neverWarn).checked = false;
 
             }
         }
@@ -218,7 +218,7 @@
         }
     </script>
 
-    <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" method="post" onsubmit="return process(this);" styleId="injectForm">
+    <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" method="post" onsubmit="return process(this);" id="injectForm">
         <input type="hidden" name="prevention" value="RH"/>
         <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
         <input type="hidden" name="workflowId" value="<%=workflowId%>"/>

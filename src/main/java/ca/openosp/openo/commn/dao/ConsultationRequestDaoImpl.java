@@ -33,7 +33,7 @@ import java.util.List;
 
 import javax.persistence.Query;
 
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import ca.openosp.openo.commn.NativeSql;
 import ca.openosp.openo.commn.model.ConsultationRequest;
 

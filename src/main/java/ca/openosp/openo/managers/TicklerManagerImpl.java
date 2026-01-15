@@ -36,8 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.PMmodule.dao.ProgramAccessDAO;
 import ca.openosp.openo.PMmodule.dao.ProgramProviderDAO;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
@@ -618,7 +617,7 @@ public class TicklerManagerImpl implements TicklerManager {
 
         String date = service_date;
         if (date != null && !date.equals("now()")) { // Just a hack for now.
-            date = "'" + StringEscapeUtils.escapeSql(service_date) + "'";
+            date = "'" + service_date + "'";
         }
 
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");

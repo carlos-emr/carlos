@@ -30,7 +30,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -39,7 +39,7 @@
 %>
 <%@page import="ca.openosp.openo.PMmodule.model.Program" %>
 <%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.ArrayList" %>
@@ -142,7 +142,7 @@
                         }
                 %>
                 <option <%=selected%>
-                        value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml(program.getName() + " (" + program.getType() + ")")%>
+                        value="<%=program.getId()%>"><%=StringEscapeUtils.escapeHtml4(program.getName() + " (" + program.getType() + ")")%>
                 </option>
                 <%
                     }

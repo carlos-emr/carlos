@@ -42,7 +42,7 @@ import java.util.Map.Entry;
 
 import javax.persistence.Query;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.PMmodule.utility.DateUtils;
 import ca.openosp.openo.billing.CA.ON.model.BillingPercLimit;

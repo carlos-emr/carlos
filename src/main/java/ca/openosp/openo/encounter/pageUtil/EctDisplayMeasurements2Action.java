@@ -111,21 +111,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                 }
             }
 
-            if (OscarProperties.getInstance().getBooleanProperty("health_tracker", "true")) {
-                NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                //temp while testing
-                String dispname = "Health Tracker";
-
-                winName = "viewTracker" + bean.demographicNo;
-                hash = Math.abs(winName.hashCode());
-                url = "window.open('" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf?demographic_no=" + bean.demographicNo + "&template=tracker'," + hash + ",'height=' + screen.height + ',width=' + screen.width +',resizable=yes,scrollbars=yes, fullscreen=yes');return false;";
-                item.setLinkTitle(dispname);
-                dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                item.setTitle(dispname);
-                item.setURL(url);
-                Dao.addItem(item);
-            }
-
             //next we add dx triggered flowsheets to the module items
             dxResearchBeanHandler dxRes = new dxResearchBeanHandler(bean.demographicNo);
             Vector dxCodes = dxRes.getActiveCodeListWithCodingSystem();
@@ -302,7 +287,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             int maxsize = (str.length() - overflow) > 0 ? str.length() - overflow : 1;
             int minsize = maxsize > 3 ? maxsize - 3 : 0;
             String ellipses = new String();
-            ellipses = org.apache.commons.lang.StringUtils.rightPad(ellipses, maxsize - minsize, '.');
+            ellipses = org.apache.commons.lang3.StringUtils.rightPad(ellipses, maxsize - minsize, '.');
             tmp = StringUtils.maxLenString(str, maxsize, minsize, ellipses);
         } else tmp = str;
 

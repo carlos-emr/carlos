@@ -9,249 +9,236 @@
     
 --%>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
+      String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+      boolean authed=true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="w" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_con");%>
+	<%authed=false; %>
+	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
 </security:oscarSec>
 <%
-    if (!authed) {
-        return;
-    }
+if(!authed) {
+	return;
+}
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="ca.openosp.openo.utility.LoggedInInfo"%>
 <%
-    String user_no = (String) session.getAttribute("user");
-    String userfirstname = (String) session.getAttribute("userfirstname");
-    String userlastname = (String) session.getAttribute("userlastname");
+String user_no = (String) session.getAttribute("user");
+String userfirstname = (String) session.getAttribute("userfirstname");
+String userlastname = (String) session.getAttribute("userlastname");
 %>
-
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <jsp:useBean id="oscarVariables" class="java.util.Properties"
-             scope="page"/>
+	scope="page" />
 <%@ page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.net.*,ca.openosp.MyDateFormat, ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachDocs" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
+	import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.openo.*, ca.openosp.openo.util.*, java.net.*,ca.openosp.MyDateFormat, ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachDocs"%>
+<%@ page import="ca.openosp.openo.lab.ca.on.*"%>
+<%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData"%>
+<%@ page import="org.apache.commons.text.StringEscapeUtils"%>
+<%@page import="ca.openosp.openo.utility.SessionConstants"%>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentToDemographicDao" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMDocument" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMDocumentToDemographic" %>
+<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao"%>
+<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentToDemographicDao"%>
+<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMDocument"%>
+<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMDocumentToDemographic"%>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="ca.openosp.openo.commn.model.EFormData" %>
 <%@ page import="ca.openosp.openo.eform.EFormUtil" %>
 <%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
 <%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
 
 <!-- Deprecated: Please use attachDocument.jsp. -->
 <%
 
-    //preliminary JSP code
+//preliminary JSP code
 
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
 
 // "Module" and "function" is the same thing (old documentManager module)
-    String module = "demographic";
-    String demoNo = request.getParameter("demo");
-    String requestId = request.getParameter("requestId");
-    String providerNo = request.getParameter("provNo");
+String module = "demographic";
+String demoNo = request.getParameter("demo");
+String requestId = request.getParameter("requestId");
+String providerNo = request.getParameter("provNo");
 
-    if (demoNo == null && requestId == null) request.getRequestDispatcher("/errorpage.jsp").forward(request, response);
+if(demoNo == null && requestId == null ) response.sendRedirect(request.getContextPath() + "/error.jsp");
 
-    if (demoNo == null || demoNo.equals("null")) {
+if( demoNo == null || demoNo.equals("null")  ) {
 
-        ConsultationAttachDocs docsUtil = new ConsultationAttachDocs(requestId);
-        demoNo = docsUtil.getDemoNo();
+	ConsultationAttachDocs docsUtil = new ConsultationAttachDocs(requestId);
+    demoNo = docsUtil.getDemoNo();
+    
+}
 
-    }
+HRMDocumentToDemographicDao hrmDocumentToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
+HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
 
-    HRMDocumentToDemographicDao hrmDocumentToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
-    HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-
-    String patientName = EDocUtil.getDemographicName(loggedInInfo, demoNo);
-    String[] docType = {"D", "L", "H", "E"};
-    String http_user_agent = request.getHeader("User-Agent");
-    boolean onIPad = http_user_agent.indexOf("iPad") >= 0;
+String patientName = EDocUtil.getDemographicName(loggedInInfo, demoNo);
+String[] docType = {"D","L", "H", "E"};
+String http_user_agent = request.getHeader("User-Agent");
+boolean onIPad = http_user_agent.indexOf("iPad") >= 0;
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
-"http://www.w3.org/TR/html4/strict.dtd">
+   "http://www.w3.org/TR/html4/strict.dtd">
 <html>
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery_oscar_defaults.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery.colorbox-min.js"></script>
+<head>
+<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery_oscar_defaults.js"></script>
+<script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery.colorbox-min.js"></script>
+	
+<title>
+    <fmt:setBundle basename="oscarResources"/>
+    <fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.title" />
+</title>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
+<script type="text/javascript">
+//<!--   
+<% 
+CommonLabResultData labData = new CommonLabResultData();
+ArrayList<LabResultData> labs = labData.populateLabResultsData(loggedInInfo, demoNo, requestId, CommonLabResultData.ATTACHED);
+ArrayList<EDoc> privatedocs = new ArrayList<EDoc>();
+privatedocs = EDocUtil.listDocs(loggedInInfo, demoNo, requestId, EDocUtil.ATTACHED);
+List<HRMDocumentToDemographic> hrmDocumentsToDemographics = hrmDocumentToDemographicDao.findHRMDocumentsAttachedToConsultation(requestId);
+List<EFormData> eForms = EFormUtil.listPatientEformsCurrentAttachedToConsult(requestId);
+String attachedDocs = "";
+if (requestId == null || requestId.equals("") || requestId.equals("null")) {
+	attachedDocs = "window.opener.document.EctConsultationFormRequestForm.documents.value";
+}
+else {
+	for (int i = 0; i < privatedocs.size(); i++) {
+	    attachedDocs += (attachedDocs.equals("") ? "" : "|") + "D" + (privatedocs.get(i)).getDocId(); 
+	}
+	
+	for (int i = 0; i < labs.size(); i++) {
+	    attachedDocs += (attachedDocs.equals("") ? "" : "|") + "L" + (labs.get(i)).getSegmentID(); 
+	}
+	
+	for (HRMDocumentToDemographic hrmDocumentToDemographic : hrmDocumentsToDemographics) {
+		attachedDocs += (attachedDocs.equals("") ? "" : "|") + "H" + hrmDocumentToDemographic.getHrmDocumentId();  
+	}
+	for (EFormData eForm : eForms) {
+		attachedDocs += (attachedDocs.equals("") ? "" : "|") + "E" + eForm.getId();  
+	}
+	attachedDocs = "\"" + attachedDocs + "\""; 
+}
+%>  
 
-        <script type="text/javascript">
-            //<!--
-            <%
-            CommonLabResultData labData = new CommonLabResultData();
-            ArrayList<LabResultData> labs = labData.populateLabResultsData(loggedInInfo, demoNo, requestId, CommonLabResultData.ATTACHED);
-            ArrayList<EDoc> privatedocs = new ArrayList<EDoc>();
-            privatedocs = EDocUtil.listDocs(loggedInInfo, demoNo, requestId, EDocUtil.ATTACHED);
-            List<HRMDocumentToDemographic> hrmDocumentsToDemographics = hrmDocumentToDemographicDao.findHRMDocumentsAttachedToConsultation(requestId);
-            List<EFormData> eForms = EFormUtil.listPatientEformsCurrentAttachedToConsult(requestId);
-            String attachedDocs = "";
-            if (requestId == null || requestId.equals("") || requestId.equals("null")) {
-                attachedDocs = "window.opener.document.EctConsultationFormRequestForm.documents.value";
-            }
-            else {
-                for (int i = 0; i < privatedocs.size(); i++) {
-                    attachedDocs += (attachedDocs.equals("") ? "" : "|") + "D" + (privatedocs.get(i)).getDocId();
-                }
+//if consultation has not been saved, load existing docs into proper select boxes
+function init() {	
+	var docs = <%= attachedDocs %>; 
+	docs = docs.split("|");
+	checkDocuments(docs);                             
+}
 
-                for (int i = 0; i < labs.size(); i++) {
-                    attachedDocs += (attachedDocs.equals("") ? "" : "|") + "L" + (labs.get(i)).getSegmentID();
-                }
-
-                for (HRMDocumentToDemographic hrmDocumentToDemographic : hrmDocumentsToDemographics) {
-                    attachedDocs += (attachedDocs.equals("") ? "" : "|") + "H" + hrmDocumentToDemographic.getHrmDocumentId();
-                }
-                for (EFormData eForm : eForms) {
-                    attachedDocs += (attachedDocs.equals("") ? "" : "|") + "E" + eForm.getId();
-                }
-                attachedDocs = "\"" + attachedDocs + "\"";
-            }
-            %>
-
-            //if consultation has not been saved, load existing docs into proper select boxes
-            function init() {
-                var docs = <%= attachedDocs %>;
-                docs = docs.split("|");
-                checkDocuments(docs);
-            }
-
-            function checkDocuments(docs) {
-                if (docs == null) {
-                    return;
-                }
-                for (var idx = 0; idx < docs.length; ++idx) {
-                    if (docs[idx].length < 2) {
-                        continue;
-                    }
-                    var attachmentType = "docNo";
-                    switch (docs[idx].charAt(0)) {
-                        case "L":
-                            attachmentType = "labNo";
-                            break;
-                        case "H":
-                            attachmentType = "hrmNo";
-                            break;
-                        case "D":
-                            attachmentType = "docNo";
-                            break;
-                        case "E":
-                            attachmentType = "eFormNo";
-                            break;
-                    }
-                    $("input[name='" + attachmentType + "']"
-                        + "[value='" + docs[idx].substring(1) + "']").attr("checked", "checked");
-                }
-            }
+function checkDocuments(docs) {
+	if (docs == null) { return; }
+	for (var idx = 0; idx < docs.length; ++idx) {
+        if (docs[idx].length < 2) { continue; }
+		var attachmentType = "docNo";
+        switch (docs[idx].charAt(0)) {
+			case "L": attachmentType = "labNo"; break;
+			case "H": attachmentType = "hrmNo"; break;
+			case "D": attachmentType = "docNo"; break;
+			case "E": attachmentType = "eFormNo"; break;
+		}
+        $("input[name='" + attachmentType + "']"
+              +"[value='" + docs[idx].substring(1) + "']").attr("checked", "checked");
+    }
+}
 
 
-            function save() {
-                if (window.opener == null) {
-                    window.close();
-                }
-                var ret;
-                if (document.forms[0].requestId.value == "null") {
-                    var saved = "";
-                    var list = window.opener.document.getElementById("attachedList");
-                    var paragraph = window.opener.document.getElementById("attachDefault");
+function save() {
+	if (window.opener == null) {
+		window.close();
+	}
+    var ret;    
+    if(document.forms[0].requestId.value == "null") {                       
+       var saved = "";       
+       var list = window.opener.document.getElementById("attachedList");       
+       var paragraph = window.opener.document.getElementById("attachDefault");
+       
+       paragraph.innerHTML = "";                                                            
+       
+       //delete what we have before adding new docs to list
+       while(list.firstChild) {
+            list.removeChild(list.firstChild);
+       }
+             
+       $("input[name='docNo']:checked").each(function() {
+           saved += (saved == "" ? "" : "|") + "D" + $(this).attr("value");
+           listElem = window.opener.document.createElement("li");           
+           listElem.innerHTML = $(this).next().get(0).innerHTML;           
+           listElem.className = "doc";
+           list.appendChild(listElem);
+       });
+       $("input[name='labNo']:checked").each(function() {
+           saved += (saved == "" ? "" : "|") + "L" + $(this).attr("value");
+           listElem = window.opener.document.createElement("li");
+           listElem.innerHTML = $(this).next().get(0).innerHTML;
+           listElem.className = "lab";
+           list.appendChild(listElem);
+       });
+       
+       $("input[name='hrmNo']:checked").each(function() {
+    	  saved += (saved == "" ? "" : "|") + "H" + $(this).attr("value");
+    	  listElem = window.opener.document.createElement("li");
+    	  listElem.innerHTML = $(this).next().get(0).innerHTML;
+          listElem.className = "hrm";
+          list.appendChild(listElem);
+       });
+		$("input[name='eFormNo']:checked").each(function() {
+			saved += (saved == "" ? "" : "|") + "E" + $(this).attr("value");
+			listElem = window.opener.document.createElement("li");
+			listElem.innerHTML = $(this).next().get(0).innerHTML;
+			listElem.className = "eForm";
+			list.appendChild(listElem);
+		});
+                   
+       window.opener.document.EctConsultationFormRequestForm.documents.value = saved; 
+      
+       if( list.childNodes.length == 0 )
+            paragraph.innerHTML = "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDoc.Empty"/>";
+            
+       ret = false;
+    }    
+    else {      
+        window.opener.updateAttached();
+        ret = true;
+    }
+    if (!ret) window.close();
+    return ret;
+}
 
-                    paragraph.innerHTML = "";
+function previewPDF(docId, url) {	
+	$("#previewPane").attr("src", 
+			"<%= request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/displayImage.jsp?url=" 
+					       + encodeURIComponent("<%= request.getContextPath() %>" + "/documentManager/ManageDocument.do?method=view&doc_no=" + docId)
+					       + "&link=" + encodeURIComponent(url));
+}
 
-                    //delete what we have before adding new docs to list
-                    while (list.firstChild) {
-                        list.removeChild(list.firstChild);
-                    }
+function previewHTML(url) {
+	$("#previewPane").attr("src", url);
+}
 
-                    $("input[name='docNo']:checked").each(function () {
-                        saved += (saved == "" ? "" : "|") + "D" + $(this).attr("value");
-                        listElem = window.opener.document.createElement("li");
-                        listElem.innerHTML = $(this).next().get(0).innerHTML;
-                        listElem.className = "doc";
-                        list.appendChild(listElem);
-                    });
-                    $("input[name='labNo']:checked").each(function () {
-                        saved += (saved == "" ? "" : "|") + "L" + $(this).attr("value");
-                        listElem = window.opener.document.createElement("li");
-                        listElem.innerHTML = $(this).next().get(0).innerHTML;
-                        listElem.className = "lab";
-                        list.appendChild(listElem);
-                    });
+function previewImage(url) {
+	$("#previewPane").attr("src", "<%= request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/displayImage.jsp?url=" + encodeURIComponent(url));
+}
 
-                    $("input[name='hrmNo']:checked").each(function () {
-                        saved += (saved == "" ? "" : "|") + "H" + $(this).attr("value");
-                        listElem = window.opener.document.createElement("li");
-                        listElem.innerHTML = $(this).next().get(0).innerHTML;
-                        listElem.className = "hrm";
-                        list.appendChild(listElem);
-                    });
-                    $("input[name='eFormNo']:checked").each(function () {
-                        saved += (saved == "" ? "" : "|") + "E" + $(this).attr("value");
-                        listElem = window.opener.document.createElement("li");
-                        listElem.innerHTML = $(this).next().get(0).innerHTML;
-                        listElem.className = "eForm";
-                        list.appendChild(listElem);
-                    });
+function toggleSelectAll() {
+	$("input[type='checkbox']").attr("checked", $("#selectAll").attr("checked"));
+}
 
-                    window.opener.document.EctConsultationFormRequestForm.documents.value = saved;
-
-                    if (list.childNodes.length == 0)
-                        paragraph.innerHTML = "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDoc.Empty"/>";
-
-                    ret = false;
-                } else {
-                    window.opener.updateAttached();
-                    ret = true;
-                }
-                if (!ret) window.close();
-                return ret;
-            }
-
-            function previewPDF(docId, url) {
-                $("#previewPane").attr("src",
-                    "<%= request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/displayImage.jsp?url="
-                    + encodeURIComponent("<%= request.getContextPath() %>" + "/documentManager/ManageDocument.do?method=view&doc_no=" + docId)
-                    + "&link=" + encodeURIComponent(url));
-            }
-
-            function previewHTML(url) {
-                $("#previewPane").attr("src", url);
-            }
-
-            function previewImage(url) {
-                $("#previewPane").attr("src", "<%= request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/displayImage.jsp?url=" + encodeURIComponent(url));
-            }
-
-            function toggleSelectAll() {
-                $("input[type='checkbox']").attr("checked", $("#selectAll").attr("checked"));
-            }
-
-            //-->
-        </script>
-        <style type="text/css">
-            #documentList a {
-                text-decoration: none;
-            }
-        </style>
+//-->
+</script>
+<style type="text/css">
+#documentList a {
+    text-decoration:none;
+}
+</style>
 
     </head>
     <body style="font-family: Verdana, Tahoma, Arial, sans-serif; background-color: #ddddff" onload="init()">
@@ -329,7 +316,7 @@
                                 String onClick = "";
 
                                 if (curDoc.isPDF()) {
-                                    onClick = "javascript:previewPDF('" + curDoc.getDocId() + "','" + StringEscapeUtils.escapeJavaScript(url) + "');";
+                                    onClick = "javascript:previewPDF('" + curDoc.getDocId() + "','" + StringEscapeUtils.escapeEcmaScript(url) + "');";
                                 } else if (curDoc.isImage()) {
                                     onClick = "javascript:previewImage('" + url + "');";
                                 } else {
@@ -397,17 +384,17 @@
                             for (int idx = 0; idx < labs.size(); ++idx) {
                                 result = labs.get(idx);
                                 if (result.isMDS()) {
-                                    url = "../../oscarMDS/SegmentDisplay.jsp?providerNo=" + providerNo + "&segmentID=" + result.segmentID + "&status=" + result.getReportStatus();
+                                    url = "<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?providerNo=" + providerNo + "&segmentID=" + result.segmentID + "&status=" + result.getReportStatus();
                                     labDisplayName = result.getDiscipline();
                                 } else if (result.isCML()) {
-                                    url = "../../lab/CA/ON/CMLDisplay.jsp?providerNo=" + providerNo + "&segmentID=" + result.segmentID;
+                                    url = "<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?providerNo=" + providerNo + "&segmentID=" + result.segmentID;
                                     labDisplayName = result.getDiscipline();
                                 } else if (result.isHL7TEXT()) {
                                     // Modified display name to append the lab's date and time.
                                     labDisplayName = result.getDiscipline();
-                                    url = "../../lab/CA/ALL/labDisplay.jsp?providerNo=" + providerNo + "&segmentID=" + result.segmentID;
+                                    url = "<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?providerNo=" + providerNo + "&segmentID=" + result.segmentID;
                                 } else {
-                                    url = "../../lab/CA/BC/labDisplay.jsp?segmentID=" + result.segmentID + "&providerNo=" + providerNo;
+                                    url = "<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?segmentID=" + result.segmentID + "&providerNo=" + providerNo;
                                     labDisplayName = result.getDiscipline();
                                 }
 

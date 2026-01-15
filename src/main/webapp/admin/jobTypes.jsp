@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -75,7 +75,7 @@
         <script>
 
             function editJobType(jobTypeId) {
-                jQuery.getJSON("../ws/rs/jobs/jobType/" + jobTypeId, {},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
                     function (xml) {
                         if (xml.types) {
                             var job;

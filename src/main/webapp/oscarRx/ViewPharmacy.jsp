@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,8 +47,10 @@
     String type = request.getParameter("type");
 %>
 
+<!DOCTYPE HTML>
 <html>
     <head>
+        <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/oscarRx/styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-1.9.1.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -93,7 +95,6 @@
             </c:if>
         </c:if>
         <% RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean"); %>
-        <link rel="stylesheet" type="text/css" href="styles.css">
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
 
@@ -198,7 +199,7 @@
                                         </td>
                                     </tr>
                                 </table>
-                                <form>
+                            </form>
                         </td>
                     </tr>
                     <!----End new rows here-->

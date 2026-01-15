@@ -27,11 +27,11 @@
 <%@page import="java.text.ParseException" %>
 <%@page import="ca.openosp.openo.commn.dao.PartialDateDao" %>
 <%@page import="ca.openosp.OscarProperties" %>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.commn.dao.ConsentDao" %>
 <%@page import="ca.openosp.openo.commn.dao.CVCImmunizationDao" %>
 <%@page import="ca.openosp.openo.commn.dao.CVCMappingDao" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="ca.openosp.openo.managers.CanadianVaccineCatalogueManager" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.providers.data.ProviderData" %>
@@ -57,7 +57,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -74,7 +74,7 @@
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    if (session.getValue("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String demographic_no = request.getParameter("demographic_no");
     String snomedId = request.getParameter("snomedId");
     String id = request.getParameter("id");
@@ -358,13 +358,13 @@
                 document.getElementById(id).style.display = 'none';
             }
 
-            function showHideNextDate(id, nextDate, nexerWarn) {
+            function showHideNextDate(id, nextDate, neverWarn) {
                 if (document.getElementById(id).style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
                     document.getElementById(nextDate).value = "";
-                    document.getElementById(nexerWarn).checked = false;
+                    document.getElementById(neverWarn).checked = false;
 
                 }
             }
@@ -729,7 +729,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <%=StringEscapeUtils.escapeHtml(nameage)%>
+                            <%=StringEscapeUtils.escapeHtml4(nameage)%>
                         </td>
                         <td>&nbsp;
 
@@ -811,7 +811,7 @@
                             <textarea name="summary" readonly><%=summary%></textarea>
                             <%if (hasImportExtra) { %>
                             <a href="javascript:void(0);" title="Extra data from Import"
-                               onclick="window.open('../annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=id %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
+                               onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=id %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
                                 <img src="<%= request.getContextPath() %>/images/notes.gif" align="right" alt="Extra data from Import" height="16"
                                      width="13" border="0"> </a>
                             <%} %>
@@ -1411,7 +1411,7 @@
 
                     <div class="prevention">
                         <fieldset>
-                            <legend><a onclick="showHideNextDate('nextDateDiv','nextDate','nexerWarn')"
+                            <legend><a onclick="showHideNextDate('nextDateDiv','nextDate','neverWarn')"
                                        href="javascript: function myFunction() {return false; }">Set Next Date</a>
                             </legend>
                             <div id="nextDateDiv" style="display:none;">
@@ -1515,7 +1515,7 @@
         } else if (second != null) {
             ret = second;
         }
-        return StringEscapeUtils.escapeHtml(ret);
+        return StringEscapeUtils.escapeHtml4(ret);
     }
 
     String checked(String first, String second) {

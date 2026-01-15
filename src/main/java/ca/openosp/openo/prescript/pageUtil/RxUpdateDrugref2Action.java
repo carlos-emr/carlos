@@ -36,8 +36,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import ca.openosp.openo.prescript.util.RxDrugRef;
 
 /**
@@ -49,6 +49,9 @@ import org.apache.struts2.ServletActionContext;
 public class RxUpdateDrugref2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
         if ("updateDB".equals(request.getParameter("method"))) {
@@ -65,8 +68,8 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         d.put("result", s);
         response.setContentType("text/x-json;charset=UTF-8");
 
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(d);
-        jsonArray.write(response.getWriter());
+        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
+        response.getWriter().write(jsonArray.toString());
         return null;
     }
 
@@ -76,8 +79,8 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         HashMap<String, String> d = new HashMap<String, String>();
         d.put("lastUpdate", s);
         //response.setContentType("text/x-json;charset=UTF-8");
-        JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(d);
-        jsonArray.write(response.getWriter());
+        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
+        response.getWriter().write(jsonArray.toString());
         return null;
     }
 }

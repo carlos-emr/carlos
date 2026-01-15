@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_edoc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -53,7 +53,7 @@
 
 <%@ page
         import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.net.*,ca.openosp.MyDateFormat, ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.utility.SessionConstants" %>
 <%@page import="ca.openosp.openo.providers.data.*" %>
 <%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
@@ -161,7 +161,7 @@
                     post_params: {"method": "multifast"},
                     use_query_string: true,
 
-                    flash_url: "../share/swfupload_f9.swf",
+                    flash_url: "<%= request.getContextPath() %>/share/swfupload_f9.swf",
 
                     file_size_limit: "100 MB",
                     file_types: "*.pdf",

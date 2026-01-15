@@ -24,6 +24,9 @@
  */
 package ca.openosp.openo.commn;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,10 +34,10 @@ import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.codehaus.jettison.json.JSONObject;
 import ca.openosp.openo.utility.MiscUtils;
 
 public class ISO36612 {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private static ISO36612 obj = null;
 
@@ -50,11 +53,11 @@ public class ISO36612 {
 
     public ISO36612() {
         InputStream in = null;
-        JSONObject topLevelObj = null;
+        ObjectNode topLevelObj = null;
         try {
             in = this.getClass().getClassLoader().getResourceAsStream("iso-3166-2.json");
             String theString = IOUtils.toString(in, "UTF-8");
-            topLevelObj = new JSONObject(theString);
+            topLevelObj = (ObjectNode) objectMapper.readTree(theString);
         } catch (Exception e) {
             MiscUtils.getLogger().warn("Warning", e);
         } finally {
@@ -62,16 +65,16 @@ public class ISO36612 {
         }
 
         try {
-            Iterator<String> iter = topLevelObj.keys();
+            Iterator<String> iter = topLevelObj.fieldNames();
             while (iter.hasNext()) {
                 String countryCode = iter.next();
-                JSONObject country = topLevelObj.getJSONObject(countryCode);
-                String countryName = country.getString("name");
-                JSONObject divisions = (JSONObject) country.get("divisions");
-                Iterator<String> iter2 = divisions.keys();
+                ObjectNode country = (ObjectNode) topLevelObj.get(countryCode);
+                String countryName = country.get("name").asText();
+                ObjectNode divisions = (ObjectNode) country.get("divisions");
+                Iterator<String> iter2 = divisions.fieldNames();
                 while (iter2.hasNext()) {
                     String divisionCode = iter2.next();
-                    String divisionName = divisions.getString(divisionCode);
+                    String divisionName = divisions.get(divisionCode).asText();
                     codeToHRStringMap.put(divisionCode, divisionName + "," + countryName);
                     if (divisionCode.startsWith("CA-")) {
                         codeToHRStringMap.put(divisionCode.substring(3), divisionName + "," + countryName);

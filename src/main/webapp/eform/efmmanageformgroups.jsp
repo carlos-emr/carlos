@@ -30,7 +30,7 @@
 
 <%
     String user = (String) session.getAttribute("user");
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName = (String) session.getAttribute("userrole") + "," + user;
 
     ArrayList groups = EFormUtil.getEFormGroups();
@@ -325,8 +325,6 @@
 
                 return result
             }
-
-
         </script>
     </body>
 </html>

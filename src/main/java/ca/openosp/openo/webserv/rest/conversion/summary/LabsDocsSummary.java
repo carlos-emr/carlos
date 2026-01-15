@@ -142,7 +142,7 @@ public class LabsDocsSummary implements Summary {
 
         for (int i = 0; i < docList.size(); i++) {
             EDoc curDoc = docList.get(i);
-            String dispFilename = org.apache.commons.lang.StringUtils.trimToEmpty(curDoc.getFileName());
+            String dispFilename = org.apache.commons.lang3.StringUtils.trimToEmpty(curDoc.getFileName());
             String dispStatus = String.valueOf(curDoc.getStatus());
 
             if (dispStatus.equals("A")) dispStatus = "active";
@@ -180,7 +180,7 @@ public class LabsDocsSummary implements Summary {
             //item.setLinkTitle(title + serviceDateStr);
             //item.setTitle(title);
             //key = StringUtils.maxLenString(curDoc.getDescription(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-            ///key = StringEscapeUtils.escapeJavaScript(key);
+            ///key = StringEscapeUtils.escapeEcmaScript(key);
 
             list.add(summaryItem);
             count++;

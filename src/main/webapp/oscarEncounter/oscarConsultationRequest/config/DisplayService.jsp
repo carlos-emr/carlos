@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -72,7 +72,7 @@
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
     </head>
     <body class="BodyStyle" vlink="#0000FF">
-    <jsp:include page="../../../images/spinner.jsp" flush="true"/>
+    <jsp:include page="/images/spinner.jsp" flush="true"/>
     <script>
         ShowSpin(true);
         document.onreadystatechange = function () {

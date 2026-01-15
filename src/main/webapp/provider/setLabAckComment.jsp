@@ -24,14 +24,14 @@
 
 --%>
 
-<%@ page contentType="text/html" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");
     String tite = (String) request.getAttribute("provider.title");

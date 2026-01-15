@@ -29,6 +29,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.ScheduleDate" %>
 <%@ page import="ca.openosp.openo.commn.dao.ScheduleDateDao" %>
@@ -50,10 +51,10 @@
 <html>
 
     <%
-        if (session.getAttribute("user") == null) response.sendRedirect("../logout.jsp");
+        if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
         String CurProviderNo = (String) session.getAttribute("user");
 
-        if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+        if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
         String CurRoleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 
         boolean isSiteAccessPrivacy = false;
@@ -163,7 +164,7 @@
                     }
                 }
             }
-            response.sendRedirect("scheduletemplateapplying.jsp?provider_no=" + param[0] + "&provider_name=" + URLEncoder.encode(request.getParameter("provider_name")));
+            response.sendRedirect(request.getContextPath() + "/schedule/scheduletemplateapplying.jsp?provider_no=" + param[0] + "&provider_name=" + URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8));
         } else {
     %>
 
@@ -191,7 +192,7 @@
 
             function selectrschedule(s) {
                 var ref = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
-                ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"))%>";
+                ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
                 ref += "&sdate=" + s.options[s.selectedIndex].value;
                 self.location.href = ref;
             }
@@ -199,7 +200,7 @@
             function onBtnDelete(s) {
                 if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation"/>")) {
                     var ref = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
-                    ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"))%>";
+                    ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
                     ref += "&sdate=" + s.options[s.selectedIndex].value;
                     ref += "&delete=1&deldate=all";
                     self.location.href = ref;

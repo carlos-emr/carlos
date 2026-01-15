@@ -132,7 +132,7 @@ public class ProviderPreference extends AbstractModel<String> implements Seriali
     /**
      * The URL of the external prescription SSO (Single Sign On) www service that is used on the rx ERx link.
      * <p>
-     * FUTURE: Once org.oscarehr.rx.erx supports more than one external
+     * FUTURE: Once ca.openosp.openo.rx.erx supports more than one external
      * prescription service, this field should return the URL for the service
      * that the providers has chosen to use. At this point, the property oscarRx_SSO_URL
      * will probably go away.
@@ -141,7 +141,7 @@ public class ProviderPreference extends AbstractModel<String> implements Seriali
     /**
      * The providers's username on the external prescription www service.
      * <p>
-     * FUTURE: org.oscarehr.rx.erx should, in the future, support more than
+     * FUTURE: ca.openosp.openo.rx.erx should, in the future, support more than
      * one external prescription service, which may not necessarily require a
      * username. Storing and retrieving some sort of authentication structure
      * (the contents of which depend on the external prescription service that
@@ -151,7 +151,7 @@ public class ProviderPreference extends AbstractModel<String> implements Seriali
     /**
      * The providers's password on the external prescription www service.
      * <p>
-     * FUTURE: org.oscarehr.rx.erx should, in the future, support more than
+     * FUTURE: ca.openosp.openo.rx.erx should, in the future, support more than
      * one external prescription service, which may not necessarily require a
      * password. Storing and retrieving some sort of authentication structure
      * (the contents of which depend on the external prescription service that
@@ -162,7 +162,7 @@ public class ProviderPreference extends AbstractModel<String> implements Seriali
      * The ID of the facility that the providers is associated with in the external
      * prescription service's authentication system.
      * <p>
-     * FUTURE: org.oscarehr.rx.erx should, in the future, support more than
+     * FUTURE: ca.openosp.openo.rx.erx should, in the future, support more than
      * one external prescription service, which may not necessarily require a
      * facilityId. Storing and retrieving some sort of authentication structure
      * (the contents of which depend on the external prescription service that

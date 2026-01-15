@@ -28,6 +28,7 @@
 package ca.openosp.openo.commn.dao;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import javax.annotation.Nonnull;
@@ -444,15 +445,24 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     /**
-     * Runs native SQL query.
+     * Executes a parameterized native SQL query with named parameters.
+     * This method provides protection against SQL injection by properly binding parameters.
      *
-     * @param sql SQL query to run.
-     * @return Returns list containing query results.
+     * @param sql The SQL query with named parameters (e.g., :paramName)
+     * @param params Map of parameter names to values
+     * @return List of Object arrays containing the query results
      */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public List<Object[]> runNativeQuery(String sql) {
+    public List<Object[]> runParameterizedNativeQuery(String sql, Map<String, Object> params) {
         Query query = entityManager.createNativeQuery(sql);
+
+        if (params != null) {
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                query.setParameter(entry.getKey(), entry.getValue());
+            }
+        }
+
         List resultList = query.getResultList();
         return resultList;
     }

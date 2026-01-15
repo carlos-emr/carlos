@@ -823,10 +823,9 @@ and other liscences (MIT, LGPL etc) as indicated
                 // dependency on jquery up to version 2.2.1 for pdf and faxing for OSCAR Pro
                 // ensure that we check the integrety of the CDN's version
 
-                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;../library/jquery/jquery-3.6.4.min.js&quot; &gt;&lt;/script&gt;\n";
+                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js&quot; &gt;&lt;/script&gt;\n";
                 // if unavailable reference the one in OSCAR
-                //textTop += "&lt;script&gt;\nwindow.jQuery || document.write('&lt;script src=&quot;../js/jquery-1.12.3.js&quot;&gt;&lt;\/script&gt;');\n\n"
-                textTop += "&lt;script&gt; window.jQuery || document.write('&lt;script src=&quot;../js/jquery-1.12.3.js&quot;&gt;&lt; &#92;/script&gt;') &lt;/script&gt;\n";
+                textTop += "&lt;script&gt; window.jQuery || document.write('&lt;script src=&quot;<%=request.getContextPath()%>/js/jquery-1.12.3.js&quot;&gt;&lt; &#92;/script&gt;') &lt;/script&gt;\n";
             }
 
 
@@ -1054,7 +1053,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 textTop += "\tvar weeks = ($('#tickler_weeks').val() ? $('#tickler_weeks').val() : '6');\n"
                 textTop += "\tvar message = ($('#tickler_message').val() ? $('#tickler_message').val() : 'Check for results of '+subject+' ordered ' + today);\n"
                 textTop += "\tvar ticklerDate = setDate(weeks);\n"
-                textTop += "\tvar urgency = ($('#tickler_priority').val() ? $('#ticklerpriority').val() : 'Normal'); // case sensitive: Low Normal High\n"
+                textTop += "\tvar urgency = ($('#tickler_priority').val() ? $('#tickler_priority').val() : 'Normal'); // case sensitive: Low Normal High\n"
                 textTop += "\tvar ticklerToSend = {};\n"
                 textTop += "\tticklerToSend.demographicNo = demographicNo;\n"
                 textTop += "\tticklerToSend.message = message;\n"
@@ -1063,7 +1062,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 textTop += "\tticklerToSend.priority = urgency;\n"
                 textTop += "\treturn $.ajax({\n"
                 textTop += "\t\ttype: 'POST',\n"
-                textTop += "\t\turl: '../ws/rs/tickler/add',\n"
+                textTop += "\t\turl: '<%= request.getContextPath() %>/ws/rs/tickler/add',\n"
                 textTop += "\t\tdataType:'json',\n"
                 textTop += "\t\tcontentType:'application/json',\n"
                 textTop += "\t\tdata: JSON.stringify(ticklerToSend)\n"
@@ -1219,10 +1218,10 @@ and other liscences (MIT, LGPL etc) as indicated
 
             if (calendars) {
                 textTop += "\n&lt;!-- main calendar program --&gt;\n"
-                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;../share/calendar/calendar.js&quot;&gt;&lt;/script&gt;\n"
-                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;../share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>&quot;&gt;&lt;/script&gt;\n"
-                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;../share/calendar/calendar-setup.js&quot;&gt;&lt;/script&gt;\n"
-                textTop += "&lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot; media=&quot;all&quot; href=&quot;../share/calendar/calendar.css&quot; title=&quot;win2k-cold-1&quot; /&gt;\n\n"
+                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/share/calendar/calendar.js&quot;&gt;&lt;/script&gt;\n"
+                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>&quot;&gt;&lt;/script&gt;\n"
+                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/share/calendar/calendar-setup.js&quot;&gt;&lt;/script&gt;\n"
+                textTop += "&lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot; media=&quot;all&quot; href=&quot;<%=request.getContextPath()%>/share/calendar/calendar.css&quot; title=&quot;win2k-cold-1&quot; /&gt;\n\n"
 
             }
 

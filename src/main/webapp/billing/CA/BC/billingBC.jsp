@@ -25,6 +25,7 @@
 --%>
 
 <%@page import="java.net.URLEncoder" %>
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -844,7 +845,7 @@
             t0 = escape(document.serviceform.xml_referral1.value);
             t1 = escape(document.serviceform.xml_referral2.value);
 
-            awnd = rs('att', '../<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
             awnd.focus();
         }
 
@@ -1011,7 +1012,7 @@
             });
 
             jQuery(document).on('change', '#xml_provider', function () {
-                let url = '${pageContext.servletContext.contextPath}/billing.do?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(),"UTF-8")%>' + '&billRegion=BC&xml_provider=' + this.value;
+                let url = '${pageContext.servletContext.contextPath}/billing.do?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&billRegion=BC&xml_provider=' + this.value;
 
                 jQuery("#billingPatientInfoWrapper").load(url + " #billingPatientInfo", function () {
                     // re-bind all the javascript
@@ -1031,7 +1032,7 @@
             /* New billing form selection method*/
             jQuery(document).on('change', "#selectBillingForm", function () {
                 let selectedValue = this.value;
-                let url = ctx + '/billing.do?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(),"UTF-8")%>' + '&xml_provider=none&billRegion=BC&billForm=' + selectedValue;
+                let url = ctx + '/billing.do?demographic_no=' + '<%=Encode.forUriComponent(bean.getPatientNo())%>' + '&appointment_no=' + '<%=Encode.forUriComponent(bean.getApptNo())%>' + '&apptProvider_no=' + '<%=Encode.forUriComponent(bean.getApptProviderNo())%>' + '&demographic_name=' + '<%=URLEncoder.encode(bean.getPatientName(), StandardCharsets.UTF_8)%>' + '&xml_provider=none&billRegion=BC&billForm=' + selectedValue;
                 jQuery("#billingFormTableWrapper").load(url + " #billingFormTable", function () {
                     // if the selected billing type is private, then change the billing type to private
                     if (selectedValue === 'PRI') {
@@ -1554,7 +1555,7 @@
                                     <div class="form-group">
 
                                         <label for="afterHours">After Hours</label>
-                                        <select styleClass="form-control" name="afterHours"
+                                        <select class="form-control" name="afterHours"
                                                      id="afterHours">
                                             <option value="0">No</option>
                                             <option value="E">Evening</option>

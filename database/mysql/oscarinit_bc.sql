@@ -4874,7 +4874,7 @@ ALTER TABLE `billing_private_transactions` ADD COLUMN `payment_type_id` INTEGER 
 -- Table structure for table `billing_preferences`
 --
 -- Stores data about a users billing preferences
--- Shares a one to one relation with the providers table
+-- Shares a one to one relation with the provider table
 CREATE TABLE IF NOT EXISTS billing_preferences (
   id int(10) unsigned NOT NULL auto_increment,
   referral int(10) unsigned NOT NULL default '0',

@@ -44,6 +44,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -59,6 +60,7 @@ import ca.openosp.openo.casemgmt.model.CaseManagementNoteExt;
 import ca.openosp.openo.commn.dao.PartialDateDao;
 import ca.openosp.openo.commn.model.PartialDate;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.prevention.PreventionDisplayConfig;
@@ -172,65 +174,59 @@ public class Util {
     }
 
     static public boolean cleanFile(String filename, String dirname) {
-        try {
-            // Validate path to prevent directory traversal attacks
-            dirname = fixDirName(dirname);
-            
-            // Extract just the base filename, removing any directory components
-            String safeFileName = FilenameUtils.getName(filename);
-            if (!StringUtils.filled(safeFileName)) {
-                logger.error("Error! Invalid filename after sanitization");
-                return false;
-            }
-            
-            // Create the base directory and get its canonical path
-            File baseDir = new File(dirname);
-            String canonicalBaseDir = baseDir.getCanonicalPath();
-            
-            // Create the target file and get its canonical path
-            File f = new File(baseDir, safeFileName);
-            String canonicalFilePath = f.getCanonicalPath();
-            
-            // Validate that the resolved path is within the allowed directory
-            if (!canonicalFilePath.startsWith(canonicalBaseDir + File.separator)) {
-                logger.error("Error! Attempted path traversal attack detected for file: " + filename);
-                return false;
-            }
-            
-            return cleanFile(f);
-        } catch (IOException e) {
-            logger.error("Error validating file path for deletion", e);
+        // Validate path to prevent directory traversal attacks
+        dirname = fixDirName(dirname);
+
+        // Extract just the base filename, removing any directory components
+        String safeFileName = FilenameUtils.getName(filename);
+        if (!StringUtils.filled(safeFileName)) {
+            logger.error("Error! Invalid filename after sanitization");
             return false;
         }
+
+        // Create the base directory
+        File baseDir = new File(dirname);
+
+        // Create the target file
+        File f = new File(baseDir, safeFileName);
+
+        // Validate that the resolved path is within the allowed directory
+        try {
+            PathValidationUtils.validateExistingPath(f, baseDir);
+        } catch (SecurityException e) {
+            logger.error("Error! Attempted path traversal attack detected for file: " + filename);
+            return false;
+        }
+
+        return cleanFile(f);
     }
 
     static public boolean cleanFile(String filename) {
-        try {
-            // Validate path to prevent directory traversal attacks
-            File f = new File(filename);
-            
-            // Get the canonical path to resolve any symbolic links or relative paths
-            String canonicalPath = f.getCanonicalPath();
-            
-            // Additional check: ensure file is within application's working directory or temp directory
-            String workingDir = System.getProperty("user.dir");
-            String tempDir = System.getProperty("java.io.tmpdir");
-            
-            if (!canonicalPath.startsWith(workingDir) && !canonicalPath.startsWith(tempDir)) {
-                // If not in working or temp directory, check if it's in a configured document directory
-                OscarProperties props = OscarProperties.getInstance();
-                String docDir = props.getProperty("DOCUMENT_DIR");
-                if (docDir != null && !canonicalPath.startsWith(new File(docDir).getCanonicalPath())) {
-                    logger.error("Error! File is outside allowed directories: " + canonicalPath);
-                    return false;
+        File f = new File(filename);
+        OscarProperties props = OscarProperties.getInstance();
+
+        // Try configured directories first (strict validation, no temp fallback)
+        String[] allowedDirProperties = {"TMP_DIR", "DOCUMENT_DIR"};
+        for (String propName : allowedDirProperties) {
+            String dirPath = props.getProperty(propName);
+            if (dirPath != null && !dirPath.trim().isEmpty()) {
+                try {
+                    File validatedFile = PathValidationUtils.validateExistingPath(f, new File(dirPath));
+                    return cleanFile(validatedFile);
+                } catch (SecurityException e) {
+                    // File not in this directory, try next configured directory
+                    logger.debug("File validation failed for {}: {}", propName, e.getMessage());
                 }
             }
-            
-            return cleanFile(f);
-        } catch (IOException e) {
-            logger.error("Error validating file path for deletion", e);
-            return false;
         }
+
+        // Fall back to system temp directories for app-created temp files
+        if (PathValidationUtils.isInAllowedTempDirectory(f)) {
+            return cleanFile(f);
+        }
+
+        logger.error("File validation failed - file is outside all allowed directories: {}", filename);
+        return false;
     }
 
     static public boolean cleanFile(File file) {
@@ -273,37 +269,36 @@ public class Util {
             // Create the file object with the sanitized filename
             File documentDir = new File(dirName);
             File requestedFile = new File(documentDir, safeFileName);
-            
-            // Get canonical paths to detect path traversal attempts
-            String canonicalDocDir = documentDir.getCanonicalPath();
-            String canonicalRequestedPath = requestedFile.getCanonicalPath();
-            
-            // Ensure the requested file is within the allowed directory
-            if (!canonicalRequestedPath.startsWith(canonicalDocDir + File.separator) && 
-                !canonicalRequestedPath.equals(canonicalDocDir)) {
+
+            // Validate the file path using PathValidationUtils
+            try {
+                PathValidationUtils.validateExistingPath(requestedFile, documentDir);
+            } catch (SecurityException e) {
                 logger.error("Path traversal attempt detected for file: " + fileName);
                 return;
             }
-            
+
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("File not found or not accessible: " + safeFileName);
+                logger.error("Error during file download: file does not exist or is not accessible - {}", fileName);
+                rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
 
             rsp.setContentType("application/octet-stream");
             rsp.setHeader("Content-Disposition", "attachment; filename=\"" + sanitizeHeaderValue(safeFileName) + "\"");
-            InputStream in = new FileInputStream(requestedFile);
-            OutputStream out = rsp.getOutputStream();
-            byte[] buf = new byte[1024];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
+            rsp.setContentLengthLong(requestedFile.length());
+            
+            try (InputStream in = new FileInputStream(requestedFile);
+                OutputStream out = rsp.getOutputStream()) {
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
             }
-            in.close();
-            out.close();
         } catch (IOException ex) {
-            logger.error("Error", ex);
+            logger.error("Error during file download: {}", fileName, ex);
         }
     }
     
@@ -398,6 +393,34 @@ public class Util {
             }
         }
         return s;
+    }
+
+    /**
+     * Extracts the leading numeric portion from a string, including fractions.
+     * Unlike leadingNum(), this preserves '/' characters to support fractional
+     * dosage formats like "125/5" in medication strength expressions.
+     *
+     * @param s The input string to parse
+     * @return The leading numeric portion including fractions (e.g., "125/5" from "125/5 mg/ml")
+     * @since 2025-01-08
+     */
+    static public String leadingNumWithFraction(String s) {
+        if (s == null) return "";
+        s = s.trim();
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+
+            // Allowed characters for the amount (digits, decimal point, slash)
+            if (Character.isDigit(c) || c == '.' || c == '/') {
+                sb.append(c);
+            } else {
+                break; // stop at anything else (space, letter, %, etc.)
+            }
+        }
+
+        return sb.toString();
     }
 
     static public float leadingNumF(String s) {
@@ -616,9 +639,12 @@ public class Util {
     }
 
     private static boolean isPathWithinDirectory(File file, String dirName) throws IOException {
-        File dir = new File(dirName).getCanonicalFile();
-        File canonicalFile = file.getCanonicalFile();
-        return canonicalFile.toPath().startsWith(dir.toPath());
+        try {
+            PathValidationUtils.validateExistingPath(file, new File(dirName));
+            return true;
+        } catch (SecurityException e) {
+            return false;
+        }
     }
 
     static public void putPartialDate(cdsDt.DateFullOrPartial dfp, CaseManagementNoteExt cme) {
@@ -780,6 +806,29 @@ public class Util {
     static public boolean isNonImmunizationPrevention(String type) {
         if (nonImmunizationPreventionType.isEmpty()) setPreventionTypes();
         return nonImmunizationPreventionType.contains(type);
+    }
+
+    public static cdsDt.ResidualInformation fillResidualInfo(String name, String dataType, String content) {
+        List<cdsDt.ResidualInformation.DataElement> dataElementArray = new ArrayList<cdsDt.ResidualInformation.DataElement>();
+        cdsDt.ResidualInformation residualInformation = cdsDt.ResidualInformation.Factory.newInstance();
+        
+        cdsDt.ResidualInformation.DataElement data = residualInformation.addNewDataElement();
+        data.setName(name);
+        data.setDataType(dataType);
+        data.setContent(content);
+        dataElementArray.add(data);
+        residualInformation.setDataElementArray((cdsDt.ResidualInformation.DataElement[]) dataElementArray.toArray(new cdsDt.ResidualInformation.DataElement[dataElementArray.size()]));
+        return residualInformation;
+    }
+
+    public static cdsDt.ResidualInformation fillResidualInfoSummary(String content) {
+        cdsDt.ResidualInformation residualInformation = null;
+
+        if (StringUtils.filled(content)) {
+            residualInformation = fillResidualInfo("Summary", "String", content);
+        }
+
+        return residualInformation;
     }
 
     static public String replaceTags(String s) {

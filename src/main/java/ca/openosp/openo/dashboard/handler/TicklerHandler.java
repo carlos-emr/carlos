@@ -39,7 +39,12 @@ import ca.openosp.openo.commn.model.Tickler;
 import ca.openosp.openo.managers.TicklerManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
-import net.sf.json.JSONArray;
+
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 
 public class TicklerHandler {
@@ -64,6 +69,9 @@ public class TicklerHandler {
      * String taskAssignedTo
      * String ticklerCategoryId
      */
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public void createMasterTickler(Map<String, String[]> ticklerParameters) {
 
         Tickler tickler = new Tickler();
@@ -188,18 +196,24 @@ public class TicklerHandler {
             jsonString = jsonString + "]";
         }
 
-        JSONArray jsonArray = JSONArray.fromObject(jsonString);
+        ArrayNode jsonArray;
 
-        Integer arraySize = jsonArray.size();
-        Integer[] demographicArray = new Integer[arraySize];
+        try {
+            jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
+            Integer arraySize = jsonArray.size();
+            Integer[] demographicArray = new Integer[arraySize];
 
-        for (int i = 0; i < arraySize; i++) {
-            demographicArray[i] = jsonArray.getInt(i);
+            for (int i = 0; i < arraySize; i++) {
+                demographicArray[i] = jsonArray.get(i).asInt();
+            }
+
+            setDemographicArray(demographicArray);
+
+            return addTickler(demographicArray);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to parse demographic JSON array: " + jsonString, e);
+            return Boolean.FALSE;
         }
-
-        setDemographicArray(demographicArray);
-
-        return addTickler(demographicArray);
     }
 
     public List<Tickler> getTicklerList() {

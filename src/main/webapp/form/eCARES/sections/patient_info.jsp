@@ -23,6 +23,9 @@
     Ontario, Canada
 
 --%>
+
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+
 <ul class="m-0 p-0 patient-info">
     <li class="flex justify-center items-center" style="min-width: 600px;">
         <div>

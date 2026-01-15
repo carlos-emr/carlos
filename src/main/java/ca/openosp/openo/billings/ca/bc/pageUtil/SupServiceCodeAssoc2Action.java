@@ -85,7 +85,7 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         if (!MODE_VIEW.equals(this.getActionMode())) {
             if (validateForm()) {
                 try {
-                    response.sendRedirect("/billing/CA/BC/billingSVCTrayAssoc.jsp");
+                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingSVCTrayAssoc.jsp");
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

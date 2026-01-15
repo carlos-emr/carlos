@@ -41,8 +41,9 @@
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
 %>
 
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.*, java.sql.*, ca.openosp.openo.login.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.ReportProvider" %>
 <%@ page import="ca.openosp.openo.commn.dao.ReportProviderDao" %>
@@ -51,8 +52,7 @@
 <%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.Site" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="org.apache.commons.lang.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="ca.openosp.openo.login.DBHelp" %>
 <%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
 
@@ -109,8 +109,8 @@
             prop.setProperty("PATIENT", rs.getString("name"));
             prop.setProperty("DESCRIPTION", rs.getString("reason"));
             String tempStr = "<a href=# onClick='popupPage(700,1000, \"billingOB.jsp?billForm="
-                    + URLEncoder.encode(oscarVariables.getProperty("default_view")) + "&hotclick=&appointment_no="
-                    + rs.getString("appointment_no") + "&demographic_name=" + URLEncoder.encode(rs.getString("name"))
+                    + URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no="
+                    + rs.getString("appointment_no") + "&demographic_name=" + URLEncoder.encode(rs.getString("name"), StandardCharsets.UTF_8)
                     + "&demographic_no=" + rs.getString("demographic_no") + "&user_no=" + rs.getString("provider_no")
                     + "&apptProvider_no=" + providerview + "&appointment_date=" + rs.getString("appointment_date")
                     + "&start_time=" + rs.getString("start_time") + "&bNewForm=1\"); return false;'>Bill ";
@@ -163,7 +163,7 @@
             else if (reason.compareTo("P") == 0) reason = "Bill Patient";
 
             prop.setProperty("DESCRIPTION", reason + "(" + note + ")");
-            String tempStr = "<a href=# onClick='popupPage(700,720, \"../../../billing/CA/ON/billingCorrection.jsp?billing_no="
+            String tempStr = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/billingCorrection.jsp?billing_no="
                     + rs.getString("id") + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
                     + reason + "'>" + rs.getString("id") + "</a>";
             prop.setProperty("ACCOUNT", tempStr);
@@ -549,7 +549,7 @@ end broken -->
             </tr>
             <tr>
                 <td colspan="2"><a href=#
-                                   onClick="popupPage(700,720,'../../../oscarReport/manageProvider.jsp?action=billingreport')"
+                                   onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')"
                                    class="btn btn-link">
                     Manage Provider List</a></td>
             </tr>

@@ -8,7 +8,7 @@
     and "gnu.org/licenses/gpl-2.0.html".
 
 --%>
-<%@page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="ca.openosp.openo.olis.model.OLISResultNomenclature" %>
 <%@page import="ca.openosp.openo.olis.dao.OLISResultNomenclatureDao" %>
 <%@page import="ca.openosp.openo.commn.model.OLISResults" %>
@@ -22,7 +22,7 @@
 <%@page import="ca.openosp.openo.lab.ca.all.upload.MessageUploader" %>
 <%@page import="ca.openosp.openo.olis.model.OLISRequestNomenclature" %>
 <%@page import="ca.openosp.openo.olis.dao.OLISRequestNomenclatureDao" %>
-<%@ page language="java" contentType="text/html;" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="com.indivica.olis.queries.*,java.util.*,ca.openosp.openo.lab.ca.all.parsers.Factory, ca.openosp.openo.lab.ca.all.parsers.OLISHL7Handler, ca.openosp.openo.lab.ca.all.parsers.OLISHL7Handler.OLISError, ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
 <%@ page import="ca.openosp.openo.olis.OLISResults2Action" %>
@@ -295,7 +295,7 @@
         }
 
         function openPatient(demographicNo) {
-            popupPage(700, 1200, '../demographic/demographiccontrol.jsp?demographic_no=' + demographicNo + '&displaymode=edit&dboperation=search_detail');
+            popupPage(700, 1200, '<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=' + demographicNo + '&displaymode=edit&dboperation=search_detail');
         }
 
         jQuery(document).ready(function () {
@@ -908,15 +908,15 @@
                                             <td><%=orn != null ? orn.getName() : item[0] %>
                                             </td>
                                             <%if (!item[3].equals("N") && !item[3].isEmpty()) { %>
-                                            <td style="color:red"><%=StringEscapeUtils.escapeHtml(item[1]) %>
+                                            <td style="color:red"><%=StringEscapeUtils.escapeHtml4(item[1]) %>
                                                 (<%=item[3] %>)
                                             </td>
                                             <% } else { %>
-                                            <td><%=StringEscapeUtils.escapeHtml(item[1]) %>
+                                            <td><%=StringEscapeUtils.escapeHtml4(item[1]) %>
                                             </td>
                                             <% } %>
 
-                                            <td><%=StringEscapeUtils.escapeHtml(item[2]) %>
+                                            <td><%=StringEscapeUtils.escapeHtml4(item[2]) %>
                                             </td>
                                             <td><%=item[4] != null && !item[4].isEmpty() ? OLISHL7Handler.getTestResultStatusMessage(item[4].charAt(0)) : item[4] %>
                                             </td>

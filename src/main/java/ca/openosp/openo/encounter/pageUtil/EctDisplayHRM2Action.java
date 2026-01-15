@@ -11,7 +11,7 @@
 
 package ca.openosp.openo.encounter.pageUtil;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.OscarLogDao;
 import ca.openosp.openo.hospitalReportManager.HRMUtil;
@@ -92,7 +92,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                 item.setLinkTitle(displayHRMName + serviceDateStr);
                 item.setTitle(labRead + displayHRMName + labRead);
                 key = StringUtils.maxLenString((String) hrmDocument.get("report_type"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                key = StringEscapeUtils.escapeJavaScript(key);
+                key = StringEscapeUtils.escapeEcmaScript(key);
 
 
                 js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";

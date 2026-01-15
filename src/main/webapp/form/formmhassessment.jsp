@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -105,8 +105,8 @@
                 var ret = numvalidate();
                 //if(ret==true) {
                 //ret = confirm("Do you wish to save this form and view the print preview?");
-                popupFixedPage(650, 850, '../provider/notice.htm');
-                document.forms[0].action = "form/formmhassessmentprint.jsp";
+                popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
+                document.forms[0].action = "<%= request.getContextPath() %>/form/formmhassessmentprint.jsp";
                 document.forms[0].target = "planner";
                 document.forms[0].submit();
                 document.forms[0].target = "apptProviderSearch";
@@ -272,9 +272,9 @@
                     <input type="submit" value="Print"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="right"><a
-                        href="form/formmhreferral.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
+                        href="<%= request.getContextPath() %>/form/formmhreferral.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
                     &nbsp;|&nbsp; Assessment &nbsp;|&nbsp; <a
-                            href="form/formmhoutcome.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Outcome</a>
+                            href="<%= request.getContextPath() %>/form/formmhoutcome.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Outcome</a>
                 </td>
             </tr>
         </table>
@@ -479,9 +479,9 @@
                     <input type="submit" value="Print"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="right"><a
-                        href="form/formmhreferral.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
+                        href="<%= request.getContextPath() %>/form/formmhreferral.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
                     &nbsp;|&nbsp; Assessment &nbsp;|&nbsp; <a
-                            href="form/formmhoutcome.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Outcome</a>
+                            href="<%= request.getContextPath() %>/form/formmhoutcome.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Outcome</a>
                 </td>
             </tr>
         </table>

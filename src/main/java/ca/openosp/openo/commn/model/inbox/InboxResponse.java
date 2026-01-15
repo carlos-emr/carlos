@@ -25,7 +25,7 @@
 package ca.openosp.openo.commn.model.inbox;
 
 import com.twelvemonkeys.lang.StringUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.lab.ca.on.HRMResultsData;
 import ca.openosp.openo.lab.ca.on.LabResultData;

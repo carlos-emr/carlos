@@ -34,8 +34,7 @@ import java.util.List;
 
 import javax.persistence.Query;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import ca.openosp.openo.commn.model.EForm;
 import ca.openosp.openo.commn.model.EFormReportTool;
 import ca.openosp.openo.commn.model.EFormValue;
@@ -114,7 +113,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("eft_latest,");
         sb.append("dateCreated,");
         for (EFormValue v : values) {
-            sb.append("`" + StringEscapeUtils.escapeSql(v.getVarName()) + "`");
+            sb.append("`" + v.getVarName() + "`");
             sb.append(",");
         }
 
@@ -128,7 +127,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("0,");
         sb.append("now(),");
         for (EFormValue v : values) {
-            sb.append("\'" + StringEscapeUtils.escapeSql(v.getVarValue()) + "\'");
+            sb.append("\'" + v.getVarValue() + "\'");
             sb.append(",");
         }
         sb.deleteCharAt(sb.length() - 1);

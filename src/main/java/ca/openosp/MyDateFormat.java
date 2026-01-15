@@ -31,44 +31,108 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.utility.MiscUtils;
 
 import ca.openosp.openo.commons.KeyConstants;
 
+/**
+ * Date and time formatting utility class for handling various date/time conversions.
+ * 
+ * <p>This class provides a comprehensive set of static methods for:</p>
+ * <ul>
+ *   <li>Converting between different date formats (MySQL standard, display formats, etc.)</li>
+ *   <li>Parsing date/time strings with various separators and formats</li>
+ *   <li>Extracting date components (year, month, day, hour) from formatted strings</li>
+ *   <li>Formatting times with AM/PM notation</li>
+ *   <li>Calculating date differences</li>
+ *   <li>Converting between 12-hour and 24-hour time formats</li>
+ * </ul>
+ * 
+ * <p>Common date formats used:</p>
+ * <ul>
+ *   <li><strong>MySQL standard:</strong> yyyy-MM-dd (e.g., "2024-01-15")</li>
+ *   <li><strong>Display format:</strong> yyyy/MM/dd (e.g., "2024/01/15")</li>
+ *   <li><strong>Compact format:</strong> yyyyMMdd (e.g., "20240115")</li>
+ *   <li><strong>Time format:</strong> HH:mm:ss (24-hour) or hh:mm am/pm (12-hour)</li>
+ * </ul>
+ * 
+ * <p><strong>Thread Safety:</strong> This class is not thread-safe when using SimpleDateFormat.
+ * Consider using java.time package (Java 8+) for thread-safe date/time operations.</p>
+ */
 public class MyDateFormat {
-    //private int aDateTime;
+    
+    /**
+     * Constructs a new MyDateFormat instance.
+     */
     public MyDateFormat() {
         //this.aDateTime = d;
     }
 
+    /**
+     * Calculates the number of days between two Calendar dates.
+     * 
+     * @param start the start date
+     * @param end the end date
+     * @return the number of days between start and end, or 0 if either parameter is null
+     */
     public static int getDaysDiff(Calendar start, Calendar end) {
         if (start == null || end == null) return 0;
         long days = (end.getTimeInMillis() - start.getTimeInMillis()) / (24 * 60 * 60 * 1000);
         return (int) days;
     }
 
+    /**
+     * Formats a month or day value to always be two digits with leading zero if needed.
+     * 
+     * @param value the month or day value (e.g., "8" or "15")
+     * @return two-digit string (e.g., "08" or "15")
+     */
     public static String formatMonthOrDay(String value) {
         String str2 = "0" + value;
         return str2.substring(str2.length() - 2, str2.length());
     }
 
-    // from 8 (int) to 08 (String), 19 to 19
+    /**
+     * Converts an integer to a two-digit string with leading zero if needed.
+     * For example: 8 becomes "08", 19 remains "19".
+     * 
+     * @param d the integer value (typically day, month, or hour)
+     * @return two-digit string representation
+     */
     public static String getDigitalXX(int d) {
         return (d > 9 ? ("" + d) : ("0" + d));
     }
 
-    //from 18 (int) to 06 (pm), 16 to 04 (String)
+    /**
+     * Converts a 24-hour time to 12-hour format without the AM/PM indicator.
+     * For example: 18 becomes "06", 16 becomes "04", 10 becomes "10".
+     * 
+     * @param hour the hour in 24-hour format (0-23)
+     * @return two-digit string in 12-hour format
+     */
     public static String getTimeXXampm(int hour) {
         return (hour > 12 ? (getDigitalXX(hour - 12)) : getDigitalXX(hour));
     }
 
-    //from 10 to am, 18 to pm
+    /**
+     * Returns "am" or "pm" based on the hour.
+     * 
+     * @param hour the hour in 24-hour format (0-23)
+     * @return "am" for hours 0-11, "pm" for hours 12-23
+     */
     public static String getTimeAMPM(int hour) {
         return (hour < 12 ? "am" : "pm");
     }
 
-    //from 2001-01-01 12:00:00 to 2001-01-01
+    /**
+     * Extracts just the date portion from a datetime string.
+     * For example: "2001-01-01 12:00:00" becomes "2001-01-01".
+     * If there's no time component, returns the input unchanged.
+     * 
+     * @param aDate the datetime string
+     * @return the date portion only, or empty string if aDate is null
+     */
     public static String getMyStandardDate(java.lang.String aDate) {
         if (aDate == null) return "";
         if (aDate.indexOf(' ') < 0) {
@@ -78,35 +142,75 @@ public class MyDateFormat {
         }
     }
 
+    /**
+     * Formats a Date object to MySQL standard date format (yyyy-MM-dd).
+     * 
+     * @param aDate the Date object to format
+     * @return the formatted date string, or empty string if aDate is null
+     */
     public static String getMyStandardDate(java.util.Date aDate) {
         if (aDate == null) return "";
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
         return formatter.format(aDate);
     }
 
+    /**
+     * Formats a Calendar date to display format (yyyy/MM/dd).
+     * 
+     * @param cal the Calendar object to format
+     * @return the formatted date string, or empty string if cal is null
+     */
     public static String getStandardDate(Calendar cal) {
         if (cal == null) return "";
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd");
         return formatter.format(cal.getTime());
     }
 
+    /**
+     * Formats a Calendar datetime to display format (yyyy/MM/dd HH:mm:ss).
+     * 
+     * @param cal the Calendar object to format
+     * @return the formatted datetime string, or empty string if cal is null
+     */
     public static String getStandardDateTime(Calendar cal) {
         if (cal == null) return "";
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         return formatter.format(cal.getTime());
     }
 
-    //from 2001, 2, 2 to 2001-02-02
+    /**
+     * Creates a MySQL standard date string from year, month, and day components.
+     * For example: (2001, 2, 2) becomes "2001-02-02".
+     * 
+     * @param year the year (4 digits)
+     * @param month the month (1-12)
+     * @param day the day (1-31)
+     * @return the formatted date string in MySQL format
+     */
     public static String getMysqlStandardDate(int year, int month, int day) {
         return (year + "-" + getDigitalXX(month) + "-" + getDigitalXX(day));
     }
 
-    //from 2001, 2, 2 to 20010202
+    /**
+     * Creates a compact date string from year, month, and day components.
+     * For example: (2001, 2, 2) becomes "20010202".
+     * 
+     * @param year the year (4 digits)
+     * @param month the month (1-12)
+     * @param day the day (1-31)
+     * @return the formatted date string in compact format
+     */
     public static String getStandardDate(int year, int month, int day) {
         return (year + getDigitalXX(month) + getDigitalXX(day));
     }
 
-    // from 2001-02-02 to 2
+    /**
+     * Extracts the day component from a standard date string.
+     * For example: "2001-02-02" returns 2.
+     * 
+     * @param aDate the date string in standard format
+     * @return the day value, or 0 if parsing fails
+     */
     public static int getDayFromStandardDate(String aDate) {
         try {
             aDate = getMyStandardDate(aDate);
@@ -117,6 +221,13 @@ public class MyDateFormat {
         }
     }
 
+    /**
+     * Extracts the month component from a standard date string.
+     * For example: "2001-02-15" returns 2.
+     * 
+     * @param aDate the date string in standard format
+     * @return the month value (1-12), or 0 if parsing fails
+     */
     public static int getMonthFromStandardDate(String aDate) {
         try {
             aDate = getMyStandardDate(aDate);
@@ -127,6 +238,13 @@ public class MyDateFormat {
         }
     }
 
+    /**
+     * Extracts the year component from a standard date string.
+     * For example: "2001-02-15" returns 2001.
+     * 
+     * @param aDate the date string in standard format
+     * @return the year value, or 0 if parsing fails
+     */
     public static int getYearFromStandardDate(String aDate) {
         try {
             aDate = getMyStandardDate(aDate);
@@ -137,13 +255,33 @@ public class MyDateFormat {
         }
     }
 
+    /**
+     * Extracts the hour from a standard time string.
+     * If the string contains a space, extracts the time portion after the space.
+     * 
+     * @param aTime the time string (e.g., "14:30:00" or "2024-01-15 14:30:00")
+     * @return the hour value (0-23)
+     */
     public static int getHourFromStandardTime(String aTime) {
         int i = aTime.indexOf(' ');
         if (i >= 0) aTime = aTime.substring(i + 1);
         return Integer.parseInt(aTime.substring(0, 2));
     }
 
-    //from 8:20pm to 20:20:00, 9:9am to 09:09:00, 8:20 to 08:20:00
+    /**
+     * Converts a time string with optional AM/PM to 24-hour format (HH:mm:ss).
+     * 
+     * <p>Supports various input formats:</p>
+     * <ul>
+     *   <li>"8:20pm" becomes "20:20:00"</li>
+     *   <li>"9:9am" becomes "09:09:00"</li>
+     *   <li>"8:20" becomes "08:20:00"</li>
+     *   <li>"12:30pm" becomes "12:30:00"</li>
+     * </ul>
+     * 
+     * @param aXX_XXampm the time string with optional am/pm suffix
+     * @return the time in 24-hour format (HH:mm:ss), or "\\N" (MySQL null) if parsing fails
+     */
     public static String getTimeXX_XX_XX(String aXX_XXampm) {
         String temp = "\\N"; //mySQL = null
         int hour = 0;
@@ -171,12 +309,30 @@ public class MyDateFormat {
         return temp;
     }
 
-    // Convert date to yyyy-mm-dd, used to display screen values
+    /**
+     * Formats a Date object to system date string format (yyyy-MM-dd).
+     * 
+     * @param pDate the Date object to format
+     * @return the formatted date string
+     */
     public static String getSysDateString(java.util.Date pDate) {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
         return formatter.format(pDate);
     }
 
+    /**
+     * Parses a date string to a SQL Date object.
+     * 
+     * <p>Supports various date formats:</p>
+     * <ul>
+     *   <li>Special value "TODAY" returns current date</li>
+     *   <li>Delimited formats: "yyyy-MM-dd", "yyyy/MM/dd", "dd-MM-yyyy", "dd/MM/yyyy"</li>
+     *   <li>Compact format: "yyyyMMdd"</li>
+     * </ul>
+     * 
+     * @param pDate the date string to parse
+     * @return SQL Date object, or null if pDate is null/empty or parsing fails
+     */
     public static java.sql.Date getSysDate(String pDate) {
         pDate = StringUtils.trimToNull(pDate);
 

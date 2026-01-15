@@ -16,7 +16,8 @@ public class EmailConfig extends AbstractModel<Integer> {
     public enum EmailProvider {
         GMAIL,
         OUTLOOK,
-        SENDGRID
+        SENDGRID,
+        LOCAL
     }
 
     @Id

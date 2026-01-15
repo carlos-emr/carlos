@@ -32,16 +32,13 @@
 
 package ca.openosp.openo.prevention.pageUtil;
 
-import com.lowagie.text.Font;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.BaseFont;
-import com.lowagie.text.pdf.ColumnText;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfWriter;
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.BaseFont;
+import com.itextpdf.text.pdf.ColumnText;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfWriter;
+
 import ca.openosp.openo.commn.model.Demographic;
-import ca.openosp.openo.commn.printing.FontSettings;
-import ca.openosp.openo.commn.printing.PdfWriterFactory;
 import ca.openosp.openo.managers.DemographicManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.SpringUtils;
@@ -51,7 +48,6 @@ import ca.openosp.openo.prevention.PreventionDisplayConfig;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.awt.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
@@ -67,9 +63,11 @@ public class PreventionPrintPdf {
     private ColumnText ct;
     private Document document;
     private PdfContentByte cb;
+    private Phrase headerPhrase; // Stores the header phrase for height calculations
 
     private final int LINESPACING = 1;
     private final float LEADING = 12;
+    private final float HEADER_LEADING = 1;
 
     private final Map<String, String> readableStatuses = new HashMap<String, String>();
     private final Map<String, String> readableStatusesForHistoryTypeLayout = new HashMap<String, String>();
@@ -133,12 +131,12 @@ public class PreventionPrintPdf {
 
         //Create the document we are going to write to
         document = new Document();
-        // PdfWriter writer = PdfWriter.getInstance(document, outputStream);
-        PdfWriter writer = PdfWriterFactory.newInstance(document, outputStream, FontSettings.HELVETICA_10PT);
+        PdfWriter writer = PdfWriter.getInstance(document, outputStream);
         document.setPageSize(PageSize.LETTER);
+        document.setMargins(36, 36, 80, 36);
 
         //Create the font we are going to print to       
-        Font font = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, Color.BLACK);
+        Font font = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, BaseColor.BLACK);
 
         StringBuilder demoInfo = new StringBuilder(demo.getSexDesc())
                 .append(" Age: ")
@@ -155,23 +153,27 @@ public class PreventionPrintPdf {
 
         //Header will be printed at top of every page beginning with p2
         String heading = ("true".equals(request.getParameter("immunizationOnly"))) ? "Immunizations" : "Immunizations and Screenings";
-        Phrase titlePhrase = new Phrase(16, heading, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, Color.BLACK));
+        Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, BaseColor.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demo.getFormattedName(), FontFactory.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK)));
+        titlePhrase.add(new Chunk(demo.getFormattedName(), FontFactory.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, BaseColor.BLACK)));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
+        titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, BaseColor.BLACK)));
 
         String mrp = request.getParameter("mrp");
         if (mrp != null && OscarProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
             Properties prop = (Properties) request.getSession().getAttribute("providerBean");
             titlePhrase.add(Chunk.NEWLINE);
-            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
+            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, BaseColor.BLACK)));
         }
 
-        HeaderFooter header = new HeaderFooter(titlePhrase, false);
-        header.setAlignment(HeaderFooter.ALIGN_RIGHT);
-        header.setBorder(Rectangle.BOTTOM);
-        document.setHeader(header);
+        // Store header phrase, border flag, header padding, and border spacing for the header
+        this.headerPhrase = titlePhrase;
+        boolean hasBorder = true;
+        float headerPadding = 20f;
+        float borderSpacing = 5f;
+
+        HeaderPageEvent header = new HeaderPageEvent(headerPhrase, hasBorder, headerPadding, borderSpacing);
+        writer.setPageEvent(header);
         document.open();
         cb = writer.getDirectContent();
 
@@ -181,21 +183,21 @@ public class PreventionPrintPdf {
 
         StringBuilder clinicAddrCont = new StringBuilder(clinicData.getClinicCity()).append(", ").append(clinicData.getClinicProvince()).append(" ").append(clinicData.getClinicPostal());
 
-        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
+        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, BaseColor.BLACK));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk("Ph.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
-        clinicParagraph.add(new Chunk(" Fax.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk("Ph.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk(" Fax.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
         clinicParagraph.setAlignment(Paragraph.ALIGN_CENTER);
         document.add(clinicParagraph);
 
         //get top y-coord for starting to print columns
-        upperYcoord = document.top() - header.getHeight() - (clinicParagraph.getLeading() * 4f) - font.getCalculatedLeading(LINESPACING);
+        upperYcoord = document.top() - getHeaderHeight() - (clinicParagraph.getLeading() * 4f) - font.getCalculatedLeading(LINESPACING);
 
         int subIdx;
         String preventionHeader, procedureAge, procedureDate, procedureStatus, procedureResult, procedureReason, procedureComments, procedureLocationOfShot,
@@ -229,7 +231,7 @@ public class PreventionPrintPdf {
                 document.add(iParagraph);
 
                 //get top y-coord for starting to print columns
-                upperYcoord = document.top() - header.getHeight() - (clinicParagraph.getLeading() * 4f) - iParagraph.getLeading() - font.getCalculatedLeading(LINESPACING);
+                upperYcoord = document.top() - getHeaderHeight() - (clinicParagraph.getLeading() * 4f) - iParagraph.getLeading() - font.getCalculatedLeading(LINESPACING);
                 ct.setSimpleColumn(document.left(), document.bottom(), document.right() / 2f, upperYcoord);
                 onColumnLeft = true;
 
@@ -246,23 +248,23 @@ public class PreventionPrintPdf {
                     document.add(immNoDataParagraph);
 
                     //get top y-coord for starting to print columns
-                    upperYcoord = document.top() - header.getHeight() - (clinicParagraph.getLeading() * 4f) - iParagraph.getLeading() - immNoDataParagraph.getLeading() - font.getCalculatedLeading(LINESPACING);
+                    upperYcoord = document.top() - getHeaderHeight() - (clinicParagraph.getLeading() * 4f) - iParagraph.getLeading() - immNoDataParagraph.getLeading() - font.getCalculatedLeading(LINESPACING);
                     ct.setSimpleColumn(document.left(), document.bottom(), document.right() / 2f, upperYcoord);
                 }
 
                 //Printing screenings from the new page
                 onColumnLeft = true;
-                upperYcoord = goToNewPage(header, font);
+                upperYcoord = goToNewPage(headerPhrase, font);
 
                 //Screenings header
                 Paragraph sParagraph = addParagraph("\nScreenings: \n", 12, Font.BOLD);
                 document.add(sParagraph);
-                upperYcoord = document.top() - header.getHeight() - sParagraph.getLeading() - font.getCalculatedLeading(LINESPACING);
+                upperYcoord = document.top() - getHeaderHeight() - sParagraph.getLeading() - font.getCalculatedLeading(LINESPACING);
                 ct.setSimpleColumn(document.left(), document.bottom(), document.right() / 2f, upperYcoord);
                 isScreeningsHeaderAdded = true;
             }
 
-            Phrase procHeader = new Phrase(LEADING, "Prevention " + preventionHeader + "\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK));
+            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, BaseColor.BLACK));
             ct.addText(procHeader);
             ct.setAlignment(Element.ALIGN_LEFT);
             ct.setIndent(0);
@@ -290,7 +292,7 @@ public class PreventionPrintPdf {
                     procedureStatus = "N/A";
                 }
 
-                Phrase procedure = new Phrase(LEADING, "Date: ", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK));
+                Phrase procedure = new Phrase(LEADING, "Date: ", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK));
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureDate", "Date: ", headerIds, idx, subIdx, font);
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureAge", "Age: ", headerIds, idx, subIdx, font);
 
@@ -405,13 +407,13 @@ public class PreventionPrintPdf {
                     } else {
                         //Print to the left column (i.e. we are starting a new page)
                         onColumnLeft = true;
-                        upperYcoord = goToNewPage(header, font);
+                        upperYcoord = goToNewPage(headerPhrase, font);
                     }
 
                     //Title (if we are starting to print a new prevention, use the Prevention name as title, otherwise if we 
                     //are in the middle of printing a prevention that has multiple items, identify this as a continued prevention
                     if (subIdx != 0) {
-                        Phrase contdProcHeader = new Phrase(LEADING, "Prevention " + preventionHeader + " (cont'd)\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK));
+                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, BaseColor.BLACK));
                         ct.setText(contdProcHeader);
                     } else {
                         ct.setText(procHeader);
@@ -445,7 +447,7 @@ public class PreventionPrintPdf {
             // after adding immunizations data checking if there is screening data if not avalible add screening header with no data
             if (idx == headerIds.length - 1 && !isScreeningsHeaderAdded
                     && "false".equals(request.getParameter("immunizationOnly"))) {
-                upperYcoord = goToNewPage(header, font);
+                upperYcoord = goToNewPage(headerPhrase, font);
 
                 Paragraph sParagraph = addParagraph("\nScreenings: \n", 12, Font.BOLD);
                 Paragraph sNoDataParagraph = addParagraph("No screening entries for this patient\n", 9, Font.NORMAL);
@@ -461,10 +463,23 @@ public class PreventionPrintPdf {
         document.close();
     }
 
-    private float goToNewPage(HeaderFooter header, Font font) throws IOException {
+    /**
+     * Calculates the approximate height of the header phrase.
+     * This replaces HeaderFooter.getHeight() which was removed in iText 5.x.
+     */
+    private float getHeaderHeight() {
+        if (headerPhrase == null) {
+            return 0f;
+        }
+        // Estimate height based on the phrase leading
+        // Using a reasonable default for multi-line headers
+        return headerPhrase.getLeading() * 4f;
+    }
+
+    private float goToNewPage(Phrase headerPhrase, Font font) throws DocumentException, IOException {
         ColumnText.showTextAligned(cb, Phrase.ALIGN_CENTER, new Phrase("-" + curPage + "-"), document.right() / 2f, document.bottom() - (document.bottomMargin() / 2f), 0f);
         addPromoText(); // Assuming this method is accessible within your class
-        float upperYcoord = document.top() - header.getHeight() - font.getCalculatedLeading(LINESPACING);
+        float upperYcoord = document.top() - getHeaderHeight() - font.getCalculatedLeading(LINESPACING);
         document.newPage();
         ct.setSimpleColumn(document.left(), document.bottom(), document.right() / 2f, upperYcoord);
         curPage++;
@@ -472,7 +487,7 @@ public class PreventionPrintPdf {
     }
 
     private Paragraph addParagraph(String title, float size, int style) throws DocumentException, IOException {
-        Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, Color.BLACK));
+        Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, BaseColor.BLACK));
         paragraph.add(Chunk.NEWLINE);
         paragraph.setAlignment(Paragraph.ALIGN_LEFT);
         return paragraph;

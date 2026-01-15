@@ -26,14 +26,14 @@
 
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect("../../logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 
 <%@ page import="java.util.*" %>
 <%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao, ca.openosp.openo.commn.model.Provider" %>
 <%@ page import="ca.openosp.SxmlMisc" %>
 
-<%@include file="../../../casemgmt/taglibs.jsp" %>
+<%@include file="/casemgmt/taglibs.jsp" %>
 
 <%
     GregorianCalendar now = new GregorianCalendar();
@@ -49,10 +49,13 @@
     Provider creator = providerDao.getProvider(request.getParameter("creator"));
 
 %>
+
+<fmt:setBundle basename="oscarResources"/>
+
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.title"/></title>
+    <title><fmt:message key="billing.batchbilling.title"/></title>
     <script language="JavaScript">
         <!--
 
@@ -105,19 +108,19 @@
             document.serviceform.xml_diagnostic_detail.value = tmp.replace(/^\s+|\s+$/g, "");
 
             if (document.serviceform.xml_other1.value.length != serviceCodeLength) {
-                msg += "<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.noServicecodeErr"/>";
+                msg += "<fmt:message key='billing.batchbilling.noServicecodeErr'/>";
                 ret = false;
             }
 
             if (document.serviceform.xml_diagnostic_detail.value.length != dxCodeLength) {
                 if (document.serviceform.xml_diagnostic_detail.value.indexOf("|") != dxCodeLength) {
-                    msg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.noDxCodeErr"/>";
+                    msg += "\n<fmt:message key='billing.batchbilling.noDxCodeErr'/>";
                     ret = false;
                 }
             }
 
-            if (document.serviceform.provider[document.serviceform.provider.selectedIndex].value == "") {
-                msg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.noProviderErr"/>";
+            if (document.serviceform.providers[document.serviceform.providers.selectedIndex].value == "") {
+                msg += "\n<fmt:message key='billing.batchbilling.noProviderErr'/>";
                 ret = false;
             }
 
@@ -138,7 +141,7 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
         <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.header"/></font></th>
+            <fmt:message key="billing.batchbilling.header"/></font></th>
     </tr>
 </table>
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
@@ -157,7 +160,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"
-                                    color="#000000"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.demographic"/></font></td>
+                                    color="#000000"><fmt:message key="billing.batchbilling.demographic"/></font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demographic_no" readonly
@@ -171,7 +174,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"
-                                    color="#000000"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.demographicName"/></font>
+                                    color="#000000"><fmt:message key="billing.batchbilling.demographicName"/></font>
                             </td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
@@ -182,7 +185,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"
-                                    color="#000000"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.demographicDOB"/></font>
+                                    color="#000000"><fmt:message key="billing.batchbilling.demographicDOB"/></font>
                             </td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
@@ -192,7 +195,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"
-                                    color="#000000"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.demographicHIN"/></font>
+                                    color="#000000"><fmt:message key="billing.batchbilling.demographicHIN"/></font>
                             </td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
@@ -202,7 +205,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"
-                                    color="#000000"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.billingProvider"/></font>
+                                    color="#000000"><fmt:message key="billing.batchbilling.billingProvider"/></font>
                             </td>
                             <td width="50%"><select name="providers">
                                 <option value=""
@@ -235,7 +238,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"
-                                    color="#000000"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceCode"/></font></td>
+                                    color="#000000"><fmt:message key="billing.batchbilling.serviceCode"/></font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="xml_other1" size="20" value=""> <a
@@ -243,7 +246,7 @@
                                     src="<%= request.getContextPath() %>/images/search_code.jpg" border="0"></a> </font></td>
                         </tr>
                         <tr>
-                            <td width="29%"><font size="1"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.DxCode"/></font></td>
+                            <td width="29%"><font size="1"><fmt:message key="billing.batchbilling.DxCode"/></font></td>
                             <td width="50%"><input type="text" name="xml_diagnostic_detail"
                                                    size="20" value=""><input type="hidden"
                                                                              name="xml_dig_search1"> <a
@@ -253,7 +256,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"
-                                    color="#000000"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.CreateDate"/></font></td>
+                                    color="#000000"><fmt:message key="billing.batchbilling.CreateDate"/></font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="createdate" readonly value="<%=nowDate%>" size="20">
@@ -262,7 +265,7 @@
                         <tr>
                             <td width="29%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" color="#000000"
-                                    size="1"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.Creator"/></font></td>
+                                    size="1"><fmt:message key="billing.batchbilling.Creator"/></font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="dispcreator" readonly
@@ -275,7 +278,7 @@
                             <td colspan="2"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" color="#0000FF"
                                     size="1"><b><i> <input type="SUBMIT"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.submit"/>"
+                                                           value="<fmt:message key="billing.batchbilling.submit"/>"
                                                            name="SUBMIT"> </i></b></font><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"></font></td>
                         </tr>
@@ -287,6 +290,6 @@
         </tr>
     </form>
 </table>
-<input type="button" name="Button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.cancel"/>" onclick=self.close();>
+<input type="button" name="Button" value="<fmt:message key="billing.batchbilling.cancel"/>" onclick=self.close();>
 </body>
 </html>

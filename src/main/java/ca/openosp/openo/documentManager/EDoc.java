@@ -26,7 +26,7 @@
 package ca.openosp.openo.documentManager;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.CtlDocument;
 import ca.openosp.openo.commn.model.CtlDocumentPK;
@@ -428,8 +428,8 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     }
 
     public void setAbnormal(String abnormal) {
-        if (abnormal.equalsIgnoreCase("checked")) this.abnormal = "1";
-        else if (abnormal == null || abnormal.length() == 0) this.abnormal = "0";
+        if (abnormal == null || abnormal.length() == 0) this.abnormal = "false";
+        else if (abnormal.equalsIgnoreCase("checked")) this.abnormal = "true";
         else this.abnormal = abnormal;
     }
 

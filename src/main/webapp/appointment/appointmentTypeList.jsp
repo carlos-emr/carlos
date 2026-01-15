@@ -24,7 +24,7 @@
 <%@ taglib prefix="s" uri="/struts-tags" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ include file="../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 <%--RJ 07/07/2006 --%>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -40,7 +40,7 @@
 <%@ page import="ca.openosp.openo.util.*" %>
 <%@ page import="ca.openosp.openo.login.*" %>
 <%@ page import="ca.openosp.openo.log.*" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
 <html>
 <head>

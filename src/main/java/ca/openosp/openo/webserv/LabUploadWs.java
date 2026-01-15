@@ -30,6 +30,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.enumerator.LabType;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import org.springframework.stereotype.Component;
 import ca.openosp.OscarProperties;
 import ca.openosp.openo.log.LogAction;
@@ -277,24 +278,15 @@ public class LabUploadWs extends AbstractWs {
         }
 
         // Sanitize the filename - remove any remaining dangerous characters
-        String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");  // Allow only safe characters
-        
-        // Ensure the filename is not empty after sanitization
-        if (sanitizedFileName.isEmpty()) {
-            throw new IllegalArgumentException("Invalid filename: filename contains only invalid characters");
-        }
-
         // Use same naming convention as manually uploaded labs
-        sanitizedFileName = "LabUpload." + sanitizedFileName.replaceAll("\\.enc$", "") + "." + (new Date()).getTime();
-        
-        // Create the file using canonical paths for security
-        File labFile = new File(labFolder, sanitizedFileName).getCanonicalFile();
-        
-        // Verify the canonical path is within the lab folder (defense in depth)
-        // Use File.separator to ensure proper path comparison
-        if (!labFile.getPath().startsWith(labFolder.getPath() + File.separator) && 
-            !labFile.getPath().equals(labFolder.getPath())) {
-            throw new SecurityException("Invalid file path: attempted directory traversal");
+        String sanitizedFileName = "LabUpload." + fileName.replaceAll("\\.enc$", "") + "." + (new Date()).getTime();
+
+        // Use PathValidationUtils to validate and get safe file path
+        File labFile;
+        try {
+            labFile = PathValidationUtils.validatePath(sanitizedFileName, labFolder);
+        } catch (SecurityException e) {
+            throw new SecurityException("Invalid file path: " + fileName, e);
         }
 
         // Save a copy of the lab locally. This is done to mimic the manual lab

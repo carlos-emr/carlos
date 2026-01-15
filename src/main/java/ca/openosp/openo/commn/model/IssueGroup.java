@@ -28,7 +28,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 @Entity
 public class IssueGroup extends AbstractModel<Integer> implements Comparable<IssueGroup> {

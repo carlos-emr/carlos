@@ -2,7 +2,7 @@
 <!-- Created with Jaspersoft Studio version 6.13.0.final using JasperReports Library version 6.3.0  -->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="bcar2020" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9997476-3eb5-48e8-b3a7-28b4b42bd333">
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
-	<import value="org.apache.commons.lang.StringUtils"/>
+	<import value="org.apache.commons.lang3.StringUtils"/>
 	<parameter name="background_image" class="java.lang.String">
 		<parameterDescription><![CDATA[The background image of the current page]]></parameterDescription>
 	</parameter>

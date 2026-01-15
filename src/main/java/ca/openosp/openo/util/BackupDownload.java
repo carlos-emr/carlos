@@ -37,6 +37,7 @@ import javax.servlet.http.HttpSession;
 
 import ca.openosp.openo.commn.dao.SecObjPrivilegeDao;
 import ca.openosp.openo.commn.model.SecObjPrivilege;
+import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 public class BackupDownload extends GenericDownload {
@@ -45,8 +46,9 @@ public class BackupDownload extends GenericDownload {
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         HttpSession session = req.getSession(true);
 
-        // check the rights
-        String filename = req.getParameter("filename") == null ? "null" : req.getParameter("filename");
+        // check the rights - sanitize filename to prevent XSS and path traversal
+        String rawFilename = req.getParameter("filename");
+        String filename = (rawFilename == null) ? "null" : MiscUtils.sanitizeFileName(rawFilename);
         String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
 
         boolean adminPrivs = false;

@@ -36,7 +36,35 @@ import java.nio.file.Paths;
 import java.util.*;
 
 /**
- * This class will hold OSCAR & CAISI properties. It is a singleton class. Do not instantiate it, use the method getInstance(). Every time the properties file changes, tomcat must be restarted.
+ * Singleton class for managing OpenO EMR system properties and configuration.
+ * 
+ * <p>This class extends {@link Properties} to provide centralized access to
+ * system-wide configuration settings including:</p>
+ * <ul>
+ *   <li>Database connection parameters</li>
+ *   <li>File storage paths (documents, images, backups)</li>
+ *   <li>Security and authentication settings</li>
+ *   <li>Provincial billing configurations</li>
+ *   <li>Integration settings (HL7, FHIR, etc.)</li>
+ *   <li>UI customization options</li>
+ * </ul>
+ * 
+ * <p><strong>Important:</strong> This is a singleton class. Do not instantiate directly.
+ * Use {@link #getInstance()} to obtain the instance.</p>
+ * 
+ * <p><strong>Configuration File:</strong> Properties are loaded from the OpenO properties
+ * file. Any changes to the properties file require a Tomcat restart to take effect.</p>
+ * 
+ * <p><strong>Namespace Migration:</strong> This class includes validation to detect and
+ * ignore deprecated namespace values (org.oscarehr.*, oscar.*) that should be migrated
+ * to the new ca.openosp.openo.* namespace.</p>
+ * 
+ * <p>Example usage:</p>
+ * <pre>
+ * OscarProperties props = OscarProperties.getInstance();
+ * String docDir = props.getProperty("DOCUMENT_DIR");
+ * boolean isCaisiEnabled = props.isPropertyActive("caisi_enabled");
+ * </pre>
  */
 public class OscarProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
@@ -44,33 +72,109 @@ public class OscarProperties extends Properties {
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
 
     /**
-     * @return OscarProperties the instance of OscarProperties
+     * Blacklisted namespace patterns for property values that should be ignored.
+     * These represent deprecated package names from the namespace migration.
+     */
+    private static final List<String> BLACKLISTED_NAMESPACES = Arrays.asList(
+        "org.oscarehr.",
+        "oscar."
+    );
+
+    /**
+     * Default values for properties that may have blacklisted values.
+     * These provide fallback values when properties contain deprecated namespaces
+     * (org.oscarehr.* or oscar.*) that need to be migrated to the new ca.openosp.openo.* namespace.
+     */
+    private static final Map<String, String> PROPERTY_DEFAULTS = Map.of(
+        "hibernate.dialect", "ca.openosp.openo.util.persistence.OscarMySQL5Dialect",
+        "ColourClass", "ca.openosp.openo.casemgmt.common.Colour"
+    );
+
+    /**
+     * Gets the singleton instance of OscarProperties.
+     * 
+     * @return the OscarProperties instance
      */
     public static OscarProperties getInstance() {
         return oscarProperties;
     }
 
     /**
-     * Override for filtering properties
+     * Gets a property value with validation to filter deprecated namespaces.
+     * 
+     * <p>This method applies validation to detect and ignore deprecated namespace
+     * values (org.oscarehr.*, oscar.*), returning configured defaults when applicable.</p>
      *
-     * @param key the property key.
+     * @param key the property key
+     * @return the validated property value, or null if not found
      */
     public String getProperty(String key) {
-        if ("FORMS_PROMOTEXT".equals(key)) {
+        if (key.equals("FORMS_PROMOTEXT")) {
             return "";
         }
-        return super.getProperty(key);
+
+        if (key == null || key.trim().isEmpty()) {
+            MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
+            throw new IllegalArgumentException("Property key cannot be blank.");
+        }
+
+        String value = super.getProperty(key);
+
+        // If no value, return the default if one is configured
+        if (value == null) {
+            String warning = new StringBuilder()
+                .append("Property '").append(key)
+                .append("' is missing or not configured. Using default value: '")
+                .append(getDefaultValue(key)).append("'.")
+                .toString();
+            MiscUtils.getLogger().warn(warning);
+            return getDefaultValue(key);
+        }
+
+        // Check if the value contains a blacklisted namespace
+        if (isValueBlacklisted(value)) {
+            String warning = new StringBuilder()
+                .append("Property '").append(key)
+                .append("' has blacklisted value '").append(value)
+                .append("' (deprecated namespace). ")
+                .append("This value has been ignored. Using default value instead.")
+                .toString();
+            MiscUtils.getLogger().warn(warning);
+            return getDefaultValue(key);
+        }
+
+        return value;
     }
 
-    /* If cant find the file, inform and continue */
-    /*
-     * private OscarProperties() {
+    /**
+     * Checks if a property value contains a blacklisted namespace pattern.
      *
-     * InputStream is = getClass().getResourceAsStream("/oscar_mcmaster.properties"); try { load(is); } catch (Exception e) { MiscUtils.getLogger().debug("Error, file oscar_mcmaster.properties not found.");
-     * MiscUtils.getLogger().debug("This file must be placed at WEB-INF/classes."); }
-     *
-     * try{ is.close(); } catch (IOException e) { MiscUtils.getLogger().debug("IO error."); MiscUtils.getLogger().error("Error", e); } } //OscarProperties - end
+     * @param value the property value to check
+     * @return boolean true if the value contains a blacklisted namespace
      */
+    private boolean isValueBlacklisted(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return false;
+        }
+
+        for (String blacklistedNamespace : BLACKLISTED_NAMESPACES) {
+            if (value.startsWith(blacklistedNamespace)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Gets the default value for a property key if one is configured.
+     *
+     * @param key the property key
+     * @return String the default value, or null if no default is configured
+     */
+    private String getDefaultValue(String key) {
+        return PROPERTY_DEFAULTS.get(key);
+    }
 
     /* Do not use this constructor. Use getInstance instead */
     private OscarProperties() {

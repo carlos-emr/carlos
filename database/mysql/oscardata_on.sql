@@ -13565,7 +13565,7 @@ INSERT INTO diagnosticcode VALUES (533,'042','AIDS                              
 --
 
 --
--- Dumping data for table 'providers'
+-- Dumping data for table 'provider'
 --
 
 --
@@ -15776,9 +15776,10 @@ insert into LookupListItem values (\N,@lid,'57','Durham Region Health Department
 insert into LookupListItem values (\N,@lid,'58','Windsor-Essex County Health Unit',36,1,'oscar',now());
 
 
-
-INSERT INTO `OscarJobType` VALUES (\N,'CanadianVaccineCatalogueUpdater','Updates the local copy of the data','org.oscarehr.integration.born.CanadianVaccineCatalogueJob',1,now()),(\N,'BORN FHIR','','org.oscarehr.integration.born.BORNFhirJob',1,now());
-INSERT INTO `OscarJob` VALUES (\N,'CanadianVaccineCatalogueUpdater','Updates the CVC data',(select id from OscarJobType where name='CanadianVaccineCatalogueUpdater'),'0 * 0 * * *','999998',0,now(),null),(\N,'BORN FHIR','',(select id from OscarJobType where name='BORN FHIR'),'0 * * * * *','999998',0,now(),null);
+-- NOTE: The following SQL updates have been commented out as they have been removed from the codebase.
+-- They are left here for historical reference. If you are restoring these features, please ensure to uncomment these lines.
+-- INSERT INTO `OscarJobType` VALUES (\N,'CanadianVaccineCatalogueUpdater','Updates the local copy of the data','org.oscarehr.integration.born.CanadianVaccineCatalogueJob',1,now()),(\N,'BORN FHIR','','org.oscarehr.integration.born.BORNFhirJob',1,now());
+-- INSERT INTO `OscarJob` VALUES (\N,'CanadianVaccineCatalogueUpdater','Updates the CVC data',(select id from OscarJobType where name='CanadianVaccineCatalogueUpdater'),'0 * 0 * * *','999998',0,now(),null),(\N,'BORN FHIR','',(select id from OscarJobType where name='BORN FHIR'),'0 * * * * *','999998',0,now(),null);
 
 
 INSERT INTO

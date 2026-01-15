@@ -16,13 +16,13 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JsonConfig;
-import net.sf.json.processors.JsDateJsonBeanProcessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import ca.openosp.openo.commn.dao.DemographicDao;
 import ca.openosp.openo.commn.model.Demographic;
 import ca.openosp.openo.managers.SecurityInfoManager;
+import ca.openosp.openo.utility.JsDateSerializer;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.SpringUtils;
 
@@ -35,7 +35,13 @@ public class HealthCardSearch2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    static {
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(java.sql.Date.class, new JsDateSerializer());
+        objectMapper.registerModule(module);
+    }
 
     public String execute() throws Exception {
         String hin = request.getParameter("hin");
@@ -77,11 +83,8 @@ public class HealthCardSearch2Action extends ActionSupport {
             }
         }
 
-        JsonConfig config = new JsonConfig();
-        config.registerJsonBeanProcessor(java.sql.Date.class, new JsDateJsonBeanProcessor());
-
-        JSONObject json = JSONObject.fromObject(hashMap, config);
-        response.getOutputStream().write(json.toString().getBytes());
+        String json = objectMapper.writeValueAsString(hashMap);
+        response.getOutputStream().write(json.getBytes());
 
 
         return null;

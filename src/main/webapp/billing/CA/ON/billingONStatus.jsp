@@ -48,7 +48,7 @@
     --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean isTeamBillingOnly = false;
     boolean isSiteAccessPrivacy = false;
@@ -421,13 +421,13 @@
         </style>
     </head>
     <body>
-    <jsp:include page="../../../images/spinner.jsp" flush="true"/>
+    <jsp:include page="/images/spinner.jsp" flush="true"/>
     <h3>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/>
     </h3>
     <div class="container-fluid">
         <!--Hiding for now since this does not seem to manage the providers in the select
-            <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'../../../oscarReport/manageProvider.jsp?action=billingreport')">Manage Provider List</a>-->
+            <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">Manage Provider List</a>-->
         <form name="serviceform" class="form-inline" method="get" action="billingONStatus.jsp"
               onsubmit="ShowSpin(true);">
             <input type="hidden" id="sortName" name="sortName" value="<%=sortName%>">
@@ -972,7 +972,7 @@
                         </td>
                         <!--PATIENT-->
                         <td style="text-align:center" class="<%=hideName?"hidden-print":""%>"><a href=#
-                                                                                                 onclick="popupPage(800,740,'../../../demographic/demographiccontrol.jsp?demographic_no=<%=ch1Obj.getDemographic_no()%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
+                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=ch1Obj.getDemographic_no()%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
                         </a></td>
                         <td style="text-align:center"><%=ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>
                         </td>

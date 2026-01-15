@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import ca.openosp.openo.commn.dao.BillingONCHeader1Dao;
 import ca.openosp.openo.commn.dao.BillingONEAReportDao;
 import ca.openosp.openo.commn.dao.BillingONExtDao;
@@ -78,7 +77,7 @@ public class JdbcBillingCorrection {
         c.setDemographicNo(Integer.parseInt(ch1Obj.getDemographic_no()));
         c.setProviderNo(ch1Obj.getProvider_no());
         c.setAppointmentNo(Integer.parseInt(ch1Obj.getAppointment_no()));
-        c.setDemographicName(StringEscapeUtils.escapeSql(ch1Obj.getDemographic_name()));
+        c.setDemographicName(ch1Obj.getDemographic_name());
         c.setSex(ch1Obj.getSex());
         c.setProvince(ch1Obj.getProvince());
         c.setBillingDate(dateFormatter.parse(ch1Obj.getBilling_date()));
@@ -108,7 +107,7 @@ public class JdbcBillingCorrection {
 
 				+ "'," + " demographic_no='" + ch1Obj.getDemographic_no() + "'," + " provider_no='"
 				+ ch1Obj.getProviderNo() + "'," + " appointment_no='" + ch1Obj.getAppointment_no() + "',"
-				+ " demographic_name='" + StringEscapeUtils.escapeSql(ch1Obj.getDemographic_name()) + "'," + " sex='"
+				+ " demographic_name='" + StringEscapeUtilsch1Obj.getDemographic_name() + "'," + " sex='"
 				+ ch1Obj.getSex() + "'," + " province='" + ch1Obj.getProvince() + "'," + " billing_date='"
 				+ ch1Obj.getBilling_date() + "'," + " billing_time='" + ch1Obj.getBilling_time() + "'," + " total='"
 				+ ch1Obj.getTotal() + "'," + " paid='" + ch1Obj.getPaid() + "'," + " status='" + ch1Obj.getStatus()

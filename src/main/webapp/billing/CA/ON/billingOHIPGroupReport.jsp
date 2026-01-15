@@ -31,7 +31,7 @@
 <%@page import="ca.openosp.openo.billing.CA.dao.BillActivityDao" %>
 <%@page import="ca.openosp.openo.util.ConversionUtils" %>
 <%@ page import="ca.openosp.SxmlMisc" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

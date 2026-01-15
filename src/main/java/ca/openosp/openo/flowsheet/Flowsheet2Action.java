@@ -24,6 +24,9 @@
  */
 package ca.openosp.openo.flowsheet;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
@@ -44,9 +47,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.xmlbeans.XmlOptions;
-import org.codehaus.jettison.json.JSONArray;
-import org.codehaus.jettison.json.JSONException;
-import org.codehaus.jettison.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.dao.DemographicDao;
 import ca.openosp.openo.commn.dao.FlowSheetUserCreatedDao;
@@ -84,6 +85,7 @@ public class Flowsheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private FlowSheetUserCreatedDao flowsheetUserCreatedDao = SpringUtils.getBean(FlowSheetUserCreatedDao.class);
     private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -455,11 +457,11 @@ public class Flowsheet2Action extends ActionSupport {
 
     }
 
-    public String getTemplateDetails() throws JSONException, IOException {
+    public String getTemplateDetails() throws IOException {
         String template = request.getParameter("template");
 
         Hashtable<String, String> systemFlowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();
-        JSONObject resp = new JSONObject();
+        ObjectNode resp = objectMapper.createObjectNode();
 
         for (String name : systemFlowsheets.keySet()) {
             if (name.equals(template)) {
@@ -470,7 +472,7 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        resp.write(response.getWriter());
+        response.getWriter().write(resp.toString());
         return null;
     }
 
@@ -511,14 +513,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
-    public String getValidations() throws IOException, JSONException {
+    public String getValidations() throws IOException {
         List<Validations> validationList = validationsDao.findAll();
 
-        JSONObject resp = new JSONObject();
-        JSONArray respArr = new JSONArray();
+        ObjectNode resp = objectMapper.createObjectNode();
+        ArrayNode respArr = objectMapper.createArrayNode();
 
         for (Validations v : validationList) {
-            JSONObject i = new JSONObject();
+            ObjectNode i = objectMapper.createObjectNode();
             i.put("id", v.getId());
             i.put("maxLength", v.getMaxLength());
             i.put("maxValue", v.getMaxValue());
@@ -526,25 +528,25 @@ public class Flowsheet2Action extends ActionSupport {
             i.put("minValue", v.getMinValue());
             i.put("name", v.getName());
             i.put("regularExp", v.getRegularExp());
-            respArr.put(i);
+            respArr.add(i);
         }
         resp.put("results", respArr);
 
-        resp.write(response.getWriter());
+        response.getWriter().write(resp.toString());
 
         return null;
 
     }
 
-    public String getMeasurementTypes() throws IOException, JSONException {
+    public String getMeasurementTypes() throws IOException {
 
         List<MeasurementType> typeList = measurementTypeDao.findAll();
 
-        JSONObject resp = new JSONObject();
-        JSONArray respArr = new JSONArray();
+        ObjectNode resp = objectMapper.createObjectNode();
+        ArrayNode respArr = objectMapper.createArrayNode();
 
         for (MeasurementType mt : typeList) {
-            JSONObject i = new JSONObject();
+            ObjectNode i = objectMapper.createObjectNode();
             i.put("id", mt.getId());
             i.put("type", mt.getType());
             i.put("description", mt.getType());
@@ -555,37 +557,37 @@ public class Flowsheet2Action extends ActionSupport {
                 Validations v = validationsDao.find(Integer.parseInt(mt.getValidation()));
                 i.put("validation", v.getName());
             }
-            respArr.put(i);
+            respArr.add(i);
         }
         resp.put("results", respArr);
 
-        resp.write(response.getWriter());
+        response.getWriter().write(resp.toString());
 
         return null;
     }
 
-    public String getPreventionTypes() throws IOException, JSONException {
+    public String getPreventionTypes() throws IOException {
 
         PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
         ArrayList<HashMap<String, String>> prevList = pdc.getPreventions();
 
-        JSONObject resp = new JSONObject();
-        JSONArray respArr = new JSONArray();
+        ObjectNode resp = objectMapper.createObjectNode();
+        ArrayNode respArr = objectMapper.createArrayNode();
 
         for (HashMap<String, String> item : prevList) {
-            JSONObject i = new JSONObject();
+            ObjectNode i = objectMapper.createObjectNode();
             i.put("id", item.get("name"));
             i.put("displayName", item.get("name"));
-            respArr.put(i);
+            respArr.add(i);
         }
         resp.put("results", respArr);
 
-        resp.write(response.getWriter());
+        response.getWriter().write(resp.toString());
 
         return null;
     }
 
-    public String addNewFlowsheet() throws IOException, JSONException {
+    public String addNewFlowsheet() throws IOException {
 
         String name = request.getParameter("name");
         String template = request.getParameter("template");
@@ -643,32 +645,36 @@ public class Flowsheet2Action extends ActionSupport {
 
         flowsheetUserCreatedDao.persist(fsuc);
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         obj.put("id", fsuc.getId());
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
 
         MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
 
         return null;
     }
 
-    public String deleteFlowsheet() throws IOException, JSONException {
+    public String deleteFlowsheet() throws IOException {
         String id = request.getParameter("id");
 
         flowsheetUserCreatedDao.remove(Integer.parseInt(id));
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         obj.put("id", id);
-        obj.write(response.getWriter());
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        objectMapper.writeValue(response.getWriter(), obj);
 
         MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
 
         return null;
     }
 
-    public String removeItem() throws IOException, JSONException {
+    public String removeItem() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String type = request.getParameter("id");
 
@@ -727,13 +733,13 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
-    public String getWarnings() throws IOException, JSONException {
+    public String getWarnings() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
@@ -743,7 +749,7 @@ public class Flowsheet2Action extends ActionSupport {
         FlowsheetDocument fd = null;
         Flowsheet flowsheet = null;
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
 
 
         if (fsuc != null) {
@@ -759,13 +765,13 @@ public class Flowsheet2Action extends ActionSupport {
             Rules rules = item.getRules();
 
             if (rules != null) {
-                JSONArray objRules = new JSONArray();
+                ArrayNode objRules = objectMapper.createArrayNode();
 
                 for (int x = 0; x < rules.getRecommendationArray().length; x++) {
                     Recommendation recommendation = rules.getRecommendationArray(x);
                     Condition condition = recommendation.getCondition();
 
-                    JSONObject r = new JSONObject();
+                    ObjectNode r = objectMapper.createObjectNode();
 
                     r.put("strength", recommendation.getStrength());
                     r.put("type", condition.getType());
@@ -776,19 +782,19 @@ public class Flowsheet2Action extends ActionSupport {
 
                     r.put("hash", sha256hex);
 
-                    objRules.put(r);
+                    objRules.add(r);
                 }
 
                 obj.put("rules", objRules);
             }
         }
 
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
 
     }
 
-    public String removeWarning() throws IOException, JSONException {
+    public String removeWarning() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("type");
         String hash = request.getParameter("hash");
@@ -850,13 +856,13 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
-    public String removeTarget() throws IOException, JSONException {
+    public String removeTarget() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("type");
         String hash = request.getParameter("hash");
@@ -925,13 +931,13 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
-    public String getIndicators() throws IOException, JSONException {
+    public String getIndicators() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
 
@@ -940,10 +946,10 @@ public class Flowsheet2Action extends ActionSupport {
         FlowsheetDocument fd = null;
         Flowsheet flowsheet = null;
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
 
 
-        JSONArray jIndicators = new JSONArray();
+        ArrayNode jIndicators = objectMapper.createArrayNode();
 
 
         if (fsuc != null) {
@@ -957,21 +963,21 @@ public class Flowsheet2Action extends ActionSupport {
             Indicator[] indicators = flowsheet.getIndicatorArray();
 
             for (int x = 0; x < indicators.length; x++) {
-                JSONObject r = new JSONObject();
+                ObjectNode r = objectMapper.createObjectNode();
                 r.put("key", indicators[x].getKey());
                 r.put("colour", indicators[x].getColour());
-                jIndicators.put(r);
+                jIndicators.add(r);
             }
         }
 
         obj.put("indicators", jIndicators);
 
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
 
     }
 
-    public String getTargets() throws IOException, JSONException {
+    public String getTargets() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
@@ -981,7 +987,7 @@ public class Flowsheet2Action extends ActionSupport {
         FlowsheetDocument fd = null;
         Flowsheet flowsheet = null;
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
 
 
         if (fsuc != null) {
@@ -997,7 +1003,7 @@ public class Flowsheet2Action extends ActionSupport {
             Ruleset rules = item.getRuleset();
 
             if (rules != null) {
-                JSONArray objRules = new JSONArray();
+                ArrayNode objRules = objectMapper.createArrayNode();
 
                 for (int x = 0; x < rules.getRuleArray().length; x++) {
                     Rule rule = rules.getRuleArray(x);
@@ -1005,7 +1011,7 @@ public class Flowsheet2Action extends ActionSupport {
 
                     for (int y = 0; y < rule.getConditionArray().length; y++) {
                         FlowsheetDocument.Flowsheet.Header.Item.Ruleset.Rule.Condition c = rule.getConditionArray(y);
-                        JSONObject r = new JSONObject();
+                        ObjectNode r = objectMapper.createObjectNode();
 
                         r.put("indicator", rule.getIndicationColor());
                         r.put("type", c.getType());
@@ -1017,7 +1023,7 @@ public class Flowsheet2Action extends ActionSupport {
                         r.put("hash", sha256hex);
 
 
-                        objRules.put(r);
+                        objRules.add(r);
                     }
 
                 }
@@ -1026,12 +1032,12 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
 
     }
 
-    public String saveFlowsheetItemWarning() throws IOException, JSONException {
+    public String saveFlowsheetItemWarning() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
 
@@ -1094,13 +1100,13 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
-    public String saveFlowsheetItemTarget() throws IOException, JSONException {
+    public String saveFlowsheetItemTarget() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
         String param = request.getParameter("param");
@@ -1169,9 +1175,9 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
@@ -1185,7 +1191,7 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
-    public String saveFlowsheetItem() throws IOException, JSONException {
+    public String saveFlowsheetItem() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
@@ -1244,17 +1250,17 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
-    public String getFlowsheetItem() throws IOException, JSONException {
+    public String getFlowsheetItem() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
 
         FlowSheetUserCreated fsuc = flowsheetUserCreatedDao.find(Integer.parseInt(flowsheetId));
 
@@ -1290,16 +1296,16 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
-    public String getFlowsheet() throws IOException, JSONException {
+    public String getFlowsheet() throws IOException {
         String id = request.getParameter("id");
 
         FlowSheetUserCreated fsuc = flowsheetUserCreatedDao.find(Integer.parseInt(id));
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
 
         obj.put("name", fsuc.getName());
         obj.put("createdBy", providerDao.getProvider(fsuc.getCreatedBy()).getFormattedName());
@@ -1344,10 +1350,10 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         if (flowsheet != null) {
-            JSONArray iArr = new JSONArray();
+            ArrayNode iArr = objectMapper.createArrayNode();
             for (int x = 0; x < flowsheet.getHeaderArray(0).getItemArray().length; x++) {
                 Item item = flowsheet.getHeaderArray(0).getItemArray(x);
-                JSONObject i = new JSONObject();
+                ObjectNode i = objectMapper.createObjectNode();
                 i.put("measurementType", item.getMeasurementType());
                 i.put("preventionType", item.getPreventionType());
                 i.put("displayName", item.getDisplayName());
@@ -1361,13 +1367,13 @@ public class Flowsheet2Action extends ActionSupport {
                         i.put("validation", m.getValidationRule().getName());
                     }
                 }
-                iArr.put(i);
+                iArr.add(i);
 
             }
             obj.put("items", iArr);
         }
 
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
         return null;
     }
 
@@ -1394,10 +1400,10 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
-    public String getTemplateNames() throws IOException, JSONException {
+    public String getTemplateNames() throws IOException {
         Hashtable<String, String> systemFlowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();
-        JSONObject resp = new JSONObject();
-        JSONArray fsList = new JSONArray();
+        ObjectNode resp = objectMapper.createObjectNode();
+        ArrayNode fsList = objectMapper.createArrayNode();
 
 
         for (String name : systemFlowsheets.keySet()) {
@@ -1406,21 +1412,21 @@ public class Flowsheet2Action extends ActionSupport {
                 continue;
             }
             String displayName = systemFlowsheets.get(name);
-            JSONObject i = new JSONObject();
+            ObjectNode i = objectMapper.createObjectNode();
             i.put("name", name);
-            fsList.put(i);
+            fsList.add(i);
         }
 
         resp.put("results", fsList);
-        resp.write(response.getWriter());
+        response.getWriter().write(resp.toString());
 
         return null;
     }
 
-    public String listSystem() throws IOException, JSONException {
+    public String listSystem() throws IOException {
         Hashtable<String, String> systemFlowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();
-        JSONObject resp = new JSONObject();
-        JSONArray fsList = new JSONArray();
+        ObjectNode resp = objectMapper.createObjectNode();
+        ArrayNode fsList = objectMapper.createArrayNode();
 
 
         for (String name : systemFlowsheets.keySet()) {
@@ -1429,7 +1435,7 @@ public class Flowsheet2Action extends ActionSupport {
                 continue;
             }
             String displayName = systemFlowsheets.get(name);
-            JSONObject i = new JSONObject();
+            ObjectNode i = objectMapper.createObjectNode();
             i.put("name", name);
             i.put("displayName", displayName);
             String triggers = "";
@@ -1453,17 +1459,17 @@ public class Flowsheet2Action extends ActionSupport {
             }
 
             i.put("triggers", triggers);
-            fsList.put(i);
+            fsList.add(i);
 
         }
 
         resp.put("results", fsList);
-        resp.write(response.getWriter());
+        response.getWriter().write(resp.toString());
 
         return null;
     }
 
-    public String list() throws IOException, JSONException {
+    public String list() throws IOException {
 
         String scope = request.getParameter("scope");
         List<FlowSheetUserCreated> flowsheets = null;
@@ -1474,11 +1480,11 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
 
-        JSONObject resp = new JSONObject();
-        JSONArray fsList = new JSONArray();
+        ObjectNode resp = objectMapper.createObjectNode();
+        ArrayNode fsList = objectMapper.createArrayNode();
 
         for (FlowSheetUserCreated fs : flowsheets) {
-            JSONObject i = new JSONObject();
+            ObjectNode i = objectMapper.createObjectNode();
             i.put("id", fs.getId());
             i.put("name", fs.getName());
             i.put("displayName", fs.getDisplayName());
@@ -1514,12 +1520,12 @@ public class Flowsheet2Action extends ActionSupport {
             } else {
                 i.put("details", "");
             }
-            fsList.put(i);
+            fsList.add(i);
 
         }
         resp.put("results", fsList);
 
-        resp.write(response.getWriter());
+        response.getWriter().write(resp.toString());
         return null;
     }
 

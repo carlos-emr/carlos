@@ -48,20 +48,41 @@
 
 
     <!-- JSON/JAXB providers for CXF JAX-RS -->
+    <!-- Custom Jackson module for smart date serialization -->
+    <bean id="smartDateModule" class="ca.openosp.openo.webserv.rest.util.SmartDateModule"/>
+
     <!-- Jackson 2 ObjectMapper -->
     <bean id="jacksonObjectMapper" class="com.fasterxml.jackson.databind.ObjectMapper">
         <!-- <property name="serializationInclusion">
             <util:constant static-field="com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL"/>
         </property> -->
 
-        <!-- If you rely on JAXB-style annotations (@XmlRootElement, etc.) -->
-        <!-- This lets Jackson 2 understand them -->
+        <!-- Use combined introspector to support both Jackson and JAXB annotations -->
+        <!-- Jackson annotations (like @JsonFormat) take precedence over JAXB -->
         <property name="annotationIntrospector">
-            <bean class="com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector">
+            <bean class="com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair">
                 <constructor-arg>
-                    <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
+                    <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
+                </constructor-arg>
+                <constructor-arg>
+                    <bean class="com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector">
+                        <constructor-arg>
+                            <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
+                        </constructor-arg>
+                    </bean>
                 </constructor-arg>
             </bean>
+        </property>
+    </bean>
+
+    <!-- Register the smart date module with ObjectMapper -->
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="targetObject" ref="jacksonObjectMapper"/>
+        <property name="targetMethod" value="registerModule"/>
+        <property name="arguments">
+            <list>
+                <ref bean="smartDateModule"/>
+            </list>
         </property>
     </bean>
 

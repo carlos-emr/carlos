@@ -7289,7 +7289,7 @@ CREATE TABLE IF NOT EXISTS professionalSpecialists (
 )  ;
 
 --
--- Table structure for table `providers`
+-- Table structure for table `provider`
 --
 
 CREATE TABLE IF NOT EXISTS provider (
@@ -8283,7 +8283,7 @@ CREATE TABLE IF NOT EXISTS `gstControl` (
 );
 
 --
--- providers -- bill center table
+-- provider -- bill center table
 --
 CREATE TABLE IF NOT EXISTS `providerbillcenter` (
   `provider_no` varchar(6) NOT NULL default '""',
@@ -13131,7 +13131,7 @@ INSERT INTO `encounterForm`(`form_name`, `form_value`, `form_table`, `hidden`) V
 -- Table structure for table `billing_preferences`
 --
 -- Stores data about a users billing preferences
--- Shares a one to one relation with the providers table
+-- Shares a one to one relation with the provider table
 CREATE TABLE IF NOT EXISTS billing_preferences (
   id int(10) unsigned NOT NULL auto_increment,
   referral int(10) unsigned NOT NULL default '0',

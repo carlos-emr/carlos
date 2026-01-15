@@ -34,7 +34,7 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 /**
- * @deprecated 2013-04-28 use org.oscarehr.util.DateUtils instead
+ * @deprecated 2013-04-28 use ca.openosp.openo.util.DateUtils instead
  */
 @Deprecated
 public class UtilDateUtilities {

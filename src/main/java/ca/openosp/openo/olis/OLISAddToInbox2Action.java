@@ -25,6 +25,7 @@ import ca.openosp.openo.commn.dao.PatientLabRoutingDao;
 import ca.openosp.openo.commn.model.PatientLabRouting;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.log.LogAction;
@@ -70,22 +71,19 @@ public class OLISAddToInbox2Action extends ActionSupport {
             return "ajax";
         }
 
-        // Use secure file path construction with FilenameUtils
+        // Use secure file path construction with PathValidationUtils
         String tmpDir = System.getProperty("java.io.tmpdir");
         String fileName = "olis_" + uuidToAdd + ".response";
         File tempDirectory = new File(tmpDir);
-        File file = new File(tempDirectory, FilenameUtils.getName(fileName));
-        
-        // Ensure the file is within the temp directory (canonical path check)
+        File file;
         String fileLocation;
         try {
+            file = PathValidationUtils.validatePath(fileName, tempDirectory);
             fileLocation = file.getCanonicalPath();
-            String canonicalTmpDir = tempDirectory.getCanonicalPath();
-            if (!fileLocation.startsWith(canonicalTmpDir + File.separator)) {
-                logger.error("Attempted path traversal detected for UUID: " + uuidToAdd);
-                request.setAttribute("result", "Error");
-                return "ajax";
-            }
+        } catch (SecurityException e) {
+            logger.error("Attempted path traversal detected for UUID: " + uuidToAdd);
+            request.setAttribute("result", "Error");
+            return "ajax";
         } catch (IOException e) {
             logger.error("Error validating file path for UUID: " + uuidToAdd, e);
             request.setAttribute("result", "Error");

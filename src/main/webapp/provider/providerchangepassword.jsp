@@ -28,7 +28,7 @@
 <%@ page import="ca.openosp.openo.commn.dao.SecurityDao" %>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String errormsg = "";
     if (request.getParameter("errormsg") != null) {

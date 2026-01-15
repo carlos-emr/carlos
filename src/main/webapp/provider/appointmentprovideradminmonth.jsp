@@ -39,7 +39,7 @@
 <%@ page import="ca.openosp.openo.util.ConversionUtils" %>
 <%@ page import="ca.openosp.openo.commn.dao.ScheduleDateDao" %>
 <%@ page import="ca.openosp.openo.commn.model.ScheduleDate" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderSiteDao" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 
 <%
     UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
@@ -413,7 +413,7 @@
             }
 
             function refreshTabAlerts(id) {
-                var url = "../provider/tabAlertsRefresh.jsp";
+                var url = "<%= request.getContextPath() %>/provider/tabAlertsRefresh.jsp";
                 var pars = "id=" + id;
 
                 var myAjax = new Ajax.Updater(id, url, {method: 'get', parameters: pars});
@@ -947,16 +947,16 @@
                 //use if (evt.altKey || evt.metaKey) Alt+A (and)/or for Mac when the browser supports it, Command+A
                 switch (evt.keyCode) {
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.adminShortcut"/> :
-                        popupOscarRx(700, 687, '../admin/admin.jsp');
+                        popupOscarRx(700, 687, '<%= request.getContextPath() %>/admin/admin.jsp');
                         return false;  //run code for 'A'dmin
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.billingShortcut"/> :
-                        popupOscarRx(600, 1024, '../billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');
+                        popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');
                         return false;  //code for 'B'illing
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.calendarShortcut"/> :
-                        popupOscarRx(425, 430, '../share/CalendarPopup.jsp?urlfrom=../provider/providercontrol.jsp&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
+                        popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/provider/providercontrol.jsp&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.edocShortcut"/> :
-                        popupOscarRx('700', '1024', '../documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
+                        popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=resourcebaseurl%>');
@@ -965,30 +965,30 @@
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '../tickler/ticklerMain.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>') //run code for t'I'ckler
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>') //run code for t'I'ckler
                         return false;
                     }
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.labShortcut"/> :
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=curUser_no%>', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/>');
                         return false;  //run code for 'L'ab
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.msgShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname)%>');
+                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for 'M'essage
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.monthShortcut"/> :
                         window.open("providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+request.getParameter("curProvider")+"&curProviderName="+request.getParameter("curProviderName") )%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
                         return false;  //run code for Mo'n'th
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.conShortcut"/> :
-                        popupOscarRx(625, 1024, '<%=request.getContextPath()%>/oscarEncounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname)%>');
+                        popupOscarRx(625, 1024, '<%=request.getContextPath()%>/oscarEncounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for c'O'nsultation
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.reportShortcut"/> :
-                        popupOscarRx(650, 1024, '../report/reportindex.jsp', 'reportPage');
+                        popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.prefShortcut"/> : {
                         popupOscarRx(715, 680, 'providerpreference.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=mygroupno%>'); //run code for 'P'references
                         return false;
                     }
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchShortcut"/> :
-                        popupOscarRx(550, 687, '../demographic/search.jsp');
+                        popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/search.jsp');
                         return false;  //run code for 'S'earch
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.dayShortcut"/> :
                         window.open("providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=<%=view==0?"0":("1&curProvider="+request.getParameter("curProvider")+"&curProviderName="+request.getParameter("curProviderName") )%>&displaymode=day&dboperation=searchappointmentday", "_self");
@@ -1003,7 +1003,7 @@
                         <% } %>
                     }
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '../oscarWorkflow/WorkFlowList.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflow"/>');
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflow"/>');
                         return false; //code for 'W'orkflow
                     default :
                         return;
@@ -1012,7 +1012,7 @@
             if (evt.ctrlKey) {
                 switch (evt.keyCode || evt.charCode) {
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogoutShortcut"/> :
-                        window.open('../logout.jsp', '_self');
+                        window.open('<%= request.getContextPath() %>/logout.jsp', '_self');
                         return false;  // 'Q'uit/log out
                     default :
                         return;

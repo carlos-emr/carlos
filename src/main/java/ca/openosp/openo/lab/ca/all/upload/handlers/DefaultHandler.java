@@ -50,6 +50,7 @@ import org.w3c.dom.NodeList;
 
 import ca.openosp.openo.lab.ca.all.upload.MessageUploader;
 import ca.openosp.openo.lab.ca.all.util.Utilities;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.OscarProperties;
 
 public class DefaultHandler implements MessageHandler {
@@ -117,29 +118,23 @@ public class DefaultHandler implements MessageHandler {
      */
     private Document getXML(String fileName) {
         try {
-            // Validate the file path to prevent path traversal attacks
+            // Validate the file path using PathValidationUtils
             File file = new File(fileName);
-            
-            // Get the canonical path to resolve any relative path components
-            String canonicalPath = file.getCanonicalPath();
-            
+
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
                 logger.error("File does not exist or is not a regular file: " + fileName);
                 return null;
             }
-            
-            // Additional validation: ensure the file is within the expected document directory
+
+            // Validate the file is within the expected document directory
             OscarProperties props = OscarProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
-                if (!canonicalPath.startsWith(docDir.getCanonicalPath() + File.separator)) {
-                    logger.error("Attempted to access file outside document directory: " + canonicalPath);
-                    throw new SecurityException("Access denied: file outside permitted directory");
-                }
+                PathValidationUtils.validateExistingPath(file, docDir);
             }
-            
+
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setValidating(false);
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -157,25 +152,22 @@ public class DefaultHandler implements MessageHandler {
 
     //TODO: Dont think this needs to be in this class.  Better as a util method
     public String readTextFile(String fullPathFilename) throws IOException {
-        // Validate the file path to prevent path traversal attacks
+        // Validate the file path using PathValidationUtils
         File file = new File(fullPathFilename);
-        String canonicalPath = file.getCanonicalPath();
-        
+
         // Ensure the file exists and is a regular file
         if (!file.exists() || !file.isFile()) {
             throw new IOException("File does not exist or is not a regular file: " + fullPathFilename);
         }
-        
-        // Additional validation: ensure the file is within the expected document directory
+
+        // Validate the file is within the expected document directory
         OscarProperties props = OscarProperties.getInstance();
         String documentDir = props.getProperty("DOCUMENT_DIR");
         if (documentDir != null && !documentDir.isEmpty()) {
             File docDir = new File(documentDir).getCanonicalFile();
-            if (!canonicalPath.startsWith(docDir.getCanonicalPath() + File.separator)) {
-                throw new SecurityException("Access denied: file outside permitted directory");
-            }
+            PathValidationUtils.validateExistingPath(file, docDir);
         }
-        
+
         StringBuilder sb = new StringBuilder(1024);
         // Use the validated file object instead of the raw path
         BufferedReader reader = new BufferedReader(new FileReader(file));

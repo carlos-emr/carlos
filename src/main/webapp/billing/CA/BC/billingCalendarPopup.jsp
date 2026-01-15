@@ -31,7 +31,7 @@ Use returnForm and returnItem request params and this page will fill in that inp
 
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../../../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page
         import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*" %>

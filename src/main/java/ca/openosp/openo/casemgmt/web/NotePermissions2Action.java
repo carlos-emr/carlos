@@ -19,9 +19,9 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JsonConfig;
-import net.sf.json.processors.JsDateJsonBeanProcessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.tools.ant.util.DateUtils;
 import ca.openosp.openo.commn.dao.AdmissionDao;
@@ -39,6 +39,7 @@ import ca.openosp.openo.casemgmt.model.CaseManagementNote;
 import ca.openosp.openo.commn.dao.ProviderDefaultProgramDao;
 import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.commn.model.ProviderDefaultProgram;
+import ca.openosp.openo.utility.JsDateSerializer;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.SpringUtils;
 
@@ -56,6 +57,15 @@ import org.apache.struts2.ServletActionContext;
 public class NotePermissions2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    static {
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(java.sql.Date.class, new JsDateSerializer());
+        objectMapper.registerModule(module);
+    }
 
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -140,10 +150,8 @@ public class NotePermissions2Action extends ActionSupport {
         hashMap.put("programNo", program.getId());
         hashMap.put("roleName", roleName);
         hashMap.put("permissionList", permissionList);
-        JsonConfig config = new JsonConfig();
-        config.registerJsonBeanProcessor(java.sql.Date.class, new JsDateJsonBeanProcessor());
 
-        JSONObject json = JSONObject.fromObject(hashMap, config);
+        ObjectNode json = objectMapper.valueToTree(hashMap);
         response.getOutputStream().write(json.toString().getBytes());
         return null;
 
@@ -206,7 +214,7 @@ public class NotePermissions2Action extends ActionSupport {
             hashMap.put("error", "PERMISSION_DENIED");
         }
 
-        JSONObject json = JSONObject.fromObject(hashMap);
+        ObjectNode json = objectMapper.valueToTree(hashMap);
         response.getOutputStream().write(json.toString().getBytes());
 
         return null;
@@ -236,7 +244,7 @@ public class NotePermissions2Action extends ActionSupport {
                     hashMap.put("defaultRole", programProviderList.get(0).getRoleId());
                     hashMap.put("defaultRoleName", programProviderList.get(0).getRole().getName());
 
-                    JSONObject json = JSONObject.fromObject(hashMap);
+                    ObjectNode json = objectMapper.valueToTree(hashMap);
                     response.getOutputStream().write(json.toString().getBytes());
 
                     return null;
@@ -260,7 +268,7 @@ public class NotePermissions2Action extends ActionSupport {
         } else
             hashMap.put("success", false);
 
-        JSONObject json = JSONObject.fromObject(hashMap);
+        ObjectNode json = objectMapper.valueToTree(hashMap);
         response.getOutputStream().write(json.toString().getBytes());
 
         return null;
@@ -298,10 +306,8 @@ public class NotePermissions2Action extends ActionSupport {
 
         hashMap.put("programs", mapList);
 
-        JsonConfig config = new JsonConfig();
-        config.registerJsonBeanProcessor(java.sql.Date.class, new JsDateJsonBeanProcessor());
 
-        JSONObject json = JSONObject.fromObject(hashMap, config);
+        ObjectNode json = objectMapper.valueToTree(hashMap);
         response.getOutputStream().write(json.toString().getBytes());
 
         return null;

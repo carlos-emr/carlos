@@ -36,6 +36,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.OscarProperties;
 
 /**
@@ -84,22 +85,12 @@ public class LoginResourceAction extends HttpServlet {
                 return;
             }
             
-            // Construct the file using the sanitized filename only (no user input in path)
-            image = new File(images, sanitizedFilename);
-            
-            // Validate using canonical path to prevent any remaining path traversal attempts
+            // Construct and validate the file path using PathValidationUtils
             try {
                 File imagesDir = new File(images);
-                String canonicalImagesPath = imagesDir.getCanonicalPath();
-                String canonicalImagePath = image.getCanonicalPath();
-                
-                // Ensure the resolved path is within the expected directory
-                if (!canonicalImagePath.startsWith(canonicalImagesPath + File.separator)) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
-                    return;
-                }
-            } catch (IOException e) {
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing request");
+                image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
+            } catch (SecurityException e) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
                 return;
             }
         }

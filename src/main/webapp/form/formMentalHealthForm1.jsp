@@ -29,7 +29,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -106,7 +106,7 @@
             //{
 
             //ret = confirm("Do you wish to save this form and view the print preview?");
-            //popupFixedPage(650,850,'../provider/notice.htm');
+            //popupFixedPage(650,850,'<%= request.getContextPath() %>/provider/notice.htm');
             temp = document.forms[0].action;
             document.forms[0].action = "form/formname.do?__title=MentalHealthForm1&__cfgfile=mentalHealthForm1Print&__cfgfile=mentalHealthForm1Print_2&__cfgfile=mentalHealthForm1Print_3&__template=mentalHealthForm1";
             document.forms[0].submit.value = "printall";

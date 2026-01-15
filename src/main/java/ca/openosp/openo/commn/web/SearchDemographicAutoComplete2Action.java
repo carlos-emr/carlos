@@ -34,11 +34,10 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.dao.DemographicCustDao;
 import ca.openosp.openo.commn.dao.DemographicDao;
 import ca.openosp.openo.commn.model.Demographic;
@@ -61,6 +60,7 @@ import org.apache.struts2.ServletActionContext;
 public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
 
 
@@ -170,8 +170,8 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             response.getWriter().print(formatJSON(secondList));
             response.getWriter().flush();
         } else {
-            JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(d);
-            jsonArray.write(response.getWriter());
+            String jsonString = objectMapper.writeValueAsString(d);
+            response.getWriter().write(jsonString);
         }
         return null;
 

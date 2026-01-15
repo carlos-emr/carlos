@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -74,7 +74,7 @@
 
                 <table BORDER=0 NOSAVE width="100%">
                     <TR>
-                        <%@ include file="../share/letterheader.htm" %>
+                        <%@ include file="/share/letterheader.htm" %>
                         <TD WIDTH="20%" ALIGN="right" nowrap valign="top"><input
                                 type="button" name="Submit" value=" Print "
                                 onClick="window.print()"><input type="button"

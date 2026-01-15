@@ -28,7 +28,7 @@ package ca.openosp.openo.billings.ca.bc.Teleplan;
 
 import java.util.Arrays;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
 

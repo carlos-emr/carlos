@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -39,7 +39,7 @@
     }
 %>
 
-<%@ include file="../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
@@ -199,7 +199,7 @@
                         <font color="#333333"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.msgServiceDate"/></font></b></font></font> &nbsp;
                         &nbsp; <font
                                 size="1" face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                onClick="openBrWindow('../billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
+                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
                                                                                                   name="xml_vdate"
                                                                                                   value="<%=xml_vdate%>">
                     </div>
@@ -207,7 +207,7 @@
                 <td colspan='2'>
                     <div align="left"><font size="1"
                                             face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                   onClick="openBrWindow('../billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
+                                                                                   onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
                                                                                             name="xml_appointment_date"
                                                                                             value="<%=xml_appointment_date%>">
                     </div>

@@ -27,8 +27,9 @@
     <%@page import="ca.openosp.openo.utility.SpringUtils"%>
     <%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO"%>
     <%@page import="ca.openosp.OscarProperties"%>
-    <%@page contentType="text/javascript"%>
+    <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="ca.openosp.openo.casemgmt.common.Colour"%>
+    <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
     var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
@@ -2826,6 +2827,14 @@ function updateCPPNote() {
         $("issueAutocomplete").value = "";
         $("newIssueId").value = "";
         //notifyIssueUpdate();
+
+        // Refresh the encounter window's "Unresolved Issues" navbar section
+        var demographicNo = $("demographicNo").value;
+
+        if (typeof loadDiv === 'function' && demographicNo) {
+            var reloadUrl = ctx + "/oscarEncounter/displayIssues.do?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/oscarEncounter/displayIssues.do");
+            loadDiv('unresolvedIssueslist', reloadUrl, 0);
+        }
     }
 
     function submitIssue(event) {
@@ -3402,7 +3411,7 @@ function autoSave(async) {
             printAll();
         }
 
-        if ($F("notes2print").length == 0 && $F("printCPP") == "false" && $F("printRx") == "false" && $F("printLabs") == "false" && $F("printPreventions") == "false") {
+        if ($F("notes2print").length == 0 && $F("printCPP") == "false" && $F("printRx") == "false" && $F("printLabs") == "false" && $F("printPreventions") == "false" && $F("printAllergies") == "false") {
             alert(nothing2PrintMsg);
             return false;
         }
@@ -3466,6 +3475,9 @@ function autoSave(async) {
 
         if ($F("printRx") == "true")
             printInfo("imgPrintRx", "printRx");
+
+        if ($F("printAllergies") == "true")
+            printInfo("imgPrintAllergies", "printAllergies");
 
         // Clear date fields
         if ($("printStartDate"))

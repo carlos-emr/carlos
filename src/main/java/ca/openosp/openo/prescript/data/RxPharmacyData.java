@@ -189,6 +189,7 @@ public class RxPharmacyData {
             for (PharmacyInfo pharmacyInfo : pharmacyInfos) {
                 if (demographicPharmacy.getPharmacyId() == pharmacyInfo.getId()) {
                     pharmacyInfo.setPreferredOrder(demographicPharmacy.getPreferredOrder());
+                    pharmacyInfo.setDemoAddDate(demographicPharmacy.getAddDate());
                     break;
                 }
             }

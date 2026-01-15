@@ -56,7 +56,7 @@
 
 
         function goOMD(params) {
-            var docURL = "../commons/OntarioMDRedirect.jsp?keyword=" + params;
+            var docURL = "<%= request.getContextPath() %>/common/OntarioMDRedirect.jsp?keyword=" + params;
             popupDrugOfChoice(743, 817, docURL);
         }
     </script>

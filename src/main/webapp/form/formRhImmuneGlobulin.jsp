@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_form" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_form");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_form");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -188,13 +188,13 @@
             document.getElementById(id).style.display = 'none';
         }
 
-        function showHideNextDate(id, nextDate, nexerWarn) {
+        function showHideNextDate(id, nextDate, neverWarn) {
             if (document.getElementById(id).style.display == 'none') {
                 showItem(id);
             } else {
                 hideItem(id);
                 document.getElementById(nextDate).value = "";
-                document.getElementById(nexerWarn).checked = false;
+                document.getElementById(neverWarn).checked = false;
 
             }
         }
@@ -590,7 +590,7 @@
 
         <div id="injectionInfo"></div>
 
-        <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" styleId="deleteForm"
+        <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" id="deleteForm"
                 method="post" target="_blank">
 
         <input type="hidden" name="id" id="deleteId"/>
@@ -624,7 +624,7 @@
 
             function getInjectionInformation(origRequest) {
                 //console.log("calling get renal dosing information");
-                var url = "../form/RhInjectionDisplay.jsp";
+                var url = "<%= request.getContextPath() %>/form/RhInjectionDisplay.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%=demographicNo%>&id=<%=h.get("ID")%>&date=<%=(Date) h.get("completion_date")%>&rand=" + ran_number;  //hack to get around ie caching the page
                 //console.log("params" + params);

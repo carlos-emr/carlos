@@ -30,6 +30,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.Demographic;
 import ca.openosp.openo.commn.model.enumerator.DocumentType;
 import ca.openosp.openo.documentManager.DocumentAttachmentManager;
+import ca.openosp.openo.email.core.EmailAttachmentSettings;
 import ca.openosp.openo.managers.DemographicManager;
 import ca.openosp.openo.managers.EformDataManager;
 import ca.openosp.openo.managers.EmailManager;
@@ -55,10 +56,11 @@ import javax.servlet.http.HttpSession;
 
 import java.io.IOException;
 import java.io.File;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
-
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -251,7 +253,11 @@ public class AddEForm2Action extends ActionSupport {
              * Doing this ensures the image links get saved correctly into the HTML
              * of the eform_data database table.
              */
-            curForm.addImagePathPlaceholders(imagePathPlaceHolders);
+            try {
+                curForm.addImagePathPlaceholders(imagePathPlaceHolders);
+            } catch (Exception e) {
+                logger.error("Error retrieving image path placeholders from eForm submission.", e);
+            }
 
             String fdid = eformDataManager.saveEformData(loggedInInfo, curForm) + "";
 
@@ -279,19 +285,25 @@ public class AddEForm2Action extends ActionSupport {
             }
 
             if (fax) {
-                StringBuilder faxForward = new StringBuilder("/fax/faxAction.do");
-                faxForward.append("method=").append("prepareFax");
-                faxForward.append("transactionId=").append(fdid);
-                faxForward.append("transactionType=").append(TransactionType.EFORM.name());
-                faxForward.append("demographicNo=").append(demographic_no);
+                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction.do");
+                faxForward.append("?method=").append("prepareFax");
+                faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
+                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
+                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
 
                 /*
                  * Added incase the eForm developer adds these elements to the
                  * eform.
                  */
-                faxForward.append("recipient=").append(recipient);
-                faxForward.append("recipientFaxNumber=").append(recipientFaxNumber);
-                faxForward.append("letterheadFax=").append(letterheadFax);
+                if (recipient != null && !recipient.isEmpty()) {
+                    faxForward.append("&recipient=").append(URLEncoder.encode(recipient, StandardCharsets.UTF_8));
+                }
+                if (recipientFaxNumber != null && !recipientFaxNumber.isEmpty()) {
+                    faxForward.append("&recipientFaxNumber=").append(URLEncoder.encode(recipientFaxNumber, StandardCharsets.UTF_8));
+                }
+                if (letterheadFax != null && !letterheadFax.isEmpty()) {
+                    faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
+                }
                 try {
                     response.sendRedirect(faxForward.toString());
                 } catch (IOException e) {
@@ -326,7 +338,17 @@ public class AddEForm2Action extends ActionSupport {
                 return "download";
             } else if (isEmailEForm) {
                 String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer";
-                addEmailAttachments(request, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments, attachedForms);
+                EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                    request,
+                    fdid,
+                    demographic_no,
+                    attachedEForms,
+                    attachedDocuments,
+                    attachedLabs,
+                    attachedHRMDocuments,
+                    attachedForms
+                );
+                addEmailAttachmentsToSession(request, settings);
                 try {
                     response.sendRedirect(path);
                 } catch (IOException e) {
@@ -356,19 +378,26 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                StringBuilder faxForward = new StringBuilder("/fax/faxAction.do");
-                faxForward.append("method=").append("prepareFax");
-                faxForward.append("transactionId=").append(prev_fdid);
-                faxForward.append("transactionType=").append(TransactionType.EFORM.name());
-                faxForward.append("demographicNo=").append(demographic_no);
+                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction.do");
+                faxForward.append("?method=").append(URLEncoder.encode("prepareFax", StandardCharsets.UTF_8));
+                faxForward.append("&transactionId=").append(URLEncoder.encode(prev_fdid, StandardCharsets.UTF_8));
+                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
+                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
+
 
                 /*
                  * Added incase the eForm developer adds these elements to the
                  * eform.
                  */
-                faxForward.append("recipient=").append(recipient);
-                faxForward.append("recipientFaxNumber=").append(recipientFaxNumber);
-                faxForward.append("letterheadFax=").append(letterheadFax);
+                if (recipient != null) {
+                    faxForward.append("&recipient=").append(recipient);
+                }
+                if (recipientFaxNumber != null) {
+                    faxForward.append("&recipientFaxNumber=").append(recipientFaxNumber);
+                }
+                if (letterheadFax != null) {
+                    faxForward.append("&letterheadFax=").append(letterheadFax);
+                }
                 try {
                     response.sendRedirect(faxForward.toString());
                 } catch (IOException e) {
@@ -403,7 +432,17 @@ public class AddEForm2Action extends ActionSupport {
                 return "download";
             } else if (isEmailEForm) {
                 String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer";
-                addEmailAttachments(request, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments, attachedForms);
+                EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                    request,
+                    prev_fdid,
+                    demographic_no,
+                    attachedEForms,
+                    attachedDocuments,
+                    attachedLabs,
+                    attachedHRMDocuments,
+                    attachedForms
+                );
+                addEmailAttachmentsToSession(request, settings);
                 try {
                     response.sendRedirect(path);
                 } catch (IOException e) {
@@ -469,24 +508,65 @@ public class AddEForm2Action extends ActionSupport {
         return formattedDate + "_" + demographicLastName + ".pdf";
     }
 
-    private void addEmailAttachments(HttpServletRequest request, String[] attachedEForms, String[] attachedDocuments, String[] attachedLabs, String[] attachedHRMDocuments, String[] attachedForms) {
-        Boolean attachEFormItSelf = request.getParameter("attachEFormToEmail") == null || "true".equals(request.getParameter("attachEFormToEmail")) ? true : false;
-        Boolean openEFormAfterEmail = request.getParameter("openEFormAfterSendingEmail") == null || "false".equals(request.getParameter("openEFormAfterSendingEmail")) ? false : true;
-        Boolean isEmailEncrypted = request.getParameter("enableEmailEncryption") == null || "true".equals(request.getParameter("enableEmailEncryption")) ? true : false;
-        Boolean isEmailAttachmentEncrypted = request.getParameter("encryptEmailAttachments") == null || "true".equals(request.getParameter("encryptEmailAttachments")) ? true : false;
-        Boolean isEmailAutoSend = request.getParameter("autoSendEmail") == null || "false".equals(request.getParameter("autoSendEmail")) ? false : true;
-        Boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterSendingEmail") == null || "false".equals(request.getParameter("deleteEFormAfterSendingEmail")) ? false : true;
-        request.setAttribute("deleteEFormAfterEmail", deleteEFormAfterEmail);
-        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
-        request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
-        request.setAttribute("isEmailAutoSend", isEmailAutoSend);
-        request.setAttribute("openEFormAfterEmail", openEFormAfterEmail);
-        request.setAttribute("attachEFormItSelf", attachEFormItSelf);
-        request.setAttribute("attachedEForms", attachedEForms);
-        request.setAttribute("attachedDocuments", attachedDocuments);
-        request.setAttribute("attachedLabs", attachedLabs);
-        request.setAttribute("attachedHRMDocuments", attachedHRMDocuments);
-        request.setAttribute("attachedForms", attachedForms);
+    /**
+     * Stores email attachment data in session for use after redirect.
+     * Session attributes survive redirects, unlike request attributes.
+     *
+     * @param request HTTP request
+     * @param settings EmailAttachmentSettings containing all attachment configuration
+     */
+    private void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
+        HttpSession session = request.getSession();
+        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail());
+        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted());
+        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted());
+        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend());
+        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail());
+        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf());
+        session.setAttribute("fdid", settings.fdid());
+        session.setAttribute("demographicId", settings.demographicNo());
+        session.setAttribute("attachedEForms", settings.attachedEForms());
+        session.setAttribute("attachedDocuments", settings.attachedDocuments());
+        session.setAttribute("attachedLabs", settings.attachedLabs());
+        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments());
+        session.setAttribute("attachedForms", settings.attachedForms());
+        session.setAttribute("emailPDFPassword", settings.emailPDFPassword());
+        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue());
+        session.setAttribute("senderEmail", settings.senderEmail());
+        session.setAttribute("subjectEmail", settings.subjectEmail());
+        session.setAttribute("bodyEmail", settings.bodyEmail());
+        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail());
+        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption());
+    }
+
+    /**
+     * Stores email attachment data in request attributes.
+     * Used for non-redirect scenarios where request scope is sufficient.
+     *
+     * @param request HTTP request
+     * @param settings EmailAttachmentSettings containing all attachment configuration
+     */
+    private void addEmailAttachments(HttpServletRequest request, EmailAttachmentSettings settings) {
+        request.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail());
+        request.setAttribute("isEmailEncrypted", settings.isEmailEncrypted());
+        request.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted());
+        request.setAttribute("isEmailAutoSend", settings.isEmailAutoSend());
+        request.setAttribute("openEFormAfterEmail", settings.openAfterEmail());
+        request.setAttribute("attachEFormItSelf", settings.attachEFormItSelf());
+        request.setAttribute("fdid", settings.fdid());
+        request.setAttribute("demographicId", settings.demographicNo());
+        request.setAttribute("attachedEForms", settings.attachedEForms());
+        request.setAttribute("attachedDocuments", settings.attachedDocuments());
+        request.setAttribute("attachedLabs", settings.attachedLabs());
+        request.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments());
+        request.setAttribute("attachedForms", settings.attachedForms());
+        request.setAttribute("emailPDFPassword", settings.emailPDFPassword());
+        request.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue());
+        request.setAttribute("senderEmail", settings.senderEmail());
+        request.setAttribute("subjectEmail", settings.subjectEmail());
+        request.setAttribute("bodyEmail", settings.bodyEmail());
+        request.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail());
+        request.setAttribute("emailPatientChartOption", settings.emailPatientChartOption());
     }
 
     private void attachToEForm(LoggedInInfo loggedInInfo, String[] attachedEForms, String[] attachedDocuments, String[] attachedLabs, String[] attachedHRMDocuments, String[] attachedForms, String fdid, String demographic_no, String providerNo) {

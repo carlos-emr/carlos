@@ -41,6 +41,7 @@ package ca.openosp.openo.messenger.util;
  * @since 2002
  * @deprecated Use parameterized queries or PreparedStatements instead for better security
  */
+@Deprecated
 public class MsgStringQuote {
 
     /**

@@ -16,12 +16,12 @@
 
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
-<%@ page contentType="text/html" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <!DOCTYPE html>
 <html>
     <head>

@@ -38,7 +38,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.model.ProfessionalSpecialist;
 import ca.openosp.openo.utility.DbConnectionFilter;
 import ca.openosp.openo.utility.MiscUtils;

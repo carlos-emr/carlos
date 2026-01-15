@@ -169,7 +169,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
 
     ProgramProvider getProgramProvider(Integer oscarProgramID, Provider provider) {
         ProgramProvider programProvider = new ProgramProvider();
-        programProvider.setProgramId(new Long("" + oscarProgramID));
+        programProvider.setProgramId(Long.valueOf(oscarProgramID));
         programProvider.setProviderNo(provider.getProviderNo());
         programProvider.setRoleId(1L);
         return programProvider;
@@ -863,7 +863,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         programProviderDAO.saveProgramProvider(getProgramProvider(oscarProgramID, lg));
 
         ProgramProvider programProvider = new ProgramProvider();
-        programProvider.setProgramId(new Long("" + oscarProgramID));
+        programProvider.setProgramId(Long.valueOf(oscarProgramID));
         programProvider.setProviderNo("999998");
         programProvider.setRoleId(1L);
 

@@ -166,7 +166,7 @@ INSERT INTO `measurementTypeTEMP` (`type`, `typeDisplayName`, `typeDescription`,
 ( 'INSL', 'Insulin', 'Insulin', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'iOth', 'Eye Exam: Other Vascular Abnomality', 'Other Vascular Abnormality', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'iRef', 'Eye Exam: Refferal Made', 'Refferal Made', 'Yes/No', '7', '2013-02-01 00:00:00'),
-( 'JVPE', 'JPV Elevation', 'JPV Elevation', 'Yes/No', '7', '2013-02-01 00:00:00'),
+( 'JVPE', 'JVP Elevation', 'JVP Elevation', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'Kpl', 'Potassium', 'Potassium', 'in mmol/L', '2', '2013-02-01 00:00:00'),
 ( 'LcCt', 'Locus of Control Screen', 'Feeling lack of control over daily life', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'LDL', 'LDL', 'Low Density Lipid', 'monitor every 1-3 year', '2', '2013-02-01 00:00:00'),
@@ -212,7 +212,7 @@ INSERT INTO `measurementTypeTEMP` (`type`, `typeDisplayName`, `typeDescription`,
 ( 'PSPA', 'Patient Sets physical Activity Goal', 'Patient Sets physical Activity Goal', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'PSSC', 'Psychosocial Screening', 'Psychosocial Screening', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'PsyC', 'Psychosocial Counseling Given', 'Psychosocial Counseling Given', 'Yes/No', '7', '2013-02-01 00:00:00'),
-( 'HR', 'P', 'Heart Rate', 'in bpm (nnn) Range:40-180', '5', '2013-02-01 00:00:00'),
+( 'HR', 'Heart Rate', 'Heart Rate', 'in bpm (nnn) Range:40-180', '5', '2013-02-01 00:00:00'),
 ( 'PVD', 'PVD', 'Peripheral vascular disease', 'Yes/No', '7', '2013-02-01 00:00:00'),
 ( 'QDSH', 'QuickDASH Score', 'Disabilities of the Arm, Shoulder and Hand - Score', 'number', '5', '2013-02-01 00:00:00'),
 ( 'RABG', 'Recommend ABG', 'Recommend ABG', 'Yes/No', '7', '2013-02-01 00:00:00'),
@@ -617,7 +617,7 @@ INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `me
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
 ( 'HPCP', 'Hep C PCR', 'Hep C PCR', 'Yes/No', '7', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=7;
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
-( 'HR', 'P', 'Heart Rate', 'in bpm (nnn) Range:40-180', '5', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=5;
+( 'HR', 'Heart Rate', 'Heart Rate', 'in bpm (nnn) Range:40-180', '5', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=5;
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
 ( 'HRMS', 'Review med use and side effects', 'HTN Review of Medication use and side effects', 'null', '11', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=11;
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
@@ -649,7 +649,7 @@ INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `me
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
 ( 'iRef', 'Eye Exam: Refferal Made', 'Refferal Made', 'Yes/No', '7', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=7;
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
-( 'JVPE', 'JPV Elevation', 'JPV Elevation', 'Yes/No', '7', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=7;
+( 'JVPE', 'JVP Elevation', 'JVP Elevation', 'Yes/No', '7', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=7;
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES
 ( 'Kpl', 'Potassium', 'Potassium', 'in mmol/L', '2', '2013-02-01 00:00:00') ON DUPLICATE KEY UPDATE `validation`=2;
 INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `measuringInstruction`, `validation`, `createDate`) VALUES

@@ -43,6 +43,7 @@
 <%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="ca.openosp.openo.prescript.data.RxPatientData" %>
 <%@ page import="ca.openosp.openo.commn.model.Allergy" %>
+<%@ page import="ca.openosp.openo.util.DateUtils" %>
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -50,7 +51,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -92,7 +93,7 @@
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/allergies.css">
         <style type="text/css">
             .ajax-loader {
-                background: url(../images/ui-anim_basic_16x16.gif) center right no-repeat;
+                background: url(<%= request.getContextPath() %>/images/ui-anim_basic_16x16.gif) center right no-repeat;
             }
         </style>
         <script type="text/javascript">
@@ -151,10 +152,10 @@
                     $.fn.toggleSection = function (typecode) {
                         var imgsrc = document.getElementById(typecode + "_img").src;
                         if (imgsrc.indexOf('expander') != -1) {
-                            document.getElementById(typecode + "_img").src = '../images/collapser.png';
+                            document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/collapser.png';
                             Effect.BlindDown(document.getElementById(typecode + "_content"), {duration: 0.1});
                         } else {
-                            document.getElementById(typecode + "_img").src = '../images/expander.png';
+                            document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/expander.png';
                             Effect.BlindUp(document.getElementById(typecode + "_content"), {duration: 0.1});
                         }
                     }
@@ -165,10 +166,10 @@
                         var typecode = this.id.split("_")[0];
                         var imgsrc = document.getElementById(typecode + "_img").src;
                         if (imgsrc.indexOf('expander') != -1) {
-                            document.getElementById(typecode + "_img").src = '../images/collapser.png';
+                            document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/collapser.png';
                             $("#" + typecode + "_content").show();
                         } else {
-                            document.getElementById(typecode + "_img").src = '../images/expander.png';
+                            document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/expander.png';
                             $("#" + typecode + "_content").hide();
                         }
                     })
@@ -188,11 +189,41 @@
                         $(".highLightButton").removeClass("highLightButton");
                         var form = $("#searchAllergy2");
                         var url = form.attr('action');
-                        var params = form.serializeArray();
                         var json = {};
-                        $.each(params, function () {
-                            json[this.name] = this.value || '';
-                        });
+
+                        // Build JSON with boolean values for checkboxes (Jackson expects boolean, not "on"/"off")
+                        form.find('input:enabled[name]:not([type=submit]):not([type=button]), select:enabled[name], textarea:enabled[name]')
+                            .each(function () {
+                                const $elem = $(this);
+                                const name = $elem.attr('name');
+                                const rawType = ($elem.attr('type') || '').toLowerCase();
+                                const isCheckbox = rawType === 'checkbox' || $elem.is(':checkbox');
+                                const isRadio = rawType === 'radio' || $elem.is(':radio');
+
+                                // Skip unchecked radios/checkboxes (serializeArray behavior)
+                                if ((isCheckbox || isRadio) && !$elem.is(':checked')) {
+                                    return;
+                                }
+
+                                // Checkbox → boolean true
+                                if (isCheckbox) {
+                                    // Skip typeSelectAll - UI-only field
+                                    if (name !== 'typeSelectAll') {
+                                        json[name] = true;
+                                    }
+                                    return;
+                                }
+
+                                // Radio → actual value
+                                if (isRadio) {
+                                    json[name] = $elem.val() || '';
+                                    return;
+                                }
+
+                                // Other input/select/textarea → value
+                                json[name] = $elem.val() || '';
+                            });
+
                         json.submit = 'Search';
                         // servlet looks for "jsonData" request parameter
                         param = "jsonData=" + JSON.stringify(json);
@@ -474,6 +505,7 @@
                                             <tr>
                                                 <td><b>Status</b></td>
                                                 <td><b>Entry Date</b></td>
+                                                <td><b>Last Updated Date</b></td>
                                                 <td><b>Description</b></td>
                                                 <td><b>Allergy Type</b></td>
 
@@ -560,6 +592,8 @@
                                                 </td>
                                                 <td><%=entryDate == null ? "" : entryDate %>
                                                 </td>
+                                                <td><%=allergy.getLastUpdateDate() != null ? DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale()) : "" %>
+                                                </td>
                                                 <td <%=title%> ><%=allergy.getDescription() %>
                                                 </td>
                                                 <td><%=allergy.getTypeDesc() %>
@@ -588,9 +622,7 @@
                                                     <%
                                                         if (!allergy.isIntegratorResult()) {
                                                     %>
-                                                    <a href="#" title="Annotation"
-                                                       onclick="window.open('../annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=String.valueOf(allergy.getAllergyId())%>&demo=
-                                                           ${patient.getDemographicNo() }','anwin','width=400,height=500');">
+                                                    <a href="#" title="Annotation" onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=String.valueOf(allergy.getAllergyId())%>&demo=${patient.getDemographicNo()}','anwin','width=400,height=500');">
                                                         <% if (existingAnnots.size() > 0) {%>
                                                         <img src="<%= request.getContextPath() %>/images/filledNotes.gif" border="0"/>
                                                         <% } else { %>

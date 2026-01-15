@@ -3,7 +3,7 @@ package ca.openosp.openo.caisi_integrator.dao;
 import java.util.Iterator;
 import java.util.List;
 import ca.openosp.openo.caisi_integrator.util.MiscUtils;
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import java.io.Serializable;
 
 abstract class AbstractModel<T> implements Serializable

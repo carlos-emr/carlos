@@ -25,7 +25,7 @@ package ca.openosp.openo.web.admin;
 
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import ca.openosp.openo.commn.dao.OscarKeyDao;
 import ca.openosp.openo.commn.dao.ProfessionalSpecialistDao;
 import ca.openosp.openo.commn.dao.PublicKeyDao;
@@ -53,15 +53,15 @@ public final class KeyManagerUIBean {
     }
 
     public static String getSericeNameEscaped(PublicKey publicKey) {
-        return (StringEscapeUtils.escapeHtml(publicKey.getId()));
+        return (StringEscapeUtils.escapeHtml4(publicKey.getId()));
     }
 
     public static String getSericeDisplayString(PublicKey publicKey) {
-        return (StringEscapeUtils.escapeHtml(publicKey.getId() + " (" + publicKey.getType() + ')'));
+        return (StringEscapeUtils.escapeHtml4(publicKey.getId() + " (" + publicKey.getType() + ')'));
     }
 
     public static String getProfessionalSpecialistDisplayString(ProfessionalSpecialist professionalSpecialist) {
-        return (StringEscapeUtils.escapeHtml(professionalSpecialist.getLastName() + ", " + professionalSpecialist.getFirstName() + " (" + professionalSpecialist.getId() + ')'));
+        return (StringEscapeUtils.escapeHtml4(professionalSpecialist.getLastName() + ", " + professionalSpecialist.getFirstName() + " (" + professionalSpecialist.getId() + ')'));
     }
 
     public static void updateMatchingProfessionalSpecialist(String serviceName, Integer matchingProfessionalSpecialistId) {
@@ -75,6 +75,6 @@ public final class KeyManagerUIBean {
 
         if (oscarKey == null) return ("");
 
-        return (StringEscapeUtils.escapeHtml(oscarKey.getPublicKey()));
+        return (StringEscapeUtils.escapeHtml4(oscarKey.getPublicKey()));
     }
 }

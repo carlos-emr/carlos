@@ -95,7 +95,11 @@ public class DemographicMerged {
             secObjPrivilegeDao.persist(sop);
         }
 
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicMerged.Merge", "demographic_no=" + demographic_no);
+        // Log for the source demographic being merged
+        LogAction.addLog(loggedInInfo, "DemographicMerged.Merge", "demographic", demographic_no, demographic_no, "merged_from=" + demographic_no + " merged_to=" + head);
+
+        // Log for the target demographic receiving the merge
+        LogAction.addLog(loggedInInfo, "DemographicMerged.Merge", "demographic", head, head, "merged_from=" + demographic_no + " merged_to=" + head);
 
 
     }
@@ -130,7 +134,8 @@ public class DemographicMerged {
         rb.setTableContent("<roleUserGroup>_all</roleUserGroup>" + "<objectName>_eChart$" + demographic_no + "</objectName><privilege>" + privilege + "</privilege>" + "<priority>" + priority + "</priority><provider_no>" + provider_no + "</provider_no>");
         recycleBinDao.persist(rb);
 
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicMerged.UnMerge", "demographic_no=" + demographic_no);
+        // Log the unmerge operation for the demographic
+        LogAction.addLog(loggedInInfo, "DemographicMerged.UnMerge", "demographic", demographic_no, demographic_no, "unmerged_demographic_no=" + demographic_no);
 
     }
 

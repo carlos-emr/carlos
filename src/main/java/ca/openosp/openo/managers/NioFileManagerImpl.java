@@ -41,12 +41,14 @@ import java.nio.file.StandardCopyOption;
 import javax.servlet.ServletContext;
 
 import ca.openosp.OscarProperties;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import org.jpedal.PdfDecoder;
 import org.jpedal.exception.PdfException;
 import org.jpedal.fonts.FontMappings;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -116,7 +118,9 @@ public class NioFileManagerImpl implements NioFileManager {
         outfile = outfile.normalize().toAbsolutePath();
         
         // Verify the file is within the cache directory (defense in depth)
-        if (!outfile.startsWith(normalizedCacheDir)) {
+        try {
+            PathValidationUtils.validateExistingPath(outfile.toFile(), normalizedCacheDir.toFile());
+        } catch (SecurityException e) {
             log.error("Path traversal attempt detected in hasCacheVersion2: " + filename);
             return null;
         }
@@ -187,7 +191,9 @@ public class NioFileManagerImpl implements NioFileManager {
                 normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
                 
                 // Ensure the source directory is within the allowed base document directory
-                if (!normalizedSourceDir.startsWith(baseDocumentPath)) {
+                try {
+                    PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile());
+                } catch (SecurityException e) {
                     log.error("Source directory is outside allowed base path: " + sourceDirectory);
                     return null;
                 }
@@ -203,9 +209,11 @@ public class NioFileManagerImpl implements NioFileManager {
             }
             
             Path sourceFile = normalizedSourceDir.resolve(sanitizedFilename).normalize().toAbsolutePath();
-            
+
             // Ensure source file is within the source directory
-            if (!sourceFile.startsWith(normalizedSourceDir)) {
+            try {
+                PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile());
+            } catch (SecurityException e) {
                 log.error("Path traversal attempt in source file: " + filename);
                 return null;
             }
@@ -216,7 +224,9 @@ public class NioFileManagerImpl implements NioFileManager {
             cacheFilePath = cacheFilePath.normalize().toAbsolutePath();
             
             // Verify the cache file path is within the cache directory
-            if (!cacheFilePath.startsWith(normalizedCacheDir)) {
+            try {
+                PathValidationUtils.validateExistingPath(cacheFilePath.toFile(), normalizedCacheDir.toFile());
+            } catch (SecurityException e) {
                 log.error("Path traversal attempt in cache file creation: " + filename);
                 return null;
             }
@@ -276,7 +286,9 @@ public class NioFileManagerImpl implements NioFileManager {
             Path normalizedPath = cacheFilePath.normalize().toAbsolutePath();
             
             // Double-check that the file is within the cache directory after normalization
-            if (!normalizedPath.startsWith(normalizedCacheDir)) {
+            try {
+                PathValidationUtils.validateExistingPath(normalizedPath.toFile(), normalizedCacheDir.toFile());
+            } catch (SecurityException e) {
                 log.error("Attempt to delete file outside of cache directory: " + fileName);
                 throw new SecurityException("Path traversal attempt detected");
             }
@@ -348,10 +360,19 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     public Path createTempFile(final String fileName, ByteArrayOutputStream os) throws IOException {
+        String sanitizedName = new File(fileName).getName();
+        
         Path directory = Files.createTempDirectory(DEFAULT_GENERIC_TEMP + System.currentTimeMillis());
-        Path file = Files.createFile(Paths.get(directory.toString(), fileName));
-        Files.write(file, os.toByteArray());
-        return directory;
+        Path file = directory.resolve(sanitizedName).normalize();
+
+        // Ensure the resolved path is still within the temp directory
+        try {
+            PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile());
+        } catch (SecurityException e) {
+            throw new SecurityException("File can only be created in temporary directory.");
+        }
+
+        return Files.write(file, os.toByteArray());
     }
 
     /**
@@ -373,7 +394,9 @@ public class NioFileManagerImpl implements NioFileManager {
             }
             
             // Validate that the file is within the system temp directory
-            if (!tempfile.startsWith(systemTempDir)) {
+            try {
+                PathValidationUtils.validateExistingPath(tempfile.toFile(), systemTempDir.toFile());
+            } catch (SecurityException e) {
                 log.error("Attempt to delete file outside of temp directory: " + fileName);
                 throw new SecurityException("Path traversal attempt detected");
             }
@@ -414,7 +437,9 @@ public class NioFileManagerImpl implements NioFileManager {
         Path oscarDocument = documentDir.resolve(sanitizedFileName).normalize().toAbsolutePath();
         
         // Ensure the file is within the document directory
-        if (!oscarDocument.startsWith(documentDir)) {
+        try {
+            PathValidationUtils.validateExistingPath(oscarDocument.toFile(), documentDir.toFile());
+        } catch (SecurityException e) {
             log.error("Path traversal attempt in getOscarDocument: " + fileName);
             throw new SecurityException("Path traversal attempt detected");
         }
@@ -432,38 +457,42 @@ public class NioFileManagerImpl implements NioFileManager {
 
     /**
      * Copy file from given file path into the default OscarDocuments directory.
-     * This method deletes the temporary file after successful copy
+     * This method deletes the temporary file after successful copy.
+     * Uses Apache Commons FilenameUtils for robust path security.
      */
     public String copyFileToOscarDocuments(String tempFilePath) {
         try {
-            // Normalize and validate the source file path
-            Path sourcePath = Paths.get(tempFilePath).normalize().toAbsolutePath();
-            
-            // Verify source file exists and is a regular file
-            if (!Files.exists(sourcePath) || !Files.isRegularFile(sourcePath)) {
+            // Use FilenameUtils.getName() to extract just the filename, removing any path components
+            // This is more reliable than manual path manipulation as it handles edge cases
+            String sanitizedFileName = FilenameUtils.getName(tempFilePath);
+            if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
+                log.error("Invalid file path provided: " + tempFilePath);
+                return null;
+            }
+
+            // Get source and destination directories
+            File documentDir = new File(getDocumentDirectory());
+            File sourceFile = new File(tempFilePath);
+            File destinationFile = new File(documentDir, sanitizedFileName);
+
+            // Validate that source file exists and is a regular file
+            if (!sourceFile.exists() || !sourceFile.isFile()) {
                 log.error("Source file does not exist or is not a regular file: " + tempFilePath);
                 return null;
             }
-            
-            // Get just the filename and sanitize it
-            String fileName = sourcePath.getFileName().toString();
-            String sanitizedFileName = sanitizeFileName(fileName);
-            
-            // Get and validate destination directory
-            Path destinationDir = Paths.get(getDocumentDirectory()).normalize().toAbsolutePath();
-            Path destinationFilePath = destinationDir.resolve(sanitizedFileName).normalize().toAbsolutePath();
-            
-            // Ensure destination is within the document directory
-            if (!destinationFilePath.startsWith(destinationDir)) {
-                log.error("Path traversal attempt in copyFileToOscarDocuments: " + tempFilePath);
-                throw new SecurityException("Path traversal attempt detected");
+
+            // Validate destination path using PathValidationUtils
+            destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
+
+            // Perform the copy operation
+            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            // Delete source file after successful copy
+            if (destinationFile.exists()) {
+                deleteTempFile(sourceFile.getPath());
             }
-            
-            Files.copy(sourcePath, destinationFilePath, StandardCopyOption.REPLACE_EXISTING);
-            if (Files.exists(destinationFilePath)) {
-                deleteTempFile(sourcePath.toString());
-            }
-            return destinationFilePath.toString();
+
+            return destinationFile.getPath();
         } catch (IOException e) {
             log.error("An error occurred while moving the PDF file", e);
             return null;

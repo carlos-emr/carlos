@@ -32,7 +32,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import ca.openosp.openo.PMmodule.utility.DateTimeFormatUtils;
 import ca.openosp.openo.commn.model.Mortalities;
 import ca.openosp.openo.commn.model.ReportStatistic;

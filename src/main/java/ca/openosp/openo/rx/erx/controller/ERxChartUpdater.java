@@ -37,9 +37,6 @@ import ca.openosp.openo.commn.dao.DrugDao;
 import ca.openosp.openo.commn.model.Drug;
 import ca.openosp.openo.utility.SpringUtils;
 
-//import oscar.rx.data.RxPrescriptionData.Prescription;
-//import oscar.rx.pageUtil.RxSessionBean;
-
 /**
  * A class to facilitate adding OSCAR prescriptions (imported from elsewhere) to patients' charts.
  */

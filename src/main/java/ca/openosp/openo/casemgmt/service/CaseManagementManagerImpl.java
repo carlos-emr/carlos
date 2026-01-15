@@ -36,7 +36,7 @@ import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.model.security.Secrole;
 import ca.openosp.openo.services.security.RolesManager;
 import ca.openosp.openo.util.UtilDateUtilities;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.caisi_integrator.IntegratorFallBackManager;
@@ -526,6 +526,25 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return this.caseManagementNoteDAO.getNote(Long.valueOf(note_id));
     }
 
+    /**
+     * Gets the note content with XML tags stripped for display purposes.
+     * This is used for imported CDS data that may contain raw XML elements
+     * which should be displayed as plain text.
+     *
+     * @param noteContent the raw note content
+     * @return the note content with XML tags stripped, or the original content if no XML tags present
+     */
+    @Override
+    public String getNoteContentForDisplay(String noteContent) {
+        if (noteContent == null || noteContent.isEmpty()) {
+            return noteContent;
+        }
+        // Strip XML tags, extracting only the text content between tags
+        // This handles imported CDS data that contains raw XML like:
+        // <cdsd:resultNormalAbnormalFlagAsPlainText>No</cdsd:resultNormalAbnormalFlagAsPlainText>
+        return noteContent.replaceAll("</?[a-zA-Z][^>]*>", "").trim();
+    }
+
     @Override
     public List<CaseManagementNote> getNotesByUUID(String uuid) {
         return this.caseManagementNoteDAO.getNotesByUUID(uuid);
@@ -846,6 +865,11 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public Issue getIssueInfoByTypeAndCode(String type, String code) {
         return issueDAO.findIssueByTypeAndCode(type, code);
+    }
+
+    @Override
+    public void saveIssue(Issue issue) {
+        issueDAO.saveIssue(issue);
     }
 
     @Override
@@ -2277,14 +2301,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /**
-     * gets all the notes
-     * if we have a key, and the note is locked, consider it
-     * caisi - filter notes
-     * grab the last one, where i am providers, and it's not signed
+     * Gets all the notes.
+     * If we have a key, and the note is locked, consider it.
+     * Caisi - filter notes.
+     * Grab the last one, where I am providers, and it's not signed.
      *
-     * @param request
-     * @param demono
-     * @param providerNo
+     * @param programId the program ID
+     * @param demono the demographic number
+     * @param providerNo the provider number
+     * @param unlockedNotesMap map of unlocked notes
+     * @return the last saved case management note
      */
     @Override
     public CaseManagementNote getLastSaved(String programId, String demono, String providerNo, Map unlockedNotesMap) {

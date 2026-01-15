@@ -384,10 +384,6 @@
             src="${pageContext.servletContext.contextPath}/share/calendar/calendar-setup.js"></script>
     <!-- calendar style sheet -->
 
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/scriptaculous.js"></script>
 
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
@@ -453,7 +449,7 @@
         var url = ctx + "/documentManager/inboxManage.do?";
         const startDate = "${requestScope.startDate}";
         const endDate = "${requestScope.endDate}";
-        var request = null;
+        var abortController = null;
         var canLoad = true;
         console.log("<%= isListView == null %>");
         var isListView = <%= isListView %>;
@@ -469,11 +465,10 @@
             } else {
                 page = p;
             }
-            if (request != null) {
-                request.transport.onreadystatechange = Prototype.emptyFunction;
-                request.transport.abort();
+            if (abortController != null) {
+                abortController.abort();
             }
-            request = updateListView();
+            updateListView();
         };
 
         function handleScroll(e) {
@@ -482,9 +477,10 @@
             }
             var evt = e || window.event;
             var loadMore = false;
-            if (isListView && evt.scrollHeight > $("listViewDocs").clientHeight && evt.scrollTop > 0 && evt.scrollTop + evt.offsetHeight >= evt.scrollHeight) {
+            var listViewDocsEl = document.getElementById("listViewDocs");
+            if (isListView && listViewDocsEl && evt.scrollHeight > listViewDocsEl.clientHeight && evt.scrollTop > 0 && evt.scrollTop + evt.offsetHeight >= evt.scrollHeight) {
                 loadMore = true;
-            } else if (isListView && evt.scrollHeight <= $("listViewDocs").clientHeight) {
+            } else if (isListView && listViewDocsEl && evt.scrollHeight <= listViewDocsEl.clientHeight) {
                 loadMore = true;
             } else if (!isListView && evt.scrollTop + evt.offsetHeight >= evt.scrollHeight) {
                 loadMore = true;
@@ -515,73 +511,101 @@
         function updateListView() {
             var query = getQuery();
             console.log(query);
+            var docViewsEl = document.getElementById("docViews");
             if (page == 1) {
-                document.getElementById("docViews").innerHTML = "";
+                if (docViewsEl) docViewsEl.innerHTML = "";
                 canLoad = true;
             }
 
             if (isListView && page == 1) {
-                document.getElementById("docViews").innerHTML = "<div id='tempLoader'><img src='" + ctx + "/images/DMSLoader.gif'> Loading reports...</div>"
+                if (docViewsEl) docViewsEl.innerHTML = "<div id='tempLoader'><img src='" + ctx + "/images/DMSLoader.gif'> Loading reports...</div>"
             } else if (isListView) {
-                document.getElementById("loader").style.display = "block";
+                var loaderEl = document.getElementById("loader");
+                if (loaderEl) loaderEl.style.display = "block";
             } else {
                 jQuery("#docViews").append(jQuery("<div id='tempLoader'><img src='" + ctx + "/images/DMSLoader.gif'> Loading reports...</div>"));
             }
             var div;
             if (!isListView || page == 1) {
-                div = document.getElementById("docViews");
+                div = docViewsEl;
             } else {
                 div = document.getElementById("summaryBody");
             }
             jQuery("#readerSwitcher").prop("disabled", true);
             jQuery("#listSwitcher").prop("disabled", true);
 
-            return new Ajax.Updater(div, url, {
-                method: 'get',
-                parameters: query,
-                insertion: Insertion.Bottom,
-                evalScripts: true,
-                onSuccess: function (transport) {
-                    loadingDocs = false;
-                    var tmp = jQuery("#tempLoader");
-                    if (tmp != null) {
-                        tmp.remove();
-                    }
-                    if (isListView) {
-                        if (page == 1) {
-                            jQuery("#tempLoader").remove();
-                        } else {
-                            document.getElementById("loader").style.display = "none";
-                        }
-                    }
+            abortController = new AbortController();
 
-                    // Parsing HTML with DOMParser, checking to see if input with the name of "NoMoreItems"
-                    // is not null, if true then set and update html to show information about "NoMoreItems"
-                    // if null, then it will fake scroll to populate the information in the list
-                    var parser = new DOMParser();
-                    var doc = parser.parseFromString(transport.responseText, "text/html");
-                    var noMoreItems = doc.querySelector("input[name='NoMoreItems']");
-
-                    if (noMoreItems) {
-                        canLoad = false;
-                        var div = document.getElementById("summaryBody");
-                        var newDiv = "<tbody id=\"newBody\"></tbody>";
-                        div.insertAdjacentHTML("beforeBegin", newDiv);
-                        newDiv = document.getElementById("newBody");
-                        newDiv.innerHTML = div.innerHTML;
-                        div.innerHTML = "";
-                        newDiv.id = "summaryBody";
-                        div.id = "";
-                        jQuery("#summaryView").trigger("updateRows");
-                    } else {
-                        // It is possible that the current amount of loaded items has not filled up the page enough
-                        // to create a scroll bar. So we fake a scroll (since no scroll bar is equivalent to reaching the bottom).
-                        setTimeout("fakeScroll()", 500);
-                    }
-
-                    jQuery("#readerSwitcher").prop("disabled", false);
-                    jQuery("#listSwitcher").prop("disabled", false);
+            fetch(url + query, {
+                method: 'GET',
+                signal: abortController.signal
+            })
+            .then(function(response) {
+                return response.text();
+            })
+            .then(function(responseText) {
+                // Append the response HTML to the target div
+                if (div) {
+                    div.insertAdjacentHTML('beforeend', responseText);
                 }
+
+                loadingDocs = false;
+                var tmp = document.getElementById("tempLoader");
+                if (tmp != null) {
+                    tmp.remove();
+                }
+                if (isListView) {
+                    if (page == 1) {
+                        var tempLoader = document.getElementById("tempLoader");
+                        if (tempLoader) tempLoader.remove();
+                    } else {
+                        var loaderEl = document.getElementById("loader");
+                        if (loaderEl) loaderEl.style.display = "none";
+                    }
+                }
+
+                // Parsing HTML with DOMParser, checking to see if input with the name of "NoMoreItems"
+                // is not null, if true then set and update html to show information about "NoMoreItems"
+                // if null, then it will fake scroll to populate the information in the list
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(responseText, "text/html");
+                var noMoreItems = doc.querySelector("input[name='NoMoreItems']");
+
+                if (noMoreItems) {
+                    canLoad = false;
+                    var summaryDiv = document.getElementById("summaryBody");
+                    // Only do table manipulation if we're in list view and summaryBody exists
+                    if (summaryDiv && isListView) {
+                        var newDiv = "<tbody id=\"newBody\"></tbody>";
+                        summaryDiv.insertAdjacentHTML("beforeBegin", newDiv);
+                        newDiv = document.getElementById("newBody");
+                        newDiv.textContent = '';
+                        while (summaryDiv.firstChild) {
+                            newDiv.appendChild(summaryDiv.firstChild);
+                        }
+                        newDiv.id = "summaryBody";
+                        summaryDiv.id = "";
+                        jQuery("#summaryView").trigger("updateRows");
+                    }
+                } else {
+                    // It is possible that the current amount of loaded items has not filled up the page enough
+                    // to create a scroll bar. So we fake a scroll (since no scroll bar is equivalent to reaching the bottom).
+                    setTimeout("fakeScroll()", 500);
+                }
+
+                var readerSwitcherEl = document.getElementById("readerSwitcher");
+                var listSwitcherEl = document.getElementById("listSwitcher");
+                if (readerSwitcherEl) readerSwitcherEl.disabled = false;
+                if (listSwitcherEl) listSwitcherEl.disabled = false;
+
+                abortController = null;
+            })
+            .catch(function(error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Fetch error:', error);
+                }
+                loadingDocs = false;
+                abortController = null;
             });
         }
 
@@ -658,7 +682,8 @@
             selected_category = type;
             selected_category_patient = patientId;
             selected_category_type = subtype;
-            document.getElementById("docViews").innerHTML = "";
+            var docViewsEl = document.getElementById("docViews");
+            if (docViewsEl) docViewsEl.innerHTML = "";
 
             changePage(1);
         }
@@ -675,12 +700,13 @@
 
         jQuery(document).ready(function () {
             if (isListView == null) {
-                isListView = selected_category_patient.empty();
+                isListView = !selected_category_patient || selected_category_patient.length === 0;
             }
             jQuery('input[name=isListView]').val(isListView);
 
             loadingDocs = true;
-            document.getElementById("docViews").innerHTML = "";
+            var docViewsEl = document.getElementById("docViews");
+            if (docViewsEl) docViewsEl.innerHTML = "";
             var list = document.getElementById("listSwitcher");
             var view = document.getElementById("readerSwitcher");
             var active, passive;

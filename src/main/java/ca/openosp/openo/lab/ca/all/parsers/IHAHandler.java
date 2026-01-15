@@ -34,7 +34,6 @@ import java.util.Date;
 
 import ca.openosp.openo.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.DynamicHapiLoaderUtils;
 
 import ca.openosp.openo.util.UtilDateUtilities;
 import ca.uhn.hl7v2.HL7Exception;
@@ -558,9 +557,9 @@ public class IHAHandler implements MessageHandler {
         i++;
         try {
             if (i == 1) {
-                requestDate = formatDateTime(getString(DynamicHapiLoaderUtils.terserGet(terser, "/.OBR-14-1")));
+                requestDate = formatDateTime(getString(terser.get("/.OBR-14-1")));
             } else {
-                requestDate = formatDateTime(getString(DynamicHapiLoaderUtils.terserGet(terser, "/.OBR" + i + "-14-1")));
+                requestDate = formatDateTime(getString(terser.get("/.OBR" + i + "-14-1")));
             }
             return (requestDate);
         } catch (Exception e) {

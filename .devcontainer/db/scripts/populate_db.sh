@@ -10,4 +10,6 @@ mysql -u root -ppassword -e "CREATE DATABASE IF NOT EXISTS drugref2;"
 mysql -u root -ppassword drugref2 < /database/mysql/development-drugref.sql
 echo 'Loading demo data for development...'
 mysql -u root -ppassword oscar < /scripts/development.sql
+echo 'Preparing demographic names for development environment...'
+mysql -u root -ppassword oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
 cd ../../

@@ -25,8 +25,9 @@
 <%@ page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*, ca.openosp.openo.dxresearch.bean.*"
          errorPage="/errorpage.jsp" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao" %>
 <%@page import="ca.openosp.openo.commn.model.ClinicLocation" %>
@@ -992,7 +993,7 @@
     </p>
     <% session.setAttribute("content", content); %>
     <form><input type=button name=back value='Go Back and Change'
-                 onClick='javascript:location.href="billingOB.jsp?billForm=<%=request.getParameter("billForm")%>&hotclick=<%=URLEncoder.encode("")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_name=<%=URLEncoder.encode(demoname)%>&demographic_no=<%=request.getParameter("demographic_no")%>&user_no=<%=request.getParameter("user_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("xml_appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=0"'>
+                 onClick='javascript:location.href="billingOB.jsp?billForm=<%=request.getParameter("billForm")%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_name=<%=URLEncoder.encode(demoname, StandardCharsets.UTF_8)%>&demographic_no=<%=request.getParameter("demographic_no")%>&user_no=<%=request.getParameter("user_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("xml_appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=0"'>
     </form>
 
     <%
@@ -1096,7 +1097,7 @@
             type="hidden" name="clinic_ref_code" value="<%=location1%>"> <input
             type="hidden" name="visitdate" value="<%=visitdate%>"> <input
             type="submit" name="Submit" value="Confirm" onDblClick=""> <a
-            href="billingOB.jsp?billForm=<%=request.getParameter("billForm")%>&hotclick=<%=URLEncoder.encode("")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_name=<%=URLEncoder.encode(demoname)%>&demographic_no=<%=request.getParameter("demographic_no")%>&user_no=<%=request.getParameter("user_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("xml_appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=0">edit</a>
+            href="billingOB.jsp?billForm=<%=request.getParameter("billForm")%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_name=<%=URLEncoder.encode(demoname, StandardCharsets.UTF_8)%>&demographic_no=<%=request.getParameter("demographic_no")%>&user_no=<%=request.getParameter("user_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("xml_appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=0">edit</a>
 
             <%
 	if (warningMsg.length() > 0) {
@@ -1119,7 +1120,7 @@
 
     function addToDiseaseRegistry() {
         if (validateItems()) {
-            var url = "<%=request.getContextPath()%>/oscarResearch/dxresearch/dxResearch.do";
+            var url = "<%=request.getContextPath()%>/oscarResearch/oscarDxResearch/dxResearch.do";
             var data = Form.serialize(dxForm);
             //alert ( data);
             new Ajax.Updater('dxListing', url, {
@@ -1151,7 +1152,7 @@
 
     function getNewCurrentDxCodeList(origRequest) {
         //alert("calling get NEW current Dx Code List");
-        var url = "../../../oscarResearch/dxresearch/currentCodeList.jsp";
+        var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/currentCodeList.jsp";
         var ran_number = Math.round(Math.random() * 1000000);
         var params = "demographicNo=<%=demoNO%>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
@@ -1175,7 +1176,7 @@
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include
-                        page="../../../oscarResearch/oscarDxResearch/quickCodeList.jsp">
+                        page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
                     <jsp:param name="demographicNo" value="<%=demoNO%>"/>
                 </jsp:include>
             </div>
@@ -1191,7 +1192,7 @@
                                              style="font-size: small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing" style="display: none;">
             <jsp:include
-                    page="../../../oscarResearch/oscarDxResearch/currentCodeList.jsp">
+                    page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
                 <jsp:param name="demographicNo" value="<%=demoNO%>"/>
             </jsp:include>
         </div>

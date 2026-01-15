@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -107,7 +107,6 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 %>
 <%
-    //String providerview=request.getParameter("providers")==null?"":request.getParameter("providers");
     String ticklerview = request.getParameter("ticklerview") == null ? "A" : request.getParameter("ticklerview");
     String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
     String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? "8888-12-31" : request.getParameter("xml_appointment_date");
@@ -769,13 +768,13 @@
                                                value="<%=xml_vdate%>"> <font size="1"
                                                                              face="Arial, Helvetica, sans-serif"> <a
                             href="#"
-                            onClick="openBrWindow('../billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
+                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
                                        value="<%=xml_appointment_date%>"> <font size="1"
                                                                                 face="Arial, Helvetica, sans-serif"><a
                         href="#"
-                        onClick="openBrWindow('../billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
+                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
                                               value="<%=demoview%>"> <input type="hidden" name="Submit"
@@ -901,12 +900,12 @@
                             <TD ROWSPAN="1" class="<%=cellColour%>">
                                 <%if (Boolean.parseBoolean(OscarProperties.getInstance().getProperty("tickler_edit_enabled"))) {%>
                                 <a href=#
-                                   onClick="popupPage(600,800, '../tickler/ticklerEdit.jsp?tickler_no=<%=t.getId()%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.editTickler"/></a>
+                                   onClick="popupPage(600,800, '<%= request.getContextPath() %>/tickler/ticklerEdit.jsp?tickler_no=<%=t.getId()%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.editTickler"/></a>
                                 <% } %>
                             </TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><a
                                     href=#
-                                    onClick="popupPage(600,800,'../demographic/demographiccontrol.jsp?demographic_no=<%=t.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')"><%=d.getLastName()%>
+                                    onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=t.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')"><%=d.getLastName()%>
                                 ,<%=d.getFirstName()%>
                             </a></TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><%=provider%>
@@ -950,11 +949,11 @@
                                 <%
                                 } else if (LabResultData.isCML(type)) {
                                 %>
-                                <a href="javascript:reportWindow('../lab/CA/ON/CMLDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isHL7TEXT(type)) {
                                 %>
-                                <a href="javascript:reportWindow('../lab/CA/ALL/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isDocument(type)) {
                                 %>
@@ -966,7 +965,7 @@
                                 <%
                                 } else {
                                 %>
-                                <a href="javascript:reportWindow('../lab/CA/BC/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                     }
                                 %>
@@ -1094,7 +1093,7 @@
 
     <p><font face="Arial, Helvetica, sans-serif" size="2"> </font></p>
     <p class="noprint">
-        <%@ include file="../demographic/zfooterbackclose.jsp" %>
+        <%@ include file="/demographic/zfooterbackclose.jsp" %>
     </p>
 
 

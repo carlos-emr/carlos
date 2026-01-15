@@ -37,7 +37,7 @@
 <%@page import="ca.openosp.openo.commn.model.Demographic" %>
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 
     String user_no = (String) session.getAttribute("user");
@@ -68,7 +68,7 @@
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
 <%@page import="ca.openosp.openo.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="org.apache.commons.lang.StringUtils" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="ca.openosp.openo.billings.ca.on.data.BillingItemData" %>
 <%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingReviewImpl" %>
 <%@ page import="ca.openosp.openo.billings.ca.on.data.BillingClaimHeader1Data" %>

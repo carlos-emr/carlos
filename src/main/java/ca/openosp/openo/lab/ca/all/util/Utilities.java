@@ -53,6 +53,7 @@ import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 
 import ca.openosp.OscarProperties;
 
@@ -123,18 +124,9 @@ public class Utilities {
             OscarProperties props = OscarProperties.getInstance();
             String place = props.getProperty("DOCUMENT_DIR");
 
-            File safeDir = new File(place).getCanonicalFile(); // Canonicalize safe base
-            File targetFile = new File(safeDir, filename).getCanonicalFile(); // Canonicalize target path
-
-            // Ensure target file is inside the allowed base directory
-            if (!targetFile.getPath().startsWith(safeDir.getPath() + File.separator)) {
-                throw new IllegalArgumentException("Attempt to write file outside allowed directory: " + targetFile.getPath());
-            }
-
-            // Validate filename to ensure it does not contain invalid characters
-            if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
-                throw new IllegalArgumentException("Invalid filename: " + filename);
-            }
+            // Validate filename and construct path using PathValidationUtils
+            File safeDir = new File(place);
+            File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
             // Construct retVal using the validated targetFile path
             retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
@@ -203,13 +195,9 @@ public class Utilities {
                 place = place + "/";
             }
 
-            // Canonicalize path to prevent traversal
-            Path basePath = Paths.get(place).toAbsolutePath().normalize();
-            Path targetPath = basePath.resolve(filename).normalize();
-
-            if (!targetPath.startsWith(basePath)) {
-                throw new IllegalArgumentException("Invalid filename (path traversal): " + filename);
-            }
+            // Validate filename using PathValidationUtils
+            File baseDir = new File(place);
+            File targetFile = PathValidationUtils.validatePath(filename, baseDir);
 
             // Remove .enc
             filename = filename.replaceAll("\\.enc$", "");
@@ -217,7 +205,7 @@ public class Utilities {
                 filename = filename.substring(0, filename.length() - 4);
             }
 
-            retVal = basePath.resolve("DocUpload." + filename + "." + System.currentTimeMillis() + ".pdf").toString();
+            retVal = new File(baseDir, "DocUpload." + filename + "." + System.currentTimeMillis() + ".pdf").toString();
 
             try (OutputStream os = new FileOutputStream(retVal)) {
                 int bytesRead;

@@ -44,7 +44,7 @@ import javax.net.ssl.SSLSocketFactory;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.language.RefinedSoundex;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.apache.log4j.xml.DOMConfigurator;
 import org.apache.logging.log4j.LogManager;

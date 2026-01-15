@@ -24,7 +24,7 @@
 
 --%>
 
-<%@ include file="../../../casemgmt/taglibs.jsp" %>
+<%@ include file="/casemgmt/taglibs.jsp" %>
 <html>
 <head>
     <title>Batch Saved</title>

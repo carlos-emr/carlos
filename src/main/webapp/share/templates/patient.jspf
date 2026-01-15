@@ -30,6 +30,7 @@
 <%@page import="ca.openosp.openo.commn.dao.DemographicCustDao"%>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <style>
 .print{display:none;}

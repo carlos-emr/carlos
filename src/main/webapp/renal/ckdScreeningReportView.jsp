@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -159,8 +159,8 @@
 
 
         <style title="currentStyle" type="text/css">
-            @import "../css/demo_page.css";
-            @import "../css/demo_table.css";
+            @import "<%= request.getContextPath() %>/css/demo_page.css";
+            @import "<%= request.getContextPath() %>/css/demo_table.css";
         </style>
 
         <style>
@@ -199,7 +199,7 @@
             .info {
                 color: #00529B;
                 background-color: #BDE5F8;
-                background-image: url('../images/info_msgbox.png');
+                background-image: url('<%= request.getContextPath() %>/images/info_msgbox.png');
             }
 
         </style>

@@ -28,7 +28,7 @@ package ca.openosp.openo.dashboard.handler;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.dashboard.query.Column;
 import ca.openosp.openo.dashboard.query.Parameter;

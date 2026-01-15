@@ -33,7 +33,7 @@
                    objectName="_admin,_admin.userAdmin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -72,6 +72,8 @@
 
     OscarProperties op = OscarProperties.getInstance();
 %>
+
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <script src="${pageContext.request.contextPath}/csrfguard"></script>
@@ -350,7 +352,7 @@
 	<% if (MfaManager.isOscarMfaEnabled()) { %>
 	<tr>
 		<td style="text-align: right">
-			<bean:message key="admin.securityAddRecord.mfa.title"/>:
+			<fmt:message key="admin.securityAddRecord.mfa.title"/>:
 		</td>
 		<td style="">
 			<label>
@@ -360,14 +362,14 @@
 							   updatePinComponentsAccess(this.checked);
 							   <% } %>"
 				/>
-				<bean:message key="admin.securityAddRecord.mfa.description"/>
+				<fmt:message key="admin.securityAddRecord.mfa.description"/>
 			</label>
 		</td>
 	</tr>
 	<tr>
 		<td></td>
 		<td style="padding-left: 8px;">
-			<span id="mfaNote" style="font-size: x-small; color: darkslategray; vertical-align: top; display: none"><bean:message
+			<span id="mfaNote" style="font-size: x-small; color: darkslategray; vertical-align: top; display: none"><fmt:message
 					key="admin.securityAddRecord.mfa.note"/></span>
 		</td>
 	</tr>

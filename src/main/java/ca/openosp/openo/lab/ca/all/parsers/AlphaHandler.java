@@ -340,7 +340,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
     /**
      * When the Test Source = ”FORM”, then REPLACE all previous  NM and ST results with the FT results.
-     * When the Test Source<>”FORM”, then APPEND the FT results to the previous results.
+     * When the Test Source is not "FORM", then APPEND the FT results to the previous results.
      **/
     public boolean oBXHasForm(int i, int j) {
         try {

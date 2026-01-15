@@ -33,8 +33,8 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.openosp.openo.casemgmt.dao.CaseManagementIssueDAO;
 import ca.openosp.openo.casemgmt.dao.IssueDAO;
@@ -47,6 +47,7 @@ import ca.openosp.openo.commn.model.DxAssociation;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import com.Ostermiller.util.ExcelCSVParser;
@@ -67,20 +68,23 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private static final String PRIVILEGE_UPDATE = "u";
     private static final String PRIVILEGE_WRITE = "w";
 
-    public String execute() throws Exception {
-        getAllAssociations();
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    public String execute() throws Exception {
         String method = request.getParameter("method");
-        if ("uploadFile".equals(method)) {
-            uploadFile();
-        }
-        if ("clearAssociations".equals(method)) {
+
+        if ("getAllAssociations".equals(method)) {
+            getAllAssociations();
+        } else if ("clearAssociations".equals(method)) {
             clearAssociations();
-        }
-        if ("export".equals(method)) {
+        } else if ("addAssociation".equals(method)) {
+            addAssociation();
+        } else if ("export".equals(method)) {
             export();
-        }
-        if ("autoPopulateAssociations".equals(method)) {
+        } else if ("uploadFile".equals(method)) {
+            uploadFile();
+        } else if ("autoPopulateAssociations".equals(method)) {
             autoPopulateAssociations();
         }
 
@@ -99,7 +103,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         }
 
         //serialize and return
-        JSONArray jsonArray = JSONArray.fromObject(associations);
+        ArrayNode jsonArray = objectMapper.valueToTree(associations);
         response.getWriter().print(jsonArray);
         return null;
     }
@@ -118,7 +122,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsUpdated", recordsUpdated);
-        response.getWriter().print(JSONObject.fromObject(map));
+        response.getWriter().print(objectMapper.valueToTree(map));
         return null;
     }
 
@@ -135,7 +139,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, String> map = new HashMap<String, String>();
         map.put("result", "success");
-        response.getWriter().print(JSONObject.fromObject(map));
+        response.getWriter().print(objectMapper.valueToTree(map));
         return null;
     }
 
@@ -175,7 +179,9 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             return ERROR;
         }
 
-        String[][] data = ExcelCSVParser.parse(new FileReader(file));
+        // Re-validate at point of use for static analysis visibility
+        File validatedFile = PathValidationUtils.validateUpload(file);
+        String[][] data = ExcelCSVParser.parse(new FileReader(validatedFile));
 
         int rowsInserted = 0;
 
@@ -199,7 +205,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", rowsInserted);
-        response.getWriter().print(JSONObject.fromObject(map));
+        response.getWriter().print(objectMapper.valueToTree(map));
 
         return SUCCESS;
     }
@@ -233,7 +239,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", recordsAdded);
-        response.getWriter().print(JSONObject.fromObject(map));
+        response.getWriter().print(objectMapper.valueToTree(map));
 
         return null;
     }
@@ -248,7 +254,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     /**
      * Validates that the uploaded file is within the expected temporary directory
      * and prevents path traversal attacks.
-     * 
+     *
      * @param uploadedFile the file to validate
      * @return true if the file is valid, false otherwise
      */
@@ -257,31 +263,14 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             return false;
         }
 
-        try {
-            // Get the canonical path to resolve any symbolic links or relative paths
-            String canonicalPath = uploadedFile.getCanonicalPath();
-            
-            // Struts2 uploads files to the system temp directory or servlet container's work directory
-            String tempDir = System.getProperty("java.io.tmpdir");
-            File tempDirectory = new File(tempDir);
-            String tempCanonicalPath = tempDirectory.getCanonicalPath();
-            
-            // Also check the servlet container's work directory
-            File workDir = (File) ServletActionContext.getServletContext().getAttribute("javax.servlet.context.tempdir");
-            String workCanonicalPath = workDir != null ? workDir.getCanonicalPath() : null;
-            
-            // The uploaded file must be within one of the expected temporary directories
-            boolean inTempDir = canonicalPath.startsWith(tempCanonicalPath + File.separator);
-            boolean inWorkDir = workCanonicalPath != null && canonicalPath.startsWith(workCanonicalPath + File.separator);
-            
-            // Additionally verify the file exists and is a regular file (not a directory or special file)
-            boolean isRegularFile = uploadedFile.exists() && uploadedFile.isFile();
-            
-            return isRegularFile && (inTempDir || inWorkDir);
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error validating uploaded file path", e);
+        // Use PathValidationUtils for temp directory validation
+        // This checks system temp dir and Tomcat work directories
+        if (!PathValidationUtils.isInAllowedTempDirectory(uploadedFile)) {
             return false;
         }
+
+        // Additionally verify the file exists and is a regular file
+        return uploadedFile.exists() && uploadedFile.isFile();
     }
 
     private File file; // Uploaded file

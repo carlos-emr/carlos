@@ -48,18 +48,18 @@
 <%
     if (session.getAttribute("userrole") == null) {
         MiscUtils.getLogger().error("userrole is null? logging user out");
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
         return;
     }
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
     if (roleName$.indexOf(UserRoleUtils.Roles.er_clerk.name()) != -1) {
-        response.sendRedirect("er_clerk.jsp");
+        response.sendRedirect(request.getContextPath() + "/provider/er_clerk.jsp");
         return;
     }
 
     if (roleName$.indexOf("Vaccine Provider") != -1) {
-        response.sendRedirect("vaccine_provider.jsp");
+        response.sendRedirect(request.getContextPath() + "/provider/vaccine_provider.jsp");
         return;
     }
 %>
@@ -68,7 +68,7 @@
     <%
         if (true) {
             MiscUtils.getLogger().error("wrong role? logging user out");
-            response.sendRedirect("../logout.jsp");
+            response.sendRedirect(request.getContextPath() + "/logout.jsp");
             return;
         }
     %>
@@ -77,7 +77,7 @@
 <%
     if (session.getAttribute("user") == null) {
         MiscUtils.getLogger().error("missing session user? logging user out");
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
         return;
     }
 
@@ -117,19 +117,19 @@
 
         if (caisiView != null && "true".equals(caisiView)) {
             if (viewAll_bool) {
-                response.sendRedirect("./providercontrol.jsp?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1");
+                response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1");
                 return;
             } else {
-                response.sendRedirect("./providercontrol.jsp?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0");
+                response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0");
                 return;
             }
         }
         if (viewAll_bool) {
 
-            response.sendRedirect("./providercontrol.jsp?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1" + router);
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1" + router);
             return;
         } else {
-            response.sendRedirect("./providercontrol.jsp?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0" + router);
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0" + router);
             return;
         }
 

@@ -39,15 +39,15 @@ import ca.openosp.OscarProperties;
  * Provides an abstract way to reference the the External Prescriber preferences specific to a
  * single providers (doctor).
  * <p>
- * FUTURE: org.oscarehr.rx.erx should, in the future, support more than one
+ * FUTURE: ca.openosp.openo.rx.erx should, in the future, support more than one
  * external prescription service, which may not necessarily need the same doctor
  * preference objects as the External Prescriber. When this support is added, this class should
- * be renamed to org.oscarehr.rx.erx.model.DoctorPreferences;
+ * be renamed to ca.openosp.openo.rx.erx.model.DoctorPreferences;
  * which should implement a new interface named
- * org.oscarehr.rx.erx.model.ERxDoctorPreferences. This new interface should
+ * ca.openosp.openo.rx.erx.model.ERxDoctorPreferences. This new interface should
  * define getters/setters for an authentication structure (in this case,
  * containing username, password, and clientNumber), and a service URL (and
- * org.oscarehr.rx.erx.model.DoctorPreferences should be
+ * ca.openosp.openo.rx.erx.model.DoctorPreferences should be
  * re-factored as such.
  */
 public class ERxDoctorPreferences {

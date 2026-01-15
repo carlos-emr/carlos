@@ -27,8 +27,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.billing.CA.ON.model.Billing3rdPartyAddress;
 import ca.openosp.openo.commn.dao.Billing3rdPartyAddressDao;
 import ca.openosp.openo.commn.dao.BillingONExtDao;
@@ -96,14 +95,14 @@ public class JdbcBilling3rdPartImpl {
     // 3rd bill ins. address
     public int addOne3rdAddrRecord(Properties val) {
         Billing3rdPartyAddress b = new Billing3rdPartyAddress();
-        b.setAttention(StringEscapeUtils.escapeSql(val.getProperty("attention", "")));
-        b.setCompanyName(StringEscapeUtils.escapeSql(val.getProperty("company_name", "")));
-        b.setAddress(StringEscapeUtils.escapeSql(val.getProperty("address", "")));
-        b.setCity(StringEscapeUtils.escapeSql(val.getProperty("city", "")));
-        b.setProvince(StringEscapeUtils.escapeSql(val.getProperty("province", "")));
-        b.setPostalCode(StringEscapeUtils.escapeSql(val.getProperty("postcode", "")));
-        b.setTelephone(StringEscapeUtils.escapeSql(val.getProperty("telephone", "")));
-        b.setFax(StringEscapeUtils.escapeSql(val.getProperty("fax", "")));
+        b.setAttention(val.getProperty("attention", ""));
+        b.setCompanyName(val.getProperty("company_name", ""));
+        b.setAddress(val.getProperty("address", ""));
+        b.setCity(val.getProperty("city", ""));
+        b.setProvince(val.getProperty("province", ""));
+        b.setPostalCode(val.getProperty("postcode", ""));
+        b.setTelephone(val.getProperty("telephone", ""));
+        b.setFax(val.getProperty("fax", ""));
 
         dao.persist(b);
 
@@ -131,14 +130,14 @@ public class JdbcBilling3rdPartImpl {
         BillingONExt b = new BillingONExt();
         b.setBillingNo(Integer.parseInt(billingNo));
         b.setDemographicNo(Integer.parseInt(demoNo));
-        b.setKeyVal(StringEscapeUtils.escapeSql(key));
+        b.setKeyVal(key);
         b.setDateTime(new Date());
         b.setStatus(ACTIVE.toCharArray()[0]);
 
         if (value == null && extDao.isNumberKey(key)) {
             value = "0.00";
         }
-        b.setValue(StringEscapeUtils.escapeSql(value));
+        b.setValue(value);
 
         extDao.persist(b);
 
@@ -146,16 +145,14 @@ public class JdbcBilling3rdPartImpl {
     }
 
     public boolean keyExists(String billingNo, String key) {
-        List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo),
-                StringEscapeUtils.escapeSql(key));
+        List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo), key);
         if (results.isEmpty())
             return false;
         return true;
     }
 
     public boolean updateKeyStatus(String billingNo, String key, String status) {
-        List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo),
-                StringEscapeUtils.escapeSql(key));
+        List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo), key);
         for (BillingONExt result : results) {
             result.setStatus(status.toCharArray()[0]);
             extDao.merge(result);
@@ -167,10 +164,9 @@ public class JdbcBilling3rdPartImpl {
      * We're updating a key--make sure it is active as well
      */
     public boolean updateKeyValue(String billingNo, String key, String value) {
-        List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo),
-                StringEscapeUtils.escapeSql(key));
+        List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo), key);
         for (BillingONExt result : results) {
-            result.setValue(StringEscapeUtils.escapeSql(value));
+            result.setValue(value);
             result.setStatus('1');
             extDao.merge(result);
         }

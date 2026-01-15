@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,6 +44,7 @@
 <%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicWs" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="java.net.URLEncoder" %>
+<%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.util.Enumeration" %>
 <%@page import="ca.openosp.openo.commn.model.Demographic" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
@@ -150,11 +151,11 @@
                 redirect.append("&");
                 redirect.append(key);
                 redirect.append("=");
-                redirect.append(URLEncoder.encode(request.getParameter(key)));
+                redirect.append(URLEncoder.encode(request.getParameter(key), StandardCharsets.UTF_8));
             }
         }
     } else {
-        redirect.append("../close.html");
+        redirect.append(request.getContextPath() + "/close.html");
     }
     response.sendRedirect(redirect.toString());
 %>

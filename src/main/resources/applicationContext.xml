@@ -12,13 +12,14 @@
        default-autowire="no"> -->
 
 <beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:tx="http://www.springframework.org/schema/tx"
-       xmlns:p="http://www.springframework.org/schema/p"
-       xmlns:context="http://www.springframework.org/schema/context"
-       xmlns:task="http://www.springframework.org/schema/task"
-       xmlns:aop="http://www.springframework.org/schema/aop"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:tx="http://www.springframework.org/schema/tx"
+	   xmlns:p="http://www.springframework.org/schema/p"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:task="http://www.springframework.org/schema/task"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:cache="http://www.springframework.org/schema/cache"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
                            http://www.springframework.org/schema/beans/spring-beans.xsd
                            http://www.springframework.org/schema/tx 
                            http://www.springframework.org/schema/tx/spring-tx.xsd
@@ -27,8 +28,10 @@
                            http://www.springframework.org/schema/task 
                            http://www.springframework.org/schema/task/spring-task.xsd
                            http://www.springframework.org/schema/aop 
-                           http://www.springframework.org/schema/aop/spring-aop.xsd"
-       default-autowire="no">
+                           http://www.springframework.org/schema/aop/spring-aop.xsd
+                           http://www.springframework.org/schema/cache
+                           http://www.springframework.org/schema/cache/spring-cache.xsd"
+	   default-autowire="no">
 
 
 
@@ -49,6 +52,19 @@
 		</property>
 	</bean>
 
+	<!-- Enable Spring Cache with EhCache 2.x -->
+	<cache:annotation-driven />
+
+	<!-- EhCache Cache Manager -->
+	<bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager">
+		<constructor-arg ref="ehcacheManager"/>
+	</bean>
+
+	<!-- EhCache Factory Bean -->
+	<bean id="ehcacheManager" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+		<property name="configLocation" value="classpath:ehcache.xml"/>
+	</bean>
+
 	<!-- setup JPA -->
 	<import resource="classpath:spring_jpa.xml" />
 
@@ -60,7 +76,7 @@
 
 	<!-- setup CXF -->
 	<import resource="classpath:spring_ws.xml" />
-	<!-- <context:component-scan base-package="org.oscarehr.commons.daos" /> -->
+	<!-- <context:component-scan base-package="ca.openosp.openo.commn.dao" /> -->
 	
 	<bean id="hl7HandlerMSHMappingDao" class="ca.openosp.openo.commn.dao.HL7HandlerMSHMappingDaoImpl" autowire="byName" />
 	<!-- hibernated DAO -->
@@ -111,7 +127,7 @@
 	<bean id="programSignatureDao" class="ca.openosp.openo.PMmodule.dao.ProgramSignatureDaoImpl" autowire="byName" />
 	<bean id="programClientRestrictionDAO" class="ca.openosp.openo.PMmodule.dao.ProgramClientRestrictionDAOImpl" autowire="byName" />
 	<bean id="UserPropertyDAO" class="ca.openosp.openo.commn.dao.UserPropertyDAOImpl" autowire="byName" />
-	<!-- <bean id="demographicDao" class="org.oscarehr.commons.daos.DemographicDaoImpl" autowire="byName" /> -->
+	<!-- <bean id="demographicDao" class="ca.openosp.openo.commn.dao.DemographicDaoImpl" autowire="byName" /> -->
 	<bean id="dataExportDAO" class="ca.openosp.openo.commn.dao.DataExportDaoImpl" autowire="byName" />
 	<bean id="siteDao" class="ca.openosp.openo.commn.dao.SiteDaoImpl" autowire="byName" />
 	<bean id="BillingmasterDAO" class="ca.openosp.openo.billings.ca.bc.data.BillingmasterDAO" autowire="byName" />
@@ -161,8 +177,7 @@
 
 	<!--Container for holding preventions -->
 	<bean id="preventionMgr" class="ca.openosp.openo.provider.model.PreventionManager"></bean>
-
-
+  
 	<!-- OscarSuperManager manager provides business logic facade for jsp layer -->
 	<bean id="oscarSuperManager" class="ca.openosp.openo.service.OscarSuperManagerImpl" autowire="byName" init-method="init"/>
 
@@ -195,7 +210,6 @@
 				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
 				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/painAssistant.xml</value>
 				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/healthTracker.xml</value>
 				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/hepCFlowsheet.xml</value>
 				
 			</list>
@@ -250,14 +264,20 @@
 		<property name="demographicExtDao" ref="demographicExtDao" />
 		<property name="outsideOfDomainEnabled" value="${pmm.client.search.outside.of.domain.enabled}" />
 	</bean>
-
-	
+  
  	<bean id="demographicManagerT" class="ca.openosp.openo.services.DemographicManagerTickler">
 		<property name="demographicDao" ref="demographicDao" />
 	</bean>
 	<bean id="preparedTicklerManagerT" class="ca.openosp.openo.wl.prepared.PreparedTicklerManagerImpl" scope="singleton" />
 	<bean id="providerManager" class="ca.openosp.openo.PMmodule.service.ProviderManagerImpl" autowire="byName" />
 	<bean id="clientRestrictionManager" class="ca.openosp.openo.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
+
+	<bean id="ectProgramManager" class="ca.openosp.openo.encounter.data.EctProgramManagerImpl">
+		<constructor-arg ref="demographicDao" />
+		<constructor-arg ref="programProviderDAO" />
+		<constructor-arg ref="providerDefaultProgramDao" />
+		<constructor-arg ref="programDao" />
+	</bean>
 	
 	<!-- Admin Start -->
 	<bean id="secobjprivilegeDao" class="ca.openosp.openo.daos.security.SecobjprivilegeDaoImpl" autowire="byName" />
@@ -284,53 +304,53 @@
 
 
 
-	<!--<bean id="preventionMgr" class="org.oscarehr.managers.PreventionManagerImpl"></bean>-->
-	<!-- <bean id="allergyManager" class="org.oscarehr.managers.AllergyManagerImpl"></bean>
-	<bean id="programManager2" class="org.oscarehr.managers.ProgramManager2Impl"></bean>
-	<bean id="measurementManager" class="org.oscarehr.managers.MeasurementManagerImpl"></bean>
-	<bean id="prescriptionManager" class="org.oscarehr.managers.PrescriptionManagerImpl"></bean>
-	<bean id="formsManager" class="org.oscarehr.managers.FormsManagerImpl"></bean>
-	<bean id="drugDispensingManager" class="org.oscarehr.managers.DrugDispensingManagerImpl"></bean>
-	<bean id="drugProductManager" class="org.oscarehr.managers.DrugProductManagerImpl"></bean>
-	<bean id="rxManager" class="org.oscarehr.managers.RxManagerImpl"></bean> -->
-	<!-- <bean id="drugConverter" class="org.oscarehr.webservbserv.rest.conversion.DrugConverterImpl"></bean>
-	<bean id="prescriptionConverter" class="org.oscarehr.webservbserv.rest.conversion.PrescriptionConverterImpl"></bean>
-	<bean id="favoriteConverter" class="org.oscarehr.webservbserv.rest.conversion.FavoriteConverterImpl"></bean> -->
-	<!-- <bean id="consultationManager" class="org.oscarehr.managers.ConsultationManagerImpl"></bean>
-	<bean id="demographicManager" class="org.oscarehr.managers.DemographicManagerImpl"></bean>
-	<bean id="appManager" class="org.oscarehr.managers.AppManagerImpl"></bean>
-	<bean id="billingManager" class="org.oscarehr.managers.BillingManagerImpl"></bean> -->
+	<!--<bean id="preventionMgr" class="ca.openosp.openo.managers.PreventionManagerImpl"></bean>-->
+	<!-- <bean id="allergyManager" class="ca.openosp.openo.managers.AllergyManagerImpl"></bean>
+	<bean id="programManager2" class="ca.openosp.openo.managers.ProgramManager2Impl"></bean>
+	<bean id="measurementManager" class="ca.openosp.openo.managers.MeasurementManagerImpl"></bean>
+	<bean id="prescriptionManager" class="ca.openosp.openo.managers.PrescriptionManagerImpl"></bean>
+	<bean id="formsManager" class="ca.openosp.openo.managers.FormsManagerImpl"></bean>
+	<bean id="drugDispensingManager" class="ca.openosp.openo.managers.DrugDispensingManagerImpl"></bean>
+	<bean id="drugProductManager" class="ca.openosp.openo.managers.DrugProductManagerImpl"></bean>
+	<bean id="rxManager" class="ca.openosp.openo.managers.RxManagerImpl"></bean> -->
+	<!-- <bean id="drugConverter" class="ca.openosp.openo.webserv.rest.conversion.DrugConverterImpl"></bean>
+	<bean id="prescriptionConverter" class="ca.openosp.openo.webserv.rest.conversion.PrescriptionConverterImpl"></bean>
+	<bean id="favoriteConverter" class="ca.openosp.openo.webserv.rest.conversion.FavoriteConverterImpl"></bean> -->
+	<!-- <bean id="consultationManager" class="ca.openosp.openo.managers.ConsultationManagerImpl"></bean>
+	<bean id="demographicManager" class="ca.openosp.openo.managers.DemographicManagerImpl"></bean>
+	<bean id="appManager" class="ca.openosp.openo.managers.AppManagerImpl"></bean>
+	<bean id="billingManager" class="ca.openosp.openo.managers.BillingManagerImpl"></bean> -->
 	<!--<bean id="admissionManager" class="ca.openosp.openo.service.PMmodule.AdmissionManagerImpl"></bean> -->
-	<!-- <bean id="drugLookUp" class="org.oscarehr.managers.DrugLookUp"></bean>
-	<bean id="documentManager" class="org.oscarehr.managers.DocumentManagerImpl"></bean>
-	<bean id="scheduleManager" class="org.oscarehr.managers.ScheduleManagerImpl"></bean>
-	<bean id="appointmentManager" class="org.oscarehr.managers.AppointmentManagerImpl"></bean> -->
+	<!-- <bean id="drugLookUp" class="ca.openosp.openo.managers.DrugLookUp"></bean>
+	<bean id="documentManager" class="ca.openosp.openo.managers.DocumentManagerImpl"></bean>
+	<bean id="scheduleManager" class="ca.openosp.openo.managers.ScheduleManagerImpl"></bean>
+	<bean id="appointmentManager" class="ca.openosp.openo.managers.AppointmentManagerImpl"></bean> -->
 	<!--<bean id="providerManager" class="ca.openosp.openo.service.PMmodule.ProviderManagerImpl"></bean>-->
-	<!-- <bean id="preferenceManager" class="org.oscarehr.managers.PreferenceManagerImpl"></bean>
-	<bean id="demographicSetsManager" class="org.oscarehr.managers.DemographicSetsManagerImpl"></bean>
-	<bean id="eFormReportToolManager" class="org.oscarehr.managers.EFormReportToolManagerImpl"></bean>
-	<bean id="oscarJobManager" class="org.oscarehr.managers.OscarJobManagerImpl"></bean>
-	<bean id="ticklerManager" class="org.oscarehr.managers.TicklerManagerImpl"></bean> -->
-	<!-- <bean id="ticklerConverter" class="org.oscarehr.webservbserv.rest.conversion.TicklerConverter"></bean>
-<bean id="dSService" class="org.oscarehr.decisionSupport.service.DSService"></bean> -->
+	<!-- <bean id="preferenceManager" class="ca.openosp.openo.managers.PreferenceManagerImpl"></bean>
+	<bean id="demographicSetsManager" class="ca.openosp.openo.managers.DemographicSetsManagerImpl"></bean>
+	<bean id="eFormReportToolManager" class="ca.openosp.openo.managers.EFormReportToolManagerImpl"></bean>
+	<bean id="oscarJobManager" class="ca.openosp.openo.managers.OscarJobManagerImpl"></bean>
+	<bean id="ticklerManager" class="ca.openosp.openo.managers.TicklerManagerImpl"></bean> -->
+	<!-- <bean id="ticklerConverter" class="ca.openosp.openo.webserv.rest.conversion.TicklerConverter"></bean>
+<bean id="dSService" class="ca.openosp.openo.decisionSupport.service.DSService"></bean> -->
 <!--<bean id="programManager" class="ca.openosp.openo.service.PMmodule.ProgramManagerImpl"></bean>-->
-<!-- <bean id="messagingManager" class="org.oscarehr.managers.MessagingManagerImpl"></bean>
-<bean id="dashboardManager" class="org.oscarehr.managers.DashboardManagerImpl"></bean>
-<bean id="oscarLogManager" class="org.oscarehr.managers.OscarLogManagerImpl"></bean>
-<bean id="patientConsentManager" class="org.oscarehr.managers.PatientConsentManagerImpl"></bean> -->
-<!-- <bean id="messagingConverter" class="org.oscarehr.webservbserv.rest.conversion.MessagingConverter"></bean> -->
-<!-- <bean id="labManager" class="org.oscarehr.managers.LabManagerImpl"></bean>
-<bean id="inboxManager" class="org.oscarehr.managers.InboxManagerImpl"></bean>
-<bean id="appointmentSearchManager" class="org.oscarehr.managers.AppointmentSearchManagerImpl"></bean>
-<bean id="facilityManager" class="org.oscarehr.managers.FacilityManagerImpl"></bean> -->
+<!-- <bean id="messagingManager" class="ca.openosp.openo.managers.MessagingManagerImpl"></bean>
+<bean id="dashboardManager" class="ca.openosp.openo.managers.DashboardManagerImpl"></bean>
+<bean id="oscarLogManager" class="ca.openosp.openo.managers.OscarLogManagerImpl"></bean>
+<bean id="patientConsentManager" class="ca.openosp.openo.managers.PatientConsentManagerImpl"></bean> -->
+<!-- <bean id="messagingConverter" class="ca.openosp.openo.webserv.rest.conversion.MessagingConverter"></bean> -->
+<!-- <bean id="labManager" class="ca.openosp.openo.managers.LabManagerImpl"></bean>
+<bean id="inboxManager" class="ca.openosp.openo.managers.InboxManagerImpl"></bean>
+<bean id="appointmentSearchManager" class="ca.openosp.openo.managers.AppointmentSearchManagerImpl"></bean>
+<bean id="facilityManager" class="ca.openosp.openo.managers.FacilityManagerImpl"></bean> -->
 <!-- <bean id="vacancyTemplateManager" class="ca.openosp.openo.service.PMmodule.VacancyTemplateManagerImpl"></bean> -->
- <!-- <bean id="eformDataManager" class="org.oscarehr.managers.EformDataManagerImpl"></bean> -->
-<!--<bean id="nioFileManager" class="org.oscarehr.managers.NioFileManagerImpl"></bean> -->
+ <!-- <bean id="eformDataManager" class="ca.openosp.openo.managers.EformDataManagerImpl"></bean> -->
+<!--<bean id="nioFileManager" class="ca.openosp.openo.managers.NioFileManagerImpl"></bean> -->
 <!-- <bean id="preventionDS" class="oscar.oscarPrevention.PreventionDSImpl"></bean>
-<bean id="integratorProgressDao" class="org.oscarehr.commons.daos.IntegratorProgressDaoImpl"></bean> -->
-<!-- <bean id="messengerDemographicManager" class="org.oscarehr.managers.MessengerDemographicManagerImpl"></bean> -->
-<!-- <bean id="documentAttachmentManager" class="org.oscarehr.documentManager.DocumentAttachmentManagerImpl"></bean> -->
-<!-- <bean id="faxDocumentManager" class="org.oscarehr.managers.FaxDocumentManagerImpl"></bean> -->
+<bean id="integratorProgressDao" class="ca.openosp.openo.commn.dao.IntegratorProgressDaoImpl"></bean> -->
+<!-- <bean id="messengerDemographicManager" class="ca.openosp.openo.managers.MessengerDemographicManagerImpl"></bean> -->
+<!-- <bean id="documentAttachmentManager" class="ca.openosp.openo.documentManager.DocumentAttachmentManagerImpl"></bean> -->
+<!-- <bean id="faxDocumentManager" class="ca.openosp.openo.managers.FaxDocumentManagerImpl"></bean> -->
 
 
 

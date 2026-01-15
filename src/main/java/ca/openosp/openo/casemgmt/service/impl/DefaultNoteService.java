@@ -469,7 +469,8 @@ public class DefaultNoteService implements NoteService {
             return null;
         }
 
-        if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
+        // Facility may be null for OAuth authentication - integrator is not enabled in that case
+        if (loggedInInfo.getCurrentFacility() == null || !loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
             return null;
         }
 
@@ -498,7 +499,8 @@ public class DefaultNoteService implements NoteService {
     }
 
     private List<GroupNoteLink> getGroupNoteIds(LoggedInInfo loggedInInfo, int demographicNo) {
-        if (loggedInInfo == null || !loggedInInfo.getCurrentFacility().isEnableGroupNotes()) {
+        // Facility may be null for OAuth authentication - group notes disabled in that case
+        if (loggedInInfo == null || loggedInInfo.getCurrentFacility() == null || !loggedInInfo.getCurrentFacility().isEnableGroupNotes()) {
             return new ArrayList<GroupNoteLink>();
         }
 

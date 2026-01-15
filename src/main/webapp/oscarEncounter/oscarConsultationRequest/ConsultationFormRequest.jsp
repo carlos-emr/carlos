@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -48,6 +48,7 @@
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <!-- end -->
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 
 <%@page import="java.util.ArrayList, java.util.List, java.util.*, ca.openosp.OscarProperties, ca.openosp.openo.lab.ca.on.*" %>
@@ -86,8 +87,6 @@
 <%@ page import="ca.openosp.openo.commn.model.enumerator.ModuleType" %>
 <%@ page import="ca.openosp.openo.demographic.data.EctInformation" %>
 <%@ page import="ca.openosp.openo.demographic.data.RxInformation" %>
-<%@ page
-  import="ca.openosp.openo.encounter.oscarConsultationRequest.config.data.EctConConfigurationJavascriptData" %>
 <%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
 <%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
 <%@ page import="ca.openosp.openo.managers.LookupListManager" %>
@@ -341,10 +340,11 @@
 
             setHealthCareTeam(demographicContacts, healthCareTeam, consultationServices, consultationServiceDao);
 
-            pageContext.setAttribute("consultUtil", consultUtil);
             pageContext.setAttribute("consultationServices", consultationServices);
             pageContext.setAttribute("healthCareTeam", healthCareTeam);
         }
+
+        pageContext.setAttribute("consultUtil", consultUtil);
     %>
     <%!
         private static DemographicContact addDemographicContact(LoggedInInfo loggedInInfo,
@@ -625,7 +625,7 @@
             }
 
             input#referalDate, input#appointmentDate, input#followUpDate {
-                background-image: url(../../images/cal.gif);
+                background-image: url(<%= request.getContextPath() %>/images/cal.gif);
                 background-position-x: right;
                 background-position-y: center;
                 background-repeat: no-repeat;
@@ -666,13 +666,185 @@
         var services = new Array();				// the following are used as a 2D table for makes and models
         var specialists = new Array();
         var specialistFaxNumber = "";
-        <%EctConConfigurationJavascriptData configScript;
-				configScript = new EctConConfigurationJavascriptData();
-				out.println(configScript.getJavascript());%>
+        var servicesLoaded = false;  // Flag to track if services have been loaded
 
         /////////////////////////////////////////////////////////////////////
-        function initMaster() {
-            makeSpecialistslist(2);
+        // Load services via AJAX - accepts callback for proper sequencing
+        function loadServicesFromServer(callback) {
+            var serviceDropdown = document.getElementById('service');
+            if (!serviceDropdown) {
+                console.error('Service dropdown not found on page');
+                return;
+            }
+
+            // Initialize default service and specialist
+            K(-1, "----All Services-------");
+            var defaultSpec = new Specialist(-1, -1, "", "--------All Specialists-----", "", "", "");
+            services[-1] = new Service();
+            services[-1].specialists.push(defaultSpec);
+
+            // Add "All Services" as first option in dropdown
+            serviceDropdown.options.length = 0;  // Clear any existing options
+            serviceDropdown.options[0] = new Option("----All Services-------", -1);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '<%= request.getContextPath() %>/oscarEncounter/ConsultationLookup2Action.do?method=getServices', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var serviceList = JSON.parse(xhr.responseText);
+                            processServices(serviceList);
+                            servicesLoaded = true;
+                            if (callback) callback();
+                        } catch(e) {
+                            console.error('Error parsing services JSON:', e);
+                            if (callback) {
+                                try {
+                                    callback(e);
+                                } catch (callbackError) {
+                                    console.error('Error in loadServicesFromServer callback:', callbackError);
+                                }
+                            }
+                        }
+                    } else {
+                        console.error('Failed to load services. HTTP status: ' + xhr.status);
+                        if (callback) {
+                            try {
+                                callback(new Error('Failed to load services (HTTP ' + xhr.status + ')'));
+                            } catch (callbackError) {
+                                console.error('Error in loadServicesFromServer callback:', callbackError);
+                            }
+                        }
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function processServices(serviceList) {
+            var serviceDropdown = document.getElementById('service');
+            for (var i = 0; i < serviceList.length; i++) {
+                var service = serviceList[i];
+                K(service.serviceId, service.serviceDesc);
+
+                // Add to dropdown if not exists
+                var exists = false;
+                for (var idx = 0; idx < serviceDropdown.options.length; idx++) {
+                    if (serviceDropdown.options[idx].value == service.serviceId) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    serviceDropdown.options[serviceDropdown.options.length] = new Option(service.serviceDesc, service.serviceId);
+                }
+            }
+        }
+
+        /////////////////////////////////////////////////////////////////////
+        // Load specialists for a service via AJAX
+        function loadSpecialistsForService(serviceId, callback) {
+            // Check if already loaded
+            if (services[serviceId] && services[serviceId].specialists.length > 0) {
+                if (callback) callback();
+                return;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '<%= request.getContextPath() %>/oscarEncounter/ConsultationLookup2Action.do?method=getSpecialists&serviceId=' + serviceId, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var specialistList = JSON.parse(xhr.responseText);
+                            // Ensure service exists in array before adding specialists
+                            if (!services[serviceId]) {
+                                services[serviceId] = new Service();
+                            }
+                            // Clear existing specialists to prevent duplicates on reload
+                            services[serviceId].specialists = [];
+                            for (var i = 0; i < specialistList.length; i++) {
+                                var spec = specialistList[i];
+                                addSpecialist(serviceId, spec.specId, spec.phone, spec.name, spec.fax, spec.address, spec.annotation);
+                            }
+                            if (callback) callback();
+                        } catch(e) {
+                            console.error('Error parsing specialists JSON:', e);
+                            if (callback) {
+                                try {
+                                    callback(e);
+                                } catch (callbackError) {
+                                    console.error('Error in loadSpecialistsForService callback:', callbackError);
+                                }
+                            }
+                        }
+                    } else {
+                        console.error('Failed to load specialists for service ' + serviceId + '. HTTP status: ' + xhr.status);
+                        if (callback) {
+                            try {
+                                callback(new Error('Failed to load specialists for service ' + serviceId + ' (HTTP ' + xhr.status + ')'));
+                            } catch (callbackError) {
+                                console.error('Error in loadSpecialistsForService callback:', callbackError);
+                            }
+                        }
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        /////////////////////////////////////////////////////////////////////
+        // Add specialist to array (with duplicate check)
+        function addSpecialist(serviceId, specId, phone, name, fax, address, annotation) {
+            var specs = services[serviceId].specialists;
+            for (var i = 0; i < specs.length; i++) {
+                if (specs[i].specNbr == specId) return; // Already exists
+            }
+            specs.push(new Specialist(serviceId, specId, phone, name, fax, address, annotation));
+        }
+
+        /////////////////////////////////////////////////////////////////////
+        // Single function to populate specialist dropdown - handles all cases
+        function populateSpecialistDropdown(serviceId, savedSpecialistId) {
+            var dropdown = document.EctConsultationFormRequest2Form.specialist;
+
+            // Defensive: services[-1] and its specialists array may not be initialized
+            var defaultSpec = null;
+            if (services && services[-1] && services[-1].specialists && services[-1].specialists.length > 0) {
+                defaultSpec = services[-1].specialists[0];
+            }
+
+            var isExistingConsultation = (requestId && requestId != "null" && requestId != "");
+
+            // Clear dropdown
+            dropdown.options.length = 0;
+
+            // For existing consultations, use blank first option; for new, use "All Specialists"
+            if (isExistingConsultation) {
+                dropdown.options[0] = new Option("", "");
+            } else {
+                dropdown.options[0] = new Option(
+                    defaultSpec ? defaultSpec.specName : "Select a specialist",
+                    defaultSpec ? defaultSpec.specNbr : ""
+                );
+            }
+
+            if (!serviceId || serviceId == "-1" || serviceId == "null") {
+                return; // No service selected
+            }
+
+            var specs = services[serviceId] ? services[serviceId].specialists : [];
+            var foundSaved = false;
+
+            for (var i = 0; i < specs.length; i++) {
+                var spec = specs[i];
+                var isSelected = (savedSpecialistId && spec.specNbr == savedSpecialistId);
+                if (isSelected) foundSaved = true;
+                dropdown.options[dropdown.options.length] = new Option(spec.specName, spec.specNbr, false, isSelected);
+            }
+
+            return foundSaved;
         }
 
         //-------------------------------------------------------------------
@@ -824,191 +996,119 @@
 
         //------------------------------------------------------------------------------------------
         /////////////////////////////////////////////////////////////////////
-        // create car model objects and fill arrays
-        //=======
-        function D(servNumber, specNum, phoneNum, SpecName, SpecFax, SpecAddress) {
-            var specialistObj = new Specialist(servNumber, specNum, phoneNum, SpecName, SpecFax, SpecAddress);
-            services[servNumber].specialists.push(specialistObj);
-        }
-
-        //-------------------------------------------------------------------
-
-        /////////////////////////////////////////////////////////////////////
-        function Specialist(makeNumber, specNum, phoneNum, SpecName, SpecFax, SpecAddress) {
-
+        // Specialist constructor
+        function Specialist(makeNumber, specNum, phoneNum, SpecName, SpecFax, SpecAddress, SpecAnnotation) {
             this.specId = makeNumber;
             this.specNbr = specNum;
             this.phoneNum = phoneNum;
             this.specName = SpecName;
             this.specFax = SpecFax;
             this.specAddress = SpecAddress;
+            this.specAnnotation = SpecAnnotation || undefined;
         }
 
-        //-------------------------------------------------------------------
-
-        /////////////////////////////////////////////////////////////////////
-        // make name constructor
-        function ServicesName(makeNumber) {
-
-            this.serviceNumber = makeNumber;
-        }
-
-        //-------------------------------------------------------------------
-
-        /////////////////////////////////////////////////////////////////////
-        // make constructor
+        // Service constructor
         function Service() {
-
             this.specialists = new Array();
         }
 
+        // Service name constructor (legacy)
+        function ServicesName(makeNumber) {
+            this.serviceNumber = makeNumber;
+        }
+
+        // Legacy D() function - now uses addSpecialist
+        function D(servNumber, specNum, phoneNum, SpecName, SpecFax, SpecAddress, SpecAnnotation) {
+            if (!services[servNumber]) {
+                services[servNumber] = new Service();
+            }
+            addSpecialist(servNumber, specNum, phoneNum, SpecName, SpecFax, SpecAddress, SpecAnnotation);
+        }
+
         //-------------------------------------------------------------------
 
         /////////////////////////////////////////////////////////////////////
-        // construct model selection on page
+        // Called when user changes service dropdown
         function fillSpecialistSelect(aSelectedService) {
-
-            document.getElementById("eFormButton").style.display = "none"; //added here to immediately hide button if the service is changed
+            document.getElementById("eFormButton").style.display = "none";
 
             var selectedIdx = aSelectedService.selectedIndex;
-            var makeNbr = (aSelectedService.options[selectedIdx]).value;
+            var serviceId = (aSelectedService.options[selectedIdx]).value;
 
-            document.EctConsultationFormRequest2Form.specialist.options.selectedIndex = 0;
-            document.EctConsultationFormRequest2Form.specialist.options.length = 1;
+            // Clear form fields
+            document.EctConsultationFormRequest2Form.phone.value = "";
+            document.EctConsultationFormRequest2Form.fax.value = "";
+            document.EctConsultationFormRequest2Form.address.value = "";
+            document.getElementById("annotation").value = "";
 
-            document.EctConsultationFormRequest2Form.phone.value = ("");
-            document.EctConsultationFormRequest2Form.fax.value = ("");
-            document.EctConsultationFormRequest2Form.address.value = ("");
-
-            if (selectedIdx == 0) {
+            if (selectedIdx == 0 || serviceId == "-1") {
+                populateSpecialistDropdown(null, null);
                 return;
             }
 
-            var i = 1;
-            var specs = (services[makeNbr].specialists);
-            for (var specIndex = 0; specIndex < specs.length; ++specIndex) {
-                aPit = specs[specIndex];
-                document.EctConsultationFormRequest2Form.specialist.options[i++] = new Option(aPit.specName, aPit.specNbr);
-            }
-
+            // Load specialists and populate dropdown
+            loadSpecialistsForService(serviceId, function() {
+                populateSpecialistDropdown(serviceId, null);
+            });
         }
 
         //-------------------------------------------------------------------
 
         /////////////////////////////////////////////////////////////////////
-        function fillSpecialistSelect1(makeNbr) {
-            //document.EctConsultationFormRequest2Form.specialist.options.length = 1;
+        // Initialize consultation - called AFTER services are loaded
+        function initializeConsultation(savedService, savedServiceName, savedSpecialist, savedSpecName, savedPhone, savedFax, savedAddress) {
+            var serviceDropdown = document.getElementById('service');
 
-            var specs = (services[makeNbr].specialists);
-            var i = 1;
-            var match = false;
-
-            for (var specIndex = 0; specIndex < specs.length; ++specIndex) {
-                aPit = specs[specIndex];
-
-                if (aPit.specNbr == "<%=consultUtil.specialist%>") {
-                    //look for matching specialist on spec list and make option selected
-                    match = true;
-                    document.EctConsultationFormRequest2Form.specialist.options[i] = new Option(aPit.specName, aPit.specNbr, false, true);
-                } else {
-                    //add specialist on list as normal
-                    document.EctConsultationFormRequest2Form.specialist.options[i] = new Option(aPit.specName, aPit.specNbr);
+            // Check if saved service exists in loaded services
+            var serviceExists = false;
+            for (var idx = 0; idx < serviceDropdown.options.length; idx++) {
+                if (serviceDropdown.options[idx].value == savedService) {
+                    serviceDropdown.options[idx].selected = true;
+                    serviceExists = true;
+                    break;
                 }
-
-                i++;
             }
 
-            <%if(requestId!=null){ %>
-            if (!match) {
-                //if no match then most likely doctor has been removed from specialty list so just add specialist
-                document.EctConsultationFormRequest2Form.specialist.options[0] = new Option("<%=consultUtil.getSpecailistsName(consultUtil.specialist)%>", "<%=consultUtil.specialist%>", false, true);
+            // If service was deleted but we have saved data, add it
+            if (!serviceExists && savedService && savedService != "null") {
+                K(savedService, savedServiceName);
+                serviceDropdown.options[serviceDropdown.options.length] = new Option(savedServiceName, savedService, false, true);
 
-                //don't display if no consultant was saved
-                <%if( ! "null".equals(consultUtil.specialist) ){%>
-                document.getElementById("consult-disclaimer").style.display = 'inline';
-                <%}else{%>
-                //display so user knows why field is empty
-                document.EctConsultationFormRequest2Form.specialist.options[0] = new Option("No Consultant Saved", "-1");
-                <%}%>
-            }
-            <%}%>
-
-        }
-
-        //-------------------------------------------------------------------f
-
-        /////////////////////////////////////////////////////////////////////
-        function setSpec(servNbr, specialNbr) {
-//    //window.alert("get Called");
-            specs = (services[servNbr].specialists);
-//    //window.alert("got specs");
-            var i = 1;
-            var NotSelected = true;
-
-            for (var specIndex = 0; specIndex < specs.length; ++specIndex) {
-//      //  window.alert("loop");
-                aPit = specs[specIndex];
-                if (aPit.specNbr == specialNbr) {
-//        //    window.alert("if");
-                    document.EctConsultationFormRequest2Form.specialist.options[i].selected = true;
-                    NotSelected = false;
+                // Also add the specialist for this deleted service
+                if (savedSpecialist && savedSpecialist != "null") {
+                    if (!services[savedService]) {
+                        services[savedService] = new Service();
+                    }
+                    addSpecialist(savedService, savedSpecialist, savedPhone, savedSpecName, savedFax, savedAddress, "");
                 }
-
-                i++;
             }
 
-            if (NotSelected)
-                document.EctConsultationFormRequest2Form.specialist.options[0].selected = true;
-//    window.alert("exiting");
+            // Now load specialists for the saved service
+            if (savedService && savedService != "null") {
+                loadSpecialistsForService(savedService, function() {
+                    var foundSaved = populateSpecialistDropdown(savedService, savedSpecialist);
 
-        }
+                    <%if(requestId!=null){ %>
+                    // Handle case where saved specialist no longer exists
+                    if (!foundSaved && savedSpecialist && savedSpecialist != "null") {
+                        var dropdown = document.EctConsultationFormRequest2Form.specialist;
+                        // Replace "All Specialists" with the saved specialist name
+                        dropdown.options[0] = new Option("<%=consultUtil.getSpecailistsName(consultUtil.specialist)%>", savedSpecialist, false, true);
+                        document.getElementById("consult-disclaimer").style.display = 'inline';
+                    } else if (!savedSpecialist || savedSpecialist == "null") {
+                        var dropdown = document.EctConsultationFormRequest2Form.specialist;
+                        dropdown.options[0] = new Option("No Consultant Saved", "-1", false, true);
+                    }
+                    <%}%>
 
-        //=------------------------------------------------------------------
-
-        /////////////////////////////////////////////////////////////////////
-        //insert first option title into specialist drop down list select box
-        function initSpec() {
-            <%if(requestId==null){ %>
-            var aSpecialist = services["-1"].specialists[0];
-            document.EctConsultationFormRequest2Form.specialist.options[0] = new Option(aSpecialist.specNbr, aSpecialist.specId);
-            <%}%>
-        }
-
-        /////////////////////////////////////////////////////////////////////
-        function initService(ser, name, spec, specname, phone, fax, address) {
-            var i = 0;
-            var isSel = 0;
-            var strSer = new String(ser);
-            var strNa = new String(name);
-            var strSpec = new String(spec);
-            var strSpecNa = new String(specname);
-            var strPhone = new String(phone);
-            var strFax = new String(fax);
-            var strAddress = new String(address);
-
-            var isSerDel = 1;//flagging service if deleted: 1=deleted 0=active
-
-            $H(servicesName).each(function (pair) {
-                if (pair.value == strSer) {
-                    isSerDel = 0;
-                }
-            });
-
-            if (isSerDel == 1 && strSer != "null") {
-                K(strSer, strNa);
-                D(strSer, strSpec, strPhone, strSpecNa, strFax, strAddress);
+                    // Fill phone/fax/address fields
+                    FillThreeBoxes(savedSpecialist);
+                    onSelectSpecialist(document.EctConsultationFormRequest2Form.specialist);
+                });
+            } else {
+                // New consultation - just show "All Specialists"
+                populateSpecialistDropdown(null, null);
             }
-
-            $H(servicesName).each(function (pair) {
-                var opt = new Option(pair.key, pair.value);
-                if (pair.value == strSer) {
-                    opt.selected = true;
-                    fillSpecialistSelect1(pair.value);
-                }
-                $("service").options.add(opt);
-
-            });
-
         }
 
         //-------------------------------------------------------------------
@@ -1021,6 +1121,7 @@
                 form.phone.value = ("");
                 form.fax.value = ("");
                 form.address.value = ("");
+                document.getElementById("annotation").value = "";
 
                 enableDisableRemoteReferralButton(form, true);
 
@@ -1049,7 +1150,7 @@
 
             for (var idx = 0; idx < specs.length; ++idx) {
                 aSpeci = specs[idx];									// get the specialist Object for the currently selected spec
-                if (aSpeci.specNbr === SelectedSpec.value) {
+                if (aSpeci.specNbr == SelectedSpec.value) {
                     form.phone.value = (aSpeci.phoneNum.replace(null, ""));
                     form.fax.value = (aSpeci.specFax.replace(null, ""));					// load the text fields with phone fax and address
                     form.address.value = (aSpeci.specAddress.replace(null, ""));
@@ -1274,10 +1375,18 @@
 
 
     <%
+        /*
+        * set and select the default provider to be used in the Letterhead.
+        * It is possible for this value to be different than the letterhead provider.
+        * 1). logged in provider
+        * 2). MRP on patient file
+        * 3). Clinic Address.
+        * See calls to javascript switchProvider for methods and order of change.
+        */
         String lhndType = "providers"; //set default as providers
         String providerDefault = providerNo;
 
-        if (consultUtil.letterheadName == null) {
+        if (consultUtil.letterheadName == null || consultUtil.letterheadName.isEmpty()) {
             //nothing saved so find default
             UserProperty lhndProperty = userPropertyDAO.getProp(providerNo, UserProperty.CONSULTATION_LETTERHEADNAME_DEFAULT);
             String lhnd = null;
@@ -1299,6 +1408,30 @@
             }
 
         }
+
+        //TODO set up user settings for selecting default referring provider
+        /*
+        * set and select the default referring provider.
+        * It is possible for this value to be different than the letterhead provider.
+        * 1). or NULL:   use logged in provider
+        * 2). use MRP on patient file.
+        */
+        // providerNo is the logged in provider
+        String referringProviderDefault = providerNo;
+        if(consultUtil.providerNo == null || consultUtil.providerNo.isEmpty()) {
+            UserProperty defaultReferringPractitioner = userPropertyDAO.getProp(providerNo, UserProperty.DEFAULT_REF_PRACTITIONER);
+            String defaultValue = null;
+            if(defaultReferringPractitioner != null) {
+                defaultValue = defaultReferringPractitioner.getValue();
+            }
+            if("2".equals(defaultValue)) {
+                referringProviderDefault = providerNoFromChart;
+            }
+
+        }
+        pageContext.setAttribute("referringProviderDefault", referringProviderDefault);
+        pageContext.setAttribute("lhndType", lhndType);
+        pageContext.setAttribute("providerDefault", providerDefault);
     %>
 
     <script>
@@ -1366,25 +1499,50 @@ if (OscarProperties.getInstance().getBooleanProperty("consultation_program_lette
         console.log(providerData);
 
         function switchProvider(value) {
-
             if (value === -1) {
                 document.getElementById("letterheadName").value = value;
                 document.getElementById("letterheadAddress").value = '<%=Encode.forHtmlAttribute(clinic.getClinicAddress()) + " " + Encode.forHtmlAttribute(clinic.getClinicCity()) + " " + Encode.forHtmlAttribute(clinic.getClinicProvince()) + " " + Encode.forHtmlAttribute(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadAddressSpan").innerHTML = '<%=Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadAddressSpan").textContent = '<%=Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal()) %>';
                 document.getElementById("letterheadPhone").value = "<%=Encode.forHtmlAttribute(clinic.getClinicPhone()) %>";
-                document.getElementById("letterheadPhoneSpan").innerHTML = "<%=Encode.forHtmlContent(clinic.getClinicPhone()) %>";
+                document.getElementById("letterheadPhoneSpan").textContent = "<%=Encode.forHtmlContent(clinic.getClinicPhone()) %>";
                 document.getElementById("letterheadFax").value = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>";
+
+                document.getElementById("letterheadFaxSpan").textContent = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>";
+
+                let faxAccountOptions = document.getElementById("faxAccount");
+                if (faxAccountOptions) {
+                    faxAccountOptions.value = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>".replace(/[^0-9.]/g, '');
+                    for(let i = 0; i < faxAccountOptions.options.length; i++) {
+                        let option = faxAccountOptions.options[i];
+                        if(option.value === "<%=clinic.getClinicFax() %>".replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = "<%=clinic.getClinicFax()%>".replace(/[^0-9.]/g, '');
+                            break;
+                        }
+                    }
+                }
             } else {
                 let origValue = value;
+                value = value.replace(/[^A-Za-z0-9]+/g, '');
                 if (typeof providerData["prov_" + value.toString()] != "undefined") {
                     value = "prov_" + value;
                 }
                 document.getElementById("letterheadName").value = origValue;
                 document.getElementById("letterheadAddress").value = providerData[value]['address'];
-                document.getElementById("letterheadAddressSpan").innerHTML = providerData[value]['address'];
+                document.getElementById("letterheadAddressSpan").textContent = providerData[value]['address'];
                 document.getElementById("letterheadPhone").value = providerData[value]['phone'];
-                document.getElementById("letterheadPhoneSpan").innerHTML = providerData[value]['phone'];
+                document.getElementById("letterheadPhoneSpan").textContent = providerData[value]['phone'];
                 document.getElementById("letterheadFax").value = providerData[value]['fax'];
+                document.getElementById("letterheadFaxSpan").textContent = providerData[value]['fax'];
+
+                let faxAccountOptions = document.getElementById("faxAccount");
+                if (faxAccountOptions) {
+                    for(let option in faxAccountOptions.options) {
+                        if(faxAccountOptions.options[option].value === providerData[value]['fax'].replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = providerData[value]['fax'].replace(/[^0-9.]/g, '');
+                            break;
+                        }
+                    }
+                }
             }
         }
 
@@ -1554,7 +1712,7 @@ if (userAgent != null) {
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="window.focus();disableDateFields();disableEditing();showSignatureImage();">
-    <jsp:include page="../../images/spinner.jsp" flush="true"/>
+    <jsp:include page="/images/spinner.jsp" flush="true"/>
     <%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
@@ -1690,7 +1848,7 @@ if (userAgent != null) {
                             <td colspan="2">
                                 <table>
                                     <tr>
-                                        <td class="stat"><input type="radio" name="status" value="1"/>
+                                        <td class="stat"><input type="radio" name="status" value="1" <%="1".equals(thisForm.getStatus()) ? "checked" : ""%>/>
                                         </td>
                                         <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgNoth"/>:
                                         </td>
@@ -1702,7 +1860,7 @@ if (userAgent != null) {
                             <td colspan="2">
                                 <table>
                                     <tr>
-                                        <td class="stat"><input type="radio" name="status" value="2"/>
+                                        <td class="stat"><input type="radio" name="status" value="2" <%="2".equals(thisForm.getStatus()) ? "checked" : ""%>/>
                                         </td>
                                         <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSpecCall"/>
                                         </td>
@@ -1714,7 +1872,7 @@ if (userAgent != null) {
                             <td colspan="2">
                                 <table>
                                     <tr>
-                                        <td class="stat"><input type="radio" name="status" value="3"/>
+                                        <td class="stat"><input type="radio" name="status" value="3" <%="3".equals(thisForm.getStatus()) ? "checked" : ""%>/>
                                         </td>
                                         <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPatCall"/>
                                         </td>
@@ -1729,7 +1887,7 @@ if (userAgent != null) {
                             <td colspan="2">
                                 <table>
                                     <tr>
-                                        <td class="stat"><input type="radio" name="status" value="5"/>
+                                        <td class="stat"><input type="radio" name="status" value="5" <%="5".equals(thisForm.getStatus()) ? "checked" : ""%>/>
                                         </td>
                                         <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgBookCon"/>
                                         </td>
@@ -1744,7 +1902,7 @@ if (userAgent != null) {
                             <td colspan="2">
                                 <table>
                                     <tr>
-                                        <td class="stat"><input type="radio" name="status" value="4"/>
+                                        <td class="stat"><input type="radio" name="status" value="4" <%="4".equals(thisForm.getStatus()) ? "checked" : ""%>/>
                                         </td>
                                         <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCompleted"/></td>
                                     </tr>
@@ -1964,18 +2122,26 @@ if (userAgent != null) {
                         <% } %>
                         <tr class="consultDemographicData">
                             <td>
+                                <% // Determine if curUser has selected a default practitioner in preferences
+                                    UserProperty refPracProp = userPropertyDAO.getProp(providerNo,  UserProperty.DEFAULT_REF_PRACTITIONER);
+                                    String refPrac = "";
+                                    if (refPracProp != null && refPracProp.getValue() != null) {
+                                        refPrac = refPracProp.getValue();
+                                    }
+                                %>
 
                                 <table>
                                     <% if (props.isConsultationFaxEnabled() && OscarProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
                                     <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
-                                        <td class="tite1">
+                                        <td class="tite4" style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
+                                        <td class="tite1" style="width:70%">
+
                                             <select name="providerNo" onchange="switchProvider(this.value)">
                                                 <%
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
                                                 %>
-                                                <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && providerNo.equalsIgnoreCase(p.getProviderNo())) ? "selected='selected'" : "") %>>
+                                                <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
                                                     <%=Encode.forHtmlContent(p.getFirstName().replace("Dr.", "")) %>&nbsp;<%=Encode.forHtmlContent(p.getSurname()) %>
                                                 </option>
                                                 <% }
@@ -1999,7 +2165,7 @@ if (userAgent != null) {
                                                     if (request.getAttribute("id") != null) {
                                                 %>
                                                 <input type="text" id="referalDate" name="referalDate"
-                                                           ondblclick="this.value='';"/>
+                                                           ondblclick="this.value='';" value="<%=Encode.forHtmlAttribute(thisForm.getReferalDate())%>"/>
                                                 <%
                                                 } else {
                                                 %>
@@ -2097,13 +2263,13 @@ if (userAgent != null) {
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formUrgency"/></td>
                                         <td class="tite3">
                                             <select name="urgency" id="urgency">
-                                                <option value="2">
+                                                <option value="2" <%="2".equals(thisForm.getUrgency()) ? "selected" : ""%>>
                                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgNUrgent"/>
                                                 </option>
-                                                <option value="1">
+                                                <option value="1" <%="1".equals(thisForm.getUrgency()) ? "selected" : ""%>>
                                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgUrgent"/>
                                                 </option>
-                                                <option value="3">
+                                                <option value="3" <%="3".equals(thisForm.getUrgency()) ? "selected" : ""%>>
                                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgReturn"/>
                                                 </option>
                                             </select>
@@ -2154,7 +2320,7 @@ if (userAgent != null) {
                                                                var="appointmentInstruction">
                                                         <%-- Ensure that only active items are shown --%>
                                                         <c:if test="${ appointmentInstruction.active }">
-                                                            <option value="${ appointmentInstruction.value }">
+                                                            <option value="${ appointmentInstruction.value }" ${ EctConsultationFormRequest2Form.appointmentInstructions eq appointmentInstruction.value ? 'selected' : '' }>
                                                                 <c:out value="${ appointmentInstruction.label }"/>
                                                             </option>
                                                         </c:if>
@@ -2178,7 +2344,7 @@ if (userAgent != null) {
                                         <td class="tite3"><img alt="calendar" id="appointmentDate_cal"
                                                                src="<%= request.getContextPath() %>/images/cal.gif">
                                             <input type="text" id="appointmentDate" name="appointmentDate"
-                                                       readonly="true" ondblclick="this.value='';"/>
+                                                       readonly="true" ondblclick="this.value='';" value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentDate())%>"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -2192,8 +2358,9 @@ if (userAgent != null) {
                                                         <%
                                                             for (int i = 1; i < 13; i = i + 1) {
                                                                 String hourOfday = Integer.toString(i);
+                                                                String selectedHour = (hourOfday.equals(thisForm.getAppointmentHour())) ? "selected" : "";
                                                         %>
-                                                        <option value="<%=hourOfday%>"><%=hourOfday%>
+                                                        <option value="<%=hourOfday%>" <%=selectedHour%>><%=hourOfday%>
                                                         </option>
                                                         <%
                                                             }
@@ -2207,16 +2374,17 @@ if (userAgent != null) {
                                                                 if (i < 10) {
                                                                     minuteOfhour = "0" + minuteOfhour;
                                                                 }
+                                                                String selectedMinute = (String.valueOf(i).equals(thisForm.getAppointmentMinute())) ? "selected" : "";
                                                         %>
-                                                        <option value="<%=String.valueOf(i)%>"><%=minuteOfhour%>
+                                                        <option value="<%=String.valueOf(i)%>" <%=selectedMinute%>><%=minuteOfhour%>
                                                         </option>
                                                         <%
                                                             }
                                                         %>
                                                     </select></td>
                                                     <td><select name="appointmentPm" id="appointmentPm">
-                                                        <option value="AM">AM</option>
-                                                        <option value="PM">PM</option>
+                                                        <option value="AM" <%="AM".equals(thisForm.getAppointmentPm()) ? "selected" : ""%>>AM</option>
+                                                        <option value="PM" <%="PM".equals(thisForm.getAppointmentPm()) ? "selected" : ""%>>PM</option>
                                                     </select></td>
                                                     <td><input type="button" value="Clear Date & Time"
                                                                onclick="clearAppointmentDateAndTime()"/></td>
@@ -2310,12 +2478,13 @@ if (userAgent != null) {
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSendTo"/>
                                         </td>
                                         <td class="tite3"><select name="sendTo" id="sendTo">
-                                            <option value="-1">---- <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgTeams"/> ----</option>
+                                            <option value="-1" <%="-1".equals(thisForm.getSendTo()) ? "selected" : ""%>>---- <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgTeams"/> ----</option>
                                             <%
                                                 for (int i = 0; i < consultUtil.teamVec.size(); i++) {
                                                     String te = (String) consultUtil.teamVec.elementAt(i);
+                                                    String selectedTeam = (te.equals(thisForm.getSendTo())) ? "selected" : "";
                                             %>
-                                            <option value="<%=te%>"><%=te%>
+                                            <option value="<%=te%>" <%=selectedTeam%>><%=te%>
                                             </option>
                                             <%
                                                 }
@@ -2329,7 +2498,7 @@ if (userAgent != null) {
                                     </tr>
                                     <tr>
                                         <td colspan="2" class="tite3"><textarea
-                                                name="appointmentNotes"></textarea></td>
+                                                name="appointmentNotes"><%=Encode.forHtmlContent(thisForm.getAppointmentNotes())%></textarea></td>
                                     </tr>
 
 
@@ -2339,7 +2508,7 @@ if (userAgent != null) {
                                         <td class="tite3">
                                             <img alt="calendar" id="followUpDate_cal" src="<%= request.getContextPath() %>/images/cal.gif"/>
                                             <input type="text" id="followUpDate" name="followUpDate"
-                                                       ondblclick="this.value='';"/>
+                                                       ondblclick="this.value='';" value="<%=thisForm.getFollowUpDate() != null ? Encode.forHtmlAttribute(thisForm.getFollowUpDate()) : ""%>"/>
                                         </td>
 
                                     </tr>
@@ -2376,25 +2545,25 @@ if (userAgent != null) {
                                         <td class="tite1">
                                             <select name="letterheadName" id="letterheadName"
                                                     onchange="switchProvider(this.value)">
-                                                <option value="<%=Encode.forHtmlAttribute(clinic.getClinicName())%>" <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase(clinic.getClinicName())) ? "selected='selected'" : (lhndType.equals("clinic") ? "selected='selected'" : "") %>>
-                                                    <%=Encode.forHtmlContent(clinic.getClinicName()) %>
+                                                <option value="<%=Encode.forHtmlAttribute(clinic.getClinicName())%>" <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase(clinic.getClinicName())) ? "selected" : (lhndType.equals("clinic") ? "selected" : "") %>>
+                                                <%=Encode.forHtmlContent(clinic.getClinicName()) %>
                                                 </option>
                                                 <%
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0 && (p.getFirstName() != null || p.getSurname() != null)) {
                                                 %>
                                                 <option value="<%=p.getProviderNo() %>"
-                                                        <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase(p.getProviderNo())) ? "selected='selected'" : (consultUtil.letterheadName == null && p.getProviderNo().equalsIgnoreCase(providerDefault) && lhndType.equals("providers") ? "selected='selected'" : "") %>>
+                                                        <%=(thisForm.getLetterheadName() != null && !thisForm.getLetterheadName().isEmpty() && thisForm.getLetterheadName().equalsIgnoreCase(p.getProviderNo())) ? "selected" : ((thisForm.getLetterheadName() == null || thisForm.getLetterheadName().isEmpty()) && p.getProviderNo().equalsIgnoreCase(providerDefault) && lhndType.equals("providers") ? "selected" : "") %>>
                                                     <%=Encode.forHtmlContent(p.getSurname())%>
                                                     ,&nbsp;<%=Encode.forHtmlContent(p.getFirstName().replace("Dr.", ""))%>
-                                                </option>
+                                                        </option>
                                                 <% }
                                                 }
 
                                                     if (OscarProperties.getInstance().getBooleanProperty("consultation_program_letterhead_enabled", "true")) {
                                                         for (Program p : programList) {
                                                 %>
-                                                <option value="prog_<%=p.getId() %>" <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase("prog_" + p.getId()) ? "selected='selected'" : "") %>>
+                                                <option value="prog_<%=p.getId() %>" <%=(thisForm.getLetterheadName() != null && thisForm.getLetterheadName().equalsIgnoreCase("prog_" + p.getId()) ? "selected" : "") %>>
                                                     <%=Encode.forHtmlContent(p.getName()) %>
                                                 </option>
                                                 <% }
@@ -2454,7 +2623,40 @@ if (userAgent != null) {
                                         <td class="tite4">
                                             <label for="letterheadFax"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.letterheadFax"/></label>
                                         </td>
-                                        <td class="tite1">
+                                        <td  class="tite1" style="width:70%;">
+								<c:choose>
+								    <c:when test="${not empty consultUtil.letterheadFax}">
+									    <input type="hidden" name="letterheadFax" id="letterheadFax" value="${e:forHtmlAttribute(consultUtil.letterheadFax)}" />
+									    <span id="letterheadFaxSpan">
+										    <e:forHtmlContent value="${consultUtil.letterheadFax}" />
+									    </span>
+								    </c:when>
+									<c:otherwise>
+										<input type="hidden" name="letterheadFax" id="letterheadFax" value="<%=Encode.forHtmlAttribute(clinic.getClinicFax())%>" />
+										<span id="letterheadFaxSpan">
+										    <%=Encode.forHtmlContent(clinic.getClinicFax())%>
+									    </span>
+									</c:otherwise>
+								</c:choose>
+							</td>
+						</tr>
+					</table>
+					</td>
+				</tr>
+				<% if (props.isConsultationFaxEnabled()) { %>
+					<tr>
+						<td colspan=2 class="tite4 heading">
+							Fax Account
+						</td>
+					</tr>
+					<tr>
+						<td colspan="2">
+							<table>
+								<tr>
+									<td class="tite4" style="width:30%;">
+										<label for="faxAccount">Select Account</label>
+									</td>
+									<td class="tite1" style="width:70%;">
                                             <%
                                                 FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
                                                 List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
@@ -2476,8 +2678,6 @@ if (userAgent != null) {
                                 </table>
                             </td>
                         </tr>
-                        <% if (props.isConsultationFaxEnabled()) { %>
-
                         <tr>
                             <td colspan=2 class="tite4 heading">
                                 Additional Fax Recipients
@@ -2526,7 +2726,7 @@ if (userAgent != null) {
                         </tr>
                         <tr>
                             <td colspan="2">
-                                <textarea rows="10" name="reasonForConsultation"></textarea>
+                                <textarea rows="10" name="reasonForConsultation"><%=Encode.forHtmlContent(thisForm.getReasonForConsultation())%></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -2569,7 +2769,7 @@ if (userAgent != null) {
                         <tr>
                             <td colspan="2">
                                 <textarea rows="10" id="clinicalInformation"
-                                               name="clinicalInformation"></textarea></td>
+                                               name="clinicalInformation"><%=Encode.forHtmlContent(thisForm.getClinicalInformation())%></textarea></td>
                         </tr>
                         <tr>
                             <td colspan="2">
@@ -2621,7 +2821,7 @@ if (userAgent != null) {
                             <td colspan=2>
 
                                 <textarea rows="10" id="concurrentProblems"
-                                               name="concurrentProblems"></textarea>
+                                               name="concurrentProblems"><%=Encode.forHtmlContent(thisForm.getConcurrentProblems())%></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -2652,7 +2852,7 @@ if (userAgent != null) {
                         <tr>
                             <td colspan=2>
                                 <textarea rows="10" id="currentMedications"
-                                               name="currentMedications"></textarea>
+                                               name="currentMedications"><%=Encode.forHtmlContent(thisForm.getCurrentMedications())%></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -2674,7 +2874,7 @@ if (userAgent != null) {
                         </tr>
                         <tr>
                             <td colspan=2>
-                                <textarea rows="10" id="allergies" name="allergies"></textarea></td>
+                                <textarea rows="10" id="allergies" name="allergies"><%=Encode.forHtmlContent(thisForm.getAllergies())%></textarea></td>
                         </tr>
 
                         <%
@@ -2763,65 +2963,23 @@ if (userAgent != null) {
                         </tr>
                         <% } %>
 
-                        <script type="text/javascript">
-                            //<!--
-                            function initConsultationServices() {
-                                initMaster();
-                                initService('<%=consultUtil.service%>', '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>', '<%=consultUtil.specialist%>', '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>', '<%=Encode.forJavaScript(consultUtil.specPhone)%>', '<%=Encode.forJavaScript(consultUtil.specFax)%>', '<%=Encode.forJavaScript(consultUtil.specAddr)%>');
-                                initSpec();
-
-                                document.EctConsultationFormRequest2Form.phone.value = ("");
-                                document.EctConsultationFormRequest2Form.fax.value = ("");
-                                document.EctConsultationFormRequest2Form.address.value = ("");
-                                <%if (request.getAttribute("id") != null)
-							{%>
-                                setSpec('<%=consultUtil.service%>', '<%=consultUtil.specialist%>');
-                                FillThreeBoxes('<%=consultUtil.specialist%>');
-                                <%}
-							else
-							{%>
-                                document.EctConsultationFormRequest2Form.service.options.selectedIndex = 0;
-                                document.EctConsultationFormRequest2Form.specialist.options.selectedIndex = 0;
-                                <%}%>
-
-                                onSelectSpecialist(document.EctConsultationFormRequest2Form.specialist);
-
-                                <%
-		            	//specialist pre-selected
-		            	String reqService = request.getParameter("service");
-
-		            	String reqSpecialist = request.getParameter("specialist");
-
-		            	if(reqService != null && reqSpecialist != null) {
-		            		ConsultationServices consultService = consultationServiceDao.findByDescription(reqService);
-		            		if(consultService != null) {
-		            		%>
-                                jQuery("#service").val('<%=consultService.getId()%>');
-                                fillSpecialistSelect(document.getElementById('service'));
-                                jQuery("#specialist").val('<%=reqSpecialist%>');
-                                onSelectSpecialist(document.getElementById('specialist'));
-                                <%
-		            	} }
-
-		            	String serviceId = request.getParameter("serviceId");
-		            	if(serviceId != null) {
-		            		%>
-                                jQuery("#service").val('<%=serviceId%>');
-                                fillSpecialistSelect(document.getElementById('service'));
-                                <%
-		            	}
-		            %>
-                            }
-
-                            //-->
-                        </script>
-
                         <oscar:oscarPropertiesCheck value="false"
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
                                 //<!--
-                                initConsultationServices();
+                                // Load services first, then initialize consultation with saved data
+                                loadServicesFromServer(function() {
+                                    initializeConsultation(
+                                        '<%=consultUtil.service%>',
+                                        '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
+                                        '<%=consultUtil.specialist%>',
+                                        '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
+                                        '<%=Encode.forJavaScript(consultUtil.specPhone)%>',
+                                        '<%=Encode.forJavaScript(consultUtil.specFax)%>',
+                                        '<%=Encode.forJavaScript(consultUtil.specAddr)%>'
+                                    );
+                                });
                                 //-->
                             </script>
                         </oscar:oscarPropertiesCheck>
@@ -2904,6 +3062,28 @@ if (userAgent != null) {
                     jQuery("#searchHealthCareTeamInput").val(ui.item.contact.lastName + ", " + ui.item.contact.firstName);
                 }
             });
+
+            /*
+            * Selecting which letterhead to load for new consult requests.
+            * Default is logged in provider on page load
+            * Options are:
+            *  2 : MRP on patient file
+            *  3 : Clinic address.
+            * Clinic address is set if no selection is detected.
+            */
+            if("${empty pageScope.consultUtil.letterheadName}" === "true") {
+                // New consultation - set default letterhead
+                if("${pageScope.lhndType eq 'providers'}" === "true"){
+                    switchProvider("${pageScope.providerDefault}");
+                } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
+                    switchProvider("<%=clinic.getClinicName()%>");
+                } else {
+                    switchProvider("-1");
+                }
+            } else {
+                // Existing consultation - load saved letterhead
+                switchProvider("${pageScope.consultUtil.letterheadName}");
+            }
         })
     </script>
 

@@ -45,5 +45,5 @@
         WebUtils.dumpParameters(request);
     }
 
-    response.sendRedirect("providerpreference.jsp");
+    response.sendRedirect(request.getContextPath() + "/provider/providerpreference.jsp");
 %>

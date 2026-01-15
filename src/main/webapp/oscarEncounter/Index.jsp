@@ -30,6 +30,7 @@
     The selection logic is in ca.openosp.openo.encounter.pageUtil.EctIncomingEncounter2Action.java
 --%>
 
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.prescript.data.RxPatientData" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -48,7 +49,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -60,7 +61,7 @@
                    objectName='<%="_eChart$"+demographic$%>' rights="o"
                    reverse="<%=false%>">
     You have no rights to access the data!
-    <% response.sendRedirect("../noRights.html"); %>
+    <% response.sendRedirect(request.getContextPath() + "/noRights.html"); %>
 </security:oscarSec>
 
 <%-- only principal has the save rights --%>
@@ -109,7 +110,7 @@
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
         session.setAttribute("casemgmt_oscar_bean", bean);
         session.setAttribute("casemgmt_bean_flag", "true");
-        String hrefurl = request.getContextPath() + "/casemgmt/forward.jsp?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + bean.userName;
+        String hrefurl = request.getContextPath() + "/casemgmt/forward.jsp?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + bean.userName + "&appointmentNo=" + request.getParameter("appointmentNo") + "&reason=" + URLEncoder.encode(request.getParameter("reason") == null ? "" : request.getParameter("reason"), StandardCharsets.UTF_8) + "&reasonCode=" + (request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "");
         if (request.getParameter("casetoEncounter") == null) {
             response.sendRedirect(hrefurl);
             return;
@@ -900,10 +901,16 @@
                 <table class="LeftTable">
                     <caisi:isModuleLoad moduleName="caisi">
                         <%
-                            String hrefurl2 = request.getContextPath() + "/casemgmt/forward.jsp?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + bean.userName;
+                            String hrefurl = request.getContextPath() + "/casemgmt/forward.jsp?action=view"
+                                + "&demographicNo=" + bean.demographicNo
+                                + "&providerNo=" + bean.providerNo
+                                + "&providerName=" + bean.userName
+                                + "&appointmentNo=" + URLEncoder.encode(request.getParameter("appointmentNo") == null ? "" : request.getParameter("appointmentNo"), StandardCharsets.UTF_8)
+                                + "&reason=" + URLEncoder.encode(request.getParameter("reason") == null ? "" : request.getParameter("reason"), StandardCharsets.UTF_8)
+                                + "&reasonCode=" + URLEncoder.encode(request.getParameter("reasonCode") == null ? "" : request.getParameter("reasonCode"), StandardCharsets.UTF_8);
                         %>
                         <tr>
-                            <td><a href="<%=hrefurl2%>">Case Management Encounter</a></td>
+                            <td><a href="<%=hrefurl%>">Case Management Encounter</a></td>
                         </tr>
                     </caisi:isModuleLoad>
                     <tr class="Header">
@@ -913,17 +920,17 @@
                         <td>
                             <a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popup(700,1000,'../demographic/demographiccontrol.jsp?demographic_no=<%=bean.demographicNo%>&displaymode=edit&dboperation=search_detail','master')"
+                                    onClick="popup(700,1000,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=bean.demographicNo%>&displaymode=edit&dboperation=search_detail','master')"
                                     title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.master"/></a>
                             <br>
                             <%
                                 if (bean.status.indexOf('B') == -1) { %>
                             <a href=#
-                               onClick='popupPage(700,1000, "<%=request.getContextPath()%>/billing.do?billRegion=<%=URLEncoder.encode(province)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=<%=URLEncoder.encode("")%>&appointment_no=<%=bean.appointmentNo%>&demographic_name=<%=URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=bean.startTime%>&bNewForm=1&status=t");return false;'
+                               onClick='popupPage(700,1000, "<%=request.getContextPath()%>/billing.do?billRegion=<%=URLEncoder.encode(province, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=bean.appointmentNo%>&demographic_name=<%=URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=bean.startTime%>&bNewForm=1&status=t");return false;'
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a> <% } else {%>
-                            <!--a href=# onClick='onUnbilled("../billing/billingDeleteWithoutNo.jsp?appointment_no=<%=bean.appointmentNo%>");return false;' title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.unbil"/>">-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a-->
+                            <!--a href=# onClick='onUnbilled("<%= request.getContextPath() %>/billing/billingDeleteWithoutNo.jsp?appointment_no=<%=bean.appointmentNo%>");return false;' title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.unbil"/>">-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a-->
                             <a href=#
-                               onClick='onUnbilled("../billing/CA/<%=province%>/billingDeleteWithoutNo.jsp?status=<%=bean.status%>&appointment_no=<%=bean.appointmentNo%>");return false;'
+                               onClick='onUnbilled("<%= request.getContextPath() %>/billing/CA/<%=province%>/billingDeleteWithoutNo.jsp?status=<%=bean.status%>&appointment_no=<%=bean.appointmentNo%>");return false;'
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.unbil"/>">-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a> <% } %> <br>
                             <a href=#
                                onClick="popupOscarRx(700,1027,'<%=request.getContextPath()%>/oscarRx/choosePatient.do?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a><br>
@@ -944,7 +951,7 @@
                                 <% } %>
                             </oscar:oscarPropertiesCheck> <oscar:oscarPropertiesCheck property="PREVENTION" value="yes">
                             <a
-                                    href="javascript:popUpImmunizations(700,960,'../oscarPrevention/index.jsp?demographic_no=<%=bean.demographicNo%>')">
+                                    href="javascript:popUpImmunizations(700,960,'<%= request.getContextPath() %>/oscarPrevention/index.jsp?demographic_no=<%=bean.demographicNo%>')">
                                 <oscar:preventionWarnings
                                         demographicNo="<%=bean.demographicNo%>">prevention</oscar:preventionWarnings></a>
                             <br>
@@ -953,7 +960,7 @@
                             <% } %> <a href=#
                                        onClick="popupOscarComm(580,900,'<%=request.getContextPath()%>/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=<%=bean.demographicNo%>&providerNo=<%=provNo%>&quickList=');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.disease"/></a><br>
                             <a href=#
-                               onClick="popupOscarCon(580,800,'../appointment/appointmentcontrol.jsp?keyword=<%=URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&displaymode=<%=URLEncoder.encode("Search ")%>&search_mode=search_name&originalpage=<%=URLEncoder.encode("../tickler/ticklerAdd.jsp")%>&orderby=last_name&appointment_date=2000-01-01&limit1=0&limit2=5&status=t&start_time=10:45&end_time=10:59&duration=15&dboperation=search_demorecord&type=&demographic_no=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.addTickler"/></a><br>
+                               onClick="popupOscarCon(580,800,'<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?keyword=<%=URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&displaymode=<%=URLEncoder.encode("Search ", StandardCharsets.UTF_8)%>&search_mode=search_name&originalpage=<%=URLEncoder.encode(request.getContextPath() + "/tickler/ticklerAdd.jsp", StandardCharsets.UTF_8)%>&orderby=last_name&appointment_date=2000-01-01&limit1=0&limit2=5&status=t&start_time=10:45&end_time=10:59&duration=15&dboperation=search_demorecord&type=&demographic_no=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.addTickler"/></a><br>
                         </td>
                     </tr>
                     <!-- <tr><td>&nbsp;</td></tr> -->
@@ -1150,14 +1157,14 @@
                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.resource"/>"
                    onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.viewResource"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.resource"/></a><br>
                 <a href="#"
-                   onClick="popupPage(710,970,'../documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=bean.demographicNo%>&curUser=<%=bean.curProviderNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgDocuments"/></a><br>
+                   onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=bean.demographicNo%>&curUser=<%=bean.curProviderNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgDocuments"/></a><br>
                 <a href="#"
-                   onClick="popupPage(500,950, '../eform/efmpatientformlist.jsp?demographic_no=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.eForms"/></a><br>
+                   onClick="popupPage(500,950, '<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.eForms"/></a><br>
                 <a href="#"
-                   onClick="popupPage(700,1000, '../tickler/ticklerMain.jsp?demoview=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.viewTickler"/></a><br>
+                   onClick="popupPage(700,1000, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=bean.demographicNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.viewTickler"/></a><br>
                 <a href="javascript: function myFunction() {return false; }"
                    onClick="popupPage(150,200,'calculators.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.calculators"/></a><br>
-                <!--a href="#" onClick="popupPage(700,1000, '../lab/CumulativeLabValues.jsp?demographic_no=<%=bean.demographicNo%>');return false;">Cumulative Labs</a><br-->
+                <!--a href="#" onClick="popupPage(700,1000, '<%= request.getContextPath() %>/lab/CumulativeLabValues.jsp?demographic_no=<%=bean.demographicNo%>');return false;">Cumulative Labs</a><br-->
 
                 <select name="selectCurrentForms"
                         onChange="javascript:selectBox(this)" class="ControlSelect"
@@ -1168,17 +1175,17 @@
                             LabResultData result = (LabResultData) labs.get(j);
                             if (result.isMDS()) { %>
                     <option
-                            value="../oscarMDS/SegmentDisplay.jsp?providerNo=<%=provNo%>&segmentID=<%=result.segmentID%>&status=<%=result.getReportStatus()%>"><%=result.getDateTime()%>
+                            value="<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?providerNo=<%=provNo%>&segmentID=<%=result.segmentID%>&status=<%=result.getReportStatus()%>"><%=result.getDateTime()%>
                         <%=result.getDiscipline()%>
                     </option>
                     <% } else if (result.isCML()) { %>
                     <option
-                            value="../lab/CA/ON/CMLDisplay.jsp?providerNo=<%=provNo%>&segmentID=<%=result.segmentID%>">
+                            value="<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?providerNo=<%=provNo%>&segmentID=<%=result.segmentID%>">
                         <%=result.getDateTime()%> <%=result.getDiscipline()%>
                     </option>
                     <% } else {%>
                     <option
-                            value="../lab/CA/BC/labDisplay.jsp?segmentID=<%=result.segmentID%>&providerNo=<%=provNo%>"><%=result.getDateTime()%>
+                            value="<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?segmentID=<%=result.segmentID%>&providerNo=<%=provNo%>"><%=result.getDateTime()%>
                         <%=result.getDiscipline()%>
                     </option>
                     <% }%>
@@ -1490,7 +1497,7 @@
                                         <tr>
                                             <td width='75%'>
                                                 <div class="RowTop"><a href=#
-                                                                       onClick="popupPage2('../report/reportecharthistory.jsp?demographic_no=<%=bean.demographicNo%>');return false;">
+                                                                       onClick="popupPage2('<%= request.getContextPath() %>/report/reportecharthistory.jsp?demographic_no=<%=bean.demographicNo%>');return false;">
                                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="global.encounter"/>: <%=bean.patientLastName %>,
                                                     <%=bean.patientFirstName%>
                                                 </a> <%if (sChart) {%> &nbsp; &nbsp; &nbsp;

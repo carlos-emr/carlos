@@ -63,18 +63,19 @@ import ca.openosp.openo.util.ConcatPDF;
 import ca.openosp.openo.util.ConversionUtils;
 import ca.openosp.openo.util.UtilDateUtilities;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Element;
-import com.lowagie.text.Font;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.BaseFont;
-import com.lowagie.text.pdf.ColumnText;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfImportedPage;
-import com.lowagie.text.pdf.PdfReader;
-import com.lowagie.text.pdf.PdfWriter;
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.BaseFont;
+import com.itextpdf.text.pdf.ColumnText;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfImportedPage;
+import com.itextpdf.text.pdf.PdfReader;
+import com.itextpdf.text.pdf.PdfWriter;
 
 /**
  * @author wrighd
@@ -145,7 +146,7 @@ public class EctConsultationFormRequestPrintPdf {
 
         cb = writer.getDirectContent();
         ct = new ColumnText(cb);
-        cb.setColorStroke(new Color(0, 0, 0));
+        cb.setColorStroke(new BaseColor(0, 0, 0));
 
         // start writing the pdf document
         PdfImportedPage page1 = writer.getImportedPage(reader, 1);

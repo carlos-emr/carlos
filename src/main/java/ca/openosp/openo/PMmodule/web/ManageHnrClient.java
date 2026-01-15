@@ -26,7 +26,7 @@ package ca.openosp.openo.PMmodule.web;
 import java.util.List;
 
 import ca.openosp.openo.ws.Client;
-import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.caisi_integrator.ws.ConnectException_Exception;

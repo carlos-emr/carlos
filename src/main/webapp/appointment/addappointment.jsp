@@ -32,7 +32,7 @@ Ontario, Canada
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_appointment");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -51,8 +51,8 @@ Ontario, Canada
 <%@ page import="java.time.ZoneId" %>
 
 <%@ page import="java.util.*, java.lang.*, ca.openosp.openo.appt.*" %>
-<%@ page import="org.apache.commons.lang.StringUtils" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.appt.status.service.AppointmentStatusMgr" %>
 <%@ page import="ca.openosp.openo.appt.status.service.impl.AppointmentStatusMgrImpl" %>
 <%@ page import="ca.openosp.openo.billings.ca.bc.decisionSupport.BillingGuidelines" %>
@@ -103,6 +103,7 @@ Ontario, Canada
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
+<fmt:setBundle basename="oscarResources"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -176,7 +177,7 @@ Ontario, Canada
 
     String useProgramLocation = OscarProperties.getInstance().getProperty("useProgramLocation");
     String moduleNames = OscarProperties.getInstance().getProperty("ModuleNames");
-    boolean caisiEnabled = moduleNames != null && org.apache.commons.lang.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
+    boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
@@ -1332,7 +1333,7 @@ Ontario, Canada
                             </td>
                             <td>
                                 <input type="text" id="mrp" class="form-control"
-                                       value="<%=bFirstDisp ? "" : StringEscapeUtils.escapeHtml(providerBean.getProperty(curDoctor_no,""))%>" readonly="readonly">
+                                       value="<%=bFirstDisp ? "" : StringEscapeUtils.escapeHtml4(providerBean.getProperty(curDoctor_no,""))%>" readonly="readonly">
                             </td>
                         </tr>
                         <tr>
@@ -1419,7 +1420,7 @@ Ontario, Canada
 		    <% if (pros.isPropertyActive("mc_number")) { %>
 		    <tr>
 			    <td>
-				    <bean:message key="Appointment.formMC" />:
+				    <fmt:message key="Appointment.formMC" />:
 			    </td>
 			    <td>
 				    <input type="text" name="appt_mc_number" class="form-control"/>
@@ -1666,7 +1667,7 @@ Ontario, Canada
                                 </td>
                                 <td style="background-color: #e8e8e8; padding-right: 25px"><%=p.getFormattedName()%>
                                 </td>
-                                <td style="background-color: #e8e8e8;"><%=a.getStatus() == null ? "" : (a.getStatus().equals("N") ? "No Show" : (a.getStatus().equals("C") ? "Cancelled" : ""))%>
+                                <td style="background-color: #e8e8e8;"><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%>
                                 </td>
                             </tr>
                             <%
@@ -1689,7 +1690,7 @@ Ontario, Canada
                                 </td>
                                 <td style="background-color: #e8e8e8; padding-right: 25px"><%=p.getFormattedName()%>
                                 </td>
-                                <td style="background-color: #e8e8e8;"><%=a.getStatus() == null ? "" : (a.getStatus().equals("N") ? "No Show" : (a.getStatus().equals("C") ? "Cancelled" : ""))%>
+                                <td style="background-color: #e8e8e8;"><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%>
                                 </td>
                             </tr>
                             <%

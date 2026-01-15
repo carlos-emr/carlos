@@ -25,7 +25,7 @@
 
 package ca.openosp.openo.lab.ca.all.upload.handlers;
 
-import com.lowagie.text.pdf.PdfReader;
+import com.itextpdf.text.pdf.PdfReader;
 
 import ca.uhn.fhir.context.FhirContext;
 
@@ -55,6 +55,7 @@ import ca.openosp.openo.commn.dao.ProviderInboxRoutingDao;
 import ca.openosp.openo.utility.LoggedInInfo;
 
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import ca.openosp.openo.documentManager.EDoc;
@@ -86,22 +87,17 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
                 return null;
             }
             
-            // Normalize and validate the base directory
-            Path basePath = Paths.get(baseDocDir).normalize().toAbsolutePath();
-            
-            // Normalize and validate the input file path
-            Path targetPath = Paths.get(fileName).normalize().toAbsolutePath();
-            
-            // Ensure the target file is within the allowed base directory
-            if (!targetPath.startsWith(basePath)) {
+            // Validate the file path using PathValidationUtils
+            File baseDir = new File(baseDocDir);
+            File targetFile = new File(fileName);
+            try {
+                PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            } catch (SecurityException e) {
                 logger.error("Path traversal attempt detected: " + fileName);
                 return null;
             }
-            
-            // Verify the file exists and is a regular file
-            File targetFile = targetPath.toFile();
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + targetPath);
+                logger.error("File does not exist or is not a regular file: " + fileName);
                 return null;
             }
             

@@ -270,6 +270,11 @@
             overflow: hidden;
         }
 
+        /* Allow tooltips to overflow the container (applied via JS for browser compatibility) */
+        .dynamic-content.has-tooltip {
+            overflow: visible;
+        }
+
         .dynamic-iframe-content {
             padding-top: 80%;
         }
@@ -435,7 +440,7 @@
 
 
 <script type="text/javascript">
-    $(document).ready(function ($) {
+    $(document).ready(function () {
         $("a.contentLink").click(function (e) {
             e.preventDefault();
             $("#dynamic-content").removeClass("dynamic-iframe-content");
@@ -444,6 +449,16 @@
                     if (status == "error") {
                         var msg = "Sorry but there was an error: ";
                         $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+                    }
+
+                    // Re-initialize Bootstrap dropdowns for dynamically loaded content
+                    $("#dynamic-content .dropdown-toggle").dropdown();
+
+                    // Toggle overflow for pages with CSS tooltips (for browser compatibility)
+                    if ($("#dynamic-content .css-tooltip").length > 0) {
+                        $("#dynamic-content").addClass("has-tooltip");
+                    } else {
+                        $("#dynamic-content").removeClass("has-tooltip");
                     }
 
                     $("html, body").animate({scrollTop: 0}, "slow");

@@ -22,7 +22,7 @@
 <%@ page
         import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.MyDateFormat,ca.openosp.openo.db.*"
         errorPage="/errorpage.jsp" %>
-<%@ include file="../../../admin/dbconnection.jsp" %>
+<%@ include file="/admin/dbconnection.jsp" %>
 
 <jsp:useBean id="billingLocalInvNoBean" class="java.util.Properties" scope="page"/>
 

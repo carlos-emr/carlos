@@ -36,11 +36,10 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 
-import net.sf.json.JSONObject;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.EFormReportToolDao;
 import ca.openosp.openo.commn.model.PreventionReport;
@@ -112,13 +111,13 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/demographicSets/patientList")
     @Produces("application/json")
     @Consumes("application/json")
-    public PatientListApptBean getAsPatientList(JSONObject json) {
+    public PatientListApptBean getAsPatientList(JsonNode json) {
 
         PatientListApptBean response = new PatientListApptBean();
 
-        if (json.containsKey("name") && json.getString("name").length() > 0) {
+        if (json.has("name") && json.get("name").asText().length() > 0) {
 
-            for (DemographicSets demographicSet : demographicSetsManager.getByName(getLoggedInInfo(), json.getString("name"))) {
+            for (DemographicSets demographicSet : demographicSetsManager.getByName(getLoggedInInfo(), json.get("name").asText())) {
                 PatientListApptItemBean item = new PatientListApptItemBean();
                 item.setDemographicNo(demographicSet.getDemographicNo());
                 item.setName(demographicManager.getDemographicFormattedName(getLoggedInInfo(), item.getDemographicNo()));
@@ -263,11 +262,11 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/preventionReport/runReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JSONObject jSONObject) { // will need to change providers to an ojbect
+    public javax.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
         GenericRESTResponse response = new GenericRESTResponse();
         Report report = null;
         //Next thing to do is to save the JSON object to the database
-        String providerNo = jSONObject.optString("providerNo");
+        String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
 
         if (StringUtils.isEmpty(providerNo)) {
             providerNo = getLoggedInInfo().getLoggedInProviderNo();
@@ -299,11 +298,11 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/preventionReport/getReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JSONObject jSONObject) { // will need to change providers to an ojbect
+    public javax.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
         GenericRESTResponse response = new GenericRESTResponse();
         Report report = null;
         //Next thing to do is to save the JSON object to the database
-        String providerNo = jSONObject.optString("providerNo");
+        String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
 
 
         PreventionReport pr = preventionReportDao.find(id);

@@ -202,9 +202,10 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     /**
-     * @param f String <filename e.g example.jpeg>
-     *          This method used to get file extension from a given filename
-     * @return String <file extension>
+     * Gets the file extension from a given filename.
+     *
+     * @param f the filename (e.g., example.jpeg)
+     * @return the file extension
      */
     public String extension(String f) {
         int dot = f.lastIndexOf(".");

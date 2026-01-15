@@ -33,7 +33,7 @@
                    objectName="_admin,_admin.userAdmin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -55,6 +55,8 @@
 <%!
     OscarProperties op = OscarProperties.getInstance();
 %>
+
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <script src="${pageContext.request.contextPath}/csrfguard"></script>
@@ -182,7 +184,7 @@
 	 * @param {number} securityId - The ID of the sec record.
 	 */
 	function handleResetMfa(securityId) {
-		if (confirm("<bean:message key="admin.securityAddRecord.mfa.reset.confirm"/>")) {
+		if (confirm("<fmt:message key="admin.securityAddRecord.mfa.reset.confirm"/>")) {
 			let url = "${pageContext.request.contextPath}/securityRecord/mfa.do";
 			let data = {
 				method: '<%= MfaActions2Action.METHOD_RESET_MFA %>',
@@ -319,7 +321,7 @@
 		<% if (MfaManager.isOscarMfaEnabled()) { %>
 		<tr>
 			<td style="text-align: right">
-				<bean:message key="admin.securityAddRecord.mfa.title"/>:
+				<fmt:message key="admin.securityAddRecord.mfa.title"/>:
 			</td>
 			<td style="">
 				<label>
@@ -329,12 +331,12 @@
 								   updatePinComponentsAccess(this.checked);
 								   <% } %>"
 							<%= security.isUsingMfa() ? "checked" : "" %>/>
-					<bean:message key="admin.securityAddRecord.mfa.description"/>
+					<fmt:message key="admin.securityAddRecord.mfa.description"/>
 				</label>
 				<% if (security.isUsingMfa() && !security.isMfaRegistrationNeeded()) { %>
 				<a id="resetMfaLink" onclick="handleResetMfa(<%=securityId%>)"
 				   style="margin-left: 4px; font-size: small; color: blue; text-decoration:
-				   underline; cursor: pointer;"><bean:message key="admin.securityAddRecord.mfa.reset.link"/></a>
+				   underline; cursor: pointer;"><fmt:message key="admin.securityAddRecord.mfa.reset.link"/></a>
 				<% } %>
 			</td>
 		</tr>
@@ -344,7 +346,7 @@
 			<span id="mfaNote"
 				  style="font-size: x-small; color: darkslategray; vertical-align: top;
 				  display: <%= (security.isUsingMfa() && security.isMfaRegistrationNeeded()) ? "inline" : "none" %>">
-				<bean:message key="admin.securityAddRecord.mfa.note"/></span>
+				<fmt:message key="admin.securityAddRecord.mfa.note"/></span>
 			</td>
 		</tr>
 		<% } %>

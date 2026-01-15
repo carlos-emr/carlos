@@ -33,7 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import org.apache.commons.collections.map.MultiValueMap;
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.ProgramDao;
 import ca.openosp.openo.PMmodule.model.Program;
@@ -147,14 +147,14 @@ public final class Cds4ReportUIBean {
     }
 
     public String getFunctionalCentreDescription() {
-        return (StringEscapeUtils.escapeHtml(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription()));
+        return (StringEscapeUtils.escapeHtml4(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription()));
     }
 
     public String getDateRangeForDisplay() {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         GregorianCalendar displayEndDate = (GregorianCalendar) endDateExclusive.clone();
         displayEndDate.add(GregorianCalendar.DAY_OF_YEAR, -1);
-        return (StringEscapeUtils.escapeHtml(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(displayEndDate.getTime()) + " (inclusive)"));
+        return (StringEscapeUtils.escapeHtml4(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(displayEndDate.getTime()) + " (inclusive)"));
     }
 
     public static List<CdsFormOption> getCdsFormOptions() {

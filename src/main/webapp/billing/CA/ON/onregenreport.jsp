@@ -22,7 +22,7 @@
 <%@page import="ca.openosp.openo.utility.DateRange" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect("../../../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 
 <%@ page import="java.util.*" errorPage="/errorpage.jsp" %>

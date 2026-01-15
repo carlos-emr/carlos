@@ -34,7 +34,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import ca.openosp.openo.commn.dao.BillingServiceDao;
 import ca.openosp.openo.commn.model.BillingService;
@@ -51,6 +52,7 @@ public final class BillingEditCode2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
 
     public String ajaxCodeUpdate() throws IOException {
@@ -72,8 +74,8 @@ public final class BillingEditCode2Action extends ActionSupport {
         map.put("val", val);
         map.put("billService", billingServiceDate);
         map.put("termDate", termDate);
-        JSONObject jsonObject = JSONObject.fromObject(itemCode);  //(JSONObject) JSONSerializer.toJSON(itemCode);//
-        jsonObject = jsonObject.accumulate("id", id);
+        ObjectNode jsonObject = objectMapper.valueToTree(itemCode);
+        jsonObject.put("id", id);
         MiscUtils.getLogger().debug(jsonObject.toString());
         response.getOutputStream().write(jsonObject.toString().getBytes());
         return null;

@@ -27,55 +27,105 @@
 package ca.openosp;
 
 /**
- * Description - DocumentBean
+ * Data bean for document management in the system.
+ * 
+ * <p>This bean encapsulates document metadata and properties including:</p>
+ * <ul>
+ *   <li>File and folder information</li>
+ *   <li>Document description and type</li>
+ *   <li>Function and function ID for document categorization</li>
+ *   <li>Creation metadata (date, creator)</li>
+ *   <li>XML content and properties</li>
+ *   <li>Document diversion settings</li>
+ * </ul>
+ * 
+ * <p>This is a serializable JavaBean used for managing document information
+ * across the application layers.</p>
  */
-
-
-/**
- * JavaDoc comment for this bean
- */
-
 public class DocumentBean extends java.lang.Object implements java.io.Serializable {
 
-    /*   *
-     * Instance variable for the documentData properties
-     */
+    /** Document filename */
     protected String filename = "";
+    /** Folder where document is stored */
     protected String foldername = "";
+    /** Document description */
     protected String filedesc = "";
+    /** Document function/category */
     protected String function = "";
+    /** Function identifier */
     protected String function_id = "";
+    /** Document creation date */
     protected String createdate = "";
+    /** XML content of the document */
     protected String docxml = "";
+    /** Document creator identifier */
     protected String doccreator = "";
+    /** Document type */
     protected String doctype = "";
+    /** Oscar properties for the document */
     protected String oscar_prop = "";
+    /** Document diversion setting */
     protected String docDivert = "";
 
+    /**
+     * Sets the document diversion setting.
+     * 
+     * @param value the diversion setting
+     */
     public void setDocDivert(String value) {
         docDivert = value;
     }
 
+    /**
+     * Gets the document diversion setting.
+     * 
+     * @return the diversion setting
+     */
     public String getDocDivert() {
         return docDivert;
     }
 
+    /**
+     * Sets the document filename.
+     * 
+     * @param value the filename
+     */
     public void setFilename(String value) {
         filename = value;
     }
 
+    /**
+     * Gets the document filename.
+     * 
+     * @return the filename
+     */
     public String getFilename() {
         return filename;
     }
 
+    /**
+     * Sets the Oscar properties for this document.
+     * 
+     * @param value the Oscar properties
+     */
     public void setOscar_prop(String value) {
         oscar_prop = value;
     }
 
+    /**
+     * Gets the Oscar properties for this document.
+     * 
+     * @return the Oscar properties
+     */
     public String getOscar_prop() {
         return oscar_prop;
     }
 
+    /**
+     * Sets the folder name where the document is stored.
+     * 
+     * @param value the folder name
+     */
     public void setFoldername(String value) {
         foldername = value;
     }

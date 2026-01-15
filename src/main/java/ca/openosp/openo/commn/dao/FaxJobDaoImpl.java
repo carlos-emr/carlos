@@ -52,10 +52,10 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
 
         if (demographic_no != null || status != null || team != null || beginDate != null || endDate != null
                 || provider_no != null) {
-            sql.append("where");
+            sql.append(" where ");
         }
 
-        boolean firstClause = false;
+        boolean firstClause = true;
 
         if (demographic_no != null) {
             if (!firstClause) sql.append(" and ");

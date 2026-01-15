@@ -35,7 +35,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import ca.openosp.openo.lab.ca.all.parsers.PATHL7Handler;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.ConsultDocsDao;
 import ca.openosp.openo.commn.dao.ConsultResponseDocDao;

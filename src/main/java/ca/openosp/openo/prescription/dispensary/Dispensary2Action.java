@@ -34,9 +34,9 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JsonConfig;
-import net.sf.json.processors.JsDateJsonBeanProcessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.dao.DemographicDao;
@@ -50,6 +50,7 @@ import ca.openosp.openo.commn.model.DrugDispensing;
 import ca.openosp.openo.commn.model.DrugDispensingMapping;
 import ca.openosp.openo.commn.model.DrugProduct;
 import ca.openosp.openo.managers.SecurityInfoManager;
+import ca.openosp.openo.utility.JsDateSerializer;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
@@ -69,6 +70,15 @@ public class Dispensary2Action extends ActionSupport {
     private DrugDispensingDao drugDispensingDao = SpringUtils.getBean(DrugDispensingDao.class);
     private DrugDispensingMappingDao drugDispensingMappingDao = SpringUtils.getBean(DrugDispensingMappingDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    static {
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(java.sql.Date.class, new JsDateSerializer());
+        objectMapper.registerModule(module);
+    }
 
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -246,10 +256,8 @@ public class Dispensary2Action extends ActionSupport {
 
         List<DrugProduct> dps = drugProductDao.findAvailableByCode(code);
 
-        JsonConfig config = new JsonConfig();
-        config.registerJsonBeanProcessor(java.sql.Date.class, new JsDateJsonBeanProcessor());
 
-        JSONArray jsonArray = JSONArray.fromObject(dps, config);
+        ArrayNode jsonArray = objectMapper.valueToTree(dps);
         response.getWriter().print(jsonArray);
 
         return null;
@@ -261,10 +269,8 @@ public class Dispensary2Action extends ActionSupport {
 
         List<LotBean> dps = drugProductDao.findDistinctLotsAvailableByCode(code);
 
-        JsonConfig config = new JsonConfig();
-        config.registerJsonBeanProcessor(java.sql.Date.class, new JsDateJsonBeanProcessor());
 
-        JSONArray jsonArray = JSONArray.fromObject(dps, config);
+        ArrayNode jsonArray = objectMapper.valueToTree(dps);
         response.getWriter().print(jsonArray);
 
         return null;

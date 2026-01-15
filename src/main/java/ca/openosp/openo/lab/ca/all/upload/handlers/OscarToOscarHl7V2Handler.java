@@ -36,6 +36,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.OscarProperties;
 
 import ca.openosp.openo.lab.ca.all.upload.MessageUploader;
@@ -98,17 +99,13 @@ public class OscarToOscarHl7V2Handler implements MessageHandler {
                 return null;
             }
             
-            // Normalize and resolve the base directory path
-            Path basePath = Paths.get(baseDocDir).toAbsolutePath().normalize();
-            
-            // Create the file object and get its canonical path
-            File inputFile = new File(fileName);
-            File canonicalFile = inputFile.getCanonicalFile();
-            Path filePath = canonicalFile.toPath().toAbsolutePath().normalize();
-            
-            // Check if the file path is within the allowed base directory
-            if (!filePath.startsWith(basePath)) {
-                logger.error("File path is outside allowed directory. Base: " + basePath + ", File: " + filePath);
+            // Validate file path using PathValidationUtils
+            File baseDir = new File(baseDocDir);
+            File canonicalFile = new File(fileName).getCanonicalFile();
+            try {
+                PathValidationUtils.validateExistingPath(canonicalFile, baseDir);
+            } catch (SecurityException e) {
+                logger.error("File path is outside allowed directory. Base: " + baseDocDir + ", File: " + canonicalFile.getPath());
                 return null;
             }
             

@@ -43,7 +43,7 @@
                 if (control) {
                     control.disabled = true;
                 }
-                window.location.href = "update.do";
+                window.location.href = "<%= request.getContextPath() %>/mcedt/update.do";
                 return false;
             }
 

@@ -91,21 +91,25 @@ public interface FlowsheetDocument extends XmlObject {
       }
 
       /** @deprecated */
+      @Deprecated
       public static FlowsheetDocument parse(XMLInputStream var0) throws XmlException, XMLStreamException {
          return (FlowsheetDocument)XmlBeans.getContextTypeLoader().parse(var0, FlowsheetDocument.type, (XmlOptions)null);
       }
 
       /** @deprecated */
+      @Deprecated
       public static FlowsheetDocument parse(XMLInputStream var0, XmlOptions var1) throws XmlException, XMLStreamException {
          return (FlowsheetDocument)XmlBeans.getContextTypeLoader().parse(var0, FlowsheetDocument.type, var1);
       }
 
       /** @deprecated */
+      @Deprecated
       public static XMLInputStream newValidatingXMLInputStream(XMLInputStream var0) throws XmlException, XMLStreamException {
          return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(var0, FlowsheetDocument.type, (XmlOptions)null);
       }
 
       /** @deprecated */
+      @Deprecated
       public static XMLInputStream newValidatingXMLInputStream(XMLInputStream var0, XmlOptions var1) throws XmlException, XMLStreamException {
          return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(var0, FlowsheetDocument.type, var1);
       }

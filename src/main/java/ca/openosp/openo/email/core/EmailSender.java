@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.EmailAttachment;
 import ca.openosp.openo.commn.model.EmailConfig;
 import ca.openosp.openo.email.helpers.APISendGridEmailSender;
+import ca.openosp.openo.email.helpers.LocalSMTPEmailSender;
 import ca.openosp.openo.email.helpers.SMTPEmailSender;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.EmailSendingException;
@@ -69,7 +70,15 @@ public class EmailSender {
 
         switch (emailConfig.getEmailType()) {
             case SMTP:
-                SMTPEmailSender smtpSendHelper = new SMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+                SMTPEmailSender smtpSendHelper;
+
+                // Use specialized sender for a LOCAL provider
+                if (emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL) {
+                    smtpSendHelper = new LocalSMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+                } else {
+                    smtpSendHelper = new SMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+                }
+
                 smtpSendHelper.send();
                 break;
             case API:

@@ -1,4 +1,5 @@
 <%@ taglib prefix="oscar" uri="/oscarPropertiestag" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@page import="java.util.*,ca.openosp.openo.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="ca.openosp.openo.commn.model.SystemPreferences" %>

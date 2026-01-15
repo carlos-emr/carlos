@@ -1,12 +1,11 @@
 <%@page import="ca.openosp.openo.web.admin.KeyManagerUIBean"%>
 <%@page import="ca.openosp.openo.commn.model.PublicKey"%>
-<%@page import="net.sf.json.JSONObject"%>
-<%@page import="net.sf.json.JSONSerializer"%>
+<%@page import="com.fasterxml.jackson.databind.ObjectMapper"%>
 
 <%
 	PublicKey publicKey=KeyManagerUIBean.getPublicKey(request.getParameter("id"));
 
-	response.setContentType("text/x-json");
-    JSONObject jsonArray = (JSONObject) JSONSerializer.toJSON(publicKey);
-    jsonArray.write(out);
+	response.setContentType("application/json");
+	ObjectMapper mapper = new ObjectMapper();
+    out.print(mapper.writeValueAsString(publicKey));
 %>

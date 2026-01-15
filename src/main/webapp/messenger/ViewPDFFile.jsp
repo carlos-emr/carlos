@@ -76,7 +76,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -85,14 +85,14 @@
 %>
 
 <c:if test="${empty sessionScope.msgSessionBean}">
-    <% response.sendRedirect("index.jsp"); %>
+    <% response.sendRedirect(request.getContextPath() + "/messenger/index.jsp"); %>
 </c:if>
 <c:if test="${not empty sessionScope.msgSessionBean}">
     <% 
         // Directly accessing the bean from the session
         MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
         if (!bean.isValid()) {
-            response.sendRedirect("index.jsp");
+            response.sendRedirect(request.getContextPath() + "/messenger/index.jsp");
         }
     %>
 </c:if>

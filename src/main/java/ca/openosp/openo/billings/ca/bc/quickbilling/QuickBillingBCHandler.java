@@ -48,7 +48,7 @@ import java.util.ListIterator;
 import java.util.Properties;
 
 import ca.openosp.openo.utility.MiscUtils;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.dao.ProviderDataDao;
@@ -206,12 +206,12 @@ public class QuickBillingBCHandler {
      * in commons.
      *
      */
-    public void setHeader(JSONObject billingEntry) {
+    public void setHeader(ObjectNode billingEntry) {
 
-        String visitLocation = billingEntry.getString("visitLocation");
-        String visitDate = billingEntry.getString("visitDate");
-        String providerNo = billingEntry.getString("providers");
-        String creator = billingEntry.getString("creator");
+        String visitLocation = billingEntry.get("visitLocation").asText();
+        String visitDate = billingEntry.get("visitDate").asText();
+        String providerNo = billingEntry.get("providers").asText();
+        String creator = billingEntry.get("creator").asText();
 
         // if any of the variables are empty
         if ((!providerNo.equals("empty")) ||
@@ -241,7 +241,7 @@ public class QuickBillingBCHandler {
      * for later processing.
      * Lots of data here is hard coded.
      */
-    public boolean addBill(LoggedInInfo loggedInInfo, JSONObject billingEntry) {
+    public boolean addBill(LoggedInInfo loggedInInfo, ObjectNode billingEntry) {
 
         String providerNo = this.quickBillingBCFormBean.getBillingProviderNo();
         BillingSessionBean bean = new BillingSessionBean();
@@ -252,16 +252,16 @@ public class QuickBillingBCHandler {
         String billingCode = "";
         String dxCode = "";
 
-        if (billingEntry.containsKey("ptNumber")) {
-            demographicNo = billingEntry.getString("ptNumber");
+        if (billingEntry.has("ptNumber")) {
+            demographicNo = billingEntry.get("ptNumber").asText();
         }
 
-        if (billingEntry.containsKey("billingCode")) {
-            billingCode = billingEntry.getString("billingCode");
+        if (billingEntry.has("billingCode")) {
+            billingCode = billingEntry.get("billingCode").asText();
         }
 
-        if (billingEntry.containsKey("dxCode1")) {
-            dxCode = billingEntry.getString("dxCode1");
+        if (billingEntry.has("dxCode1")) {
+            dxCode = billingEntry.get("dxCode1").asText();
         }
 
         if (!demographicNo.isEmpty()) {
@@ -272,11 +272,11 @@ public class QuickBillingBCHandler {
             provider = this.providerDao.findByProviderNo(providerNo);
         }
 
-        if ((billingEntry.containsKey("halfBilling")) &&
-                (billingEntry.getString("halfBilling") != "")
+        if ((billingEntry.has("halfBilling")) &&
+                (billingEntry.get("halfBilling").asText() != "")
         ) {
             // unit is set as 1.0 in default.
-            unit = billingEntry.getString("halfBilling");
+            unit = billingEntry.get("halfBilling").asText();
         }
 
         // first take care of the service codes.
@@ -404,9 +404,9 @@ public class QuickBillingBCHandler {
     }
 
     /**
-     * Triggers exsisting class: BillingSaveBillingAction to recursivley save the bills array list.
-     * @throws IOException
-     * @throws ServletException
+     * Triggers existing class: BillingSaveBillingAction to recursively save the bills array list.
+     *
+     * @return true if bills were saved successfully
      */
     public boolean saveBills() {
 

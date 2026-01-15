@@ -32,7 +32,8 @@ import ca.openosp.openo.commn.model.*;
 import com.itextpdf.text.pdf.PdfReader;
 import com.sun.pdfview.PDFFile;
 import com.sun.pdfview.PDFPage;
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.io.RandomAccessFile;
@@ -60,6 +61,7 @@ import ca.openosp.openo.managers.ProgramManager2;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -96,6 +98,8 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ManageDocument2Action extends ActionSupport {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -123,6 +127,10 @@ public class ManageDocument2Action extends ActionSupport {
         ACTIONS.put("displayIncomingDocs", ctx -> { ctx.displayIncomingDocs(); return null; });
         ACTIONS.put("documentUpdate", ctx -> { ctx.documentUpdate(); return null; });
         ACTIONS.put("documentUpdateAjax", ctx -> { ctx.documentUpdateAjax(); return null; });
+        ACTIONS.put("getDemoNameAjax", ctx -> { ctx.getDemoNameAjax(); return null; });
+        ACTIONS.put("showPage", ctx -> { ctx.showPage(); return null; });
+        ACTIONS.put("view", ctx -> { ctx.view(); return null; });
+        ACTIONS.put("addIncomingDocument", ctx -> ctx.addIncomingDocument());
         //  Enable calling the method to remove providers
         ACTIONS.put("removeLinkFromDocument", new ActionHandler() {
             public String handle(ManageDocument2Action action) {
@@ -130,6 +138,7 @@ public class ManageDocument2Action extends ActionSupport {
                 return null;
             }
         });
+        ACTIONS.put("viewDocumentInfo", ctx -> { ctx.viewDocumentInfo(); return null; });
     }
 
     // Called on default by struts.xml, finds the correct method to use by finding what the URL "method" param is equal to
@@ -263,7 +272,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         HashMap hm = new HashMap();
         hm.put("patientId", demog);
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes());
         } catch (IOException e) {
@@ -281,7 +290,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         HashMap hm = new HashMap();
         hm.put("demoName", getDemoName(LoggedInInfo.getLoggedInInfoFromSession(request), dn));
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes());
         } catch (IOException e) {
@@ -302,7 +311,7 @@ public class ManageDocument2Action extends ActionSupport {
         HashMap hm = new HashMap();
         hm.put("linkedProviders", providerInboxRoutingDAO.getProvidersWithRoutingForDocument(docType, Integer.parseInt(docId)));
 
-        JSONObject jsonObject = JSONObject.fromObject(hm);
+        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.getOutputStream().write(jsonObject.toString().getBytes());
         } catch (IOException e) {
@@ -501,7 +510,11 @@ public class ManageDocument2Action extends ActionSupport {
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
 
-        File cacheDir = new File(parentDir, documentDirName + "_cache");
+        // Sanitize the cache directory name to prevent path traversal
+        String safeCacheDirName = MiscUtils.sanitizeFileName(documentDirName + "_cache");
+
+        // Use validatePath to create a validated cache directory path
+        File cacheDir = PathValidationUtils.validatePath(safeCacheDirName, parentDir);
 
         if (!cacheDir.exists()) {
             cacheDir.mkdir();
@@ -771,7 +784,7 @@ public class ManageDocument2Action extends ActionSupport {
 
             HashMap hm = new HashMap();
             hm.put("numOfPage", numOfPage);
-            JSONObject jsonObject = JSONObject.fromObject(hm);
+            ObjectNode jsonObject = objectMapper.valueToTree(hm);
             response.getOutputStream().write(jsonObject.toString().getBytes());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
@@ -1074,19 +1087,21 @@ public class ManageDocument2Action extends ActionSupport {
         destFilePath = savePath + sanitizedFileName;
         String doc_no = "";
 
-        // Validate destination path is within allowed directory
-        File finalDestFile = new File(destFilePath);
-        String canonicalDest = finalDestFile.getCanonicalPath();
+        // Validate destination path is within allowed directory using PathValidationUtils
         File saveDir = new File(savePath);
-        String canonicalSaveDir = saveDir.getCanonicalPath();
-        
-        if (!canonicalDest.equals(canonicalSaveDir) && 
-            !canonicalDest.startsWith(canonicalSaveDir + File.separator)) {
-            throw new SecurityException("Access denied: destination file outside allowed directory");
-        }
+        File finalDestFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
+        destFilePath = finalDestFile.getPath();
 
         newDoc.setContentType(docType);
         File f1 = new File(sourceFilePath);
+
+        // Validate source file is within INCOMINGDOCUMENT_DIR to prevent path traversal
+        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        if (incomingDocDir != null && !incomingDocDir.isEmpty()) {
+            File incomingDir = new File(incomingDocDir);
+            f1 = PathValidationUtils.validateExistingPath(f1, incomingDir);
+        }
+
         boolean success = f1.renameTo(new File(destFilePath));
         if (!success) {
             log.error("Not able to move " + f1.getName() + " to " + destFilePath);
@@ -1193,26 +1208,11 @@ public class ManageDocument2Action extends ActionSupport {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
         
-        // Get canonical paths for validation before any file operations
+        // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
-        String canonicalBase = baseDir.getCanonicalPath();
-        
-        // Create the file object and immediately get its canonical path
-        // without performing any operations on it first
         File file = new File(filePath);
-        String canonicalFile = file.getCanonicalPath();
-        
-        // Validate that the canonical path is within the allowed directory
-        // This must be done before ANY file operations to prevent path traversal attacks
-        if (!canonicalFile.startsWith(canonicalBase + File.separator)) {
-            throw new SecurityException("Access denied: file outside allowed directory");
-        }
-        
-        // Only after validation, check if the file exists and is a regular file
-        if (!file.exists() || !file.isFile()) {
-            throw new FileNotFoundException("File not found");
-        }
-        
+        PathValidationUtils.validateExistingPath(file, baseDir);
+
         Locale locale = request.getLocale();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
 
@@ -1299,25 +1299,10 @@ public class ManageDocument2Action extends ActionSupport {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
         
-        // Get canonical paths for validation before any file operations
+        // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
-        String canonicalBase = baseDir.getCanonicalPath();
-        
-        // Create the file object and immediately get its canonical path
-        // without performing any operations on it first
         File file = new File(filePath);
-        String canonicalFile = file.getCanonicalPath();
-        
-        // Validate that the canonical path is within the allowed directory
-        // This must be done before ANY file operations to prevent path traversal attacks
-        if (!canonicalFile.startsWith(canonicalBase + File.separator)) {
-            throw new SecurityException("Access denied: file outside allowed directory");
-        }
-        
-        // Only after validation, check if the file exists and is a regular file
-        if (!file.exists() || !file.isFile()) {
-            throw new FileNotFoundException("File not found");
-        }
+        PathValidationUtils.validateExistingPath(file, baseDir);
 
         String contentType = "application/pdf";
         response.setContentType(contentType);
@@ -1328,8 +1313,9 @@ public class ManageDocument2Action extends ActionSupport {
         ServletOutputStream outs = response.getOutputStream();
 
         try {
-
-            bfis = new BufferedInputStream(new FileInputStream(file));
+            // Re-validate file path at point of use for static analysis visibility
+            File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
+            bfis = new BufferedInputStream(new FileInputStream(validatedFile));
 
             org.apache.commons.io.IOUtils.copy(bfis, outs);
             outs.flush();
@@ -1440,32 +1426,18 @@ public class ManageDocument2Action extends ActionSupport {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
         
-        // Get canonical paths for validation before any file operations
+        // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
-        String canonicalBase = baseDir.getCanonicalPath();
-        
-        // Create directory and file objects
         File documentDir = new File(incomingDocPath);
         File documentCacheDir = getDocumentCacheDir(incomingDocPath);
         File file = new File(documentDir, sanitizedPdfName);
-        
-        // Immediately get canonical path without performing any operations first
-        String fileCanonical = file.getCanonicalPath();
-        
-        // Validate that the canonical path is within the allowed directory
-        // This must be done before ANY file operations to prevent path traversal attacks
-        if (!fileCanonical.startsWith(canonicalBase + File.separator)) {
-            throw new SecurityException("Access denied: file outside allowed directory");
-        }
-        
-        // Only after validation, check if the file exists and is a regular file
-        if (!file.exists() || !file.isFile()) {
-            throw new FileNotFoundException("File not found or is not a regular file");
-        }
-        
+        PathValidationUtils.validateExistingPath(file, baseDir);
+
         PdfDecoder decode_pdf = new PdfDecoder(true);
 
-        try (FileInputStream is = new FileInputStream(file)) {
+        // Re-validate file path at point of use for static analysis visibility
+        File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
+        try (FileInputStream is = new FileInputStream(validatedFile)) {
 
             FontMappings.setFontReplacements();
 
@@ -1477,20 +1449,11 @@ public class ManageDocument2Action extends ActionSupport {
 
             BufferedImage image_to_save = decode_pdf.getPageAsImage(pageNum);
 
-            // Use sanitized filename for cache file
+            // Use sanitized filename for cache file and validate path
             String cacheFileName = sanitizedPdfName.substring(0, sanitizedPdfName.lastIndexOf('.')) + "_" + pageNum + ".png";
-            File cacheFile = new File(documentCacheDir, cacheFileName);
-            
-            // Validate the cache file path before saving
-            String cacheDirCanonical = documentCacheDir.getCanonicalPath();
-            String cacheFileCanonical = cacheFile.getCanonicalPath();
-            
-            if (!cacheFileCanonical.startsWith(cacheDirCanonical + File.separator) && 
-                !cacheFileCanonical.equals(cacheDirCanonical)) {
-                throw new SecurityException("Invalid cache file path - potential path traversal detected");
-            }
-            
-            decode_pdf.getObjectStore().saveStoredImage(cacheFileCanonical, image_to_save, true, false, "png");
+            File cacheFile = PathValidationUtils.validatePath(cacheFileName, documentCacheDir);
+
+            decode_pdf.getObjectStore().saveStoredImage(cacheFile.getCanonicalPath(), image_to_save, true, false, "png");
 
             decode_pdf.flushObjectValues(true);
 
@@ -1538,48 +1501,28 @@ public class ManageDocument2Action extends ActionSupport {
         if (file == null) {
             throw new SecurityException("File is null");
         }
-        
-        try {
-            String canonicalPath = file.getCanonicalPath();
-            
-            // Get the allowed base directories
-            String documentDir = new File(DOCUMENT_DIR).getCanonicalPath();
-            String documentCacheDir = new File(getDocumentCacheDir()).getCanonicalPath();
-            
-            // Also check incoming document directories which may be configured differently
-            String incomingDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-            String incomingCanonical = new File(incomingDir).getCanonicalPath();
-            
-            // File must be within one of the allowed directories
-            boolean isInDocumentDir = canonicalPath.startsWith(documentDir + File.separator) || 
-                                     canonicalPath.equals(documentDir);
-            boolean isInCacheDir = canonicalPath.startsWith(documentCacheDir + File.separator) || 
-                                  canonicalPath.equals(documentCacheDir);
-            boolean isInIncomingDir = canonicalPath.startsWith(incomingCanonical + File.separator) ||
-                                     canonicalPath.equals(incomingCanonical);
-            
-            // Also check if it's in a cache subdirectory of incoming
-            File incomingCacheDir = getDocumentCacheDir(incomingDir);
-            String incomingCacheCanonical = incomingCacheDir.getCanonicalPath();
-            boolean isInIncomingCacheDir = canonicalPath.startsWith(incomingCacheCanonical + File.separator) ||
-                                          canonicalPath.equals(incomingCacheCanonical);
-            
-            if (!isInDocumentDir && !isInCacheDir && !isInIncomingDir && !isInIncomingCacheDir) {
-                throw new SecurityException("File path is outside allowed directories");
+
+        // Get all allowed directories
+        File documentDir = new File(DOCUMENT_DIR);
+        File documentCacheDir = new File(getDocumentCacheDir());
+        String incomingDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        File incomingDirFile = new File(incomingDir);
+        File incomingCacheDir = getDocumentCacheDir(incomingDir);
+
+        // Try each directory - file must be in at least one
+        File[] allowedDirs = {documentDir, documentCacheDir, incomingDirFile, incomingCacheDir};
+
+        for (File allowedDir : allowedDirs) {
+            try {
+                PathValidationUtils.validateExistingPath(file, allowedDir);
+                return; // Valid if we get here without exception
+            } catch (SecurityException e) {
+                // File not in this directory, try next
             }
-            
-            // Additional validation: ensure file exists and is a regular file
-            if (!file.exists()) {
-                throw new SecurityException("File does not exist");
-            }
-            
-            if (!file.isFile()) {
-                throw new SecurityException("Path is not a regular file");
-            }
-            
-        } catch (IOException e) {
-            throw new SecurityException("Unable to validate file path");
         }
+
+        // If we get here, file wasn't in any allowed directory
+        throw new SecurityException("File path is outside allowed directories");
     }
     
     /**

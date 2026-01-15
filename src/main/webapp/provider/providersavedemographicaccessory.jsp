@@ -25,8 +25,9 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.sql.*, java.util.*, java.net.*, ca.openosp.*"
          errorPage="/errorpage.jsp" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
@@ -85,10 +86,10 @@
         }
 
         self.close();
-        self.opener.document.encounter.xml_Problem_List.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Problem_List"))%>");
-        self.opener.document.encounter.xml_Medication.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Medication"))%>");
-        self.opener.document.encounter.xml_Alert.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Alert"))%>");
-        self.opener.document.encounter.xml_Family_Social_History.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Family_Social_History"))%>");
+        self.opener.document.encounter.xml_Problem_List.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Problem_List"), StandardCharsets.UTF_8)%>");
+        self.opener.document.encounter.xml_Medication.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Medication"), StandardCharsets.UTF_8)%>");
+        self.opener.document.encounter.xml_Alert.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Alert"), StandardCharsets.UTF_8)%>");
+        self.opener.document.encounter.xml_Family_Social_History.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Family_Social_History"), StandardCharsets.UTF_8)%>");
     </script>
 
     <p></p>

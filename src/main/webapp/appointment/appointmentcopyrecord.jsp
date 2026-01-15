@@ -24,7 +24,7 @@
 
 --%>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect("../logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page
         import="ca.openosp.openo.appt.*"

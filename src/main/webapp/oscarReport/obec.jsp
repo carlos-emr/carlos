@@ -32,7 +32,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_billing" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting&type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,7 +44,7 @@
         import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.DateUtils, java.net.*" %>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no;
     user_no = (String) session.getAttribute("user");
 %>

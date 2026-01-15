@@ -41,11 +41,10 @@ public interface AppointmentManager {
     public List<Object> getAppointmentHistoryWithDeleted(LoggedInInfo loggedInInfo, Integer demographicNo, Integer offset, Integer limit);
 
     /**
-     * Returns appointment for display.
+     * Adds an appointment to the system.
      *
-     * @param appointment  appointment data
-     * @param loggedInInfo
-     * @return appointment data
+     * @param loggedInInfo logged in provider information
+     * @param appointment appointment data to add
      */
     public void addAppointment(LoggedInInfo loggedInInfo, Appointment appointment);
 

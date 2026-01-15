@@ -25,7 +25,7 @@
 
 package ca.openosp.openo.dashboard.query;
 
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 public class RangeLowerLimit implements RangeInterface {
 

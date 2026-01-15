@@ -176,7 +176,7 @@
         </script>
 
     </head>
-    <jsp:include page="../images/spinner.jsp" flush="true"/>
+    <jsp:include page="/images/spinner.jsp" flush="true"/>
     <body vlink="#0000FF">
 
     <%
@@ -193,7 +193,7 @@
     <div class="container-fluid well">
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></h3>
 
-        <form action="${pageContext.request.contextPath}/form/importUpload.do" method="POST"
+        <form name="ImportDemographicDataForm" action="${pageContext.request.contextPath}/form/importUpload.do" method="POST"
                    enctype="multipart/form-data">
         <p><input type="file" name="importFile" id="importFile" multiple="multiple"/>
             <span id="uploadWarn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
@@ -213,7 +213,7 @@
         Timeshift (in days +/-):&nbsp;<input type="text" name="timeshiftInDays" value="0" size="5"/></br/>
                 <%} %>
         If patient's providers do not have OHIP numbers:<br>
-        <input type="radio" name="matchProviderNames" value="true"/>
+        <input type="radio" name="matchProviderNames" value="true" checked/>
         Match providers in database by first and last names (Recommended)
         <br>
         <input type="radio" name="matchProviderNames" value="false"/>

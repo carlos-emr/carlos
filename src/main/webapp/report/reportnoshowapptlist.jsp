@@ -31,7 +31,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -205,7 +205,7 @@
         %>
         <tr bgcolor="<%=bodd?weakcolor:"white"%>">
             <td align="center"><a href=#
-                                  onClick="popupPage(300,700,'../appointment/appointmentcontrol.jsp?displaymode=edit&dboperation=search&appointment_no=<%=rsdemo.getString("appointment_no")%>&provider_no=<%=curProvider_no%>&year=<%=MyDateFormat.getYearFromStandardDate(rsdemo.getString("appointment_date"))%>&month=<%=MyDateFormat.getMonthFromStandardDate(rsdemo.getString("appointment_date"))%>&day=<%=MyDateFormat.getDayFromStandardDate(rsdemo.getString("appointment_date"))%>&start_time=<%=rsdemo.getString("start_time")%>&demographic_no=');return false;">
+                                  onClick="popupPage(300,700,'<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?displaymode=edit&dboperation=search&appointment_no=<%=rsdemo.getString("appointment_no")%>&provider_no=<%=curProvider_no%>&year=<%=MyDateFormat.getYearFromStandardDate(rsdemo.getString("appointment_date"))%>&month=<%=MyDateFormat.getMonthFromStandardDate(rsdemo.getString("appointment_date"))%>&day=<%=MyDateFormat.getDayFromStandardDate(rsdemo.getString("appointment_date"))%>&start_time=<%=rsdemo.getString("start_time")%>&demographic_no=');return false;">
                 <%=rsdemo.getString("appointment_date")%>
             </a></td>
             <td align="center"><%=rsdemo.getString("start_time")%>

@@ -147,9 +147,9 @@ public class dxQuickListItemsHandler {
     }
 
     public static void updatePatientCodeDesc(String type, String code, String desc) {
-        String daoName = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDaoImpl.codingSystem.valueOf(type));
+        Class<?> daoClass = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDaoImpl.codingSystem.valueOf(type));
         @SuppressWarnings("unchecked")
-        AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao = (AbstractCodeSystemDao<AbstractCodeSystemModel<?>>) SpringUtils.getBean(daoName);
+        AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao = (AbstractCodeSystemDao<AbstractCodeSystemModel<?>>) SpringUtils.getBean(daoClass);
 
         AbstractCodeSystemModel<?> codingSystemEntity = csDao.findByCode(code);
         codingSystemEntity.setDescription(desc);

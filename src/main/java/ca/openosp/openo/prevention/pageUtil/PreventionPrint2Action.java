@@ -38,6 +38,7 @@ import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.itextpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
@@ -74,7 +75,7 @@ public class PreventionPrint2Action extends ActionSupport {
             PreventionPrintPdf pdf = new PreventionPrintPdf();
             pdf.printPdf(request, response);
 
-        } catch (com.lowagie.text.DocumentException de) {
+        } catch (DocumentException de) {
             logger.error("", de);
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";

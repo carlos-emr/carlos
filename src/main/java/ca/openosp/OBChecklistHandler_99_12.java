@@ -37,6 +37,27 @@ import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+/**
+ * SAX content handler for processing obstetrics checklist XML (1999/2012 AR1 form).
+ * 
+ * <p>This handler extends {@link DefaultHandler} to parse and format obstetrics
+ * antenatal checklist data. It provides:</p>
+ * <ul>
+ *   <li>HTML-formatted checklist output generation</li>
+ *   <li>Checkbox state tracking (Done/N/A)</li>
+ *   <li>Week-based checklist item organization</li>
+ *   <li>Risk assessment integration</li>
+ *   <li>Date calculations based on EDB (Estimated Date of Birth)</li>
+ * </ul>
+ * 
+ * <p>The handler processes XML elements and generates an HTML table showing:
+ * antenatal care tasks organized by gestational week with completion status.</p>
+ * 
+ * <p>Week divisions are: 0, 12, 16, 20, 24, 28, 32, 34, 36, 37, 38, 39, 40 weeks</p>
+ * 
+ * @see OBChecklist_99_12
+ * @see DefaultHandler
+ */
 public class OBChecklistHandler_99_12 extends DefaultHandler {
 
     private Locator locator;
@@ -48,20 +69,38 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
     private Properties savedar1params;
 
     GregorianCalendar cal, now;
+    /** Week divisions for organizing checklist items by gestational age */
     int[] weekDivisions = {0, 12, 16, 20, 24, 28, 32, 34, 36, 37, 38, 39, 40};
+    /** Month names for date display */
     String[] monthNames = {"January", "February", "March", "April", "May", "June", "July", "August",
             "September", "October", "November", "December"};
 
 
+    /**
+     * Constructs a new OBChecklistHandler with saved AR1 parameters.
+     * 
+     * @param newsavedparams properties containing saved AR1 form parameters
+     */
     public OBChecklistHandler_99_12(Properties newsavedparams) {
         savedar1params = newsavedparams;
     }
 
+    /**
+     * Receives the document locator for position tracking during parsing.
+     * 
+     * @param locator the document locator
+     */
     public void setDocumentLocator(Locator locator) {
 
         this.locator = locator;
     }
 
+    /**
+     * Called at the start of document parsing.
+     * Initializes the handler and begins HTML table generation.
+     * 
+     * @throws SAXException if a SAX error occurs
+     */
     public void startDocument() throws SAXException {
 
         init();
@@ -72,11 +111,24 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
         results += "<center><table width='95%' border='0' cellpadding='0' CELLSPACING='0' BGCOLOR='ivory'><tr><td>\n";
     }
 
+    /**
+     * Called at the end of document parsing.
+     * Closes the HTML table structure.
+     * 
+     * @throws SAXException if a SAX error occurs
+     */
     public void endDocument() throws SAXException {
 
         results += "</td></tr></table></center>\n";
     }
 
+    /**
+     * Processes XML processing instructions.
+     * 
+     * @param target the processing instruction target
+     * @param data the processing instruction data
+     * @throws SAXException if a SAX error occurs
+     */
     public void processingInstruction(String target, String data) throws SAXException {
 
     }

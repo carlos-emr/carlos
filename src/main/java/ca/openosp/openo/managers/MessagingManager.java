@@ -94,9 +94,10 @@ public interface MessagingManager {
     /**
      * Change the status of a message (sent, read, del, new)
      *
-     * @param loggedInInfo
-     * @param messageId
-     * @param status
+     * @param loggedInInfo the logged in user information
+     * @param messageList the message list to update
+     * @param status the new status
+     * @return the message ID
      */
     public Long setMessageStatus(LoggedInInfo loggedInInfo, MessageList messageList, String status);
 
@@ -126,11 +127,10 @@ public interface MessagingManager {
     /**
      * Attach all providers that should receive this message.
      *
-     * @param loggedInInfo
-     * @param messageId
-     * @param recipients
-     * @param destinationFacility
-     * @param sourceFacilityId
+     * @param loggedInInfo the logged in user information
+     * @param messageId the message ID
+     * @param contactIdentifier array of contact identifiers
+     * @param status the message status
      */
     public void addRecipientsToMessage(LoggedInInfo loggedInInfo, int messageId, ContactIdentifier[] contactIdentifier, String status);
 

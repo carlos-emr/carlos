@@ -27,10 +27,11 @@
 <%
 
 %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.net.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.OscarProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -107,7 +108,7 @@
             function changeGroup(s) {
                 var newGroupNo = s.options[s.selectedIndex].value;
                 newGroupNo = s.options[s.selectedIndex].value;
-                self.location.href = "scheduleedittemplate.jsp?providerid=<%=request.getParameter("providerid")%>&providername=<%=URLEncoder.encode(request.getParameter("providername"))%>&step=" + newGroupNo;
+                self.location.href = "scheduleedittemplate.jsp?providerid=<%=request.getParameter("providerid")%>&providername=<%=URLEncoder.encode(request.getParameter("providername"), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
 
             }
 

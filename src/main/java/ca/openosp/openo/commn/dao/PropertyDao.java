@@ -35,6 +35,8 @@ public interface PropertyDao extends AbstractDao<Property> {
 
     List<Property> findGlobalByName(String name);
 
+    List<Property> findGlobalByName(Property.PROPERTY_KEY propertyName);
+
     List<Property> findByNameAndProvider(Property.PROPERTY_KEY propertyName, String providerNo);
 
     List<Property> findByNameAndProvider(String propertyName, String providerNo);

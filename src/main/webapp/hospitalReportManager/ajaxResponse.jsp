@@ -8,7 +8,7 @@
     and "gnu.org/licenses/gpl-2.0.html".
 
 --%>
-<%@ page language="java" contentType="text/html" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <% if (request.getAttribute("success") != null) { %>
 <%=((Boolean) request.getAttribute("success") ? "Success" : "Error encountered") %>
 <% } %>

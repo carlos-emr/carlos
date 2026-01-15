@@ -16,7 +16,7 @@ import java.util.List;
 
 import javax.persistence.Query;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.dao.AbstractDaoImpl;
 import ca.openosp.openo.hospitalReportManager.model.HRMDocument;
 import org.springframework.stereotype.Repository;

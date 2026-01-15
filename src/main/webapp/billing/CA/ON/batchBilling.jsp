@@ -28,11 +28,11 @@
 <%@page import="ca.openosp.openo.util.DateUtils" %>
 <%@page import="ca.openosp.OscarProperties" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect("../../../../logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no = "";
     user_no = (String) session.getAttribute("user");
 %>
-<%@ include file="../../../casemgmt/taglibs.jsp" %>
+<%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.*, java.sql.*, java.net.*" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao, ca.openosp.openo.PMmodule.dao.ProviderDao, ca.openosp.openo.commn.dao.BatchBillingDAO, ca.openosp.openo.commn.dao.DemographicDao" %>
@@ -177,7 +177,7 @@
 
             <div class="span2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/><br>
-                <select name="provider" class="span2" onChange="jumpMenu('window',this)">
+                <select name="providers" class="span2" onChange="jumpMenu('window',this)">
                     <option value="#"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/></b></option>
                     <option value="all"
                             <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgAllProvider"/></option>

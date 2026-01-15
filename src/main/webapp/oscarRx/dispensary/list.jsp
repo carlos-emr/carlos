@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_dispensing" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_dispensing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_dispensing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -353,7 +353,7 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111"
            width="100%" id="AutoNumber1" height="100%">
-        <%@ include file="../TopLinks.jsp"%><!-- Row One included here-->
+        <%@ include file="/oscarRx/TopLinks.jsp"%><!-- Row One included here-->
         <tr>
             <!-- <td></td>Side Bar File --->
             <td width="100%" style="border-left: 2px solid #A9A9A9;" height="100%" valign="top">

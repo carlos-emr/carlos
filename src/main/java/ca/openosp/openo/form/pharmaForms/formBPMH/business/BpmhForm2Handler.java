@@ -28,7 +28,7 @@ import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.utility.MiscUtils;
 import org.apache.commons.beanutils.BeanUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.utility.SpringUtils;

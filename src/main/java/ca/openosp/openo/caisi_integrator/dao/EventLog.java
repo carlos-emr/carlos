@@ -363,11 +363,11 @@ public class EventLog extends AbstractModel<Long> implements PersistenceCapable
     }
     
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
-        fieldConsumer.storeObjectField(2 + EventLog.pcInheritedFieldCount, (Object)new Long(((LongId)o).getId()));
+        fieldConsumer.storeObjectField(2 + EventLog.pcInheritedFieldCount, (Object)Long.valueOf(((LongId)o).getId()));
     }
     
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
-        this.id = new Long(((LongId)o).getId());
+        this.id = Long.valueOf(((LongId)o).getId());
     }
     
     public Object pcNewObjectIdInstance(final Object o) {

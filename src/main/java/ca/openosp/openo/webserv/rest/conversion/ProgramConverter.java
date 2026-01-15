@@ -31,8 +31,6 @@ import ca.openosp.openo.webserv.rest.to.model.ProgramTo1;
 
 public class ProgramConverter extends AbstractConverter<Program, ProgramTo1> {
 
-//		private static Logger logger = org.oscarehr.util.MiscUtils.getLogger();
-
     @Override
     public Program getAsDomainObject(LoggedInInfo loggedInInfo, ProgramTo1 t) throws ConversionException {
         Program a = new Program();

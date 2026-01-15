@@ -45,6 +45,7 @@
 <%
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     ProviderManager pMgr = (ProviderManager) ctx.getBean(ProviderManager.class);
+    pageContext.setAttribute("pMgr", pMgr);
 %>
 <html>
 <head>

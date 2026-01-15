@@ -27,7 +27,7 @@
 package ca.openosp.openo.billings.ca.bc.pageUtil;
 
 import ca.openosp.Misc;
-import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.Misc;
 import ca.openosp.openo.entities.WCB;
@@ -236,7 +236,7 @@ public final class WCBForm {
         w_tofollow = wcb.getW_tofollow();
         w_payeeno = wcb.getW_payeeno();
         w_pracno = wcb.getW_pracno();
-        //w_pracname= result.getString("w_pracname");
+        //w_pracname= result.get("w_pracname").asText();
         w_wcbadvisor = wcb.getW_wcbadvisor();
         w_feeitem = wcb.getW_feeitem();
         w_extrafeeitem = wcb.getW_extrafeeitem();

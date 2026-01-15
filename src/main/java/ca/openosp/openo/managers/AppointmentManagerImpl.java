@@ -142,11 +142,10 @@ public class AppointmentManagerImpl implements AppointmentManager {
     }
 
     /**
-     * Returns appointment for display.
+     * Adds an appointment to the system.
      *
-     * @param appointment  appointment data
-     * @param loggedInInfo
-     * @return appointment data
+     * @param loggedInInfo logged in provider information
+     * @param appointment appointment data to add
      */
     public void addAppointment(LoggedInInfo loggedInInfo, Appointment appointment) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {

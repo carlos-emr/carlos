@@ -175,6 +175,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             if (bean.curProviderNo == null || bean.curProviderNo.trim().length() == 0)
                 bean.curProviderNo = provider.getProviderNo();
             bean.reason = request.getParameter("reason");
+            bean.reasonCode = request.getParameter("reasonCode");
             bean.encType = request.getParameter("encType");
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {

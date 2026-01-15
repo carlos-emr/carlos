@@ -24,7 +24,7 @@
 
 --%>
 <html>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.ScratchPad" %>
 <%@ page import="ca.openosp.openo.util.DateUtils" %>
 <%@ page import="ca.openosp.openo.providers.data.ProviderColourUpdater" %>
@@ -82,7 +82,7 @@
                     <td style="text-align: right">
 
                         <a href="javascript:void(0)"
-                           onclick="javascript:popup(600,700,'../oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                           onclick="javascript:popup(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
                     </td>
                 </tr>
             </table>

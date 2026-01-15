@@ -1,6 +1,6 @@
 <%@page import="ca.openosp.openo.web.AppointmentProviderAdminDayUIBean"%>
 <%@page import="java.util.Collection, java.util.Collections, java.util.List, java.util.ArrayList"%>
-<%@page import="org.apache.commons.lang.StringEscapeUtils"%>
+<%@page import="org.apache.commons.text.StringEscapeUtils"%>
 <%@page import="ca.openosp.openo.commn.model.ProviderPreference"%>
 <%@page import="ca.openosp.openo.commn.dao.PregnancyFormsDao" %>
 <%

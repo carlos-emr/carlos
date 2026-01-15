@@ -129,6 +129,23 @@ build_and_deploy() {
     ln -s "/usr/local/tomcat/webapps/$snapshot_dest_dir" "target/$snapshot_src_dir"
   fi
 
+  # Setup hot reload for fast JSP/HTML/CSS updates when refreshing the browser.
+  if [ -f "/setup-dir/setup-hot-reload.sh" ]; then
+    # Check if inotify-tools is available
+    if [ ! -x "/usr/bin/inotifywait" ]; then
+      echo "WARN: Hot-reload skipped, not installed or executable"
+    else
+      # Ensure the script is executable
+      chmod +x /setup-dir/setup-hot-reload.sh
+
+      echo "Starting hot reload watcher"
+      echo "View live logs: tail -f /tmp/webapp-watcher.log"
+      
+      # Start the hot-reload script in the background
+      /setup-dir/setup-hot-reload.sh > /dev/null 2>&1 &
+    fi
+  fi
+
   # Start the Catalina server by calling the `server` script located in the same directory as this script.
   "$SCRIPT_DIR/server" start
 }
@@ -255,10 +272,10 @@ print_help() {
       echo "  jspc                                          Compile JSPs only (no deployment)."
       echo "  docs                                          Generate all documentation and build static site for production."
       echo "  docs-serve                                    Start Docusaurus development server (http://localhost:3000)."
-      echo "  lock [--modern|--all]                        Update dependency lock file(s):"
-      echo "                                                  (default) - Update legacy lock file"
+      echo "  lock [--modern|--legacy]                        Update dependency lock file(s):"
+      echo "                                                  (default) - Update both lock files"
       echo "                                                  --modern - Update modern tests lock file"
-      echo "                                                  --all - Update both lock files"
+      echo "                                                  --legacy - Update legacy lock file"
       echo "  help                                          Display this help message."
 }
 
@@ -347,15 +364,15 @@ for arg in "$@"; do
       if [ "$2" = "--modern" ]; then
         echo "Updating modern dependencies lock file (dependencies-lock-modern.json)..."
         mvn se.vandmo:dependency-lock-maven-plugin:lock -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
-      elif [ "$2" = "--all" ]; then
+      elif [ "$2" = "--legacy" ]; then        
+        echo "Updating legacy dependency lock file (dependencies-lock.json)..."
+        mvn se.vandmo:dependency-lock-maven-plugin:lock -DskipModernTests=true
+      else
         echo "Updating both dependency lock files..."
         echo "1. Updating legacy lock file (dependencies-lock.json)..."
         mvn se.vandmo:dependency-lock-maven-plugin:lock -DskipModernTests=true
         echo "2. Updating modern lock file (dependencies-lock-modern.json)..."
         mvn se.vandmo:dependency-lock-maven-plugin:lock -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
-      else
-        echo "Updating legacy dependency lock file (dependencies-lock.json)..."
-        mvn se.vandmo:dependency-lock-maven-plugin:lock -DskipModernTests=true
       fi
       ;;
     help)

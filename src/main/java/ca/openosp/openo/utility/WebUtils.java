@@ -35,8 +35,8 @@ import java.util.Map.Entry;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 
@@ -232,7 +232,7 @@ public final class WebUtils {
 
     public static String trimToEmptyEscapeHtml(String s) {
         s = StringUtils.trimToEmpty(s);
-        s = StringEscapeUtils.escapeHtml(s);
+        s = StringEscapeUtils.escapeHtml4(s);
         return s;
     }
 
@@ -297,7 +297,7 @@ public final class WebUtils {
             sb.append("<script type=\"text/javascript\">");
             sb.append("alert('");
 
-            for (String s : al) sb.append(StringEscapeUtils.escapeJavaScript(s));
+            for (String s : al) sb.append(StringEscapeUtils.escapeEcmaScript(s));
 
             sb.append("');");
             sb.append("</script>");

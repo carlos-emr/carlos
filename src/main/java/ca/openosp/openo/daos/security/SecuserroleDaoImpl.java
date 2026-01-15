@@ -28,7 +28,6 @@ package ca.openosp.openo.daos.security;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.LockMode;
 import org.hibernate.Query;
@@ -329,12 +328,10 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
             String lname = staffForm.getLastName();
 
             if (fname != null && fname.length() > 0) {
-                fname = StringEscapeUtils.escapeSql(fname);
                 fname = fname.toLowerCase();
                 queryString = queryString + AND + "lower(a.providerFName) like '%" + fname + "%'";
             }
             if (lname != null && lname.length() > 0) {
-                lname = StringEscapeUtils.escapeSql(lname);
                 lname = lname.toLowerCase();
                 queryString = queryString + AND + "lower(a.providerLName) like '%" + lname + "%'";
             }

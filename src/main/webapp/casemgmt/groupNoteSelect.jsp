@@ -22,6 +22,7 @@
     Toronto, Ontario, Canada
 
 --%>
+<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,17 +49,18 @@
 <%@page import="ca.openosp.openo.commn.dao.GroupNoteDao" %>
 <%@page import="ca.openosp.openo.commn.model.GroupNoteLink" %>
 <%
-    ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-    GroupNoteDao groupNoteLinkDao = (GroupNoteDao) SpringUtils.getBean(GroupNoteDao.class);
-    DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
-    List<Admission> admissions = admissionManager.getCurrentAdmissionsByProgramId(request.getParameter("programId"));
-
-    String demographicNo = request.getParameter("demographicNo");
-
-    String frmName = "caseManagementEntryForm" + demographicNo;
-    String noteId = null;
-    boolean isUpdate = false;
+	ProgramManager programManager = (ProgramManager)SpringUtils.getBean(ProgramManager.class);
+	AdmissionManager admissionManager = (AdmissionManager)SpringUtils.getBean(AdmissionManager.class);
+	GroupNoteDao groupNoteLinkDao = (GroupNoteDao)SpringUtils.getBean(GroupNoteDao.class); 
+	DemographicDao demographicDao = (DemographicDao)SpringUtils.getBean(DemographicDao.class);
+	List<Admission> admissions = admissionManager.getCurrentAdmissionsByProgramId(request.getParameter("programId"));
+	
+	String demographicNo = request.getParameter("demographicNo");
+	
+	String frmName = "caseManagementEntryForm" + demographicNo;
+	CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean)session.getAttribute(frmName);
+	String noteId = cform.getNoteId();
+	boolean isUpdate=false;
 %>
 <html>
 
@@ -74,7 +76,7 @@
 <% } else { %>
 
 <%
-    if (noteId != null && noteId.length() > 0) {
+    if (noteId.length() > 0) {
         List<GroupNoteLink> currentLinks = groupNoteLinkDao.findLinksByNoteId(Integer.parseInt(noteId));
         if (currentLinks.size() > 0) {
             isUpdate = true;

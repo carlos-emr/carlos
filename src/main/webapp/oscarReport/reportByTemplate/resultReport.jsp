@@ -30,7 +30,7 @@
 %>
 
 <%@ page
-        import="java.util.*,ca.openosp.openo.report.reportByTemplate.*,java.sql.*, org.apache.commons.lang.StringEscapeUtils" %>
+        import="java.util.*,ca.openosp.openo.report.reportByTemplate.*,java.sql.*, org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.report.reportByTemplate.ReportObjectGeneric" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -152,7 +152,7 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn" name="csv" value="<%=StringEscapeUtils.escapeHtml(csvList.get(x))%>">
+                <input type="hidden" class="btn" name="csv" value="<%=StringEscapeUtils.escapeHtml4(csvList.get(x))%>">
                 <input type="submit" class="btn" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn" name="getXLS" value="Export to XLS">
             </form>
@@ -172,7 +172,7 @@
                 <samp style="font-size: 11px;">
                     <%
                         for (int x = 0; x < sqlList.size(); x++) {
-                            out.println((x + 1) + ")" + org.apache.commons.lang.StringEscapeUtils.escapeHtml(sqlList.get(x).trim()));
+                            out.println((x + 1) + ")" + org.apache.commons.text.StringEscapeUtils.escapeHtml4(sqlList.get(x).trim()));
                         }
                     %>
                 </samp>

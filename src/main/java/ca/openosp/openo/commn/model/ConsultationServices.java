@@ -118,7 +118,7 @@ public class ConsultationServices extends AbstractModel<Integer> implements Seri
 
     @Override
     public String toString() {
-        return "org.oscarehr.commons.model.ConsultationServices[serviceId=" + serviceId + "]";
+        return "ca.openosp.openo.commn.model.ConsultationServices[serviceId=" + serviceId + "]";
     }
 
     /**

@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../../../securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,7 +54,7 @@
 
         <script language="javascript">
             function edit(nodeName) {
-                window.open('../ScheduleEdit.jsp?node=' + nodeName);
+                window.open('<%= request.getContextPath() %>/oscarEncounter/immunization/ScheduleEdit.jsp/ScheduleEdit.jsp?node=' + nodeName);
             }
 
             function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {

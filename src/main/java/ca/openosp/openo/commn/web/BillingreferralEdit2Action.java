@@ -31,9 +31,10 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import net.sf.json.JSONArray;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.dao.ProfessionalSpecialistDao;
 import ca.openosp.openo.commn.model.ProfessionalSpecialist;
 import ca.openosp.openo.utility.SpringUtils;
@@ -51,6 +52,8 @@ public class BillingreferralEdit2Action extends ActionSupport {
 
 
     private ProfessionalSpecialistDao psDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String execute() throws Exception {
@@ -157,7 +160,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
 
         request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs);
 
-        JSONArray arr = JSONArray.fromObject(checkedSpecs);
+        ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
         response.getWriter().print(arr);
 
         return null;

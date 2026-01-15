@@ -32,7 +32,7 @@ import java.util.Map;
 
 import javax.persistence.Transient;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.XmlUtils;
@@ -226,7 +226,7 @@ public class Provider {
         returnProvider.filters = new ArrayList<FilterDefinition>();
         if (provider.isFilterFAF()) {
             FilterDefinition fd = new FilterDefinition();
-            fd.setFilterClassName("org.oscarehr.appointment.search.filters.FutureApptFilter");
+            fd.setFilterClassName("ca.openosp.openo.appointment.search.filters.FutureApptFilter");
             Map<String, String> params = new HashMap<String, String>();
             params.put("buffer", "" + provider.getFilterFAFbuffer());
             fd.setParams(params);
@@ -234,17 +234,17 @@ public class Provider {
         }
         if (provider.isFilterEAF()) {
             FilterDefinition fd = new FilterDefinition();
-            fd.setFilterClassName("org.oscarehr.appointment.search.filters.ExistingAppointmentFilter");
+            fd.setFilterClassName("ca.openosp.openo.appointment.search.filters.ExistingAppointmentFilter");
             returnProvider.filters.add(fd);
         }
         if (provider.isFilterMUF()) {
             FilterDefinition fd = new FilterDefinition();
-            fd.setFilterClassName("org.oscarehr.appointment.search.filters.MultiUnitFilter");
+            fd.setFilterClassName("ca.openosp.openo.appointment.search.filters.MultiUnitFilter");
             returnProvider.filters.add(fd);
         }
         if (provider.isFilterOAF()) {
             FilterDefinition fd = new FilterDefinition();
-            fd.setFilterClassName("org.oscarehr.appointment.search.filters.OpenAccessFilter");
+            fd.setFilterClassName("ca.openosp.openo.appointment.search.filters.OpenAccessFilter");
             Map<String, String> params = new HashMap<String, String>();
             params.put("codes", "" + provider.getFilterOAFCodes());
             fd.setParams(params);
@@ -252,7 +252,7 @@ public class Provider {
         }
         if (provider.isFilterSCTF()) {
             FilterDefinition fd = new FilterDefinition();
-            fd.setFilterClassName("org.oscarehr.appointment.search.filters.SufficientContiguousTimeFilter");
+            fd.setFilterClassName("ca.openosp.openo.appointment.search.filters.SufficientContiguousTimeFilter");
             returnProvider.filters.add(fd);
         }
 

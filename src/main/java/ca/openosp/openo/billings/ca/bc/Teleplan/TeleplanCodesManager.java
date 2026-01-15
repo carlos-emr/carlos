@@ -36,6 +36,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 
 import ca.openosp.OscarProperties;
 
@@ -63,16 +64,16 @@ REM030 **          Amount               for this Fee Item            **   REM031
 REM075 **          Description          This is a Title description   **                      
 REM076 **                                                             **        
      */
-    public List parse(File f) throws Exception {        
-        // Define allowed directory (configure this based on your needs)
+    public List parse(File f) throws Exception {
+        // Use PathValidationUtils to validate file is in allowed directory or temp
         File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        
-        // Convert to Path and normalize
-        Path filePath = f.toPath().normalize().toAbsolutePath();
-        Path allowedPath = allowedDir.toPath().normalize().toAbsolutePath();
-        
-        if (!filePath.startsWith(allowedPath)) {
-            throw new SecurityException("File access not allowed outside designated directory");
+        try {
+            PathValidationUtils.validateExistingPath(f, allowedDir);
+        } catch (SecurityException e) {
+            // File might be in temp directory from Teleplan API
+            if (!PathValidationUtils.isInAllowedTempDirectory(f)) {
+                throw new SecurityException("File access not allowed outside designated directory");
+            }
         }
 
         BufferedReader buff = new BufferedReader(new FileReader(f));

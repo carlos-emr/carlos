@@ -30,7 +30,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.WordUtils;
+import org.apache.commons.text.WordUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.casemgmt.model.CaseManagementNote;
 import ca.openosp.openo.casemgmt.model.Issue;
@@ -44,7 +44,8 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -62,6 +63,9 @@ public class ConsultationClinicalData2Action extends ActionSupport {
     public ConsultationClinicalData2Action() {
         // Default
     }
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
         String method = request.getParameter("method");
@@ -114,7 +118,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, Integer.parseInt(demographicNo));
 
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("noteType", "Allergies");
         StringBuilder stringBuilder = new StringBuilder();
         String allergin = null;
@@ -170,7 +174,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         Issue issue = caseManagementManager.getIssueByCode(noteType);
         List<CaseManagementNote> riskFactors = caseManagementManager.getNotes(loggedInInfo, demographicNo, new String[]{issue.getId() + ""});
 
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("noteType", noteType);
         StringBuilder stringBuilder = new StringBuilder();
 
@@ -203,7 +207,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         Issue issue = caseManagementManager.getIssueByCode(issueTypeEnum);
         List<CaseManagementNote> issueNoteList = caseManagementManager.getActiveNotes(loggedInInfo, demographicNo, new String[]{issue.getId() + ""});
 
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("noteType", issueTypeEnum.name());
         StringBuilder stringBuilder = new StringBuilder();
 
@@ -228,7 +232,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
     private void medicationToJson(HttpServletResponse response, List<Drug> medications, String notetype) {
 
-        JSONObject json = new JSONObject();
+        ObjectNode json = objectMapper.createObjectNode();
         json.put("noteType", notetype);
         StringBuilder stringBuilder = new StringBuilder();
         String prescription = null;

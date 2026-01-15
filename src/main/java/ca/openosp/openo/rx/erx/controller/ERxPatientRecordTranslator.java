@@ -35,12 +35,12 @@ import ca.openosp.openo.rx.erx.model.ERxPatientData;
 /**
  * An object that translates between Patient objects and ERxPatientData objects.
  * <p>
- * FUTURE: org.oscarehr.rx.erx should, in the future, support more than one
+ * FUTURE: ca.openosp.openo.rx.erx should, in the future, support more than one
  * external prescription service, which is unlikely to use the current patient
  * data model. When this support is added, this class should be renamed to
- * org.oscarehr.rx.erx.PatientRecordTranslator, which should
+ * ca.openosp.openo.rx.erx.PatientRecordTranslator, which should
  * implement a new interface named
- * org.oscarehr.rx.erx.controller.ERxPatientRecordTranslator. This new
+ * ca.openosp.openo.rx.erx.controller.ERxPatientRecordTranslator. This new
  * interface should define two methods: ERxPatientData
  * translateToExternal(Patient) and Patient translateToInternal(ERxPatientData).
  */

@@ -44,7 +44,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect("../securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -154,7 +154,7 @@
 
 
             function goOMD() {
-                var docURL = "../commons/OntarioMDRedirect.jsp?keyword=eCPS&params=" + document.RxSearchDrugForm.searchString.value;
+                var docURL = "<%= request.getContextPath() %>/common/OntarioMDRedirect.jsp?keyword=eCPS&params=" + document.RxSearchDrugForm.searchString.value;
                 popupDrugOfChoice(743, 817, docURL);
             }
 
@@ -493,7 +493,7 @@
                                                                        <input type="button" name="cmdAllergies"
                                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgViewEditAllergies"/>"
                                                                               class="ControlPushButton"
-                                                                              onclick="javascript:window.location.href='oscarRx/ShowAllergies.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
+                                                                              onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
                                                                               style="width: 100px"/>
 								       <input type="button" name="cmdRePrescribe"
                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/>"
@@ -672,7 +672,7 @@
                                 <br>
 
                                 <input type="button" class="ControlPushButton"
-                                       onclick="javascript:window.location.href='oscarRx/viewScript.do';"
+                                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/viewScript.do';"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveAndPrint"/>"/></td>
                         </tr>
                     </c:if>

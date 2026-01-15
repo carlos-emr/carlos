@@ -24,13 +24,13 @@
 
 --%>
 
-<%@page contentType="text/html" %>
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%@page import="java.util.*" %>
 <%
     if (session.getValue("user") == null)
-        response.sendRedirect("../logout.htm");
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
 
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 

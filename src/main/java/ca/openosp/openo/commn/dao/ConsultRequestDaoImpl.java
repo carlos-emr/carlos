@@ -33,9 +33,7 @@ import java.util.List;
 
 import javax.persistence.Query;
 
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
-import org.apache.commons.lang.time.FastDateFormat;
+import org.apache.commons.lang3.StringUtils;
 import ca.openosp.openo.commn.PaginationQuery;
 import ca.openosp.openo.commn.model.ConsultationRequest;
 import ca.openosp.openo.consultations.ConsultationQuery;

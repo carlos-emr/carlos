@@ -25,7 +25,7 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect("../logout.htm");
+    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
 %>
 <%@ page import="java.sql.*, java.util.*, ca.openosp.MyDateFormat" errorPage="/errorpage.jsp" %>
 

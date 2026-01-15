@@ -24,7 +24,7 @@
  */
 package ca.openosp.openo.drools;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.drools.RuleBase;
 import ca.openosp.openo.utility.QueueCache;
 

@@ -54,6 +54,7 @@ import ca.openosp.openo.lab.ca.all.parsers.HHSEmrDownloadHandler;
 import ca.openosp.openo.lab.ca.all.upload.HandlerClassFactory;
 import ca.openosp.openo.lab.ca.all.upload.handlers.MessageHandler;
 import ca.openosp.openo.lab.ca.all.util.Utilities;
+import ca.openosp.openo.utility.PathValidationUtils;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -92,6 +93,27 @@ public class LabUpload2Action extends ActionSupport {
         String type = (String) clientInfo.get(1);
 
         try {
+            // Validate the uploaded file to prevent path traversal attacks
+            if (importFile == null) {
+                logger.error("No file provided for upload");
+                outcome = "exception";
+                httpCode = HttpServletResponse.SC_BAD_REQUEST;
+                request.setAttribute("outcome", outcome);
+                request.setAttribute("audit", audit);
+                return SUCCESS;
+            }
+
+            // Validate file is from an allowed temp directory
+            try {
+                importFile = PathValidationUtils.validateUpload(importFile);
+            } catch (SecurityException e) {
+                logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
+                outcome = "exception";
+                httpCode = HttpServletResponse.SC_FORBIDDEN;
+                request.setAttribute("outcome", outcome);
+                request.setAttribute("audit", audit);
+                return SUCCESS;
+            }
 
             InputStream is = decryptMessage(Files.newInputStream(importFile.toPath()), key, clientKey);
             String fileName = importFile.getName();
