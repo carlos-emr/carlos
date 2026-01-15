@@ -81,7 +81,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * @param demographic_no the demographic number as a string
      * @return list of case management issues for the demographic
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no) {
         Query<CaseManagementIssue> query = getSession().createQuery(
@@ -98,7 +97,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * @param resolved filter for resolved status (null for all)
      * @return list of case management issues ordered by resolved status
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved) {
         String hql = "from CaseManagementIssue cmi where cmi.demographic_no = :demographicNo"
@@ -118,7 +116,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * @param resolved filter for resolved status (null for all)
      * @return list of case management issues for the note
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
         String hql = "from CaseManagementIssue cmi where cmi.notes.id = :noteId"
@@ -137,7 +134,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * @param cmnIssueId the case management issue ID
      * @return the Issue entity, or null if not found
      */
-    @SuppressWarnings("unchecked")
     @Override
     public Issue getIssueByCmnId(Integer cmnIssueId) {
         Query<Issue> query = getSession().createQuery(
@@ -249,7 +245,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * 
      * @return list of all certain case management issues
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getAllCertainIssues() {
         Query<CaseManagementIssue> query = getSession().createQuery(
@@ -267,21 +262,23 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * @param programs the list of programs to check
      * @return list of distinct demographic numbers with updated issues
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs) {
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
+        // Validate that all program IDs are valid integers to prevent SQL injection
+        List<Integer> programIds = new ArrayList<>();
         for (Program p : programs) {
-            if (i++ > 0)
-                sb.append(",");
-            sb.append(p.getId());
+            if (p.getId() == null) {
+                throw new IllegalArgumentException("Program ID cannot be null");
+            }
+            programIds.add(p.getId());
         }
+        
+        // Build HQL with parameterized IN clause
         Query<Integer> query = getSession().createQuery(
-                "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > :date and program_id in ("
-                        + sb.toString() + ")",
+                "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > :date and cmi.program_id in (:programIds)",
                 Integer.class);
         query.setParameter("date", date);
+        query.setParameter("programIds", programIds);
         return query.list();
     }
 
@@ -292,7 +289,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * @param date the date to filter updates from
      * @return list of case management issues updated since the date
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicSince(String demographic_no, Date date) {
         Query<CaseManagementIssue> query = getSession().createQuery(
@@ -312,7 +308,6 @@ public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
      * @param demographicNo the demographic number
      * @return list of composite primary keys for integrator use
      */
-    @SuppressWarnings("unchecked")
     @Override
     public List<FacilityIdDemographicIssueCompositePk> getIssueIdsForIntegrator(Integer facilityId,
                                                                                 Integer demographicNo) {
