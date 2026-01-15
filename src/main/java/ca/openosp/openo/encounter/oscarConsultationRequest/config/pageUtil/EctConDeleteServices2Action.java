@@ -40,6 +40,7 @@ import ca.openosp.openo.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConDeleteServices2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -77,6 +78,7 @@ public class EctConDeleteServices2Action extends ActionSupport {
         return service;
     }
 
+    @StrutsParameter
     public void setService(String str[]) {
         service = str;
     }
