@@ -150,8 +150,10 @@ public class DemographicExportHelper {
                 } else {//amount & unit not separated, probably e.g. 50mg / 2tablet
                     if (strength.length > 1 && strength[1].equals("/")) {
                         if (strength.length > 2) {
-                            String unit1 = Util.leadingNumWithFraction(strength[2]).equals("") ? "1" : Util.leadingNumWithFraction(strength[2]);
-                            String unit2 = Util.trailingTxt(strength[2]).equals("") ? "unit" : Util.trailingTxt(strength[2]);
+                            String leadingPart = Util.leadingNumWithFraction(strength[2]);
+                            String unit1 = (leadingPart == null || leadingPart.isEmpty()) ? "1" : leadingPart;
+                            String trailingPart = Util.trailingTxt(strength[2]);
+                            String unit2 = (trailingPart == null || trailingPart.isEmpty()) ? "unit" : trailingPart;
 
                             drugM.setAmount(Util.leadingNumWithFraction(strength[0]) + "/" + unit1);
                             drugM.setUnitOfMeasure(Util.trailingTxt(strength[0]) + "/" + unit2);
