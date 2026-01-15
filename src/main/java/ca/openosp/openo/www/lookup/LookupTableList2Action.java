@@ -32,6 +32,7 @@ import ca.openosp.openo.services.LookupManager;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import ca.openosp.openo.utility.SpringUtils;
 
 public class LookupTableList2Action extends ActionSupport {
@@ -67,6 +68,7 @@ public class LookupTableList2Action extends ActionSupport {
         return modules;
     }
 
+    @StrutsParameter
     public void setModules(List modules) {
         this.modules = modules;
     }
