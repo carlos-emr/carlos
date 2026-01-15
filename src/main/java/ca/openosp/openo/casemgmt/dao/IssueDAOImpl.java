@@ -32,77 +32,176 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.HibernateException;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 import ca.openosp.openo.casemgmt.model.Issue;
 import ca.openosp.openo.commn.dao.AbstractDaoImpl;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.HibernateCallback;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import ca.openosp.openo.model.security.Secrole;
 
-public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
+/**
+ * Data Access Object implementation for managing Issue entities.
+ * <p>
+ * This DAO provides CRUD operations and search functionality for medical issues/diagnoses
+ * used in case management. Issues can be filtered by role, searched by code or description,
+ * and linked to various case management workflows.
+ * </p>
+ * <p>
+ * Migrated from HibernateDaoSupport to direct SessionFactory injection for Spring 6 compatibility.
+ * </p>
+ *
+ * @since 2.0
+ */
+public class IssueDAOImpl implements IssueDAO {
     private static Logger logger = MiscUtils.getLogger();
 
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session.
+     *
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    /**
+     * Retrieves an Issue by its ID.
+     *
+     * @param id the unique identifier of the Issue
+     * @return the Issue entity, or null if not found
+     */
     @Override
     public Issue getIssue(Long id) {
-        return getHibernateTemplate().get(Issue.class, id);
+        return getSession().get(Issue.class, id);
     }
 
+    /**
+     * Retrieves all Issues in the system.
+     *
+     * @return a list of all Issue entities
+     */
     @Override
+    @SuppressWarnings("unchecked")
     public List<Issue> getIssues() {
-        return (List<Issue>) this.getHibernateTemplate().find("from Issue");
+        return getSession().createQuery("from Issue").list();
     }
 
+    /**
+     * Finds Issues by an array of issue codes.
+     * <p>
+     * Note: This method concatenates codes into SQL which could be replaced with 
+     * parameterized queries for better security in future refactoring.
+     * </p>
+     *
+     * @param codes array of issue codes to search for
+     * @return list of Issues matching any of the provided codes
+     */
     @Override
+    @SuppressWarnings("unchecked")
     public List<Issue> findIssueByCode(String[] codes) {
         String code = "'" + StringUtils.join(codes, "','") + "'";
-        return (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.code in (" + code + ")");
+        return getSession().createQuery("from Issue i where i.code in (" + code + ")").list();
     }
 
+    /**
+     * Finds a single Issue by its code.
+     *
+     * @param code the issue code to search for
+     * @return the first Issue matching the code, or null if not found
+     */
     @Override
+    @SuppressWarnings("unchecked")
     public Issue findIssueByCode(String code) {
-        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.code = ?0",
-                new Object[]{code});
+        List<Issue> list = getSession().createQuery("from Issue i where i.code = :code")
+                .setParameter("code", code)
+                .list();
         if (list.size() > 0)
             return list.get(0);
 
         return null;
     }
 
+    /**
+     * Finds a single Issue by its type and code.
+     *
+     * @param type the issue type
+     * @param code the issue code
+     * @return the first Issue matching both type and code, or null if not found
+     */
     @Override
+    @SuppressWarnings("unchecked")
     public Issue findIssueByTypeAndCode(String type, String code) {
-        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.type=?0 and i.code = ?1",
-                new Object[]{type, code});
+        List<Issue> list = getSession().createQuery("from Issue i where i.type=:type and i.code = :code")
+                .setParameter("type", type)
+                .setParameter("code", code)
+                .list();
         if (list.size() > 0)
             return list.get(0);
 
         return null;
     }
 
+    /**
+     * Saves or updates an Issue entity.
+     *
+     * @param issue the Issue to save or update
+     */
     @Override
     public void saveIssue(Issue issue) {
-        this.getHibernateTemplate().saveOrUpdate(issue);
+        getSession().saveOrUpdate(issue);
     }
 
+    /**
+     * Deletes an Issue by its ID.
+     *
+     * @param issueId the ID of the Issue to delete
+     * @deprecated Consider using a soft delete or archiving mechanism instead
+     */
     @Deprecated
     @Override
     public void delete(Long issueId) {
-        this.getHibernateTemplate().delete(getIssue(issueId));
+        Issue issue = getIssue(issueId);
+        if (issue != null) {
+            getSession().delete(issue);
+        }
     }
 
+    /**
+     * Searches for Issues by code or description using case-insensitive LIKE matching.
+     *
+     * @param search the search term to match against code or description
+     * @return list of Issues matching the search criteria
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Issue> findIssueBySearch(String search) {
         search = "%" + search + "%";
         search = search.toLowerCase();
-        String sql = "from Issue i where lower(i.code) like ?0 or lower(i.description) like ?1";
-        return (List<Issue>) this.getHibernateTemplate().find(sql, new Object[]{search, search});
+        String sql = "from Issue i where lower(i.code) like :search1 or lower(i.description) like :search2";
+        return getSession().createQuery(sql)
+                .setParameter("search1", search)
+                .setParameter("search2", search)
+                .list();
     }
 
+    /**
+     * Retrieves a list of Issue IDs filtered by security roles.
+     * <p>
+     * Note: This method builds SQL with concatenated role names which could be 
+     * replaced with parameterized queries in future refactoring.
+     * </p>
+     *
+     * @param roles list of security roles to filter by
+     * @return list of Issue IDs accessible to the given roles, ordered by sortOrderId
+     */
     @Override
+    @SuppressWarnings("unchecked")
     public List<Long> getIssueCodeListByRoles(List<Secrole> roles) {
         if (roles.size() == 0) {
             return new ArrayList<Long>();
@@ -119,9 +218,22 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
         String sql = "select i.id from Issue i where i.role in (" + roleList + ") order by sortOrderId";
         logger.debug(sql);
-        return (List<Long>) this.getHibernateTemplate().find(sql);
+        return getSession().createQuery(sql).list();
     }
 
+    /**
+     * Searches for Issues by search term and filters by security roles with pagination.
+     * <p>
+     * Searches across code, description, and role fields using case-insensitive LIKE matching.
+     * Results are filtered by role and support pagination with maximum result limits.
+     * </p>
+     *
+     * @param search the search term to match
+     * @param roles list of security roles to filter by
+     * @param startIndex the starting index for pagination (0-based)
+     * @param numToReturn the maximum number of results to return
+     * @return paginated list of Issues matching the criteria, ordered by sortOrderId
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Issue> search(String search, List<Secrole> roles, final int startIndex, final int numToReturn) {
@@ -140,23 +252,25 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
         search = "%" + search + "%";
         search = search.toLowerCase();
-        final String sql = "from Issue i where (lower(i.code) like ?1 or lower(i.description) like ?1  or lower(i.role) like ?2) and i.role in ("
+        final String sql = "from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :roleSearch) and i.role in ("
                 + roleList + ") order by sortOrderId";
         logger.debug(sql);
-        final String s = search;
-        return (List<Issue>) getHibernateTemplate().execute(new HibernateCallback<List<Issue>>() {
-            public List<Issue> doInHibernate(Session session) throws HibernateException {
-                Query q = session.createQuery(sql);
-                q.setMaxResults(Math.min(numToReturn, AbstractDaoImpl.MAX_LIST_RETURN_SIZE));
-                q.setFirstResult(startIndex);
-                q.setParameter(1, s);
-                q.setParameter(2, roleList);
-                return q.list();
-            }
-        });
-
+        
+        Query q = getSession().createQuery(sql);
+        q.setMaxResults(Math.min(numToReturn, AbstractDaoImpl.MAX_LIST_RETURN_SIZE));
+        q.setFirstResult(startIndex);
+        q.setParameter("search", search);
+        q.setParameter("roleSearch", roleList);
+        return q.list();
     }
 
+    /**
+     * Counts the number of Issues matching search criteria and role filters.
+     *
+     * @param search the search term to match against code, description, and role
+     * @param roles list of security roles to filter by
+     * @return the count of matching Issues, or 0 if none found
+     */
     @SuppressWarnings("unchecked")
     @Override
     public Integer searchCount(String search, List<Secrole> roles) {
@@ -175,11 +289,14 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
         search = "%" + search + "%";
         search = search.toLowerCase();
-        final String sql = "select count(i) from Issue i where (lower(i.code) like ?0 or lower(i.description) like ?1  or lower(i.role) like ?2) and i.role in ("
+        final String sql = "select count(i) from Issue i where (lower(i.code) like :search1 or lower(i.description) like :search2 or lower(i.role) like :search3) and i.role in ("
                 + roleList + ") order by sortOrderId";
         logger.debug(sql);
-        List<Long> result = (List<Long>) this.getHibernateTemplate().find(sql,
-                new Object[]{search, search, roleList});
+        List<Long> result = getSession().createQuery(sql)
+                .setParameter("search1", search)
+                .setParameter("search2", search)
+                .setParameter("search3", roleList)
+                .list();
 
         if (result.size() > 0) {
             return result.get(0).intValue();
@@ -188,13 +305,27 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
         return 0;
     }
 
+    /**
+     * Searches for Issues without role filtering.
+     * <p>
+     * Searches across code and description fields using case-insensitive LIKE matching.
+     * No role-based security filtering is applied.
+     * </p>
+     *
+     * @param search the search term to match
+     * @return list of Issues matching the search criteria
+     */
     @Override
+    @SuppressWarnings("unchecked")
     public List searchNoRolesConcerned(String search) {
         search = "%" + search + "%";
         search = search.toLowerCase();
-        String sql = "from Issue i where (lower(i.code) like ?0 or lower(i.description) like ?1)";
+        String sql = "from Issue i where (lower(i.code) like :search1 or lower(i.description) like :search2)";
         logger.debug(sql);
-        return this.getHibernateTemplate().find(sql, new Object[]{search, search});
+        return getSession().createQuery(sql)
+                .setParameter("search1", search)
+                .setParameter("search2", search)
+                .list();
     }
 
     /**
@@ -202,7 +333,8 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
      * in oscar_mcmaster.properties as COMMUNITY_ISSUE_CODETYPE,
      * or an empty list if this property is not found.
      *
-     * @param type
+     * @param type the community issue code type to filter by
+     * @return list of Issue codes matching the specified type, or empty list if type is null/empty
      */
     @SuppressWarnings("unchecked")
     @Override
@@ -211,8 +343,9 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
         if (type == null || type.equals("")) {
             codes = new ArrayList<String>();
         } else {
-            codes = (List<String>) this.getHibernateTemplate().find("FROM Issue i WHERE i.type = ?0",
-                    new Object[]{type.toLowerCase()});
+            codes = getSession().createQuery("FROM Issue i WHERE i.type = :type")
+                    .setParameter("type", type.toLowerCase())
+                    .list();
         }
         return codes;
     }
