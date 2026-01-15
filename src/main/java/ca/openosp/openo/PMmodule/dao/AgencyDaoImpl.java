@@ -66,6 +66,7 @@ public class AgencyDaoImpl implements AgencyDao {
 
         String queryStr = "FROM Agency a";
         TypedQuery<Agency> query = entityManager.createQuery(queryStr, Agency.class);
+        query.setMaxResults(1);
         List<Agency> results = query.getResultList();
 
         if (!results.isEmpty()) {
