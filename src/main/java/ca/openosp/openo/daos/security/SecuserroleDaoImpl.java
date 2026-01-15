@@ -249,7 +249,7 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
         // Using constants ensures only safe column names are used
         if (!PROVIDER_NO.equals(propertyName) && !ROLE_NAME.equals(propertyName) 
                 && !ORGCD.equals(propertyName) && !ACTIVEYN.equals(propertyName)) {
-            throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            throw new IllegalArgumentException("Invalid property name");
         }
         
         Session session = getSession();
@@ -295,8 +295,9 @@ public class SecuserroleDaoImpl implements SecuserroleDao {
 
             String queryString = "select a from Secuserrole a, LstOrgcd b, SecProvider p"
                     + " where a.providerNo=p.providerNo and b.code = :orgcd";
-            if (activeOnly)
+            if (activeOnly) {
                 queryString += " and p.status='1'";
+            }
 
             queryString = queryString
                     + " and b.codecsv like '%' || a.orgcd || ',%'"
