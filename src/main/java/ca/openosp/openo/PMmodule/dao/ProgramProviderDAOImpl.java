@@ -33,13 +33,26 @@ import ca.openosp.openo.PMmodule.model.ProgramProvider;
 import ca.openosp.openo.commn.model.Facility;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.QueueCache;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Iterator;
 import java.util.List;
 
-public class ProgramProviderDAOImpl extends HibernateDaoSupport implements ProgramProviderDAO {
+/**
+ * Data Access Object implementation for ProgramProvider entity.
+ * Manages persistence operations for program-provider associations in the PMmodule.
+ * 
+ * <p>This DAO handles CRUD operations and various query methods for managing
+ * relationships between healthcare programs and providers, including team assignments,
+ * role management, and facility-based filtering.</p>
+ * 
+ * @since 2024-01-15
+ */
+public class ProgramProviderDAOImpl implements ProgramProviderDAO {
 
     private Logger log = MiscUtils.getLogger();
 
