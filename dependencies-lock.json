@@ -1049,13 +1049,13 @@
     "optional" : false,
     "integrity" : "sha512:TwFPvvJ26/FjK4lf62j/EougiuxjxO31bxHm03M4W3DWzrtxzJWaGBclVXMCBl1azuLu6orRzlaDGuwbO2YKhQ=="
   }, {
-    "groupId" : "displaytag",
+    "groupId" : "com.github.hazendaz",
     "artifactId" : "displaytag",
-    "version" : "1.2",
+    "version" : "2.9.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:zejfe+mZG9NlrupVMNs/qWNs86GzwuTzE+6O2g78Glg3V2Jj/VQmiDgbNUHGdfo8xXEqVllBQpMxAXAKDIHvyw=="
+    "integrity" : "sha512:BERkZzVHVcWUGG2qGbqxTfxLQbhb2DbH0kM76zqu0kuQk32c5ylWfqogj3z5Rx3y3W7dz71M9m/feVGo9kBkAQ=="
   }, {
     "groupId" : "drools",
     "artifactId" : "drools-all",
