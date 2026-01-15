@@ -33,23 +33,58 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
 import ca.openosp.openo.PMmodule.model.FormInfo;
 import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 
-public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
+/**
+ * Data Access Object implementation for managing form-related database operations in the PM module.
+ * This class handles persistence operations for form data including saving forms and retrieving form information.
+ * Migrated from HibernateDaoSupport to direct SessionFactory injection for Spring 6 compatibility.
+ *
+ * @since 2.0
+ */
+public class FormsDAOImpl implements FormsDAO {
 
     private Logger log = MiscUtils.getLogger();
 
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session from the session factory.
+     *
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    /**
+     * Saves a form object to the database.
+     *
+     * @param o the form object to save
+     */
     public void saveForm(Object o) {
-        this.getHibernateTemplate().save(o);
+        getSession().save(o);
 
         if (log.isDebugEnabled()) {
             log.debug("saveForm:" + o);
         }
     }
 
+    /**
+     * Retrieves the current form for a given client and form class.
+     *
+     * @param clientId the ID of the client
+     * @param clazz the class type of the form to retrieve
+     * @return the current form object if found, null otherwise
+     * @throws IllegalArgumentException if clientId or clazz is null
+     */
     public Object getCurrentForm(String clientId, Class clazz) {
         Object result = null;
 
@@ -61,8 +96,10 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         if (className.indexOf(".") != -1) {
             className = className.substring(className.lastIndexOf(".") + 1);
         }
-        String sSQL = "from ?0 f where f.DemographicNo=?1";
-        List results = this.getHibernateTemplate().find(sSQL, new Object[]{className, clientId});
+        String sSQL = "from " + className + " f where f.DemographicNo=:clientId";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("clientId", clientId);
+        List results = query.list();
         if (results.size() > 0) {
             result = results.get(0);
         }
@@ -74,6 +111,15 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         return result;
     }
 
+    /**
+     * Retrieves form information for a given client and form class.
+     * Returns a list of form metadata including form ID, provider information, and edit dates.
+     *
+     * @param clientId the ID of the client
+     * @param clazz the class type of the form to retrieve information for
+     * @return a list of FormInfo objects containing form metadata
+     * @throws IllegalArgumentException if clientId or clazz is null
+     */
     public List getFormInfo(String clientId, Class clazz) {
         if (clientId == null || clazz == null) {
             throw new IllegalArgumentException();
@@ -84,19 +130,17 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         if (className.indexOf(".") != -1) {
             className = className.substring(className.lastIndexOf(".") + 1);
         }
-        String sSQL = "select f.id,f.ProviderNo,f.FormEdited from ?0 f where f.DemographicNo=?1 order by f.FormEdited DESC";
-        Object[] params = new Object[] {
-            className,
-            Long.valueOf(clientId)
-        };
-        List results = this.getHibernateTemplate().find(sSQL, params);
+        String sSQL = "select f.id,f.ProviderNo,f.FormEdited from " + className + " f where f.DemographicNo=:clientId order by f.FormEdited DESC";
+        Query query = getSession().createQuery(sSQL);
+        query.setParameter("clientId", Long.valueOf(clientId));
+        List results = query.list();
         for (Iterator iter = results.iterator(); iter.hasNext(); ) {
             FormInfo fi = new FormInfo();
             Object[] values = (Object[]) iter.next();
             Long id = (Long) values[0];
             Long providerNo = (Long) values[1];
             Date dateEdited = (Date) values[2];
-            Provider provider = this.getHibernateTemplate().get(Provider.class, String.valueOf(providerNo));
+            Provider provider = getSession().get(Provider.class, String.valueOf(providerNo));
             fi.setFormId(id);
             fi.setProviderNo(providerNo);
             fi.setFormDate(dateEdited);
