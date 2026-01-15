@@ -75,6 +75,18 @@ String measurement = request.getParameter("measurement");
 String demographic = request.getParameter("demographic");
 String scope = request.getParameter("scope");
 
+    String module = "";
+    String htQueryString = "";
+    if (request.getParameter("htracker") != null) {
+        module = "htracker";
+        htQueryString = "&" + module;
+    }
+
+    if (request.getParameter("htracker") != null && request.getParameter("htracker").equals("slim")) {
+        module = "slim";
+        htQueryString = htQueryString + "=slim";
+    }
+
     long start = System.currentTimeMillis();
 
     List<FlowSheetCustomization> custList = null;
@@ -83,9 +95,9 @@ if(scope != null && "clinic".equals(scope)) {
     custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet);
 } else {
     if(demographic == null || demographic.isEmpty()) {
-        custList = flowSheetCustomizationDao.getFlowSheetCustomizations( flowsheet,(String) session.getAttribute("user"));
+        custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"));
     } else {
-        custList = flowSheetCustomizationDao.getFlowSheetCustomizationsForPatient(flowsheet,demographic);
+        custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"), Integer.parseInt(demographic));
     }
 }
 
@@ -96,6 +108,7 @@ if(scope != null && "clinic".equals(scope)) {
     Map h2 = mFlowsheet.getMeasurementFlowSheetInfo(measurement);
     List<Recommendation> dsR = mFlowsheet.getDSElements((String) h2.get("measurement_type"));
     FlowSheetItem fsi = mFlowsheet.getFlowSheetItem(measurement);
+
 //EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
 %>
 
@@ -468,9 +481,9 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>" class="btn">Cancel</a>
+                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn">Cancel</a>
                         <%} else { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&demographic=<%=demographic%>"
+                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&demographic=<%=demographic%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>"
                            class="btn">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>

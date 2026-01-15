@@ -17,7 +17,6 @@ LABEL author="OpenOSP" \
       version="0.0.2" \
       description="OpenOSP Docker Image for Development Environment"
 
-ARG DRUGREF_DOWNLOAD_URL=https://bitbucket.org/openoscar/drugref/downloads/drugref2.war
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
@@ -100,8 +99,8 @@ RUN rm -rf $TOMCAT_PATH/webapps/ROOT/* \
 # Create ROOT folder
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 
-# Download Dependency DrugRef2.war
-RUN curl -sSL -o $TOMCAT_PATH/webapps/drugref2.war $DRUGREF_DOWNLOAD_URL
+# NOTE: DrugRef2 runs in a separate Java 11 container (see .devcontainer/drugref/)
+# Open-Drugref requires Java 11 while Open-O uses Java 21
 
 # Copy scripts and config files
 COPY ./scripts /scripts

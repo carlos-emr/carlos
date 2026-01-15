@@ -50,6 +50,8 @@ import org.springframework.context.annotation.Lazy;
 import ca.openosp.openo.eform.EFormUtil;
 import ca.openosp.openo.eform.data.EForm;
 import ca.openosp.openo.log.LogAction;
+import ca.openosp.openo.log.LogConst;
+import ca.openosp.openo.commn.model.OscarLog;
 import ca.openosp.openo.encounter.data.EctFormData;
 
 @Service
@@ -91,11 +93,30 @@ public class EformDataManagerImpl implements EformDataManager {
         eFormDataDao.persist(eFormData);
         formid = eFormData.getId();
 
-        if (formid != null) {
-            LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformData", "Saved EformDataID=" + formid);
-        } else {
-            LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformData", "Failed to save eform EformDataID=" + formid);
+        OscarLog logEntry = new OscarLog();
+        logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        if (loggedInInfo.getLoggedInSecurity() != null) {
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
         }
+        logEntry.setAction(LogConst.ADD);
+        logEntry.setContent("eform");
+        logEntry.setIp(loggedInInfo.getIp());
+        try {
+            String demoNo = eform.getDemographicNo();
+            if (demoNo != null) {
+                logEntry.setDemographicId(Integer.parseInt(demoNo));
+            }
+        } catch (NumberFormatException e) {
+            // demographic not set - continue without it
+        }
+
+        if (formid != null) {
+            logEntry.setContentId(formid.toString());
+            logEntry.setData("Saved eform: " + eform.getFormName());
+        } else {
+            logEntry.setData("Failed to save eform: " + eform.getFormName());
+        }
+        LogAction.addLogSynchronous(logEntry);
 
         return formid;
     }

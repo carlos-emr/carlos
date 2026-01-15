@@ -516,7 +516,7 @@
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>2.0.27</version>
+            <version>2.0.35</version>
         </dependency>
         <dependency>
             <groupId>com.twelvemonkeys.common</groupId>
@@ -576,7 +576,7 @@
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
-            <version>6.17.0</version>
+            <version>6.20.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>bouncycastle</groupId>
@@ -861,7 +861,7 @@
         <dependency>
             <groupId>org.glassfish.jersey.core</groupId>
             <artifactId>jersey-client</artifactId>
-            <version>2.39.1</version>
+            <version>2.46</version>
             <!-- Exclude it to avoid conflict with the apache.cxf's jakarta.ws.rs-api -->
             <exclusions>
                 <exclusion>
@@ -1571,14 +1571,11 @@
                                     <format property="build.dateTime.value" pattern="yyyy-MM-dd hh:mm aa"/>
                                 </tstamp>
                                 <echo level="info" message="build time : ${build.dateTime.value}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.dateTime}"
-                                         value="${build.dateTime.value}"/>
+                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
                                 <property environment="env"/>
                                 <echo level="info" message="JOB_NAME - BUILD_NUMBER : ${env.JOB_NAME}-${env.BUILD_NUMBER}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.JOB_NAME}"
-                                         value="${env.JOB_NAME}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.BUILD_NUMBER}"
-                                         value="${env.BUILD_NUMBER}"/>
+                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
+                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
                             </target>
                         </configuration>
                     </execution>
