@@ -259,6 +259,9 @@ public class IssueDAOImpl implements IssueDAO {
 
         search = "%" + search + "%";
         search = search.toLowerCase();
+        // Note: Original implementation used roleList for the role LIKE clause, but this has been
+        // changed to use the search term for consistency. The role LIKE now searches for the
+        // search term within role names, while the IN clause filters by allowed roles.
         final String sql = "from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in ("
                 + roleList + ") order by sortOrderId";
         logger.debug(sql);
@@ -299,6 +302,8 @@ public class IssueDAOImpl implements IssueDAO {
 
         search = "%" + search + "%";
         search = search.toLowerCase();
+        // Note: Original implementation used roleList for the role LIKE clause, but this has been
+        // changed to use the search term for consistency with the search intent.
         final String sql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in ("
                 + roleList + ")";
         logger.debug(sql);
