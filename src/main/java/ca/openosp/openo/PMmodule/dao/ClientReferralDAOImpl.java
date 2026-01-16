@@ -40,7 +40,6 @@ import ca.openosp.openo.commn.model.Admission;
 import ca.openosp.openo.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
-import org.hibernate.Query;
 
 /**
  * Data Access Object implementation for ClientReferral entities.
@@ -63,7 +62,7 @@ public class ClientReferralDAOImpl implements ClientReferralDAO {
      * 
      * @return the current Hibernate session
      */
-    protected Session getSession() {
+    private Session getSession() {
         return sessionFactory.getCurrentSession();
     }
 
@@ -386,7 +385,7 @@ public class ClientReferralDAOImpl implements ClientReferralDAO {
     public List<ClientReferral> search(ClientReferral referral) {
         Criteria criteria = getSession().createCriteria(ClientReferral.class);
 
-        if (referral != null && referral.getProgramId().longValue() > 0) {
+        if (referral != null && referral.getProgramId() != null && referral.getProgramId().longValue() > 0) {
             criteria.add(Expression.eq("ProgramId", referral.getProgramId()));
         }
 
