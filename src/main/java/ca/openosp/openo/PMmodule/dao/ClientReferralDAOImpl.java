@@ -38,23 +38,45 @@ import ca.openosp.openo.PMmodule.model.ClientReferral;
 import ca.openosp.openo.PMmodule.model.Program;
 import ca.openosp.openo.commn.model.Admission;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
+import org.hibernate.Query;
 
-public class ClientReferralDAOImpl extends HibernateDaoSupport implements ClientReferralDAO {
+/**
+ * Data Access Object implementation for ClientReferral entities.
+ * Handles database operations for client referrals in the PMmodule system.
+ * 
+ * <p>This implementation uses direct SessionFactory injection instead of the deprecated
+ * HibernateDaoSupport to prepare for Spring 6 and Jakarta EE migration.</p>
+ * 
+ * @since OpenO v1.0
+ */
+public class ClientReferralDAOImpl implements ClientReferralDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
-
+    
     @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session from the session factory.
+     * 
+     * @return the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
     }
 
+    /**
+     * Retrieves all client referrals from the database.
+     * 
+     * @return list of all ClientReferral entities
+     */
     public List<ClientReferral> getReferrals() {
         @SuppressWarnings("unchecked")
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find("from ClientReferral");
+        List<ClientReferral> results = (List<ClientReferral>) getSession()
+            .createQuery("from ClientReferral")
+            .list();
 
         if (log.isDebugEnabled()) {
             log.debug("getReferrals: # of results=" + results.size());
@@ -63,6 +85,13 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return results;
     }
 
+    /**
+     * Retrieves all referrals for a specific client.
+     * 
+     * @param clientId the client ID to search for
+     * @return list of ClientReferral entities for the specified client
+     * @throws IllegalArgumentException if clientId is null or <= 0
+     */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getReferrals(Long clientId) {
 
@@ -70,8 +99,11 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             throw new IllegalArgumentException();
         }
         
-        String sSQL = "from ClientReferral cr where cr.ClientId = ?0";
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find(sSQL, clientId);
+        String sSQL = "from ClientReferral cr where cr.ClientId = :clientId";
+        List<ClientReferral> results = (List<ClientReferral>) getSession()
+            .createQuery(sSQL)
+            .setParameter("clientId", clientId)
+            .list();
 
         if (log.isDebugEnabled()) {
             log.debug("getReferrals: clientId=" + clientId + ",# of results=" + results.size());
@@ -84,6 +116,14 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return results;
     }
 
+    /**
+     * Retrieves referrals for a specific client filtered by facility.
+     * 
+     * @param clientId the client ID to search for
+     * @param facilityId the facility ID to filter by
+     * @return list of ClientReferral entities matching the criteria
+     * @throws IllegalArgumentException if clientId is null or <= 0, or facilityId is null or < 0
+     */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getReferralsByFacility(Long clientId, Integer facilityId) {
 
@@ -94,14 +134,15 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ClientReferral cr where cr.ClientId = ?0 " +
-                " and ( (cr.FacilityId=?1) or (cr.ProgramId in (select s.id from Program s where s.facilityId=?2 or s.facilityId is null)))";
-        Object[] param = new Object[]{
-            clientId,
-            facilityId,
-            facilityId
-        };
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find(sSQL, param);
+        String sSQL = "from ClientReferral cr where cr.ClientId = :clientId " +
+                " and ( (cr.FacilityId=:facilityId1) or (cr.ProgramId in (select s.id from Program s where s.facilityId=:facilityId2 or s.facilityId is null)))";
+        
+        List<ClientReferral> results = (List<ClientReferral>) getSession()
+            .createQuery(sSQL)
+            .setParameter("clientId", clientId)
+            .setParameter("facilityId1", facilityId)
+            .setParameter("facilityId2", facilityId)
+            .list();
 
         if (log.isDebugEnabled()) {
             log.debug("getReferralsByFacility: clientId=" + clientId + ",# of results=" + results.size());
@@ -110,8 +151,13 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return results;
     }
 
-    // [ 1842692 ] RFQ Feature - temp change for pmm referral history report
-    // - suggestion: to add a new field to the table client_referral (Referring program/agency)
+    /**
+     * Processes and enriches referral results with additional program information.
+     * This is a temporary solution for the referral history report.
+     * 
+     * @param lResult the list of referrals to process
+     * @return processed list with additional completion notes and external program flags
+     */
     public List<ClientReferral> displayResult(List<ClientReferral> lResult) {
         List<ClientReferral> ret = new ArrayList<ClientReferral>();
         //ProgramDao pd = new ProgramDao();
@@ -122,10 +168,13 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
             ClientReferral result = null;
 
-            String sSQL = "from ClientReferral r where r.ClientId = 0 and r.Id < ?1 order by r.Id desc";
-            Object[] param = new Object[]{cr.getClientId(), cr.getId()};
+            String sSQL = "from ClientReferral r where r.ClientId = :clientId and r.Id < :id order by r.Id desc";
             @SuppressWarnings("unchecked")
-            List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find(sSQL, param);
+            List<ClientReferral> results = (List<ClientReferral>) getSession()
+                .createQuery(sSQL)
+                .setParameter("clientId", cr.getClientId())
+                .setParameter("id", cr.getId())
+                .list();
 
             // temp - completionNotes/Referring program/agency, notes/External
             String completionNotes = "";
@@ -152,6 +201,13 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return ret;
     }
 
+    /**
+     * Checks if a program is an external program.
+     * 
+     * @param programId the program ID to check
+     * @return true if the program is external, false otherwise
+     * @throws IllegalArgumentException if programId is null or <= 0
+     */
     private boolean isExternalProgram(Integer programId) {
         boolean result = false;
 
@@ -159,9 +215,12 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             throw new IllegalArgumentException();
         }
 
-        String queryStr = "FROM Program p WHERE p.id = ?0 AND p.type = 'external'";
+        String queryStr = "FROM Program p WHERE p.id = :programId AND p.type = 'external'";
         @SuppressWarnings("unchecked")
-        List<Program> rs = (List<Program>) getHibernateTemplate().find(queryStr, programId);
+        List<Program> rs = (List<Program>) getSession()
+            .createQuery(queryStr)
+            .setParameter("programId", programId)
+            .list();
 
         if (!rs.isEmpty()) {
             result = true;
@@ -174,18 +233,37 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return result;
     }
 
+    /**
+     * Retrieves all admissions for a demographic/client ordered by admission date.
+     * 
+     * @param demographicNo the demographic number to search for
+     * @return list of Admission entities ordered by admission date descending
+     * @throws IllegalArgumentException if demographicNo is null or <= 0
+     */
     private List<Admission> getAdmissions(Integer demographicNo) {
         if (demographicNo == null || demographicNo <= 0) {
             throw new IllegalArgumentException();
         }
 
-        String queryStr = "FROM Admission a WHERE a.clientId=?0 ORDER BY a.admissionDate DESC";
+        String queryStr = "FROM Admission a WHERE a.clientId=:clientId ORDER BY a.admissionDate DESC";
         @SuppressWarnings("unchecked")
-        List<Admission> rs = (List<Admission>) getHibernateTemplate().find(queryStr, new Object[]{demographicNo});
+        List<Admission> rs = (List<Admission>) getSession()
+            .createQuery(queryStr)
+            .setParameter("clientId", demographicNo)
+            .list();
         return rs;
     }
     // end of change
 
+    /**
+     * Retrieves active referrals for a client, optionally filtered by facility.
+     * Active referrals include those with status: ACTIVE, PENDING, or UNKNOWN.
+     * 
+     * @param clientId the client ID to search for
+     * @param facilityId the facility ID to filter by (can be null)
+     * @return list of active ClientReferral entities
+     * @throws IllegalArgumentException if clientId is null or <= 0
+     */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getActiveReferrals(Long clientId, Integer facilityId) {
         if (clientId == null || clientId.longValue() <= 0) {
@@ -194,26 +272,26 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
         List<ClientReferral> results;
         if (facilityId == null) {
-            String resultQuery = "from ClientReferral cr where cr.ClientId = ?0 and (cr.Status = '?1' or cr.Status = '?2' or cr.Status = '?3')";
-            Object[] param = new Object[]{
-                clientId,
-                ClientReferral.STATUS_ACTIVE,
-                ClientReferral.STATUS_PENDING,
-                ClientReferral.STATUS_UNKNOWN
-            };
-            results = (List<ClientReferral>) this.getHibernateTemplate().find(resultQuery, param);
+            String resultQuery = "from ClientReferral cr where cr.ClientId = :clientId and (cr.Status = :status1 or cr.Status = :status2 or cr.Status = :status3)";
+            results = (List<ClientReferral>) getSession()
+                .createQuery(resultQuery)
+                .setParameter("clientId", clientId)
+                .setParameter("status1", ClientReferral.STATUS_ACTIVE)
+                .setParameter("status2", ClientReferral.STATUS_PENDING)
+                .setParameter("status3", ClientReferral.STATUS_UNKNOWN)
+                .list();
         } else {
-            String sSQL = "from ClientReferral cr where cr.ClientId = ?0 and (cr.Status = '?1' or cr.Status = '?2' or cr.Status = '?3')" +
-                    " and ( (cr.FacilityId=?4) or (cr.ProgramId in (select s.id from Program s where s.facilityId=?5)))";
-            Object params[] = new Object[] {
-                ClientReferral.STATUS_ACTIVE,
-                ClientReferral.STATUS_PENDING,
-                ClientReferral.STATUS_UNKNOWN,
-                clientId,
-                facilityId,
-                facilityId
-            };
-            results = (List<ClientReferral>) getHibernateTemplate().find(sSQL, params);
+            String sSQL = "from ClientReferral cr where cr.ClientId = :clientId and (cr.Status = :status1 or cr.Status = :status2 or cr.Status = :status3)" +
+                    " and ( (cr.FacilityId=:facilityId1) or (cr.ProgramId in (select s.id from Program s where s.facilityId=:facilityId2)))";
+            results = (List<ClientReferral>) getSession()
+                .createQuery(sSQL)
+                .setParameter("clientId", clientId)
+                .setParameter("status1", ClientReferral.STATUS_ACTIVE)
+                .setParameter("status2", ClientReferral.STATUS_PENDING)
+                .setParameter("status3", ClientReferral.STATUS_UNKNOWN)
+                .setParameter("facilityId1", facilityId)
+                .setParameter("facilityId2", facilityId)
+                .list();
         }
 
         if (log.isDebugEnabled()) {
@@ -223,6 +301,14 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return results;
     }
 
+    /**
+     * Retrieves active referrals for a specific client and program.
+     * 
+     * @param clientId the client ID to search for
+     * @param programId the program ID to filter by
+     * @return list of active ClientReferral entities matching the criteria, ordered by referral date descending
+     * @throws IllegalArgumentException if clientId or programId is null or <= 0
+     */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getActiveReferralsByClientAndProgram(Long clientId, Long programId) {
         if (clientId == null || clientId.intValue() <= 0) {
@@ -234,14 +320,14 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
         List<ClientReferral> results;
 
-        String sSQL = "from ClientReferral cr where cr.ClientId = ?0 and cr.ProgramId=?1 and (cr.Status = '?2' or cr.Status = '?3') order by cr.ReferralDate DESC";
-        Object params[] = new Object[] {
-            clientId,
-            programId,
-            ClientReferral.STATUS_ACTIVE,
-            ClientReferral.STATUS_CURRENT
-        };
-        results = (List<ClientReferral>) getHibernateTemplate().find(sSQL, params);
+        String sSQL = "from ClientReferral cr where cr.ClientId = :clientId and cr.ProgramId=:programId and (cr.Status = :status1 or cr.Status = :status2) order by cr.ReferralDate DESC";
+        results = (List<ClientReferral>) getSession()
+            .createQuery(sSQL)
+            .setParameter("clientId", clientId)
+            .setParameter("programId", programId)
+            .setParameter("status1", ClientReferral.STATUS_ACTIVE)
+            .setParameter("status2", ClientReferral.STATUS_CURRENT)
+            .list();
 
         if (log.isDebugEnabled()) {
             log.debug("getActiveReferralsByClientAndProgram: clientId=" + clientId + "programId " + programId + ", # of results=" + results.size());
@@ -250,12 +336,19 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return results;
     }
 
+    /**
+     * Retrieves a specific client referral by ID.
+     * 
+     * @param id the referral ID to retrieve
+     * @return the ClientReferral entity, or null if not found
+     * @throws IllegalArgumentException if id is null or <= 0
+     */
     public ClientReferral getClientReferral(Long id) {
         if (id == null || id.longValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
-        ClientReferral result = this.getHibernateTemplate().get(ClientReferral.class, id);
+        ClientReferral result = getSession().get(ClientReferral.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getClientReferral: id=" + id + ",found=" + (result != null));
@@ -264,12 +357,18 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         return result;
     }
 
+    /**
+     * Saves or updates a client referral entity.
+     * 
+     * @param referral the ClientReferral entity to save or update
+     * @throws IllegalArgumentException if referral is null
+     */
     public void saveClientReferral(ClientReferral referral) {
         if (referral == null) {
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().saveOrUpdate(referral);
+        getSession().saveOrUpdate(referral);
 
         if (log.isDebugEnabled()) {
             log.debug("saveClientReferral: id=" + referral.getId());
@@ -277,27 +376,35 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
     }
 
+    /**
+     * Searches for client referrals based on criteria in the provided referral object.
+     * 
+     * @param referral the ClientReferral object containing search criteria
+     * @return list of ClientReferral entities matching the search criteria
+     */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> search(ClientReferral referral) {
-        //Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
-        try {
-            Criteria criteria = session.createCriteria(ClientReferral.class);
+        Criteria criteria = getSession().createCriteria(ClientReferral.class);
 
-            if (referral != null && referral.getProgramId().longValue() > 0) {
-                criteria.add(Expression.eq("ProgramId", referral.getProgramId()));
-            }
-
-            return criteria.list();
-        } finally {
-            //this.releaseSession(session);
-            session.close();
+        if (referral != null && referral.getProgramId().longValue() > 0) {
+            criteria.add(Expression.eq("ProgramId", referral.getProgramId()));
         }
+
+        return criteria.list();
     }
 
+    /**
+     * Retrieves all client referrals for a specific program.
+     * 
+     * @param programId the program ID to search for
+     * @return list of ClientReferral entities for the specified program
+     */
     public List<ClientReferral> getClientReferralsByProgram(int programId) {
         @SuppressWarnings("unchecked")
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find("from ClientReferral cr where cr.ProgramId = ?0", Long.valueOf(programId));
+        List<ClientReferral> results = (List<ClientReferral>) getSession()
+            .createQuery("from ClientReferral cr where cr.ProgramId = :programId")
+            .setParameter("programId", Long.valueOf(programId))
+            .list();
 
         return results;
     }
