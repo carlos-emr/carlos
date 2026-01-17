@@ -29,7 +29,7 @@
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
-        <hapifhir.version>6.4.0</hapifhir.version>
+        <hapifhir.version>6.10.5</hapifhir.version>
         <!-- Apache CXF Version -->
         <cxf.version>3.5.11</cxf.version>
         <struts.devMode>false</struts.devMode>
