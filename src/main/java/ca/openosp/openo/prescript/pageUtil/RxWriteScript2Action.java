@@ -92,39 +92,32 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     public String execute() throws IOException, ServletException, Exception {
         String method = request.getParameter("parameterValue");
-        
-        if ("updateReRxDrug".equals(method)) {
-            return updateReRxDrug();
-        } else if ("saveCustomName".equals(method)) {
-            return saveCustomName();
-        } else if ("newCustomNote".equals(method)) {
-            return newCustomNote();
-        } else if ("listPreviousInstructions".equals(method)) {
-            return listPreviousInstructions();
-        } else if ("newCustomDrug".equals(method)) {
-            return newCustomDrug();
-        } else if ("normalDrugSetCustom".equals(method)) {
-            return normalDrugSetCustom();
-        } else if ("createNewRx".equals(method)) {
-            return createNewRx();
-        } else if ("updateDrug".equals(method)) {
-            return updateDrug();
-        } else if ("iterateStash".equals(method)) {
-            return iterateStash();
-        } else if ("updateSpecialInstruction".equals(method)) {
-            return updateSpecialInstruction();
-        } else if ("updateProperty".equals(method)) {
-            return updateProperty();
-        } else if ("updateSaveAllDrugs".equals(method)) {
-            return updateSaveAllDrugs();
-        } else if ("getDemoNameAndHIN".equals(method)) {
-            return getDemoNameAndHIN();
-        } else if ("updateToLongTerm".equals(method)) {
-            return updateToLongTerm();
-        } else if ("checkNoStashItem".equals(method)) {
-            return checkNoStashItem();
-        } else if ("searchSpecialInstructions".equals(method)) {
-            searchSpecialInstructions();
+
+        String dispatchResult = switch (method != null ? method : "") {
+            case "updateReRxDrug" -> updateReRxDrug();
+            case "saveCustomName" -> saveCustomName();
+            case "newCustomNote" -> newCustomNote();
+            case "listPreviousInstructions" -> listPreviousInstructions();
+            case "newCustomDrug" -> newCustomDrug();
+            case "normalDrugSetCustom" -> normalDrugSetCustom();
+            case "createNewRx" -> createNewRx();
+            case "updateDrug" -> updateDrug();
+            case "iterateStash" -> iterateStash();
+            case "updateSpecialInstruction" -> updateSpecialInstruction();
+            case "updateProperty" -> updateProperty();
+            case "updateSaveAllDrugs" -> updateSaveAllDrugs();
+            case "getDemoNameAndHIN" -> getDemoNameAndHIN();
+            case "updateLongTermStatus" -> updateLongTermStatus();
+            case "checkNoStashItem" -> checkNoStashItem();
+            case "searchSpecialInstructions" -> {
+                searchSpecialInstructions();
+                yield null;
+            }
+            default -> null;
+        };
+
+        if (dispatchResult != null || (method != null && !method.isEmpty())) {
+            return dispatchResult;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1217,7 +1210,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return null;
     }
 
-    public String updateToLongTerm() throws IOException, Exception {
+    public String updateLongTermStatus() throws IOException, Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
@@ -1226,9 +1219,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         boolean isLongTerm = Boolean.parseBoolean(request.getParameter("isLongTerm"));
 
         if (Objects.isNull(strId)) {
-	    hm.put("success", false);
-		} else 
-        if (strId != null) {
+	        hm.put("success", false);
+		} else {
             int drugId = Integer.parseInt(strId);
             RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
             if (bean == null) {
@@ -1243,18 +1235,18 @@ public final class RxWriteScript2Action extends ActionSupport {
             boolean saveStatus = oldRx.Save(oldRx.getScript_no());
 
             if (saveStatus) {
-    	        saveStatus = this.rxManager.archiveDrug(loggedInInfo, drugId, bean.getDemographicNo(),
-		isLongTerm ? Drug.ARCHIVED_REASON_LT_ENABLED : Drug.ARCHIVED_REASON_LT_DISABLED);
-	
+                saveStatus = this.rxManager.archiveDrug(loggedInInfo, drugId, bean.getDemographicNo(),
+                        isLongTerm ? Drug.ARCHIVED_REASON_LT_ENABLED : Drug.ARCHIVED_REASON_LT_DISABLED);
             }
 
             hm.put("success", saveStatus);
         }
+        response.setContentType("application/json");
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         response.getOutputStream().write(jsonObject.toString().getBytes());
         return null;
     }
-
+  
     public void saveDrug(final HttpServletRequest request) throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);

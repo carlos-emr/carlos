@@ -8,11 +8,8 @@
 # Usage:
 # - Triggered by pull requests targeting the following branches:
 #   - main
-#   - develop/alpaca
-#   - develop/bullfrog
-#   - develop/coyote
-#   - develop/dolphin
-#   - develop/dogfish
+#   - develop
+#   - experimental
 #
 # Key Jobs:
 # - build: 
@@ -35,11 +32,8 @@ on:
   pull_request:
     branches:
       - main
-      - develop/alpaca
-      - develop/bullfrog
-      - develop/coyote
-      - develop/dolphin
-      - develop/dogfish
+      - develop
+      - experimental
 
 jobs:
   build:
@@ -70,14 +64,64 @@ jobs:
         uses: hoverkraft-tech/compose-action@v2.1.0
         with:
           compose-file: ".devcontainer/docker-compose.yml"
-      
-      # Removed incorrect 'make lock' - we should validate against committed lock file, not update it
-      
-      - name: Build project
-        run: docker exec openo-tomcat-dev .devcontainer/development/scripts/make install
 
-      - name: Run unit tests & build JSP files
-        run: docker exec openo-tomcat-dev mvn package -Pjspc,modern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
+      # Setup test configuration file from template
+      - name: Setup test configuration
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            config_dir='/workspace/src/test/resources'
+            properties_file=\"\${config_dir}/over_ride_config.properties\"
+            template_file=\"\${properties_file}.template\"
+
+            if [ -f \"\$template_file\" ] && [ ! -f \"\$properties_file\" ]; then
+              echo 'Setting up over_ride_config.properties...'
+              cp \"\$template_file\" \"\$properties_file\"
+            fi
+          "
+
+      # Run isolated test phases matching 'make install --run-tests' pattern
+
+      - name: Phase 1 - Build with modern profile
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo '========================================='
+            echo 'Phase 1: Modern Tests Workflow'
+            echo '========================================='
+            mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
+          "
+
+      - name: Phase 1 - Run modern tests
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo 'Running modern tests...'
+            rm -rf /workspace/target/test-classes
+            mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+          "
+
+      - name: Cleanup between phases
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo 'Cleaning up between test phases...'
+            rm -rf /usr/local/tomcat/webapps/oscar
+            mvn clean -q
+          "
+
+      - name: Phase 2 - Build without modern profile
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo '========================================='
+            echo 'Phase 2: Legacy Tests Workflow'
+            echo '========================================='
+            mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded
+          "
+
+      - name: Phase 2 - Run legacy tests
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo 'Running legacy tests...'
+            rm -rf /workspace/target/test-classes
+            mvn test -DskipModernTests=true
+          "
 
   lint:
     runs-on: ubuntu-latest

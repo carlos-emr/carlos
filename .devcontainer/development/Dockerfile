@@ -17,7 +17,6 @@ LABEL author="OpenOSP" \
       version="0.0.2" \
       description="OpenOSP Docker Image for Development Environment"
 
-ARG DRUGREF_DOWNLOAD_URL=https://bitbucket.org/openoscar/drugref/downloads/drugref2.war
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
@@ -26,16 +25,21 @@ ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
 
 WORKDIR /workspace
 
-# Install required packages and clean up apt lists
+# Install required packages including Playwright browser dependencies and clean up apt lists
+# Note: Ubuntu 24.04 uses t64 packages (time_t 64-bit migration)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dos2unix curl git wget apt-transport-https ca-certificates gnupg lsb-release \
     libjpeg-turbo8 \
     locales iputils-ping gettext fontconfig libc6 libfreetype6 \
-    libpng16-16 libssl-dev libstdc++6 libx11-6 libxcb1 libxext6 libxtst6 \
+    libpng16-16t64 libssl-dev libstdc++6 libx11-6 libxcb1 libxext6 libxtst6 \
     libxrender1 libfontconfig1 libxi6 xfonts-75dpi xfonts-base zlib1g maven mariadb-client \
     nano openssh-client vim-tiny \
     python3 python3-pip \
     inotify-tools \
+    fonts-roboto fonts-liberation fonts-noto-color-emoji \
+    libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libdbus-1-3 \
+    libxkbcommon0 libatspi2.0-0t64 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+    libgbm1 libasound2t64 libpango-1.0-0 libcairo2 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js (latest LTS)
@@ -62,9 +66,16 @@ RUN which npm && npm install -g @anthropic-ai/claude-code @docusaurus/core @docu
 # Install Gemini CLI.
 RUN npm install -g @google/gemini-cli
 
-# Install Playwright and Playwright MCP server
-RUN npm install -g @executeautomation/playwright-mcp-server playwright && \
-    npx playwright install chromium firefox --with-deps
+# Install Playwright globally first to ensure it's available
+RUN npm install -g playwright@1.40.0 && \
+    echo "✅ Playwright CLI installed: $(npx playwright --version)"
+
+# Install all Playwright browsers (Chromium, Chrome, Firefox)
+# Note: System dependencies are already installed above with Ubuntu 24.04 t64 package names.
+# Do NOT use --with-deps as Playwright's dependency list contains deprecated package names
+# (e.g., libasound2 instead of libasound2t64) that don't exist in Ubuntu 24.04.
+RUN npx playwright install chromium chrome firefox && \
+    echo "✅ Playwright browsers installed (Chromium, Chrome, Firefox)"
 
 # Install pipx and Aider AI coding assistant
 RUN apt-get update && apt-get install -y pipx && \
@@ -100,8 +111,8 @@ RUN rm -rf $TOMCAT_PATH/webapps/ROOT/* \
 # Create ROOT folder
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 
-# Download Dependency DrugRef2.war
-RUN curl -sSL -o $TOMCAT_PATH/webapps/drugref2.war $DRUGREF_DOWNLOAD_URL
+# NOTE: DrugRef2 runs in a separate Java 11 container (see .devcontainer/drugref/)
+# Open-Drugref requires Java 11 while Open-O uses Java 21
 
 # Copy scripts and config files
 COPY ./scripts /scripts

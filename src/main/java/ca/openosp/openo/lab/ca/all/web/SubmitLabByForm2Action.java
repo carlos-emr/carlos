@@ -30,8 +30,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -47,6 +45,9 @@ import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.lab.FileUploadCheck;
 import ca.openosp.openo.lab.ca.all.upload.HandlerClassFactory;
 import ca.openosp.openo.lab.ca.all.upload.handlers.MessageHandler;
+import ca.openosp.openo.lab.ca.all.util.CMLLabHL7Generator;
+import ca.openosp.openo.lab.ca.all.util.GDMLLabHL7Generator;
+import ca.openosp.openo.lab.ca.all.util.MDSLabHL7Generator;
 import ca.openosp.openo.lab.ca.all.util.Utilities;
 
 import com.opensymphony.xwork2.ActionSupport;
@@ -71,6 +72,14 @@ public class SubmitLabByForm2Action extends ActionSupport {
         return "manage";
     }
 
+    /**
+     * Process a lab form submission: validate privileges, construct a Lab with its LabTest entries,
+     * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
+     *
+     * @return the Struts result name "manage"
+     * @throws SecurityException if the current user lacks the required "_lab" write privilege
+     * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
+     */
     public String saveManage() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -179,8 +188,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
             logger.info("filePath" + filePath);
-            logger.info("Type :" + "CML");
-            MessageHandler msgHandler = HandlerClassFactory.getHandler("CML");
+            logger.info("Type :" + labName);
+            MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {
                 logger.info("MESSAGE HANDLER " + msgHandler.getClass().getName());
             }
@@ -197,74 +206,30 @@ public class SubmitLabByForm2Action extends ActionSupport {
         return manage();
     }
 
-	private String generateHL7(Lab lab) {
-		StringBuilder sb = new StringBuilder();
-		sb.append(generateMSH(lab)).append("\n");
-		sb.append(generatePID(lab)).append("\n");
-		sb.append(generateORC(lab)).append("\n");
-		sb.append(generateOBR(lab)).append("\n");
-        sb.append(generateTests(lab.getTests()));
-
-		return sb.toString();
-	}
-
-    private String generateMSH(Lab lab) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
-        return "MSH|^~\\&|" + lab.getLabName() + "|" + lab.getLabName() + "|OSCAR|OSCAR|" + sdf.format(new Date()) + "||ORU^R01|BAR20090309113608457|P|2.3|||ER|AL";
-    }
-
-    private String generatePID(Lab lab) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
-        return "PID||||" + lab.getHin() + "|" + lab.getLastName() + "^" + lab.getFirstName() + "||" + sdf.format(lab.getDob()) + "|" + lab.getSex() + "|||||" + lab.getPhone() + "||||||X" + lab.getHin();
-    }
-
-    private String generateORC(Lab lab) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
-        return "ORC|RE|" + lab.getAccession() + "|||F|||||||" + lab.getBillingNo() + "^" + lab.getProviderLastName() + "^" + lab.getProviderFirstName() + "|||" + sdf.format(lab.getTests().get(0).getDate());
-    }
-
-	private String generateOBR(Lab lab) {
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
-		StringBuilder ccString = new StringBuilder();
-		if(lab.getCc().length()>0) {
-			String[] ccs = lab.getCc().split(";");
-			for(int x=0;x<ccs.length;x++) {
-				String[] idName = ccs[x].split(",");
-				if(x>0)ccString.append("~");
-				ccString.append(idName[0]);
-				ccString.append("^");
-				ccString.append(idName.length>1 ? idName[1] : "");
-				ccString.append("^");
-				ccString.append(idName.length>2 ? idName[2] : "");
-			}
-		}
-		return "OBR|1|||UR^General Lab^L1^GENERAL LAB||"+sdf.format(lab.getLabReqDate())+"|"+sdf.format(lab.getTests().get(0).getDate())+"|||||||"+sdf.format(lab.getLabReqDate())+"||"+lab.getBillingNo()+"^"+lab.getProviderLastName()+"^"+lab.getProviderFirstName()+"||||||"+sdf.format(lab.getTests().get(0).getDate())+"||LAB|F|||"+ccString.toString();
-	}
 	/**
-	 * OBR ||placer_order_id||uni_service_id|||obs_datetime|||||||specimen_received_datetime||||||CCK^CCK|||||||R
-	 * @param tests
-	 * @return
+	 * Generate an HL7 message for the provided lab using a lab-specific generator.
+	 *
+	 * Uses the lab's labName to select a generator; if the lab type is unsupported the CML generator is used.
+	 *
+	 * @param lab the Lab model containing patient and test data to include in the message
+	 * @return the generated HL7 message as a String
 	 */
-	private String generateTests(List<LabTest> tests) {
-		StringBuilder sb = new StringBuilder();
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
+	private String generateHL7(Lab lab) {
+		// Generate appropriate HL7 format based on lab type
+		String labType = lab.getLabName();
+		labType = labType == null ? "" : labType.trim().toUpperCase();
+		logger.info("Generating HL7 for lab type: [" + labType + "]");
 
-		for(LabTest test : tests) {
-			String refRange = test.getRefRangeLow() + " - " + test.getRefRangeHigh();
-			Integer testNo = tests.indexOf(test) + 1;
-
-			if(test.getRefRangeText().length()>0) {
-				refRange = test.getRefRangeText();
-			}
-			sb.append("OBX|" + testNo + "|" + test.getCodeType() + "|" + test.getCode() + "^" + test.getName() + "^" + test.getDescription()
-				+ "|GENERAL|" + test.getCodeValue() + "|" + test.getCodeUnit() + "|" + refRange + "|"+test.getFlag()
-				+"|||" + test.getStat() + "||" + test.getBlocked() + "|" + sdf.format(test.getDate()));
-			if(test.getNotes().length()>0) {
-				sb.append("\n");
-				sb.append("NTE|1|L|NOTE: " + test.getNotes());
-			}
-			sb.append("\n");
+		switch (labType) {
+			case "MDS":
+				return MDSLabHL7Generator.generate(lab);
+			case "GDML":
+				return GDMLLabHL7Generator.generate(lab);
+			case "CML":
+				return CMLLabHL7Generator.generate(lab);
+			default:
+				logger.error("Unsupported lab type: [" + labType + "]; defaulting to CML.");
+				return CMLLabHL7Generator.generate(lab);
 		}
-		return sb.toString();
 	}
 }
