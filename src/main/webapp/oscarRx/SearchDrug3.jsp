@@ -1380,29 +1380,29 @@
 
     </div>
 
-    <%
-        }
-    %>
-    <script type="text/javascript">
-        function changeLt(drugId) {
-            if (confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') == true) {
-                const data = "ltDrugId=" + drugId + "&isLongTerm=" + element.checked + "&rand=" + Math.floor(Math.random() * 10001);
-                const url = "<c:out value='${ctx}'/>" + "/oscarRx/WriteScript.do?parameterValue=updateLongTermStatus";
-                new Ajax.Request(url, {
-                    method: 'post',
-                    parameters: data,
-                    onSuccess: function (transport) {
-                        const json = transport.responseText.evalJSON();
-                        if (json != null && (json.success === 'true' || json.success === true)) {
-                            callReplacementWebService('ListDrugs.jsp','drugProfile');
-                        } else {
-                            checkboxRevertStatus(element);
+<%
                         }
-                    },
-                    onFailure: function () {
+%>
+<script type="text/javascript">
+        function changeLt(element, drugId) {
+            if (confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') === true) {
+            const data = "ltDrugId=" + drugId + "&isLongTerm=" + element.checked + "&rand=" + Math.floor(Math.random() * 10001);
+            const url = ctx + "/oscarRx/WriteScript.do?parameterValue=updateLongTermStatus";
+            new Ajax.Request(url, {
+                method: 'post',
+                parameters: data,
+                onSuccess: function (transport) {
+                    const json = transport.responseText.evalJSON();
+                    if (json != null && (json.success === 'true' || json.success === true)) {
+                        callReplacementWebService('ListDrugs.jsp','drugProfile');
+                    } else {
                         checkboxRevertStatus(element);
                     }
-                });
+                },
+                onFailure: function () {
+                    checkboxRevertStatus(element);
+                }
+            });
             } else {
                 checkboxRevertStatus(element);
             }

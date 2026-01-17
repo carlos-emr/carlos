@@ -161,8 +161,8 @@
                                 }
 
                                 function doSubmit() {
-
-                                    if (document.forms.RxAddAllergyForm.nonDrug.value == '') {
+                                    var nonDrugField = document.forms.RxAddAllergyForm.nonDrug;
+                                    if (nonDrugField && nonDrugField.value == '') {
                                         alert("Please choose value for non-drug");
                                         return false;
                                     }
