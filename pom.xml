@@ -524,10 +524,11 @@
             <version>3.12.0</version>
         </dependency>
 
+        <!-- Glassfish JSTL 1.2.5 implementation (javax namespace for Servlet 4.0 compatibility) -->
         <dependency>
-            <groupId>taglibs</groupId>
-            <artifactId>standard</artifactId>
-            <version>1.1.2</version>
+            <groupId>org.glassfish.web</groupId>
+            <artifactId>javax.servlet.jsp.jstl</artifactId>
+            <version>1.2.5</version>
         </dependency>
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
@@ -1426,11 +1427,8 @@
             <artifactId>jaxb-impl</artifactId>
             <version>2.3.3</version>
         </dependency>
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>jstl</artifactId>
-            <version>1.2</version>
-        </dependency>
+        <!-- JSTL API is included as transitive dependency of javax.servlet.jsp.jstl -->
+        <!-- Removed standalone javax.servlet:jstl:1.2 to avoid conflicts -->
 
         <dependency>
             <groupId>org.apache.struts</groupId>
