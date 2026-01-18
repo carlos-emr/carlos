@@ -21,7 +21,7 @@
 ## Security Checklist (Healthcare Compliance)
 
 <!-- For changes involving patient data, authentication, or security -->
-- [ ] No PHI (Patient Health Information) is logged or exposed
+- [ ] No PHI (Protected Health Information) is logged or exposed
 - [ ] Used `Encode.forHtml()` / `Encode.forJavaScript()` for user inputs
 - [ ] Used parameterized queries (no SQL string concatenation)
 - [ ] Included `SecurityInfoManager.hasPrivilege()` checks where needed
