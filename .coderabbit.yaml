@@ -1,0 +1,7 @@
+# CodeRabbit Configuration - OpenO EMR
+# Docs: https://docs.coderabbit.ai/reference/configuration
+
+reviews:
+  # Disable status message banners (e.g., "review skipped" announcements)
+  # All other review features remain enabled
+  review_status: false
