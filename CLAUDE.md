@@ -77,7 +77,9 @@ PathValidationUtils.validateExistingPath(file, baseDir);
 
 **CRITICAL**: Use NEW namespace `ca.openosp.openo.*` for ALL code
 - **Old**: `org.oscarehr.*`, `oscar.*` → **New**: `ca.openosp.openo.*`
+- **Note**: May encounter old names in comments/documentation; git history shows "renamed" files
 - **DAO Classes**: `ca.openosp.openo.commn.dao.*` (note: "commn" not "common")
+- **Forms DAOs**: `ca.openosp.openo.commn.dao.forms.*`
 - **Models**: `ca.openosp.openo.commn.model.*`
 - **Exception**: `ProviderDao` at `ca.openosp.openo.dao.ProviderDao`
 - **Test Utilities**: Remain at `org.oscarehr.common.dao.*` for backward compatibility
@@ -348,41 +350,6 @@ Multiple modular application contexts:
 - **Inter-EMR**: Data sharing via Integrator system across multiple OSCAR installations
 - **Provincial Billing**: Direct integration with Teleplan (BC MSP) and other systems
 
-### Major Namespace Migration (August 2025)
-**CRITICAL**: Completed migration `org.oscarehr.*` / `oscar.*` → `ca.openosp.openo.*`
-- **When writing new code**: Always use `ca.openosp.openo.*` package structure
-- **When referencing existing code**: May encounter both old and new package names in comments/documentation
-- **Import statements**: Update all imports to use new namespace structure
-- **Git history**: Many files show as "renamed" due to this migration
-
-#### **Package Migration Details**
-- **Primary Migration**: `org.oscarehr.common.*` → `ca.openosp.openo.commn.*` (note: intentionally "commn" not "common")
-- **DAO Classes**: All DAO interfaces moved to `ca.openosp.openo.commn.dao.*`
-- **Model Classes**: Entity models moved to `ca.openosp.openo.commn.model.*`
-- **Special Cases**:
-  - `ProviderDao` specifically located at `ca.openosp.openo.dao.ProviderDao` (not in commn.dao)
-  - Forms DAOs at `ca.openosp.openo.commn.dao.forms.*`
-- **Test Utilities**: Test framework classes remain at `org.oscarehr.common.dao.*` (e.g., `EntityDataGenerator`, `SchemaUtils`)
-
-#### **Import Management Patterns**
-When fixing compilation errors after package refactoring:
-- **Main Source Code**: Use systematic find/replace operations for bulk import updates
-- **Test Files**: Manually add missing DAO imports following the pattern:
-  ```java
-  import ca.openosp.openo.commn.model.EntityName;
-  import ca.openosp.openo.commn.dao.EntityNameDao;
-  import ca.openosp.openo.utility.SpringUtils;
-  ```
-- **Batch Processing**: Use MultiEdit tool for efficient bulk import fixes across multiple files
-- **Verification**: Always read files before applying edits to understand the context
-
-### Mandatory Security Practices (CodeQL Integration)
-- **OWASP Encoder**: Use `Encode.forHtml()`, `Encode.forJavaScript()` for all user inputs in JSPs
-- **SQL Injection Prevention**: Use parameterized queries, never string concatenation
-- **File Upload Security**: Implement filename validation for all uploads
-- **XSS Prevention**: All JSP outputs must be encoded
-- **CodeQL Compliance**: Code must pass GitHub CodeQL security scanning
-
 ### Active Code Cleanup (2025)
 - **Modules Removed**: MyDrugRef, BORN integration, HealthSafety, legacy email notifications
 
@@ -401,8 +368,8 @@ When fixing compilation errors after package refactoring:
 
 ### DevContainer Custom Scripts
 Located in `/scripts` directory within the container (copied from `.devcontainer/development/scripts/`):
-make lock                     # Update Maven dependency lock file
-- **Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
+- `make lock` - Update Maven dependency lock file
+- **Build Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
 - **Configuration**: Auto-creates `over_ride_config.properties` from template
 - **Parallel builds**: Uses `-T 1C` for faster Maven builds
 - **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/oscar`
@@ -520,7 +487,13 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Log security violations appropriately
 
 **2. Error Handling**
-- Use OWASP encoding for user inputs: `Encode.forJava(parameter)`
+- Use context-appropriate OWASP encoding when outputting user data:
+  - `Encode.forHtml()` - HTML body content
+  - `Encode.forHtmlAttribute()` - HTML attribute values
+  - `Encode.forJavaScript()` - JavaScript string contexts
+  - `Encode.forJavaScriptAttribute()` - JS in HTML attributes
+  - `Encode.forCssString()` - CSS string values
+  - `Encode.forUri()` / `Encode.forUriComponent()` - URL paths/parameters
 - Implement proper exception handling
 - Return appropriate result strings
 
@@ -684,6 +657,43 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 
 ---
 
+## Claude Workflow Guidelines
+
+**Context**: Claude operates both as a GitHub Actions workflow (triggered by @claude mentions) and directly via Claude Code CLI. These guidelines apply to both contexts.
+
+### Task Handling
+1. **Simple Questions/Reviews**: Answer directly in comments, reference specific files and line numbers
+2. **Straightforward Changes** (1-3 files): Create feature branch, implement, create PR
+3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
+
+### Branch Protection
+- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **All changes** must go through pull requests with review
+- Claude creates feature branches: `claude/issue-<number>-<timestamp>`
+
+### Security Checklist (Every Code Change)
+- [ ] Context-appropriate OWASP encoding for user inputs (see Error Handling section)
+- [ ] Parameterized SQL queries (never concatenation)
+- [ ] `SecurityInfoManager.hasPrivilege()` checks in all actions
+- [ ] `PathValidationUtils` for file operations
+- [ ] No PHI in logs or error messages
+
+### PR Requirements
+- ✅ Target `develop` branch (not `main`)
+- ✅ Include tests for new functionality
+- ✅ Reference related issues (`fixes #123`)
+- ✅ Add "Generated with Claude Code" signature
+- ✅ Ensure CI checks pass before requesting review
+
+### When Blocked
+If Claude encounters issues it cannot resolve:
+- Document the problem clearly in comment
+- Explain what was attempted and why it failed
+- Provide specific error messages
+- Ask for guidance on preferred resolution
+
+---
+
 ## Key Code References & Further Information
 
 ### Essential Configuration Files
@@ -815,7 +825,7 @@ void shouldReturnTickler_whenValidIdProvided() {
     assertThat(found).isEqualTo(saved);
 }
 
-3. Add negative test cases
+// 3. Add negative test cases for edge cases and error conditions
 ```
 
 #### BDD Test Writing Quick Reference

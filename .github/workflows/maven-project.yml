@@ -20,15 +20,15 @@
 # - build:
 #   - Pulls or builds the dev container
 #   - Runs `make install` to verify the project builds successfully
-#   - Uploads Maven dependencies as artifact for parallel test jobs to use
+#   - Saves Maven dependencies to cache for parallel test jobs
 #
 # - modern-tests (parallel):
-#   - Downloads Maven dependencies artifact from build job
+#   - Restores Maven dependencies from cache (graceful fallback if miss)
 #   - Runs modern tests (JUnit 5) using H2 in-memory database
 #   - Does NOT require the database container
 #
 # - legacy-tests (parallel):
-#   - Downloads Maven dependencies artifact from build job
+#   - Restores Maven dependencies from cache (graceful fallback if miss)
 #   - Runs legacy tests (JUnit 4) using MariaDB
 #   - Requires the database container
 #
@@ -114,8 +114,8 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Cache Maven packages
-        # Restores Maven dependencies from previous workflow runs to speed up the build.
-        # After build completes, dependencies are uploaded as artifact for parallel test jobs.
+        # Restores and saves Maven dependencies from/to GitHub Actions cache.
+        # Parallel test jobs restore from this same cache key for faster builds.
         uses: actions/cache@v4
         with:
           path: .m2-cache
@@ -159,13 +159,6 @@ jobs:
             make install
           "
 
-      - name: Upload Maven cache as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: maven-dependencies-cache
-          path: .m2-cache
-          retention-days: 7
-
   modern-tests:
     needs: build
     runs-on: ubuntu-latest
@@ -176,11 +169,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download Maven cache artifact
-        uses: actions/download-artifact@v4
+      - name: Restore Maven cache
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        continue-on-error: true
         with:
-          name: maven-dependencies-cache
           path: .m2-cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Prepare Maven cache directory
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss or restore failed, Maven will download dependencies"
+          mkdir -p .m2-cache
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -279,11 +282,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download Maven cache artifact
-        uses: actions/download-artifact@v4
+      - name: Restore Maven cache
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        continue-on-error: true
         with:
-          name: maven-dependencies-cache
           path: .m2-cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Prepare Maven cache directory
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss or restore failed, Maven will download dependencies"
+          mkdir -p .m2-cache
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
