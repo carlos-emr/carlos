@@ -1,0 +1,30 @@
+# CodeRabbit AI Configuration
+# Documentation: https://docs.coderabbit.ai/guides/review-instructions
+
+# Disable summary and review comments to reduce PR spam
+reviews:
+  # Disable the summary comment that appears on PRs
+  summary:
+    enabled: false
+
+  # Disable automatic review comments
+  auto_review:
+    enabled: false
+
+  # Disable inline code review comments
+  inline_comments:
+    enabled: false
+
+# Only allow CodeRabbit to respond when explicitly mentioned
+chat:
+  # Users can still use @coderabbitai commands if needed
+  auto_reply: false
+
+# Limit notifications
+notifications:
+  # Don't notify on every PR event
+  events:
+    pull_request: false
+    pull_request_review: false
+    pull_request_review_comment: false
+    issue_comment: false
