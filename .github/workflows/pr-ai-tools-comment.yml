@@ -1,171 +1,62 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                        SECURITY-CRITICAL WORKFLOW                         ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  This workflow uses `pull_request_target` which has WRITE ACCESS to the   ║
+# ║  repository, even for PRs from forks. This is ONLY safe because:          ║
+# ║                                                                           ║
+# ║  1. We DO NOT checkout any code from the PR/fork                          ║
+# ║  2. We DO NOT run any code from the PR/fork                               ║
+# ║  3. We DO NOT use any user-controlled input in shell commands             ║
+# ║  4. We ONLY read a static file from the DEFAULT BRANCH                    ║
+# ║  5. We ONLY post a static comment to the PR                               ║
+# ║                                                                           ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  ⚠️  DO NOT ADD ANY OF THE FOLLOWING TO THIS WORKFLOW:                    ║
+# ║                                                                           ║
+# ║  ❌ actions/checkout with PR ref (e.g., github.event.pull_request.head)   ║
+# ║  ❌ Any `run:` command that uses PR title, body, branch name, or labels   ║
+# ║  ❌ Any script that executes code from the PR                             ║
+# ║  ❌ Any action that processes files from the PR branch                    ║
+# ║                                                                           ║
+# ║  Adding any of the above creates a critical security vulnerability that   ║
+# ║  allows malicious PRs to steal secrets or compromise the repository.      ║
+# ║                                                                           ║
+# ║  See: https://securitylab.github.com/research/github-actions-preventing-  ║
+# ║       pwn-requests/                                                       ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
 name: PR AI Tools Comment
 
 on:
-  pull_request:
+  # pull_request_target runs workflow from DEFAULT BRANCH (not the PR branch)
+  # This is safe for static comments but dangerous if you checkout/run PR code
+  pull_request_target:
     types: [opened]
 
 jobs:
   add-ai-tools-comment:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
+      contents: read       # To read the markdown file from repo
+      pull-requests: write # To post the comment
     steps:
-      - name: Add AI Tools Info Comment
+      # SAFE: Checkout DEFAULT BRANCH only (not the PR branch)
+      # This gets our static markdown file, NOT any code from the fork
+      - name: Checkout default branch (NOT the PR)
+        uses: actions/checkout@v4
+        with:
+          # Explicitly use the base repo's default branch, NOT the PR
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/pr-ai-tools-comment.md
+          sparse-checkout-cone-mode: false
+
+      - name: Post AI Tools Comment
         uses: actions/github-script@v7
         with:
           script: |
-            const body = `> **AI & CI Tools Available** — Tag \`@claude\`, \`@coderabbitai\`, \`@sourcery-ai\`, \`@cubic-dev-ai\`, \`@dependabot\`, or \`@SocketSecurity\` in comments.
-
-<details>
-<summary><b>Available Commands & Automation</b></summary>
-
-## AI Code Review & Assistance
-
-<details>
-<summary><b>Claude Code</b> — <code>@claude</code></summary>
-
-| Command | Description |
-|---------|-------------|
-| \`@claude <request>\` | General assistance with any request |
-| \`@claude review this PR\` | Review the pull request |
-| \`@claude explain <file/function>\` | Explain code |
-| \`@claude implement <feature>\` | Implement a feature |
-| \`@claude fix <issue>\` | Fix a bug or issue |
-| \`@claude refactor <code>\` | Suggest refactoring |
-| \`@claude write tests for <file>\` | Generate tests |
-
-**Works in:** PR comments, issue comments
-
-</details>
-
-<details>
-<summary><b>CodeRabbit</b> — <code>@coderabbitai</code></summary>
-
-| Command | Description |
-|---------|-------------|
-| \`@coderabbitai review\` | Trigger incremental review |
-| \`@coderabbitai full review\` | Full review of all files |
-| \`@coderabbitai summary\` | Regenerate PR summary |
-| \`@coderabbitai resolve\` | Resolve all CodeRabbit comments |
-| \`@coderabbitai configuration\` | Show current config |
-| \`@coderabbitai help\` | Show all commands |
-| \`@coderabbitai pause\` | Pause reviews on this PR |
-| \`@coderabbitai resume\` | Resume reviews on this PR |
-
-**File-specific** (reply to a review comment):
-| Command | Description |
-|---------|-------------|
-| \`@coderabbitai generate docstrings\` | Add docstrings to file |
-| \`@coderabbitai generate unit tests\` | Generate unit tests |
-| \`@coderabbitai modularize\` | Suggest modularization |
-
-</details>
-
-<details>
-<summary><b>Sourcery AI</b> — <code>@sourcery-ai</code></summary>
-
-| Command | Description |
-|---------|-------------|
-| \`@sourcery-ai review\` | Trigger a code review |
-| \`@sourcery-ai summary\` | Generate/regenerate PR summary |
-| \`@sourcery-ai title\` | Generate/regenerate PR title |
-| \`@sourcery-ai guide\` | Generate reviewer's guide |
-| \`@sourcery-ai resolve\` | Resolve all Sourcery comments |
-| \`@sourcery-ai issue\` | Create issue from review comment |
-| \`@sourcery-ai plan\` | Generate plan of action (on issues) |
-
-</details>
-
-<details>
-<summary><b>Cubic</b> — <code>@cubic-dev-ai</code></summary>
-
-| Command | Description |
-|---------|-------------|
-| \`@cubic-dev-ai\` | Trigger a new review |
-| \`@cubic-dev-ai review this PR\` | Explicitly request review |
-| \`@cubic-dev-ai <question>\` | Ask about the code |
-| \`@cubic-dev-ai fix this issue\` | Request a fix |
-
-Reply to Cubic's comments to continue the conversation.
-
-</details>
-
-## Security & Dependencies
-
-<details>
-<summary><b>Socket Security</b> — <code>@SocketSecurity</code></summary>
-
-| Command | Description |
-|---------|-------------|
-| \`@SocketSecurity ignore pkg@ver\` | Ignore a dependency alert |
-
-Socket automatically comments on PRs with dependency security risks.
-
-</details>
-
-<details>
-<summary><b>Dependabot</b> — <code>@dependabot</code></summary>
-
-| Command | Description |
-|---------|-------------|
-| \`@dependabot rebase\` | Rebase the PR |
-| \`@dependabot recreate\` | Recreate PR (overwrites edits) |
-| \`@dependabot merge\` | Merge after CI passes |
-| \`@dependabot squash and merge\` | Squash and merge after CI |
-| \`@dependabot cancel merge\` | Cancel a pending merge |
-| \`@dependabot reopen\` | Reopen a closed PR |
-| \`@dependabot close\` | Close PR, stop updates |
-
-**Ignore commands:**
-| Command | Description |
-|---------|-------------|
-| \`@dependabot ignore this dependency\` | Stop all updates |
-| \`@dependabot ignore this major version\` | Ignore major updates |
-| \`@dependabot ignore this minor version\` | Ignore minor updates |
-| \`@dependabot unignore <dep>\` | Remove ignore rules |
-| \`@dependabot show <dep> ignore conditions\` | Show ignore rules |
-
-</details>
-
-## Automatic CI & Reviews
-
-| Tool | Trigger | What It Does |
-|------|---------|--------------|
-| **CodeRabbit** | PR open/update | Auto code review, summary, walkthrough |
-| **Sourcery AI** | PR open/update | Auto code review with suggestions |
-| **Cubic** | PR open/update | Auto code review, learns team patterns |
-| **Claude Code Review** | PR open/update | AI code review (GitHub Action) |
-| **Dependency Review** | PR to protected branches | Scans for vulnerable dependencies |
-| **Socket Security** | PR with dep changes | Alerts on dependency security risks |
-| **Maven Build & Test** | PR to main/develop | Builds project, runs all tests |
-
-## Issue Automation
-
-<details>
-<summary><b>Issue Lifecycle Keywords</b></summary>
-
-**For issue authors to verify fixes** (comment on the issue):
-| Keyword | Effect |
-|---------|--------|
-| \`verified\`, \`fixed\`, \`works\` | Auto-closes issue, adds \`verified-fixed\` label |
-| \`not fixed\`, \`still broken\` | Adds \`fix-failed\` label |
-
-**PR-to-Issue linking** (in PR title or description):
-| Pattern | Effect |
-|---------|--------|
-| \`Fixes #123\` | Links PR, closes issue on merge |
-| \`Closes #456\` | Links PR, closes issue on merge |
-| \`Resolves #789\` | Links PR, closes issue on merge |
-
-</details>
-
-## IDE Tools
-
-| Tool | Setup |
-|------|-------|
-| **GitHub Copilot** | IDE extension · Custom instructions: \`.github/copilot-instructions.md\` |
-
-</details>`;
+            const fs = require('fs');
+            const body = fs.readFileSync('.github/pr-ai-tools-comment.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
