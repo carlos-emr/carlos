@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--isolated",
+        "--no-sandbox",
+        "--headless",
+        "--browser",
+        "chromium",
+        "--executable-path",
+        "/root/.cache/ms-playwright/chromium-1194/chrome-linux/chrome"
+      ],
+      "env": {
+        "PW_TEST_SCREENSHOT_NO_FONTS_READY": "1"
+      }
+    }
+  }
+}

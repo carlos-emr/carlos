@@ -2,10 +2,10 @@
 
 **PROJECT IDENTITY**: Always refer to this system as "OpenO EMR" or "OpenO" - NOT "OSCAR EMR" or "OSCAR McMaster"
 
-## Core Context 
+## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 5.3.39, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL  
+**Stack**: Java 21, Spring 5.3.39, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 ## Essential Commands
@@ -91,9 +91,9 @@ PathValidationUtils.validateExistingPath(file, baseDir);
 public class Example2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
-    
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    
+
     public String execute() {
         // MANDATORY security check
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
@@ -107,7 +107,7 @@ public class Example2Action extends ActionSupport {
 
 ### 2Action Categories:
 1. **Simple Execute**: Single `execute()` method (e.g., `AddTickler2Action`)
-2. **Method-Based**: Route via `method` parameter (e.g., `CaseloadContent2Action`) 
+2. **Method-Based**: Route via `method` parameter (e.g., `CaseloadContent2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
 ## Healthcare Domain Context
@@ -303,7 +303,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Apache Tomcat 9.0.97**: Web application server with debugging enabled
 - **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
 
-### Web Technologies  
+### Web Technologies
 - **Struts 2.5.33**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
 - **Apache CXF 3.5.10**: Web services framework for healthcare integrations
 - **JSP/JSTL**: View layer with extensive medical form templates
@@ -320,7 +320,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Spring Configuration Architecture
 Multiple modular application contexts:
 - `applicationContext.xml` - Core Spring configuration
-- `applicationContextREST.xml` - REST APIs with OAuth 1.0a  
+- `applicationContextREST.xml` - REST APIs with OAuth 1.0a
 - `applicationContextOLIS.xml` - Ontario Labs Information System
 - `applicationContextHRM.xml` - Hospital Report Manager
 - `applicationContextCaisi.xml` - CAISI community integration
@@ -428,14 +428,14 @@ OpenO EMR uses a unique incremental migration approach from Struts 1.x to Struts
 
 #### **2Action Naming Convention & Structure**
 - **Naming Pattern**: All migrated Struts2 actions follow `*2Action.java` naming (e.g., `AddTickler2Action`, `DisplayDashboard2Action`, `Login2Action`)
-- **Class Structure**: 
+- **Class Structure**:
   ```java
   public class Example2Action extends ActionSupport {
       HttpServletRequest request = ServletActionContext.getRequest();
       HttpServletResponse response = ServletActionContext.getResponse();
-      
+
       private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
-      
+
       public String execute() {
           // Security check pattern
           if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
@@ -548,13 +548,6 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 - `src/main/webapp/**` - Web resources (JSP, CSS, JS)
 
 ### Configuration Files
-- **Spring Contexts** (11+ modular configurations):
-  - `applicationContext.xml` - Core Spring configuration
-  - `applicationContextREST.xml` - REST APIs with OAuth 1.0a
-  - `applicationContextOLIS.xml` - Ontario Labs Information System
-  - `applicationContextHRM.xml` - Hospital Report Manager
-  - `applicationContextCaisi.xml` - CAISI integration
-  - `applicationContextFax.xml`, `applicationContextJobs.xml` - Specialized modules
 - **Struts Configuration**:
   - `struts.xml` - Struts2 configuration with `.do` extension and Spring integration
   - Mixed Struts 1.x and 2.x action mappings
@@ -600,21 +593,6 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 - Privacy-compliant data handling with PHI filtering throughout application
 - Multi-jurisdictional support with province-specific configurations
 
-## Form and Document Management
-
-### Medical Forms Library
-- **Rourke Growth Charts**: Multiple versions (2006, 2009, 2017, 2020) for pediatric care
-- **BCAR Forms**: British Columbia Antenatal Record for pregnancy care
-- **Mental Health Assessments**: Standardized clinical assessment forms
-- **Laboratory Requisitions**: Province-specific lab ordering forms
-- **Immunization Forms**: Vaccination record management
-
-### Document Processing
-- **PDF Generation**: Custom servlets with medical template rendering
-- **E-forms**: Electronic form management with digital signature support
-- **Privacy Compliance**: Automatic privacy statement injection on all documents
-- **Document Categories**: Configurable types with clinical workflow integration
-
 ## Database Schema & Migration System
 
 **Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
@@ -624,7 +602,7 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 ```bash
 # Initial Schema Setup
 oscarinit.sql          # Core database schema
-oscarinit_2025.sql     # Current 2025 schema version  
+oscarinit_2025.sql     # Current 2025 schema version
 oscardata.sql          # Initial reference data
 oscarinit_bc.sql       # British Columbia specific
 oscarinit_on.sql       # Ontario specific
@@ -641,25 +619,7 @@ bc_pharmacies.sql              # BC pharmacy directory
 firstNationCommunities_lu_list.sql # First Nations communities
 ```
 
-### Recent Database Changes (2025)
-- `update-2025-08-26-remove-waitlist-email.sql` - Email functionality removal
-- `update-2025-08-25-remove-healthsafety.sql` - HealthSafety module cleanup
-- `update-2025-08-21-k2a-removal.sql` - K2A integration removal
-- `update-2025-08-14-genericintake-removal.sql` - Generic intake forms cleanup
-
-### Key Healthcare Tables Schema
-```sql
-demographic: 50+ fields (HIN, rostering_status, addresses, demographics)
-allergies: severity, reaction, regional_identifier, drug_allergies  
-appointment: reason_code, billing_type, status, provider_no
-casemgmt_note: encrypted clinical notes, issue-based organization
-prevention: immunization_type, prevention_date, provider_prevention_type
-drugs: ATC_code, generic_name, dosage, interaction_checking
-measurementType: vital signs, clinical measurements, flowsheet_integration
-billing: diagnostic_codes, provincial_billing_integration
-```
-
-**Development Database**: 
+**Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
 - Port 3306 with health checks, 2G memory limit
 - Seeded with medical forms (Rourke charts, BCAR) and reference data
@@ -712,7 +672,7 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 **Key Files**:
 - `CLAUDE.md` - AI context (this file)
 - `pom.xml` - 200+ healthcare Maven dependencies
-- `database/mysql/` - 19+ years of healthcare schema evolution (2006-2025)  
+- `database/mysql/` - 19+ years of healthcare schema evolution (2006-2025)
 - `.devcontainer/` - Docker development with AI tools
 
 **Critical Patterns**:
@@ -784,9 +744,9 @@ src/main/java/ca/openosp/openo/fhir/                               # FHIR implem
 # Study These 2Action Implementations
 src/main/java/ca/openosp/openo/tickler/pageUtil/AddTickler2Action.java      # Simple execute pattern
 src/main/java/ca/openosp/openo/caseload/CaseloadContent2Action.java         # Method-based routing
-src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplay*2Action.java   
+src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplay*2Action.java
 # Base Classes for 2Actions
-src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayAction.java    
+src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayAction.java
 ```
 
 ### Spring Integration Patterns
@@ -929,7 +889,7 @@ README.md                                          # Project setup and overview
 
 ### When You Need Help Understanding:
 - **Security Patterns**: Check `SecurityInfoManager.java` and existing 2Action implementations
-- **Database Access**: Look at DAO implementations in `commn.dao` package  
+- **Database Access**: Look at DAO implementations in `commn.dao` package
 - **Healthcare Standards**: Examine `hl7/` and `fhir/` packages for integration patterns
 - **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations
 - **Spring Configuration**: Reference the multiple `applicationContext*.xml` files
