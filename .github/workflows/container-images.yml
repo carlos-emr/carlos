@@ -96,15 +96,16 @@ jobs:
             local name=$1
             local output_name=$2
             local context_path=$3
-            local extra_context=$4
+            shift 3
+            local extra_contexts=("$@")
 
             echo "========================================="
             echo "Checking container: $name"
             echo "========================================="
 
             # Calculate hash of Dockerfile and context
-            if [ -n "$extra_context" ]; then
-              HASH=$(find "$context_path" "$extra_context" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
+            if [ ${#extra_contexts[@]} -gt 0 ]; then
+              HASH=$(find "$context_path" "${extra_contexts[@]}" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
             else
               HASH=$(find "$context_path" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
             fi
@@ -142,10 +143,10 @@ jobs:
             fi
           }
 
-          # Check each container (name, output_name, context_path, extra_context)
-          check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
-          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database"
-          check_container "drugref" "drugref" ".devcontainer/drugref" ""
+          # Check each container (name, output_name, context_path, extra_contexts...)
+          check_container "tomcat-dev" "tomcat" ".devcontainer/development"
+          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database" ".devcontainer/development/config/shared/my.cnf"
+          check_container "drugref" "drugref" ".devcontainer/drugref"
 
   # ===========================================================================
   # Build and push tomcat-dev container
