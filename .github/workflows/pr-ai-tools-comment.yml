@@ -19,14 +19,51 @@ jobs:
 <details>
 <summary><b>Available Commands & Automation</b></summary>
 
-### Interactive Commands (Comment-Triggered)
+## Interactive AI Assistants
 
-| Command | Where to Use | What It Does |
-|---------|--------------|--------------|
-| \`@claude <request>\` | PR comments, issues | Claude Code AI assistance - implementation, refactoring, analysis |
-| \`@coderabbitai <command>\` | PR comments | On-demand code review, security analysis |
+<details>
+<summary><b>Claude Code</b> — <code>@claude</code></summary>
 
-### Automatic CI (Runs on All PRs)
+| Command | Description |
+|---------|-------------|
+| \`@claude <request>\` | General assistance with any request |
+| \`@claude review this PR\` | Review the pull request |
+| \`@claude explain <file/function>\` | Explain code |
+| \`@claude implement <feature>\` | Implement a feature |
+| \`@claude fix <issue>\` | Fix a bug or issue |
+| \`@claude refactor <code>\` | Suggest refactoring |
+| \`@claude write tests for <file>\` | Generate tests |
+
+**Works in:** PR comments, issue comments
+
+</details>
+
+<details>
+<summary><b>CodeRabbit</b> — <code>@coderabbitai</code></summary>
+
+| Command | Description |
+|---------|-------------|
+| \`@coderabbitai review\` | Trigger incremental review |
+| \`@coderabbitai full review\` | Full review of all files |
+| \`@coderabbitai summary\` | Regenerate PR summary |
+| \`@coderabbitai resolve\` | Resolve all CodeRabbit comments |
+| \`@coderabbitai configuration\` | Show current config |
+| \`@coderabbitai help\` | Show all commands |
+| \`@coderabbitai pause\` | Pause reviews on this PR |
+| \`@coderabbitai resume\` | Resume reviews on this PR |
+
+**File-specific** (reply to a review comment):
+| Command | Description |
+|---------|-------------|
+| \`@coderabbitai generate docstrings\` | Add docstrings to file |
+| \`@coderabbitai generate unit tests\` | Generate unit tests |
+| \`@coderabbitai modularize\` | Suggest modularization |
+
+**Works in:** PR comments, review comments
+
+</details>
+
+## Automatic CI
 
 | Tool | Trigger | What It Does |
 |------|---------|--------------|
@@ -34,24 +71,31 @@ jobs:
 | **Dependency Review** | PR to protected branches | Scans for vulnerable dependencies |
 | **Maven Build & Test** | PR to main/develop | Builds project, runs all tests |
 
-### Issue Lifecycle Keywords
+## Issue Automation
 
-| Keyword | Who Can Use | Effect |
-|---------|-------------|--------|
-| \`verified\`, \`fixed\`, \`works\` | Issue author | Auto-closes issue with \`verified-fixed\` label |
-| \`not fixed\`, \`still broken\` | Issue author | Adds \`fix-failed\` label |
+<details>
+<summary><b>Issue Lifecycle Keywords</b></summary>
 
-### PR-to-Issue Linking
+**For issue authors to verify fixes** (comment on the issue):
+| Keyword | Effect |
+|---------|--------|
+| \`verified\`, \`fixed\`, \`works\` | Auto-closes issue, adds \`verified-fixed\` label |
+| \`not fixed\`, \`still broken\` | Adds \`fix-failed\` label |
 
+**PR-to-Issue linking** (in PR title or description):
 | Pattern | Effect |
 |---------|--------|
-| \`Fixes #123\`, \`Closes #456\`, \`Resolves #789\` | Links PR to issue, notifies author on merge |
+| \`Fixes #123\` | Links PR, closes issue on merge |
+| \`Closes #456\` | Links PR, closes issue on merge |
+| \`Resolves #789\` | Links PR, closes issue on merge |
 
-### IDE Tools
+</details>
 
-| Tool | How to Use |
-|------|------------|
-| **GitHub Copilot** | IDE extension with custom instructions in \`.github/copilot-instructions.md\` |
+## IDE Tools
+
+| Tool | Setup |
+|------|-------|
+| **GitHub Copilot** | IDE extension · Custom instructions: \`.github/copilot-instructions.md\` |
 
 </details>`;
 
