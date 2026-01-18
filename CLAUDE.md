@@ -485,7 +485,7 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Log security violations appropriately
 
 **2. Error Handling**
-- Use OWASP encoding for user inputs: `Encode.forJava(parameter)`
+- Use context-appropriate OWASP encoding: `Encode.forHtml()` for HTML output, `Encode.forJavaScript()` for JS contexts
 - Implement proper exception handling
 - Return appropriate result strings
 
