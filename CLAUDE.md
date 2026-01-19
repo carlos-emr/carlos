@@ -721,7 +721,7 @@ Claude Code is integrated into this repository with the following capabilities:
 - **Note**: @claude triggers are restricted to repository OWNER, MEMBER, COLLABORATOR, or CONTRIBUTOR only
 
 **Tool Permissions:**
-- GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`, `gh api` GET-only for this repo)
+- GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`, `gh api` for specific read-only endpoints)
 - Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
 - File read/write within the repository
 - Web search and documentation lookup
@@ -734,9 +734,11 @@ Claude Code is integrated into this repository with the following capabilities:
 - All PRs require human review before merge
 - Destructive operations are blocked:
   - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
-  - Force push: `git push --force/-f`, `git push origin --force/-f`, `git push --force-with-lease`, `git push origin --force-with-lease`
+  - Force push: `git push --force/-f`, `git push origin --force/-f`, `git push * --force/-f`, `git push --force-with-lease`
+  - Hook bypass: `git commit --no-verify`, `git push --no-verify`
   - Destructive git: `git rebase`, `git reset --hard`, `git clean`
   - System: `sudo`
+- GitHub API write methods blocked (`-X DELETE/POST/PUT/PATCH`, `--method DELETE/POST/PUT/PATCH`)
 - Repository management operations (`gh repo create/delete/fork`) are blocked
 - Repository settings API (`gh api repos/*/settings`) is blocked
 - Remote branch deletion (`git push origin --delete`) is blocked

@@ -12,17 +12,16 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+    # Security note: This workflow intentionally runs on ALL PRs (including from
+    # first-time contributors) to ensure external contributions get reviewed.
+    # This is safe because:
+    # - Only posts review comments (read-only for code, write for PR comments)
+    # - Uses pull_request trigger which has limited permissions for fork PRs
+    # - No author_association check needed since it doesn't execute arbitrary commands
     runs-on: ubuntu-latest
     permissions:
       contents: read        # Read-only access for code review
       pull-requests: write  # Enables posting review comments
-      issues: write         # Enables updating linked issues during review
       id-token: write       # Required for Claude Code Action authentication
 
     steps:
