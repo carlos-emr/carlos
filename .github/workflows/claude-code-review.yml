@@ -12,17 +12,14 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+    # Security note: This workflow runs on all PRs, but fork PRs will not receive
+    # review comments because pull_request workflows do not get repository secrets
+    # and the GITHUB_TOKEN is read-only for forks. Use pull_request_target with a
+    # safe checkout or a GitHub App token if fork reviews are required.
     runs-on: ubuntu-latest
     permissions:
       contents: read        # Read-only access for code review
       pull-requests: write  # Enables posting review comments
-      issues: write         # Enables updating linked issues during review
       id-token: write       # Required for Claude Code Action authentication
 
     steps:
