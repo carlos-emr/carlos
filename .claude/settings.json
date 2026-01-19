@@ -138,6 +138,7 @@
       "Bash(git push origin --delete:*)",
       "Bash(git push --force-with-lease:*)",
       "Bash(git push origin --force-with-lease:*)",
+      "Bash(git push origin * --force-with-lease:*)",
       "Bash(git clean:*)",
       "Bash(gh auth:*)",
       "Bash(gh api * -X DELETE:*)",
