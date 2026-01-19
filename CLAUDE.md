@@ -709,7 +709,7 @@ Claude Code is integrated into this repository with the following capabilities:
 - **Note**: @claude triggers are restricted to repository OWNER, MEMBER, or COLLABORATOR only
 
 **Tool Permissions:**
-- GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`)
+- GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`, `gh api` GET-only for this repo)
 - Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
 - File read/write within the repository
 - Web search and documentation lookup

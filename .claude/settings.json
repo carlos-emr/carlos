@@ -59,6 +59,7 @@
       "Bash(gh issue:*)",
       "Bash(gh repo view:*)",
       "Bash(gh label:*)",
+      "Bash(gh api -X GET repos/openo-beta/Open-O:*)",
       "Bash(gh run:*)",
       "Bash(git status:*)",
       "Bash(git branch:*)",
