@@ -735,6 +735,7 @@ Claude Code is integrated into this repository with the following capabilities:
 - Destructive operations are blocked:
   - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
   - Force push: `git push --force/-f`, `git push origin --force/-f`, `git push * --force/-f`, `git push --force-with-lease`
+  - History rewriting: `git commit --amend`, `git filter-branch`, `git filter-repo`, `git reflog expire`, `git gc --prune`
   - Hook bypass: `git commit --no-verify`, `git push --no-verify`
   - Destructive git: `git rebase`, `git reset --hard`, `git clean`
   - System: `sudo`
