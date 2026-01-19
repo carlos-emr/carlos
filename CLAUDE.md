@@ -694,6 +694,58 @@ If Claude encounters issues it cannot resolve:
 
 ---
 
+## AI-Assisted Development
+
+### Claude Code Capabilities
+
+Claude Code is integrated into this repository with the following capabilities:
+
+**Automated Actions (on @claude mention or PR events):**
+- Post PR review comments with inline code annotations
+- Create and update issues with proper labels
+- Create feature branches and push code changes
+- Create pull requests automatically (via `gh pr create`)
+- Access CI/CD status and logs for debugging
+
+**Tool Permissions:**
+- GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`, `gh api` for this repo)
+- Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
+- File read/write within the repository
+- Web search and documentation lookup
+- Playwright MCP tools for UI testing
+- See `.claude/settings.json` for complete permission configuration
+
+**Safety Guardrails:**
+- **Repository scoped** - Operations run within the checked-out `openo-beta/Open-O` repository context
+- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
+- All PRs require human review before merge
+- Destructive operations (`rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`, `sudo`, `git push --force`/`-f`, `git push --force-with-lease`, `git rebase`, `git reset --hard`, `git clean`) are blocked
+- Repository management operations (`gh repo create/delete/fork`) are blocked
+- Repository settings API (`gh api repos/*/settings`) is blocked
+- Remote branch deletion (`git push origin --delete`) is blocked
+- Remote manipulation (`git remote add/set-url`) is blocked
+- Workflow modification (`gh workflow enable/disable`) is blocked
+- Credential manipulation (`gh auth`) is blocked
+- PHI protection enforced via OWASP encoding, parameterized queries, and `SecurityInfoManager` (see Critical Security Requirements)
+
+### Interacting with Claude
+
+**On Pull Requests:**
+- `@claude review` - Comprehensive code review with security focus
+- `@claude fix the lint errors` - Apply automated fixes
+- `@claude explain this change` - Get explanation of PR changes
+
+**On Issues:**
+- `@claude investigate this bug` - Research and provide analysis
+- `@claude implement this feature` - Create implementation PR
+- `@claude add labels` - Categorize with appropriate labels
+
+**Automated Triggers:**
+- New PRs automatically receive code review
+- Issues trigger Claude response when opened or assigned, if they contain `@claude` in title or body
+
+---
+
 ## Key Code References & Further Information
 
 ### Essential Configuration Files
