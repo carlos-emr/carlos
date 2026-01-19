@@ -706,9 +706,10 @@ Claude Code is integrated into this repository with the following capabilities:
 - Create feature branches and push code changes
 - Create pull requests automatically (via `gh pr create`)
 - Access CI/CD status and logs for debugging
+- **Note**: @claude triggers are restricted to repository OWNER, MEMBER, or COLLABORATOR only
 
 **Tool Permissions:**
-- GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`, `gh api` for this repo)
+- GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`)
 - Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
 - File read/write within the repository
 - Web search and documentation lookup
@@ -719,9 +720,8 @@ Claude Code is integrated into this repository with the following capabilities:
 - **Repository scoped** - Operations run within the checked-out `openo-beta/Open-O` repository context
 - Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
 - All PRs require human review before merge
-- Destructive operations (`rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`, `sudo`, `git push --force`/`-f`, `git push --force-with-lease`, `git rebase`, `git reset --hard`, `git clean`) are blocked
+- Destructive operations (`rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`, `sudo`, `git push --force`/`-f`, `git push origin --force`/`-f`, `git push --force-with-lease`, `git push origin --force-with-lease`, `git rebase`, `git reset --hard`, `git clean`) are blocked
 - Repository management operations (`gh repo create/delete/fork`) are blocked
-- Repository settings API (`gh api repos/*/settings`) is blocked
 - Remote branch deletion (`git push origin --delete`) is blocked
 - Remote manipulation (`git remote add/set-url`) is blocked
 - Workflow modification (`gh workflow enable/disable`) is blocked
