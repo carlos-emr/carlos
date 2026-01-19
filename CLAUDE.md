@@ -720,8 +720,13 @@ Claude Code is integrated into this repository with the following capabilities:
 - **Repository scoped** - Operations run within the checked-out `openo-beta/Open-O` repository context
 - Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
 - All PRs require human review before merge
-- Destructive operations (`rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`, `sudo`, `git push --force`/`-f`, `git push origin --force`/`-f`, `git push --force-with-lease`, `git push origin --force-with-lease`, `git rebase`, `git reset --hard`, `git clean`) are blocked
+- Destructive operations are blocked:
+  - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
+  - Force push: `git push --force/-f`, `git push origin --force/-f`, `git push --force-with-lease`, `git push origin --force-with-lease`
+  - Destructive git: `git rebase`, `git reset --hard`, `git clean`
+  - System: `sudo`
 - Repository management operations (`gh repo create/delete/fork`) are blocked
+- Repository settings API (`gh api repos/*/settings`) is blocked
 - Remote branch deletion (`git push origin --delete`) is blocked
 - Remote manipulation (`git remote add/set-url`) is blocked
 - Workflow modification (`gh workflow enable/disable`) is blocked
