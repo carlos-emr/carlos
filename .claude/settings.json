@@ -5,12 +5,8 @@
   "hooks": {
     "SessionStart": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '⚠️ ENVIRONMENT CHECK: These Claude Code settings are configured for ISOLATED DEVCONTAINERS ONLY. The pre-approved permissions assume a sandboxed development environment with no real patient data (PHI). If running outside a devcontainer, review .claude/settings.json carefully.'"
-          }
-        ]
+        "type": "command",
+        "command": "printf '%s\n' '⚠️ ENVIRONMENT CHECK: These Claude Code settings are configured for ISOLATED DEVCONTAINERS ONLY. The pre-approved permissions assume a sandboxed development environment with no real patient data (PHI). If running outside a devcontainer, review .claude/settings.json carefully.' 1>&2 || { echo 'Failed to display environment warning. Please review .claude/settings.json manually.' 1>&2; exit 1; }"
       }
     ]
   },
