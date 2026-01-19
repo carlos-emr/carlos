@@ -12,6 +12,8 @@ on:
 
 jobs:
   claude:
+    # Security: Only allow trusted users to trigger Claude. FIRST_TIME_CONTRIBUTOR,
+    # FIRST_TIMER, MANNEQUIN, and NONE are excluded to prevent untrusted access.
     if: |
       (github.event_name == 'issue_comment' &&
        contains(github.event.comment.body, '@claude') &&
@@ -55,5 +57,3 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
           # claude_args: '--allowed-tools Bash(gh pr:*)'
-
-

@@ -15,9 +15,9 @@ jobs:
     # Security note: This workflow intentionally runs on ALL PRs (including from
     # first-time contributors) to ensure external contributions get reviewed.
     # This is safe because:
-    # - Only posts review comments (read-only for code, write for PR comments)
-    # - Uses pull_request trigger which has limited permissions for fork PRs
-    # - No author_association check needed since it doesn't execute arbitrary commands
+    # - Token has limited permissions (read-only code access, PR comment write only)
+    # - Uses pull_request trigger which has restricted permissions for fork PRs
+    # - No author_association check needed since token cannot modify repository content
     runs-on: ubuntu-latest
     permissions:
       contents: read        # Read-only access for code review
