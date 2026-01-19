@@ -12,10 +12,10 @@ on:
 
 jobs:
   claude-review:
-    # Security note: This workflow runs on all PRs, but fork PRs will not receive
-    # review comments because pull_request workflows do not get repository secrets
-    # and the GITHUB_TOKEN is read-only for forks. Use pull_request_target with a
-    # safe checkout or a GitHub App token if fork reviews are required.
+    # Security: Only allow trusted users to trigger automated code review.
+    # CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, FIRST_TIMER, MANNEQUIN, and NONE are excluded.
+    if: |
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: read        # Read-only access for code review
