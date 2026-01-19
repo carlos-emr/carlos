@@ -106,6 +106,7 @@
       "Bash(gh api repos/*/keys:*)",
       "Bash(gh api repos/*/invitations:*)",
       "Bash(gh api repos/*/branches/*/protection:*)",
+      "Bash(gh api repos/*/settings:*)",
       "Bash(gh workflow enable:*)",
       "Bash(gh workflow disable:*)",
       "Bash(git remote add:*)",
