@@ -92,7 +92,6 @@
       "Bash(git checkout:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push origin:*)",
       "Bash(git pull:*)",
       "Bash(git fetch:*)",
       "Bash(git log:*)",
