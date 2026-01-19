@@ -725,10 +725,15 @@ Claude Code is integrated into this repository with the following capabilities:
 - Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
 - File read/write within the repository, subject to the following boundaries:
   - Scope: Only files inside the checked-out OpenO EMR repository workspace; no access to paths outside the repo.
-  - Protected directories: Claude must not modify Git metadata or CI/CD definitions (e.g., `.git/`, `.github/`, `.github/workflows/`), database seeds/migrations (e.g., `database/`), secrets or credential stores, or other directories that are explicitly denied in `.claude/settings.json`.
+  - Protected directories: Claude must not modify Git metadata or CI/CD definitions (e.g., `.git/`, `.github/`, `.github/workflows/`), database seeds/migrations (e.g., `database/`), secrets or credential stores, or other sensitive directories. These protections **must be enforced via explicit write-deny rules** in `.claude/settings.json` (for example: `Write(path:.git/**)`, `Write(path:.github/workflows/**)`, `Write(path:database/**)`).
   - File size: Intended for source files, configuration, and documentation. Very large files (such as database dumps, large binaries, or media assets) may be rejected by the tools and should not be created or edited by Claude.
   - File types: Read/write is primarily for text-based project assets (Java, XML, YAML, JSON, JSP, Markdown, shell scripts, etc.). Claude should not generate or alter compiled artifacts, installers, or opaque binary formats.
-  - Deny rules: All file write operations remain subject to the destructive-operation deny list and any additional path/file restrictions configured in `.claude/settings.json`. If there is any conflict, the deny rules take precedence and the operation must not be performed.
+  - Deny rules: All file write operations remain subject to (a) the destructive-operation deny list and (b) explicit path-based write restrictions configured in `.claude/settings.json`. At minimum, `.claude/settings.json` **must** include write-deny entries for:
+    - `Write(path:.git/**)`
+    - `Write(path:.github/**)`
+    - `Write(path:.github/workflows/**)`
+    - `Write(path:database/**)`
+    - and any additional secrets/credential directories defined by the deployment environment. If there is any conflict, the deny rules take precedence and the operation must not be performed.
 - Web search and documentation lookup
 - Playwright MCP tools for UI testing
 - See `.claude/settings.json` for complete permission configuration
