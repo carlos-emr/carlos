@@ -1,4 +1,19 @@
 {
+  "companyAnnouncements": [
+    "⚠️  DEVCONTAINER ONLY: Open-O development defaults grant extensive permissions optimized for isolated devcontainers. Do NOT use in shared or production environments. See CLAUDE.md for details."
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️ ENVIRONMENT CHECK: These Claude Code settings are configured for ISOLATED DEVCONTAINERS ONLY. The pre-approved permissions assume a sandboxed development environment with no real patient data (PHI). If running outside a devcontainer, review .claude/settings.json carefully.'"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "github@claude-plugins-official": false,
     "code-review@claude-plugins-official": true,

@@ -1,5 +1,17 @@
 # OpenO EMR - Healthcare Electronic Medical Records System
 
+> **⚠️ DEVCONTAINER ENVIRONMENT NOTICE**
+>
+> The `.claude/settings.json` in this repository grants **extensive pre-approved permissions**
+> optimized for **isolated devcontainer development only**. These settings assume:
+> - Sandboxed Docker environment with no external network access to production systems
+> - Development database with synthetic/test data (no real PHI)
+> - Disposable environment that can be safely reset
+>
+> **DO NOT** use these defaults in shared servers, production environments, or any system
+> with access to real patient data. Review and restrict permissions in `.claude/settings.json`
+> if running outside an isolated devcontainer.
+
 **PROJECT IDENTITY**: Always refer to this system as "OpenO EMR" or "OpenO" - NOT "OSCAR EMR" or "OSCAR McMaster"
 
 ## Core Context
