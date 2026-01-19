@@ -12,12 +12,10 @@ on:
 
 jobs:
   claude-review:
-    # Security note: This workflow intentionally runs on ALL PRs (including from
-    # first-time contributors) to ensure external contributions get reviewed.
-    # This is safe because:
-    # - Token has limited permissions (read-only code access, PR comment write only)
-    # - Uses pull_request trigger which has restricted permissions for fork PRs
-    # - No author_association check needed since token cannot modify repository content
+    # Security note: This workflow runs on all PRs, but fork PRs will not receive
+    # review comments because pull_request workflows do not get repository secrets
+    # and the GITHUB_TOKEN is read-only for forks. Use pull_request_target with a
+    # safe checkout or a GitHub App token if fork reviews are required.
     runs-on: ubuntu-latest
     permissions:
       contents: read        # Read-only access for code review
