@@ -12,21 +12,21 @@ on:
 
 jobs:
   claude:
-    # Security: Only allow trusted users to trigger Claude. FIRST_TIME_CONTRIBUTOR,
-    # FIRST_TIMER, MANNEQUIN, and NONE are excluded to prevent untrusted access.
+    # Security: Only allow trusted users to trigger Claude. CONTRIBUTOR,
+    # FIRST_TIME_CONTRIBUTOR, FIRST_TIMER, MANNEQUIN, and NONE are excluded.
     if: |
       (github.event_name == 'issue_comment' &&
        contains(github.event.comment.body, '@claude') &&
-       contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association)) ||
+       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
       (github.event_name == 'pull_request_review_comment' &&
        contains(github.event.comment.body, '@claude') &&
-       contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association)) ||
+       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
       (github.event_name == 'pull_request_review' &&
        contains(github.event.review.body, '@claude') &&
-       contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.review.author_association)) ||
+       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)) ||
       (github.event_name == 'issues' &&
        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
-       contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.issue.author_association))
+       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
     runs-on: ubuntu-latest
     permissions:
       contents: write       # Enables pushing code changes

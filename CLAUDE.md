@@ -718,7 +718,7 @@ Claude Code is integrated into this repository with the following capabilities:
 - Create feature branches and push code changes
 - Create pull requests automatically (via `gh pr create`)
 - Access CI/CD status and logs for debugging
-- **Note**: @claude triggers are restricted to repository OWNER, MEMBER, COLLABORATOR, or CONTRIBUTOR (users with previously merged PRs) only. FIRST_TIME_CONTRIBUTOR and FIRST_TIMER are excluded for security.
+- **Note**: @claude triggers are restricted to repository OWNER, MEMBER, or COLLABORATOR only. CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, and FIRST_TIMER are excluded for security.
 
 **Tool Permissions:**
 - GitHub CLI access (`gh pr`, `gh issue`, `gh label`, `gh run`, `gh repo view`, `gh api` for this repo with write methods blocked)
@@ -761,7 +761,7 @@ Claude Code is integrated into this repository with the following capabilities:
 
 **Automated Triggers:**
 - New PRs automatically receive code review
-- Issues trigger Claude response when opened or assigned by authorized users (OWNER/MEMBER/COLLABORATOR/CONTRIBUTOR), if they contain `@claude` in title or body
+- Issues trigger Claude response when opened or assigned by authorized users (OWNER/MEMBER/COLLABORATOR), if they contain `@claude` in title or body
 
 ---
 
