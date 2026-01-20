@@ -113,12 +113,12 @@
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.4.0</version>
+                <version>${hapifhir.version}</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.4.0</version>
+                <version>${hapifhir.version}</version>
             </dependency>
 
             <!-- Transitive Hibernate/JPA dependencies -->
