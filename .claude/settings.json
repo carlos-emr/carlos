@@ -13,6 +13,23 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/validate-owasp-encoding.py",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/validate-sql-safety.py",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {
