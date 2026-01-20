@@ -1,0 +1,8 @@
+# CodeRabbit Configuration - OpenO EMR
+# Docs: https://docs.coderabbit.ai/reference/configuration
+
+reviews:
+  review_status: false
+
+chat:
+  auto_reply: true

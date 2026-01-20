@@ -102,7 +102,9 @@
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git push origin *)",
-      "Bash(git push -u origin *)"
+      "Bash(git push -u origin *)",
+      "Bash(gh issue create *)",
+      "Bash(TIMESTAMP=$(date +%Y%m%d-%H%M%S-%3N) *)"
     ],
     "deny": [
       "Write(path:.git/**)",
@@ -214,7 +216,6 @@
     "ask": [
       "Bash(gh pr close *)",
       "Bash(gh issue close *)",
-      "Bash(gh issue create *)",
       "Bash(gh issue edit *)",
       "Bash(gh label *)",
       "Bash(gh run rerun *)",
