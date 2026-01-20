@@ -108,6 +108,18 @@
                 <artifactId>mina-core</artifactId>
                 <version>2.1.10</version>
             </dependency>
+            <!-- Force secure versions of org.hl7.fhir.core libs to fix XXE vulnerability in XSLT parsing -->
+            <!-- Transitive from hapi-fhir-structures-dstu3, need 6.4.0+ to fix CVE -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.utilities</artifactId>
+                <version>6.4.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>6.4.0</version>
+            </dependency>
 
             <!-- Transitive Hibernate/JPA dependencies -->
             <!-- Hibernate core -->
