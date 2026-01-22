@@ -108,15 +108,15 @@ public class ManagePatientLetters2Action extends ActionSupport {
             //Validate that it is a valid jasper report file
             //Save to database
 
-            // Validate XML security before compilation (OWASP XXE prevention)
-            XmlUtils.validateXmlSecurity(fileData);
+            // Sanitize XML (OWASP XXE prevention) - parses and re-serializes to neutralize external entities
+            byte[] sanitizedData = XmlUtils.sanitizeXml(fileData);
 
-            JasperReport jasperReport = JasperCompileManager.compileReport(new ByteArrayInputStream(fileData));
+            JasperReport jasperReport = JasperCompileManager.compileReport(new ByteArrayInputStream(sanitizedData));
 
             ManageLetters manageLetters = new ManageLetters();
             // Use reportFileFileName (original filename from Struts2) instead of temp file name
             String originalFileName = reportFileFileName != null ? reportFileFileName : reportFile.getName();
-            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, originalFileName, fileData);
+            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, originalFileName, sanitizedData);
         } catch (FileNotFoundException ex) {
             MiscUtils.getLogger().error("Error", ex);
         } catch (IOException ex) {

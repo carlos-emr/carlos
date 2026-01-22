@@ -136,59 +136,61 @@ public final class XmlUtils {
     }
 
     /**
-     * Validates XML content for security threats while allowing DOCTYPE declarations.
+     * Validates and sanitizes XML content by parsing with XXE protections and re-serializing.
      *
-     * <p>This method provides OWASP-compliant XXE (XML External Entity) protection
-     * while maintaining backward compatibility with legitimate XML files that use
-     * DOCTYPE declarations (such as JasperReports .jrxml templates).</p>
+     * <p>This method provides OWASP-compliant XXE (XML External Entity) protection by
+     * round-tripping XML through a secure parser. Any external entity references are
+     * neutralized (resolved to empty) during parsing, and the clean result is returned.</p>
      *
-     * @param xmlData the XML content as a byte array to validate
-     * @throws IllegalArgumentException if the XML content is invalid or contains security threats
+     * <p>This approach:</p>
+     * <ul>
+     *   <li>Neutralizes SYSTEM entity declarations (they resolve to empty)</li>
+     *   <li>Preserves valid XML structure for JasperReports templates</li>
+     *   <li>Returns sanitized bytes safe for storage and later compilation</li>
+     * </ul>
+     *
+     * @param xmlData the XML content as a byte array to sanitize
+     * @return sanitized XML bytes with external entities neutralized
+     * @throws IllegalArgumentException if the XML content is invalid
      * @throws SecurityException if the parser cannot be configured securely
      * @since 2026-01-22
      * @see <a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html">
      *      OWASP XXE Prevention Cheat Sheet</a>
      */
-    public static void validateXmlSecurity(byte[] xmlData) throws IllegalArgumentException {
+    public static byte[] sanitizeXml(byte[] xmlData) throws IllegalArgumentException {
         if (xmlData == null || xmlData.length == 0) {
             throw new IllegalArgumentException("XML data cannot be null or empty");
         }
 
         try {
-            SAXParserFactory spf = SAXParserFactory.newInstance();
+            // Configure secure DocumentBuilderFactory
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            dbf.setXIncludeAware(false);
+            dbf.setExpandEntityReferences(false);
 
-            // Enable secure processing mode
-            spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            // Parse with secure settings (external entities become empty)
+            DocumentBuilder builder = dbf.newDocumentBuilder();
+            Document doc = builder.parse(new ByteArrayInputStream(xmlData));
 
-            // NOTE: Do NOT set disallow-doctype-decl - this would break legitimate
-            // JasperReports templates that use PUBLIC DOCTYPE declarations
+            // Serialize back to bytes
+            return toBytes(doc, false);
 
-            // Disable external entities (XXE protection)
-            spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-
-            // Prevent external DTD loading
-            spf.setValidating(false);
-            spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-
-            // Disable XInclude processing
-            spf.setXIncludeAware(false);
-
-            SAXParser parser = spf.newSAXParser();
-            parser.parse(new ByteArrayInputStream(xmlData), new DefaultHandler());
-
-        } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
-            logger.error("XML parser does not support required security features: {}", e.getMessage());
-            throw new SecurityException("Cannot configure XML parser securely", e);
         } catch (ParserConfigurationException e) {
-            logger.error("Failed to configure XML parser: {}", e.getMessage());
+            logger.error("Failed to configure secure XML parser: {}", e.getMessage());
             throw new SecurityException("XML parser configuration error", e);
         } catch (SAXException e) {
-            logger.warn("XML validation failed - possible security threat: {}", e.getMessage());
-            throw new IllegalArgumentException("Invalid or potentially malicious XML content", e);
+            logger.warn("XML parsing failed: {}", e.getMessage());
+            throw new IllegalArgumentException("Invalid XML content", e);
         } catch (IOException e) {
             logger.warn("Failed to read XML content: {}", e.getMessage());
             throw new IllegalArgumentException("Cannot read XML content", e);
+        } catch (Exception e) {
+            logger.error("Failed to serialize sanitized XML: {}", e.getMessage());
+            throw new IllegalArgumentException("Failed to process XML content", e);
         }
     }
 
