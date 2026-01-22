@@ -961,9 +961,6 @@
             <result name="printIndivica">/oscarEncounter/oscarConsultationRequest/printPdf2.do</result>
             <result name="fax">/fax/CoverPage.jsp</result>
         </action>
-        <!--action name="oscarEncounter/oscarConsultationRequest/printPdf" class="oscar.oscarEncounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrint2Action">
-            <result name="error">/oscarEncounter/ViewRequest.do?error=true</result>
-        </action-->
         <action name="oscarEncounter/oscarConsultationRequest/printPdf2" class="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action">
             <result name="error">/oscarEncounter/ViewRequest.do?error=true</result>
             <result name="attachform">/form/forwardshortcutname.jsp</result>
@@ -1027,14 +1024,6 @@
             <result name="success">/oscarEncounter/InsertTemplate.jsp</result>
             <result name="success2">/oscarEncounter/InsertTemplate2.jsp</result>
         </action>
-        <!--action name="PatientOption" class="oscar.oscarEncounter.search.pageUtil.EctPatientOptions2Action">
-            <result name="consult">/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
-            <result name="viewAllConsult">/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp</result>
-            <result name="success">/search/searchDemographicSearch.jsp</result>
-        </action>
-        <action name="CreateInitImmunization" class="ca.openosp.openo.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
-            <result name="success">/immunizationConfig/CreateImmunizationSetConfig.jsp</result>
-        </action-->
         <action name="CreateImmunizationSetConfig" class="ca.openosp.openo.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action">
             <result name="success">/immunizationConfig/AdministrateImmunizationSets.jsp</result>
             <result name="goBack">/immunizationConfig/CreateImmunizationSetConfig.jsp</result>
@@ -1116,7 +1105,6 @@
         <action name="oscarEncounter/oscarMeasurements/SetupMeasurements" class="ca.openosp.openo.encounter.oscarMeasurements.pageUtil.EctSetupMeasurements2Action">
             <result name="continue">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
         </action>
-        <!--action name="oscarEncounter/oscarMeasurements/StreamStyleSheet" class="oscar.oscarEncounter.oscarMeasurements.pageUtil.EctStreamStyleSheet2Action"/-->
         <action name="oscarEncounter/MeasurementData" class="ca.openosp.openo.measurements.web.MeasurementData2Action"/>
         <action name="oscarEncounter/oscarMeasurements/SetupDisplayHistory" class="ca.openosp.openo.encounter.oscarMeasurements.pageUtil.EctSetupDisplayHistory2Action">
             <result name="continue">/oscarEncounter/oscarMeasurements/DisplayHistory.jsp</result>
@@ -1264,10 +1252,6 @@
         <action name="oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport" class="ca.openosp.openo.report.oscarMeasurements.pageUtil.RptInitializeFrequencyOfRelevantTestsCDMReport2Action">
             <result name="success">/oscarReport/oscarMeasurements/CDMReport.jsp</result>
         </action>
-        <!--action name="oscarMaintenance" class="oscar.oscarMaintenance.pageUtil.Maintenance2Action">
-            <result name="success">/oscarMaintenance/oscarMaintenanceDisplay.jsp</result>
-            <result name="input">/oscarMaintenance/oscarMaintenanceInput.jsp</result>
-        </action-->
         <action name="EnterSignature" class="ca.openosp.openo.providers.pageUtil.ProEditSignature2Action">
             <result name="success">/provider/providerSignature.jsp</result>
         </action>
@@ -1403,9 +1387,6 @@
             <result name="ON">/billing/CA/ON/billingOB2.jsp</result>
             <result name="private">/billing/CA/BC/billReceipt.jsp</result>
         </action>
-        <!--action name="billing/CA/BC/billingStatement" class="oscar.oscarBilling.ca.bc.pageUtil.CreateBillingStatement2Action">
-            <result name="success">/billing/CA/BC/billStatement.jsp</result>
-        </action-->
         <action name="billing/CA/ON/BatchBill" class="ca.openosp.openo.billing.CA.ON.web.BatchBill2Action">
             <result name="saved">/billing/CA/ON/batchsaved.jsp</result>
             <result name="error">/billing/CA/ON/batcherror.jsp</result>
@@ -1451,9 +1432,6 @@
             <result name="outside">/billing/CA/ON/billingLreport.jsp</result>
             <result name="error">/billing/CA/ON/billingOBECEA.jsp</result>
         </action>
-        <!--action name="PMmodule/remoteReferal" class="oscar.remotereferal.OscarRemoteReferal2Action">
-            <result name="success">/eform/efmshowform_data.jsp</result>
-        </action-->
         <action name="oscarWaitingList/SetupDisplayPatientWaitingList" class="ca.openosp.openo.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/oscarWaitingList/DisplayPatientWaitingList.jsp</result>
         </action>
@@ -1466,9 +1444,6 @@
             <result name="editSuccess">/oscarWaitingList/SetupDisplayWaitingList.do</result>
             <result name="failure">/oscarWaitingList/EditWaitingListName.jsp</result>
         </action>
-        <!--action name="oscarWaitingList/WLWaitingList" class="oscar.pageUtil.WLWaitingList2Action">
-            <result name="success">/oscarWaitingList/WLDisplayPatientWaitingList.jsp</result>
-        </action-->
         <action name="demographic/printDemoLabelAction" class="ca.openosp.openo.demographic.PrintDemoLabel2Action"/>
         <action name="demographic/printDemoAddressLabelAction" class="ca.openosp.openo.demographic.PrintDemoAddressLabel2Action"/>
         <action name="demographic/printDemoChartLabelAction" class="ca.openosp.openo.demographic.PrintDemoChartLabel2Action"/>
@@ -1643,11 +1618,6 @@
         <action name="billing/CA/ON/benefitScheduleChange" class="ca.openosp.openo.billings.ca.on.OHIP.ScheduleOfBenefitsUpdate2Action">
             <result name="success">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
         </action>
-        <!--action name="billing/CA/BC/receivePaymentAction" class="oscar.oscarBilling.ca.bc.pageUtil.BillingReceivePaymentActionForm2Action">
-            <result name="success">/billing/CA/BC/billReceipt.jsp</result>
-            <result name="internalAdjustment">/billing/CA/BC/adjustBill.jsp</result>
-            <result name="internalAdjustmentWCB">/billing/CA/BC/billingTeleplanCorrectionWCB.jsp</result>
-        </action-->
         <action name="billing/CA/BC/receivePaymentAction" class="ca.openosp.openo.billings.ca.bc.pageUtil.ReceivePayment2Action">
             <result name="success">/billing/CA/BC/receivePayment.jsp</result>
         </action>
@@ -1739,7 +1709,6 @@
             <result name="remit">/billing/CA/BC/ProcessRemittance.do</result>
             <result name="checkElig">/billing/CA/BC/checkEligibility.jsp</result>
         </action>
-        <!--action name="billing/CA/BC/DownloadBilling" class="oscar.oscarBilling.ca.bc.pageUtil.DownloadFile2Action"/-->
         <!-- ticklerPlus actions removed -->
         <action name="PMmodule/ProgramManager" class="ca.openosp.openo.PMmodule.web.admin.ProgramManager2Action" method="execute">
             <result name="list">page.pmm.admin.list</result>
@@ -2248,7 +2217,6 @@
         <action name="oscarRx/Dispense" class="ca.openosp.openo.prescription.dispensary.Dispensary2Action">
             <result name="list">/oscarRx/dispensary/list.jsp</result>
         </action>
-        <!--action name="consults/Consultations" class="org.oscarehr.consultations.Consultation2Action"/-->
         <action name="DemographicExtService" class="ca.openosp.openo.commn.web.DemographicExtService2Action"/>
         <action name="integrator/IntegratorPush" class="ca.openosp.openo.commn.web.IntegratorPush2Action"/>
         <action name="printReferralLabelAction" class="ca.openosp.openo.commn.web.PrintReferralLabel2Action"/>
@@ -2257,13 +2225,6 @@
             <result name="failure">/billing/CA/ON/billingON3rdPayments.jsp</result>
             <result name="viewPayment">/billing/CA/ON/billingON3rdViewPayment.jsp</result>
         </action>
-        <!--action name="billing/CA/ON/displayMOHXML" class="org.oscarehr.billing.CA.ON.www.DisplayMOHXML2Action">
-            <result name="success">/billing/CA/ON/billingLreport.jsp</result>
-            <result name="failure">/billing/CA/ON/billingLreport.jsp</result>
-        </action>
-        <action name="billing/CA/ON/moveMOHFiles" class="ca.openosp.openo.billing.CA.ON.www.ArchiveMOHFile2Action">
-            <result name="showInbox">/billing/CA/ON/viewMOHFiles.jsp</result>
-        </action-->
         <action name="billing/ca/on/DisplayInvoiceLogo" class="ca.openosp.openo.billing.CA.ON.util.DisplayInvoiceLogo2Action"/>
         <action name="admin/AuditLogPurge" class="ca.openosp.openo.admin.web.AuditLogPurge2Action">
             <result name="success">/admin/auditLogPurge.jsp</result>
