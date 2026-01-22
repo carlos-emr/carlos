@@ -37,6 +37,7 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
+import ca.openosp.openo.utility.XmlUtils;
 import ca.openosp.openo.report.data.ManageLetters;
 
 import javax.servlet.http.HttpServletRequest;
@@ -107,16 +108,26 @@ public class ManagePatientLetters2Action extends ActionSupport {
             //Validate that it is a valid jasper report file
             //Save to database
 
+            // Validate XML security before compilation (OWASP XXE prevention)
+            XmlUtils.validateXmlSecurity(fileData);
+
             JasperReport jasperReport = JasperCompileManager.compileReport(new ByteArrayInputStream(fileData));
 
             ManageLetters manageLetters = new ManageLetters();
-            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, reportFile.getName(), fileData);
+            // Use reportFileFileName (original filename from Struts2) instead of temp file name
+            String originalFileName = reportFileFileName != null ? reportFileFileName : reportFile.getName();
+            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, originalFileName, fileData);
         } catch (FileNotFoundException ex) {
             MiscUtils.getLogger().error("Error", ex);
         } catch (IOException ex) {
             MiscUtils.getLogger().error("Error", ex);
         } catch (JRException ex) {
             MiscUtils.getLogger().error("Error", ex);
+        } catch (IllegalArgumentException ex) {
+            MiscUtils.getLogger().error("Template validation failed: {}", ex.getMessage());
+        } catch (SecurityException ex) {
+            MiscUtils.getLogger().error("Security configuration error: {}", ex.getMessage());
+            throw ex;
         }
 
         if (log.isTraceEnabled()) {
@@ -130,6 +141,7 @@ public class ManagePatientLetters2Action extends ActionSupport {
     }
 
     private File reportFile;
+    private String reportFileFileName;  // Original filename from Struts2 FileUploadInterceptor
 
     public File getReportFile() {
         return reportFile;
@@ -137,5 +149,13 @@ public class ManagePatientLetters2Action extends ActionSupport {
 
     public void setReportFile(File reportFile) {
         this.reportFile = reportFile;
+    }
+
+    public String getReportFileFileName() {
+        return reportFileFileName;
+    }
+
+    public void setReportFileFileName(String reportFileFileName) {
+        this.reportFileFileName = reportFileFileName;
     }
 }

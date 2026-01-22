@@ -51,6 +51,13 @@ import org.w3c.dom.ls.DOMImplementationLS;
 import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXNotRecognizedException;
+import org.xml.sax.SAXNotSupportedException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 public final class XmlUtils {
     private static Logger logger = MiscUtils.getLogger();
@@ -126,6 +133,63 @@ public final class XmlUtils {
         Document doc = builder.newDocument();
         doc.appendChild(doc.createElement(rootName));
         return doc;
+    }
+
+    /**
+     * Validates XML content for security threats while allowing DOCTYPE declarations.
+     *
+     * <p>This method provides OWASP-compliant XXE (XML External Entity) protection
+     * while maintaining backward compatibility with legitimate XML files that use
+     * DOCTYPE declarations (such as JasperReports .jrxml templates).</p>
+     *
+     * @param xmlData the XML content as a byte array to validate
+     * @throws IllegalArgumentException if the XML content is invalid or contains security threats
+     * @throws SecurityException if the parser cannot be configured securely
+     * @since 2026-01-22
+     * @see <a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html">
+     *      OWASP XXE Prevention Cheat Sheet</a>
+     */
+    public static void validateXmlSecurity(byte[] xmlData) throws IllegalArgumentException {
+        if (xmlData == null || xmlData.length == 0) {
+            throw new IllegalArgumentException("XML data cannot be null or empty");
+        }
+
+        try {
+            SAXParserFactory spf = SAXParserFactory.newInstance();
+
+            // Enable secure processing mode
+            spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+
+            // NOTE: Do NOT set disallow-doctype-decl - this would break legitimate
+            // JasperReports templates that use PUBLIC DOCTYPE declarations
+
+            // Disable external entities (XXE protection)
+            spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+
+            // Prevent external DTD loading
+            spf.setValidating(false);
+            spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+            // Disable XInclude processing
+            spf.setXIncludeAware(false);
+
+            SAXParser parser = spf.newSAXParser();
+            parser.parse(new ByteArrayInputStream(xmlData), new DefaultHandler());
+
+        } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
+            logger.error("XML parser does not support required security features: {}", e.getMessage());
+            throw new SecurityException("Cannot configure XML parser securely", e);
+        } catch (ParserConfigurationException e) {
+            logger.error("Failed to configure XML parser: {}", e.getMessage());
+            throw new SecurityException("XML parser configuration error", e);
+        } catch (SAXException e) {
+            logger.warn("XML validation failed - possible security threat: {}", e.getMessage());
+            throw new IllegalArgumentException("Invalid or potentially malicious XML content", e);
+        } catch (IOException e) {
+            logger.warn("Failed to read XML content: {}", e.getMessage());
+            throw new IllegalArgumentException("Cannot read XML content", e);
+        }
     }
 
     public static void appendChildToRoot(Document doc, String childName, byte[] childContents) {
