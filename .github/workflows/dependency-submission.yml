@@ -1,0 +1,84 @@
+# GitHub Workflow: Maven Dependency Submission
+#
+# Description:
+# This workflow validates both dependency lock files (legacy and modern) and
+# submits a complete dependency graph to GitHub for security monitoring.
+# It replaces GitHub's automatic dependency submission which cannot be configured
+# to use the correct lock files for our dual-profile setup.
+#
+# Trigger:
+# - Runs on push to main and develop branches when pom.xml or lock files change
+# - Does NOT run on pull requests (maven-project.yml handles PR validation)
+#
+# Jobs:
+# - validate-and-submit:
+#   - Matrix strategy validates both lock files in parallel
+#   - Legacy profile: Uses dependencies-lock.json (JUnit 4 only)
+#   - Modern profile: Uses dependencies-lock-modern.json (JUnit 4 + JUnit 5)
+#   - Submits dependency graph for each configuration
+#
+# License:
+# This GitHub Workflow file is part of the Open-O project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+#
+# Last Updated:
+# October 7, 2025
+
+name: Maven Dependency Submission
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - experimental
+    paths:
+      - 'pom.xml'
+      - 'dependencies-lock.json'
+      - 'dependencies-lock-modern.json'
+
+permissions:
+  contents: write  # Required for dependency graph submission
+
+jobs:
+  validate-and-submit:
+    name: Validate ${{ matrix.profile.name }} dependencies
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false  # Continue even if one profile fails
+      matrix:
+        profile:
+          - name: legacy
+            lock-file: dependencies-lock.json
+            maven-args: '-DskipModernTests=true'
+          - name: modern
+            lock-file: dependencies-lock-modern.json
+            maven-args: '-Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Validate ${{ matrix.profile.name }} lock file
+        run: |
+          echo "========================================="
+          echo "Validating ${{ matrix.profile.name }} dependencies"
+          echo "Lock file: ${{ matrix.profile.lock-file }}"
+          echo "Maven args: ${{ matrix.profile.maven-args }}"
+          echo "========================================="
+          mvn validate ${{ matrix.profile.maven-args }}
+
+      - name: Submit ${{ matrix.profile.name }} dependency graph
+        uses: advanced-security/maven-dependency-submission-action@3a183dc11227df3dd6351cfffb472965b9265da1  # v5
+        with:
+          maven-args: '${{ matrix.profile.maven-args }}'
+          # Unique correlator for each profile to avoid conflicts
+          snapshot-include-file-name: false
+          snapshot-dependency-file-name: pom.xml

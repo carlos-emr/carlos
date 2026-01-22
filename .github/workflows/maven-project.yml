@@ -1,33 +1,43 @@
 # GitHub Workflow: Check Open-O
 #
 # Description:
-# This workflow automates the build, testing, and code quality checks for 
-# the Open-O Maven project. It ensures the project builds successfully and adheres 
-# to coding standards defined by Checkstyle.
+# This workflow automates the build and testing for the Open-O Maven project.
+# It uses a parallelized approach: build first, then run modern and legacy tests in parallel.
+#
+# Container Images:
+# This workflow tries to pull pre-built container images from ghcr.io first.
+# If images are available, it skips local builds (faster CI).
+# If images are not available, it falls back to building locally.
+# See container-images.yml for the workflow that builds and pushes images.
 #
 # Usage:
 # - Triggered by pull requests targeting the following branches:
 #   - main
-#   - develop/alpaca
-#   - develop/bullfrog
-#   - develop/coyote
-#   - develop/dolphin
-#   - develop/dogfish
+#   - develop
+#   - experimental
 #
 # Key Jobs:
-# - build: 
-#   - Checks out the source code, builds Docker containers, generates Make files,
-#     builds the project, and runs unit tests while compiling JSP files.
-# - checkstyle:
-#   - Checks out the source code, builds Docker containers, and runs the 
-#     Maven Checkstyle plugin to enforce code style guidelines.
+# - build:
+#   - Pulls or builds the dev container
+#   - Runs `make install` to verify the project builds successfully
+#   - Saves Maven dependencies to cache for parallel test jobs
+#
+# - modern-tests (parallel):
+#   - Restores Maven dependencies from cache (graceful fallback if miss)
+#   - Runs modern tests (JUnit 5) using H2 in-memory database
+#   - Does NOT require the database container
+#
+# - legacy-tests (parallel):
+#   - Restores Maven dependencies from cache (graceful fallback if miss)
+#   - Runs legacy tests (JUnit 4) using MariaDB
+#   - Requires the database container
 #
 # License:
-# This GitHub Workflow file is part of the Open-O project and is subject 
+# This GitHub Workflow file is part of the Open-O project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
-# January 31, 2025
+# January 2026
 
 name: Check Open-O
 
@@ -35,78 +45,460 @@ on:
   pull_request:
     branches:
       - main
-      - develop/alpaca
-      - develop/bullfrog
-      - develop/coyote
-      - develop/dolphin
-      - develop/dogfish
+      - develop
+      - experimental
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try to pull pre-built image from ghcr.io
+        id: pull-image
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+        run: |
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          # Capture stderr so we can distinguish "not found" from other errors
+          if docker pull "$IMAGE" 2>pull-image-error.log; then
+            docker tag "$IMAGE" openo-tomcat-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "Image pull failed due to an unexpected error:"
+              cat pull-image-error.log
+            fi
+          fi
+          rm -f pull-image-error.log
+
+      - name: Fail on unexpected image pull error
+        if: steps.pull-image.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
 
       - name: Cache Docker layers
-        uses: actions/cache@v3
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: actions/cache@v4
         with:
-          path: /home/runner/.docker
-          key: ${{ runner.os }}-docker-${{ github.sha }}
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
           restore-keys: |
-            ${{ runner.os }}-docker-
+            ${{ runner.os }}-buildx-
 
       - name: Cache Maven packages
-        uses: actions/cache@v3
+        # Restores and saves Maven dependencies from/to GitHub Actions cache.
+        # Parallel test jobs restore from this same cache key for faster builds.
+        uses: actions/cache@v4
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          path: .m2-cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build Docker containers
-        uses: hoverkraft-tech/compose-action@v2.1.0
-        with:
-          compose-file: ".devcontainer/docker-compose.yml"
-      
-      # Removed incorrect 'make lock' - we should validate against committed lock file, not update it
-      
-      - name: Build project
-        run: docker exec openo-tomcat-dev .devcontainer/development/scripts/make install
+      - name: Build dev container (fallback)
+        if: steps.pull-image.outputs.pulled != 'true'
+        run: |
+          echo "Building container locally..."
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            -t openo-tomcat-dev \
+            .devcontainer/development
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      - name: Run unit tests & build JSP files
-        run: docker exec openo-tomcat-dev mvn package -Pjspc,modern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
+      - name: Start container
+        run: |
+          docker run -d --name openo-tomcat-dev \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
+            -w /workspace \
+            openo-tomcat-dev tail -f /dev/null
 
-  lint:
+      - name: Configure git safe directory
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            git config --global --add safe.directory /workspace
+          "
+
+      - name: Build project (no tests)
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo '========================================='
+            echo 'Building project without tests'
+            echo '========================================='
+            make install
+          "
+
+  modern-tests:
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Cache Docker layers
-        uses: actions/cache@v3
+      - name: Restore Maven cache
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        continue-on-error: true
         with:
-          path: /home/runner/.docker
-          key: ${{ runner.os }}-docker-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-docker-
-
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          path: .m2-cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build Docker containers
-        uses: hoverkraft-tech/compose-action@v2.1.0
+      - name: Prepare Maven cache directory
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss or restore failed, Maven will download dependencies"
+          mkdir -p .m2-cache
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
         with:
-          compose-file: ".devcontainer/docker-compose.yml"
-          
-      - name: Run Maven Checkstyle plugin
-        run: docker exec openo-tomcat-dev mvn checkstyle:checkstyle
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try to pull pre-built image from ghcr.io
+        id: pull-image
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+        run: |
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          # Capture stderr so we can distinguish "not found" from other errors
+          if docker pull "$IMAGE" 2>pull-image-error.log; then
+            docker tag "$IMAGE" openo-tomcat-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "Image pull failed due to an unexpected error:"
+              cat pull-image-error.log
+            fi
+          fi
+          rm -f pull-image-error.log
+
+      - name: Fail on unexpected image pull error
+        if: steps.pull-image.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
+
+      - name: Cache Docker layers
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build dev container (fallback)
+        if: steps.pull-image.outputs.pulled != 'true'
+        run: |
+          echo "Building container locally..."
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            -t openo-tomcat-dev \
+            .devcontainer/development
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Start container
+        run: |
+          docker run -d --name openo-tomcat-dev \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
+            -w /workspace \
+            openo-tomcat-dev tail -f /dev/null
+
+      - name: Configure git safe directory
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            git config --global --add safe.directory /workspace
+          "
+
+      - name: Run modern tests
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo '========================================='
+            echo 'Running Modern Tests (JUnit 5 with H2)'
+            echo '========================================='
+            make install --run-modern-tests
+          "
+
+  legacy-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Restore Maven cache
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        continue-on-error: true
+        with:
+          path: .m2-cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Prepare Maven cache directory
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss or restore failed, Maven will download dependencies"
+          mkdir -p .m2-cache
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try to pull pre-built tomcat image from ghcr.io
+        id: pull-tomcat
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+        run: |
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          # Capture stderr so we can distinguish "not found" from other errors
+          if docker pull "$IMAGE" 2>pull-tomcat-error.log; then
+            docker tag "$IMAGE" openo-tomcat-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built tomcat image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-tomcat-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built tomcat image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "Tomcat image pull failed due to an unexpected error:"
+              cat pull-tomcat-error.log
+            fi
+          fi
+          rm -f pull-tomcat-error.log
+
+      - name: Fail on unexpected tomcat image pull error
+        if: steps.pull-tomcat.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built tomcat image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
+
+      - name: Try to pull pre-built mariadb image from ghcr.io
+        id: pull-mariadb
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-mariadb-dev:latest
+        run: |
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          # Capture stderr so we can distinguish "not found" from other errors
+          if docker pull "$IMAGE" 2>pull-mariadb-error.log; then
+            docker tag "$IMAGE" openo-mariadb-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built mariadb image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-mariadb-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built mariadb image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "MariaDB image pull failed due to an unexpected error:"
+              cat pull-mariadb-error.log
+            fi
+          fi
+          rm -f pull-mariadb-error.log
+
+      - name: Fail on unexpected mariadb image pull error
+        if: steps.pull-mariadb.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built mariadb image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
+
+      - name: Cache Docker layers (tomcat)
+        if: steps.pull-tomcat.outputs.pulled != 'true' && steps.pull-tomcat.outputs.reason == 'not-found'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Cache Docker layers (db)
+        if: steps.pull-mariadb.outputs.pulled != 'true' && steps.pull-mariadb.outputs.reason == 'not-found'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache-db
+          key: ${{ runner.os }}-buildx-db-${{ hashFiles('.devcontainer/db/**', 'database/**') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-db-
+
+      - name: Build dev container (fallback)
+        if: steps.pull-tomcat.outputs.pulled != 'true'
+        run: |
+          echo "Building tomcat container locally..."
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            -t openo-tomcat-dev \
+            .devcontainer/development
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Build db container (fallback)
+        if: steps.pull-mariadb.outputs.pulled != 'true'
+        run: |
+          echo "Building mariadb container locally..."
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache-db \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-db-new,mode=max \
+            --load \
+            -t openo-mariadb-dev \
+            -f .devcontainer/db/Dockerfile .
+          rm -rf /tmp/.buildx-cache-db
+          mv /tmp/.buildx-cache-db-new /tmp/.buildx-cache-db
+
+      - name: Create network
+        run: docker network create open-o-network
+
+      - name: Start db container
+        run: |
+          # Container named 'db' so it's reachable at jdbc:mysql://db:3306 from tomcat container
+          docker run -d --name db \
+            --network open-o-network \
+            -e MYSQL_ROOT_PASSWORD=password \
+            -e MYSQL_PASSWORD=password \
+            -e TZ=America/Toronto \
+            openo-mariadb-dev
+
+      - name: Wait for db to be ready
+        run: |
+          echo "Waiting for MariaDB to accept connections..."
+          connected=false
+          for i in {1..30}; do
+            if docker exec db mysqladmin ping -h localhost -u root -ppassword 2>/dev/null; then
+              echo "MariaDB is accepting connections!"
+              connected=true
+              break
+            fi
+            echo "Waiting for connection... ($i/30)"
+            sleep 2
+          done
+
+          if [ "$connected" != "true" ]; then
+            echo "ERROR: MariaDB failed to accept connections within timeout"
+            docker logs db
+            exit 1
+          fi
+
+          echo "Waiting for database initialization to complete..."
+          initialized=false
+          for i in {1..90}; do
+            # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
+            if docker logs db 2>&1 | grep -q "Database initialization complete!"; then
+              # Verify database state to avoid false positives from reused logs
+              provider_count=$(docker exec db mysql -N -u root -ppassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              if [ "$provider_count" -gt 0 ]; then
+                echo "Database initialization complete and provider table populated (count=$provider_count)."
+                initialized=true
+                break
+              fi
+            fi
+            echo "Waiting for database initialization... ($i/90)"
+            sleep 2
+          done
+
+          if [ "$initialized" != "true" ]; then
+            echo "ERROR: Database initialization failed within timeout"
+            docker logs db
+            exit 1
+          fi
+
+          # Verify all databases exist
+          echo "Verifying databases..."
+          docker exec db mysql -u root -ppassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; exit 1; }
+          docker exec db mysql -u root -ppassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; exit 1; }
+          docker exec db mysql -u root -ppassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; exit 1; }
+          echo "All databases verified!"
+
+      - name: Start tomcat container
+        run: |
+          docker run -d --name openo-tomcat-dev \
+            --network open-o-network \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
+            -w /workspace \
+            openo-tomcat-dev tail -f /dev/null
+
+      - name: Configure git safe directory
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            git config --global --add safe.directory /workspace
+          "
+
+      - name: Run legacy tests
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            echo '========================================='
+            echo 'Running Legacy Tests (JUnit 4 with MariaDB)'
+            echo '========================================='
+            make install --run-legacy-tests
+          "

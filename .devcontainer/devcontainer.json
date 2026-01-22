@@ -21,17 +21,7 @@
                 "java.compile.nullAnalysis.mode": "automatic",
                 "java.configuration.updateBuildConfiguration": "interactive",
                 "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms512m -Xlog:disable",
-                "java.maven.downloadSources": false,
-                "claude.mcpServers": {
-                    "playwright": {
-                        "command": "npx",
-                        "args": ["@executeautomation/playwright-mcp-server"],
-                        "env": {
-                            "PLAYWRIGHT_BROWSER": "firefox",
-                            "PLAYWRIGHT_HEADLESS": "true"
-                        }
-                    }
-                }
+                "java.maven.downloadSources": false
               }
         }
     },

@@ -1,11 +1,23 @@
 # OpenO EMR - Healthcare Electronic Medical Records System
 
+> **⚠️ DEVCONTAINER ENVIRONMENT NOTICE**
+>
+> The `.claude/settings.json` in this repository grants **extensive pre-approved permissions**
+> optimized for **isolated devcontainer development only**. These settings assume:
+> - Sandboxed Docker environment with no external network access to production systems
+> - Development database with synthetic/test data (no real PHI)
+> - Disposable environment that can be safely reset
+>
+> **DO NOT** use these defaults in shared servers, production environments, or any system
+> with access to real patient data. Review and restrict permissions in `.claude/settings.json`
+> if running outside an isolated devcontainer.
+
 **PROJECT IDENTITY**: Always refer to this system as "OpenO EMR" or "OpenO" - NOT "OSCAR EMR" or "OSCAR McMaster"
 
-## Core Context 
+## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 5.3.39, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL  
+**Stack**: Java 21, Spring 5.3.39, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 ## Essential Commands
@@ -77,7 +89,9 @@ PathValidationUtils.validateExistingPath(file, baseDir);
 
 **CRITICAL**: Use NEW namespace `ca.openosp.openo.*` for ALL code
 - **Old**: `org.oscarehr.*`, `oscar.*` → **New**: `ca.openosp.openo.*`
+- **Note**: May encounter old names in comments/documentation; git history shows "renamed" files
 - **DAO Classes**: `ca.openosp.openo.commn.dao.*` (note: "commn" not "common")
+- **Forms DAOs**: `ca.openosp.openo.commn.dao.forms.*`
 - **Models**: `ca.openosp.openo.commn.model.*`
 - **Exception**: `ProviderDao` at `ca.openosp.openo.dao.ProviderDao`
 - **Test Utilities**: Remain at `org.oscarehr.common.dao.*` for backward compatibility
@@ -91,9 +105,9 @@ PathValidationUtils.validateExistingPath(file, baseDir);
 public class Example2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
-    
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    
+
     public String execute() {
         // MANDATORY security check
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
@@ -107,7 +121,7 @@ public class Example2Action extends ActionSupport {
 
 ### 2Action Categories:
 1. **Simple Execute**: Single `execute()` method (e.g., `AddTickler2Action`)
-2. **Method-Based**: Route via `method` parameter (e.g., `CaseloadContent2Action`) 
+2. **Method-Based**: Route via `method` parameter (e.g., `CaseloadContent2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
 ## Healthcare Domain Context
@@ -138,7 +152,7 @@ public class Example2Action extends ActionSupport {
 - **Modern Stack**: JUnit 5, AssertJ, H2 in-memory database, BDD naming
 - **Spring Integration**: Full Spring context with transaction support
 - **Multi-File Architecture**: Component-first naming (`TicklerDao*Test`) for scalability
-- **Documentation**: Complete guide at `docs/modern-test-framework-complete.md`
+- **Documentation**: Complete guide at `docs/test/modern-test-framework-complete.md`
 
 ### Test Organization Standards
 
@@ -172,67 +186,11 @@ void shouldLoadSpringContext()
 
 **Benefits**: Self-documenting, clear failure messages, searchable
 
-### Critical Dependency Resolution Patterns
+### Test Context Configuration
 
-**SpringUtils Anti-Pattern Resolution**:
-The codebase uses static `SpringUtils.getBean()` throughout. Modern tests handle this via reflection in `OpenOTestBase`:
-```java
-@BeforeEach
-void setUpSpringUtils() throws Exception {
-    // CRITICAL: Field is "beanFactory" not "applicationContext"
-    Field contextField = SpringUtils.class.getDeclaredField("beanFactory");
-    contextField.setAccessible(true);
-    contextField.set(null, applicationContext);
-}
-```
+The codebase has legacy patterns (SpringUtils static access, mixed Hibernate/JPA, circular dependencies) that require specific test setup. See **[Test Writing Guide](docs/test/test-writing-guide.md)** for detailed configuration patterns.
 
-**Mixed Hibernate/JPA Configuration**:
-- **Challenge**: Legacy uses both `.hbm.xml` files AND `@Entity` annotations
-- **Solution**: Dual configuration in test context
-```xml
-<!-- Hibernate for XML mappings -->
-<bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
-    <property name="mappingResources">
-        <list>
-            <value>ca/openosp/openo/commn/model/Provider.hbm.xml</value>
-            <value>ca/openosp/openo/commn/model/Demographic.hbm.xml</value>
-        </list>
-    </property>
-</bean>
-
-<!-- JPA for annotations -->
-<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
-    <property name="persistenceUnitName" value="testPersistenceUnit" />
-</bean>
-```
-
-**Manual Bean Definitions Required**:
-- **Issue**: DAOs use SpringUtils in constructors causing circular dependencies
-- **Solution**: Define beans manually in test context, not via component scanning
-```xml
-<!-- Manual DAO definitions to avoid SpringUtils initialization issues -->
-<bean id="ticklerDao" class="ca.openosp.openo.commn.dao.TicklerDaoImpl" autowire="byName" />
-<bean id="oscarLogDao" class="ca.openosp.openo.commn.dao.OscarLogDaoImpl" autowire="byName" />
-```
-
-**Entity Discovery Pattern**:
-- **Problem**: Entities discovered at runtime cause missing dependencies (e.g., `lst_gender` table)
-- **Solution**: Explicitly list entities in `persistence.xml`, no scanning
-```xml
-<persistence-unit name="testPersistenceUnit">
-    <class>ca.openosp.openo.commn.model.Tickler</class>
-    <class>ca.openosp.openo.commn.model.OscarLog</class>
-    <!-- Explicitly list each entity -->
-    <exclude-unlisted-classes>true</exclude-unlisted-classes>
-</persistence-unit>
-```
-
-**Security Mock Pattern**:
-- **Issue**: All operations require SecurityInfoManager privilege checks
-- **Solution**: MockSecurityInfoManager that always returns true
-```xml
-<bean id="securityInfoManager" class="ca.openosp.openo.test.mocks.MockSecurityInfoManager" />
-```
+**Key points**: Extend `OpenOTestBase` (handles SpringUtils), define beans manually in test context, explicitly list entities in persistence.xml.
 
 **Writing Tests - CRITICAL**:
 When asked to write tests, you MUST:
@@ -266,11 +224,6 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **JSP Documentation**: Add comprehensive JSP comment blocks after copyright headers with purpose, features, parameters, and @since
 - **Inline Comments**: Add comments for complex logic on separate lines (not same line as code)
 
-**Database Patterns**:
-- All tables include `lastUpdateUser`, `lastUpdateDate` for audit trails
-- Complex healthcare schema with 50+ fields in `demographic` table
-- Multi-jurisdictional support (BC, ON, generic provinces)
-
 ## Healthcare Integration Standards
 
 **Standards & Protocols**:
@@ -303,7 +256,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Apache Tomcat 9.0.97**: Web application server with debugging enabled
 - **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
 
-### Web Technologies  
+### Web Technologies
 - **Struts 2.5.33**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
 - **Apache CXF 3.5.10**: Web services framework for healthcare integrations
 - **JSP/JSTL**: View layer with extensive medical form templates
@@ -320,7 +273,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Spring Configuration Architecture
 Multiple modular application contexts:
 - `applicationContext.xml` - Core Spring configuration
-- `applicationContextREST.xml` - REST APIs with OAuth 1.0a  
+- `applicationContextREST.xml` - REST APIs with OAuth 1.0a
 - `applicationContextOLIS.xml` - Ontario Labs Information System
 - `applicationContextHRM.xml` - Hospital Report Manager
 - `applicationContextCaisi.xml` - CAISI community integration
@@ -348,41 +301,6 @@ Multiple modular application contexts:
 - **Inter-EMR**: Data sharing via Integrator system across multiple OSCAR installations
 - **Provincial Billing**: Direct integration with Teleplan (BC MSP) and other systems
 
-### Major Namespace Migration (August 2025)
-**CRITICAL**: Completed migration `org.oscarehr.*` / `oscar.*` → `ca.openosp.openo.*`
-- **When writing new code**: Always use `ca.openosp.openo.*` package structure
-- **When referencing existing code**: May encounter both old and new package names in comments/documentation
-- **Import statements**: Update all imports to use new namespace structure
-- **Git history**: Many files show as "renamed" due to this migration
-
-#### **Package Migration Details**
-- **Primary Migration**: `org.oscarehr.common.*` → `ca.openosp.openo.commn.*` (note: intentionally "commn" not "common")
-- **DAO Classes**: All DAO interfaces moved to `ca.openosp.openo.commn.dao.*`
-- **Model Classes**: Entity models moved to `ca.openosp.openo.commn.model.*`
-- **Special Cases**:
-  - `ProviderDao` specifically located at `ca.openosp.openo.dao.ProviderDao` (not in commn.dao)
-  - Forms DAOs at `ca.openosp.openo.commn.dao.forms.*`
-- **Test Utilities**: Test framework classes remain at `org.oscarehr.common.dao.*` (e.g., `EntityDataGenerator`, `SchemaUtils`)
-
-#### **Import Management Patterns**
-When fixing compilation errors after package refactoring:
-- **Main Source Code**: Use systematic find/replace operations for bulk import updates
-- **Test Files**: Manually add missing DAO imports following the pattern:
-  ```java
-  import ca.openosp.openo.commn.model.EntityName;
-  import ca.openosp.openo.commn.dao.EntityNameDao;
-  import ca.openosp.openo.utility.SpringUtils;
-  ```
-- **Batch Processing**: Use MultiEdit tool for efficient bulk import fixes across multiple files
-- **Verification**: Always read files before applying edits to understand the context
-
-### Mandatory Security Practices (CodeQL Integration)
-- **OWASP Encoder**: Use `Encode.forHtml()`, `Encode.forJavaScript()` for all user inputs in JSPs
-- **SQL Injection Prevention**: Use parameterized queries, never string concatenation
-- **File Upload Security**: Implement filename validation for all uploads
-- **XSS Prevention**: All JSP outputs must be encoded
-- **CodeQL Compliance**: Code must pass GitHub CodeQL security scanning
-
 ### Active Code Cleanup (2025)
 - **Modules Removed**: MyDrugRef, BORN integration, HealthSafety, legacy email notifications
 
@@ -401,8 +319,8 @@ When fixing compilation errors after package refactoring:
 
 ### DevContainer Custom Scripts
 Located in `/scripts` directory within the container (copied from `.devcontainer/development/scripts/`):
-make lock                     # Update Maven dependency lock file
-- **Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
+- `make lock` - Update Maven dependency lock file
+- **Build Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
 - **Configuration**: Auto-creates `over_ride_config.properties` from template
 - **Parallel builds**: Uses `-T 1C` for faster Maven builds
 - **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/oscar`
@@ -421,21 +339,21 @@ make lock                     # Update Maven dependency lock file
 - Security configuration with Spring Security
 - Multiple application contexts for different modules
 
-### Legacy Integration & Unique Struts2 Migration Pattern
+### Legacy Integration & Struts2 Migration Pattern ("2Action") - CRITICAL PATTERN
 
 #### **Migration Strategy Overview**
 OpenO EMR uses a unique incremental migration approach from Struts 1.x to Struts 2.x using a "2Action" naming convention that allows both frameworks to coexist during the transition period.
 
 #### **2Action Naming Convention & Structure**
 - **Naming Pattern**: All migrated Struts2 actions follow `*2Action.java` naming (e.g., `AddTickler2Action`, `DisplayDashboard2Action`, `Login2Action`)
-- **Class Structure**: 
+- **Class Structure**:
   ```java
   public class Example2Action extends ActionSupport {
       HttpServletRequest request = ServletActionContext.getRequest();
       HttpServletResponse response = ServletActionContext.getResponse();
-      
+
       private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
-      
+
       public String execute() {
           // Security check pattern
           if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
@@ -520,7 +438,13 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Log security violations appropriately
 
 **2. Error Handling**
-- Use OWASP encoding for user inputs: `Encode.forJava(parameter)`
+- Use context-appropriate OWASP encoding when outputting user data:
+  - `Encode.forHtml()` - HTML body content
+  - `Encode.forHtmlAttribute()` - HTML attribute values
+  - `Encode.forJavaScript()` - JavaScript string contexts
+  - `Encode.forJavaScriptAttribute()` - JS in HTML attributes
+  - `Encode.forCssString()` - CSS string values
+  - `Encode.forUri()` / `Encode.forUriComponent()` - URL paths/parameters
 - Implement proper exception handling
 - Return appropriate result strings
 
@@ -548,13 +472,6 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 - `src/main/webapp/**` - Web resources (JSP, CSS, JS)
 
 ### Configuration Files
-- **Spring Contexts** (11+ modular configurations):
-  - `applicationContext.xml` - Core Spring configuration
-  - `applicationContextREST.xml` - REST APIs with OAuth 1.0a
-  - `applicationContextOLIS.xml` - Ontario Labs Information System
-  - `applicationContextHRM.xml` - Hospital Report Manager
-  - `applicationContextCaisi.xml` - CAISI integration
-  - `applicationContextFax.xml`, `applicationContextJobs.xml` - Specialized modules
 - **Struts Configuration**:
   - `struts.xml` - Struts2 configuration with `.do` extension and Spring integration
   - Mixed Struts 1.x and 2.x action mappings
@@ -596,24 +513,10 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 
 ### Audit and Compliance Patterns
 - Every table includes `lastUpdateUser`, `lastUpdateDate` for audit trails
+- Complex healthcare schema with 50+ fields in `demographic` table
 - Comprehensive logging of all patient data access via `UserActivityFilter`
 - Privacy-compliant data handling with PHI filtering throughout application
 - Multi-jurisdictional support with province-specific configurations
-
-## Form and Document Management
-
-### Medical Forms Library
-- **Rourke Growth Charts**: Multiple versions (2006, 2009, 2017, 2020) for pediatric care
-- **BCAR Forms**: British Columbia Antenatal Record for pregnancy care
-- **Mental Health Assessments**: Standardized clinical assessment forms
-- **Laboratory Requisitions**: Province-specific lab ordering forms
-- **Immunization Forms**: Vaccination record management
-
-### Document Processing
-- **PDF Generation**: Custom servlets with medical template rendering
-- **E-forms**: Electronic form management with digital signature support
-- **Privacy Compliance**: Automatic privacy statement injection on all documents
-- **Document Categories**: Configurable types with clinical workflow integration
 
 ## Database Schema & Migration System
 
@@ -624,7 +527,7 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 ```bash
 # Initial Schema Setup
 oscarinit.sql          # Core database schema
-oscarinit_2025.sql     # Current 2025 schema version  
+oscarinit_2025.sql     # Current 2025 schema version
 oscardata.sql          # Initial reference data
 oscarinit_bc.sql       # British Columbia specific
 oscarinit_on.sql       # Ontario specific
@@ -641,25 +544,7 @@ bc_pharmacies.sql              # BC pharmacy directory
 firstNationCommunities_lu_list.sql # First Nations communities
 ```
 
-### Recent Database Changes (2025)
-- `update-2025-08-26-remove-waitlist-email.sql` - Email functionality removal
-- `update-2025-08-25-remove-healthsafety.sql` - HealthSafety module cleanup
-- `update-2025-08-21-k2a-removal.sql` - K2A integration removal
-- `update-2025-08-14-genericintake-removal.sql` - Generic intake forms cleanup
-
-### Key Healthcare Tables Schema
-```sql
-demographic: 50+ fields (HIN, rostering_status, addresses, demographics)
-allergies: severity, reaction, regional_identifier, drug_allergies  
-appointment: reason_code, billing_type, status, provider_no
-casemgmt_note: encrypted clinical notes, issue-based organization
-prevention: immunization_type, prevention_date, provider_prevention_type
-drugs: ATC_code, generic_name, dosage, interaction_checking
-measurementType: vital signs, clinical measurements, flowsheet_integration
-billing: diagnostic_codes, provincial_billing_integration
-```
-
-**Development Database**: 
+**Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
 - Port 3306 with health checks, 2G memory limit
 - Seeded with medical forms (Rourke charts, BCAR) and reference data
@@ -712,7 +597,7 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 **Key Files**:
 - `CLAUDE.md` - AI context (this file)
 - `pom.xml` - 200+ healthcare Maven dependencies
-- `database/mysql/` - 19+ years of healthcare schema evolution (2006-2025)  
+- `database/mysql/` - 19+ years of healthcare schema evolution (2006-2025)
 - `.devcontainer/` - Docker development with AI tools
 
 **Critical Patterns**:
@@ -721,6 +606,138 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `ca.openosp.openo.*` (new) vs `org.oscarehr.*` (legacy)
 - **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
+
+---
+
+## Claude Workflow Guidelines
+
+**Context**: Claude operates both as a GitHub Actions workflow (triggered by @claude mentions) and directly via Claude Code CLI. These guidelines apply to both contexts.
+
+### Task Handling
+1. **Simple Questions/Reviews**: Answer directly in comments, reference specific files and line numbers
+2. **Straightforward Changes** (1-3 files): Create feature branch, implement, create PR
+3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
+
+### Branch Protection
+- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **All changes** must go through pull requests with review
+- Claude creates feature branches: `claude/issue-<number>-<timestamp>`
+
+### Security Checklist (Every Code Change)
+- [ ] Context-appropriate OWASP encoding for user inputs (see Error Handling section)
+- [ ] Parameterized SQL queries (never concatenation)
+- [ ] `SecurityInfoManager.hasPrivilege()` checks in all actions
+- [ ] `PathValidationUtils` for file operations
+- [ ] No PHI in logs or error messages
+
+### PR Requirements
+- ✅ Target `develop` branch (not `main`)
+- ✅ Include tests for new functionality
+- ✅ Reference related issues (`fixes #123`)
+- ✅ Add "Generated with Claude Code" signature
+- ✅ Ensure CI checks pass before requesting review
+
+### When Blocked
+If Claude encounters issues it cannot resolve:
+- Document the problem clearly in comment
+- Explain what was attempted and why it failed
+- Provide specific error messages
+- Ask for guidance on preferred resolution
+
+---
+
+## AI-Assisted Development
+
+### Claude Code Capabilities
+
+Claude Code is integrated into this repository with the following capabilities:
+
+**Automated Actions (on @claude mention or PR events):**
+- Post PR review comments with inline code annotations
+- Create and update issues with proper labels
+- Create feature branches and push code changes
+- Create pull requests automatically (via `gh pr create`)
+- Access CI/CD status and logs for debugging
+- **Note**: @claude triggers are restricted to repository OWNER, MEMBER, or COLLABORATOR only. CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, and FIRST_TIMER are excluded for security.
+
+**Tool Permissions:**
+- GitHub CLI access with tiered permissions:
+  - **Allowed**: `gh pr create/view/list/diff/checks`, `gh issue view/list/comment`, `gh run view/list/watch`, `gh repo view`
+  - **Requires confirmation**: `gh pr close`, `gh issue create/edit/close`, `gh label`, `gh run rerun`
+  - **Blocked**: `gh pr merge`, `gh repo create/delete/fork`, `gh secret`, `gh api` write methods
+- Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
+- File read/write within the repository, subject to the following boundaries:
+  - Scope: Only files inside the checked-out OpenO EMR repository workspace; no access to paths outside the repo.
+  - Protected directories: Claude must not modify Git metadata or CI/CD definitions (e.g., `.git/`, `.github/`, `.github/workflows/`), database seeds/migrations (e.g., `database/`), secrets or credential stores, or other sensitive directories. These protections **must be enforced via explicit write-deny rules** in `.claude/settings.json` (for example: `Write(path:.git/**)`, `Write(path:.github/workflows/**)`, `Write(path:database/**)`).
+  - File size: Intended for source files, configuration, and documentation. Very large files (such as database dumps, large binaries, or media assets) may be rejected by the tools and should not be created or edited by Claude.
+  - File types: Read/write is primarily for text-based project assets (Java, XML, YAML, JSON, JSP, Markdown, shell scripts, etc.). Claude should not generate or alter compiled artifacts, installers, or opaque binary formats.
+  - Deny rules: All file write operations remain subject to (a) the destructive-operation deny list and (b) explicit path-based write restrictions configured in `.claude/settings.json`. At minimum, `.claude/settings.json` **must** include write-deny entries for:
+    - `Write(path:.git/**)`
+    - `Write(path:.github/**)`
+    - `Write(path:.github/workflows/**)`
+    - `Write(path:database/**)`
+    - and any additional secrets/credential directories defined by the deployment environment. If there is any conflict, the deny rules take precedence and the operation must not be performed.
+- Web search and documentation lookup
+- Playwright MCP tools for UI testing
+- See `.claude/settings.json` for complete permission configuration
+
+**Three-Tier Permission Model:**
+The `.claude/settings.json` file defines three permission categories:
+- **ALLOW**: Commands execute immediately without user intervention (core workflow operations)
+- **ASK**: Commands require explicit user confirmation before execution (reversible but potentially disruptive operations)
+- **DENY**: Commands are blocked entirely and cannot be executed (destructive or dangerous operations)
+
+Commands in the ASK tier include:
+- `gh pr close`, `gh issue create/edit/close`, `gh label` - visible repository actions
+- `gh run rerun` - CI resource usage
+- `git reset --soft/--mixed` - recoverable history changes
+- `git stash drop` - potential data loss (single stash entry)
+
+**Safety Guardrails:**
+- **Repository scoped** - Operations run within the checked-out `openo-beta/Open-O` repository context
+- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
+- All PRs require human review before merge
+- Destructive operations are blocked:
+  - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
+  - Force push: `git push --force/-f`, `git push origin --force/-f`, `git push * --force/-f`, `git push --force-with-lease`, `git push origin --force-with-lease`, `git push origin * --force-with-lease`
+  - History rewriting: `git commit --amend`, `git filter-branch`, `git filter-repo`, `git reflog expire`, `git gc --prune`
+  - Hook bypass: `git commit --no-verify`, `git push --no-verify`
+  - Destructive git: `git rebase`, `git reset --hard`, `git clean` (note: `git reset --soft/--mixed` require confirmation, see ASK tier above)
+  - System: `sudo`
+- GitHub API write methods blocked (`-X DELETE/POST/PUT/PATCH`, `--method DELETE/POST/PUT/PATCH`)
+- Repository management operations (`gh repo create/delete/fork`) are blocked
+- Sensitive repository APIs blocked: `settings`, `collaborators`, `hooks`, `keys`, `invitations`, `branches/*/protection`
+- Remote branch deletion (`git push origin --delete`) is blocked
+- Remote manipulation (`git remote add/set-url`) is blocked
+- Workflow modification (`gh workflow enable/disable`) is blocked
+- Credential manipulation (`gh auth`) is blocked
+- PHI protection enforced via OWASP encoding, parameterized queries, and `SecurityInfoManager` (see Critical Security Requirements)
+
+**Enforcement Mechanism:**
+The safety guardrails above are enforced through Claude Code's permission system configured in `.claude/settings.json`:
+- **Deny rules take precedence** - Commands matching deny patterns are blocked before execution, regardless of allow rules
+- **Pattern matching** - Uses glob-style wildcards (`*`) to match command variations (e.g., `git push --force *` blocks `git push --force origin main`)
+- **Layered defense** - Multiple patterns cover flag ordering variations (e.g., `--force` before or after remote/branch)
+- **Case sensitivity** - Separate patterns for case variants (e.g., `rm -rf` and `rm -Rf` both blocked)
+- **No bypass via equals syntax** - Patterns like `--force-with-lease=*` block the `=refname` variant
+
+Note: These are client-side controls. Repository-level branch protection rules provide server-side enforcement for protected branches.
+
+### Interacting with Claude
+
+**On Pull Requests:**
+- `@claude review` - Comprehensive code review with security focus
+- `@claude fix the lint errors` - Apply automated fixes
+- `@claude explain this change` - Get explanation of PR changes
+
+**On Issues:**
+- `@claude investigate this bug` - Research and provide analysis
+- `@claude implement this feature` - Create implementation PR
+- `@claude add labels` - Categorize with appropriate labels
+
+**Automated Triggers:**
+- New PRs automatically receive code review
+- Issues trigger Claude response when opened or assigned by authorized users (OWNER/MEMBER/COLLABORATOR), if they contain `@claude` in title or body
 
 ---
 
@@ -784,9 +801,9 @@ src/main/java/ca/openosp/openo/fhir/                               # FHIR implem
 # Study These 2Action Implementations
 src/main/java/ca/openosp/openo/tickler/pageUtil/AddTickler2Action.java      # Simple execute pattern
 src/main/java/ca/openosp/openo/caseload/CaseloadContent2Action.java         # Method-based routing
-src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplay*2Action.java   
+src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplay*2Action.java
 # Base Classes for 2Actions
-src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayAction.java    
+src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayAction.java
 ```
 
 ### Spring Integration Patterns
@@ -811,7 +828,7 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 # Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
 src/test-modern/java/ca/openosp/openo/            # Modern JUnit 5 tests
 src/test-modern/resources/                        # Modern test configurations
-docs/modern-test-framework-complete.md            # Complete test framework documentation
+docs/test/modern-test-framework-complete.md            # Complete test framework documentation
 
 # Legacy Test Examples (JUnit 4) - for reference only
 src/test/java/ca/openosp/openo/                   # Legacy test structure
@@ -824,58 +841,10 @@ src/test/resources/over_ride_config.properties    # Test configuration template
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Extend OpenOTestBase** - Handles SpringUtils anti-pattern and Spring context
-5. **Follow BDD naming strictly**:
-   - Method: `should<Action>_when<Condition>` (camelCase, ONE underscore)
-   - @DisplayName: lowercase "should" + natural language description
-   - NO "test" prefix, NO test numbers, NO multiple underscores
+5. **Follow BDD naming strictly**: `should<Action>_when<Condition>` (camelCase, ONE underscore)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests
 
-Example of proper test development workflow:
-```java
-// 1. First, check the actual DAO interface:
-// src/main/java/ca/openosp/openo/commn/dao/TicklerDao.java
-public interface TicklerDao extends AbstractDao<Tickler> {
-    public Tickler find(Integer id);  // <-- Real method to test
-    public List<Tickler> findActiveByDemographicNo(Integer demoNo); // <-- Real method
-    // ... other actual methods
-}
-
-// 2. Then write BDD-style tests for these ACTUAL methods:
-@Test
-@DisplayName("should return tickler when valid ID is provided")
-void shouldReturnTickler_whenValidIdProvided() {
-    // Given
-    Tickler saved = createAndSaveTickler();
-
-    // When
-    Tickler found = ticklerDao.find(saved.getId()); // Testing real method
-
-    // Then
-    assertThat(found).isNotNull();
-    assertThat(found).isEqualTo(saved);
-}
-
-3. Add negative test cases
-```
-
-#### BDD Test Writing Quick Reference
-```java
-// ✅ CORRECT BDD Test Structure
-@Test
-@DisplayName("should perform expected behavior when condition is met")  // lowercase "should"
-void shouldPerformExpectedBehavior_whenConditionIsMet() {  // camelCase with ONE underscore
-    // Given - set up test data
-    TestData data = createTestData();
-
-    // When - perform the action being tested
-    Result result = systemUnderTest.performAction(data);
-
-    // Then - verify the expected outcome
-    assertThat(result).isNotNull();
-    assertThat(result.getValue()).isEqualTo(expected);
-}
-
-```
+For detailed examples and test development workflow, see **[Test Writing Guide](docs/test/test-writing-guide.md)**.
 
 **Test Execution Commands:**
 ```bash
@@ -920,7 +889,6 @@ mvn test -T 4C                    # 4 threads per CPU core for parallel executio
 ### Documentation & Architecture
 ```bash
 # Project Documentation
-docs/encounter-window-architecture.md             # Encounter window & AJAX patterns
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
 pom.xml                                            # Complete dependency list with versions
@@ -929,7 +897,7 @@ README.md                                          # Project setup and overview
 
 ### When You Need Help Understanding:
 - **Security Patterns**: Check `SecurityInfoManager.java` and existing 2Action implementations
-- **Database Access**: Look at DAO implementations in `commn.dao` package  
+- **Database Access**: Look at DAO implementations in `commn.dao` package
 - **Healthcare Standards**: Examine `hl7/` and `fhir/` packages for integration patterns
 - **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations
 - **Spring Configuration**: Reference the multiple `applicationContext*.xml` files

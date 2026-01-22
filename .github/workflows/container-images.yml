@@ -1,0 +1,497 @@
+# GitHub Workflow: Development Container Images
+#
+# Description:
+# This workflow manages development container images for the Open-O project.
+# It builds, tests, and pushes container images to GitHub Container Registry (ghcr.io)
+# that are used by both CI workflows and local development environments.
+#
+# The maven-project.yml workflow will attempt to pull these pre-built images first,
+# falling back to local builds if images are not available. This significantly speeds
+# up both CI/CD pipelines and developer onboarding.
+#
+# Containers Managed:
+# - openo-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
+# - openo-mariadb-dev: MariaDB database container with schema initialization scripts
+# - openo-drugref: DrugRef2 service container with Java 11
+#
+# Freshness Check Strategy:
+# 1. Calculate SHA256 hash of Dockerfile + build context for each container
+# 2. Check if ghcr.io image exists with matching hash label
+# 3. If hash matches: skip build (image is up-to-date)
+# 4. If hash differs or image missing: build, test, and push new image
+#
+# This ensures containers are only rebuilt when their source files actually change,
+# not on every commit, saving CI/CD minutes and reducing wait times.
+#
+# Triggers:
+# - Push to main/develop/experimental branches
+# - Pull requests to main/develop/experimental branches
+# - Manual dispatch for forced rebuilds (with force_rebuild option)
+#
+# License:
+# This GitHub Workflow file is part of the Open-O project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+
+name: Development Container Images
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - experimental
+  pull_request:
+    branches:
+      - main
+      - develop
+      - experimental
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild all containers (ignore cache)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  # Images will be: ghcr.io/openo-beta/openo-tomcat-dev, etc.
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+jobs:
+  # ===========================================================================
+  # Check which containers need rebuilding
+  # ===========================================================================
+  check-containers:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      tomcat_needs_build: ${{ steps.check.outputs.tomcat_needs_build }}
+      tomcat_hash: ${{ steps.check.outputs.tomcat_hash }}
+      mariadb_needs_build: ${{ steps.check.outputs.mariadb_needs_build }}
+      mariadb_hash: ${{ steps.check.outputs.mariadb_hash }}
+      drugref_needs_build: ${{ steps.check.outputs.drugref_needs_build }}
+      drugref_hash: ${{ steps.check.outputs.drugref_hash }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check container freshness
+        id: check
+        env:
+          FORCE_REBUILD: ${{ inputs.force_rebuild }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+        run: |
+          check_container() {
+            local name=$1
+            local output_name=$2
+            local context_path=$3
+            local extra_context=$4
+
+            echo "========================================="
+            echo "Checking container: $name"
+            echo "========================================="
+
+            # Calculate hash of Dockerfile and relevant context files only
+            if [ -n "$extra_context" ]; then
+              # Note: extra_context is expected to be a space-separated list of paths.
+              # Paths containing spaces are not supported here.
+              local extra_context_array=()
+              # Intentionally rely on word splitting to support multiple paths.
+              extra_context_array=($extra_context)
+              HASH=$(find "$context_path" "${extra_context_array[@]}" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
+            else
+              HASH=$(find "$context_path" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
+            fi
+            echo "Content hash: $HASH"
+            echo "${output_name}_hash=$HASH" >> "$GITHUB_OUTPUT"
+
+            # Check if force rebuild is requested
+            if [ "$FORCE_REBUILD" == "true" ]; then
+              echo "Force rebuild requested"
+              echo "${output_name}_needs_build=true" >> "$GITHUB_OUTPUT"
+              return
+            fi
+
+            # Try to get the existing image's hash label
+            IMAGE="${REGISTRY}/${IMAGE_PREFIX}/openo-${name}:latest"
+            echo "Checking image: $IMAGE"
+
+            # Pull image and check labels
+            EXISTING_HASH=""
+            if docker pull "$IMAGE" 2>/dev/null; then
+              if ! EXISTING_HASH=$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.openosp.content-hash" }}' 2>/dev/null); then
+                echo "Warning: failed to inspect existing image labels for $IMAGE; will treat as missing hash and rebuild if needed" >&2
+                EXISTING_HASH=""
+              fi
+            fi
+
+            echo "Existing hash: ${EXISTING_HASH:-<none>}"
+
+            if [ "$HASH" == "$EXISTING_HASH" ]; then
+              echo "Container is up-to-date, skipping build"
+              echo "${output_name}_needs_build=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Container needs rebuild"
+              echo "${output_name}_needs_build=true" >> "$GITHUB_OUTPUT"
+            fi
+          }
+
+          # Check each container (name, output_name, context_path, extra_context)
+          check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
+          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared"
+          check_container "drugref" "drugref" ".devcontainer/drugref" ""
+
+  # ===========================================================================
+  # Build and push tomcat-dev container
+  # ===========================================================================
+  build-tomcat:
+    needs: check-containers
+    if: needs.check-containers.outputs.tomcat_needs_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      build_success: ${{ steps.test.outputs.success }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build tomcat-dev container
+        env:
+          CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
+        run: |
+          echo "Building openo-tomcat-dev container..."
+          docker buildx build \
+            --load \
+            -t openo-tomcat-dev:test \
+            --label "org.openosp.content-hash=$CONTENT_HASH" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            .devcontainer/development
+
+      - name: Test tomcat-dev container
+        id: test
+        run: |
+          echo "Testing container starts correctly..."
+          docker run -d --name test-tomcat openo-tomcat-dev:test tail -f /dev/null
+          sleep 5
+
+          # Verify key components are present
+          echo "Verifying Maven..."
+          docker exec test-tomcat mvn --version
+
+          echo "Verifying Java..."
+          docker exec test-tomcat java --version
+
+          echo "Verifying Tomcat..."
+          docker exec test-tomcat ls -la /usr/local/tomcat/
+
+          echo "Verifying Node.js..."
+          docker exec test-tomcat node --version
+
+          echo "All tests passed!"
+          docker stop test-tomcat && docker rm test-tomcat
+          echo "success=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push to registry
+        if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev
+        run: |
+          # Tag with multiple tags
+          docker tag openo-tomcat-dev:test "$IMAGE:latest"
+          docker tag openo-tomcat-dev:test "$IMAGE:${{ github.sha }}"
+
+          # Push all tags
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+
+          echo "Pushed $IMAGE:latest"
+          echo "Pushed $IMAGE:${{ github.sha }}"
+
+  # ===========================================================================
+  # Build and push mariadb-dev container
+  # ===========================================================================
+  build-mariadb:
+    needs: check-containers
+    if: needs.check-containers.outputs.mariadb_needs_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      build_success: ${{ steps.test.outputs.success }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build mariadb-dev container
+        env:
+          CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
+        run: |
+          echo "Building openo-mariadb-dev container..."
+          docker buildx build \
+            --load \
+            -t openo-mariadb-dev:test \
+            --label "org.openosp.content-hash=$CONTENT_HASH" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            -f .devcontainer/db/Dockerfile .
+
+      - name: Test mariadb-dev container
+        id: test
+        run: |
+          echo "Testing container starts correctly..."
+          docker run -d --name test-mariadb \
+            -e MYSQL_ROOT_PASSWORD=testpassword \
+            openo-mariadb-dev:test
+
+          echo "Waiting for MariaDB to start..."
+          ready=false
+          for i in {1..30}; do
+            if docker exec test-mariadb mysqladmin ping -h localhost -u root -ptestpassword 2>/dev/null; then
+              echo "MariaDB is ready!"
+              ready=true
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            echo "ERROR: MariaDB failed to start within timeout"
+            docker logs test-mariadb
+            docker stop test-mariadb && docker rm test-mariadb
+            exit 1
+          fi
+
+          echo "Verifying MariaDB version..."
+          docker exec test-mariadb mysql --version
+
+          echo "Verifying database scripts are present..."
+          docker exec test-mariadb ls -la /database/mysql/
+
+          echo "Waiting for database initialization to complete..."
+          initialized=false
+          for i in {1..90}; do
+            # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
+            if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
+              # Verify database state to avoid false positives from reused logs
+              provider_count=$(docker exec test-mariadb mysql -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              if [ "$provider_count" -gt 0 ]; then
+                echo "Database initialization complete and provider table populated (count=$provider_count)."
+                initialized=true
+                break
+              fi
+            fi
+            echo "Waiting for database initialization... ($i/90)"
+            sleep 2
+          done
+
+          if [ "$initialized" != "true" ]; then
+            echo "ERROR: Database initialization failed within timeout"
+            echo "Container logs:"
+            docker logs test-mariadb
+            docker stop test-mariadb && docker rm test-mariadb
+            exit 1
+          fi
+
+          # Verify all databases exist
+          echo "Verifying databases..."
+          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          echo "All databases verified!"
+
+          echo "All tests passed!"
+          docker stop test-mariadb && docker rm test-mariadb
+          echo "success=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push to registry
+        if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-mariadb-dev
+        run: |
+          docker tag openo-mariadb-dev:test "$IMAGE:latest"
+          docker tag openo-mariadb-dev:test "$IMAGE:${{ github.sha }}"
+
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+
+          echo "Pushed $IMAGE:latest"
+          echo "Pushed $IMAGE:${{ github.sha }}"
+
+  # ===========================================================================
+  # Build and push drugref container
+  # ===========================================================================
+  build-drugref:
+    needs: check-containers
+    if: needs.check-containers.outputs.drugref_needs_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      build_success: ${{ steps.test.outputs.success }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build drugref container
+        env:
+          CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
+        run: |
+          echo "Building openo-drugref container..."
+          docker buildx build \
+            --load \
+            -t openo-drugref:test \
+            --label "org.openosp.content-hash=$CONTENT_HASH" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            .devcontainer/drugref
+
+      - name: Test drugref container
+        id: test
+        run: |
+          echo "Testing container starts correctly..."
+          docker run -d --name test-drugref -p 8081:8080 openo-drugref:test
+
+          echo "Waiting for Tomcat to start..."
+          ready=false
+          for i in {1..30}; do
+            # Check if Tomcat is responding (any response including 404 means Tomcat is up)
+            # DrugRef deploys to /drugref2/, so root may 404 but that's fine
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/ 2>/dev/null || echo "000")
+            if [ "$http_code" != "000" ]; then
+              echo "Tomcat is responding! (HTTP $http_code)"
+              ready=true
+              break
+            fi
+            # Check if container is still running
+            if ! docker ps | grep -q test-drugref; then
+              echo "Container stopped unexpectedly. Logs:"
+              docker logs test-drugref
+              exit 1
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            echo "ERROR: Tomcat failed to respond within timeout"
+            docker logs test-drugref
+            docker stop test-drugref && docker rm test-drugref
+            exit 1
+          fi
+
+          echo "Verifying Java version..."
+          docker exec test-drugref java --version
+
+          echo "Verifying WAR deployment..."
+          docker exec test-drugref ls -la /usr/local/tomcat/webapps/
+
+          echo "All tests passed!"
+          docker stop test-drugref && docker rm test-drugref
+          echo "success=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push to registry
+        if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-drugref
+        run: |
+          docker tag openo-drugref:test "$IMAGE:latest"
+          docker tag openo-drugref:test "$IMAGE:${{ github.sha }}"
+
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+
+          echo "Pushed $IMAGE:latest"
+          echo "Pushed $IMAGE:${{ github.sha }}"
+
+  # ===========================================================================
+  # Summary job - reports what happened
+  # ===========================================================================
+  summary:
+    needs: [check-containers, build-tomcat, build-mariadb, build-drugref]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Report results
+        env:
+          TOMCAT_NEEDS_BUILD: ${{ needs.check-containers.outputs.tomcat_needs_build }}
+          TOMCAT_RESULT: ${{ needs.build-tomcat.result }}
+          MARIADB_NEEDS_BUILD: ${{ needs.check-containers.outputs.mariadb_needs_build }}
+          MARIADB_RESULT: ${{ needs.build-mariadb.result }}
+          DRUGREF_NEEDS_BUILD: ${{ needs.check-containers.outputs.drugref_needs_build }}
+          DRUGREF_RESULT: ${{ needs.build-drugref.result }}
+        run: |
+          echo "========================================="
+          echo "Container Image Build Summary"
+          echo "========================================="
+          echo ""
+          echo "Tomcat-dev:"
+          echo "  - Needs build: $TOMCAT_NEEDS_BUILD"
+          echo "  - Build result: ${TOMCAT_RESULT:-skipped}"
+          echo ""
+          echo "MariaDB-dev:"
+          echo "  - Needs build: $MARIADB_NEEDS_BUILD"
+          echo "  - Build result: ${MARIADB_RESULT:-skipped}"
+          echo ""
+          echo "DrugRef:"
+          echo "  - Needs build: $DRUGREF_NEEDS_BUILD"
+          echo "  - Build result: ${DRUGREF_RESULT:-skipped}"
+          echo ""
+
+          # Check for failures
+          if [ "$TOMCAT_RESULT" == "failure" ] || \
+             [ "$MARIADB_RESULT" == "failure" ] || \
+             [ "$DRUGREF_RESULT" == "failure" ]; then
+            echo "One or more builds failed!"
+            exit 1
+          fi
+
+          echo "All container operations completed successfully!"

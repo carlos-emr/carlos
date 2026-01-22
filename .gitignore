@@ -1,6 +1,8 @@
 /old
 /target
 /eclipse-target
+/ui-test-runs
+/.playwright-mcp
 /override.properties
 /override_log4j.xml
 /deploy.sh
