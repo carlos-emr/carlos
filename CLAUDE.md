@@ -1,18 +1,6 @@
 # OpenO EMR - Healthcare Electronic Medical Records System
 
-> **⚠️ DEVCONTAINER ENVIRONMENT NOTICE**
->
-> The `.claude/settings.json` in this repository grants **extensive pre-approved permissions**
-> optimized for **isolated devcontainer development only**. These settings assume:
-> - Sandboxed Docker environment with no external network access to production systems
-> - Development database with synthetic/test data (no real PHI)
-> - Disposable environment that can be safely reset
->
-> **DO NOT** use these defaults in shared servers, production environments, or any system
-> with access to real patient data. Review and restrict permissions in `.claude/settings.json`
-> if running outside an isolated devcontainer.
-
-**PROJECT IDENTITY**: Always refer to this system as "OpenO EMR" or "OpenO" - NOT "OSCAR EMR" or "OSCAR McMaster"
+**PROJECT IDENTITY**: Always refer to this system as "OpenO EMR" or "OpenO" - NOT "OSCAR EMR" or "OSCAR McMaster". If used as a prefix in code, openo- is preferred.
 
 ## Core Context
 
@@ -44,7 +32,7 @@ gh pr create                 # GitHub pull request creation
 ## Critical Security Requirements
 
 **MANDATORY for all code changes:**
-- Use `Encode.forHtml()`, `Encode.forJavaScript()` for ALL user inputs
+- Use appropriate OWASP Encode library calls for all displayed user provided and untrusted strings (and related).
 - Parameterized queries ONLY - never string concatenation
 - ALL actions MUST include `SecurityInfoManager.hasPrivilege()` checks
 - PHI (Patient Health Information) must NEVER be logged or exposed
@@ -227,7 +215,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ## Healthcare Integration Standards
 
 **Standards & Protocols**:
-- **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
+- **HL7 v2/v3**
 - **FHIR R4**: HAPI FHIR 5.4.0 with resource filters and healthcare provider context
 - **SNOMED CT**: Clinical terminology with core dataset loading
 - **ICD-9/ICD-10**: Diagnosis coding systems fully integrated
@@ -243,8 +231,6 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 **Medical Forms Integration**:
 - **Rourke Growth Charts**: Multiple versions (2006, 2009, 2017, 2020) for pediatric care
 - **BCAR Forms**: British Columbia Antenatal Record for pregnancy care
-- **Mental Health Assessments**: Standardized clinical assessment forms
-- **Laboratory Requisitions**: Province-specific lab ordering forms
 
 ## Technology Stack Details
 
@@ -322,7 +308,6 @@ Located in `/scripts` directory within the container (copied from `.devcontainer
 - `make lock` - Update Maven dependency lock file
 - **Build Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
 - **Configuration**: Auto-creates `over_ride_config.properties` from template
-- **Parallel builds**: Uses `-T 1C` for faster Maven builds
 - **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/oscar`
 
 ## Architecture Patterns
@@ -474,7 +459,6 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 ### Configuration Files
 - **Struts Configuration**:
   - `struts.xml` - Struts2 configuration with `.do` extension and Spring integration
-  - Mixed Struts 1.x and 2.x action mappings
 - **Database Configuration**:
   - Custom MySQL dialect: `OscarMySQL5Dialect`
   - Connection tracking: `OscarTrackingBasicDataSource`
@@ -497,7 +481,6 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 ### IDE Configuration
 - VS Code with Java extension pack
 - Remote development in Docker container
-- Debugging support on port 8000
 
 ## Database Schema Patterns
 
@@ -513,10 +496,9 @@ This migration pattern allows OpenO EMR to modernize incrementally while maintai
 
 ### Audit and Compliance Patterns
 - Every table includes `lastUpdateUser`, `lastUpdateDate` for audit trails
-- Complex healthcare schema with 50+ fields in `demographic` table
 - Comprehensive logging of all patient data access via `UserActivityFilter`
-- Privacy-compliant data handling with PHI filtering throughout application
-- Multi-jurisdictional support with province-specific configurations
+- Privacy-compliant data handling, filter PHI 
+- Province-specific configurations
 
 ## Database Schema & Migration System
 
@@ -666,17 +648,6 @@ Claude Code is integrated into this repository with the following capabilities:
   - **Requires confirmation**: `gh pr close`, `gh issue create/edit/close`, `gh label`, `gh run rerun`
   - **Blocked**: `gh pr merge`, `gh repo create/delete/fork`, `gh secret`, `gh api` write methods
 - Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
-- File read/write within the repository, subject to the following boundaries:
-  - Scope: Only files inside the checked-out OpenO EMR repository workspace; no access to paths outside the repo.
-  - Protected directories: Claude must not modify Git metadata or CI/CD definitions (e.g., `.git/`, `.github/`, `.github/workflows/`), database seeds/migrations (e.g., `database/`), secrets or credential stores, or other sensitive directories. These protections **must be enforced via explicit write-deny rules** in `.claude/settings.json` (for example: `Write(path:.git/**)`, `Write(path:.github/workflows/**)`, `Write(path:database/**)`).
-  - File size: Intended for source files, configuration, and documentation. Very large files (such as database dumps, large binaries, or media assets) may be rejected by the tools and should not be created or edited by Claude.
-  - File types: Read/write is primarily for text-based project assets (Java, XML, YAML, JSON, JSP, Markdown, shell scripts, etc.). Claude should not generate or alter compiled artifacts, installers, or opaque binary formats.
-  - Deny rules: All file write operations remain subject to (a) the destructive-operation deny list and (b) explicit path-based write restrictions configured in `.claude/settings.json`. At minimum, `.claude/settings.json` **must** include write-deny entries for:
-    - `Write(path:.git/**)`
-    - `Write(path:.github/**)`
-    - `Write(path:.github/workflows/**)`
-    - `Write(path:database/**)`
-    - and any additional secrets/credential directories defined by the deployment environment. If there is any conflict, the deny rules take precedence and the operation must not be performed.
 - Web search and documentation lookup
 - Playwright MCP tools for UI testing
 - See `.claude/settings.json` for complete permission configuration
@@ -712,16 +683,6 @@ Commands in the ASK tier include:
 - Workflow modification (`gh workflow enable/disable`) is blocked
 - Credential manipulation (`gh auth`) is blocked
 - PHI protection enforced via OWASP encoding, parameterized queries, and `SecurityInfoManager` (see Critical Security Requirements)
-
-**Enforcement Mechanism:**
-The safety guardrails above are enforced through Claude Code's permission system configured in `.claude/settings.json`:
-- **Deny rules take precedence** - Commands matching deny patterns are blocked before execution, regardless of allow rules
-- **Pattern matching** - Uses glob-style wildcards (`*`) to match command variations (e.g., `git push --force *` blocks `git push --force origin main`)
-- **Layered defense** - Multiple patterns cover flag ordering variations (e.g., `--force` before or after remote/branch)
-- **Case sensitivity** - Separate patterns for case variants (e.g., `rm -rf` and `rm -Rf` both blocked)
-- **No bypass via equals syntax** - Patterns like `--force-with-lease=*` block the `=refname` variant
-
-Note: These are client-side controls. Repository-level branch protection rules provide server-side enforcement for protected branches.
 
 ### Interacting with Claude
 
@@ -901,4 +862,4 @@ README.md                                          # Project setup and overview
 - **Healthcare Standards**: Examine `hl7/` and `fhir/` packages for integration patterns
 - **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations
 - **Spring Configuration**: Reference the multiple `applicationContext*.xml` files
-- **2Action Migration**: Compare legacy Action classes with their 2Action equivalents
+- **2Action Migration**: Compare legacy Action classes with their 2Action equivalents:q
