@@ -155,12 +155,12 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         Map<Integer, Allergy> classResults = new HashMap<Integer, Allergy>();
 
         Vector classVec = new Vector();
-        for (int i = 0; i < vec.size(); i++) {
+        for (int i = 0; vec != null && i < vec.size(); i++){
             java.util.Hashtable hash = (java.util.Hashtable) vec.get(i);
             if (!hash.get("name").equals("None found")) {
                 arr[i] = new Allergy();
 
-                arr[i].setTypeCode(((Integer) hash.get("category")).intValue());
+                arr[i].setTypeCode(Integer.parseInt(String.valueOf(hash.get("category"))));
                 arr[i].setDrugrefId(String.valueOf(hash.get("id")));
                 arr[i].setDescription(((String) hash.get("name")));
 

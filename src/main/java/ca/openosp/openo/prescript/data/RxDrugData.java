@@ -26,17 +26,17 @@
 
 package ca.openosp.openo.prescript.data;
 
+import ca.openosp.openo.commn.model.Allergy;
+import ca.openosp.openo.prescript.util.RxDrugRef;
+import ca.openosp.openo.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import ca.openosp.openo.commn.model.Allergy;
-import ca.openosp.openo.utility.MiscUtils;
-
-import ca.openosp.openo.prescript.util.RxDrugRef;
 
 public class RxDrugData {
 
@@ -85,7 +85,7 @@ public class RxDrugData {
         public RenalImpairment renalImpairment;
         public HepaticImpairment hepaticImpairment;
 
-        public String drugCode;
+		public Integer drugId;
 
         public DrugMonograph() {
             //default
@@ -96,10 +96,16 @@ public class RxDrugData {
             name = (String) hash.get("name");
             atc = (String) hash.get("atc");
             product = (String) hash.get("product");
-            regionalIdentifier = StringUtils.isEmpty((String) hash.get("regional_identifier")) ? null : (String) hash.get("regional_identifier");
+			regionalIdentifier = (String) hash.get("regional_identifier");
             drugForm = (String) hash.get("drugForm");
-            if (hash.get("drugCode") != null) {
-                drugCode = (String) hash.get("drugCode");
+            String drugIdString = (String) hash.get("drugId");
+			if (StringUtils.isNumeric(drugIdString)) {
+                try {
+				    drugId = Integer.parseInt(drugIdString);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Unable to parse drugId: " + drugIdString, e);
+                    drugId = null;
+                }
             }
 
             Vector drugRoute = (Vector) hash.get("drugRoute");
@@ -119,7 +125,8 @@ public class RxDrugData {
                 components.add(comp);
                 drugComponentList.add(comp);
             }
-            //{name=WARFARIN SODIUM, regional_identifier=02007959, product=COUMADIN TAB 4MG, atc=808774}
+
+//			gcnCode = (String) hash.get("gcnCode");
 
         }
 
@@ -185,7 +192,7 @@ public class RxDrugData {
 
             public DrugComponent(Hashtable h) {
                 name = (String) h.get("name");
-                strength = ((Double) h.get("strength")).toString();
+				strength = h.get("strength").toString();
                 unit = (String) h.get("unit");
             }
 
@@ -314,10 +321,11 @@ public class RxDrugData {
         }
 
         MinDrug(Hashtable h) {
-            this.pKey = String.valueOf(h.get("id"));
+			//this.pKey = (String) h.get("id"); //pKey
+			this.pKey = (String) h.get("id");
             this.name = (String) h.get("name");
             //this.type = (String) h.get("category");//type
-            this.type = ((Integer) h.get("category")).toString();
+			this.type = (String) h.get("category");
             MiscUtils.getLogger().debug("pkey " + pKey + " name " + name + " type " + type);
             //d.tag  = (Tag)    h.get("tag");
         }
@@ -616,7 +624,7 @@ public class RxDrugData {
      */
     public DrugMonograph getDrug(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
-        return new DrugMonograph(d.getDrug(pKey, Boolean.valueOf(true)));
+        return new DrugMonograph(d.getDrug(pKey, Boolean.TRUE));
     }
 
 
@@ -629,7 +637,7 @@ public class RxDrugData {
      */
     public DrugMonograph getDrug2(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
-        return new DrugMonograph(d.getDrug2(pKey, Boolean.valueOf(true)));
+		return new DrugMonograph(d.getDrug2(pKey,Boolean.TRUE));
     }
 
     /**
@@ -642,9 +650,6 @@ public class RxDrugData {
     public DrugMonograph getDrugByDIN(String DIN) throws Exception {
         RxDrugRef drugRef = new RxDrugRef();
         Hashtable<String, Object> returnVal = drugRef.getDrugByDIN(DIN, Boolean.TRUE);
-        if (returnVal == null) {
-            return null;
-        }
         return new DrugMonograph(returnVal);
     }
 
@@ -674,7 +679,7 @@ public class RxDrugData {
     public String getGenericName(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
         Hashtable h = d.getGenericName(pKey);
-        return (String) h.getOrDefault("name", "");
+		return (String) h.get("name");
     }
 
 
@@ -843,55 +848,52 @@ public class RxDrugData {
         return getAllergyWarnings(atcCode, allerg, null);
     }
 
-    public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allerg, List<Allergy> missing) throws Exception {
-        Vector vec = new Vector();
-        for (int i = 0; i < allerg.length; i++) {
-            Hashtable h = new Hashtable();
-            h.put("id", "" + i);
-            h.put("description", allerg[i].getDescription());
-            h.put("type", "" + allerg[i].getTypeCode());
-            if (allerg[i].getRegionalIdentifier() != null) {
-                h.put("din", allerg[i].getRegionalIdentifier());
+    public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allergies, List<Allergy> missing) throws Exception {
+        List<Map<String, String>> allergyDataList = new ArrayList<>();
+        for (int i = 0; i < allergies.length; i++) {
+            Allergy allergy = allergies[i];
+            Map<String, String> allergyMap = new Hashtable<>();
+            allergyMap.put("id", String.valueOf(i));
+            allergyMap.put("description", allergy.getDescription());
+            allergyMap.put("type", String.valueOf(allergy.getTypeCode()));
+
+            if (allergy.getRegionalIdentifier() != null) {
+                allergyMap.put("uuid", allergy.getRegionalIdentifier());
             }
-            if (allerg[i].getAtc() != null) {
-                h.put("atc", allerg[i].getAtc());
-            } else if (allerg[i].getTypeCode() == 8) {
-                h.put("atc", allerg[i].getDrugrefId());
-            }
-            vec.add(h);
+
+            allergyMap.put("ATC", allergy.getAtc());
+            allergyDataList.add(allergyMap);
         }
-        RxDrugRef d = new RxDrugRef();
-        Vector res = d.getAlergyWarnings(atcCode, vec);
+
+        RxDrugRef drugRef = new RxDrugRef();
+        Vector<Map<String, String>> allergyDataVector = new Vector<>(allergyDataList);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> response = drugRef.getAlergyWarnings(atcCode, allergyDataVector);
 
         Allergy[] actualAllergies = {};
-        ArrayList li = new ArrayList();
-        if (res != null) {
-            Hashtable hashObject = (Hashtable) res.get(0);
-            if (hashObject != null) {
-                Vector alli = (Vector) hashObject.get("warnings");
-                if (alli != null) {
-                    for (int k = 0; k < alli.size(); k++) {
-                        String str = (String) alli.get(k);
-                        int id = Integer.parseInt(str);
-                        li.add(allerg[id]);
-                        MiscUtils.getLogger().debug(str);
+        List<Allergy> foundWarnings = new ArrayList<>();
+        if (response != null && !response.isEmpty()) {
+            Map<String, Object> warningData = response.getFirst();
+            if (warningData != null) {
+                List<String> warningIndices = (List<String>) warningData.get("warnings");
+                if (warningIndices != null) {
+                    for (String indexStr : warningIndices) {
+                        int index = Integer.parseInt(indexStr);
+                        foundWarnings.add(allergies[index]);
+                        MiscUtils.getLogger().debug(indexStr);
                     }
                 }
 
-                Vector allmissing = (Vector) hashObject.get("missing");
-                if (allmissing != null) {
-                    for (int k = 0; k < allmissing.size(); k++) {
-                        String str = (String) allmissing.get(k);
-                        int id = Integer.parseInt(str);
-                        if (missing != null) {
-                            missing.add(allerg[id]);
-                        }
-
+                List<String> missingIndices = (List<String>) warningData.get("missing");
+                if (missingIndices != null && missing != null) {
+                    for (String indexStr : missingIndices) {
+                        int index = Integer.parseInt(indexStr);
+                        missing.add(allergies[index]);
                     }
                 }
             }
         }
-        actualAllergies = (Allergy[]) li.toArray(actualAllergies);
+        actualAllergies  =  (Allergy[]) foundWarnings.toArray(actualAllergies);
 
         return actualAllergies;
     }

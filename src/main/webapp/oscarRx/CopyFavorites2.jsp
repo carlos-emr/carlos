@@ -75,7 +75,7 @@
         </c:choose>
 
         <c:set var="bean" value="${RxSessionBean}" scope="page"/>
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
     </head>
 
     <script language="javascript">
@@ -102,7 +102,7 @@
                             <tr>
                                 <td>
                                     <div class="DivCCBreadCrumbs">
-                                        <a href="oscarRx/SearchDrug3.jsp"> 
+                                        <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> 
                                             <fmt:setBundle basename="oscarResources"/>
                                             <fmt:message key="SearchDrug.title"/>
                                         </a> > 

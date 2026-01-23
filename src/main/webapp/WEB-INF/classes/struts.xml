@@ -1688,7 +1688,7 @@
             <result name="failed">/documentManager/addedithtmldocument.jsp</result>
         </action>
         <action name="Scratch" class="ca.openosp.openo.scratch.Scratch2Action">
-            <result name="success">/scratch/index.jsp</result>
+            <result name="success">/scratch</result>
             <result name="scratchPadVersion">/scratch/version.jsp</result>
         </action>
         <action name="report/DeleteDemographicReport" class="ca.openosp.openo.report.pageUtil.RptDemographQueryFavouriteDelete2Action">

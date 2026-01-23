@@ -24,7 +24,7 @@
 
 --%>
 <%@ page
-        import="ca.openosp.openo.providers.data.*, ca.openosp.openo.rx.data.*,ca.openosp.OscarProperties, ca.openosp.openo.clinic.ClinicData, java.util.*" %>
+        import="ca.openosp.openo.providers.data.*,ca.openosp.OscarProperties, ca.openosp.openo.clinic.ClinicData, java.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -286,7 +286,7 @@
             }
 
             function setDefaultAddr() {
-                var url = "setDefaultAddr.jsp";
+                var url = '<c:out value="${ctx}"/>/oscarRx/setDefaultAddr.jsp';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
@@ -294,10 +294,10 @@
             }
 
 
+
             function addNotes() {
 
-
-                var url = "oscarRx/AddRxComment.jsp";
+                var url = '<c:out value="${ctx}"/>/oscarRx/AddRxComment.jsp';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
@@ -674,7 +674,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         }
 
                                         function ShowDrugInfo(drug) {
-                                            window.open("drugInfo.do?GN=" + escape(drug), "_blank",
+                                            window.open('<c:out value="${ctx}"/>/oscarRx/drugInfo.do?GN=' + encodeURIComponent(drug), "_blank",
                                                 "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                         }
 

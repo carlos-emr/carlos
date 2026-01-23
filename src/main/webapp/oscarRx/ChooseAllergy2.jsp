@@ -72,7 +72,7 @@
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
         %>
 
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
 
         <script type="text/javascript">
@@ -320,11 +320,90 @@
             <td width="100%" height="0%" colspan="2">&nbsp;</td>
         </tr>
         <tr>
-            <td width="100%" height="0%" style="padding: 5" bgcolor="#DCDCDC"
+            <td width="100%" height="0%" style="padding: 5px" bgcolor="#DCDCDC"
                 colspan="2"></td>
         </tr>
     </table>
 
     </body>
 
+
+<%--							if(allergyResults.get(11).size()>0) {--%>
+<%--								%><div class="DivContentSectionHead"><a href="javascript:void(0)" onclick="toggleSection('11');return false;"><img border="0" id="11_img" src="../images/expander.png"/></a>Generic Name</div><%--%>
+<%--								%><div id="11_content"><%--%>
+<%--								for(Allergy allergy:allergyResults.get(11)) {--%>
+<%--									%>--%>
+<%--									<a href="addReaction.do?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
+<%--									<br/>--%>
+<%--									<%--%>
+<%--								}--%>
+<%--								%></div><%--%>
+<%--							}--%>
+
+<%--							if(allergyResults.get(12).size()>0) {--%>
+<%--								%><div class="DivContentSectionHead"><a href="javascript:void(0)" onclick="toggleSection('12');return false;"><img border="0" id="12_img" src="../images/expander.png"/></a>Compound</div><%--%>
+<%--								%><div id="12_content" style="display:none"><%--%>
+<%--								for(Allergy allergy:allergyResults.get(12)) {--%>
+<%--									%>--%>
+<%--									<a href="addReaction.do?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
+<%--									<br/>--%>
+<%--									<%--%>
+<%--								}--%>
+<%--								%></div><%--%>
+<%--							}--%>
+
+
+<%--							if(allergyResults.get(14).size()>0) {--%>
+<%--								%><div class="DivContentSectionHead"><a href="javascript:void(0)" onclick="toggleSection('14');return false;"><img border="0" id="14_img" src="../images/collapser.png"/></a>Ingredient</div><%--%>
+<%--								%><div id="14_content"><%--%>
+<%--								for(Allergy allergy:allergyResults.get(14)) {--%>
+<%--									%>--%>
+<%--									<a href="addReaction.do?ID=<%= allergy.getDrugrefId() %>&name=<%=java.net.URLEncoder.encode(allergy.getDescription())%>&type=<%=allergy.getTypeCode()%>"><%=allergy.getDescription() %></a>--%>
+<%--									<br/>--%>
+<%--									<%--%>
+<%--								}--%>
+<%--								%></div><%--%>
+<%--							}--%>
+<%--						%>--%>
+
+<%--						<% } %>--%>
+<%--					</logic:present>--%>
+<%--				</div>--%>
+
+<%--				<%--%>
+<%--                        String sBack="ShowAllergies2.jsp";--%>
+<%--                      %> <input type=button class="ControlPushButton"--%>
+<%--					onclick="javascript:window.location.href='<%=sBack%>';"--%>
+<%--					value="Back to View Allergies" /></td>--%>
+<%--			</tr>--%>
+<%--			</table>--%>
+<%--			</td>--%>
+<%--			</tr>--%>
+<%--			<!----End new rows here-->--%>
+<%--			<tr height="100%">--%>
+<%--				<td></td>--%>
+<%--			</tr>--%>
+<%--		</table>--%>
+<%--		</td>--%>
+<%--	</tr>--%>
+<%--	<tr>--%>
+<%--		<td height="0%"--%>
+<%--			style="border-bottom: 2px solid #A9A9A9; border-top: 2px solid #A9A9A9;"></td>--%>
+<%--		<td height="0%"--%>
+<%--			style="border-bottom: 2px solid #A9A9A9; border-top: 2px solid #A9A9A9;"></td>--%>
+<%--	</tr>--%>
+<%--	<tr>--%>
+<%--		<td width="100%" height="0%" colspan="2">&nbsp;</td>--%>
+<%--	</tr>--%>
+<%--	<tr>--%>
+<%--		<td width="100%" height="0%" style="padding: 5" bgcolor="#DCDCDC"--%>
+<%--			colspan="2"></td>--%>
+<%--	</tr>--%>
+<%--</table>--%>
+
+<%--</body>--%>
+
+<%--</html:html>--%>
+
 </html>
+

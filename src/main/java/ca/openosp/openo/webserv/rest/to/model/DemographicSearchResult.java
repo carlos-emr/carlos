@@ -29,6 +29,8 @@ import java.util.Date;
 
 import org.apache.tools.ant.util.DateUtils;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class DemographicSearchResult {
 
     private SimpleDateFormat sdf = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN);
@@ -38,7 +40,10 @@ public class DemographicSearchResult {
     private String firstName;
     private String chartNo;
     private String sex;
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dob;
+
     private String providerNo;
     private String providerName;
     private String rosterStatus;

@@ -27,12 +27,11 @@
 
 package ca.openosp.openo.commn.dao;
 
-import java.util.Date;
-import java.util.List;
+import ca.openosp.openo.commn.model.Allergy;
 
 import javax.persistence.Query;
-
-import ca.openosp.openo.commn.model.Allergy;
+import java.util.Date;
+import java.util.List;
 
 public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyDao {
 
@@ -55,7 +54,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
     @Override
     public List<Allergy> findActiveAllergies(Integer demographic_no) {
         String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.archived = 0 order by x.position, x.severityOfReaction";
+                + " x where x.demographicNo=?1 and x.archived = 0 order by x.severityOfReaction";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographic_no);
 

@@ -32,20 +32,22 @@ package ca.openosp.openo.prescript.util;
  */
 
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Vector;
-
+import ca.openosp.OscarProperties;
+import ca.openosp.openo.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.xmlrpc.Base64;
 import org.apache.xmlrpc.XmlRpcClient;
 import org.apache.xmlrpc.XmlRpcClientLite;
 import org.apache.xmlrpc.XmlRpcException;
-import ca.openosp.openo.utility.MiscUtils;
-import ca.openosp.OscarProperties;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
 
 /**
  * @author Jay
@@ -63,7 +65,7 @@ public class RxDrugRef {
     public static int CAT_AI_COMPOSITE_GENERIC = 19;
     public static int CAT_AI_GENERIC = 18;
 
-    private static Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
 
     private String server_url = null;
     //"http://localhost:8080/drugref2/DrugrefService";
@@ -276,6 +278,34 @@ public class RxDrugRef {
         return vec;
     }
 
+    /**
+     * Verifies connectivity to the drug reference service and retrieves system metadata.
+     * <p>
+     * This method performs a health check by calling multiple web service endpoints to gather
+     * information about the connected drug database system. It retrieves the last database update
+     * timestamp, identifies the drug database type, and obtains the current database version.
+     *
+     * @return Map&lt;String, String&gt; containing drug reference metadata with the following keys:
+     *         <ul>
+     *         <li>"lastUpdate" - ISO timestamp of the most recent database update</li>
+     *         <li>"drugDatabase" - String identifier of the drug database system in use</li>
+     *         <li>"version" - String version number of the drug reference database</li>
+     *         </ul>
+     * @throws Exception if the drug reference service is unavailable or if any web service call fails
+     * @since 2026-01-21
+     */
+    public Map<String, String> verify() throws Exception {
+        Vector params = new Vector();
+        String lastUpdateTime = getLastUpdateTime();
+        String drugDatabase = callWebserviceLite("identify", params).toString();
+        String version = callWebserviceLite("version", params).toString();
+        Map<String, String> verify = new HashMap<>();
+        verify.put("lastUpdate", lastUpdateTime);
+        verify.put("drugDatabase", drugDatabase);
+        verify.put("version", version);
+        return verify;
+    }
+
     public String updateDB() throws Exception {
         Vector params = new Vector();
         return (String) callWebserviceLite("updateDB", params);
@@ -445,18 +475,13 @@ public class RxDrugRef {
                 XmlRpcClientLite server = new XmlRpcClientLite(server_url);
                 object = server.execute(procedureName, params);
             }
-        } catch (XmlRpcException exception) {
-            if (exception.code == 0) {
-                logger.warn("JavaClient: XML-RPC Fault #" + exception.code
-                        + ". NoResultException thrown for procedure: " + procedureName + " with parameters " + params);
-            } else {
-                logger.error("JavaClient: XML-RPC Fault #" + exception.code, exception);
-                throw new Exception("JavaClient: XML-RPC Fault #" + exception.code + ": " + exception);
-            }
-
         } catch (Exception exception) {
-            logger.error("JavaClient: ", exception);
-            throw new Exception("JavaClient: ", exception);
+            if (exception instanceof XmlRpcException && ((XmlRpcException) exception).code == 0) {
+                logger.error("JavaClient: XML-RPC Fault. NoResultException thrown for procedure: {} with parameters {}", procedureName, params);
+            } else {
+                logger.error("JavaClient: XML-RPC Fault ", exception);
+                throw new Exception("JavaClient: XML-RPC Fault", exception);
+            }
         }
         return object;
     }

@@ -29,6 +29,7 @@
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ page import="ca.openosp.openo.rx.data.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
@@ -169,9 +170,9 @@
                                     <td align="right" class="noPrint">
                                         <div class="DivContentSectionHead">
                                             <% if (showall) { %>
-                                            <a href="oscarRx/PrintDrugProfile.jsp">Show Current</a>
+                                            <a href="<%= request.getContextPath() %>/oscarRx/PrintDrugProfile2.jsp">Show Current</a>
                                             <% } else { %>
-                                            <a href="oscarRx/PrintDrugProfile.jsp?show=all">Show All</a>
+                                            <a href="<%= request.getContextPath() %>/oscarRx/PrintDrugProfile2.jsp?show=all">Show All</a>
                                             <% } %>
                                             | <a href="javascript:void(0);window.print();">Print</a>
                                         </div>
@@ -207,12 +208,12 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="oscarRx/StaticScript2.jsp?regionalIdentifier=<%=drug.getRegionalIdentifier()%>&cn=<%=response.encodeURL(drug.getCustomName())%>&bn=<%=response.encodeURL(drug.getBrandName())%>"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/oscarRx/StaticScript2.jsp?regionalIdentifier=<%=Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%=Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%=drug.getRxDate()%>
                                                     </a>
                                                 </td>
                                                 <td width=100%>
                                                     <a <%= styleColor%>
-                                                            href="oscarRx/StaticScript2.jsp?regionalIdentifier=<%= drug.getRegionalIdentifier()%>&cn=<%= response.encodeURL(drug.getCustomName())%>&bn=<%=response.encodeURL(drug.getBrandName())%>"><%= drug.getFullOutLine().replaceAll(";", " ")%>
+                                                            href="<%= request.getContextPath() %>/oscarRx/StaticScript2.jsp?regionalIdentifier=<%= Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%= Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%= Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
                                                     </a>
                                                 </td>
                                             </tr>
@@ -234,9 +235,9 @@
                             <div class="DivContentSectionHead">
 
                                 <% if (showall) { %>
-                                <a href="oscarRx/PrintDrugProfile.jsp">Show Current</a>
+                                <a href="<%= request.getContextPath() %>/oscarRx/PrintDrugProfile2.jsp">Show Current</a>
                                 <% } else { %>
-                                <a href="oscarRx/PrintDrugProfile.jsp?show=all">Show All</a>
+                                <a href="<%= request.getContextPath() %>/oscarRx/PrintDrugProfile2.jsp?show=all">Show All</a>
                                 <% } %>
                                 | <a href="javascript:void(0);window.print();">Print</a>
                             </div>

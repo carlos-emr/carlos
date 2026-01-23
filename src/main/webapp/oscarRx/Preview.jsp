@@ -74,7 +74,7 @@
                 }
             %>
         </c:if>
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
         <script type="text/javascript" language="Javascript">
             function onPrint(cfgPage) {
                 //document.forms[0].submit.value="print";

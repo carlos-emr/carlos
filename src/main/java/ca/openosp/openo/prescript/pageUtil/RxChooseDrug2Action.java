@@ -26,24 +26,20 @@
 
 package ca.openosp.openo.prescript.pageUtil;
 
-import java.io.IOException;
+import ca.openosp.openo.managers.SecurityInfoManager;
+import ca.openosp.openo.prescript.data.RxDrugData;
+import ca.openosp.openo.prescript.data.RxPrescriptionData;
+import ca.openosp.openo.prescript.util.RxUtil;
+import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.SpringUtils;
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import ca.openosp.openo.prescript.util.RxUtil;
-import ca.openosp.openo.managers.SecurityInfoManager;
-import ca.openosp.openo.utility.LoggedInInfo;
-import ca.openosp.openo.utility.MiscUtils;
-import ca.openosp.openo.utility.SpringUtils;
-
-import ca.openosp.openo.prescript.data.RxDrugData;
-import ca.openosp.openo.prescript.data.RxPrescriptionData;
-
-
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
+import java.io.IOException;
 
 public final class RxChooseDrug2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,19 +81,15 @@ public final class RxChooseDrug2Action extends ActionSupport {
 
             String BN = request.getParameter("BN");
             String drugId = request.getParameter("drugId");
-
-
-            //   p("GN="+GN);
             rx.setBrandName(BN);
             try {
-                rx.setGCN_SEQNO(Integer.parseInt(drugId));
+
                 RxDrugData.DrugMonograph f = drugData.getDrug(drugId);
+//                    rx.setGCN_SEQNO(f.gcnCode);
                 String genName = "";
                 genName = f.name;
                 rx.setAtcCode(f.atc);
                 rx.setBrandName(f.product);
-                //      p("f.name: "+f.name+"f.atc: "+f.atc+"f.product: "+f.product+ "f.regionalIdentifier: "+f.regionalIdentifier);
-                //      p("f.components: "+f.components.toString());
                 rx.setRegionalIdentifier(f.regionalIdentifier);
 
                 request.setAttribute("components", f.components);
@@ -111,13 +103,11 @@ public final class RxChooseDrug2Action extends ActionSupport {
                     }
                 }
                 rx.setDosage(dosage);
-                //   p("prescript set dosage to: "+dosage);
                 StringBuilder compString = null;
                 if (f.components != null) {
                     compString = new StringBuilder();
                     for (int c = 0; c < f.components.size(); c++) {
                         RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
-                        //          p("dc.name: "+dc.name+"dc.strength: "+dc.strength+"dc.unit: "+dc.unit);
                         compString.append(dc.name + " " + dc.strength + " " + dc.unit + " ");
                     }
                 }
@@ -132,7 +122,7 @@ public final class RxChooseDrug2Action extends ActionSupport {
             } catch (java.lang.NumberFormatException numEx) {          // Custom
                 rx.setBrandName(null);
                 rx.setCustomName("");
-                rx.setGCN_SEQNO(0);
+                    rx.setGCN_SEQNO("0");
             }
 
             rx.setRxDate(RxUtil.Today());

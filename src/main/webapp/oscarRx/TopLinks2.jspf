@@ -23,47 +23,77 @@
 
 <%@ page import="java.io.StringWriter" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
-<%@ page import="com.fasterxml.jackson.databind.SerializationFeature" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
-<%@ page import="ca.openosp.openo.prescript.data.*,
-    ca.openosp.openo.demographic.data.DemographicData,
-    ca.openosp.OscarProperties,
-    ca.openosp.openo.log.*" %>
+<%@ page import="ca.openosp.openo.prescript.data.*,ca.openosp.openo.log.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <jsp:include page="/images/spinner.jsp" flush="true"/>
-
+<fmt:setBundle basename="oscarResources"/>
 <script type="text/javascript">
 function newWindow(url) {
     var newwin = window.open(url, 'name', 'height=700,width=1000');
     if (window.focus) { newwin.focus(); }
     return false;
 }
+
+function getDrugRefStatus() {
+	const data = "method=verify";
+	const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
+
+	fetch(url, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded'
+		},
+		body: data
+	})
+		.then(response => response.json())
+		.then(json => {
+			if (!json || json.lastUpdate === 'updating' ) {
+				let statusDisplay = document.getElementById('statusDisplay');
+				statusDisplay.innerHTML = 'Drugref database is unavailable.';
+				statusDisplay.style.fontColor = 'red';
+				statusDisplay.style.fontWeight = 'bold';
+			} else {
+				document.getElementById('dbDateTime').innerHTML = json.lastUpdate;
+				document.getElementById('drugDatabaseVersion').innerHTML = json.version;
+				document.getElementById('drugDatabase').innerHTML = json.drugDatabase;
+			}
+		})
+		.catch(error => {
+			let statusDisplay = document.getElementById('statusDisplay');
+			statusDisplay.innerHTML = 'Drugref database is unavailable. Contact support.';
+			statusDisplay.style.color = 'red';
+			statusDisplay.style.fontWeight = 'bold';
+		});
+    }
+
+document.addEventListener("DOMContentLoaded", getDrugRefStatus);
 </script>
 
 <tr>
-  <td width="20%" height="37" bgcolor="#000000">
-    <span class="ScreenTitle">oscarRx</span>
+  <td>
+    <h4 class="ScreenTitle">Medications</h4>
   </td>
-  <td width="100%" valign="bottom" bgcolor="#000000"
-      style="border-left: 2px solid #A9A9A9; padding-left: 5px" height="0%" colspan="2">
-    <table width="100%" border="0" height="100%">
+  <td colspan="2">
+    <table>
       <tr>
-        <td valign="bottom" style="color:white;">
+        <td>
           <%
             RxPatientData.Patient patient2 =
               (RxPatientData.Patient) request.getSession().getAttribute("Patient");
           %>
-          <b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/></b>
-          <%= patient2.getFirstName() %> <%= patient2.getSurname() %>
-          <b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.ageText"/></b>
-          <%= patient2.getAge() %><br>
-
-          <b>Selected Pharmacy:</b>
-          <select id="Calcs" name="pharmacyId"
-                  onchange="populatePharmacy(this.value); showpic('Layer1');">
+          <b><fmt:message key="SearchDrug.nameText"/></b>
+          <%=Encode.forHtmlContent(patient2.getFirstName()) %> <%= Encode.forHtmlContent(patient2.getSurname()) %>
+          <b><fmt:message key="SearchDrug.ageText"/></b>
+          <%= patient2.getAge() %>
+        </td>
+          <tr>
+        <td>
+          <label for="Calcs">Selected Pharmacy:</label>
+          <select id="Calcs" name="pharmacyId" onchange="populatePharmacy(this.value); showpic('Layer1');">
             <%
               if (pharmacyList != null) {
                   ObjectMapper mapper = new ObjectMapper();
@@ -76,23 +106,36 @@ function newWindow(url) {
                       String json = sw.toString().replace("'", "");
             %>
               <option value='<%= json %>'>
-                <%= pi.getName() %> (<%= pi.getAddress() %>, <%= pi.getCity() %>, Fax: <%= pi.getFax() %>)
+                <%= Encode.forHtmlContent(pi.getName()) %> (<%= Encode.forHtmlContent(pi.getAddress()) %>, <%= Encode.forHtmlContent(pi.getCity()) %>, Fax: <%= Encode.forHtmlContent(pi.getFax()) %>)
               </option>
             <%
                   }
               }
             %>
           </select>
-          &nbsp;<b>
-            <a style="color:white;" href="oscarRx/SelectPharmacy2.jsp"
+
+            <a style="color:white;" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
                onclick="ShowSpin(true); return true;">
               (Edit List)
             </a>
-          </b>
+
         </td>
-        <td valign="top" align="right">
+        </tr>
+        <tr>
+        <td>
+            <div id="statusDisplay">
+                <div>
+                    <label for="drugDatabase"><fmt:message key="admin.admin.DrugRef.database"/>&colon; </label>
+                    <span id="drugDatabase"></span></div>
+                <div>
+                    <label for="drugDatabaseVersion"><fmt:message key="admin.admin.DrugRef.databaseVersion"/>&colon; </label>
+                    <span id="drugDatabaseVersion"></span></div>
+                <div>
+                    <label for="dbDateTime"><fmt:message key="admin.admin.DrugRef.updateDate"/>&colon; </label>
+                    <span id="dbDateTime"></span></div>
+            </div>
         </td>
-      </tr>
+        </tr>
     </table>
   </td>
 </tr>

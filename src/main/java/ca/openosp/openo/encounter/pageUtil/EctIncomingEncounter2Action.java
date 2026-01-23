@@ -105,7 +105,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             }
         }
 
-        EctSessionBean bean = new EctSessionBean();
+        EctSessionBean bean;
         String appointmentNo = null;
 
         if (request.getSession().getAttribute("cur_appointment_no") != null) {

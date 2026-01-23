@@ -104,11 +104,11 @@
         %>
 
 
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
-        <script language="javascript">
+        <script type="text/javascript">
             function ShowDrugInfo(gn) {
-                window.open("drugInfo.do?GN=" + escape(gn), "_blank",
+                window.open("<%= request.getContextPath() %>/oscarRx/drugInfo.do?GN=" + encodeURIComponent(gn), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
         </script>
@@ -128,10 +128,8 @@
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, currentDemographicNo);
             String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
         %>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"/>
-        "></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/scriptaculous.js"/>
-        "></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/scriptaculous.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
 
         <script language="javascript">
@@ -139,11 +137,11 @@
             function addFavorite2(drugId, brandName) {
                 var favoriteName = window.prompt('Please enter a name for the Favorite:', brandName);
 
-                if (favoriteName.length > 0) {
+                if (favoriteName !== null && favoriteName.length > 0) {
                     var url = '<%=request.getContextPath()%>' + "/oscarRx/addFavorite2.do?parameterValue=addFav2";
                     oscarLog(url);
                     favoriteName = encodeURIComponent(favoriteName);
-                    var data = "drugId=" + drugId + "&favoriteName=" + favoriteName;
+                    var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
                     new Ajax.Request(url, {
                         method: 'get', parameters: data, onSuccess: function (transport) {
                             window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%=regionalIdentifier%>' + "&cn=" + '<%=cn%>';
@@ -154,11 +152,11 @@
 
             //represcribe a drug
             function reRxDrugSearch3(reRxDrugId) {
-                var dataUpdateId = "reRxDrugId=" + reRxDrugId + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
+                var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
                 var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
                 new Ajax.Request(urlUpdateId, {method: 'get', parameters: dataUpdateId});
 
-                var data = "drugId=" + reRxDrugId;
+                var data = "drugId=" + encodeURIComponent(reRxDrugId);
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/rePrescribe2.do?method=saveReRxDrugIdToStash";
                 new Ajax.Request(url, {
                     method: 'post', parameters: data, asynchronous: false, onSuccess: function (transport) {
@@ -183,7 +181,7 @@
                        width="100%" height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="oscarRx/SearchDrug3.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title"/></b>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title"/></b>
                             </div>
                         </td>
                     </tr>
@@ -247,7 +245,7 @@
                                     <td>
                                         <%if (drug.localDrugId != null) { %>
                                         <a href="javascript:void(0);"
-                                           onclick="popup(600, 425,'oscarRx/DisplayRxRecord.jsp?id=<%=drug.localDrugId%>','displayRxWindow')">
+                                           onclick="popup(600, 425,'<%= request.getContextPath() %>/oscarRx/DisplayRxRecord.jsp?id=<%=drug.localDrugId%>','displayRxWindow')">
                                             <%}%>
                                             <%=drug.prescriptionDetails%>
                                             <%if (drug.localDrugId != null) { %>

@@ -239,9 +239,6 @@
                     <form id="frmDocumentDisplay_<%=segmentID%>">
                         <input type="hidden" name="segmentID" value="<%=segmentID%>"/>
                         <input type="hidden" name="demoName" value="<%=demoName%>"/>
-                        <input type="hidden" name="providerNo" value="<%=providerNo%>"/>
-                        <input type="hidden" name="searchProviderNo" value="<%=searchProviderNo%>"/>
-                        <input type="hidden" name="status" value="<%=status%>"/>
                     </form>
                     <div id="document_<%=segmentID%>">
                         <jsp:include page="/documentManager/showDocument.jsp" flush="true">
@@ -345,12 +342,6 @@
                                 StringBuilder url = new StringBuilder(request.getContextPath());
                                 url.append("/documentManager/showDocument.jsp?inWindow=true&segmentID=");
                                 url.append(segmentID);
-                                url.append("&providerNo=");
-                                url.append(providerNo);
-                                url.append("&searchProviderNo=");
-                                url.append(searchProviderNo);
-                                url.append("&status=");
-                                url.append(status);
                                 url.append("&demoName=");
 
                                 //the browser html parser does not understand javascript so we need to account for the opening

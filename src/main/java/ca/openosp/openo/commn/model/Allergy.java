@@ -24,8 +24,7 @@
 
 package ca.openosp.openo.commn.model;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -38,8 +37,8 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import javax.persistence.Transient;
-
-import org.apache.commons.lang3.StringUtils;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 @Entity
@@ -125,6 +124,15 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
      * This string is currently nullable because this field never use to exist, therefore all previous entries are null, all new entries should be populated though.
      */
     private String providerNo;
+
+	@Transient
+	private String pharmacological;
+
+	@Transient
+	private String chemical;
+
+	@Transient
+	private String substance;
 
     public boolean getArchived() {
         return archived;
@@ -259,6 +267,9 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     }
 
     public String getRegionalIdentifier() {
+		if(regionalIdentifier == null) {
+			return "";
+		}
         return regionalIdentifier;
     }
 
@@ -267,6 +278,9 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     }
 
     public String getAtc() {
+		if(atc == null) {
+			return "";
+		}
         return atc;
     }
 
@@ -460,4 +474,27 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     }
 
 
+	public String getPharmacological() {
+		return pharmacological;
+	}
+
+	public void setPharmacological(String pharmacological) {
+		this.pharmacological = pharmacological;
+	}
+
+	public String getChemical() {
+		return chemical;
+	}
+
+	public void setChemical(String chemical) {
+		this.chemical = chemical;
+	}
+
+	public String getSubstance() {
+		return substance;
+	}
+
+	public void setSubstance(String substance) {
+		this.substance = substance;
+	}
 }

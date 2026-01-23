@@ -6,7 +6,7 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * of the License, or (at your option) any later version. 
  * <p>
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,11 +27,11 @@
  */
 package ca.openosp.openo.commn.dao;
 
-import java.util.List;
-import javax.persistence.Query;
-
 import ca.openosp.openo.commn.model.ScratchPad;
 import org.springframework.stereotype.Repository;
+
+import javax.persistence.Query;
+import java.util.List;
 
 @Repository
 public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements ScratchPadDao {
@@ -42,7 +42,7 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
 
     @Override
     public boolean isScratchFilled(String providerNo) {
-        String sSQL = "SELECT s FROM ScratchPad s WHERE s.providerNo = ?1 AND status=1 order by s.id";
+        String sSQL = "SELECT s FROM ScratchPad s WHERE s.providerNo = ?1 AND s.status = true order by s.id";
         Query query = entityManager.createQuery(sSQL);
         query.setParameter(1, providerNo);
 
@@ -56,18 +56,38 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
 
     @Override
     public ScratchPad findByProviderNo(String providerNo) {
-        Query query = createQuery("sp", "sp.providerNo = ?1 AND sp.status=1 order by sp.id DESC");
+        Query query = createQuery("sp", "sp.providerNo = :providerNo AND sp.status=true order by sp.id DESC");
         query.setMaxResults(1);
-        query.setParameter(1, providerNo);
+        query.setParameter("providerNo", providerNo);
         return getSingleResultOrNull(query);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public List<Object[]> findAllDatesByProviderNo(String providerNo) {
-        String sql = "Select sp.dateTime, sp.id from ScratchPad sp where sp.providerNo = ?1 AND sp.status=1 order by sp.dateTime DESC";
+    public List<ScratchPad> findAllDatesByProviderNo(String providerNo) {
+        String sql = "SELECT sp FROM ScratchPad sp " +
+                "WHERE sp.providerNo = :providerNo " +
+                "  AND sp.status = true " +
+                "  AND ( " +
+                "    DATE(sp.dateTime) = CURDATE() " +
+                "    OR ( " +
+                "      DATE(sp.dateTime) < CURDATE() " +
+                "      AND NOT EXISTS ( " +
+                "        SELECT 1 " +
+                "        FROM ScratchPad sp2 " +
+                "        WHERE sp2.providerNo = sp.providerNo " +
+                "          AND sp2.status = true " +
+                "          AND DATE(sp2.dateTime) = DATE(sp.dateTime) " +
+                "          AND DATE(sp2.dateTime) < CURDATE() " +
+                "          AND ( " +
+                "            sp2.dateTime > sp.dateTime " +
+                "            OR (sp2.dateTime = sp.dateTime AND sp2.id > sp.id) " +
+                "          ) " +
+                "      ) " +
+                "    ) " +
+                "  ) " +
+                "ORDER BY sp.dateTime DESC";
         Query query = entityManager.createQuery(sql);
-        query.setParameter(1, providerNo);
+        query.setParameter("providerNo", providerNo);
         return query.getResultList();
     }
 }

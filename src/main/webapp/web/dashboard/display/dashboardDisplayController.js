@@ -61,7 +61,7 @@ $(document).ready(function () {
     // get the drill down page
     $(".indicatorWrapper").on('click', ".indicatorDrilldownBtn", function (event) {
         event.preventDefault();
-        var url = "/www/dashboard/display/DrilldownDisplay.do";
+        var url = "/web/dashboard/display/DrilldownDisplay.do";
         var data = new Object();
         data.indicatorTemplateId = (this.id).split("_")[1];
         data.method = (this.id).split("_")[0];
@@ -71,7 +71,7 @@ $(document).ready(function () {
 
     $(".indicatorWrapper").on("click", ".indicatorGraph", function (event) {
         event.preventDefault();
-        var url = "/www/dashboard/display/DrilldownDisplay.do";
+        var url = "/web/dashboard/display/DrilldownDisplay.do";
         var data = new Object();
         data.indicatorTemplateId = (this.id).split("_")[1];
         data.method = "getDrilldown";
@@ -82,7 +82,7 @@ $(document).ready(function () {
     // get the dashboard manager page
     $(".dashboardManagerBtn").on('click', function (event) {
         event.preventDefault();
-        var url = "/www/dashboard/admin/DashboardManager.do";
+        var url = "/web/dashboard/admin/DashboardManager.do";
         var data = "dashboardId=" + this.id;
         sendData(url, data, null);
     });
@@ -90,7 +90,7 @@ $(document).ready(function () {
     // reload this dashboard with fresh data.
     $(".reloadDashboardBtn").on('click', function (event) {
         event.preventDefault();
-        var url = "/www/dashboard/display/DashboardDisplay.do";
+        var url = "/web/dashboard/display/DashboardDisplay.do";
         var data = new Object();
         data.dashboardId = (this.id).split("_")[1];
         data.method = (this.id).split("_")[0];
@@ -103,7 +103,7 @@ $(document).ready(function () {
         data.method = "getIndicator";
         data.indicatorId = this.id.split("_")[1];
 
-        sendData("/www/dashboard/display/DisplayIndicator.do", data, this.id.split("_")[0]);
+        sendData("/web/dashboard/display/DisplayIndicator.do", data, this.id.split("_")[0]);
     })
 
     placeHolderCount = $(".indicatorWrapper").length;

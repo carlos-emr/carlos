@@ -66,7 +66,7 @@
             String allergyId = (String) request.getAttribute("allergyId");
         %>
 
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
 
@@ -83,8 +83,8 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="ShowAllergies.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="AddReaction.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="AddReaction.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -95,7 +95,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><form action="oscarRx/addAllergy.do" focus="reactionDescription" name="RxAddAllergyForm" id="RxAddAllergyForm">
+                        <td><form action="<%= request.getContextPath() %>/oscarRx/addAllergy.do" focus="reactionDescription" name="RxAddAllergyForm" id="RxAddAllergyForm">
                             <table>
                                 <tr valign="center">
 

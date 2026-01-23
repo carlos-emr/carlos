@@ -156,13 +156,13 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
                 if (inboxflag) {
                     String path = IsPropertiesOn.getProperty("DOCUMENT_DIR");
- 		    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/mod/docmgmtComp/FillARForm.do?method=showInboxDocDetails&path=" + path + "&demoNo=" + bean.demographicNo + "&name=" + Encode.forJavaScript(dispFilename) + "'); return false;";
+ 		    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/mod/docmgmtComp/FillARForm.do?method=showInboxDocDetails&path=" + Encode.forJavaScript(path) + "&demoNo=" + Encode.forJavaScript(bean.demographicNo) + "&name=" + Encode.forJavaScript(dispFilename) + "'); return false;";
                     isURLjavaScript = true;
                 } else if (curDoc.getRemoteFacilityId() == null && curDoc.isPDF()) {
-                    url = "popupPage(window.screen.width,window.screen.height,'" + hash + "','" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + dispDocNo + "&providerNo=" + user + "&searchProviderNo=" + user + "&status=A'); return false;";
+                    url = "popupPage(window.screen.width,window.screen.height,'" + hash + "','" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + Encode.forJavaScript(dispDocNo) + "'); return false;";
                     isURLjavaScript = true;
                 } else {
-                    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/documentManager/ManageDocument.do?method=display&doc_no=" + dispDocNo + "&providerNo=" + user + (curDoc.getRemoteFacilityId() != null ? "&remoteFacilityId=" + curDoc.getRemoteFacilityId() : "") + "'); return false;";
+                    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/documentManager/ManageDocument.do?method=display&doc_no=" + Encode.forJavaScript(dispDocNo) + "&providerNo=" + Encode.forJavaScript(user) + (curDoc.getRemoteFacilityId() != null ? "&remoteFacilityId=" + Encode.forJavaScript(curDoc.getRemoteFacilityId().toString()) : "") + "'); return false;";
                 }
 
                 item.setLinkTitle(title + serviceDateStr);

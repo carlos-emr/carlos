@@ -92,6 +92,8 @@ public class RxReorder2Action extends ActionSupport {
         }
 
         try {
+            response.setContentType("text/plain");
+            response.setCharacterEncoding("UTF-8");
             response.getWriter().println("ok");
         } catch (IOException e) {
             logger.error("error", e);

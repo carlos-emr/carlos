@@ -133,14 +133,13 @@ public final class RxUseFavorite2Action extends ActionSupport {
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
-
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
+                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
                 listRxDrugs.add(rx);
+                int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
+                bean.setStashIndex(rxStashIndex);
             }
-            int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
-            bean.setStashIndex(rxStashIndex);
 
 
             request.setAttribute("listRxDrugs", listRxDrugs);

@@ -21,6 +21,9 @@
         <Logger name="org.apache.log4j.xml" level="error">
             <AppenderRef ref="Console"/>
         </Logger>
+        <Logger name="openjpa.jdbc.SQL" level="error">
+            <AppenderRef ref="Console"/>
+        </Logger>
         <Root level="${env:LOG_VERBOSITY:-error}">
             <AppenderRef ref="Console" />
 <!--            <AppenderRef ref="File" />-->

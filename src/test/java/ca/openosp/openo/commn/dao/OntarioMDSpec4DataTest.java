@@ -307,7 +307,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
     }
 
 
-    Drug getDrug(String providerNo, Integer demographicId, Date rxDate, Date endDate, Date writtenDate, String brandName, int gcnSeqNo, String customName, float takeMin, float takeMax, String freqCode,
+	Drug getDrug(String providerNo,	Integer demographicId, Date rxDate,Date endDate,Date writtenDate,String brandName,String gcnSeqNo,	String customName,float takeMin,float takeMax,String freqCode,
                  String duration, String durUnit, String quantity, Integer repeat, boolean noSubs, boolean prn, String special, String special_instruction, String genericName, String atc, Integer scriptNo, String regionalIdentifier,
                  String unit, String method, String route, String drugForm, Date createDate, String dosage, boolean customInstructions, String unitName, Boolean longTerm, Boolean pastMed, Boolean patientCompliance, String outsideProviderName,
                  String outsideProviderOhip, Boolean hideFromDrugProfile, Boolean customNote) {
@@ -1266,7 +1266,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         juneElderAugNote.setAppointmentNo(app.getId());
         caseManagementNoteDAO.saveNote(juneElderAugNote);
         Integer scriptNo = 0;
-        Drug drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), aug122005, getDate(aug122005, Calendar.DAY_OF_YEAR, +10), aug122005, "GLYBURIDE 2.5MG", 5562, null, 1, 1, "QD", "10", "D", "10", 0, false, false, "GLYBURIDE 2.5MG Take 1 TAB QD PO for 10 days", "", "GLYBURIDE 2.5 MG",
+		Drug drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), aug122005,getDate(aug122005,Calendar.DAY_OF_YEAR,+10),aug122005,"GLYBURIDE 2.5MG","5562",null,1,1,"QD","10","D","10",0,false,false,"GLYBURIDE 2.5MG Take 1 TAB QD PO for 10 days","","GLYBURIDE 2.5 MG",
                 "A10BB01", scriptNo, "02350459", "tab", "Take", "PO", "TABLET", aug122005, "2.5 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1279,7 +1279,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         juneElderOctNote.setAppointmentNo(app.getId());
         caseManagementNoteDAO.saveNote(juneElderOctNote);
         scriptNo = 0;
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), oct222005, getDate(oct222005, Calendar.DAY_OF_YEAR, +60), oct222005, "GLYBURIDE 2.5MG", 5562, null, 2, 2, "BID", "20", "D", "80", 2, false, false, "GLYBURIDE 2.5MG Take 1 TAB QD PO for 10 days", "", "GLYBURIDE 2.5 MG",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), oct222005,getDate(oct222005,Calendar.DAY_OF_YEAR,+60),oct222005,"GLYBURIDE 2.5MG","5562",null,2,2,"BID","20","D","80",2,false,false,"GLYBURIDE 2.5MG Take 1 TAB QD PO for 10 days","","GLYBURIDE 2.5 MG",
                 "A10BB01", scriptNo, "02350459", "tab", "Take", "PO", "TABLET", aug122005, "2.5 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1292,7 +1292,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         juneElderJanNote.setAppointmentNo(app.getId());
         caseManagementNoteDAO.saveNote(juneElderJanNote);
         scriptNo = 0;
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), jan62006, getDate(jan62006, Calendar.DAY_OF_YEAR, +80), jan62006, "GLYBURIDE 5MG", 5561, null, 2, 2, "QD", "20", "D", "160", 3, false, false, "GLYBURIDE 5MG Take 2 TAB QID PO for 20 days Qty:160 Repeats:3", "", "GLYBURIDE 2.5 MG",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), jan62006,getDate(jan62006,Calendar.DAY_OF_YEAR,+80),jan62006,"GLYBURIDE 5MG","5561",null,2,2,"QD","20","D","160",3,false,false,"GLYBURIDE 5MG Take 2 TAB QID PO for 20 days Qty:160 Repeats:3","","GLYBURIDE 2.5 MG",
                 "A10BB01", scriptNo, "02350467", "tab", "Take", "PO", "TABLET", jan62006, "5.0 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1306,7 +1306,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         juneElderJanNote.setAppointmentNo(app.getId());
         caseManagementNoteDAO.saveNote(juneElderMayNote);
         scriptNo = 0;
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), may212006, getDate(may212006, Calendar.DAY_OF_YEAR, +120), may212006, "GLYBURIDE 5MG", 5561, null, 2, 2, "QD", "10", "D", "240", 3, false, false, "GLYBURIDE 5MG Take 2 TAB QID PO for 30 days Qty:240 Repeats:3", "", "GLYBURIDE 2.5 MG",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), may212006,getDate(may212006,Calendar.DAY_OF_YEAR,+120),may212006,"GLYBURIDE 5MG","5561",null,2,2,"QD","10","D","240",3,false,false,"GLYBURIDE 5MG Take 2 TAB QID PO for 30 days Qty:240 Repeats:3","","GLYBURIDE 2.5 MG",
                 "A10BB01", scriptNo, "02350467", "tab", "Take", "PO", "TABLET", may212006, "5.0 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1314,7 +1314,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         //EP** Feb 18, 2008 Feb 18, 2008 Diabeta 1 2.5 mg tid 30 10 tab oral DRB
         Date feb182008 = getDate("2008-02-18");
         scriptNo = 0;
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), feb182008, getDate(feb182008, Calendar.DAY_OF_YEAR, +10), feb182008, "DIABETA 2.5MG", 8531, null, 1, 1, "TID", "10", "D", "30", 0, false, false, "DIABETA 2.5MG Take 1 TAB TID PO for 10 days Qty:30 Repeats:0", "", "GLYBURIDE",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), feb182008,getDate(feb182008,Calendar.DAY_OF_YEAR,+10),feb182008,"DIABETA 2.5MG","8531",null,1,1,"TID","10","D","30",0,false,false,"DIABETA 2.5MG Take 1 TAB TID PO for 10 days Qty:30 Repeats:0","","GLYBURIDE",
                 "A10BB01", scriptNo, "02224550", "tab", "Take", "PO", "TABLET", feb182008, "5.0 MG", false, "", false, false, false, "Dr.Bill Bauman", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1322,7 +1322,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         //EP** Mar 2, 2008 Mar 2, 2008 Diabeta 2 5 mg qid 80 10 2 tab oral DRB
         Date mar022008 = getDate("2008-03-02");
         scriptNo = 0;
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), mar022008, getDate(mar022008, Calendar.DAY_OF_YEAR, +30), mar022008, "DIABETA 5MG", 8531, null, 2, 2, "QID", "10", "D", "80", 2, false, false, "DIABETA 5MG Take 2 TAB QID PO for 10 days Qty:80 Repeats:2", "", "GLYBURIDE",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), mar022008,getDate(mar022008,Calendar.DAY_OF_YEAR,+30),mar022008,"DIABETA 5MG","8531",null,2,2,"QID","10","D","80",2,false,false,"DIABETA 5MG Take 2 TAB QID PO for 10 days Qty:80 Repeats:2","","GLYBURIDE",
                 "A10BB01", scriptNo, "02224569", "tab", "Take", "PO", "TABLET", mar022008, "5.0 MG", false, "", false, false, false, "Dr.Bill Bauman", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1336,7 +1336,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         juneElderJanNote.setAppointmentNo(app.getId());
         caseManagementNoteDAO.saveNote(juneElderMarNote);
         scriptNo = 0;
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), mar232008, getDate(mar232008, Calendar.DAY_OF_YEAR, +10), mar232008, "GLYBURIDE 5MG", 5561, null, 1, 1, "QD", "10", "D", "240", 0, false, false, "GLYBURIDE 5MG Take 2 TAB QID PO for 30 days Qty:240 Repeats:0", "", "GLYBURIDE 2.5 MG",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), mar232008,getDate(mar232008,Calendar.DAY_OF_YEAR,+10),mar232008,"GLYBURIDE 5MG","5561",null,1,1,"QD","10","D","240",0,false,false,"GLYBURIDE 5MG Take 2 TAB QID PO for 30 days Qty:240 Repeats:0","","GLYBURIDE 2.5 MG",
                 "A10BB01", scriptNo, "02350467", "tab", "Take", "PO", "TABLET", jan62006, "5.0 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1352,22 +1352,22 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         scriptNo = 0;
 
         //3 mths ago* 3 mths ago* 3 mths ago* Nardil 1 15 mg bid 20 10 tab oral DRW
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), threeMonthsAgo, getDate(threeMonthsAgo, Calendar.DAY_OF_YEAR, +10), threeMonthsAgo, "NARDIL 15MG", 11870, null, 1, 1, "BID", "10", "D", "20", 0, false, false, "NARDIL 15MG Take 1 TAB BID PO for 10 days Qty:20 Repeats:0", "", "PHENELZINE (PHENELZINE SULFATE)",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), threeMonthsAgo,getDate(threeMonthsAgo,Calendar.DAY_OF_YEAR,+10),threeMonthsAgo,"NARDIL 15MG","11870",null,1,1,"BID","10","D","20",0,false,false,"NARDIL 15MG Take 1 TAB BID PO for 10 days Qty:20 Repeats:0","","PHENELZINE (PHENELZINE SULFATE)",
                 "N06AF03", scriptNo, "00476552", "tab", "Take", "PO", "TABLET", jan62006, "15.0 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
         //3 mths ago* 3 mths ago* 3 mths ago* Celebrex 100mg 2 100 mg bid 40 10 tab oral DRW
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), threeMonthsAgo, getDate(threeMonthsAgo, Calendar.DAY_OF_YEAR, +10), threeMonthsAgo, "CELEBREX 100MG", 8879, null, 1, 1, "BID", "10", "D", "20", 0, false, false, "CELEBREX 100MG Take 2 TAB BID PO for 10 days Qty:40 Repeats:0", "", "CELECOXIB",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), threeMonthsAgo,getDate(threeMonthsAgo,Calendar.DAY_OF_YEAR,+10),threeMonthsAgo,"CELEBREX 100MG","8879",null,1,1,"BID","10","D","20",0,false,false,"CELEBREX 100MG Take 2 TAB BID PO for 10 days Qty:40 Repeats:0","","CELECOXIB",
                 "M01AH01", scriptNo, "02239941", "tab", "Take", "PO", "TABLET", jan62006, "15.0 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
 
         //3 mths ago* 3 mths ago* 3 mths ago* Saw Palmetto 1 500 mg bid 80 40 tab oral DRW
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), threeMonthsAgo, getDate(threeMonthsAgo, Calendar.DAY_OF_YEAR, +40), threeMonthsAgo, "SAW PALMETTO 500MG", 34787, null, 1, 1, "BID", "40", "D", "80", 0, false, false, "SAW PALMETTO 500MG Take 2 TAB BID PO for 40 days Qty:80 Repeats:0", "", "SAW PALMETTO",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), threeMonthsAgo,getDate(threeMonthsAgo,Calendar.DAY_OF_YEAR,+40),threeMonthsAgo,"SAW PALMETTO 500MG","34787",null,1,1,"BID","40","D","80",0,false,false,"SAW PALMETTO 500MG Take 2 TAB BID PO for 40 days Qty:80 Repeats:0","","SAW PALMETTO",
                 "", scriptNo, "02243566", "tab", "Take", "PO", "TABLET", jan62006, "500.0 MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
         //3 mths ago* 3 mths ago* 3 mths ago* Caduet 1 od 10 tab oral DRW 02273306
-        drug = getDrug(drw.getProviderNo(), juneElder.getDemographicNo(), threeMonthsAgo, getDate(threeMonthsAgo, Calendar.DAY_OF_YEAR, +10), threeMonthsAgo, "CADUET", 34787, null, 1, 1, "OD", "10", "D", "", 0, false, false, "CADUET Take 1 TAB OD PO for 10 days", "", "AMLODIPINE (AMLODIPINE BESYLATE)",
+		drug  = getDrug(drw.getProviderNo(),	juneElder.getDemographicNo(), threeMonthsAgo,getDate(threeMonthsAgo,Calendar.DAY_OF_YEAR,+10),threeMonthsAgo,"CADUET","34787",null,1,1,"OD","10","D","",0,false,false,"CADUET Take 1 TAB OD PO for 10 days","","AMLODIPINE (AMLODIPINE BESYLATE)",
                 "C10BX03", scriptNo, "02273306", "tab", "Take", "PO", "TABLET", jan62006, "40/10MG", false, "", false, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1378,7 +1378,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(anneBarber);
         admissionDao.saveAdmission(getAdmission(anneBarber, referenceDate, oscarProgramID));
         Date zybanDate = getDate("2008-11-11");
-        drug = getDrug(drw.getProviderNo(), anneBarber.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	anneBarber.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1390,7 +1390,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         app = getAppointment(eightWeeksAgo, 10, 15, 15, eightWeeksAgo, drw.getProviderNo(), benChase, drw.getProviderNo(), "t");
         appointmentDao.persist(app);
         zybanDate = getDate("2006-09-09");
-        drug = getDrug(drw.getProviderNo(), benChase.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	benChase.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1401,7 +1401,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         app = getAppointment(sixWeeksAgo, 10, 15, 15, sixWeeksAgo, drw.getProviderNo(), catherineDeville, drw.getProviderNo(), "t");
         appointmentDao.persist(app);
         zybanDate = getDate("2008-02-02");
-        drug = getDrug(drw.getProviderNo(), catherineDeville.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	catherineDeville.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1412,7 +1412,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(dennisEaton);
         admissionDao.saveAdmission(getAdmission(dennisEaton, referenceDate, oscarProgramID));
         zybanDate = getDate("2008-04-05");
-        drug = getDrug(drw.getProviderNo(), dennisEaton.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	dennisEaton.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1422,7 +1422,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(ethelFreidman);
         admissionDao.saveAdmission(getAdmission(ethelFreidman, referenceDate, oscarProgramID));
         zybanDate = getDate("2008-06-06");
-        drug = getDrug(drw.getProviderNo(), ethelFreidman.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	ethelFreidman.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1432,7 +1432,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(francisGual);
         admissionDao.saveAdmission(getAdmission(francisGual, referenceDate, oscarProgramID));
         zybanDate = getDate("2008-06-07");
-        drug = getDrug(drw.getProviderNo(), francisGual.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	francisGual.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1442,7 +1442,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(ginaHuff);
         admissionDao.saveAdmission(getAdmission(ginaHuff, referenceDate, oscarProgramID));
         zybanDate = getDate("2008-06-07");
-        drug = getDrug(drw.getProviderNo(), ginaHuff.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	ginaHuff.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1463,7 +1463,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         app = getAppointment(twoWeeksAgo, 10, 15, 15, twoWeeksAgo, drw.getProviderNo(), henryIp, drw.getProviderNo(), "t");
         appointmentDao.persist(app);
         zybanDate = getDate("2011-01-03");
-        drug = getDrug(drw.getProviderNo(), henryIp.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	henryIp.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1473,7 +1473,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(isaacJackson);
         admissionDao.saveAdmission(getAdmission(isaacJackson, referenceDate, oscarProgramID));
         zybanDate = getDate("2011-01-03");
-        drug = getDrug(drw.getProviderNo(), isaacJackson.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	isaacJackson.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1491,7 +1491,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(johnKim);
         admissionDao.saveAdmission(getAdmission(johnKim, referenceDate, oscarProgramID));
         zybanDate = getDate("2011-01-05");
-        drug = getDrug(drw.getProviderNo(), johnKim.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	johnKim.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1501,7 +1501,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         demographicDao.save(kenLaw);
         admissionDao.saveAdmission(getAdmission(kenLaw, referenceDate, oscarProgramID));
         zybanDate = getDate("2011-02-02");
-        drug = getDrug(drw.getProviderNo(), kenLaw.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	kenLaw.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 
@@ -1512,7 +1512,7 @@ public class OntarioMDSpec4DataTest extends DaoTestFixtures {
         app = getAppointment(oneWeekAgo, 10, 15, 15, oneWeekAgo, drw.getProviderNo(), louMalatesta, drw.getProviderNo(), "t");
         appointmentDao.persist(app);
         zybanDate = getDate("2010-03-03");
-        drug = getDrug(drw.getProviderNo(), louMalatesta.getDemographicNo(), zybanDate, getDate(zybanDate, Calendar.DAY_OF_YEAR, +1000), zybanDate, "ZYBAN 150MG", 8838, null, 1, 1, "BID", "1000", "D", "1000", 0, false, false, "ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0", "", "BUPROPION HYDROCHLORIDE",
+    	drug  = getDrug(drw.getProviderNo(),	louMalatesta.getDemographicNo(), zybanDate,getDate(zybanDate,Calendar.DAY_OF_YEAR,+1000),zybanDate,"ZYBAN 150MG","8838",null,1,1,"BID","1000","D","1000",0,false,false,"ZYBAN 150MG Take 1 TAB BID PO for 1000 days Qty:1000 Repeats:0","","BUPROPION HYDROCHLORIDE",
                 "N06AX12", scriptNo, "02238441", "tab", "Take", "PO", "TABLET", jan62006, "150.0 MG", false, "", true, false, false, "", "", false, false);
         drugDao.addNewDrug(drug);
 

@@ -107,7 +107,7 @@
 
             function updateLots() {
                 $.getJSON(
-                    "<%= request.getContextPath() %>/oscarRx/Dispense.do?method=findDistinctLotsAvailableByCode&code=" + $("#product").val(),
+                    "<%= request.getContextPath() %>/oscarRx/Dispense.do?method=findDistinctLotsAvailableByCode&code=" + encodeURIComponent($("#product").val()),
                     function (data, textStatus) {
                         var html = "";
                         for (var x = 0; x < data.length; x++) {

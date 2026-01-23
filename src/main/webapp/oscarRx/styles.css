@@ -1,36 +1,35 @@
-<!--
-/*
-*
-* Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
-* This software is published under the GPL GNU General Public License.
-* This program is free software; you can redistribute it and/or
-* modify it under the terms of the GNU General Public License
-* as published by the Free Software Foundation; either version 2
-* of the License, or (at your option) any later version. *
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
-* along with this program; if not, write to the Free Software
-* Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
-*
-* <OSCAR TEAM>
-*
-* This software was written for the
-* Department of Family Medicine
-* McMaster University
-* Hamilton
-* Ontario, Canada
-*/
--->
-/* styles.css -- Style sheet for the UI prototype.
 
-   Colours used:
-       #A9A9A9 = darkgray
-       #DCDCDC = gainsboro
-       #F5F5F5 = whitesmoke
-       #000000 = black
-       #FF8C00 = darkorange
+<!-- /*
+ * 
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License. 
+ * This program is free software; you can redistribute it and/or 
+ * modify it under the terms of the GNU General Public License 
+ * as published by the Free Software Foundation; either version 2 
+ * of the License, or (at your option) any later version. * 
+ * This program is distributed in the hope that it will be useful, 
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
+ * along with this program; if not, write to the Free Software 
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
+ * 
+ * <OSCAR TEAM>
+ * 
+ * This software was written for the 
+ * Department of Family Medicine 
+ * McMaster University 
+ * Hamilton 
+ * Ontario, Canada 
+ */
+--> /* styles.css -- Style sheet for the UI prototype.
+
+	Colours used:
+		#A9A9A9 = darkgray
+		#DCDCDC = gainsboro
+		#F5F5F5 = whitesmoke
+		#000000 = black
+		#FF8C00 = darkorange
 */
 * {
 	font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
@@ -53,221 +52,221 @@ table tr td {
 }
 
 .HelpAboutLogout {
-    font-size: 10px;
-    text-align: right
+	font-size: 10px;
+	text-align: right
 }
 
 .tblHead {
-    background-color: #A9A9A9;
+	background-color: #A9A9A9;
 }
 
 .tblRowSelected {
-    background-color: #FF8C00;
+	background-color: #FF8C00;
 }
 
 .Step1Text {
-    font-size: 80%;
-    height: 200px;
-    overflow: auto;
-    overflow-x: hidden;
-    overflow-y: scroll;
-    margin-left: 20px;
-    border: 1px solid #dcdcdc;
-    background-color: #f5f5f5
+	font-size: 80%;
+	height: 200px;
+	overflow: auto;
+	overflow-x: hidden;
+	overflow-y: scroll;
+	margin-left: 20px;
+	border: 1px solid #dcdcdc;
+	background-color: #f5f5f5
 }
 
 .drugProfileText {
-    border: 1px solid #dcdcdc;
-    background-color: #f5f5f5
+	border: 1px solid #dcdcdc;
+	background-color: #f5f5f5
 }
 
-.pharmacyItem:hover {
-    background: #DCDCDC;
-    cursor: pointer;
+.pharmacyItem:hover{
+	background: #DCDCDC;
+	cursor: pointer;
 }
 
-#preferredList {
-    vertical-align: top;
-    width: 30%;
+#preferredList{
+	vertical-align: top;
+	width: 30%;
 }
 
-#preferredList div {
-    width: 95%;
-    margin: 10px 2.5% 2.5% 5px;
-    border: 1px solid #eda;
-    background-color: #FDFEC7;
-    vertical-align: middle;
+#preferredList div{
+	width: 95%;
+	margin: 10px 2.5% 2.5% 5px;
+	border: 1px solid #eda;
+	background-color: #FDFEC7;
+	vertical-align: middle;
 }
 
-.prefAction {
-    text-align: center;
-    width: 92px;
-    background-color: #fbf0b7;
+.prefAction{
+	text-align: center;
+	width: 92px;
+	background-color: #fbf0b7;
 }
 
-.prefAction:hover {
-    color: #FFFFFF;
-    background-color: #ffba65;
-    cursor: pointer;
+.prefAction:hover{
+	color: #FFFFFF;
+	background-color: #ffba65;
+	cursor: pointer;
 }
 
 .ChoosePatientBox {
-    font-size: 80%;
-    height: 250px;
-    width: 50%;
-    overflow: auto;
-    margin-left: 20px;
-    border: 1px solid #dcdcdc;
+	font-size: 80%;
+	height: 250px;
+	width: 50%;
+	overflow: auto;
+	margin-left: 20px;
+	border: 1px solid #dcdcdc;
 }
 
 .ChooseDrugBox {
-    font-size: 80%;
-    height: 250px;
-    /*width: 800px;*/
-    overflow: auto;
-    margin-left: 20px;
-    border: 1px solid #dcdcdc;
+	font-size: 80%;
+	height: 250px;
+	/*width: 800px;*/
+	overflow: auto;
+	margin-left: 20px;
+	border: 1px solid #dcdcdc;
 }
 
 .LeftMargin {
-    margin-left: 20px;
+	margin-left: 20px;
 }
 
 .Step2Text {
-    font-size: 80%;
-    height: 200px;
-    width: 450px;
-    overflow: auto;
-    margin-left: 20px;
-    margin-top: 5px;
-    padding: 3px;
-    border: 1px solid #dcdcdc;
-    background-color: #f5f5f5
+	font-size: 80%;
+	height: 200px;
+	width: 450px;
+	overflow: auto;
+	margin-left: 20px;
+	margin-top: 5px;
+	padding: 3px;
+	border: 1px solid #dcdcdc;
+	background-color: #f5f5f5
 }
 
 .TextItems {
-    font-size: 80%;
-    height: 22px;
-    width: 100px;
-    overflow: auto;
-    margin-left: 20px;
-    margin-top: 5px;
-    padding: 3px;
-    border: 1px solid #dcdcdc;
-    background-color: #f5f5f5
+	font-size: 80%;
+	height: 22px;
+	width: 100px;
+	overflow: auto;
+	margin-left: 20px;
+	margin-top: 5px;
+	padding: 3px;
+	border: 1px solid #dcdcdc;
+	background-color: #f5f5f5
 }
 
 .SelectBox {
-    font-size: 80%;
-    height: 33px;
-    width: 200px;
-    overflow: auto;
-    margin-left: 20px;
-    margin-top: 5px;
-    padding: 3px;
-    border: 1px solid #dcdcdc;
-    background-color: #f5f5f5
+	font-size: 80%;
+	height: 33px;
+	width: 200px;
+	overflow: auto;
+	margin-left: 20px;
+	margin-top: 5px;
+	padding: 3px;
+	border: 1px solid #dcdcdc;
+	background-color: #f5f5f5
 }
 
 .WhiteBox {
-    font-size: 80%;
-    height: 33px;
-    width: 200px;
-    overflow: auto;
-    margin-left: 20px;
-    margin-top: 5px;
-    padding: 3px;
+	font-size: 80%;
+	height: 33px;
+	width: 200px;
+	overflow: auto;
+	margin-left: 20px;
+	margin-top: 5px;
+	padding: 3px;
 }
 
 .WhiteBox2 {
-    font-size: 80%;
-    height: 33px;
-    width: 700px;
-    overflow: auto;
-    margin-left: 20px;
-    margin-top: 5px;
-    padding: 3px;
+	font-size: 80%;
+	height: 33px;
+	width: 700px;
+	overflow: auto;
+	margin-left: 20px;
+	margin-top: 5px;
+	padding: 3px;
 }
 
 .ScreenTitle {
-    font-size: 18px;
-    font-weight: bold;
-    color: white;
-    background-color: #000000;
+	font-size: 18px;
+	font-weight: bold;
+	color: white;
+	background-color: #000000;
 }
 
 .DivCCBreadCrumbs {
-    border-bottom: 2px solid #A9A9A9;
-    font-size: 10px;
-    padding-left: 7px;
-    padding-top: 4px;
-    padding-bottom: 4px
+	border-bottom: 2px solid #A9A9A9;
+	font-size: 10px;
+	padding-left: 7px;
+	padding-top: 4px;
+	padding-bottom: 4px
 }
 
 .YAHIndicator {
-
+	
 }
 
 .PastItems {
-
+	
 }
 
 .PresentItem {
-    font-weight: bold;
+	font-weight: bold;
 }
 
 .Gthan {
-
+	
 }
 
 .FakeLink {
-    color: #0000FF;
-    text-decoration: underline;
-    background-color: transparent;
+	color: #0000FF;
+	text-decoration: underline;
+	background-color: transparent;
 }
 
 .DevStatus {
-    font-family: Arial, sans-serif;
-    font-size: 90%
+	font-family: Arial, sans-serif;
+	font-size: 90%
 }
 
 .DisabledText {
-    color: #A9A9A9;
-    background-color: transparent;
+	color: #A9A9A9;
+	background-color: transparent;
 }
 
 .SelectAllDeselectAll {
-    font-size: 80%;
-    text-align: right;
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-right: 5px;
+	font-size: 80%;
+	text-align: right;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-right: 5px;
 }
 
 .DivContentOverflow {
-    height: 100%;
-    overflow: auto;
+	height: 100%;
+	overflow: auto;
 }
 
 .DivContentPadding {
-    padding-top: 7px;
-    padding-left: 7px;
-    padding-right: 7px;
-    padding-bottom: 7px;
+	padding-top: 7px;
+	padding-left: 7px;
+	padding-right: 7px;
+	padding-bottom: 7px;
 }
 
 .TableOptionsProperties {
-    font-size: 80%;
+	font-size: 80%;
 }
 
 /* Centres Styles
        These styles draw elements that are used in My Watchfire, the Webspace Center,
        and the Administration Center / Job Status Center */
 .DivCurrentUser {
-    font-size: 80%;
-    margin-top: 5px;
-    margin-left: 5px;
-    margin-bottom: 10px;
+	font-size: 80%;
+	margin-top: 5px;
+	margin-left: 5px;
+	margin-bottom: 10px;
 }
 
 .CurrentUser {
@@ -276,184 +275,184 @@ table tr td {
 }
 
 .NavBarGroupHead {
-    font-size: 80%;
-    font-weight: bold
+	font-size: 80%;
+	font-weight: bold
 }
 
 .DivNavBarHead {
-    border-bottom: 2px;
+	border-bottom: 2px;
 	border-top: 0;
 	border-left: 0;
 	border-right: 0;
-    border-color: #A9A9A9;
-    border-style: solid;
-    width: 176px;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    font-size: 80%;
-    font-weight: bold;
-    background: #DCDCDC;
-    color: #000000;
+	border-color: #A9A9A9;
+	border-style: solid;
+	width: 176px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	font-size: 80%;
+	font-weight: bold;
+	background: #DCDCDC;
+	color: #000000;
 }
 
 .NavBarHead {
-    margin-left: 5px;
-    margin-right: 5px;
-    margin-top: 2px;
-    margin-bottom: 2px;
+	margin-left: 5px;
+	margin-right: 5px;
+	margin-top: 2px;
+	margin-bottom: 2px;
 }
 
 .DivNavBarItem {
-    font-size: 80%;
-    margin-left: 5px;
-    margin-right: 5px;
+	font-size: 80%;
+	margin-left: 5px;
+	margin-right: 5px;
 }
 
 .NavBarItemHead {
-    font-weight: bold;
-    margin-top: 10px;
-    margin-bottom: 10px;
+	font-weight: bold;
+	margin-top: 10px;
+	margin-bottom: 10px;
 }
 
 .NavBarItem {
-    margin-top: 10px;
-    margin-bottom: 10px;
-    margin-left: 20px;
-    text-indent: -20px;
+	margin-top: 10px;
+	margin-bottom: 10px;
+	margin-left: 20px;
+	text-indent: -20px;
 }
 
 .NavBarItemCurrent {
-    font-weight: bold
+	font-weight: bold
 }
 
 .TabText {
-    font-size: 90%;
-    font-weight: bold
+	font-size: 90%;
+	font-weight: bold
 }
 
 .ViewSortControls {
-    font-size: 80%
+	font-size: 80%
 }
 
 .ViewSortCurrent {
-    font-weight: bold
+	font-weight: bold
 }
 
 /* Property Sheet Menu Styles
       These styles build the property sheet navigation menus. */
 .PropSheetMenu {
-    margin-top: 10px;
+	margin-top: 10px;
 	padding: 5px 5px 5px 15px;
 }
 
 .PropSheetMenuItemLevel1 {
-    margin-left: 10px;
-    margin-top: 5px;
-    margin-bottom: 5px;
+	margin-left: 10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
 }
 
 .PropSheetMenuItemLevel2Head {
-    margin-left: 10px;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    font-weight: bold
+	margin-left: 10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	font-weight: bold
 }
 
 .PropSheetMenuItemLevel2 {
-    margin-left: 25px;
-    margin-top: 5px;
-    margin-bottom: 5px;
+	margin-left: 25px;
+	margin-top: 5px;
+	margin-bottom: 5px;
 }
 
 .PropSheetLevel1CurrentItem {
-    margin-left: 10px;
-    text-indent: -10px;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    font-weight: bold;
+	margin-left: 10px;
+	text-indent: -10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	font-weight: bold;
 }
 
 .PropSheetLevel1CurrentItemRed {
-    color: Red;
-    margin-left: 10px;
-    text-indent: -10px;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    font-weight: bold;
+	color: Red;
+	margin-left: 10px;
+	text-indent: -10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	font-weight: bold;
 }
 
 .PropSheetLevel2CurrentItem {
-    margin-left: 25px;
-    text-indent: -10px;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    font-weight: bold;
+	margin-left: 25px;
+	text-indent: -10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	font-weight: bold;
 }
 
 /* Property Sheet Content Area Styles
       These are used for all of the elements in the content area of the property sheet. */
 .DivContentTitle {
-    font-size: 140%;
+	font-size: 140%;
 }
 
 .DivContentMainInstructionalText {
-    margin-top: 7px;
-    margin-bottom: 7px;
+	margin-top: 7px;
+	margin-bottom: 7px;
 }
 
 .DivContentSectionHeadTitle {
-    margin-left: -3px;
-    text-indent: 3px;
-    background: #FDFEC7;
-    color: #000000;
-    margin-top: 14px;
-    margin-bottom: 10px;
+	margin-left: -3px;
+	text-indent: 3px;
+	background: #FDFEC7;
+	color: #000000;
+	margin-top: 14px;
+	margin-bottom: 10px;
 	border: 1px solid #eda;
-    font-weight: bold;
-    height: 17px;
-    padding-right: 10px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+	font-weight: bold;
+	height: 17px;
+	padding-right:10px;
+	padding-top: 10px;
+	padding-bottom: 10px;
 }
 
 .DivContentSectionHead {
 
 	padding:5px 10px;
-    background: #DCDCDC;
-    color: #000000;
-    font-weight: bold;
+	background: #DCDCDC;
+	color: #000000;
+	font-weight: bold;
 }
 
 .DivContentGeneric {
-    width: 100%
+	width: 100%
 }
 
 .DivContentGenericIndented {
-    margin-left: 20px;
+	margin-left: 20px;
 }
 
 .ContentGeneric {
-    margin-top: 4px;
-    margin-bottom: 4px;
+	margin-top: 4px;
+	margin-bottom: 4px;
 }
 
 .ContentGenericFirst {
-    margin-bottom: 4px;
+	margin-bottom: 4px;
 }
 
 .ContentGenericNewSection {
-    margin-top: 10px;
-    margin-bottom: 4px;
+	margin-top: 10px;
+	margin-bottom: 4px;
 }
 
 .DivAddRemoveButtons {
-    margin-top: 4px;
-    margin-bottom: 4px;
-    width: 100%;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	width: 100%;
 }
 
 .ControlLabelSpace {
-    margin-top: 7px;
+	margin-top: 7px;
 	margin-bottom: 0;
 }
 
@@ -468,102 +467,102 @@ table tr td {
 }
 
 .DivEnableAll {
-    margin-bottom: 4px;
-    width: 100%;
-    font-size: 80%;
+	margin-bottom: 4px;
+	width: 100%;
+	font-size: 80%;
 }
 
 /* Button Bar Style */
 .DivButtonBar {
-    margin-top: 4px;
-    margin-bottom: 4px;
-    margin-left: 4px;
-    margin-right: 4px;
-    font-size: 80%;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	margin-left: 4px;
+	margin-right: 4px;
+	font-size: 80%;
 }
 
 /* String Data Table Styles
 	   Styles with NA are for rows that contain no data. */
 .StrDataTableHeader1 {
-    font-weight: bold;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
+	font-weight: bold;
+	padding-top: 4px;
+	padding-bottom: 4px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
-    vertical-align: bottom;
+	vertical-align: bottom;
 }
 
 .StrDataTableHeader2 {
-    font-weight: bold;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	font-weight: bold;
+	padding-top: 4px;
+	padding-bottom: 4px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
-    vertical-align: bottom;
+	vertical-align: bottom;
 }
 
 .StrDataTableHeader3 {
-    font-weight: bold;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	font-weight: bold;
+	padding-top: 4px;
+	padding-bottom: 4px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-right-width: 1px;
-    vertical-align: bottom;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
+	border-right-width: 1px;
+	vertical-align: bottom;
 }
 
 .StrDataTableItem1Odd {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
 	border-bottom-width: 0;
 	border-right-width: 0;
 }
 
 .StrDataTableItem1Even {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
 	border-bottom-width: 0;
 	border-right-width: 0;
-    background: #F5F5F5;
-    color: #000000;
+	background: #F5F5F5;
+	color: #000000;
 }
 
 .StrDataTableItem2Odd {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
 	border-bottom-width: 0;
@@ -571,119 +570,119 @@ table tr td {
 }
 
 .StrDataTableItem2Even {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
 	border-bottom-width: 0;
 	border-right-width: 0;
-    background: #F5F5F5;
-    color: #000000;
+	background: #F5F5F5;
+	color: #000000;
 }
 
 .StrDataTableItem1OddEnd {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
 }
 
 .StrDataTableItem1EvenEnd {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
-    background: #F5F5F5;
-    color: #000000;
+	background: #F5F5F5;
+	color: #000000;
 }
 
 .StrDataTableItem2OddEnd {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
 }
 
 .StrDataTableItem2EvenEnd {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
-    background: #F5F5F5;
-    color: #000000;
+	background: #F5F5F5;
+	color: #000000;
 }
 
 .DataTableScrollBarCell {
-    border-style: solid;
-    border-color: #A9A9A9;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
-    border-right-width: 1px;
-    border-bottom-width: 3px;
-    height: 100%;
+	border-right-width: 1px;
+	border-bottom-width: 3px;
+	height: 100%;
 }
 
 .StrDataTableItem1OddNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
 	border-bottom-width: 0;
 	border-right-width: 0;
 }
 
 .StrDataTableItem1EvenNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
 	border-bottom-width: 0;
 	border-right-width: 0;
 }
 
 .StrDataTableItem2OddNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
 	border-bottom-width: 0;
@@ -691,12 +690,12 @@ table tr td {
 }
 
 .StrDataTableItem2EvenNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
 	border-bottom-width: 0;
@@ -704,148 +703,140 @@ table tr td {
 }
 
 .StrDataTableItem1OddEndNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
 }
 
 .StrDataTableItem1EvenEndNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
-    border-left-width: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
+	border-left-width: 1px;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
 }
 
 .StrDataTableItem2OddEndNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
 }
 
 .StrDataTableItem2EvenEndNA {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-style: solid;
-    border-color: #A9A9A9;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-style: solid;
+	border-color: #A9A9A9;
 	border-left-width: 0;
 	border-top-width: 0;
-    border-bottom-width: 1px;
+	border-bottom-width: 1px;
 	border-right-width: 0;
 }
 
 /* Controls */
 .ControlPushButton {
-    font-size: 80%;
-    font-family: Verdana, Tahoma, Arial, sans-serif;
+	font-size: 80%;
+	font-family: Verdana, Tahoma, Arial, sans-serif;
 }
 
-.ReturnToRx {
-    float: right;
-    margin-right: 10px;
-    margin-top: 8px;
-    font-size: 10px;
-    width: 100px;
-    height: 25px;
+.ReturnToRx{
+	float: right;
+	margin-right: 10px;
+	margin-top: 8px;
+	font-size: 10px;
+	width: 100px;
+	height: 25px;
 }
-
 .ControlTextField {
-    font-family: Verdana, Tahoma, Arial, sans-serif;
-    font-size: 100%;
+	font-family: Verdana, Tahoma, Arial, sans-serif;
+	font-size: 100%;
 }
 
 table.mhTable {
     width: 360px;
-    border-width: 1px;
+    border-width: 1px ;
     border-spacing: 2px;
     border-style: outset;
     border-color: gray;
     border-collapse: collapse;
 }
-
 table.mhTable th {
     border-width: 1px;
     padding: 1px;
     border-style: inset;
     border-color: gray;
 }
-
-table.mhTable td {
+table.mhTable td{
     border-width: 1px;
     border-style: inset;
     border-color: gray;
-    font-style: normal;
-    margin: 0;
+    font-style:normal;
+    margin:0;
 }
 
-#sDate, #eDate {
-    width: 75px;
-    height: 17px;
+#sDate, #eDate{
+	width: 75px;
+	height: 17px;
 }
 
-#provider {
-    height: 17px;
+#provider{
+	height: 17px;
 }
 
 @media print {
-    .noPrint {
-        display: none;
-    }
+.noPrint {
+	display:none; 
+	} 
 }
 
-table#pwtable {
-    border: 2px #808080 outset;
-    border-spacing: 0;
-    page-break-inside: auto;
+table#pwtable{
+	border: 2px #808080 outset;
+	border-spacing: 0;
+	page-break-inside:auto;
 }
-
 thead.prescription-header {
-    display: table-header-group;
+	display:table-header-group;
 }
-
 thead.prescription-header td {
-    border: 1px #808080 inset;
-    padding: 10px;
+	border: 1px #808080 inset;
+	padding: 10px;
 }
-
 tbody.prescription-content td {
-    border-left: 1px #808080 inset;
-    border-right: 1px #808080 inset;
-    padding: 0 10px;
+	border-left: 1px #808080 inset;
+	border-right: 1px #808080 inset;
+	padding: 0 10px;
 }
-
 tbody.prescription-content tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
+	page-break-inside:avoid;
+	page-break-after:auto;
 }
-
 tbody.prescription-content div {
-    page-break-inside: avoid;
+	page-break-inside:avoid;
 }
 
 tfoot.prescription-footer {
-    display: table-footer-group;
+	display: table-footer-group;
 }
 
 #reprint {
@@ -884,10 +875,8 @@ div#rxText {
 	gap:5px;
 	align-content: flex-start;
 	padding:10px 0;
-}
-
-div#rxText fieldset {
 	background-color: #ffffff;
 	box-shadow: 0 2px 4px 0 rgba(38,40,42,0.3);
 	border-radius: 4px;
+	margin: 10px auto;
 }

@@ -37,6 +37,7 @@
 <%@ page import="ca.openosp.openo.prescript.util.RenalDosingFactory" %>
 <%@ page import="ca.openosp.openo.prescript.util.DosingRecomendation" %>
 <%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -239,7 +240,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
                 <td align="center">
                     (140 - <%=setNA(ageb, age)%>[age] ) X <%=setNA(weightb, weight)%>
                     <a href="javascript: function myFunction() {return false; }"
-                       onclick="popup(500,1000,'/oscar/oscarEncounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=demographicNo%>','dddsfds'); return false;">
+                       onclick="popup(500,1000,'<%= request.getContextPath() %>/oscarEncounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=Encode.forUriComponent(demographicNo)%>','dddsfds'); return false;">
                         [kg <%=UtilDateUtilities.DateToString(wtDate, "yyyy-MMM-dd")%>]
                     </a> X 1.23
 
@@ -251,7 +252,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
             <tr>
                 <td align="center" style="border-top: 2px black solid;"><%=setNA(sCrb, sCr)%> sCr
                     <a href="javascript: function myFunction() {return false; }"
-                       onclick="popup(500,1000,'/oscar/oscarEncounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=demographicNo%>','dddsfds'); return false;">
+                       onclick="popup(500,1000,'<%= request.getContextPath() %>/oscarEncounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=demographicNo%>','dddsfds'); return false;">
                         [umol/L <%=UtilDateUtilities.DateToString(sCrDate, "yyyy-MMM-dd")%>]
                     </a>
                 </td>

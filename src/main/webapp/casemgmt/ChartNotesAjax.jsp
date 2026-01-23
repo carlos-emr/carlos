@@ -108,9 +108,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     }
 
     String demographicNo = request.getParameter("demographicNo");
-    EctSessionBean bean = null;
-    String strBeanName = "casemgmt_oscar_bean" + demographicNo;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute(strBeanName)) == null) {
+    EctSessionBean bean;
+    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
         response.sendRedirect("error.jsp");
         return;
     }
@@ -544,10 +543,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 String winName = "docs" + demographicNo;
                 int hash = Math.abs(winName.hashCode());
 
-                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + dispDocNo + "&providerNo=" + provNo + "');";
+                String encodedDispDocNo = Encode.forUriComponent(dispDocNo);
+                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + encodedDispDocNo +"');";
                 url = url + "return false;";
 
-							String editUrl = "window.open('/oscar/annotation/annotation.jsp?display=Documents&amp;table_id=" + dispDocNo + "&amp;demo=" + demographicNo + "','anwin','width=400,height=500');";
+							String editUrl = "window.open('/oscar/annotation/annotation.jsp?display=Documents&amp;table_id=" + encodedDispDocNo + "&amp;demo=" + demographicNo + "','anwin','width=400,height=500');";
 
                 if (note.getRemoteFacilityId() == null) // only allow editing for local notes
                 {
@@ -574,7 +574,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 String winName = "docs" + demographicNo;
                 int hash = Math.abs(winName.hashCode());
 
-                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + dispDocNo + "&providerNo=" + provNo + "');";
+                String encodedDispDocNo = Encode.forUriComponent(dispDocNo);
+                url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + encodedDispDocNo +"');";
                 url = url + "return false;";
             %>
             <div class="view-links"

@@ -48,7 +48,7 @@
 <%@ page import="java.util.*,ca.openosp.openo.rx.data.*,ca.openosp.openo.rx.pageUtil.*, ca.openosp.OscarProperties" %>
 <%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="ca.openosp.openo.prescript.data.RxDrugData" %>
-<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>
 </c:if>
@@ -73,9 +73,16 @@
         <%
             RxDrugData.DrugSearch drugSearch = (RxDrugData.DrugSearch) request.getAttribute("drugSearch");//set from searchdrugaction
             String demoNo = (String) request.getAttribute("demoNo");//set from searchdrugaction
-            ArrayList brand = drugSearch.getBrand();
-            ArrayList gen = drugSearch.getGen();
-            ArrayList afhcClass = drugSearch.getAfhcClass();
+
+            // Handle null drugSearch - can happen if drugref service is unavailable
+            ArrayList brand = new ArrayList();
+            ArrayList gen = new ArrayList();
+            ArrayList afhcClass = new ArrayList();
+            if (drugSearch != null) {
+                brand = drugSearch.getBrand();
+                gen = drugSearch.getGen();
+                afhcClass = drugSearch.getAfhcClass();
+            }
             int i;
 
             String drugref_route = OscarProperties.getInstance().getProperty("drugref_route");
@@ -89,25 +96,23 @@
         %>
 
 
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
-        <script language=javascript>
+        <script type="text/javascript">
             function ShowDrugInfoBN(drug) {
-                window.open("oscarRx/drugInfo.do?BN=" + escape(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/oscarRx/drugInfo.do?BN=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
 
             function ShowDrugInfo(drug) {
-                window.open("DrugInfoRedirect.jsp?drugId=" + escape(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/oscarRx/DrugInfoRedirect.jsp?drugId=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
 
             function ShowDrugInfoGN(drug) {
-                window.open("oscarRx/drugInfo.do?GN=" + escape(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/oscarRx/drugInfo.do?GN=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
-
-
         </script>
         <script type="text/javascript">
 
@@ -131,7 +136,7 @@
                 if (document.RxSearchDrugForm.searchString.value.length == 0) {
                     popupDrugOfChoice(720, 700, 'http://resource.oscarmcmaster.org/oscarResource/DoC/')
                 } else {
-                    var docURL = "http://resource.oscarmcmaster.org/oscarResource/DoC/OSCAR_search/OSCAR_search_results?title=" + document.RxSearchDrugForm.searchString.value + "&SUBMIT=GO";
+                    var docURL = "http://resource.oscarmcmaster.org/oscarResource/DoC/OSCAR_search/OSCAR_search_results?title=" + encodeURIComponent(document.RxSearchDrugForm.searchString.value) + "&SUBMIT=GO";
                     popupDrugOfChoice(720, 700, docURL);
                 }
             }
@@ -180,7 +185,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="oscarRx/SearchDrug.jsp">
+                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a>
                                 <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title"/></b>
                             </div>
@@ -204,7 +209,7 @@
                                 <input type="hidden" name="rx2" value="true"/>
                                 <%}%>
 
-                                <input type="hidden" name="demographicNo" id="demographicNo"/>
+                                <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demoNo)%>"/>
                                 <table>
                                     <tr>
                                         <td>
@@ -278,12 +283,12 @@
                                                 %>
                                                 <tr>
                                                     <td bgcolor="<%=bgColor%>">
-                                                        <a href="oscarRx/searchDrug.do?genericSearch=<%= response.encodeURL( t.pKey ) %>&demographicNo=<%= response.encodeURL(demoNo) %>"
+                                                        <a href="<%= request.getContextPath() %>/oscarRx/searchDrug.do?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
                                                            title="<%=t.name%>">
                                                             <%= getMaxVal(t.name)%>
                                                         </a>
                                                         <span>&nbsp;&nbsp;(<a
-                                                                href="javascript:ShowDrugInfoGN('<%= response.encodeURL(t.name)%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                href="javascript:ShowDrugInfoGN('<%=Encode.forJavaScript(t.name)%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -305,15 +310,15 @@
                                                     <td bgcolor="<%=bgColor%>">
                                                         <%if (request.getParameter("rx2") != null && request.getParameter("rx2").equals("true")) {%>
                                                         <a href="javascript: void(0);"
-                                                           onclick="setDrugRx2('<%=t.pKey%>','<%=brandName %>')">
+                                                           onclick="setDrugRx2('<%=Encode.forJavaScript(t.pKey)%>','<%=Encode.forJavaScript(brandName)%>')">
                                                                     <%}else{%>
-                                                            <a href="oscarRx/chooseDrug.do?BN=<%=java.net.URLEncoder.encode(brandName , StandardCharsets.UTF_8)%>&drugId=<%= response.encodeURL(t.pKey) %>&demographicNo=<%= response.encodeURL(demoNo) %>"
+                                                            <a href="<%= request.getContextPath() %>/oscarRx/chooseDrug.do?BN=<%=Encode.forUriComponent(brandName)%>&drugId=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
                                                                title="<%=brandName %>">
                                                                 <%}%>
                                                                 <%=brandName%>
                                                             </a>
                                                             <span>&nbsp;&nbsp;(<a
-                                                                    href="javascript:ShowDrugInfoBN('<%=response.encodeURL(t.pKey) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                    href="javascript:ShowDrugInfoBN('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -337,7 +342,7 @@
                             <script language="javascript">
                                 function customWarning() {
                                     if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
-                                        window.location.href = '<%= request.getContextPath() %>/oscarRx/chooseDrug.do?demographicNo=<%= response.encodeURL(demoNo) %>';
+                                        window.location.href = '<%= request.getContextPath() %>/oscarRx/chooseDrug.do?demographicNo=<%= Encode.forUriComponent(demoNo) %>';
                                     }
                                 }
                             </script>
@@ -363,11 +368,11 @@
                                     %>
                                     <tr>
                                         <td bgcolor="<%=bgColor%>">
-                                            <a href="oscarRx/searchDrug.do?genericSearch=<%= response.encodeURL(t.pKey) %>&demographicNo=<%= response.encodeURL(demoNo) %>">
+                                            <a href="<%= request.getContextPath() %>/oscarRx/searchDrug.do?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>">
                                                 <%= t.name%>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a
-                                                    href="javascript:ShowDrugInfo('<%= response.encodeURL(t.pKey)  %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                    href="javascript:ShowDrugInfo('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                         </td>
                                     </tr>
                                     <%

@@ -72,7 +72,7 @@
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
         %>
 
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
 
         <script type="text/javascript">

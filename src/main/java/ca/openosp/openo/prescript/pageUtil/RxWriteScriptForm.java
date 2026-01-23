@@ -37,7 +37,7 @@ public final class RxWriteScriptForm {
     String writtenDate = null;    //cnv to Date
     String GN = null;
     String BN = null;
-    int GCN_SEQNO = 0;
+    String GCN_SEQNO = "0";
     String customName = null;
     String takeMin = null;
     String takeMax = null;
@@ -131,11 +131,12 @@ public final class RxWriteScriptForm {
         this.BN = RHS;
     }
 
-    public int getGCN_SEQNO() {
+    public String getGCN_SEQNO() {
         return this.GCN_SEQNO;
     }
+    
+    public void setGCN_SEQNO(String RHS) {
 
-    public void setGCN_SEQNO(int RHS) {
         this.GCN_SEQNO = RHS;
     }
 
@@ -309,9 +310,64 @@ public final class RxWriteScriptForm {
         this.patientCompliance = trueFalseNull;
     }
 
-    /**
-     * Getter for property atcCode.
-     *
+//    /**
+//     * Getter for property atcCode.
+//     *
+//     * @param mapping The mapping used to select this instance
+//     * @param request The servlet request we are processing
+//     */
+//    public void reset(ActionMapping mapping, HttpServletRequest request) {
+//        this.action = "";
+//        this.drugId = 0;
+//        this.demographicNo = 0;
+//        this.rxDate = null;
+//        this.endDate = null;
+//	this.writtenDate = null;
+//        this.BN = null;
+//        this.GCN_SEQNO = "0";
+//        this.customName = null;
+//        this.takeMin = null;
+//        this.takeMax = null;
+//        this.frequencyCode = null;
+//        this.duration = null;
+//        this.durationUnit = null;
+//        this.quantity = null;
+//        this.repeat = 0;
+//	this.lastRefillDate = null;
+//        this.nosubs = false;
+//        this.prn = false;
+//        this.special = null;
+//        this.unitName = null;
+//        this.customInstr = false;
+//	this.longTerm = null;
+//	this.shortTerm = false;
+//	this.pastMed = null;
+//	this.patientCompliance = null;
+//	this.outsideProviderName = null;
+//	this.outsideProviderOhip = null;
+//    }
+//
+//
+//    /**
+//     * Validate the properties that have been set from this HTTP request,
+//     * and return an <code>ActionErrors</code> object that encapsulates any
+//     * validation errors that have been found.  If no errors are found, return
+//     * <code>null</code> or an <code>ActionErrors</code> object with no
+//     * recorded error messages.
+//     *
+//     * @param mapping The mapping used to select this instance
+//     * @param request The servlet request we are processing
+//     */
+//    public ActionErrors validate(ActionMapping mapping,
+//    HttpServletRequest request) {
+//
+//        ActionErrors errors = new ActionErrors();
+//
+//        return errors;
+//
+//    }
+//
+    /** Getter for property atcCode.
      * @return Value of property atcCode.
      */
     public java.lang.String getAtcCode() {

@@ -254,9 +254,9 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
             boolean b = true;
             for (int i = 0; i < rt.size(); i++) {
                 Drug p2 = rt.get(i);
-                if (p2.getGcnSeqNo() == drug.getGcnSeqNo()) {
+                if (p2.getGcnSeqNo() != null && p2.getGcnSeqNo().equals(drug.getGcnSeqNo())) {
 
-                    if (p2.getGcnSeqNo() != 0) { // not custom - safe GCN
+                    if (! "0".equals(p2.getGcnSeqNo())) { // not custom - safe GCN
 
                         b = false;
                     } else {// custom
@@ -542,7 +542,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     public Integer findLastNotArchivedId(String brandName, String genericName, int demographicNo) {
         Query query = entityManager.createQuery(
-                "SELECT max(d.id) from Drug d where d.archived = 0 AND d.archivedReason='' AND d.brandName = :bn AND d.genericName = :gn  AND d.demographicId = :dn");
+                "SELECT max(d.id) from Drug d where d.archived = false AND d.archivedReason='' AND d.brandName = :bn AND d.genericName = :gn  AND d.demographicId = :dn");
         query.setParameter("bn", brandName);
         query.setParameter("gn", genericName);
         query.setParameter("dn", demographicNo);
@@ -597,7 +597,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
     @Override
     public List<Drug> findLongTermDrugsByDemographic(Integer demographicId) {
-        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = 0 and x.longTerm = 1";
+        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = 1";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
