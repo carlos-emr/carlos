@@ -172,6 +172,7 @@
         <link rel="stylesheet" type="text/css"
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css"/>
+        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/pdfAnnotator.css"/>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
@@ -194,6 +195,13 @@
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
+        <!-- PDF Annotation Libraries -->
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/library/pdfjs/pdf.min.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/library/fabric/fabric.min.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/documentManager/pdfAnnotator/pdfAnnotator.js"></script>
 
         <script type="text/javascript">
             jQuery.noConflict();
@@ -395,12 +403,49 @@
                        onclick="lastPage('<%=docId%>','<%=cp%>');">Last</a>
                     <%} %>
                 </div>
+                <%-- Annotation toolbar (hidden until Annotate clicked) --%>
+                <% if (contentType != null && contentType.toLowerCase().contains("pdf")) { %>
+                <div id="annotationToolbar_<%=docId%>" style="display:none; margin-bottom: 10px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                        <div class="btn-group">
+                            <input type="button" id="btnDraw_<%=docId%>" value="Draw" title="Freehand Draw" onclick="setAnnotationMode('<%=docId%>', 'draw')"/>
+                            <input type="button" id="btnText_<%=docId%>" value="Text" title="Add Text" onclick="setAnnotationMode('<%=docId%>', 'text')"/>
+                            <input type="button" id="btnHighlight_<%=docId%>" value="Highlight" title="Highlight" onclick="setAnnotationMode('<%=docId%>', 'highlight')"/>
+                            <input type="button" id="btnSignature_<%=docId%>" value="Signature" title="Insert Signature" onclick="insertSignature('<%=docId%>')"/>
+                        </div>
+                        <div class="btn-group">
+                            <input type="color" id="annotationColor_<%=docId%>" value="#FF0000" title="Color" onchange="setAnnotationColor('<%=docId%>', this.value)"/>
+                            <select id="strokeWidth_<%=docId%>" onchange="setAnnotationStrokeWidth('<%=docId%>', this.value)">
+                                <option value="2">2px</option>
+                                <option value="4">4px</option>
+                                <option value="6">6px</option>
+                                <option value="8">8px</option>
+                            </select>
+                        </div>
+                        <div class="btn-group">
+                            <input type="button" id="btnDelete_<%=docId%>" value="Delete Selected" onclick="deleteSelectedAnnotation('<%=docId%>')" style="background-color:#dc3545;color:white;"/>
+                            <input type="button" id="btnClear_<%=docId%>" value="Clear All" onclick="clearAllAnnotations('<%=docId%>')"/>
+                        </div>
+                        <div class="btn-group" style="margin-left: auto;">
+                            <input type="button" id="btnSaveAnnotatedCopy_<%=docId%>" value="Save Annotated Copy" onclick="saveAnnotatedCopy('<%=docId%>')" style="background-color:#198754;color:white;"/>
+                            <input type="button" id="btnCancelAnnotation_<%=docId%>" value="Cancel" onclick="cancelAnnotation('<%=docId%>')"/>
+                        </div>
+                    </div>
+                </div>
+                <% } %>
+
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
-                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
+                <a href="<%=url2%>" target="_blank" id="docImgLink_<%=docId%>"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
                                                          onerror="this.src='<%=request.getContextPath()%>/images/icon_alert.gif'"/></a>
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
+
+                <%-- PDF Annotation container (hidden until Annotate clicked) --%>
+                <% if (contentType != null && contentType.toLowerCase().contains("pdf")) { %>
+                <div id="pdfAnnotatorContainer_<%=docId%>" style="display:none;"></div>
+                <% } %>
+
                 <div style="text-align: right;font-weight: bold">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
                     <a id="firstP2_<%=docId%>" style="display: none;" href="javascript:void(0);"
@@ -465,6 +510,11 @@
                                                                      onclick="removeFirstPage('<%=docId %>')"
                                                                      type="button"
                                                                      value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"/><% } %>
+                                    <% if (contentType != null && contentType.toLowerCase().contains("pdf")) { %>
+                                    <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w">
+                                        <input id="btnAnnotate<%=docId%>" type="button" value="Annotate" onclick="initPdfAnnotator('<%=docId%>', '<%=demographicID%>')"/>
+                                    </security:oscarSec>
+                                    <% } %>
                                 </div>
                             </td>
                         </tr>
@@ -814,6 +864,115 @@
 
     jQuery(setupProviderAutoCompletion());
 
+    // PDF Annotation functions
+    var pdfAnnotators = {};
+
+    function initPdfAnnotator(docId, demographicId) {
+        // Show annotation toolbar, hide regular document view
+        jQuery('#annotationToolbar_' + docId).show();
+        jQuery('#btnAnnotate' + docId).hide();
+
+        // Hide existing document display (img or PDF object)
+        jQuery('#docImgLink_' + docId).hide();
+        jQuery('#docDispPDF_' + docId).hide();
+
+        // Show annotation container
+        jQuery('#pdfAnnotatorContainer_' + docId).show();
+
+        // Initialize annotator if not already done
+        if (!pdfAnnotators[docId]) {
+            pdfAnnotators[docId] = new PdfAnnotator(
+                'pdfAnnotatorContainer_' + docId,
+                docId,
+                demographicId,
+                contextpath
+            );
+            // Load the document
+            var pdfUrl = contextpath + '/documentManager/ManageDocument.do?method=display&doc_no=' + docId;
+            pdfAnnotators[docId].loadDocument(pdfUrl);
+        }
+    }
+
+    function setAnnotationMode(docId, mode) {
+        var annotator = pdfAnnotators[docId];
+        if (!annotator) return;
+
+        // Reset all mode buttons
+        jQuery('#btnDraw_' + docId).css('background-color', '');
+        jQuery('#btnText_' + docId).css('background-color', '');
+        jQuery('#btnHighlight_' + docId).css('background-color', '');
+
+        if (mode === 'draw') {
+            annotator.setDrawingMode(true);
+            jQuery('#btnDraw_' + docId).css('background-color', '#0d6efd');
+        } else if (mode === 'text') {
+            annotator.setDrawingMode(false);
+            annotator.setTextMode(true);
+            jQuery('#btnText_' + docId).css('background-color', '#0d6efd');
+        } else if (mode === 'highlight') {
+            annotator.setHighlightMode(true);
+            jQuery('#btnHighlight_' + docId).css('background-color', '#0d6efd');
+        }
+    }
+
+    function setAnnotationColor(docId, color) {
+        var annotator = pdfAnnotators[docId];
+        if (annotator) {
+            annotator.setColor(color);
+        }
+    }
+
+    function setAnnotationStrokeWidth(docId, width) {
+        var annotator = pdfAnnotators[docId];
+        if (annotator) {
+            annotator.setStrokeWidth(parseInt(width));
+        }
+    }
+
+    function insertSignature(docId) {
+        var annotator = pdfAnnotators[docId];
+        if (annotator) {
+            annotator.insertSignature();
+        }
+    }
+
+    function deleteSelectedAnnotation(docId) {
+        var annotator = pdfAnnotators[docId];
+        if (annotator) {
+            annotator.deleteSelected();
+        }
+    }
+
+    function clearAllAnnotations(docId) {
+        var annotator = pdfAnnotators[docId];
+        if (annotator) {
+            annotator.clearAll();
+        }
+    }
+
+    function saveAnnotatedCopy(docId) {
+        var annotator = pdfAnnotators[docId];
+        if (annotator) {
+            annotator.saveAnnotatedCopy();
+        }
+    }
+
+    function cancelAnnotation(docId) {
+        // Hide toolbar and annotator container
+        jQuery('#annotationToolbar_' + docId).hide();
+        jQuery('#pdfAnnotatorContainer_' + docId).hide();
+
+        // Restore original document display
+        jQuery('#docImgLink_' + docId).show();
+        jQuery('#docDispPDF_' + docId).show();
+        jQuery('#btnAnnotate' + docId).show();
+
+        // Clean up annotator
+        if (pdfAnnotators[docId]) {
+            pdfAnnotators[docId].destroy();
+            delete pdfAnnotators[docId];
+        }
+    }
 
 </script>
 <jsp:include page="/images/spinner.jsp"/>

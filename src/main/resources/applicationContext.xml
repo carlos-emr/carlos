@@ -188,6 +188,9 @@
 		<property name="userAccessDao" ref="userAccessDao" />
 	</bean>
 
+	<!-- PDF Markup Manager for document annotation -->
+	<bean id="pdfMarkupManager" class="ca.openosp.openo.managers.PdfMarkupManagerImpl" />
+
 	<!-- configure the available measurement flow sheets -->
 	<bean id="measurementTemplateFlowSheet" class="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig">
 		<property name="flowSheets">

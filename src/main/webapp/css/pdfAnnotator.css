@@ -1,0 +1,211 @@
+/**
+ * PDF Annotator Styles for OpenO EMR
+ *
+ * Provides styling for the PDF.js + Fabric.js annotation interface.
+ * Ensures proper canvas positioning and toolbar layout.
+ *
+ * @since 2026-01-23
+ */
+
+/* PDF page wrapper - positions Fabric.js canvas over PDF canvas */
+.pdf-page-wrapper {
+    position: relative;
+    margin-bottom: 10px;
+    display: inline-block;
+    border: 1px solid #dee2e6;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* PDF background canvas */
+.pdf-page-wrapper canvas.pdf-background {
+    display: block;
+}
+
+/* Fabric.js canvas overlay - positioned absolutely over PDF canvas */
+.pdf-page-wrapper .canvas-container {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    pointer-events: auto;
+}
+
+/* Lower canvas (Fabric.js internal) */
+.pdf-page-wrapper .lower-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Upper canvas (Fabric.js internal for interactions) */
+.pdf-page-wrapper .upper-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: crosshair;
+}
+
+/* Container for annotated pages */
+[id^="pdfAnnotatorContainer_"] {
+    padding: 10px;
+    background-color: #f5f5f5;
+    max-height: 70vh;
+    overflow-y: auto;
+    text-align: center;
+}
+
+/* Annotation toolbar styling - uses attribute selector for dynamic IDs */
+[id^="annotationToolbar_"] {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    border: 1px solid #dee2e6;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Toolbar button groups */
+[id^="annotationToolbar_"] .btn-group {
+    display: flex;
+    gap: 2px;
+}
+
+/* Active tool button state */
+[id^="annotationToolbar_"] .btn.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+/* Tool buttons */
+[id^="annotationToolbar_"] .btn-outline-secondary {
+    padding: 6px 12px;
+    font-size: 14px;
+    border: 1px solid #6c757d;
+    background-color: #fff;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+[id^="annotationToolbar_"] .btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+/* Color picker styling */
+[id^="annotationColor_"] {
+    width: 40px;
+    height: 38px;
+    padding: 2px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Stroke width dropdown */
+[id^="strokeWidth_"] {
+    height: 38px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0 8px;
+    font-size: 14px;
+    min-width: 60px;
+}
+
+/* Save button styling */
+[id^="btnSaveAnnotatedCopy_"] {
+    background-color: #198754;
+    border-color: #198754;
+    color: #fff;
+    padding: 6px 16px;
+    font-weight: 500;
+}
+
+[id^="btnSaveAnnotatedCopy_"]:hover {
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+/* Cancel button styling */
+[id^="btnCancelAnnotation_"] {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+    padding: 6px 16px;
+}
+
+[id^="btnCancelAnnotation_"]:hover {
+    background-color: #5c636a;
+    border-color: #565e64;
+}
+
+/* Delete button styling */
+[id^="btnDelete_"] {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+}
+
+[id^="btnDelete_"]:hover {
+    background-color: #bb2d3b;
+    border-color: #b02a37;
+}
+
+/* Annotate button (initial trigger) */
+[id^="btnAnnotate"] {
+    margin-right: 5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    [id^="annotationToolbar_"] {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    [id^="annotationToolbar_"] .btn-group {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    [id^="pdfAnnotatorContainer_"] {
+        max-height: 50vh;
+    }
+}
+
+/* Loading indicator */
+.pdf-annotator-loading {
+    text-align: center;
+    padding: 20px;
+    color: #6c757d;
+}
+
+.pdf-annotator-loading::after {
+    content: 'Loading PDF...';
+}
+
+/* Error state */
+.pdf-annotator-error {
+    color: #dc3545;
+    padding: 20px;
+    text-align: center;
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    border-radius: 4px;
+}
+
+/* Page number indicator */
+.pdf-page-number {
+    position: absolute;
+    bottom: 5px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}

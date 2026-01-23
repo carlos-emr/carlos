@@ -1979,6 +1979,9 @@
         <action name="documentManager/SplitDocument" class="ca.openosp.openo.documentManager.actions.SplitDocument2Action">
             <result name="success">/oscarMDS/Splitclose.jsp</result>
         </action>
+        <action name="documentManager/pdfMarkup" class="ca.openosp.openo.documentManager.actions.PdfMarkup2Action">
+            <result name="success">/documentManager/closeWindow.html</result>
+        </action>
         <action name="documentManager/documentUpload" class="ca.openosp.openo.documentManager.actions.DocumentUpload2Action"/>
         <action name="appointment/apptStatusSetting" class="ca.openosp.openo.appt.status.web.AppointmentStatus2Action" method="execute">
             <result name="success">/appointment/appointmentstatussetting.jsp</result>
