@@ -110,7 +110,11 @@ public class ManagePatientLetters2Action extends ActionSupport {
             JasperReport jasperReport = JasperCompileManager.compileReport(new ByteArrayInputStream(fileData));
 
             ManageLetters manageLetters = new ManageLetters();
-            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, reportFile.getName(), fileData);
+            // Use reportFileFileName (original filename from Struts2) instead of temp file name
+            String originalFileName = (reportFileFileName != null && !reportFileFileName.isEmpty())
+                    ? reportFileFileName
+                    : reportFile.getName();
+            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, originalFileName, fileData);
         } catch (FileNotFoundException ex) {
             MiscUtils.getLogger().error("Error", ex);
         } catch (IOException ex) {
@@ -130,6 +134,7 @@ public class ManagePatientLetters2Action extends ActionSupport {
     }
 
     private File reportFile;
+    private String reportFileFileName;  // Original filename from Struts2 FileUploadInterceptor
 
     public File getReportFile() {
         return reportFile;
@@ -137,5 +142,13 @@ public class ManagePatientLetters2Action extends ActionSupport {
 
     public void setReportFile(File reportFile) {
         this.reportFile = reportFile;
+    }
+
+    public String getReportFileFileName() {
+        return reportFileFileName;
+    }
+
+    public void setReportFileFileName(String reportFileFileName) {
+        this.reportFileFileName = reportFileFileName;
     }
 }

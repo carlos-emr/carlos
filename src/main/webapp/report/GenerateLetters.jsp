@@ -214,8 +214,7 @@
                         for (int i = 0; i < list.size(); i++) {
                             Hashtable h = (Hashtable) list.get(i);
                     %>
-                    <option value="<%=h.get("ID")%>"><%=h.get("report_name")%>
-                    </option>
+                    <option value="<%=Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%=Encode.forHtml(String.valueOf(h.get("report_name")))%></option>
                     <%}%>
                 </select> <%
                     //MARK IN MEASUREMENTS????
@@ -225,9 +224,9 @@
                     if (followUpType != null && followUpValue != null) { %>
                     Mark in patients Records: <input type="checkbox" name="addFollowUp"
                                                      value="ON" checked/> <input type="hidden" name="followupType"
-                                                                                 value="<%=followUpType%>"/> <input
+                                                                                 value="<%=Encode.forHtmlAttribute(followUpType)%>"/> <input
                             type="hidden"
-                            name="followupValue" value="<%=followUpValue%>"/> <%}%>
+                            name="followupValue" value="<%=Encode.forHtmlAttribute(followUpValue)%>"/> <%}%>
                 </div>
 
                 <input type="submit" value="Generate Letters"/>

@@ -87,12 +87,15 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         String id = request.getParameter("reportLetter");
         String providerNo = (String) request.getSession().getAttribute("user");
 
+        // Validate that patient demographics were provided
+        if (demos == null || demos.length == 0) {
+            log.warn("No patient demographics provided for letter generation");
+            request.setAttribute("errorMessage", "No patients selected. Please select patients from the Prevention Report before generating letters.");
+            return INPUT;
+        }
+
         if (log.isTraceEnabled()) {
-            if (demos == null) {
-                log.trace("demos was null");
-            } else {
-                log.trace("# of demos " + demos.length);
-            }
+            log.trace("# of demos " + demos.length);
         }
 
         ServletOutputStream sos = null;

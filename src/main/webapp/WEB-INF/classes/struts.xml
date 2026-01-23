@@ -1696,12 +1696,14 @@
         </action>
         <action name="report/GenerateEnvelopes" class="ca.openosp.openo.report.pageUtil.GenerateEnvelopes2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+            <result name="input">/report/GenerateLetters.jsp</result>
         </action>
         <action name="report/GenerateSpreadsheet" class="ca.openosp.openo.report.pageUtil.GeneratePatientSpreadSheetList2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
         </action>
         <action name="report/GenerateLetters" class="ca.openosp.openo.report.pageUtil.GeneratePatientLetters2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+            <result name="input">/report/GenerateLetters.jsp</result>
         </action>
         <action name="report/ManageLetters" class="ca.openosp.openo.report.pageUtil.ManagePatientLetters2Action">
             <result name="success">/report/GenerateLetters.jsp</result>

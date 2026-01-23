@@ -73,6 +73,13 @@ public class GenerateEnvelopes2Action extends ActionSupport {
 
         String[] demos = request.getParameterValues("demos");
 
+        // Validate that patient demographics were provided
+        if (demos == null || demos.length == 0) {
+            logger.warn("No patient demographics provided for envelope generation");
+            request.setAttribute("errorMessage", "No patients selected. Please select patients from the Prevention Report before generating envelopes.");
+            return INPUT;
+        }
+
         String curUser_no = (String) request.getSession().getAttribute("user");
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
