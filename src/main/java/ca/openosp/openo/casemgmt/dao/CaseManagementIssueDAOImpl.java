@@ -33,75 +33,155 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+
 import ca.openosp.openo.PMmodule.model.Program;
 import ca.openosp.openo.caisi_integrator.ws.CodeType;
 import ca.openosp.openo.caisi_integrator.ws.FacilityIdDemographicIssueCompositePk;
 import ca.openosp.openo.casemgmt.model.CaseManagementIssue;
 import ca.openosp.openo.casemgmt.model.Issue;
 import ca.openosp.openo.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
-import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Data Access Object implementation for CaseManagementIssue entities.
+ *
+ * Provides database operations for managing case management issues, including
+ * retrieval by demographic, note association, and issue code. Supports integrator
+ * functionality for cross-facility data exchange.
+ *
+ * This implementation uses direct Hibernate SessionFactory injection rather than
+ * the deprecated HibernateDaoSupport pattern to maintain Spring 6 compatibility.
+ *
+ * @since 2026-01-23
+ */
 @Transactional
-public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements CaseManagementIssueDAO {
+public class CaseManagementIssueDAOImpl implements CaseManagementIssueDAO {
 
     private static Logger log = MiscUtils.getLogger();
 
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    /**
+     * Gets the current Hibernate session from the SessionFactory.
+     *
+     * @return Session the current Hibernate session
+     */
+    protected Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    /**
+     * Retrieves all case management issues for a specific demographic.
+     *
+     * @param demographic_no String the demographic number
+     * @return List&lt;CaseManagementIssue&gt; list of case management issues for the demographic
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no) {
-        return (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?0",
-                new Object[]{Integer.valueOf(demographic_no)});
+        return getSession().createQuery(
+                "from CaseManagementIssue cmi where cmi.demographic_no = :demographicNo")
+                .setParameter("demographicNo", Integer.valueOf(demographic_no))
+                .list();
     }
 
+    /**
+     * Retrieves case management issues for a demographic, optionally filtered by resolution status.
+     * Results are ordered by resolution status.
+     *
+     * @param demographic_no Integer the demographic number
+     * @param resolved Boolean filter for resolved status (null for all issues)
+     * @return List&lt;CaseManagementIssue&gt; list of case management issues ordered by resolved status
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved) {
-        return (List<CaseManagementIssue>) getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?0 "
-                        + (resolved != null ? " and cmi.resolved=" + resolved : "") + " order by cmi.resolved",
-                new Object[]{demographic_no});
+        return getSession().createQuery(
+                "from CaseManagementIssue cmi where cmi.demographic_no = :demographicNo "
+                        + (resolved != null ? " and cmi.resolved = :resolved" : "") + " order by cmi.resolved")
+                .setParameter("demographicNo", demographic_no)
+                .setParameter("resolved", resolved)
+                .list();
     }
 
+    /**
+     * Retrieves case management issues associated with a specific note.
+     * Results can be filtered by resolution status and are ordered by resolved status.
+     *
+     * @param noteId Integer the note ID
+     * @param resolved Boolean filter for resolved status (null for all issues)
+     * @return List&lt;CaseManagementIssue&gt; list of case management issues for the note
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
-        return (List<CaseManagementIssue>) getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.notes.id = ?0 "
-                        + (resolved != null ? " and cmi.resolved=" + resolved : "") + " order by cmi.resolved",
-                new Object[]{noteId});
+        return getSession().createQuery(
+                "from CaseManagementIssue cmi where cmi.notes.id = :noteId "
+                        + (resolved != null ? " and cmi.resolved = :resolved" : "") + " order by cmi.resolved")
+                .setParameter("noteId", noteId)
+                .setParameter("resolved", resolved)
+                .list();
     }
 
+    /**
+     * Retrieves an Issue entity by case management issue ID.
+     *
+     * @param cmnIssueId Integer the case management issue ID
+     * @return Issue the associated Issue entity, or null if not found
+     */
     @SuppressWarnings("unchecked")
     @Override
     public Issue getIssueByCmnId(Integer cmnIssueId) {
-        List<Issue> result = (List<Issue>) getHibernateTemplate().find(
-                "select issue from CaseManagementIssue cmi where cmi.id = ?0",
-                new Object[]{Long.valueOf(cmnIssueId)});
+        List<Issue> result = getSession().createQuery(
+                "select issue from CaseManagementIssue cmi where cmi.id = :cmnIssueId")
+                .setParameter("cmnIssueId", Long.valueOf(cmnIssueId))
+                .list();
         if (result.size() > 0)
             return result.get(0);
         return null;
     }
 
+    /**
+     * Retrieves a case management issue by issue ID and demographic number.
+     *
+     * @param demo String the demographic number
+     * @param id String the issue ID
+     * @return CaseManagementIssue the matching issue, or null if not found or multiple matches exist
+     */
     @Override
     public CaseManagementIssue getIssuebyId(String demo, String id) {
         @SuppressWarnings("unchecked")
-        List<CaseManagementIssue> list = (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.issue_id = ?0 and demographic_no = ?1",
-                new Object[]{Long.parseLong(id), Integer.valueOf(demo)});
+        List<CaseManagementIssue> list = getSession().createQuery(
+                "from CaseManagementIssue cmi where cmi.issue_id = :issueId and demographic_no = :demographicNo")
+                .setParameter("issueId", Long.parseLong(id))
+                .setParameter("demographicNo", Integer.valueOf(demo))
+                .list();
         if (list != null && list.size() == 1)
             return list.get(0);
 
         return null;
     }
 
+    /**
+     * Retrieves a case management issue by issue code and demographic number.
+     * Logs an error if multiple results are found, but returns the first match.
+     *
+     * @param demo String the demographic number
+     * @param issueCode String the issue code
+     * @return CaseManagementIssue the matching issue, or null if not found
+     */
     @Override
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode) {
         @SuppressWarnings("unchecked")
-        List<CaseManagementIssue> list = (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "select cmi from CaseManagementIssue cmi, Issue issue where cmi.issue_id=issue.id and issue.code = ?0 and cmi.demographic_no = ?1",
-                new Object[]{issueCode, Integer.valueOf(demo)});
+        List<CaseManagementIssue> list = getSession().createQuery(
+                "select cmi from CaseManagementIssue cmi, Issue issue where cmi.issue_id=issue.id and issue.code = :issueCode and cmi.demographic_no = :demographicNo")
+                .setParameter("issueCode", issueCode)
+                .setParameter("demographicNo", Integer.valueOf(demo))
+                .list();
 
         if (list.size() > 1) {
             log.error("Expected 1 result got more : " + list.size() + "(" + demo + "," + issueCode + ")");
@@ -113,13 +193,22 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
         return null;
     }
 
+    /**
+     * Deletes a case management issue from the database.
+     *
+     * @param issue CaseManagementIssue the issue to delete
+     */
     @Override
     public void deleteIssueById(CaseManagementIssue issue) {
-        getHibernateTemplate().delete(issue);
-        return;
-
+        getSession().delete(issue);
     }
 
+    /**
+     * Saves or updates a list of case management issues.
+     * Updates the update_date timestamp for each issue before persisting.
+     *
+     * @param issuelist List&lt;CaseManagementIssue&gt; the list of issues to save or update
+     */
     @Override
     public void saveAndUpdateCaseIssues(List<CaseManagementIssue> issuelist) {
         Iterator<CaseManagementIssue> itr = issuelist.iterator();
@@ -127,27 +216,44 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
             CaseManagementIssue cmi = itr.next();
             cmi.setUpdate_date(new Date());
             if (cmi.getId() != null && cmi.getId().longValue() > 0) {
-                getHibernateTemplate().update(cmi);
+                getSession().update(cmi);
             } else {
-                getHibernateTemplate().save(cmi);
+                getSession().save(cmi);
             }
         }
-
     }
 
+    /**
+     * Saves or updates a single case management issue.
+     * Updates the update_date timestamp before persisting.
+     *
+     * @param issue CaseManagementIssue the issue to save or update
+     */
     public void saveIssue(CaseManagementIssue issue) {
         issue.setUpdate_date(new Date());
-        getHibernateTemplate().saveOrUpdate(issue);
+        getSession().saveOrUpdate(issue);
     }
 
+    /**
+     * Retrieves all case management issues marked as certain.
+     *
+     * @return List&lt;CaseManagementIssue&gt; list of all certain issues
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getAllCertainIssues() {
-        return (List<CaseManagementIssue>) getHibernateTemplate()
-                .find("from CaseManagementIssue cmi where cmi.certain = true");
+        return getSession().createQuery("from CaseManagementIssue cmi where cmi.certain = true")
+                .list();
     }
 
-    // for integrator
+    /**
+     * Retrieves distinct demographic numbers with issues updated since a given date for specific programs.
+     * Used for integrator functionality to identify demographics with recent changes.
+     *
+     * @param date Date the date threshold for updates
+     * @param programs List&lt;Program&gt; list of programs to filter by
+     * @return List&lt;Integer&gt; list of distinct demographic numbers
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs) {
@@ -158,29 +264,49 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
                 sb.append(",");
             sb.append(p.getId());
         }
-        List<Integer> results = (List<Integer>) this.getHibernateTemplate().find(
-                "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > ?0 and program_id in ("
-                        + sb.toString() + ")",
-                new Object[]{date});
+        List<Integer> results = getSession().createQuery(
+                "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > :updateDate and program_id in ("
+                        + sb.toString() + ")")
+                .setParameter("updateDate", date)
+                .list();
 
         return results;
     }
 
+    /**
+     * Retrieves case management issues for a demographic updated since a given date.
+     *
+     * @param demographic_no String the demographic number
+     * @param date Date the date threshold for updates
+     * @return List&lt;CaseManagementIssue&gt; list of issues updated since the specified date
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicSince(String demographic_no, Date date) {
-        return (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?0 and cmi.update_date > ?1",
-                new Object[]{Integer.valueOf(demographic_no), date});
+        return getSession().createQuery(
+                "from CaseManagementIssue cmi where cmi.demographic_no = :demographicNo and cmi.update_date > :updateDate")
+                .setParameter("demographicNo", Integer.valueOf(demographic_no))
+                .setParameter("updateDate", date)
+                .list();
     }
 
+    /**
+     * Retrieves issue composite primary keys for integrator functionality.
+     * Constructs composite keys containing facility ID, demographic ID, issue code, and code type
+     * for cross-facility data exchange.
+     *
+     * @param facilityId Integer the facility ID
+     * @param demographicNo Integer the demographic number
+     * @return List&lt;FacilityIdDemographicIssueCompositePk&gt; list of composite keys for integrator use
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<FacilityIdDemographicIssueCompositePk> getIssueIdsForIntegrator(Integer facilityId,
                                                                                 Integer demographicNo) {
-        List<Object[]> rs = (List<Object[]>) this.getHibernateTemplate().find(
-                "select i.code,i.type from CaseManagementIssue cmi, Issue i where cmi.issue_id = i.id and cmi.demographic_no = ?0",
-                new Object[]{demographicNo});
+        List<Object[]> rs = getSession().createQuery(
+                "select i.code,i.type from CaseManagementIssue cmi, Issue i where cmi.issue_id = i.id and cmi.demographic_no = :demographicNo")
+                .setParameter("demographicNo", demographicNo)
+                .list();
         List<FacilityIdDemographicIssueCompositePk> results = new ArrayList<FacilityIdDemographicIssueCompositePk>();
         for (Object[] item : rs) {
             FacilityIdDemographicIssueCompositePk key = new FacilityIdDemographicIssueCompositePk();
