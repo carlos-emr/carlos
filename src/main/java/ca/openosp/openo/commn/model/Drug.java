@@ -73,7 +73,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "BN")
     private String brandName = null;
     @Column(name = "GCN_SEQNO")
-    private int gcnSeqNo = 0;
+	private String gcnSeqNo = "0";
     private String customName = null;
     @Column(name = "takemin")
     private float takeMin = 0;
@@ -266,14 +266,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isCustom() {
-        boolean b = false;
-
-        if (this.customName != null && !this.customName.equalsIgnoreCase("null")) {
-            b = true;
-        } else if (this.gcnSeqNo == 0) {
-            b = true;
-        }
-        return b;
+		return this.customName != null && !"null".equalsIgnoreCase(this.customName);
     }
 
     public String getDrugName() {
@@ -432,11 +425,11 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.brandName = StringUtils.trimToNull(brandName);
     }
 
-    public int getGcnSeqNo() {
+	public String getGcnSeqNo() {
         return gcnSeqNo;
     }
 
-    public void setGcnSeqNo(int gcnSeqNo) {
+	public void setGcnSeqNo(String gcnSeqNo) {
         this.gcnSeqNo = gcnSeqNo;
     }
 

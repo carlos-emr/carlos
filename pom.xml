@@ -108,6 +108,13 @@
                 <artifactId>mina-core</artifactId>
                 <version>2.1.10</version>
             </dependency>
+            <!-- Force secure version of MIME4J to fix header injection CVE -->
+            <!-- Transitive from axis2-transport-http (used for OLIS) -->
+            <dependency>
+                <groupId>org.apache.james</groupId>
+                <artifactId>apache-mime4j-core</artifactId>
+                <version>0.8.10</version>
+            </dependency>
 
             <!-- Transitive Hibernate/JPA dependencies -->
             <!-- Hibernate core -->
@@ -789,6 +796,12 @@
                     <groupId>commons-lang</groupId>
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
+                <!-- Excluded vulnerable iText 1.3 (XXE vulnerability) -->
+                <!-- com.lowagie.text.* classes provided by openpdf (via openrtf) instead -->
+                <exclusion>
+                    <groupId>com.lowagie</groupId>
+                    <artifactId>itext</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -1083,6 +1096,16 @@
                 <exclusion>
                     <groupId>org.apache.cxf</groupId>
                     <artifactId>cxf-rt-rs-extension-providers</artifactId>
+                </exclusion>
+                <!-- Not used, excluded to fix CVE (RCE via untrusted JMS config) -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-transports-jms</artifactId>
+                </exclusion>
+                <!-- Not used, excluded to fix CVE (DoS via Rhino toFixed) -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-frontend-js</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
