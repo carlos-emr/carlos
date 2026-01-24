@@ -25,10 +25,37 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.SpringUtils;
 import ca.openosp.openo.clinic.ClinicData;
 
-/*
- * Author: Charles Liu <charles.liu@nondfa.com>
- * Company: WELL Health Technologies Corp.
- * Date: December 6, 2018
+/**
+ * Controller servlet for managing private billing operations in British Columbia.
+ *
+ * <p>This servlet handles HTTP requests for BC private billing functionality, including:
+ * <ul>
+ *   <li>Listing private bills for healthcare providers with optional filtering</li>
+ *   <li>Generating print preview invoices with patient, recipient, and clinic information</li>
+ *   <li>Processing billing data for non-MSP (Medical Services Plan) services</li>
+ * </ul>
+ *
+ * <p>Private billing is used for services not covered by BC's Medical Services Plan,
+ * such as medical certificates, employment forms, insurance examinations, and other
+ * uninsured services. This controller integrates with the PrivateBillingDAO for data
+ * access and uses Spring-managed beans for provider information.
+ *
+ * <p><strong>Key Operations:</strong>
+ * <ul>
+ *   <li><strong>listPrivateBills</strong>: Displays private bills filtered by provider</li>
+ *   <li><strong>printPreviewBills</strong>: Generates invoice previews with comprehensive
+ *       patient demographics, recipient details, and clinic information</li>
+ * </ul>
+ *
+ * <p><strong>Healthcare Context:</strong>
+ * BC private billing operates outside the provincial MSP billing system and requires
+ * direct patient payment. This controller supports the complete workflow from bill
+ * listing through invoice generation for non-insured medical services.
+ *
+ * @since 2026-01-23
+ * @see PrivateBillingDAO
+ * @see ca.openosp.openo.commn.model.Demographic
+ * @see ca.openosp.openo.commn.model.Provider
  */
 public class PrivateBillingController extends HttpServlet {
     private static String LIST_PRIVATE_BILLS = "billing/CA/BC/privateBilling/viewStatement.jsp";
@@ -36,12 +63,53 @@ public class PrivateBillingController extends HttpServlet {
     private PrivateBillingDAO dao;
     private ProviderDao providerDao;
 
+    /**
+     * Constructs a new PrivateBillingController and initializes data access objects.
+     *
+     * <p>This constructor initializes:
+     * <ul>
+     *   <li>PrivateBillingDAO for direct instantiation of private billing data access</li>
+     *   <li>ProviderDao retrieved from Spring context for provider information</li>
+     * </ul>
+     *
+     * <p>The ProviderDao is obtained via SpringUtils to leverage Spring-managed
+     * transaction boundaries and dependency injection, while PrivateBillingDAO
+     * is directly instantiated for specialized BC private billing operations.
+     */
     public PrivateBillingController() {
         super();
         dao = new PrivateBillingDAO();
         providerDao = SpringUtils.getBean(ProviderDao.class);
     }
 
+    /**
+     * Lists private bills filtered by healthcare provider.
+     *
+     * <p>This method retrieves and displays private billing records for BC providers.
+     * If no provider ID is specified in the request parameters, it defaults to showing
+     * all providers' bills using a wildcard filter ("%").
+     *
+     * <p><strong>Request Parameters:</strong>
+     * <ul>
+     *   <li><code>providerId</code> (String, optional): The unique identifier of the
+     *       healthcare provider. If null or empty, defaults to "%" to match all providers.</li>
+     * </ul>
+     *
+     * <p><strong>Request Attributes Set:</strong>
+     * <ul>
+     *   <li><code>providers</code> (List&lt;Provider&gt;): All available healthcare providers</li>
+     *   <li><code>providerId</code> (String): The active provider filter (may be "%")</li>
+     *   <li><code>bills</code> (List): Private billing records matching the provider filter</li>
+     * </ul>
+     *
+     * <p>Forwards to <code>billing/CA/BC/privateBilling/viewStatement.jsp</code> for rendering.
+     *
+     * @param request HttpServletRequest containing optional providerId parameter
+     * @param response HttpServletResponse for the servlet response
+     * @param forward String path to the JSP view (overridden to LIST_PRIVATE_BILLS)
+     * @throws ServletException if the request forwarding fails
+     * @throws IOException if an I/O error occurs during request processing
+     */
     private void listPrivateBills(HttpServletRequest request, HttpServletResponse response, String forward) throws ServletException, IOException {
         try {
             List<Provider> providers = providerDao.getProviders();
@@ -63,6 +131,54 @@ public class PrivateBillingController extends HttpServlet {
         }
     }
 
+    /**
+     * Generates print preview invoices for private billing with comprehensive patient and clinic details.
+     *
+     * <p>This method processes JSON-formatted billing IDs to create invoice previews containing:
+     * <ul>
+     *   <li>Patient demographic information (name, address, date of birth)</li>
+     *   <li>Recipient information (defaults to patient if no separate recipient specified)</li>
+     *   <li>Clinic contact details (name, address, phone, fax)</li>
+     *   <li>Invoice line items for each patient's private billing services</li>
+     * </ul>
+     *
+     * <p><strong>Request Parameters:</strong>
+     * <ul>
+     *   <li><code>billIds</code> (String[]): JSON array of bill objects, each containing:
+     *     <ul>
+     *       <li><code>demographicNumber</code> (String): Patient's unique demographic ID</li>
+     *       <li><code>recipientId</code> (String, optional): ID of billing recipient
+     *           (empty string means patient is the recipient)</li>
+     *     </ul>
+     *   </li>
+     *   <li><code>billToClinic</code> (String): Clinic billing indicator</li>
+     * </ul>
+     *
+     * <p><strong>Request Attributes Set:</strong>
+     * <ul>
+     *   <li><code>date</code> (String): Current date/time for invoice timestamp</li>
+     *   <li><code>billToClinic</code> (String): Clinic billing flag</li>
+     *   <li><code>billIds</code> (String): Original billIds parameter</li>
+     *   <li><code>patientBills</code> (List&lt;HashMap&gt;): Collection of patient billing data,
+     *       each HashMap containing patient demographics, recipient details, clinic info, and invoice items</li>
+     * </ul>
+     *
+     * <p><strong>JSON Processing:</strong>
+     * The method expects a single-element String array containing a JSON array. Each JSON object
+     * in the array represents one patient's bill with demographic and optional recipient information.
+     *
+     * <p><strong>Recipient Logic:</strong>
+     * If recipientId is null or empty, the patient is used as the recipient. Otherwise,
+     * recipient information is fetched from the database using the provided recipientId.
+     *
+     * <p>Forwards to <code>billing/CA/BC/privateBilling/printPreview.jsp</code> for rendering.
+     *
+     * @param request HttpServletRequest containing billIds JSON array and billToClinic flag
+     * @param response HttpServletResponse for the servlet response
+     * @param forward String path to the JSP view (overridden to PRINT_PREVIEW_BILLS)
+     * @throws ServletException if the request forwarding fails
+     * @throws IOException if an I/O error occurs during request processing
+     */
     private void printPreviewBills(HttpServletRequest request, HttpServletResponse response, String forward) throws ServletException, IOException {
         try {
             DemographicData demoData = new DemographicData();
@@ -143,6 +259,40 @@ public class PrivateBillingController extends HttpServlet {
         }
     }
 
+    /**
+     * Handles HTTP GET requests for private billing operations.
+     *
+     * <p>This method routes requests to the appropriate handler based on the
+     * <code>action</code> request parameter. It supports the following actions:
+     * <ul>
+     *   <li><code>listPrivateBills</code>: Displays a list of private bills with provider filtering</li>
+     *   <li><code>printPreviewBills</code>: Generates invoice preview with patient/clinic details</li>
+     *   <li>No action or unknown action: Defaults to <code>listPrivateBills</code></li>
+     * </ul>
+     *
+     * <p><strong>Request Parameters:</strong>
+     * <ul>
+     *   <li><code>action</code> (String, optional): The action to perform.
+     *       Case-insensitive comparison. If null or unrecognized, defaults to listing bills.</li>
+     * </ul>
+     *
+     * <p><strong>Error Handling:</strong>
+     * <ul>
+     *   <li>NullPointerException: Caught when action parameter is not provided,
+     *       defaults to listing private bills</li>
+     *   <li>ServletException: Logged to standard error output</li>
+     * </ul>
+     *
+     * <p><strong>Default Behavior:</strong>
+     * When no action is specified or an exception occurs, the controller
+     * defaults to the safe operation of listing private bills.
+     *
+     * @param request HttpServletRequest containing the action parameter and action-specific parameters
+     * @param response HttpServletResponse for the servlet response
+     * @throws ServletException if the request processing fails
+     * @throws IOException if an I/O error occurs during request processing
+     * @throws NullPointerException if the action parameter is null (handled internally with default behavior)
+     */
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException, NullPointerException {
         String forward = "";
         String action = request.getParameter("action");
