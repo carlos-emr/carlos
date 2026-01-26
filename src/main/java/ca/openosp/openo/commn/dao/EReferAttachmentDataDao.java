@@ -30,19 +30,21 @@ import java.util.Date;
 public interface EReferAttachmentDataDao extends AbstractDao<EReferAttachmentData> {
 
     /**
-     * Retrieves the most recent eReferral attachment data by document ID, type, and expiry date.
+     * Retrieves the most recent eReferral attachment data by document ID, type, and cutoff date.
      *
      * <p>This method searches for attachment data associated with a specific document ID, filtered
-     * by the lab type and that has not expired as of the given expiry date. The "most recent"
-     * attachment is determined by database ordering, typically by creation or modification timestamp.</p>
+     * by the lab type and a cutoff creation date. Only attachments whose associated eReferral
+     * attachment records were created after the specified cutoff date are considered. The "most
+     * recent" attachment is determined by database ordering, typically by creation or modification
+     * timestamp.</p>
      *
      * <p>This method is commonly used when displaying eReferral attachments to ensure that only
-     * current, valid laboratory data is shown, and that expired attachments are excluded from
-     * the active referral documentation.</p>
+     * recent laboratory data created after a given point in time is shown, and that older
+     * attachments are excluded from the active referral documentation.</p>
      *
      * @param docId Integer the unique identifier of the document to which the attachment is associated
      * @param type String the laboratory type code indicating the category of lab result (e.g., "HL7", "LAB")
-     * @param expiry Date the cutoff date for determining validity; attachments valid after this date are considered
+     * @param expiry Date the cutoff creation date; only attachments created after this date are returned
      * @return EReferAttachmentData the most recent attachment data matching the criteria, or null if none found
      */
     public EReferAttachmentData getRecentByDocumentId(Integer docId, String type, Date expiry);
