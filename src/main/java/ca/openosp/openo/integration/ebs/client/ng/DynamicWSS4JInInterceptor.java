@@ -30,30 +30,42 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     @Override
     public void handleMessage(Message message) {
         try {
+            System.out.println("=== MCEDT DEBUG: DynamicWSS4JInInterceptor handling message ===");
             EncryptionDetectionResult detection = detectEncryption(message);
+
+            System.out.println("Encryption detection: hasEncryption=" + detection.hasEncryption +
+                             ", hasAttachmentEncryption=" + detection.hasAttachmentEncryption);
 
             Map<String, Object> wssProps = clientBuilder.newWSSInInterceptorConfiguration();
 
+            String action;
             if (!detection.hasEncryption) {
                 // No encryption → only timestamp and signature verification
-                wssProps.put(WSHandlerConstants.ACTION,
-                        WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE);
+                action = WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE;
+                wssProps.put(WSHandlerConstants.ACTION, action);
+                System.out.println("No encryption detected, using actions: " + action);
             } else if (detection.hasAttachmentEncryption) {
                 // Both SOAP body and attachment encryption → encryption action twice
-                wssProps.put(WSHandlerConstants.ACTION,
-                        WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE + " "
-                                + WSHandlerConstants.ENCRYPTION + " " + WSHandlerConstants.ENCRYPTION);
+                action = WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE + " "
+                                + WSHandlerConstants.ENCRYPTION + " " + WSHandlerConstants.ENCRYPTION;
+                wssProps.put(WSHandlerConstants.ACTION, action);
+                System.out.println("Both body and attachment encryption detected, using actions: " + action);
             } else {
                 // Only one encryption block
-                wssProps.put(WSHandlerConstants.ACTION,
-                        WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE + " " + WSHandlerConstants.ENCRYPTION);
+                action = WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE + " " + WSHandlerConstants.ENCRYPTION;
+                wssProps.put(WSHandlerConstants.ACTION, action);
+                System.out.println("Body encryption detected, using actions: " + action);
             }
 
             // Add WSS4J interceptor to chain with appropriate configuration
             WSS4JInInterceptor wssInterceptor = new WSS4JInInterceptor(wssProps);
             message.getInterceptorChain().add(wssInterceptor);
 
+            System.out.println("=== MCEDT DEBUG: WSS4J interceptor added to chain ===");
+
         } catch (Exception e) {
+            System.out.println("=== MCEDT DEBUG: ERROR in DynamicWSS4JInInterceptor: " + e.getMessage() + " ===");
+            logger.error("Error in DynamicWSS4JInInterceptor", e);
             throw new Fault(e);
         }
     }

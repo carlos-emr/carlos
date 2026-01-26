@@ -32,7 +32,9 @@ import org.apache.xml.security.exceptions.AlgorithmAlreadyRegisteredException;
 import org.apache.xml.security.transforms.Transform;
 import org.apache.xml.security.transforms.InvalidTransformException;
 import org.apache.xml.security.utils.resolver.ResourceResolver;
+import org.apache.logging.log4j.Logger;
 
+import ca.openosp.openo.utility.MiscUtils;
 import ca.ontario.health.ebs.idp.IdpHeader;
 
 /**
@@ -78,6 +80,7 @@ import ca.ontario.health.ebs.idp.IdpHeader;
  */
 public class EdtClientBuilder {
 
+    private static final Logger log = MiscUtils.getLogger();
     private static final String DEFAULT_CLIENT_KEYSTORE = "clientKeystore.properties";
 
     // EBS and IDP SOAP header element names and namespaces
@@ -254,24 +257,34 @@ public class EdtClientBuilder {
      * Builds the property map for the inbound WS-Security interceptor.
      */
     protected Map<String,Object> newWSSInInterceptorConfiguration() {
+        System.out.println("=== MCEDT DEBUG: Configuring WSS4J In Interceptor ===");
+        System.out.println("Keystore file: " + clientKeystore);
+
         Map<String,Object> props = new HashMap<>();
         props.put(WSHandlerConstants.ACTION, getCxfInHandlerDirectives());
+        System.out.println("WSS4J Actions: " + getCxfInHandlerDirectives());
+
         props.put(WSHandlerConstants.PW_CALLBACK_REF, newCallback());
-        
+
         // Decryption properties - more explicit in CXF 3.5+
         props.put(WSHandlerConstants.DEC_PROP_FILE, clientKeystore);
         props.put(WSHandlerConstants.DEC_PROP_REF_ID, "decryptionProperties");
-        props.put("decryptionProperties", loadKeystoreProperties());
-        
+        Properties keystoreProps = loadKeystoreProperties();
+        props.put("decryptionProperties", keystoreProps);
+
+        System.out.println("Decryption properties loaded: " + keystoreProps);
+        dumpKeystoreInfo(keystoreProps);
+
         // Algorithm support
         props.put(WSHandlerConstants.ALLOW_RSA15_KEY_TRANSPORT_ALGORITHM, "true");
         props.put(WSHandlerConstants.ENC_SYM_ALGO, "http://www.w3.org/2001/04/xmlenc#aes128-cbc");
         props.put(WSHandlerConstants.ENC_KEY_TRANSPORT, "http://www.w3.org/2001/04/xmlenc#rsa-1_5");
-        
+
         // MTOM settings
         props.put(WSHandlerConstants.STORE_BYTES_IN_ATTACHMENT, "false");
         props.put(WSHandlerConstants.EXPAND_XOP_INCLUDE, "false");
-        
+
+        System.out.println("=== MCEDT DEBUG: WSS4J In Interceptor Configured ===");
         return props;
     }
 
@@ -391,30 +404,124 @@ public class EdtClientBuilder {
     }
 
     private Properties loadKeystoreProperties() {
+        System.out.println("=== MCEDT DEBUG: Loading keystore properties ===");
+        System.out.println("Original keystore path: " + clientKeystore);
+
         Properties props = new Properties();
 
         // Normalize path if it starts with "file:" to strip that prefix
         String normalizedPath = clientKeystore;
         if (normalizedPath != null && normalizedPath.startsWith("file:")) {
             normalizedPath = normalizedPath.substring("file:".length());
+            System.out.println("Normalized path (stripped 'file:'): " + normalizedPath);
         }
 
         // First try as classpath resource
+        System.out.println("Attempting to load from classpath: " + clientKeystore);
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(clientKeystore)) {
             if (is != null) {
                 props.load(is);
+                System.out.println("SUCCESS: Loaded from classpath");
                 return props;
+            } else {
+                System.out.println("NOT FOUND: in classpath, trying filesystem...");
             }
         } catch (Exception e) {
-            // Log or ignore this because we will try filesystem next
+            System.out.println("ERROR loading from classpath: " + e.getMessage());
         }
 
         // If classpath resource not found, try filesystem
+        System.out.println("Attempting to load from filesystem: " + normalizedPath);
         try (InputStream is = new FileInputStream(normalizedPath)) {
             props.load(is);
+            System.out.println("SUCCESS: Loaded from filesystem");
             return props;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load keystore properties from either classpath or file system: " + clientKeystore, e);
+            String errorMsg = "Failed to load keystore properties from either classpath or file system: " + clientKeystore;
+            System.out.println("ERROR: " + errorMsg);
+            System.out.println("Error: " + e.getMessage());
+            throw new RuntimeException(errorMsg, e);
+        }
+    }
+
+    /**
+     * Dumps detailed keystore information for debugging.
+     */
+    private void dumpKeystoreInfo(Properties keystoreProps) {
+        System.out.println("=== MCEDT DEBUG: Keystore Information ===");
+        try {
+            String keystoreFile = keystoreProps.getProperty("org.apache.ws.security.crypto.merlin.keystore.file");
+            String keystorePassword = keystoreProps.getProperty("org.apache.ws.security.crypto.merlin.keystore.password");
+            String keystoreAlias = keystoreProps.getProperty("org.apache.ws.security.crypto.merlin.keystore.alias");
+            String keystoreType = keystoreProps.getProperty("org.apache.ws.security.crypto.merlin.keystore.type");
+
+            System.out.println("Keystore file: " + keystoreFile);
+            System.out.println("Keystore type: " + keystoreType);
+            System.out.println("Keystore alias: " + keystoreAlias);
+            System.out.println("Keystore password: " + (keystorePassword != null ? "*****(length=" + keystorePassword.length() + ")" : "null"));
+
+            // Try to load the actual keystore and dump certificate info
+            if (keystoreFile != null && keystorePassword != null) {
+                java.io.File ksFile = new java.io.File(keystoreFile);
+                System.out.println("Keystore file exists: " + ksFile.exists());
+                System.out.println("Keystore file readable: " + ksFile.canRead());
+                System.out.println("Keystore file size: " + ksFile.length() + " bytes");
+
+                if (ksFile.exists()) {
+                    try {
+                        java.security.KeyStore ks = java.security.KeyStore.getInstance(keystoreType != null ? keystoreType : "JKS");
+                        try (java.io.FileInputStream fis = new java.io.FileInputStream(ksFile)) {
+                            ks.load(fis, keystorePassword.toCharArray());
+                            System.out.println("Keystore loaded successfully!");
+
+                            // List all aliases
+                            System.out.println("Aliases in keystore:");
+                            java.util.Enumeration<String> aliases = ks.aliases();
+                            while (aliases.hasMoreElements()) {
+                                String alias = aliases.nextElement();
+                                System.out.println("  - " + alias + " (isKey: " + ks.isKeyEntry(alias) + ", isCert: " + ks.isCertificateEntry(alias) + ")");
+
+                                // Get certificate details
+                                if (ks.isKeyEntry(alias) || ks.isCertificateEntry(alias)) {
+                                    java.security.cert.Certificate cert = ks.getCertificate(alias);
+                                    if (cert instanceof java.security.cert.X509Certificate) {
+                                        java.security.cert.X509Certificate x509 = (java.security.cert.X509Certificate) cert;
+                                        System.out.println("    Subject: " + x509.getSubjectX500Principal());
+                                        System.out.println("    Valid from: " + x509.getNotBefore());
+                                        System.out.println("    Valid until: " + x509.getNotAfter());
+                                        System.out.println("    Currently valid: " + isCurrentlyValid(x509));
+                                    }
+                                }
+                            }
+
+                            // Check if the configured alias exists
+                            if (keystoreAlias != null) {
+                                boolean hasKey = ks.isKeyEntry(keystoreAlias);
+                                System.out.println("Configured alias '" + keystoreAlias + "' has private key: " + hasKey);
+                                if (!hasKey) {
+                                    System.out.println("WARNING: Configured alias does not have a private key entry!");
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.out.println("ERROR loading keystore: " + e.getMessage());
+                        log.error("Error loading keystore for debug", e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("ERROR dumping keystore info: " + e.getMessage());
+            log.error("Error dumping keystore info", e);
+        }
+        System.out.println("=== MCEDT DEBUG: End Keystore Information ===");
+    }
+
+    private boolean isCurrentlyValid(java.security.cert.X509Certificate cert) {
+        try {
+            cert.checkValidity();
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 }

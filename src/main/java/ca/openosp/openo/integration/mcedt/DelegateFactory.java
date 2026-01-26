@@ -62,7 +62,19 @@ public class DelegateFactory {
     }
 
     private static EDTDelegate newDelegate(String serviceId) {
+        System.out.println("=== MCEDT DEBUG: Creating new EDTDelegate ===");
         OscarProperties props = OscarProperties.getInstance();
+
+        System.out.println("MCEDT Configuration:");
+        System.out.println("  mcedt.keystore.user: " + props.getProperty("mcedt.keystore.user"));
+        System.out.println("  mcedt.keystore.pass: " + (props.getProperty("mcedt.keystore.pass") != null ? "*****(set)" : "null"));
+        System.out.println("  mcedt.service.user: " + props.getProperty("mcedt.service.user"));
+        System.out.println("  mcedt.service.url: " + props.getProperty("mcedt.service.url"));
+        System.out.println("  mcedt.service.conformanceKey: " + props.getProperty("mcedt.service.conformanceKey"));
+        System.out.println("  mcedt.service.id: " + props.getProperty("mcedt.service.id"));
+        System.out.println("  mcedt.service.clientKeystore.properties: " + props.getProperty("mcedt.service.clientKeystore.properties"));
+        System.out.println("  mcedt.logging.skip: " + props.getProperty("mcedt.logging.skip"));
+
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setLoggingRequired(!Boolean.valueOf(props.getProperty("mcedt.logging.skip")));
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));
@@ -75,12 +87,21 @@ public class DelegateFactory {
         config.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
         config.setServiceId((serviceId == null || serviceId.trim().equals("")) ? props.getProperty("mcedt.service.id") : serviceId);
         config.setMtomEnabled(true);
+
+        System.out.println("Creating EdtClientBuilder...");
         EdtClientBuilder builder = new EdtClientBuilder(config);
-        setExternalClientKeystoreFilename(props.getProperty("mcedt.service.clientKeystore.properties"));
+
+        String clientKeystoreProps = props.getProperty("mcedt.service.clientKeystore.properties");
+        System.out.println("Setting external clientKeystore filename: " + clientKeystoreProps);
+        setExternalClientKeystoreFilename(clientKeystoreProps);
+
+        System.out.println("Building EDTDelegate...");
         EDTDelegate edtDelegate = builder.build(EDTDelegate.class);
+
         if (logger.isInfoEnabled()) {
             logger.info("Created new EDT delegate " + edtDelegate);
         }
+        System.out.println("=== MCEDT DEBUG: EDTDelegate created successfully ===");
         return edtDelegate;
     }
 
