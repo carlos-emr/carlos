@@ -25,7 +25,7 @@ import java.util.Date;
  * @see EReferAttachmentData
  * @see AbstractDao
  * @see ca.openosp.openo.commn.model.EReferAttachment
- * @since 2024-03-12
+ * @since 2026-01-16
  */
 public interface EReferAttachmentDataDao extends AbstractDao<EReferAttachmentData> {
 
