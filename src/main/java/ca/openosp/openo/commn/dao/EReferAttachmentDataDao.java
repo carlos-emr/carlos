@@ -46,6 +46,7 @@ public interface EReferAttachmentDataDao extends AbstractDao<EReferAttachmentDat
      * @param type String the laboratory type code indicating the category of lab result (e.g., "HL7", "LAB")
      * @param expiry Date the cutoff creation date; only attachments created after this date are returned
      * @return EReferAttachmentData the most recent attachment data matching the criteria, or null if none found
+     * @since 2026-01-16
      */
     public EReferAttachmentData getRecentByDocumentId(Integer docId, String type, Date expiry);
 }
