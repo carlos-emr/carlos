@@ -815,7 +815,11 @@ function renderRxStage() {
                                                         <div id="autocomplete_choices"></div>
                                                     </div>
                                                     <div id="advanceSearchParameters">
-                                                        <fieldset id="drugCategorySet">
+                                                        <%-- Drug category filters are hidden because Brand, Ingredient, and Natural
+                                                             options are disabled and non-functional. Only re-enable this fieldset when
+                                                             the underlying search methods (searchBrandName, searchGenericName,
+                                                             searchNaturalRemedy) are wired up and working in the UI. --%>
+                                                        <fieldset id="drugCategorySet" style="display:none;">
                                                             <input type="radio" id="allCategories" name="method"
                                                                    value="searchAllCategories" class="trigger"
                                                                    checked="checked"/>
