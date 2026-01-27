@@ -1405,7 +1405,7 @@
         <dependency>
             <groupId>org.apache.openjpa</groupId>
             <artifactId>openjpa</artifactId>
-            <version>3.0.0</version>
+            <version>3.2.2</version>
         </dependency>
 
         <!-- HAPI FHIR -->
