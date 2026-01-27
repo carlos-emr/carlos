@@ -25,6 +25,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -41,6 +42,7 @@
 
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.util.StringUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ page
         import="ca.openosp.openo.demographic.data.*, ca.openosp.openo.commn.model.Demographic" %>
 <%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
@@ -52,21 +54,27 @@
     String age = request.getParameter("age");
     String demo = request.getParameter("demo");
 
-
     if (!StringUtils.isNullOrEmpty(demo)) {
         DemographicData dd = new DemographicData();
         Demographic d = dd.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demo);
         sex = d.getSex();
         age = d.getAge();
     }
+
+    // OWASP encode for URI context - MANDATORY for security
+    String sexEncoded = (sex != null) ? Encode.forUriComponent(sex) : "";
+    String ageEncoded = (age != null) ? Encode.forUriComponent(age) : "";
+
+    pageContext.setAttribute("sexEncoded", sexEncoded);
+    pageContext.setAttribute("ageEncoded", ageEncoded);
 %>
 
+<c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="${ctx}/js/global.js"></script>
         <link rel="stylesheet" type="text/css" href="encounterStyles.css">
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script type="text/javascript" language=javascript>
             function popperup(vheight, vwidth, varpage, pageName) { //open a new popup window
                 var page = varpage;
@@ -91,13 +99,13 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(525,775,'calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<%= sex%>&age=<%=age%>','CoronaryArteryDiseaseRisk');">
+                    onclick="popperup(525,775,'${ctx}/oscarEncounter/calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=${sexEncoded}&age=${ageEncoded}','CoronaryArteryDiseaseRisk');">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.coronary"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(525,775,'calculators/riskcalc/index.html?sex=<%= sex%>&age=<%=age%>','CoronaryArteryDiseaseRisk');">
+                    onclick="popperup(525,775,'${ctx}/oscarEncounter/calculators/riskcalc/index.html?sex=${sexEncoded}&age=${ageEncoded}','CoronaryArteryDiseaseRisk');">
                 Framingham/UKPDS Risk Calculator </a></td>
         </tr>
         <tr>
@@ -111,7 +119,7 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(525,775,'calculators/OsteoporoticFracture.jsp?sex=<%=sex%>&age=<%=age%>','OsteoporoticFracture');">
+                    onclick="popperup(525,775,'${ctx}/oscarEncounter/calculators/OsteoporoticFracture.jsp?sex=${sexEncoded}&age=${ageEncoded}','OsteoporoticFracture');">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgOsteoporotic"/> </a></td>
         </tr>
         <tr>
@@ -123,13 +131,13 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(400,500,'calculators/SimpleCalculator.jsp','SimpleCalc');">
+                    onclick="popperup(400,500,'${ctx}/oscarEncounter/calculators/SimpleCalculator.jsp','SimpleCalc');">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.simpleCalculator"/> </a></td>
         </tr>
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(650,775,'calculators/GeneralCalculators.jsp','GeneralConversions'); ">
+                    onclick="popperup(650,775,'${ctx}/oscarEncounter/calculators/GeneralCalculators.jsp','GeneralConversions'); ">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.generalConversions"/> </a></td>
         </tr>
     </table>
