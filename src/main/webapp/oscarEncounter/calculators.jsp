@@ -61,9 +61,9 @@
         age = d.getAge();
     }
 
-    // OWASP encode for JavaScript in HTML attribute context - MANDATORY for security
-    String sexEncoded = (sex != null) ? Encode.forJavaScriptAttribute(sex) : "";
-    String ageEncoded = (age != null) ? Encode.forJavaScriptAttribute(age) : "";
+    // OWASP encode for URL query parameters - MANDATORY for security
+    String sexEncoded = (sex != null) ? Encode.forUriComponent(sex) : "";
+    String ageEncoded = (age != null) ? Encode.forUriComponent(age) : "";
 
     pageContext.setAttribute("sexEncoded", sexEncoded);
     pageContext.setAttribute("ageEncoded", ageEncoded);
