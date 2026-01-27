@@ -74,7 +74,7 @@
 <html>
     <head>
         <script type="text/javascript" src="${ctx}/js/global.js"></script>
-        <link rel="stylesheet" type="text/css" href="encounterStyles.css">
+        <link rel="stylesheet" type="text/css" href="${ctx}/encounterStyles.css">
         <script type="text/javascript" language=javascript>
             function popperup(vheight, vwidth, varpage, pageName) { //open a new popup window
                 var page = varpage;
