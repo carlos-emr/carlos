@@ -93,7 +93,7 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(650,775,'http://www.mcw.edu/calculators/body-mass-index.htm','BodyMassIndex');">
+                    onclick="popperup(650,775,'https://www.mcw.edu/calculators/body-mass-index','BodyMassIndex');">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.bodyMass"/> </a></td>
         </tr>
         <tr>
@@ -111,7 +111,7 @@
         <tr>
             <td align="center" class="menuLayer">
                 <a href="javascript: function myFunction() {return false; }"
-                   onclick="popperup(525,775,'http://cvrisk.mvm.ed.ac.uk/calculator/calc.asp','CVRisk');">CV Risk</a>
+                   onclick="popperup(525,775,'https://cvrisk.mvm.ed.ac.uk/calculator/calc.asp','CVRisk');">CV Risk</a>
             </td>
         </tr>
 
@@ -125,7 +125,7 @@
         <tr>
             <td align="center" class="menuLayer"><a
                     href="javascript: function myFunction() {return false; }"
-                    onclick="popperup(650,775,'http://www.mcw.edu/calculators/pregnancydate.htm','PregancyCalculator');">
+                    onclick="popperup(650,775,'https://www.mcw.edu/calculators/pregnancy-date','PregancyCalculator');">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pregnancy"/> </a></td>
         </tr>
         <tr>
