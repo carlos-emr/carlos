@@ -1,6 +1,25 @@
 ---
-Title: Library Dependency Updates Available - 93 Total (5 Patch, 31 Minor, 56 Major)
-Labels: type: maintenance, priority: medium, dependencies
+Title: 🚨 CRITICAL: Library Dependency Updates + JasperReports Security Vulnerability
+Labels: type: maintenance, priority: critical, dependencies, security
+---
+
+## 🚨 CRITICAL SECURITY ALERT
+
+**JasperReports Vulnerability Detected**: The dependency `net.sf.jasperreports:jasperreports` (v6.20.1) has a **CRITICAL Java deserialization vulnerability** that can lead to Remote Code Execution (RCE).
+
+- **Severity**: 🔴 **CRITICAL**
+- **Affected Versions**: <= 7.0.3 (including current AND available update)
+- **Patched Version**: ❌ **NOT AVAILABLE**
+- **Action**: **DO NOT UPDATE** - See `SECURITY_ALERT_JASPERREPORTS.md` for immediate mitigation steps
+
+**IMMEDIATE ACTIONS REQUIRED**:
+1. Assess if JasperReports is actively used
+2. If not used: Remove from dependencies TODAY
+3. If used: Implement security controls THIS WEEK
+4. Plan migration to alternative solution
+
+**Complete Details**: `SECURITY_ALERT_JASPERREPORTS.md`
+
 ---
 
 ## Overview

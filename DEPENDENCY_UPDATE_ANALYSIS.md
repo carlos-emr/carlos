@@ -10,6 +10,19 @@
 
 This document contains a comprehensive review of available library updates for dependencies in `pom.xml`. The analysis focuses on identifying patch version updates (non-breaking changes) that can be safely applied.
 
+## 🚨 CRITICAL SECURITY ALERT
+
+**JasperReports Vulnerability Identified**: The dependency `net.sf.jasperreports:jasperreports` (current version 6.20.1) has a **critical Java deserialization vulnerability**. 
+
+- **Affected Versions**: <= 7.0.3 (including current 6.20.1 AND available update 7.0.3)
+- **Patched Version**: ❌ **NOT AVAILABLE**
+- **Severity**: 🔴 **CRITICAL** - Remote Code Execution possible
+- **Action Required**: **IMMEDIATE** - See `SECURITY_ALERT_JASPERREPORTS.md` for detailed mitigation steps
+
+⚠️ **DO NOT UPDATE to version 7.0.3** - It is also vulnerable!
+
+---
+
 ## Summary
 
 A comprehensive review using Maven's `versions:display-dependency-updates` plugin identified **93 total library updates** available, categorized as follows:
@@ -18,6 +31,7 @@ A comprehensive review using Maven's `versions:display-dependency-updates` plugi
 - **Minor Updates (New Features)**: 31 libraries - *Should be evaluated and tested*
 - **Major Updates (Breaking Changes)**: 56 libraries - *Require significant testing and code changes*
 - **Special Versioning**: 1 library - *Requires individual assessment*
+- **🚨 CRITICAL VULNERABILITY**: 1 library - *IMMEDIATE ACTION REQUIRED*
 
 ## Patch Version Updates (Recommended Priority) ⭐
 
@@ -180,7 +194,7 @@ These updates increment the major version (**X**.y.z), indicating breaking chang
 | `com.puppycrawl.tools:checkstyle` | 10.20.1 | 13.0.0 | Code style checker |
 | `commons-digester:commons-digester` | 1.8 | 2.1 | XML-to-object mapper |
 | `net.bull.javamelody:javamelody-core` | 1.99.4 | 2.6.0 | Monitoring |
-| `net.sf.jasperreports:jasperreports` | 6.20.1 | 7.0.3 | Report generation |
+| 🚨 `net.sf.jasperreports:jasperreports` | 6.20.1 | 7.0.3 | 🔴 **CRITICAL VULN - DO NOT UPDATE** - See SECURITY_ALERT |
 | `org.apache.pdfbox:pdfbox` | 2.0.35 | 3.0.6 | PDF library |
 | `org.apache.xmlbeans:xmlbeans` | 3.1.0 | 5.3.0 | XML binding |
 | `org.glassfish.jersey.core:jersey-client` | 2.47 | 4.0.1 | JAX-RS client |
@@ -272,9 +286,28 @@ These require careful planning and significant testing:
 
 ## Security Considerations 🔒
 
-Libraries with security implications that should be prioritized:
+### 🚨 CRITICAL VULNERABILITY - IMMEDIATE ACTION REQUIRED
 
-### Critical Security Libraries
+**JasperReports** (`net.sf.jasperreports:jasperreports` v6.20.1):
+- **Vulnerability**: Java deserialization vulnerability (Remote Code Execution)  
+- **Severity**: 🔴 **CRITICAL**
+- **Affected Versions**: <= 7.0.3 (includes current 6.20.1 AND available update 7.0.3)
+- **Patched Version**: ❌ **NOT AVAILABLE**
+- **Status**: **DO NOT UPDATE to 7.0.3** - It is also vulnerable!
+
+**IMMEDIATE ACTIONS REQUIRED**:
+1. **TODAY**: Assess if JasperReports is actively used in the codebase
+2. **THIS WEEK**: If not used, remove from dependencies immediately
+3. **THIS WEEK**: If used, implement security controls (see `SECURITY_ALERT_JASPERREPORTS.md`)
+4. **THIS MONTH**: Plan migration to alternative reporting solution (Apache PDFBox, iText, Flying Saucer)
+
+**Complete Security Alert**: See `SECURITY_ALERT_JASPERREPORTS.md` for detailed mitigation strategies
+
+---
+
+### Other Critical Security Libraries
+
+Libraries with security implications that should be prioritized:
 
 - **OWASP Encoder** (1.2.x → 1.4.0): XSS prevention - 2 minor versions behind
 - **OWASP ESAPI** (2.6.2.0 → 2.7.0.1-RC1): Security API - update available but RC
