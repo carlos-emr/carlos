@@ -61,9 +61,9 @@
         age = d.getAge();
     }
 
-    // OWASP encode for URI context - MANDATORY for security
-    String sexEncoded = (sex != null) ? Encode.forUriComponent(sex) : "";
-    String ageEncoded = (age != null) ? Encode.forUriComponent(age) : "";
+    // OWASP encode for JavaScript in HTML attribute context - MANDATORY for security
+    String sexEncoded = (sex != null) ? Encode.forJavaScriptAttribute(sex) : "";
+    String ageEncoded = (age != null) ? Encode.forJavaScriptAttribute(age) : "";
 
     pageContext.setAttribute("sexEncoded", sexEncoded);
     pageContext.setAttribute("ageEncoded", ageEncoded);
@@ -74,7 +74,7 @@
 <html>
     <head>
         <script type="text/javascript" src="${ctx}/js/global.js"></script>
-        <link rel="stylesheet" type="text/css" href="${ctx}/encounterStyles.css">
+        <link rel="stylesheet" type="text/css" href="${ctx}/oscarEncounter/encounterStyles.css">
         <script type="text/javascript" language=javascript>
             function popperup(vheight, vwidth, varpage, pageName) { //open a new popup window
                 var page = varpage;
