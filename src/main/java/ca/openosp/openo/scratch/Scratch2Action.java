@@ -28,6 +28,7 @@ package ca.openosp.openo.scratch;
 import ca.openosp.openo.commn.dao.ScratchPadDao;
 import ca.openosp.openo.commn.model.JSONAction;
 import ca.openosp.openo.commn.model.ScratchPad;
+import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 import org.codehaus.jettison.json.JSONObject;
@@ -45,6 +46,20 @@ public class Scratch2Action extends JSONAction {
     private final ScratchPadDao scratchPadDao = SpringUtils.getBean(ScratchPadDao.class);
 
     public String showVersion() throws Exception {
+    	LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    	if (loggedInInfo == null) {
+    		MiscUtils.getLogger().error("Invalid or expired session");
+    		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    		return null;
+    	}
+
+    	String providerNo = loggedInInfo.getLoggedInProviderNo();
+    	if (providerNo == null) {
+    		MiscUtils.getLogger().error("Provider number not found in session");
+    		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    		return null;
+    	}
+
     	String id = request.getParameter("id");
 
     	if (id == null || id.trim().isEmpty()) {
@@ -56,6 +71,15 @@ public class Scratch2Action extends JSONAction {
     		if (scratchPad == null) {
     			throw new IllegalArgumentException("ScratchPad not found for id: " + id);
     		}
+
+    		// Verify the user owns this scratch pad
+    		if (!providerNo.equals(scratchPad.getProviderNo())) {
+    			MiscUtils.getLogger().error("User {} attempted to view scratch pad owned by {}",
+    				Encode.forJava(providerNo), Encode.forJava(scratchPad.getProviderNo()));
+    			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+    			return null;
+    		}
+
     		request.setAttribute("ScratchPad", scratchPad);
     		return "scratchPadVersion";
     	} catch (NumberFormatException e) {
@@ -72,9 +96,22 @@ public class Scratch2Action extends JSONAction {
             return delete();
         }
 
-        String providerNo =  (String) request.getSession().getAttribute("user");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            MiscUtils.getLogger().error("Invalid or expired session");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (providerNo == null) {
+            MiscUtils.getLogger().error("Provider number not found in session");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }
+
         String pNo = request.getParameter("providerNo");
-                
+
         if(providerNo.equals(pNo)){
         String id = request.getParameter("id");
         String scratchPad = request.getParameter("scratchpad");
@@ -162,9 +199,37 @@ public class Scratch2Action extends JSONAction {
 	    JSONObject jsonObject = new JSONObject();
 
         try {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (loggedInInfo == null) {
+                MiscUtils.getLogger().error("Invalid or expired session");
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                jsonObject.put("success", false);
+                jsonResponse(jsonObject);
+                return null;
+            }
+
+            String providerNo = loggedInInfo.getLoggedInProviderNo();
+            if (providerNo == null) {
+                MiscUtils.getLogger().error("Provider number not found in session");
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                jsonObject.put("success", false);
+                jsonResponse(jsonObject);
+                return null;
+            }
+
             if (id != null && !id.isEmpty()) {
                 ScratchPad scratch = scratchPadDao.find(Integer.parseInt(id));
                 if (scratch != null) {
+                    // Verify the user owns this scratch pad
+                    if (!providerNo.equals(scratch.getProviderNo())) {
+                        MiscUtils.getLogger().error("User {} attempted to delete scratch pad owned by {}",
+                            Encode.forJava(providerNo), Encode.forJava(scratch.getProviderNo()));
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        jsonObject.put("success", false);
+                        jsonResponse(jsonObject);
+                        return null;
+                    }
+
                     scratch.setStatus(false);
                     scratchPadDao.merge(scratch);
                     jsonObject.put("id", Encode.forHtmlContent(id));
