@@ -33,7 +33,6 @@ import java.util.List;
 
 import javax.persistence.Query;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
 import ca.openosp.openo.commn.NativeSql;
 import ca.openosp.openo.commn.model.ConsultationRequest;
 
@@ -71,35 +70,43 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
     public List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {
 
-        	StringBuilder sql = new StringBuilder("SELECT cr " +
-					"FROM ConsultationRequest cr " +
-                    "LEFT JOIN cr.professionalSpecialist specialist " +
-                    "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
-                    "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
-					"LEFT JOIN Demographic d on cr.demographicId = d.DemographicNo " +
-					"LEFT JOIN Provider p on d.ProviderNo = p.ProviderNo WHERE 1=1 ");
+        int paramIndex = 1;
+
+        StringBuilder sql = new StringBuilder("SELECT cr " +
+                "FROM ConsultationRequest cr " +
+                "LEFT JOIN cr.professionalSpecialist specialist " +
+                "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
+                "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
+                "LEFT JOIN Demographic d on cr.demographicId = d.DemographicNo " +
+                "LEFT JOIN Provider p on d.ProviderNo = p.ProviderNo WHERE 1=1 ");
 
         if (!showCompleted) {
             sql.append("and cr.status != 4 ");
         }
 
+        int teamParamIdx = 0;
         if (!team.isEmpty()) {
-            sql.append("and cr.sendTo = '" + team + "' ");
+            teamParamIdx = paramIndex++;
+            sql.append("and cr.sendTo = ?" + teamParamIdx + " ");
         }
 
+        int startDateParamIdx = 0;
         if (startDate != null) {
+            startDateParamIdx = paramIndex++;
             if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(startDate) + "' ");
+                sql.append("and cr.appointmentDate >= ?" + startDateParamIdx + " ");
             } else {
-                sql.append("and cr.referralDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(startDate) + "' ");
+                sql.append("and cr.referralDate >= ?" + startDateParamIdx + " ");
             }
         }
 
+        int endDateParamIdx = 0;
         if (endDate != null) {
+            endDateParamIdx = paramIndex++;
             if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(endDate) + "' ");
+                sql.append("and cr.appointmentDate <= ?" + endDateParamIdx + " ");
             } else {
-                sql.append("and cr.referralDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(endDate) + "' ");
+                sql.append("and cr.referralDate <= ?" + endDateParamIdx + " ");
             }
         }
 
@@ -131,6 +138,17 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
 
         Query query = entityManager.createQuery(sql.toString());
+
+        if (teamParamIdx > 0) {
+            query.setParameter(teamParamIdx, team);
+        }
+        if (startDateParamIdx > 0) {
+            query.setParameter(startDateParamIdx, startDate);
+        }
+        if (endDateParamIdx > 0) {
+            query.setParameter(endDateParamIdx, endDate);
+        }
+
         query.setFirstResult(offset != null ? offset : 0);
 
         //need to never send more than MAX_LIST_RETURN_SIZE

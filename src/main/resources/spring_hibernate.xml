@@ -48,6 +48,11 @@
 				<prop key="hibernate.flushMode">AUTO</prop>
 				<prop key="hibernate.allow_update_outside_transaction">true</prop>
 				<prop key="hibernate.hbm2ddl.auto">none</prop>
+				<prop key="hibernate.default_batch_fetch_size">25</prop>
+				<prop key="hibernate.jdbc.batch_size">25</prop>
+				<prop key="hibernate.order_inserts">true</prop>
+				<prop key="hibernate.order_updates">true</prop>
+				<prop key="hibernate.session.events.log.LOG_QUERIES_SLOWER_THAN_MS">100</prop>
 			</props>
 		</property>
 		

@@ -41,6 +41,8 @@ import javax.persistence.FetchType;
 
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
+
 /**
  * @author rjonasz
  */
@@ -58,6 +60,7 @@ public class ConsultationServices extends AbstractModel<Integer> implements Seri
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "serviceSpecialists", joinColumns = @JoinColumn(name = "serviceId"), inverseJoinColumns = @JoinColumn(name = "specId"))
+    @BatchSize(size = 25)
     private List<ProfessionalSpecialist> specialists;
 
     public ConsultationServices() {

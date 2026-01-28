@@ -107,7 +107,7 @@ public class Tickler extends AbstractModel<Integer> {
     @Column(name = "category_id")
     private Integer categoryId;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     private TicklerCategory ticklerCategory;
@@ -115,6 +115,8 @@ public class Tickler extends AbstractModel<Integer> {
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private Set<TicklerUpdate> updates = new HashSet<TicklerUpdate>();
 
     @OneToMany(fetch = FetchType.EAGER)
@@ -140,7 +142,7 @@ public class Tickler extends AbstractModel<Integer> {
     @NotFound(action = NotFoundAction.IGNORE)
     private Provider assignee;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "program_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     private Program program;
