@@ -1,5 +1,5 @@
 <!--
-Copyright (c) 2023. Magenta Health Inc. All Rights Reserved.
+Copyright (c) 2026. Magenta Health Inc. All Rights Reserved.
 
 This software is published under the GPL GNU General Public License.
 
