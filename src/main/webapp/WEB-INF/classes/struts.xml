@@ -1530,6 +1530,8 @@
         <action name="tickler/AddTickler" class="ca.openosp.openo.tickler.pageUtil.AddTickler2Action">
             <result name="close">/close.html</result>
         </action>
+        <action name="tickler/ListTicklers" class="ca.openosp.openo.tickler.pageUtil.TicklerList2Action">
+        </action>
         <action name="eform/uploadHtml" class="ca.openosp.openo.eform.upload.HtmlUpload2Action">
             <result name="success">/eform/partials/upload.jsp</result>
             <result name="fail">/eform/partials/upload.jsp</result>

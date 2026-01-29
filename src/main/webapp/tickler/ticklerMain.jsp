@@ -28,29 +28,15 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ViewDao" %>
+<%@ page import="ca.openosp.openo.commn.model.Provider" %>
 <%@ page import="ca.openosp.openo.commn.model.View" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerLink" %>
-<%@ page import="ca.openosp.openo.commn.dao.TicklerLinkDao" %>
+<%@ page import="ca.openosp.openo.commn.model.Site" %>
+<%@ page import="ca.openosp.openo.commn.dao.ViewDao" %>
+<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
 <%@ page import="ca.openosp.MyDateFormat" %>
 <%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.commn.model.Site" %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Tickler" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerComment" %>
-<%@ page import="ca.openosp.openo.commn.model.CustomFilter" %>
-<%@ page import="ca.openosp.openo.managers.TicklerManager" %>
-<%@ page import="java.text.DateFormat" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.time.ZoneId" %>
-<%@ page import="java.time.LocalDateTime" %>
-<%@ page import="java.time.Duration" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -70,8 +56,6 @@
     }
 %>
 <%!
-    TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-    TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
     ViewDao viewDao = SpringUtils.getBean(ViewDao.class);
 %>
 
@@ -243,6 +227,7 @@
                 //     }
                 // });
                 let groupColumn = 11;
+                let warningColumn = 12;
                 ticklerResultsTable = jQuery("#ticklerResults").dataTable({
                     // cache the datatable state to persist through page refreshes
                     bStateSave: true,
@@ -251,6 +236,20 @@
                     },
                     fnStateLoad: function () {
                         return JSON.parse(localStorage.getItem('ticklerDataTable'));
+                    },
+                    "serverSide": true,
+                    "ajax": {
+                        "url": ctx + "/tickler/ListTicklers.do",
+                        "type": "GET",
+                        "data": function(d) {
+                            d.ticklerview = jQuery("#ticklerview").val() || '<%=ticklerview%>';
+                            d.providerview = jQuery("#providerview").val() || '<%=providerview%>';
+                            d.assignedTo = jQuery("#assignedTo").val() || '<%=assignedTo%>';
+                            d.mrpview = jQuery("#mrpview").val() || '<%=mrpview%>';
+                            d.xml_vdate = jQuery("#xml_vdate").val() || '<%=xml_vdate%>';
+                            d.xml_appointment_date = jQuery("#xml_appointment_date").val() || '<%=xml_appointment_date%>';
+                            d.demographic_no = '<%=demographic_no%>';
+                        }
                     },
                     "searching": false,
                     "aLengthMenu": [[25, 50, 75, -1], [25, 50, 75, "All"]],
@@ -267,21 +266,27 @@
                         {orderable: false}, //status column. should not be made orderable until row group is refactored, otherwise tickler comments are not grouped properly
                         {orderable: false}, //comment column.
                         {orderable: false}, //note icon column, so shouldn't be orderable
-                        {orderable: false} //hidden group id column, so shouldn't be orderable
+                        {orderable: false}, //hidden group id column, so shouldn't be orderable
+                        {orderable: false}  //warning flag column, hidden
                     ],
                     columnDefs: [
-                        {visible: false, targets: groupColumn}
+                        {visible: false, targets: groupColumn},
+                        {visible: false, targets: warningColumn}
                     ],
+                    createdRow: function (row, data, dataIndex) {
+                        if (data[warningColumn] === 'true') {
+                            jQuery(row).addClass('error');
+                        }
+                        if (data[warningColumn] === 'comment') {
+                            jQuery(row).addClass('followup-comment-' + data[groupColumn] + ' comment-row no-sort');
+                        }
+                    },
                     drawCallback: function (settings) {
                         let api = this.api();
                         let rows = api.rows({page: 'current'}).nodes();
                         let last = null;
 
-                        api.column(groupColumn, {page: 'current'}) //TODO: this code reorders the rows on the current page, the global order based on the current sort.
-                            //      this means if a global sort is done that results in the tickler comments to NOT be on the current page
-                            //      they will not be visible.  A workaround has been implemented by adding the service date and priority
-                            //      into the tickler comment rows as well.  The datatables row group plugin might be a better approach,
-                            //      but will require refactoring of this code
+                        api.column(groupColumn, {page: 'current'})
                             .data()
                             .each(function (group, i) {
                                 if (last !== group) {
@@ -300,8 +305,7 @@
                  * Reload the search results with the Tickler status is changed.
                  */
                 jQuery("#ticklerview").change(function () {
-                    document.forms['serviceform'].Submit.value = 'Create Report';
-                    document.forms['serviceform'].submit();
+                    ticklerResultsTable.api().ajax.reload();
                 })
 
             });
@@ -734,7 +738,7 @@
                     <div class="form-group" style="padding-top:15px;">
                         <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>"
-                               onclick="document.forms['serviceform'].Submit.value='Create Report'; document.forms['serviceform'].submit();">
+                               onclick="ticklerResultsTable.api().ajax.reload();">
                         <label for="saveViewButton"> </label>
                         <input type="button" class="btn" id="saveViewButton"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgSaveView"/>" onclick="saveView();">
@@ -754,7 +758,6 @@
         </form>
 
         <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
-            <% Locale locale = request.getLocale();%>
             <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
             <table id="ticklerResults" class="table table-striped table-compact" style="width:100%">
                 <thead>
@@ -790,212 +793,10 @@
                     </th>
                     <th></th>
                     <th></th>
+                    <th></th>
                 </tr>
                 </thead>
                 <tbody>
-                <%
-                    String dateBegin = xml_vdate;
-                    String dateEnd = xml_appointment_date;
-
-                    String vGrantdate = "1980-01-07 00:00:00.0";
-                    DateFormat datetimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", locale);
-                    DateFormat dateOnlyFormat = new SimpleDateFormat("yyyy-MM-dd", locale);
-                    DateFormat timeOnlyFormat = new SimpleDateFormat("HH:mm:ss", locale);
-
-                    if (dateEnd.compareTo("") == 0) {
-                        dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-                    }
-
-                    if (dateBegin.compareTo("") == 0) {
-                        dateBegin = "1950-01-01"; // any early start date should suffice for selecting since the beginning
-                    }
-
-                    CustomFilter filter = new CustomFilter();
-                    filter.setPriority(null);
-
-                    filter.setStatus(ticklerview);
-
-                    filter.setStartDateWeb(dateBegin);
-                    filter.setEndDateWeb(dateEnd);
-                    filter.setPriority(null);
-
-                    if (!mrpview.isEmpty() && !mrpview.equals("all")) {
-                        filter.setMrp(mrpview);
-                    }
-
-                    if (!providerview.isEmpty() && !providerview.equals("all")) {
-                        filter.setProvider(providerview);
-                    }
-
-                    if (!assignedTo.isEmpty() && !assignedTo.equals("all")) {
-                        filter.setAssignee(assignedTo);
-                    }
-
-                    filter.setSort_order("desc");
-
-                    int targetDemographic = Integer.parseInt(demographic_no);
-                    List<Tickler> ticklers = Collections.emptyList();
-                    if (targetDemographic > 0) {
-                        ticklers = ticklerManager.search_tickler_bydemo(loggedInInfo, targetDemographic, ticklerview, filter.getStartDate(), filter.getEndDate());
-                    } else {
-                        ticklers = ticklerManager.getTicklers(loggedInInfo, filter);
-                    }
-
-                    String numDaysUntilWarn = OscarProperties.getInstance().getProperty("tickler_warn_period");
-                    if (numDaysUntilWarn == null || numDaysUntilWarn.isEmpty()) {
-                        numDaysUntilWarn = "0";
-                    }
-                    for (Tickler tickler : ticklers) {
-                        Demographic demo = tickler.getDemographic();
-                        LocalDateTime serviceDate = tickler.getServiceDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-                        LocalDateTime currentDate = LocalDateTime.now();
-
-                        long daysDifference = Duration.between(serviceDate, currentDate).toDays();
-                        long ticklerWarnDays = Long.parseLong(numDaysUntilWarn);
-                        boolean ignoreWarning = (ticklerWarnDays <= 0);
-                        boolean warning = false;
-
-                        //Set the colour of the table cell
-                        String warnColour = "";
-                        if (!ignoreWarning && (daysDifference >= ticklerWarnDays)) {
-                            warnColour = "Red";
-                            warning = true;
-                        }
-
-                        String cellColour = warnColour;
-                %>
-
-                <tr <%=warning ? "class='error'" : ""%> >
-                    <td class="<%=cellColour%>"><input type="checkbox" name="checkbox" value="<%=tickler.getId()%>"
-                                                       class="noprint"></td>
-                    <td class="<%=cellColour%>">
-                        <a href="javascript:void(0)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.editTickler"/>"
-                           onClick="window.open('<%= request.getContextPath() %>/tickler/ticklerEdit.jsp?tickler_no=<%=tickler.getId()%>', 'edit_tickler', 'width=800, height=650')">
-                            <span class="glyphicon glyphicon-pencil"></span>
-                        </a>
-                    </td>
-                    <td class="<%=cellColour%>"><a href="javascript:void(0)"
-                                                   onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demo.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')">
-                        <%=Encode.forHtmlContent(demo.getLastName())%>,<%=Encode.forHtmlContent(demo.getFirstName())%>
-                    </a></td>
-                    <td class="<%=cellColour%>"><%=tickler.getProvider() == null ? "N/A" : Encode.forHtmlContent(tickler.getProvider().getFormattedName())%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=dateOnlyFormat.format(tickler.getServiceDate())%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=datetimeFormat.format(tickler.getCreateDate())%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=tickler.getPriority()%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=tickler.getAssignee() != null ? tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName() : "N/A"%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=tickler.getStatusDesc(locale)%>
-                    </td>
-                    <td class="<%=cellColour%>"><span
-                            style="white-space:pre-wrap"><%=Encode.forHtmlContent(tickler.getMessage())%></span>
-
-                        <%
-                            List<TicklerLink> linkList = ticklerLinkDao.getLinkByTickler(tickler.getId().intValue());
-                            if (linkList != null) {
-                                for (TicklerLink tl : linkList) {
-                                    String type = tl.getTableName();
-                        %>
-
-                        <%
-                            if (LabResultData.isMDS(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('SegmentDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isCML(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isHL7TEXT(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isDocument(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument.do?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isHRM(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display.do?id=<%=tl.getTableId()%>&segmentID=<%=tl.getTableId()%>')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                            }
-                        %>
-                        <%
-                                }
-                            }
-                        %>
-
-                    </td>
-                    <td class="<%=cellColour%> noprint">
-                        <a href="javascript:void(0)" class="noteDialogLink"
-                           onClick="openNoteDialog('<%=demo.getDemographicNo() %>','<%=tickler.getId() %>')"
-                           title="Add Encounter Note">
-                            <span class="glyphicon glyphicon-comment"></span>
-                        </a>
-                    </td>
-                    <td><%=tickler.getId()%>
-                    </td>
-                </tr>
-                <% Set<TicklerComment> tcomments = tickler.getComments();
-                    for (TicklerComment tc : tcomments) {
-                        // Ugly and wrong. I know. No time to rewrite the bad part.
-                        Provider commentProvider = tc.getProvider();
-                        String formattedName = "";
-                        if (commentProvider != null) {
-                            formattedName = commentProvider.getFormattedName();
-                        }
-                %>
-
-
-                <tr class="followup-comment-<%=tickler.getId()%> comment-row no-sort">
-                    <td></td>
-                    <td></td>
-                    <td><%=Encode.forHtmlContent(demo.getLastName())%>,<%=Encode.forHtmlContent(demo.getFirstName())%>
-                    </td>
-                    <td class="no-sort"><%=Encode.forHtmlContent(formattedName)%>
-                    </td>
-                    <td><%=dateOnlyFormat.format(tickler.getServiceDate())%>
-                    </td>
-
-                    <td class="no-sort">
-                        <% if (tc.isUpdateDateToday()) { %>
-                        <%=timeOnlyFormat.format(tc.getUpdateDate())%>
-                        <% } else { %>
-                        <%=datetimeFormat.format(tc.getUpdateDate())%>
-                        <% } %>
-                    </td>
-
-                    <td><%=tickler.getPriority()%>
-                    </td>
-                    <td></td>
-                    <td></td>
-                    <td class="no-sort" style="white-space:pre-wrap"><%=Encode.forHtmlContent(tc.getMessage())%>
-                    </td>
-                    <td></td>
-                    <td><%=tickler.getId()%>
-                    </td>
-                </tr>
-                <% }
-                } %>
                 </tbody>
             </table>
 
