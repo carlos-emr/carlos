@@ -94,6 +94,7 @@ public class TicklerList2Action extends ActionSupport {
         int draw = parseIntParam("draw", 1);
         int start = parseIntParam("start", 0);
         int length = parseIntParam("length", 50);
+        boolean showAll = (length <= 0);
 
         String ticklerview = getStringParam("ticklerview", "A");
         String providerview = getStringParam("providerview", "all");
@@ -140,8 +141,7 @@ public class TicklerList2Action extends ActionSupport {
             ticklers = ticklerManager.search_tickler_bydemo(loggedInInfo, targetDemographic,
                     ticklerview, filter.getStartDate(), filter.getEndDate());
             totalRecords = ticklers.size();
-            // Manual pagination for demographic-specific search (skip if "All" requested)
-            if (length > 0) {
+            if (!showAll) {
                 int end = Math.min(start + length, ticklers.size());
                 if (start < ticklers.size()) {
                     ticklers = ticklers.subList(start, end);
@@ -151,11 +151,11 @@ public class TicklerList2Action extends ActionSupport {
             }
         } else {
             totalRecords = ticklerManager.getNumTicklers(loggedInInfo, filter);
-            if (length > 0) {
-                ticklers = ticklerManager.getTicklers(loggedInInfo, filter, start, length);
-            } else {
-                // length=-1 means "All" — fetch everything
+            if (showAll) {
+                // Use non-paginated method for "Show All" (like original JSP)
                 ticklers = ticklerManager.getTicklers(loggedInInfo, filter);
+            } else {
+                ticklers = ticklerManager.getTicklers(loggedInInfo, filter, start, length);
             }
         }
 
