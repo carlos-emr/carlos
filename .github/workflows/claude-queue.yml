@@ -82,13 +82,6 @@ jobs:
           echo "No issue to process, exiting gracefully"
           exit 0
 
-      - name: Remove claude:completed if present
-        if: steps.find.outputs.issue != ''
-        run: |
-          gh issue edit ${{ steps.find.outputs.issue }} --remove-label "claude:completed" 2>/dev/null || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Checkout repository
         if: steps.find.outputs.issue != ''
         uses: actions/checkout@v4
