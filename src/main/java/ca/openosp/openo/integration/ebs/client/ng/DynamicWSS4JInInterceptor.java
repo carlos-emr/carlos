@@ -34,7 +34,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             EncryptionDetectionResult detection = detectEncryption(message);
 
             System.out.println("Encryption detection: hasEncryption=" + detection.hasEncryption +
-                             ", hasAttachmentEncryption=" + detection.hasAttachmentEncryption);
+                             ", hasAttachmentEncryption=" + detection.hasAttachmentEncryption +
+                             ", encryptedKeyCount=" + detection.encryptedKeyCount);
 
             Map<String, Object> wssProps = clientBuilder.newWSSInInterceptorConfiguration();
 
@@ -44,17 +45,21 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                 action = WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE;
                 wssProps.put(WSHandlerConstants.ACTION, action);
                 System.out.println("No encryption detected, using actions: " + action);
-            } else if (detection.hasAttachmentEncryption) {
-                // Both SOAP body and attachment encryption → encryption action twice
-                action = WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE + " "
-                                + WSHandlerConstants.ENCRYPTION + " " + WSHandlerConstants.ENCRYPTION;
-                wssProps.put(WSHandlerConstants.ACTION, action);
-                System.out.println("Both body and attachment encryption detected, using actions: " + action);
             } else {
-                // Only one encryption block
-                action = WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE + " " + WSHandlerConstants.ENCRYPTION;
+                // Build action string with correct number of Encryption actions based on EncryptedKey count
+                StringBuilder actionBuilder = new StringBuilder();
+                actionBuilder.append(WSHandlerConstants.TIMESTAMP).append(" ")
+                            .append(WSHandlerConstants.SIGNATURE);
+
+                // Add one Encryption action for each EncryptedKey element
+                int encryptionCount = detection.encryptedKeyCount > 0 ? detection.encryptedKeyCount : 1;
+                for (int i = 0; i < encryptionCount; i++) {
+                    actionBuilder.append(" ").append(WSHandlerConstants.ENCRYPTION);
+                }
+
+                action = actionBuilder.toString();
                 wssProps.put(WSHandlerConstants.ACTION, action);
-                System.out.println("Body encryption detected, using actions: " + action);
+                System.out.println("Encryption detected with " + encryptionCount + " EncryptedKey elements, using actions: " + action);
             }
 
             // Add WSS4J interceptor to chain with appropriate configuration
@@ -73,6 +78,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     private static class EncryptionDetectionResult {
         boolean hasEncryption;
         boolean hasAttachmentEncryption;
+        int encryptedKeyCount;
     }
 
     /**
@@ -110,18 +116,34 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                 result.hasAttachmentEncryption = true;
             }
 
+            // Count EncryptedKey elements to determine how many Encryption actions are needed
+            result.encryptedKeyCount = countOccurrences(xml, "<xenc:EncryptedKey");
+
             // Extract and log KeyId information for debugging certificate mismatch issues
             if (result.hasEncryption) {
                 extractAndLogKeyIdInfo(xml);
             }
 
-            logger.debug("Encryption detection result: hasEncryption={}, hasAttachmentEncryption={}",
-                    result.hasEncryption, result.hasAttachmentEncryption);
+            logger.debug("Encryption detection result: hasEncryption={}, hasAttachmentEncryption={}, encryptedKeyCount={}",
+                    result.hasEncryption, result.hasAttachmentEncryption, result.encryptedKeyCount);
 
         } catch (Exception e) {
             logger.error("Error reading message content for encryption detection", e);
         }
         return result;
+    }
+
+    /**
+     * Counts the number of occurrences of a substring in a string.
+     */
+    private int countOccurrences(String text, String substring) {
+        int count = 0;
+        int index = 0;
+        while ((index = text.indexOf(substring, index)) != -1) {
+            count++;
+            index += substring.length();
+        }
+        return count;
     }
 
     /**
