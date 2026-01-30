@@ -41,7 +41,11 @@ import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import com.Ostermiller.util.CSVParser;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import java.io.StringReader;
+import java.util.List;
 
 /**
  * Created on December 21, 2006, 10:47 AM
@@ -82,7 +86,18 @@ public class GenerateOutFiles2Action extends ActionSupport {
             MiscUtils.getLogger().debug("Generating Spread Sheet file for the 'report by template' module ..");
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
-            String[][] data = CSVParser.parse(csv);
+
+            // Parse CSV using Apache Commons CSV
+            List<CSVRecord> records = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT).getRecords();
+            String[][] data = new String[records.size()][];
+            for (int i = 0; i < records.size(); i++) {
+                CSVRecord record = records.get(i);
+                data[i] = new String[record.size()];
+                for (int j = 0; j < record.size(); j++) {
+                    data[i][j] = record.get(j);
+                }
+            }
+
             HSSFWorkbook wb = new HSSFWorkbook();
             HSSFSheet sheet = wb.createSheet("OSCAR_Report");
             for (int x = 0; x < data.length; x++) {
