@@ -122,7 +122,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
             Vector vecFieldValue = (new RptReportCreator()).query(reportSql, vecFieldCaption);
 
             StringWriter swr = new StringWriter();
-            CSVFormat format = CSVFormat.DEFAULT.withDelimiter('\t');
+            CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                .setDelimiter('\t')
+                .build();
             CSVPrinter csvp = new CSVPrinter(swr, format);
 
             for (int i = 0; i < vecFieldCaption.size(); i++) {
@@ -597,7 +599,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
         }
 
         StringWriter swr = new StringWriter();
-        CSVFormat format = CSVFormat.DEFAULT.withDelimiter('\t');
+        CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
+            .setDelimiter('\t')
+            .build();
         CSVPrinter csvp = new CSVPrinter(swr, format);
 
         csvp.print("id");

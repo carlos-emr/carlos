@@ -60,13 +60,16 @@
         response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
 
         // Parse CSV using Apache Commons CSV
-        List<CSVRecord> records = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT).getRecords();
-        String[][] data = new String[records.size()][];
-        for (int i = 0; i < records.size(); i++) {
-            CSVRecord record = records.get(i);
-            data[i] = new String[record.size()];
-            for (int j = 0; j < record.size(); j++) {
-                data[i][j] = record.get(j);
+        String[][] data;
+        try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
+            List<CSVRecord> records = parser.getRecords();
+            data = new String[records.size()][];
+            for (int i = 0; i < records.size(); i++) {
+                CSVRecord record = records.get(i);
+                data[i] = new String[record.size()];
+                for (int j = 0; j < record.size(); j++) {
+                    data[i][j] = record.get(j);
+                }
             }
         }
 

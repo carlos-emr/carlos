@@ -136,8 +136,12 @@ public class EcaresForm2Action extends ActionSupport {
     public void export() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
         Integer demographicNo = demographicNumberToInteger(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
+
         Integer formId = Integer.parseInt(request.getParameter(Constants.Cares.FormField.formId.name()));
         ObjectNode formData = formeCARESManager.getData(loggedInInfo, demographicNo, formId);
         CSVPrinter printer = null;

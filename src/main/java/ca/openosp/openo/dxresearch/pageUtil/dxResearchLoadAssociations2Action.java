@@ -54,7 +54,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
-import java.util.List;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -185,14 +184,18 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         // Re-validate at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateUpload(file);
 
-        // Parse CSV using Apache Commons CSV
-        List<CSVRecord> records = CSVParser.parse(new FileReader(validatedFile), CSVFormat.EXCEL).getRecords();
-        String[][] data = new String[records.size()][];
-        for (int i = 0; i < records.size(); i++) {
-            CSVRecord record = records.get(i);
-            data[i] = new String[record.size()];
-            for (int j = 0; j < record.size(); j++) {
-                data[i][j] = record.get(j);
+        // Parse CSV using Apache Commons CSV with proper resource management
+        String[][] data;
+        try (FileReader reader = new FileReader(validatedFile);
+             CSVParser parser = new CSVParser(reader, CSVFormat.EXCEL)) {
+            List<CSVRecord> records = parser.getRecords();
+            data = new String[records.size()][];
+            for (int i = 0; i < records.size(); i++) {
+                CSVRecord record = records.get(i);
+                data[i] = new String[record.size()];
+                for (int j = 0; j < record.size(); j++) {
+                    data[i][j] = record.get(j);
+                }
             }
         }
 
