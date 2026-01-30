@@ -1,0 +1,141 @@
+name: Claude Queue
+
+on:
+  issues:
+    types: [labeled]
+  workflow_run:
+    workflows: ["Claude Queue"]
+    types: [completed]
+
+# Limit to one workflow run at a time (5 workers per run)
+concurrency:
+  group: claude-queue
+  cancel-in-progress: false
+
+jobs:
+  process-queue:
+    # Run if: label trigger by trusted user, OR workflow_run chain trigger
+    if: |
+      (github.event_name == 'issues' &&
+       github.event.action == 'labeled' &&
+       github.event.label.name == 'claude:complete' &&
+       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.sender.author_association)) ||
+      (github.event_name == 'workflow_run')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    strategy:
+      matrix:
+        worker: [1, 2, 3, 4, 5]
+      fail-fast: false
+      max-parallel: 5
+    steps:
+      - name: Find and claim next issue
+        id: find
+        run: |
+          # Small random delay to reduce race conditions between workers
+          sleep $((RANDOM % 5 + 1))
+
+          # Find oldest unclaimed issue
+          ISSUE=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --label "claude:complete" \
+            --state open \
+            --json number,createdAt \
+            --jq 'sort_by(.createdAt) | .[0].number // empty')
+
+          if [ -z "$ISSUE" ]; then
+            echo "No issues in queue - worker ${{ matrix.worker }} exiting"
+            echo "issue=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Worker ${{ matrix.worker }} attempting to claim issue #$ISSUE"
+
+          # Try to claim it (remove from queue, add processing)
+          gh issue edit $ISSUE \
+            --remove-label "claude:complete" \
+            --add-label "claude:processing" 2>/dev/null || true
+
+          # Verify we actually claimed it (check labels)
+          sleep 1
+          LABELS=$(gh issue view $ISSUE --repo ${{ github.repository }} --json labels --jq '.labels[].name' 2>/dev/null || echo "")
+
+          if echo "$LABELS" | grep -q "claude:processing" && ! echo "$LABELS" | grep -q "claude:complete"; then
+            echo "Worker ${{ matrix.worker }} successfully claimed issue #$ISSUE"
+            echo "issue=$ISSUE" >> $GITHUB_OUTPUT
+          else
+            echo "Worker ${{ matrix.worker }} failed to claim #$ISSUE - another worker got it"
+            echo "issue=" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Exit if no issue claimed
+        if: steps.find.outputs.issue == ''
+        run: |
+          echo "No issue to process, exiting gracefully"
+          exit 0
+
+      - name: Remove claude:completed if present
+        if: steps.find.outputs.issue != ''
+        run: |
+          gh issue edit ${{ steps.find.outputs.issue }} --remove-label "claude:completed" 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout repository
+        if: steps.find.outputs.issue != ''
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        if: steps.find.outputs.issue != ''
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ steps.find.outputs.issue }}
+          prompt: |
+            Analyze issue #${{ steps.find.outputs.issue }} and make the needed changes, fixes, and updates to complete it.
+            Then make a PR using the github gh cli to the openo-beta/Open-O develop branch,
+            unless you were told to create a PR to a different branch specifically in the issue ticket.
+          additional_permissions: |
+            actions: read
+          claude_args: '--allowedTools "Bash(gh pr create:*)" "Bash(gh pr view:*)" "Bash(gh pr list:*)" "Bash(gh pr diff:*)" "Bash(gh pr checks:*)" "Bash(gh pr comment:*)" "Bash(gh issue view:*)" "Bash(gh issue list:*)" "Bash(gh issue comment:*)" "Bash(gh issue create:*)" "Bash(gh run view:*)" "Bash(gh run list:*)" "Bash(gh run watch:*)" "Bash(gh repo view:*)" "Bash(git status:*)" "Bash(git branch:*)" "Bash(git checkout:*)" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git push:*)" "Bash(git pull:*)" "Bash(git fetch:*)" "Bash(git log:*)" "Bash(git diff:*)" "Bash(git show:*)"'
+
+      - name: Mark completed on success
+        if: steps.find.outputs.issue != '' && success()
+        run: |
+          gh issue edit ${{ steps.find.outputs.issue }} \
+            --remove-label "claude:processing" \
+            --add-label "claude:completed"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Mark failed on error
+        if: steps.find.outputs.issue != '' && failure()
+        run: |
+          gh issue edit ${{ steps.find.outputs.issue }} \
+            --remove-label "claude:processing" \
+            --add-label "claude:failed"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Cleanup if job is cancelled or times out
+      - name: Cleanup on cancel/timeout
+        if: steps.find.outputs.issue != '' && cancelled()
+        run: |
+          echo "Job cancelled/timed out - returning issue #${{ steps.find.outputs.issue }} to queue"
+          gh issue edit ${{ steps.find.outputs.issue }} \
+            --remove-label "claude:processing" \
+            --add-label "claude:complete"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
