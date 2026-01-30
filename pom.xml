@@ -213,7 +213,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
-            <version>1.13.1</version>
+            <version>1.15.0</version>
         </dependency>
 
         <!--Log4j-2 libraries-->
@@ -248,7 +248,7 @@
         <dependency>
             <groupId>commons-validator</groupId>
             <artifactId>commons-validator</artifactId>
-            <version>1.9.0</version>
+            <version>1.10.1</version>
             <exclusions>
                 <!-- Excluded this low version to avoid triggering security issue -->
                 <exclusion>
@@ -276,7 +276,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-digester3</artifactId>
-            <version>3.2</version>
+            <version>3.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-beanutils</groupId>
@@ -293,7 +293,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.26.0</version>
+            <version>1.28.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -306,7 +306,7 @@
         <dependency>
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
-            <version>3.11.1</version>
+            <version>3.12.0</version>
         </dependency>
         
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
@@ -492,7 +492,7 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>6.3.9</version>
+            <version>6.4.4</version>
         </dependency>
 
         <!-- Spring Cache Support with EhCache 2.x -->
@@ -554,7 +554,7 @@
         <dependency>
             <groupId>com.twelvemonkeys.common</groupId>
             <artifactId>common-lang</artifactId>
-            <version>3.12.0</version>
+            <version>3.13.0</version>
         </dependency>
 
         <!-- Glassfish JSTL 1.2.5 implementation (javax namespace for Servlet 4.0 compatibility) -->
@@ -805,12 +805,12 @@
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>core</artifactId>
-            <version>3.5.3</version>
+            <version>3.5.4</version>
         </dependency>
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>javase</artifactId>
-            <version>3.5.3</version>
+            <version>3.5.4</version>
         </dependency>
 
         <!-- chip / ping libararies -->
@@ -1164,12 +1164,12 @@
         <dependency>
             <groupId>org.owasp.encoder</groupId>
             <artifactId>encoder-jsp</artifactId>
-            <version>1.2.3</version>
+            <version>1.4.0</version>
         </dependency>
         <dependency>
             <groupId>org.owasp.encoder</groupId>
             <artifactId>encoder</artifactId>
-            <version>1.2.1</version>
+            <version>1.4.0</version>
         </dependency>
 
         <dependency>
@@ -1202,7 +1202,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-exec</artifactId>
-            <version>1.4.0</version>
+            <version>1.5.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.codehaus.jettison/jettison -->
@@ -1215,7 +1215,7 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>24.1.0</version>
+            <version>26.0.2-1</version>
             <scope>compile</scope>
         </dependency>
         
@@ -1265,7 +1265,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.8.0</version>
+            <version>5.21.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -1275,7 +1275,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.24.2</version>
+            <version>3.27.6</version>
             <scope>test</scope>
         </dependency>
 
@@ -1314,7 +1314,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.4.8-jre</version>
+            <version>33.5.0-jre</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.xhtmlrenderer/flying-saucer-pdf -->
@@ -1444,7 +1444,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
+                <version>0.8.15</version>
                 <executions>
                     <execution>
                         <goals>
@@ -1640,30 +1640,30 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.27.0</version>
+                <version>3.28.0</version>
                 <configuration>
                     <!-- Target JDK version -->
                     <targetJdk>21</targetJdk>
-                    
+
                     <!-- Custom ruleset -->
                     <rulesets>
                         <ruleset>utils/pmd_rules.xml</ruleset>
                     </rulesets>
-                    
+
                     <!-- Analysis configuration -->
                     <includeTests>false</includeTests>
                     <minimumTokens>100</minimumTokens>
                     <printFailingErrors>true</printFailingErrors>
                     <linkXRef>false</linkXRef>
-                    
+
                     <!-- Performance settings -->
                     <analysisCache>true</analysisCache>
                     <analysisCacheLocation>${project.build.directory}/pmd/pmd.cache</analysisCacheLocation>
-                    
+
                     <!-- Output formats -->
                     <format>html</format>
                     <outputDirectory>${project.build.directory}/pmd</outputDirectory>
-                    
+
                     <!-- Exclude generated code and known legacy files -->
                     <excludeRoots>
                         <excludeRoot>target/generated-sources</excludeRoot>
@@ -1677,12 +1677,12 @@
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-core</artifactId>
-                        <version>7.10.0</version>
+                        <version>7.20.0</version>
                     </dependency>
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-java</artifactId>
-                        <version>7.10.0</version>
+                        <version>7.20.0</version>
                     </dependency>
                 </dependencies>
             </plugin>
@@ -1690,7 +1690,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.5.4</version>
                 <executions>
                     <!-- Override default test execution -->
                     <execution>
@@ -1889,7 +1889,7 @@
                 <dependency>
                     <groupId>org.mockito</groupId>
                     <artifactId>mockito-junit-jupiter</artifactId>
-                    <version>5.8.0</version>
+                    <version>5.21.0</version>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
