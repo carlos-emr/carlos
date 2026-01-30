@@ -25,7 +25,8 @@
 
 package ca.openosp.openo.form.eCARES;
 
-import com.Ostermiller.util.ExcelCSVPrinter;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import com.opensymphony.xwork2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -139,17 +140,17 @@ public class EcaresForm2Action extends ActionSupport {
         Integer demographicNo = demographicNumberToInteger(request);
         Integer formId = Integer.parseInt(request.getParameter(Constants.Cares.FormField.formId.name()));
         ObjectNode formData = formeCARESManager.getData(loggedInInfo, demographicNo, formId);
-        ExcelCSVPrinter printer = null;
+        CSVPrinter printer = null;
 
         try {
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"ecga_form_data.csv\"");
-            printer = new ExcelCSVPrinter(response.getWriter());
-            printer.writeln(new String[]{"Element", "Value"});
+            printer = new CSVPrinter(response.getWriter(), CSVFormat.EXCEL);
+            printer.printRecord("Element", "Value");
             Iterator<String> fieldNames = formData.fieldNames();
             while (fieldNames.hasNext()) {
                 String key = fieldNames.next();
-                printer.writeln(new String[]{key, formData.get(key).asText()});
+                printer.printRecord(key, formData.get(key).asText());
             }
         } catch (Exception e) {
             MiscUtils.getLogger().warn("Export failed for ecga form id " + formId, e);

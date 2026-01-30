@@ -50,8 +50,11 @@ import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import com.Ostermiller.util.ExcelCSVParser;
-import com.Ostermiller.util.ExcelCSVPrinter;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
+import java.util.List;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -151,11 +154,11 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         response.setContentType("application/octet-stream");
         response.setHeader("Content-Disposition", "attachment; filename=\"dx_associations.csv\"");
 
-        ExcelCSVPrinter printer = new ExcelCSVPrinter(response.getWriter());
+        CSVPrinter printer = new CSVPrinter(response.getWriter(), CSVFormat.EXCEL);
 
-        printer.writeln(new String[]{"Issue List Code Type", "Issue List Code", "Disease Registry Code Type", "Disease Registry Code"});
+        printer.printRecord("Issue List Code Type", "Issue List Code", "Disease Registry Code Type", "Disease Registry Code");
         for (DxAssociation dxa : associations) {
-            printer.writeln(new String[]{dxa.getCodeType(), dxa.getCode(), dxa.getDxCodeType(), dxa.getDxCode()});
+            printer.printRecord(dxa.getCodeType(), dxa.getCode(), dxa.getDxCodeType(), dxa.getDxCode());
         }
 
         printer.flush();
@@ -181,7 +184,17 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         // Re-validate at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateUpload(file);
-        String[][] data = ExcelCSVParser.parse(new FileReader(validatedFile));
+
+        // Parse CSV using Apache Commons CSV
+        List<CSVRecord> records = CSVParser.parse(new FileReader(validatedFile), CSVFormat.EXCEL).getRecords();
+        String[][] data = new String[records.size()][];
+        for (int i = 0; i < records.size(); i++) {
+            CSVRecord record = records.get(i);
+            data[i] = new String[record.size()];
+            for (int j = 0; j < record.size(); j++) {
+                data[i][j] = record.get(j);
+            }
+        }
 
         int rowsInserted = 0;
 

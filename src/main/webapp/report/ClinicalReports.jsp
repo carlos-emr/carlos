@@ -43,7 +43,7 @@
 
 <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@page import="ca.openosp.openo.report.data.DemographicSets, ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*,ca.openosp.openo.report.ClinicalReports.*,ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.encounter.oscarMeasurements.bean.*" %>
-<%@page import="com.Ostermiller.util.CSVPrinter,java.io.*" %>
+<%@page import="org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVPrinter,java.io.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="ca.openosp.openo.demographic.data.DemographicNameAgeString" %>
 <%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
@@ -642,7 +642,7 @@
                         DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                         DemographicData demoData = new DemographicData();
                         StringWriter swr = new StringWriter();
-                        CSVPrinter csvp = new CSVPrinter(swr);
+                        CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
                 %>
 
                 <table class="sortable tabular_list results" id="results_table">
@@ -650,7 +650,7 @@
                     <tr>
                         <%
                             for (String heading : headings) {
-                                csvp.write(head(heading));
+                                csvp.print(head(heading));
                         %>
                         <th><%=head(heading)%>
                         </th>
@@ -658,7 +658,7 @@
 
                         <%
                             for (int i = 0; i < outputfields.length; i++) {
-                                csvp.write(replaceHeading(outputfields[i], forView, measurementTitles));
+                                csvp.print(replaceHeading(outputfields[i], forView, measurementTitles));
                         %>
                         <th><%=replaceHeading(outputfields[i], forView, measurementTitles)%>
                         </th>
@@ -666,7 +666,7 @@
                     </tr>
                     </thead>
                     <%
-                        csvp.writeln();
+                        csvp.println();
                         ArrayList<Hashtable> list = (ArrayList) request.getAttribute("list");
                         for (Hashtable h : list) {
 
@@ -681,21 +681,21 @@
                     <tr <%=colour%> >
 
                          <%for(String heading:headings){
-                             csvp.write(Encode.forHtmlContent(commonRow(heading,demoHash, demoObj)));
+                             csvp.print(Encode.forHtmlContent(commonRow(heading,demoHash, demoObj)));
                         %>
                            <td><%=Encode.forHtmlContent(commonRow(heading,demoHash, demoObj))%></td>
                         <%}%>
 
                         <%
                             for (String outputfield : outputfields) {
-                                csvp.write("" + display(h.get(outputfield)));
+                                csvp.print("" + display(h.get(outputfield)));
                         %>
                         <td><%=display(h.get(outputfield))%>
                         </td>
                         <%}%>
                     </tr>
                     <%
-                            csvp.writeln();
+                            csvp.println();
                         }%>
                 </table>
                 <%

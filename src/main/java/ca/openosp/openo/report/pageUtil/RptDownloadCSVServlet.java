@@ -44,7 +44,8 @@ import ca.openosp.openo.report.data.RptReportConfigData;
 import ca.openosp.openo.report.data.RptReportCreator;
 import ca.openosp.openo.report.data.RptReportItem;
 
-import com.Ostermiller.util.CSVPrinter;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 
 public class RptDownloadCSVServlet extends HttpServlet {
 
@@ -121,18 +122,18 @@ public class RptDownloadCSVServlet extends HttpServlet {
             Vector vecFieldValue = (new RptReportCreator()).query(reportSql, vecFieldCaption);
 
             StringWriter swr = new StringWriter();
-            CSVPrinter csvp = new CSVPrinter(swr);
-            csvp.changeDelimiter('\t');
+            CSVFormat format = CSVFormat.DEFAULT.withDelimiter('\t');
+            CSVPrinter csvp = new CSVPrinter(swr, format);
 
             for (int i = 0; i < vecFieldCaption.size(); i++) {
-                csvp.write((String) vecFieldCaption.get(i));
+                csvp.print((String) vecFieldCaption.get(i));
             }
 
             for (int i = 0; i < vecFieldValue.size(); i++) {
                 Properties prop = (Properties) vecFieldValue.get(i);
-                csvp.writeln();
+                csvp.println();
                 for (int j = 0; j < vecFieldCaption.size(); j++) {
-                    csvp.write(prop.getProperty((String) vecFieldCaption.get(j), ""));
+                    csvp.print(prop.getProperty((String) vecFieldCaption.get(j), ""));
                 }
             }
             in = swr.toString();
@@ -596,31 +597,31 @@ public class RptDownloadCSVServlet extends HttpServlet {
         }
 
         StringWriter swr = new StringWriter();
-        CSVPrinter csvp = new CSVPrinter(swr);
-        csvp.changeDelimiter('\t');
+        CSVFormat format = CSVFormat.DEFAULT.withDelimiter('\t');
+        CSVPrinter csvp = new CSVPrinter(swr, format);
 
-        csvp.write("id");
+        csvp.print("id");
         for (int i = 0; i < vecFieldCaption.size(); i++) {
-            csvp.write((String) vecFieldCaption.get(i));
+            csvp.print((String) vecFieldCaption.get(i));
         }
         if (bSpecSelect) {
             for (int i = 0; i < vecSpecCaption.size(); i++) {
-                csvp.write((String) vecSpecCaption.get(i));
+                csvp.print((String) vecSpecCaption.get(i));
             }
         }
 
         for (int i = 0; i < vecFieldValue.size(); i++) {
             Properties prop = (Properties) vecFieldValue.get(i);
-            csvp.writeln();
-            csvp.write("" + (i + 1));
+            csvp.println();
+            csvp.print("" + (i + 1));
 
             for (int j = 0; j < vecFieldName.size(); j++) {
-                csvp.write(prop.getProperty((String) vecFieldName.get(j), ""));
+                csvp.print(prop.getProperty((String) vecFieldName.get(j), ""));
             }
             if (bSpecSelect) {
                 String demoNo = prop.getProperty("demographic_no");
                 for (int j = 0; j < vecSpecCaption.size(); j++) {
-                    csvp.write(propSpecValue.getProperty(demoNo + ((String) vecSpecCaption.get(j)).replaceAll(" ", "_"), ""));
+                    csvp.print(propSpecValue.getProperty(demoNo + ((String) vecSpecCaption.get(j)).replaceAll(" ", "_"), ""));
                 }
             }
         }

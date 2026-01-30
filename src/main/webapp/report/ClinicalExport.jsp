@@ -40,7 +40,7 @@
 %>
 
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="org.apache.poi.hssf.usermodel.HSSFRow,org.apache.poi.hssf.usermodel.HSSFSheet,org.apache.poi.hssf.usermodel.HSSFWorkbook,com.Ostermiller.util.CSVParser" %>
+<%@page import="org.apache.poi.hssf.usermodel.HSSFRow,org.apache.poi.hssf.usermodel.HSSFSheet,org.apache.poi.hssf.usermodel.HSSFWorkbook,org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVParser,org.apache.commons.csv.CSVRecord,java.io.StringReader,java.util.List" %>
 <%
 
     String csv = (String) session.getAttribute("clinicalReportCSV");
@@ -58,7 +58,18 @@
     if (action != null) {
         response.setContentType("application/octet-stream");
         response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
-        String[][] data = CSVParser.parse(csv);
+
+        // Parse CSV using Apache Commons CSV
+        List<CSVRecord> records = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT).getRecords();
+        String[][] data = new String[records.size()][];
+        for (int i = 0; i < records.size(); i++) {
+            CSVRecord record = records.get(i);
+            data[i] = new String[record.size()];
+            for (int j = 0; j < record.size(); j++) {
+                data[i][j] = record.get(j);
+            }
+        }
+
         HSSFWorkbook wb = new HSSFWorkbook();
         HSSFSheet sheet = wb.createSheet("OSCAR_Report");
         for (int x = 0; x < data.length; x++) {
