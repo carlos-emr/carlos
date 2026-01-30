@@ -686,7 +686,7 @@
                     <tr <%=colour%> >
 
                          <%for(String heading:headings){
-                             csvp.print(Encode.forHtmlContent(commonRow(heading,demoHash, demoObj)));
+                             csvp.print(commonRow(heading,demoHash, demoObj));
                         %>
                            <td><%=Encode.forHtmlContent(commonRow(heading,demoHash, demoObj))%></td>
                         <%}%>

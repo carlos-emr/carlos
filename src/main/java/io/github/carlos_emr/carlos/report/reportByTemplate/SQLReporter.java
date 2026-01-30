@@ -86,6 +86,7 @@ public class SQLReporter implements Reporter {
                 for (String[] row : data) {
                     csvp.printRecord((Object[]) row);
                 }
+                csvp.flush();
                 csv = swr.toString();
             }
         } catch (SQLException sqe) {
@@ -132,6 +133,7 @@ public class SQLReporter implements Reporter {
                     for (String[] row : data) {
                         csvp.printRecord((Object[]) row);
                     }
+                    csvp.flush();
                     csv = swr.toString();
                 }
             } catch (SQLException sqe) {
