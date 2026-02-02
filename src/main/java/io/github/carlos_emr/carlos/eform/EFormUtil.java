@@ -36,6 +36,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
@@ -1371,7 +1372,10 @@ public class EFormUtil {
         if (eForm == null || StringUtils.isBlank(template)) return template;
 
         String[] efields = {"name", "subject", "patient", "providers", "link"};
-        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data.jsp?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
+        String encodedPath = Encode.forHtmlAttribute(path);
+        String encodedFdid = Encode.forUriComponent(fdid);
+        String encodedFormName = Encode.forHtml(eForm.getFormName());
+        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + encodedPath + "/eform/efmshowform_data.jsp?fdid=" + encodedFdid + "' target='_blank'>" + encodedFormName + "</a>"};
 
         String tag = "$te{";
         String nwTemplate = "";

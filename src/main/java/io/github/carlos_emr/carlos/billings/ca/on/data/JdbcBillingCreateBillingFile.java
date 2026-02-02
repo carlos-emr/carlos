@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.Properties;
 
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
@@ -251,12 +252,14 @@ public class JdbcBillingCreateBillingFile {
             Demographic demo = demographicManager.getDemographic(loggedInInfo, ch1Obj.getDemographic_no());
             ret += "\n<tr " + (summaryView ? "style='display:none;' class='record" + providerNo + "'" : "") + ">";
             if (simulation) {
-                ret += "<td class='" + styleClass + "'>" + ch1Obj.getProvider_ohip_no() + "</td>"
-                        + "<td class='" + styleClass + "'><a href='javascript:void(0);'  onclick=\"popupPage(1000,800,'../billing/CA/ON/billingONCorrection.jsp?billing_no=" + ch1Obj.getId() + "');return false;\">" + ch1Obj.getId() + "</a></td>"
-                        + "<td class='" + styleClass + "'><a href='javascript:void(0);' onclick=\"popupPage(720,740,'../demographic/demographiccontrol.jsp?demographic_no=" + ch1Obj.getDemographic_no() + "&displaymode=edit&dboperation=search_detail');return false;\">" + ch1Obj.getDemographic_name() + "</a></td>";
+                String escapedId = Encode.forJavaScript(ch1Obj.getId());
+                String escapedDemoNo = Encode.forJavaScript(ch1Obj.getDemographic_no());
+                ret += "<td class='" + styleClass + "'>" + Encode.forHtml(ch1Obj.getProvider_ohip_no()) + "</td>"
+                        + "<td class='" + styleClass + "'><a href='javascript:void(0);'  onclick=\"popupPage(1000,800,'../billing/CA/ON/billingONCorrection.jsp?billing_no=" + escapedId + "');return false;\">" + Encode.forHtml(ch1Obj.getId()) + "</a></td>"
+                        + "<td class='" + styleClass + "'><a href='javascript:void(0);' onclick=\"popupPage(720,740,'../demographic/demographiccontrol.jsp?demographic_no=" + escapedDemoNo + "&displaymode=edit&dboperation=search_detail');return false;\">" + Encode.forHtml(ch1Obj.getDemographic_name()) + "</a></td>";
             } else {
-                ret += "<td class='" + styleClass + "'>" + ch1Obj.getId() + "</td>"
-                        + "<td class='" + styleClass + "'>" + ch1Obj.getDemographic_name() + "</td>";
+                ret += "<td class='" + styleClass + "'>" + Encode.forHtml(ch1Obj.getId()) + "</td>"
+                        + "<td class='" + styleClass + "'>" + Encode.forHtml(ch1Obj.getDemographic_name()) + "</td>";
             }
             ret += "<td class='" + styleClass + "'>" + (demo.getRosterStatus() == null ? "" : demo.getRosterStatus()) + "</td>"
                     + "<td class='" + styleClass + "'>" + demo.getBirthDayAsString() + "</td>"
@@ -277,10 +280,12 @@ public class JdbcBillingCreateBillingFile {
     private String buildSiteHTMLContentRecord(int invCount) {
         String ret = null;
         if (invCount == 0) {
-            ret = "\n<tr><td class='myIvory'><a href=# onclick=\"popupPage(720,740,'billingONCorrection.jsp?billing_no=" + ch1Obj.getId() + "');return false;\">" + ch1Obj.getId() + "</a></td>" + "<td class='myIvory'><a href=# onclick=\"popupPage(720,740,'../../../demographic/demographiccontrol.jsp?demographic_no=" + ch1Obj.getDemographic_no() + "&displaymode=edit&dboperation=search_detail');return false;\">" + ch1Obj.getDemographic_name() + "</a></td><td class='myIvory'>" + ch1Obj.getHin()
-                    + ch1Obj.getVer() + "</td><td class='myIvory'>" + ch1Obj.getBilling_date() + "</td><td class='myIvory'>" + itemObj.getService_code() + "</td><td align='right' class='myIvory'>" + itemObj.getFee() + "</td><td align='right' class='myIvory'>" + itemObj.getDx() + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(ch1Obj.getClinic()) + "</td></tr>";
+            String escapedId = Encode.forJavaScript(ch1Obj.getId());
+            String escapedDemoNo = Encode.forJavaScript(ch1Obj.getDemographic_no());
+            ret = "\n<tr><td class='myIvory'><a href=# onclick=\"popupPage(720,740,'billingONCorrection.jsp?billing_no=" + escapedId + "');return false;\">" + Encode.forHtml(ch1Obj.getId()) + "</a></td>" + "<td class='myIvory'><a href=# onclick=\"popupPage(720,740,'../../../demographic/demographiccontrol.jsp?demographic_no=" + escapedDemoNo + "&displaymode=edit&dboperation=search_detail');return false;\">" + Encode.forHtml(ch1Obj.getDemographic_name()) + "</a></td><td class='myIvory'>" + Encode.forHtml(ch1Obj.getHin())
+                    + Encode.forHtml(ch1Obj.getVer()) + "</td><td class='myIvory'>" + Encode.forHtml(ch1Obj.getBilling_date()) + "</td><td class='myIvory'>" + Encode.forHtml(itemObj.getService_code()) + "</td><td align='right' class='myIvory'>" + Encode.forHtml(itemObj.getFee()) + "</td><td align='right' class='myIvory'>" + Encode.forHtml(itemObj.getDx()) + "</td><td class='myIvory'> &nbsp; &nbsp;" + Encode.forHtml(referral) + Encode.forHtml(hcFlag) + Encode.forHtml(m_Flag) + " </td>" + "<td bgcolor='" + Encode.forHtmlAttribute(clinicBgColor) + "'> " + Encode.forHtml(clinicShortName.get(ch1Obj.getClinic())) + "</td></tr>";
         } else {
-            ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + itemObj.getService_code() + "</td><td align='right' class='myIvory'>" + itemObj.getFee() + "</td><td align='right' class='myIvory'>" + itemObj.getDx() + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(ch1Obj.getClinic()) + "</td></tr>";
+            ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + Encode.forHtml(itemObj.getService_code()) + "</td><td align='right' class='myIvory'>" + Encode.forHtml(itemObj.getFee()) + "</td><td align='right' class='myIvory'>" + Encode.forHtml(itemObj.getDx()) + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + Encode.forHtmlAttribute(clinicBgColor) + "'> " + Encode.forHtml(clinicShortName.get(ch1Obj.getClinic())) + "</td></tr>";
         }
         return ret;
     }
