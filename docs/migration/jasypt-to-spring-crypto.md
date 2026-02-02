@@ -1,7 +1,7 @@
 # Migration: jasypt to Spring Security Crypto
 
 **Date**: 2026-01-28
-**Issue**: [#2158](https://github.com/openo-beta/Open-O/issues/2158)
+**Issue**: [#2158](https://github.com/carlos-emr/carlos/issues/2158)
 **Migration**: Replace jasypt 1.9.3 with Spring Security Crypto 6.3.9
 
 ## Overview
@@ -261,7 +261,7 @@ If the migration causes issues:
 For questions or issues with this migration:
 
 1. **Documentation**: This file (`docs/migration/jasypt-to-spring-crypto.md`)
-2. **Issue Tracker**: [GitHub Issue #2158](https://github.com/openo-beta/Open-O/issues/2158)
+2. **Issue Tracker**: [GitHub Issue #2158](https://github.com/carlos-emr/carlos/issues/2158)
 3. **Code Reference**: `DashboardManagerImpl.java:748-766`
 4. **Test Reference**: `DashboardManagerEncryptionIntegrationTest.java`
 

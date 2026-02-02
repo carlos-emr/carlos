@@ -1,6 +1,6 @@
-# OpenO Developer Commands
+# CARLOS Developer Commands
 
-This namespace contains slash commands for OpenO EMR developer workflow automation.
+This namespace contains slash commands for CARLOS EMR developer workflow automation.
 
 ## Available Commands
 

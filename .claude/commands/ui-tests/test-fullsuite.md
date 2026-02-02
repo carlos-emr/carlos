@@ -35,7 +35,7 @@ model: claude-sonnet-4-5-20250929
 
 # Run Full UI Test Suite
 
-Execute all 9 UI tests sequentially for comprehensive OpenO EMR validation.
+Execute all 9 UI tests sequentially for comprehensive CARLOS EMR validation.
 
 **Reference Documentation**:
 - **Comprehensive Guide**: `docs/ui-tests/COMPREHENSIVE-TEST-GUIDE.md`

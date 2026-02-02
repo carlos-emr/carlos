@@ -1,4 +1,4 @@
-# OpenO EMR - Healthcare Electronic Medical Records System
+# CARLOS EMR - Healthcare Electronic Medical Records System
 
 > **⚠️ DEVCONTAINER ENVIRONMENT NOTICE**
 >
@@ -12,7 +12,26 @@
 > with access to real patient data. Review and restrict permissions in `.claude/settings.json`
 > if running outside an isolated devcontainer.
 
-**PROJECT IDENTITY**: Always refer to this system as "OpenO EMR" or "OpenO" - NOT "OSCAR EMR" or "OSCAR McMaster"
+**PROJECT IDENTITY**: Always refer to this system as "CARLOS EMR" or "CARLOS" in all user-facing content
+
+## Project Origin & Naming Conventions
+
+**CARLOS** (Clinical Assisting Recording Ledger Open Source) is a fork of the OpenO EMR project, maintained at `github.com/carlos-emr/carlos`.
+
+**Project Lineage:**
+- **CARLOS** ← forked from **OpenO EMR** ← forked from **OSCAR McMaster**
+- **No affiliation** with OpenOSP organization or McMaster University
+- Repository: `github.com/carlos-emr/carlos`
+
+**Critical Naming Distinctions:**
+- **Display Name**: Use "CARLOS" or "CARLOS EMR" in all user-facing content (UI, documentation, README files, issue templates, workflows)
+- **Code Namespaces**: Package names remain as `ca.openosp.openo.*` for backward compatibility - DO NOT change these internal paths
+- **Legacy References**: You may encounter "OpenO", "Open-O", "OpenOSP", or "OSCAR" in code comments, JavaDoc, and git history - these refer to the upstream project heritage, NOT organizational affiliations
+
+**When to Use Which Name:**
+- ✅ **Use "CARLOS EMR"**: README files, documentation headers, GitHub templates, workflow descriptions, user-facing messages
+- ✅ **Keep as-is**: Java packages (`ca.openosp.openo.*`), internal class references, database schema names, Spring bean names
+- ⚠️ **Update carefully**: Comments referencing project name (use "CARLOS"), but preserve technical accuracy for upstream references
 
 ## Core Context
 
@@ -695,7 +714,7 @@ Commands in the ASK tier include:
 - `git stash drop` - potential data loss (single stash entry)
 
 **Safety Guardrails:**
-- **Repository scoped** - Operations run within the checked-out `openo-beta/Open-O` repository context
+- **Repository scoped** - Operations run within the checked-out `carlos-emr/carlos` repository context
 - Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
 - All PRs require human review before merge
 - Destructive operations are blocked:

@@ -1,6 +1,6 @@
-# OpenO Form Resources Directory Documentation
+# CARLOS Form Resources Directory Documentation
 
-This document describes the `/oscar/form/` directory which contains resources for OpenO's comprehensive medical forms system, supporting various Canadian provincial health forms and clinical assessments. The system dynamically loads these resources at runtime based on form requirements.
+This document describes the `/oscar/form/` directory which contains resources for CARLOS's comprehensive medical forms system, supporting various Canadian provincial health forms and clinical assessments. The system dynamically loads these resources at runtime based on form requirements.
 
 ## Directory Structure
 

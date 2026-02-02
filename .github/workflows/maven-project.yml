@@ -1,7 +1,7 @@
-# GitHub Workflow: Check Open-O
+# GitHub Workflow: Check CARLOS EMR
 #
 # Description:
-# This workflow automates the build and testing for the Open-O Maven project.
+# This workflow automates the build and testing for the CARLOS EMR Maven project.
 # It uses a parallelized approach: build first, then run modern and legacy tests in parallel.
 #
 # Container Images:
@@ -33,13 +33,13 @@
 #   - Requires the database container
 #
 # License:
-# This GitHub Workflow file is part of the Open-O project and is subject
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
 # January 2026
 
-name: Check Open-O
+name: Check Carlos EMR
 
 on:
   pull_request:
@@ -81,12 +81,12 @@ jobs:
         id: pull-image
         continue-on-error: true
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
           # Capture stderr so we can distinguish "not found" from other errors
           if docker pull "$IMAGE" 2>pull-image-error.log; then
-            docker tag "$IMAGE" openo-tomcat-dev
+            docker tag "$IMAGE" carlos-tomcat-dev
             echo "pulled=true" >> "$GITHUB_OUTPUT"
             echo "reason=success" >> "$GITHUB_OUTPUT"
             echo "Successfully pulled pre-built image!"
@@ -136,28 +136,28 @@ jobs:
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --load \
-            -t openo-tomcat-dev \
+            -t carlos-tomcat-dev \
             .devcontainer/development
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Start container
         run: |
-          docker run -d --name openo-tomcat-dev \
+          docker run -d --name carlos-tomcat-dev \
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
             -w /workspace \
-            openo-tomcat-dev tail -f /dev/null
+            carlos-tomcat-dev tail -f /dev/null
 
       - name: Configure git safe directory
         run: |
-          docker exec openo-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             git config --global --add safe.directory /workspace
           "
 
       - name: Build project (no tests)
         run: |
-          docker exec openo-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             echo '========================================='
             echo 'Building project without tests'
             echo '========================================='
@@ -204,12 +204,12 @@ jobs:
         id: pull-image
         continue-on-error: true
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
           # Capture stderr so we can distinguish "not found" from other errors
           if docker pull "$IMAGE" 2>pull-image-error.log; then
-            docker tag "$IMAGE" openo-tomcat-dev
+            docker tag "$IMAGE" carlos-tomcat-dev
             echo "pulled=true" >> "$GITHUB_OUTPUT"
             echo "reason=success" >> "$GITHUB_OUTPUT"
             echo "Successfully pulled pre-built image!"
@@ -249,28 +249,28 @@ jobs:
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --load \
-            -t openo-tomcat-dev \
+            -t carlos-tomcat-dev \
             .devcontainer/development
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Start container
         run: |
-          docker run -d --name openo-tomcat-dev \
+          docker run -d --name carlos-tomcat-dev \
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
             -w /workspace \
-            openo-tomcat-dev tail -f /dev/null
+            carlos-tomcat-dev tail -f /dev/null
 
       - name: Configure git safe directory
         run: |
-          docker exec openo-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             git config --global --add safe.directory /workspace
           "
 
       - name: Run modern tests
         run: |
-          docker exec openo-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             echo '========================================='
             echo 'Running Modern Tests (JUnit 5 with H2)'
             echo '========================================='
@@ -317,12 +317,12 @@ jobs:
         id: pull-tomcat
         continue-on-error: true
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
           # Capture stderr so we can distinguish "not found" from other errors
           if docker pull "$IMAGE" 2>pull-tomcat-error.log; then
-            docker tag "$IMAGE" openo-tomcat-dev
+            docker tag "$IMAGE" carlos-tomcat-dev
             echo "pulled=true" >> "$GITHUB_OUTPUT"
             echo "reason=success" >> "$GITHUB_OUTPUT"
             echo "Successfully pulled pre-built tomcat image!"
@@ -349,12 +349,12 @@ jobs:
         id: pull-mariadb
         continue-on-error: true
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-mariadb-dev:latest
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
           # Capture stderr so we can distinguish "not found" from other errors
           if docker pull "$IMAGE" 2>pull-mariadb-error.log; then
-            docker tag "$IMAGE" openo-mariadb-dev
+            docker tag "$IMAGE" carlos-mariadb-dev
             echo "pulled=true" >> "$GITHUB_OUTPUT"
             echo "reason=success" >> "$GITHUB_OUTPUT"
             echo "Successfully pulled pre-built mariadb image!"
@@ -403,7 +403,7 @@ jobs:
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --load \
-            -t openo-tomcat-dev \
+            -t carlos-tomcat-dev \
             .devcontainer/development
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
@@ -416,7 +416,7 @@ jobs:
             --cache-from=type=local,src=/tmp/.buildx-cache-db \
             --cache-to=type=local,dest=/tmp/.buildx-cache-db-new,mode=max \
             --load \
-            -t openo-mariadb-dev \
+            -t carlos-mariadb-dev \
             -f .devcontainer/db/Dockerfile .
           rm -rf /tmp/.buildx-cache-db
           mv /tmp/.buildx-cache-db-new /tmp/.buildx-cache-db
@@ -432,7 +432,7 @@ jobs:
             -e MYSQL_ROOT_PASSWORD=password \
             -e MYSQL_PASSWORD=password \
             -e TZ=America/Toronto \
-            openo-mariadb-dev
+            carlos-mariadb-dev
 
       - name: Wait for db to be ready
         run: |
@@ -486,22 +486,22 @@ jobs:
 
       - name: Start tomcat container
         run: |
-          docker run -d --name openo-tomcat-dev \
+          docker run -d --name carlos-tomcat-dev \
             --network open-o-network \
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
             -w /workspace \
-            openo-tomcat-dev tail -f /dev/null
+            carlos-tomcat-dev tail -f /dev/null
 
       - name: Configure git safe directory
         run: |
-          docker exec openo-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             git config --global --add safe.directory /workspace
           "
 
       - name: Run legacy tests
         run: |
-          docker exec openo-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             echo '========================================='
             echo 'Running Legacy Tests (JUnit 4 with MariaDB)'
             echo '========================================='

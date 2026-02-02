@@ -1,6 +1,6 @@
 services:
-  open-o:
-    container_name: openo-tomcat-dev
+  carlos:
+    container_name: carlos-tomcat-dev
     build:
       context: ./development
       dockerfile: Dockerfile
@@ -18,7 +18,7 @@ services:
       LANGUAGE: en_US:en
       TZ: America/Toronto
     networks:
-      - open-o-network
+      - carlos-network
     depends_on:
       db:
         condition: service_healthy
@@ -26,7 +26,7 @@ services:
         condition: service_healthy
 
   drugref:
-    container_name: openo-drugref-dev
+    container_name: carlos-drugref-dev
     build:
       context: ./drugref
       dockerfile: Dockerfile
@@ -40,7 +40,7 @@ services:
     environment:
       TZ: America/Toronto
     networks:
-      - open-o-network
+      - carlos-network
     depends_on:
       db:
         condition: service_healthy
@@ -52,7 +52,7 @@ services:
       start_period: 60s
 
   db:
-    container_name: openo-mariadb-dev
+    container_name: carlos-mariadb-dev
     build:
       context: ../
       dockerfile: .devcontainer/db/Dockerfile
@@ -66,7 +66,7 @@ services:
       TZ: America/Toronto
       container: docker
     networks:
-      - open-o-network
+      - carlos-network
     deploy:
       resources:
         limits:
@@ -87,6 +87,6 @@ volumes:
     driver: local
 
 networks:
-  open-o-network:
+  carlos-network:
     driver: bridge
-    name: open-o-network
+    name: carlos-network

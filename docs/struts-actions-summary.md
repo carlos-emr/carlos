@@ -1,7 +1,7 @@
 # Struts Actions Summary
 
 ## Overview
-This document provides a comprehensive summary of all Struts actions configured in the Open-O application as of 2025-08-21.
+This document provides a comprehensive summary of all Struts actions configured in the CARLOS application as of 2025-08-21.
 
 ## Statistics
 - **Total Actions**: 519

@@ -1,6 +1,6 @@
 {
   "companyAnnouncements": [
-    "⚠️  DEVCONTAINER ONLY: Open-O development defaults grant extensive permissions optimized for isolated devcontainers. Do NOT use in shared or production environments. See CLAUDE.md for details."
+    "⚠️  DEVCONTAINER ONLY: CARLOS development defaults grant extensive permissions optimized for isolated devcontainers. Do NOT use in shared or production environments. See CLAUDE.md for details."
   ],
   "hooks": {
     "SessionStart": [
@@ -112,14 +112,14 @@
       "Bash(gh issue list *)",
       "Bash(gh issue comment *)",
       "Bash(gh repo view *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/pulls *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/pulls/*/files *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/issues *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/commits *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/contents *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/git *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/labels *)",
-      "Bash(gh api -X GET repos/openo-beta/Open-O/actions *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/pulls *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/pulls/*/files *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/issues *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/commits *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/contents *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/git *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/labels *)",
+      "Bash(gh api -X GET repos/carlos-emr/carlos/actions *)",
       "Bash(gh run view *)",
       "Bash(gh run list *)",
       "Bash(gh run watch *)",

@@ -1,6 +1,6 @@
 # UI Test Slash Commands
 
-Custom Claude Code commands for automated execution of OpenO EMR UI tests.
+Custom Claude Code commands for automated execution of CARLOS EMR UI tests.
 
 ## Overview
 
