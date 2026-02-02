@@ -51,15 +51,15 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 <%@ page
-        import="java.util.*, ca.openosp.openo.util.*, ca.openosp.openo.providers.data.ProviderData, ca.openosp.openo.utility.SpringUtils, ca.openosp.openo.commn.dao.CtlDocClassDao" %>
-<%@ page import="ca.openosp.openo.commn.model.DocumentExtraReviewer" %>
-<%@ page import="ca.openosp.openo.commn.dao.DocumentExtraReviewerDao" %>
-<%@ page import="ca.openosp.openo.documentManager.data.AddEditDocument2Form" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%
     DocumentExtraReviewerDao documentExtraReviewerDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
     List<DocumentExtraReviewer> extraReviewers = new ArrayList<DocumentExtraReviewer>();

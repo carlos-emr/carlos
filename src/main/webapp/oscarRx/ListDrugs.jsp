@@ -24,31 +24,31 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.commn.model.PartialDate" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.casemgmt.web.PrescriptDrug" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.PrescriptDrug" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="ca.openosp.OscarProperties,ca.openosp.openo.log.*" %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager,
-                ca.openosp.openo.casemgmt.model.CaseManagementNoteLink,
-                ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo,ca.openosp.openo.commn.dao.DrugReasonDao,ca.openosp.openo.commn.model.DrugReason" %>
-<%@page import="ca.openosp.openo.util.*,java.util.*,ca.openosp.openo.commn.model.Drug,ca.openosp.openo.commn.dao.*" %>
-<%@page import="ca.openosp.openo.managers.DrugDispensingManager" %>
-<%@page import="ca.openosp.openo.managers.CodingSystemManager" %>
+<%@ page import="io.github.carlos_emr.OscarProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,
+                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink,
+                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.commn.dao.DrugReasonDao,io.github.carlos_emr.carlos.commn.model.DrugReason" %>
+<%@page import="io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DrugDispensingManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.services.security.SecurityManager" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPatientData" %>
-<%@ page import="ca.openosp.openo.commn.dao.PartialDateDao" %>
-<%@ page import="static ca.openosp.openo.prescript.util.RxUtil.DateToString" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
+<%@ page import="static io.github.carlos_emr.carlos.prescript.util.RxUtil.DateToString" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     RxPatientData.Patient patient = null;

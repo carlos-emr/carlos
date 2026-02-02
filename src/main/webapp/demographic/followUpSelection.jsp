@@ -24,10 +24,10 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedProvider" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@include file="/layouts/html_top.jspf" %>
 
 <h3>Select a provider</h3>

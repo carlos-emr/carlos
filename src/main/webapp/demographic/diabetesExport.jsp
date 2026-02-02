@@ -42,9 +42,9 @@
 %>
 
 <%@page
-        import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*,ca.openosp.openo.report.data.*" %>
-<%@ page import="ca.openosp.openo.report.data.RptSearchData" %>
-<%@ page import="ca.openosp.openo.report.data.DemographicSets" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>

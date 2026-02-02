@@ -38,13 +38,13 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page
-        import="ca.openosp.openo.commn.dao.DemographicDao,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.commn.model.Demographic" %>
+        import="io.github.carlos_emr.carlos.commn.dao.DemographicDao,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page
-        import="ca.openosp.openo.caisi_integrator.ws.*" %>
+        import="io.github.carlos_emr.carlos.caisi_integrator.ws.*" %>
 <%@page
-        import="ca.openosp.openo.PMmodule.caisi_integrator.*,java.util.*,ca.openosp.openo.util.*" %>
+        import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.*,java.util.*,io.github.carlos_emr.carlos.util.*" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Integer localDemographicId = Integer.parseInt(request.getParameter("demographicId"));
@@ -82,13 +82,13 @@
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
-<%@ page import="ca.openosp.openo.caisi_integrator.ws.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@ page import="ca.openosp.openo.PMmodule.caisi_integrator.ConformanceTestHelper" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.ConformanceTestHelper" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>

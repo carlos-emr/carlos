@@ -3,7 +3,7 @@
 "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 
 <hibernate-mapping>
-    <class name="ca.openosp.openo.model.security.Secrole" table="secRole">
+    <class name="io.github.carlos_emr.carlos.model.security.Secrole" table="secRole">
     	<id column="role_no" name="Id" type="java.lang.Long" unsaved-value="0">
 			<generator class="native" />
 		</id>    

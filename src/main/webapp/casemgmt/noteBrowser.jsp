@@ -24,12 +24,12 @@
 --%>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.Hashtable" %>
-<%@page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="java.util.Collections" %>
-<%@page import="ca.openosp.MyDateFormat" %>
-<%@page import="ca.openosp.openo.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@page import="java.util.ArrayList" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -42,11 +42,11 @@
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
 <%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
-<%@page import="ca.openosp.openo.documentManager.EDocUtil,ca.openosp.openo.documentManager.EDoc" %>
-<%@page import="ca.openosp.openo.casemgmt.web.NoteDisplay,ca.openosp.openo.casemgmt.web.NoteDisplayLocal" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager,ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlDocClassDao,ca.openosp.openo.commn.dao.QueueDao" %>
+<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%

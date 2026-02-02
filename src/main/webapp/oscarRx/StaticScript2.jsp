@@ -23,30 +23,30 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DrugDao" %>
-<%@page import="ca.openosp.openo.commn.dao.PartialDateDao" %>
-<%@page import="ca.openosp.openo.commn.model.PartialDate" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.Drug" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicWs" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@page import="ca.openosp.openo.rx.StaticScriptBean" %>
-<%@page import="ca.openosp.openo.prescript.util.RxUtil" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="java.util.ArrayList" %>
-<%@ page import="ca.openosp.openo.services.security.SecurityManager" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

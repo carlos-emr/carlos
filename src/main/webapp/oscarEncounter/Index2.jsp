@@ -27,12 +27,12 @@
 <%--
     This is the new encounter page.
     It is enabled via the 'useNewEchart' and 'newDocArr' settings.
-    The selection logic is in ca.openosp.openo.encounter.pageUtil.EctIncomingEncounter2Action.java
+    The selection logic is in io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action.java
 --%>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPatientData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -99,13 +99,13 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%@page
-        import="ca.openosp.openo.log.*,ca.openosp.openo.util.UtilMisc,ca.openosp.openo.encounter.data.*, java.net.*,java.util.*,ca.openosp.openo.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.util.UtilMisc,io.github.carlos_emr.carlos.encounter.data.*, java.net.*,java.util.*,io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page
-        import="ca.openosp.openo.mds.data.MDSResultsData,ca.openosp.openo.lab.ca.on.*, ca.openosp.openo.messenger.util.MsgDemoMap, ca.openosp.openo.messenger.data.MsgMessageData" %>
+        import="io.github.carlos_emr.carlos.mds.data.MDSResultsData,io.github.carlos_emr.carlos.lab.ca.on.*, io.github.carlos_emr.carlos.messenger.util.MsgDemoMap, io.github.carlos_emr.carlos.messenger.data.MsgMessageData" %>
 <%@page
-        import="ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.dxresearch.bean.*,ca.openosp.openo.util.*" %>
+        import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.dxresearch.bean.*,io.github.carlos_emr.carlos.util.*" %>
 <%@page
-        import="ca.openosp.openo.eform.*, org.apache.commons.text.StringEscapeUtils" %>
+        import="io.github.carlos_emr.carlos.eform.*, org.apache.commons.text.StringEscapeUtils" %>
 
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 
@@ -229,16 +229,16 @@
 %>
 
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctWindowSizes" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.openo.encounter.data.*" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Allergy" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctWindowSizes" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

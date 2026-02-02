@@ -27,17 +27,17 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="ca.openosp.openo.rx.util.*" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.prescript.util.LimitedUseCode" %>
-<%@ page import="ca.openosp.openo.prescript.util.RxUtil" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxDrugData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxCodesData" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.util.LimitedUseLookup" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxWriteScriptForm" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptForm" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 

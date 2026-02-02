@@ -36,18 +36,18 @@
     String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : ("start_time");
     String deepColor = "#CCCCFF", weakColor = "#EEEEFF";
 %>
-<jsp:useBean id="daySheetBean" class="ca.openosp.AppointmentMainBean" scope="page"/>
+<jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ include file="/admin/dbconnection.jsp" %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.text.*" %>
-<%@ page import="ca.openosp.openo.commn.dao.AppointmentArchiveDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -149,7 +149,7 @@
                         appointmentArchiveDao.archiveAppointment(appt);
                     }
                 } catch (java.text.ParseException e) {
-                    ca.openosp.openo.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
                 }
 
                 for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {
@@ -169,7 +169,7 @@
                         appointmentArchiveDao.archiveAppointment(appt);
                     }
                 } catch (java.text.ParseException e) {
-                    ca.openosp.openo.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
                 }
 
                 for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {

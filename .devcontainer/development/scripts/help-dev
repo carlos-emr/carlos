@@ -63,7 +63,7 @@ HEALTHCARE EMR CONTEXT:
   • Project: OpenO EMR (NOT OSCAR EMR)
   • Follow PIPEDA/HIPAA compliance
   • Use 2Action pattern for Struts2 migration
-  • Package namespace: ca.openosp.openo.*
+  • Package namespace: io.github.carlos_emr.carlos.*
   • Security: OWASP encoding required
   • Always check SecurityInfoManager.hasPrivilege()
 

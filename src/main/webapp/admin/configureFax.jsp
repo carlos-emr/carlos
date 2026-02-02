@@ -39,14 +39,14 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.model.FaxConfig" %>
-<%@page import="ca.openosp.openo.commn.dao.QueueDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.FaxConfig" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@page import="java.util.List" %>
 <%@page import="java.util.HashMap" %>
-<%@ page import="ca.openosp.openo.managers.FaxManager" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <!DOCTYPE html>

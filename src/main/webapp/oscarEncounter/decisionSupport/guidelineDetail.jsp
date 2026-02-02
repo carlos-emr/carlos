@@ -53,9 +53,9 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.decisionSupport.model.DSGuideline" %>
+<%@ page import="io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.decisionSupport.model.DSCondition" %>
+<%@ page import="io.github.carlos_emr.carlos.decisionSupport.model.DSCondition" %>
 
 <%
     pageContext.setAttribute("demographic_no", request.getParameter("demographic_no"));

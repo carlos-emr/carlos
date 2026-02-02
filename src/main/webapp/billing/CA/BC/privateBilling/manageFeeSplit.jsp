@@ -1,11 +1,11 @@
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.PropertyDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Property" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
 <%@ page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ taglib prefix="security" uri="/oscarSecuritytag" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

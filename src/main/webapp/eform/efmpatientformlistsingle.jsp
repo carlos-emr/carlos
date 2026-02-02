@@ -24,9 +24,9 @@
 
 --%>
 
-<%@page import="java.util.*,ca.openosp.openo.eform.*" %>
-<%@page import="ca.openosp.openo.web.eform.EfmPatientFormList" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
+<%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
+<%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String demographic_no = request.getParameter("demographic_no");

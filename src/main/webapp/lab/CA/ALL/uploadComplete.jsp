@@ -1,6 +1,6 @@
 <%@page contentType="text/xml; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="javax.xml.parsers.*, org.w3c.dom.*, ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.util.UtilXML" %>
+<%@page import="javax.xml.parsers.*, org.w3c.dom.*, io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%
 
     DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();

@@ -24,11 +24,11 @@
  */
 -->
 
-<%@page import="ca.openosp.MyDateFormat" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.Billing" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
 <%@page import="org.apache.commons.lang3.StringUtils"%><table width="100%" border="2" valign="top">
 	<% 
  String dateBegin = StringUtils.trimToNull(request.getParameter("xml_vdate"));

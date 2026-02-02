@@ -9,7 +9,7 @@
 	<info>Caisi Role Tags Library</info>
 	<tag>
 		<name>SecurityAccess</name>
-		<tagclass>ca.openosp.openo.casemgmt.common.SecurityAccess</tagclass>
+		<tagclass>io.github.carlos_emr.carlos.casemgmt.common.SecurityAccess</tagclass>
 		<bodycontent>jsp</bodycontent>
 		<attribute>
 			<name>accessName</name>

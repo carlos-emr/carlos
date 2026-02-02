@@ -29,9 +29,9 @@
 %>
 <%@ page import="java.util.*,java.sql.*"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 
 <%
     MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);

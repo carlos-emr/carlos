@@ -26,7 +26,7 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="java.util.*,java.io.*,ca.openosp.openo.lab.ca.all.util.KeyPairGen" %>
+<%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
@@ -116,7 +116,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

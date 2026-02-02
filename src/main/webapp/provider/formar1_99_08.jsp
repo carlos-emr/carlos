@@ -28,15 +28,15 @@
     String form_name = "ar1_99_08";
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicAccessoryDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicAccessory" %>
-<%@page import="ca.openosp.openo.commn.dao.FormDao" %>
-<%@page import="ca.openosp.openo.commn.model.Form" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);

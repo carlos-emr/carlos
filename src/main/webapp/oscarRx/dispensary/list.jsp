@@ -28,13 +28,13 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.Drug" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.model.DrugDispensing" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DrugDispensing" %>
 <%@page import="java.util.Map" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;

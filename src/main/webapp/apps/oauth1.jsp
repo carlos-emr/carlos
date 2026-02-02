@@ -26,13 +26,13 @@
 --%>
 
 <%@ page import="com.github.scribejava.core.model.OAuth1RequestToken" %>
-<%@ page import="ca.openosp.openo.commn.dao.AppUserDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.AppDefinitionDao" %>
-<%@ page import="ca.openosp.openo.commn.model.AppUser" %>
-<%@ page import="ca.openosp.openo.commn.model.AppDefinition" %>
-<%@ page import="ca.openosp.openo.app.AppOAuth1Config" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppUserDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppDefinitionDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.AppUser" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.AppDefinition" %>
+<%@ page import="io.github.carlos_emr.carlos.app.AppOAuth1Config" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="javax.servlet.http.*" %>
 <%@ page import="org.slf4j.Logger, org.slf4j.LoggerFactory" %>

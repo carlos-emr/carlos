@@ -28,15 +28,15 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <jsp:useBean id="dataBean" class="java.util.Properties" scope="page"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleTemplateCode" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleTemplateCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);

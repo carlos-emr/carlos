@@ -28,20 +28,20 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.utility.LocaleUtils,ca.openosp.openo.utility.MiscUtils, ca.openosp.openo.util.DateUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic, ca.openosp.openo.commn.model.BillingONItem, ca.openosp.openo.commn.model.BillingOnItemPayment, ca.openosp.openo.commn.model.RaDetail" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.utility.LocaleUtils,io.github.carlos_emr.carlos.utility.MiscUtils, io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic, io.github.carlos_emr.carlos.commn.model.BillingONItem, io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment, io.github.carlos_emr.carlos.commn.model.RaDetail" %>
 <%@page import="java.util.Locale, java.math.BigDecimal, java.util.Calendar,java.util.List,java.util.ArrayList, java.util.HashMap, java.util.Map, java.util.Date" %>
 <%@page import="java.text.ParseException" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPayment,ca.openosp.openo.commn.dao.BillingONPaymentDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPayment,ca.openosp.openo.commn.dao.BillingOnItemPaymentDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONCHeader1,ca.openosp.openo.commn.dao.BillingONCHeader1Dao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONExt,ca.openosp.openo.commn.dao.BillingONExtDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic,ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider,ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.RaHeader,ca.openosp.openo.commn.dao.RaHeaderDao" %>
-<%@page import="ca.openosp.openo.commn.model.RaDetail,ca.openosp.openo.commn.dao.RaDetailDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPremium,ca.openosp.openo.commn.dao.BillingONPremiumDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONItem, ca.openosp.openo.commn.service.BillingONService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment,io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment,io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONCHeader1,io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONExt,io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader,io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail,io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium,io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONItem, io.github.carlos_emr.carlos.commn.service.BillingONService" %>
 
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");

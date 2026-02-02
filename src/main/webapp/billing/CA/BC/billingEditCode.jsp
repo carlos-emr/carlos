@@ -41,13 +41,13 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ page import="java.util.*,ca.openosp.openo.billings.ca.bc.data.BillingCodeData,ca.openosp.openo.billing.ca.bc.pageUtil.*" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 
 <html>
 
     <%@ page
-            import="ca.openosp.openo.commn.dao.BillingServiceDao,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.commn.model.*" %>
-    <%@ page import="ca.openosp.openo.commn.model.BillingService" %>
+            import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.model.*" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
     <%BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class); %>
 
     <head>

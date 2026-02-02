@@ -60,14 +60,14 @@
   @since 2003
 --%>
 
-<%@page import="ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
-<%@page import="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAO" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
 <%@page import="java.util.Set" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.HashMap" %>
-<%@page import="ca.openosp.openo.commn.model.ResidentOscarMsg" %>
-<%@page import="ca.openosp.openo.commn.dao.ResidentOscarMsgDao" %>
-<%@page import="ca.openosp.openo.commn.model.OscarMsgType" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ResidentOscarMsg" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ResidentOscarMsgDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.OscarMsgType" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     // Retrieve user information from session
@@ -86,10 +86,10 @@
         return;
     }
 %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 
 <%
@@ -98,10 +98,10 @@
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
 %>
 <%@ page
-        import="ca.openosp.openo.demographic.data.*, java.util.Enumeration" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*, java.util.Enumeration" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

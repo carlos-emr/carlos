@@ -7,7 +7,7 @@
 	<import value="net.sf.jasperreports.engine.*"/>
 	<import value="java.util.*"/>
 	<import value="net.sf.jasperreports.engine.data.*"/>
-	<import value="ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile"/>
+	<import value="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
 	<parameter name="payee" class="java.lang.String" isForPrompting="false">
 		<defaultValueExpression><![CDATA["bays"]]></defaultValueExpression>
 	</parameter>
@@ -36,7 +36,7 @@
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<variable name="amtTotal" class="java.lang.Double" resetType="Group" resetGroup="practitioner_no" calculation="Sum">
-		<variableExpression><![CDATA[new Double(ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt}))]]></variableExpression>
+		<variableExpression><![CDATA[new Double(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt}))]]></variableExpression>
 	</variable>
 	<variable name="cnt01" class="java.lang.Double" calculation="Sum">
 		<variableExpression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s01")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></variableExpression>
@@ -415,7 +415,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Top" rotation="None">
 					<paragraph lineSpacing="Single"/>
 				</textElement>
-				<textFieldExpression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double(ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt})))]]></textFieldExpression>
+				<textFieldExpression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt})))]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" pattern="" isBlankWhenNull="true">
 				<reportElement key="textField" mode="Transparent" x="395" y="0" width="44" height="10" isPrintWhenDetailOverflows="true" forecolor="#000000" backcolor="#FFFFFF"/>

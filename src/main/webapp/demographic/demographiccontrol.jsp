@@ -24,21 +24,21 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.MatchingDemographicTransferScore" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.web.DemographicSearchHelper" %>
+<%@page import="io.github.carlos_emr.carlos.web.DemographicSearchHelper" %>
 <%@page import="java.util.GregorianCalendar" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.MatchingDemographicParameters" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicParameters" %>
 <%@ page import="java.io.UnsupportedEncodingException" %>
 <%@ page import="java.net.URLEncoder" %>
 
 
-<%@ page import="ca.openosp.OscarProperties" %>
-<jsp:useBean id="apptMainBean" class="ca.openosp.AppointmentMainBean" scope="session"/>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

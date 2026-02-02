@@ -51,16 +51,16 @@
 
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <jsp:useBean id="scheduleHolidayBean" class="java.util.Hashtable" scope="session"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleHoliday" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleHolidayDao" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleHoliday" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>

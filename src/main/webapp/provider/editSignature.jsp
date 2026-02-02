@@ -31,10 +31,10 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page import="ca.openosp.openo.providers.data.*" %>
-<%@ page import="ca.openosp.openo.providers.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.pageUtil.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.providers.data.ProSignatureData" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
 
 <%
     if (session.getValue("user") == null)

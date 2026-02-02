@@ -27,7 +27,7 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ page import="java.util.*,ca.openosp.openo.billing.ca.bc.pageUtil.*" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

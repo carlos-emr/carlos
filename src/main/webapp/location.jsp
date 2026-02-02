@@ -25,11 +25,11 @@
 --%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Facility" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.util.LabelValueBean" %>
+<%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ include file="/common/webAppContextAndSuperMgr.jsp" %>
@@ -74,7 +74,7 @@
 <script type="text/javascript">
     function setLocation() {
         var programIdForLocation = jQuery("#programIdForLocation").val();
-        window.location.href = "provider/providercontrol.jsp?<%=ca.openosp.openo.utility.SessionConstants.CURRENT_PROGRAM_ID%>=" + encodeURIComponent(programIdForLocation);
+        window.location.href = "provider/providercontrol.jsp?<%=io.github.carlos_emr.carlos.utility.SessionConstants.CURRENT_PROGRAM_ID%>=" + encodeURIComponent(programIdForLocation);
     }
 </script>
 </html>

@@ -23,18 +23,18 @@
     Ontario, Canada
 
 --%>
-<%@page import="java.text.SimpleDateFormat, java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.util.*" %>
+<%@page import="java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="ca.openosp.openo.commn.model.PreventionsLotNrs" %>
-<%@ page import="ca.openosp.openo.commn.dao.PreventionsLotNrsDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionDisplayConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
 <%
     String curProvider_no, userfirstname, userlastname;
     curProvider_no = (String) session.getAttribute("user");

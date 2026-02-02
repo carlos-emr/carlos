@@ -29,13 +29,13 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@ page import="com.github.scribejava.core.model.OAuth1RequestToken" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.login.OAuthSessionMerger" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.login.OAuthSessionMerger" %>
 <%@ page import="java.util.*" %>
 <%@ page import="javax.servlet.http.*" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.login.OAuthData" %>
-<%@ page import="ca.openosp.openo.login.OOBAuthorizationResponse" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.login.OAuthData" %>
+<%@ page import="io.github.carlos_emr.carlos.login.OOBAuthorizationResponse" %>
 
 <%
     // --- Make variables visible to the whole JSP ---

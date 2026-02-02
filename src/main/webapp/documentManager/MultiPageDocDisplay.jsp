@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -41,26 +41,26 @@
 %>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.utility.WebUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,ca.openosp.openo.lab.ca.all.*,ca.openosp.openo.mds.data.*,ca.openosp.openo.lab.ca.all.util.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,ca.openosp.openo.commn.dao.*,ca.openosp.openo.commn.model.*, ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.AcknowledgementData" %>
-<%@ page import="ca.openosp.openo.mds.data.ReportStatus" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderInboxRoutingDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderInboxItem" %>
+<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.all.util.*" %>
+<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
 <%!
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

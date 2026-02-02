@@ -39,20 +39,20 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Obx" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Obr" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.Hl7ObrDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.Hl7PidDao" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Pid" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.Hl7LinkDao" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Link" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.Hl7MessageDao" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Message" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obx" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7ObrDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7PidDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7MessageDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Message" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 
 <%
     String pid = request.getParameter("pid"),

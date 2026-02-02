@@ -26,7 +26,7 @@
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 
 <%
     String curUser_no;

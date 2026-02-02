@@ -63,9 +63,9 @@
 --%>
 
 <%@ page
-        import="ca.openosp.openo.messenger.docxfer.send.*,ca.openosp.openo.messenger.docxfer.util.*, ca.openosp.openo.encounter.data.*, ca.openosp.openo.encounter.pageUtil.EctSessionBean " %>
+        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*,io.github.carlos_emr.carlos.messenger.docxfer.util.*, io.github.carlos_emr.carlos.encounter.data.*, io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean " %>
 <%@  page
-        import=" java.util.*, org.w3c.dom.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*"
+        import=" java.util.*, org.w3c.dom.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/errorpage.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -85,7 +85,7 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
 
 
 <%

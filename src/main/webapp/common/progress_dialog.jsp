@@ -26,7 +26,7 @@
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 
-<%@page import="ca.openosp.openo.utility.ProgressStatus" %>
+<%@page import="io.github.carlos_emr.carlos.utility.ProgressStatus" %>
 <html>
 <head>
     <title>Progress Dialog</title>

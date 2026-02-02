@@ -17,22 +17,22 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.utility.DateRange" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 
 <%@ page import="java.util.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderBillCenter" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingProviderData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingCreateBillingFile" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingClaimImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingDiskCreatePrep" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCreateBillingFile" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDiskCreatePrep" %>
 
 
 <%

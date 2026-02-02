@@ -17,23 +17,23 @@
     -->
     <persistence-unit name="entityManagerFactory" transaction-type="RESOURCE_LOCAL">
         <!-- Explicitly list the entities we need -->
-        <class>ca.openosp.openo.commn.model.Tickler</class>
-        <class>ca.openosp.openo.commn.model.TicklerUpdate</class>
-        <class>ca.openosp.openo.commn.model.TicklerCategory</class>
-        <class>ca.openosp.openo.commn.model.TicklerComment</class>
-        <class>ca.openosp.openo.commn.model.CustomFilter</class>
-        <class>ca.openosp.openo.commn.model.Admission</class>
-        <class>ca.openosp.openo.commn.model.OscarLog</class>
-        <class>ca.openosp.openo.commn.model.Facility</class>
-        <class>ca.openosp.openo.commn.model.DemographicMerged</class>
-        <class>ca.openosp.openo.PMmodule.model.ProgramQueue</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
+        <class>io.github.carlos_emr.carlos.commn.model.TicklerUpdate</class>
+        <class>io.github.carlos_emr.carlos.commn.model.TicklerCategory</class>
+        <class>io.github.carlos_emr.carlos.commn.model.TicklerComment</class>
+        <class>io.github.carlos_emr.carlos.commn.model.CustomFilter</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Admission</class>
+        <class>io.github.carlos_emr.carlos.commn.model.OscarLog</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Facility</class>
+        <class>io.github.carlos_emr.carlos.commn.model.DemographicMerged</class>
+        <class>io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue</class>
         <!-- HBM.XML mapped entities -->
-        <mapping-file>ca/openosp/openo/commn/model/Provider.hbm.xml</mapping-file>
-        <mapping-file>ca/openosp/openo/commn/model/Demographic.hbm.xml</mapping-file>
-        <mapping-file>ca/openosp/openo/PMmodule/model/Program.hbm.xml</mapping-file>
-        <mapping-file>ca/openosp/openo/PMmodule/model/ProgramClientStatus.hbm.xml</mapping-file>
-        <mapping-file>ca/openosp/openo/PMmodule/model/ProgramTeam.hbm.xml</mapping-file>
-        <mapping-file>ca/openosp/openo/PMmodule/model/ProgramQueue.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</mapping-file>
     </persistence-unit>
 
 </persistence>

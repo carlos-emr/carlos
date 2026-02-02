@@ -40,12 +40,12 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.util.StringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ page
-        import="ca.openosp.openo.demographic.data.*, ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

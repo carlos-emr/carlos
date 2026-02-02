@@ -68,21 +68,21 @@
 --%>
 
 <%@ page
-        import="ca.openosp.openo.messenger.docxfer.send.*,
-                ca.openosp.openo.messenger.docxfer.util.*,
-                ca.openosp.openo.encounter.data.*,
-                ca.openosp.openo.encounter.pageUtil.EctSessionBean,
-                ca.openosp.openo.prescript.pageUtil.RxSessionBean,
-                ca.openosp.openo.prescript.data.RxPatientData,
-                ca.openosp.openo.messenger.pageUtil.MsgSessionBean,
-                ca.openosp.openo.demographic.data.*" %>
+        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*,
+                io.github.carlos_emr.carlos.messenger.docxfer.util.*,
+                io.github.carlos_emr.carlos.encounter.data.*,
+                io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean,
+                io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean,
+                io.github.carlos_emr.carlos.prescript.data.RxPatientData,
+                io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean,
+                io.github.carlos_emr.carlos.demographic.data.*" %>
 
-<%@ page import=" java.util.*, org.w3c.dom.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*"
+<%@ page import=" java.util.*, org.w3c.dom.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.EChartDao" %>
-<%@ page import="ca.openosp.openo.commn.model.EChart" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     EChartDao eChartDao = SpringUtils.getBean(EChartDao.class);
 %>
@@ -105,9 +105,9 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 
 
 <%

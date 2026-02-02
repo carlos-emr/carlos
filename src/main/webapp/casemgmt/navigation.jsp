@@ -27,23 +27,23 @@
 <%-- Updated by Eugene Petruhin on 11 dec 2008 while fixing #2356548 & #2393547 --%>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <% long loadPage = System.currentTimeMillis(); %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementHelper" %>
-<%@ page import="ca.openosp.openo.dxresearch.bean.dxResearchBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementHelper" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="java.util.Vector" %>
-<%@ page import="ca.openosp.openo.encounter.immunization.data.EctImmImmunizationData" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <%
@@ -68,7 +68,7 @@
         session.setAttribute("casemgmt_bean", bean);
         session.setAttribute("casemgmt_bean_flag", "false");
     }
-//bean=(ca.openosp.openo.encounter.pageUtil.EctSessionBean)session.getAttribute("EctSessionBean");
+//bean=(io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean)session.getAttribute("EctSessionBean");
 //session.setAttribute("casemgmt_bean", bean);
     bean = (EctSessionBean) session.getAttribute("casemgmt_bean");
     if (bean == null) bean = new EctSessionBean();

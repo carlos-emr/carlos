@@ -38,9 +38,9 @@
         return;
     }
 %>
-<%@page import="ca.openosp.openo.web.admin.KeyManagerUIBean" %>
-<%@page import="ca.openosp.openo.commn.model.PublicKey" %>
-<%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.KeyManagerUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PublicKey" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 
 <%@include file="/layouts/html_top.jspf" %>
 

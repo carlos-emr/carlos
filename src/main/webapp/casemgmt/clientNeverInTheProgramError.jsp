@@ -26,9 +26,9 @@
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
-<%@page import="ca.openosp.openo.PMmodule.dao.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%
     String programId_str = (String) request.getSession().getAttribute("case_program_id");
     Integer programId;

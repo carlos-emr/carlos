@@ -7,7 +7,7 @@
 	<import value="net.sf.jasperreports.engine.*"/>
 	<import value="java.util.*"/>
 	<import value="net.sf.jasperreports.engine.data.*"/>
-	<import value="ca.openosp.openo.billings.MSP.*"/>
+	<import value="io.github.carlos_emr.carlos.billings.MSP.*"/>
 	<parameter name="s21id" class="java.lang.String" isForPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>

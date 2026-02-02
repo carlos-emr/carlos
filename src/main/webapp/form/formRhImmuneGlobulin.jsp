@@ -40,11 +40,11 @@
 %>
 
 <%@ page
-        import="ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*,java.util.*,ca.openosp.openo.prevention.*" %>
+        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
 <%@ page
-        import="ca.openosp.openo.providers.data.*,ca.openosp.openo.workflow.*,ca.openosp.openo.encounter.oscarMeasurements.bean.*" %>
+        import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.workflow.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%--
  //TODO: Mother's Information Doesn't save
@@ -123,14 +123,14 @@
 */
 -->
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
-<%@ page import="ca.openosp.openo.workflow.WorkFlowFactory" %>
-<%@ page import="ca.openosp.openo.workflow.WFState" %>
-<%@ page import="ca.openosp.openo.workflow.WorkFlow" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.workflow.WFState" %>
+<%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlow" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

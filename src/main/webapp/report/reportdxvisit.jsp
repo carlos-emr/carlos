@@ -13,13 +13,13 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DxresearchDAO" %>
-<%@page import="ca.openosp.openo.commn.model.Ichppccode" %>
-<%@page import="ca.openosp.openo.commn.dao.IchppccodeDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Ichppccode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.IchppccodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%
     //reportdxvisit.jsp?sdate=2003-04-01&edate=2003-12-31
     //
@@ -28,7 +28,7 @@
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, ca.openosp.openo.db.*,java.net.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, io.github.carlos_emr.carlos.db.*,java.net.*"
         errorPage="/errorpage.jsp" %>
 <html>
 <head>
@@ -63,7 +63,7 @@
 
 // get nurse name list
     ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-    for (ca.openosp.openo.commn.model.Provider p : dao.getProvidersByTypePattern("nurse%")) {
+    for (io.github.carlos_emr.carlos.commn.model.Provider p : dao.getProvidersByTypePattern("nurse%")) {
         vNurse.add(p.getLastName() + ", " + p.getFirstName());
         vNurseNo.add(p.getProviderNo());
     }

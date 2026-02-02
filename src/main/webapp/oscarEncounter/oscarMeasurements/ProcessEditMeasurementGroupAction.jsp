@@ -34,7 +34,7 @@
 %>
 
 <%@ page
-        import="java.lang.*,ca.openosp.openo.encounter.oscarMeasurements.pageUtil.*" %>
+        import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
 
 <html>
 

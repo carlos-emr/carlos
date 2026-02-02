@@ -27,7 +27,7 @@
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Contact" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%
 
     String msg = "View Contact Details.";

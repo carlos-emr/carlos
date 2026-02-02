@@ -58,15 +58,15 @@ VALUES (129, 'legacy_user', '-51-282443-97-5-9410489-60-1021-45-127-12435464-32'
 
 ### Key Classes
 
-1. **`PasswordHashHelper`** (`ca.openosp.openo.utility.password.PasswordHashHelper`)
+1. **`PasswordHashHelper`** (`io.github.carlos_emr.carlos.utility.password.PasswordHashHelper`)
    - Primary interface for password operations
    - Methods: `encodePassword()`, `matches()`, `upgradeEncoding()`
 
-2. **`EncryptionUtils`** (`ca.openosp.openo.utility.EncryptionUtils`)
+2. **`EncryptionUtils`** (`io.github.carlos_emr.carlos.utility.EncryptionUtils`)
    - Wrapper around PasswordHashHelper
    - Methods: `hash()`, `verify()`, `isPasswordHashUpgradeNeeded()`
 
-3. **`SecurityManager`** (`ca.openosp.openo.managers.SecurityManager`)
+3. **`SecurityManager`** (`io.github.carlos_emr.carlos.managers.SecurityManager`)
    - Business logic for authentication
    - Methods: `validatePassword()`, `matchesPassword()`, `upgradeSavePasswordHash()`
 
@@ -285,4 +285,4 @@ ORDER BY user_name;
 
 - Spring Security DelegatingPasswordEncoder: [Documentation](https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html#authentication-password-storage-dpe)
 - BCrypt Algorithm: [Wikipedia](https://en.wikipedia.org/wiki/Bcrypt)
-- CARLOS Security Classes: `ca.openosp.openo.utility.password.*`, `ca.openosp.openo.managers.SecurityManager`
+- CARLOS Security Classes: `io.github.carlos_emr.carlos.utility.password.*`, `io.github.carlos_emr.carlos.managers.SecurityManager`

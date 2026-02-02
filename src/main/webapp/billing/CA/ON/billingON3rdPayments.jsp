@@ -44,27 +44,27 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ page import="java.math.*,java.util.*,java.sql.*,ca.openosp.*,java.net.*,java.text.*"
+<%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*,java.text.*"
          errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.commn.model.Site,ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider,ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPayment,ca.openosp.openo.commn.dao.BillingONPaymentDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingPaymentType" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site,io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment,io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@page import="java.text.SimpleDateFormat,java.text.NumberFormat" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONExtDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONExt" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingOnItemPaymentDao" %>
-<%@page import="ca.openosp.openo.billing.CA.ON.model.*" %>
-<%@page import="ca.openosp.openo.billings.ca.on.data.BillingItemData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONExt" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.model.*" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
 <%@page import="java.math.BigDecimal" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingPaymentTypeDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingPaymentType" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 <%
     List<String> errors = new ArrayList<String>();

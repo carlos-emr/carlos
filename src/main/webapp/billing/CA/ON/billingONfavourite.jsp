@@ -26,11 +26,11 @@
 
 %>
 <%@ page errorPage="/errorpage.jsp"
-         import="java.util.*,java.sql.*,ca.openosp.*,java.text.*,java.net.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingPageUtil" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
+         import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <% //
     int serviceCodeLen = 5;
     String msg = "Type in a name and search first to see if it is available.";

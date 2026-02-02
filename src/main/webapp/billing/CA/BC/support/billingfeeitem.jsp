@@ -22,12 +22,12 @@
     EMR System
 
 --%>
-<%@page import="java.math.*, java.util.*,  ca.openosp.*, java.net.*,ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.commn.model.*,ca.openosp.openo.util.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, ca.openosp.openo.entities.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingCodeData" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="java.math.*, java.util.*,  io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.util.*" %>
+<%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");

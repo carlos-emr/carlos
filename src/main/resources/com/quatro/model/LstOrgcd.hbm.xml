@@ -5,7 +5,7 @@
     author JZhang
 -->
 <hibernate-mapping>
-	<class name="ca.openosp.openo.model.LstOrgcd" table="lst_orgcd">
+	<class name="io.github.carlos_emr.carlos.model.LstOrgcd" table="lst_orgcd">
 		<id name="code" type="java.lang.String">
 			<column name="code" length="8" />
 			<generator class="native" />

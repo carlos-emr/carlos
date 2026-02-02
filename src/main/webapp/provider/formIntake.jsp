@@ -9,14 +9,14 @@
 
 --%>
 
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.rx.util.*, ca.openosp.openo.util.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.commn.dao.MeasurementDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Measurement" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.rx.util.*, io.github.carlos_emr.carlos.util.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Measurement" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ include file="/common/webAppContextAndSuperMgr.jsp" %>
 
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 
 
 <%
@@ -24,9 +24,9 @@
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 %>
 
-<%@page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.prescript.util.RxUtil" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
 
 <%!

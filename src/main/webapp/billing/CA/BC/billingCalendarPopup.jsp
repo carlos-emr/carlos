@@ -34,8 +34,8 @@ Use returnForm and returnItem request params and this page will fill in that inp
     if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*" %>
-<%@ page import="ca.openosp.DateInMonthTable" %>
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*" %>
+<%@ page import="io.github.carlos_emr.DateInMonthTable" %>
 <%
     //to prepare calendar display
     String type = request.getParameter("type");

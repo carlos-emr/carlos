@@ -30,16 +30,16 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.commn.dao.ServiceRequestTokenDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ServiceAccessTokenDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ServiceClientDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ServiceClient" %>
-<%@ page import="ca.openosp.openo.commn.model.ServiceRequestToken" %>
-<%@ page import="ca.openosp.openo.commn.model.ServiceAccessToken" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ServiceClientDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ServiceClient" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ServiceRequestToken" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ServiceAccessToken" %>
 <%
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 

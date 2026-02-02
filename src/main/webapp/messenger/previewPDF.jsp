@@ -72,8 +72,8 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.util.Doc2PDF" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
 <%
     // Extract HTML content and generate PDF response
     String srcText = request.getParameter("srcText");

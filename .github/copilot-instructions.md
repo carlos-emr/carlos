@@ -41,7 +41,7 @@ gh pr create                 # GitHub pull request creation
 
 ### PathValidationUtils - File Path Security
 
-**ALWAYS use PathValidationUtils** (`ca.openosp.openo.utility.PathValidationUtils`) for file operations involving user input. It prevents path traversal attacks consistently across the codebase.
+**ALWAYS use PathValidationUtils** (`io.github.carlos_emr.carlos.utility.PathValidationUtils`) for file operations involving user input. It prevents path traversal attacks consistently across the codebase.
 
 **Key Methods:**
 ```java
@@ -193,11 +193,11 @@ if (loggedInInfo.isExpired()) {
 
 ## Package Structure (2025 Migration)
 
-**CRITICAL**: Use NEW namespace `ca.openosp.openo.*` for ALL code
-- **Old**: `org.oscarehr.*`, `oscar.*` → **New**: `ca.openosp.openo.*`
-- **DAO Classes**: `ca.openosp.openo.commn.dao.*` (note: "commn" not "common")
-- **Models**: `ca.openosp.openo.commn.model.*`
-- **Exception**: `ProviderDao` at `ca.openosp.openo.dao.ProviderDao`
+**CRITICAL**: Use NEW namespace `io.github.carlos_emr.carlos.*` for ALL code
+- **Old**: `org.oscarehr.*`, `oscar.*` → **New**: `io.github.carlos_emr.carlos.*`
+- **DAO Classes**: `io.github.carlos_emr.carlos.commn.dao.*` (note: "commn" not "common")
+- **Models**: `io.github.carlos_emr.carlos.commn.model.*`
+- **Exception**: `ProviderDao` at `io.github.carlos_emr.carlos.dao.ProviderDao`
 - **Test Utilities**: Remain at `org.oscarehr.common.dao.*` for backward compatibility
 
 ## Struts2 Migration Pattern ("2Action")
@@ -206,7 +206,7 @@ if (loggedInInfo.isExpired()) {
 
 ### REQUIRED Structure for ALL New Actions
 ```java
-package ca.openosp.openo.module.web;
+package io.github.carlos_emr.carlos.module.web;
 
 import org.apache.struts2.ServletActionContext;
 import com.opensymphony.xwork2.ActionSupport;
@@ -360,8 +360,8 @@ void setUpSpringUtils() throws Exception {
 <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
     <property name="mappingResources">
         <list>
-            <value>ca/openosp/openo/commn/model/Provider.hbm.xml</value>
-            <value>ca/openosp/openo/commn/model/Demographic.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
         </list>
     </property>
 </bean>
@@ -377,8 +377,8 @@ void setUpSpringUtils() throws Exception {
 - **Solution**: Define beans manually in test context, not via component scanning
 ```xml
 <!-- Manual DAO definitions to avoid SpringUtils initialization issues -->
-<bean id="ticklerDao" class="ca.openosp.openo.commn.dao.TicklerDaoImpl" autowire="byName" />
-<bean id="oscarLogDao" class="ca.openosp.openo.commn.dao.OscarLogDaoImpl" autowire="byName" />
+<bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl" autowire="byName" />
+<bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
 ```
 
 **Entity Discovery Pattern**:
@@ -386,8 +386,8 @@ void setUpSpringUtils() throws Exception {
 - **Solution**: Explicitly list entities in `persistence.xml`, no scanning
 ```xml
 <persistence-unit name="testPersistenceUnit">
-    <class>ca.openosp.openo.commn.model.Tickler</class>
-    <class>ca.openosp.openo.commn.model.OscarLog</class>
+    <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
+    <class>io.github.carlos_emr.carlos.commn.model.OscarLog</class>
     <!-- Explicitly list each entity -->
     <exclude-unlisted-classes>true</exclude-unlisted-classes>
 </persistence-unit>
@@ -397,7 +397,7 @@ void setUpSpringUtils() throws Exception {
 - **Issue**: All operations require SecurityInfoManager privilege checks
 - **Solution**: MockSecurityInfoManager that always returns true
 ```xml
-<bean id="securityInfoManager" class="ca.openosp.openo.test.mocks.MockSecurityInfoManager" />
+<bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
 ```
 
 **Writing Tests - CRITICAL**:
@@ -471,7 +471,7 @@ criteria.add(Restrictions.eq("activeCount", 1)); // Only active records
 ### Data Encryption for PHI
 ```java
 // Encrypt sensitive data before storage
-import ca.openosp.openo.utilities.encryption.EncryptionUtils;
+import io.github.carlos_emr.carlos.utilities.encryption.EncryptionUtils;
 
 String encryptedSIN = EncryptionUtils.encrypt(socialInsuranceNumber);
 demographic.setHin(encryptedSIN);
@@ -651,19 +651,19 @@ Multiple modular application contexts:
 - **Provincial Billing**: Direct integration with Teleplan (BC MSP) and other systems
 
 ### Major Namespace Migration (August 2025)
-**CRITICAL**: Completed migration `org.oscarehr.*` / `oscar.*` → `ca.openosp.openo.*`
-- **When writing new code**: Always use `ca.openosp.openo.*` package structure
+**CRITICAL**: Completed migration `org.oscarehr.*` / `oscar.*` → `io.github.carlos_emr.carlos.*`
+- **When writing new code**: Always use `io.github.carlos_emr.carlos.*` package structure
 - **When referencing existing code**: May encounter both old and new package names in comments/documentation
 - **Import statements**: Update all imports to use new namespace structure
 - **Git history**: Many files show as "renamed" due to this migration
 
 #### **Package Migration Details**
-- **Primary Migration**: `org.oscarehr.common.*` → `ca.openosp.openo.commn.*` (note: intentionally "commn" not "common")
-- **DAO Classes**: All DAO interfaces moved to `ca.openosp.openo.commn.dao.*`
-- **Model Classes**: Entity models moved to `ca.openosp.openo.commn.model.*`
+- **Primary Migration**: `org.oscarehr.common.*` → `io.github.carlos_emr.carlos.commn.*` (note: intentionally "commn" not "common")
+- **DAO Classes**: All DAO interfaces moved to `io.github.carlos_emr.carlos.commn.dao.*`
+- **Model Classes**: Entity models moved to `io.github.carlos_emr.carlos.commn.model.*`
 - **Special Cases**:
-  - `ProviderDao` specifically located at `ca.openosp.openo.dao.ProviderDao` (not in commn.dao)
-  - Forms DAOs at `ca.openosp.openo.commn.dao.forms.*`
+  - `ProviderDao` specifically located at `io.github.carlos_emr.carlos.dao.ProviderDao` (not in commn.dao)
+  - Forms DAOs at `io.github.carlos_emr.carlos.commn.dao.forms.*`
 - **Test Utilities**: Test framework classes remain at `org.oscarehr.common.dao.*` (e.g., `EntityDataGenerator`, `SchemaUtils`)
 
 #### **Import Management Patterns**
@@ -671,9 +671,9 @@ When fixing compilation errors after package refactoring:
 - **Main Source Code**: Use systematic find/replace operations for bulk import updates
 - **Test Files**: Manually add missing DAO imports following the pattern:
   ```java
-  import ca.openosp.openo.commn.model.EntityName;
-  import ca.openosp.openo.commn.dao.EntityNameDao;
-  import ca.openosp.openo.utility.SpringUtils;
+  import io.github.carlos_emr.carlos.commn.model.EntityName;
+  import io.github.carlos_emr.carlos.commn.dao.EntityNameDao;
+  import io.github.carlos_emr.carlos.utility.SpringUtils;
   ```
 - **Batch Processing**: Use MultiEdit tool for efficient bulk import fixes across multiple files
 - **Verification**: Always read files before applying edits to understand the context
@@ -801,7 +801,7 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 
 **Struts.xml Mapping**
 ```xml
-<action name="login" class="ca.openosp.openo.login.Login2Action">
+<action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
     <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
     <result name="failure">/logout.jsp</result>
 </action>
@@ -1021,7 +1021,7 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 - **Project Name**: "CARLOS EMR" (NOT "OSCAR EMR")
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
-- **Packages**: `ca.openosp.openo.*` (new) vs `org.oscarehr.*` (legacy)
+- **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
 - **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
 
 ---
@@ -1037,7 +1037,7 @@ src/main/webapp/WEB-INF/web.xml                   # Security filter chain config
 
 # Struts Configuration
 src/main/webapp/WEB-INF/classes/struts.xml        # 2Action mapping examples
-src/main/java/ca/openosp/openo/*/web/*2Action.java # 2Action implementation patterns
+src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implementation patterns
 
 # Database Configuration
 src/main/resources/OscarDatabaseBase.xml           # Hibernate configuration
@@ -1048,55 +1048,55 @@ database/mysql/updates/update-2025-*.sql          # Recent migration patterns
 ### Security Implementation Examples
 ```bash
 # Security Patterns (READ THESE FIRST)
-src/main/java/ca/openosp/openo/managers/SecurityInfoManager.java    # Authorization patterns
-src/main/java/ca/openosp/openo/utility/LoggedInInfo.java           # Session management
+src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManager.java    # Authorization patterns
+src/main/java/io/github/carlos_emr/carlos/utility/LoggedInInfo.java           # Session management
 src/main/webapp/WEB-INF/classes/oscar/oscarSecurity/                # Security filter examples
 
 # OWASP Integration Examples
 src/main/webapp/*/*.jsp                            # Look for Encode.forHtml() usage patterns
-src/main/java/ca/openosp/openo/*/web/*2Action.java # Security check implementations
+src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # Security check implementations
 
 # CSRF Protection Implementation
 src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRF Guard configuration
 src/main/webapp/WEB-INF/csrfguard.js               # Client-side token injection
-src/main/java/ca/openosp/openo/app/CSRFPreservingFilter.java    # Custom CSRF filter
-src/main/java/ca/openosp/openo/app/CsrfJavaScriptInjectionFilter.java # JS injection
+src/main/java/io/github/carlos_emr/carlos/app/CSRFPreservingFilter.java    # Custom CSRF filter
+src/main/java/io/github/carlos_emr/carlos/app/CsrfJavaScriptInjectionFilter.java # JS injection
 
 ```
 
 ### Healthcare Domain Examples
 ```bash
 # Medical Data Patterns
-src/main/java/ca/openosp/openo/commn/model/Demographic.java        # Patient data model
-src/main/java/ca/openosp/openo/commn/model/Allergies.java          # Medical allergy model
-src/main/java/ca/openosp/openo/commn/dao/DemographicDao.java       # Healthcare DAO patterns
+src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java        # Patient data model
+src/main/java/io/github/carlos_emr/carlos/commn/model/Allergies.java          # Medical allergy model
+src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDao.java       # Healthcare DAO patterns
 
 # Provincial Healthcare Integration
-src/main/java/ca/openosp/openo/billing/CA/BC/                      # BC-specific billing
-src/main/java/ca/openosp/openo/billing/CA/ON/                      # Ontario-specific billing
-src/main/java/ca/openosp/openo/olis/                               # Ontario Labs integration
+src/main/java/io/github/carlos_emr/carlos/billing/CA/BC/                      # BC-specific billing
+src/main/java/io/github/carlos_emr/carlos/billing/CA/ON/                      # Ontario-specific billing
+src/main/java/io/github/carlos_emr/carlos/olis/                               # Ontario Labs integration
 
 # HL7 & FHIR Examples
-src/main/java/ca/openosp/openo/hl7/                                # HL7 message handling
-src/main/java/ca/openosp/openo/fhir/                               # FHIR implementation patterns
+src/main/java/io/github/carlos_emr/carlos/hl7/                                # HL7 message handling
+src/main/java/io/github/carlos_emr/carlos/fhir/                               # FHIR implementation patterns
 ```
 
 ### 2Action Migration Examples
 ```bash
 # Study These 2Action Implementations
-src/main/java/ca/openosp/openo/tickler/pageUtil/AddTickler2Action.java      # Simple execute pattern
-src/main/java/ca/openosp/openo/caseload/CaseloadContent2Action.java         # Method-based routing
-src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplay*2Action.java   
+src/main/java/io/github/carlos_emr/carlos/tickler/pageUtil/AddTickler2Action.java      # Simple execute pattern
+src/main/java/io/github/carlos_emr/carlos/caseload/CaseloadContent2Action.java         # Method-based routing
+src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplay*2Action.java   
 # Base Classes for 2Actions
-src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayAction.java    
+src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java    
 ```
 
 ### Spring Integration Patterns
 ```bash
 # Spring Utility Usage Examples
-src/main/java/ca/openosp/openo/utility/SpringUtils.java           # Spring bean access patterns
-src/main/java/ca/openosp/openo/managers/*Manager.java             # Service layer examples
-src/main/java/ca/openosp/openo/commn/dao/*Dao.java               # DAO injection patterns
+src/main/java/io/github/carlos_emr/carlos/utility/SpringUtils.java           # Spring bean access patterns
+src/main/java/io/github/carlos_emr/carlos/managers/*Manager.java             # Service layer examples
+src/main/java/io/github/carlos_emr/carlos/commn/dao/*Dao.java               # DAO injection patterns
 ```
 
 ### Database Schema References
@@ -1111,12 +1111,12 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 ### Testing Patterns
 ```bash
 # Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
-src/test-modern/java/ca/openosp/openo/            # Modern JUnit 5 tests
+src/test-modern/java/io/github/carlos_emr/carlos/            # Modern JUnit 5 tests
 src/test-modern/resources/                        # Modern test configurations
 docs/modern-test-framework-complete.md            # Complete test framework documentation
 
 # Legacy Test Examples (JUnit 4) - for reference only
-src/test/java/ca/openosp/openo/                   # Legacy test structure
+src/test/java/io/github/carlos_emr/carlos/                   # Legacy test structure
 src/test/resources/over_ride_config.properties    # Test configuration template
 ```
 
@@ -1135,7 +1135,7 @@ src/test/resources/over_ride_config.properties    # Test configuration template
 Example of proper test development workflow:
 ```java
 // 1. First, check the actual DAO interface:
-// src/main/java/ca/openosp/openo/commn/dao/TicklerDao.java
+// src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDao.java
 public interface TicklerDao extends AbstractDao<Tickler> {
     public Tickler find(Integer id);  // <-- Real method to test
     public List<Tickler> findActiveByDemographicNo(Integer demoNo); // <-- Real method

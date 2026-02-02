@@ -42,13 +42,13 @@
 <%
     String curUser_no = (String) session.getAttribute("user");
 %>
-<%@page import="java.util.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.openo.billing.ca.bc.pageUtil.*" %>
+<%@page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingAssociationPersistence" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAssociationPersistence" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 %>

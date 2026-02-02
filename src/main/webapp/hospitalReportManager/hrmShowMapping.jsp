@@ -24,8 +24,8 @@
     }
 %>
 
-<%@page import="java.util.*, ca.openosp.openo.hospitalReportManager.*, ca.openosp.openo.hospitalReportManager.model.HRMCategory" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.HRMUtil" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.hospitalReportManager.*, io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

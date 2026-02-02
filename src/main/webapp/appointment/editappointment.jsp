@@ -25,7 +25,7 @@
 --%>
 <!DOCTYPE html>
 
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -41,10 +41,10 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
-<%@page import="ca.openosp.openo.managers.DemographicManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 
-<%@page import="ca.openosp.openo.appt.status.service.impl.AppointmentStatusMgrImpl" %>
+<%@page import="io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
@@ -58,39 +58,39 @@
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%@ page import="java.time.format.FormatStyle" %>
 <%@ page import="java.time.ZoneId" %>
-<%@ page import="ca.openosp.openo.appt.*" %>
-<%@ page import="ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.appt.status.service.AppointmentStatusMgr" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.commn.OtherIdManager" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicCustDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.EncounterFormDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingONExtDao" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@ page import="ca.openosp.openo.PMmodule.service.ProviderManager" %>
-<%@ page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.EncounterFormDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="ca.openosp.openo.commn.dao.AppointmentTypeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.appt.ApptUtil" %>
-<%@ page import="ca.openosp.openo.appt.ApptData" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -1489,10 +1489,10 @@
         <%--        String formatDate = "";--%>
         <%--        try { // attempt to change string format--%>
         <%--        java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());--%>
-        <%--        formatDate = ca.openosp.openo.util.UtilDateUtilities.DateToString(d, prop.getString("date.EEEyyyyMMdd"));--%>
+        <%--        formatDate = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(d, prop.getString("date.EEEyyyyMMdd"));--%>
         <%--        } catch (Exception e) {--%>
-        <%--            ca.openosp.openo.utility.MiscUtils.getLogger().error("Error", e);--%>
-        <%--            formatDate = ca.openosp.openo.util.UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");--%>
+        <%--            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error", e);--%>
+        <%--            formatDate = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");--%>
         <%--        }--%>
         <%--    %>--%>
         <%--    <div class="header">--%>

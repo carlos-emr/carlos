@@ -37,18 +37,18 @@
         return;
     }
 %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.ArrayList" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.PMmodule.model.ProgramProvider" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.managers.ProviderManager2" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.managers.ProviderManager2" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 
 <%
     ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);

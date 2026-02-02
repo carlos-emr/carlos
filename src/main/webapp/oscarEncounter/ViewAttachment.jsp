@@ -40,9 +40,9 @@
 %>
 
 <%@ page
-        import="ca.openosp.openo.encounter.immunization.data.*,ca.openosp.openo.util.UtilXML" %>
+        import="io.github.carlos_emr.carlos.encounter.immunization.data.*,io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page
-        import="ca.openosp.openo.encounter.immunization.pageUtil.*, java.util.*, org.w3c.dom.*" %>
+        import="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.*, java.util.*, org.w3c.dom.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

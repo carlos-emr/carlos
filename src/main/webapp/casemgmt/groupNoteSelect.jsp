@@ -22,7 +22,7 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -38,16 +38,16 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.model.Admission" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="ca.openosp.openo.PMmodule.service.AdmissionManager" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.dao.GroupNoteDao" %>
-<%@page import="ca.openosp.openo.commn.model.GroupNoteLink" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.GroupNoteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.GroupNoteLink" %>
 <%
 	ProgramManager programManager = (ProgramManager)SpringUtils.getBean(ProgramManager.class);
 	AdmissionManager admissionManager = (AdmissionManager)SpringUtils.getBean(AdmissionManager.class);

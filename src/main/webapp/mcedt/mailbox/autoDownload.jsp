@@ -33,7 +33,7 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ page import="java.math.BigInteger,java.util.*,ca.openosp.openo.integration.mcedt.mailbox.DetailDataCustom" %>
+<%@ page import="java.math.BigInteger,java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.DetailDataCustom" %>
 
 <%
     BigInteger resourceIDBig = (BigInteger) session.getAttribute("resourceID");

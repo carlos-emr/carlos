@@ -24,17 +24,17 @@
     }
 %>
 <%@ page errorPage="/errorpage.jsp"
-         import="java.util.*,java.sql.*,ca.openosp.*,java.text.*, java.lang.*,java.net.*" %>
+         import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*, java.lang.*,java.net.*" %>
 
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page
-        import="ca.openosp.openo.utility.SpringUtils, ca.openosp.openo.commn.dao.CSSStylesDAO, ca.openosp.openo.commn.model.CssStyle, java.util.List" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.ON.model.BillingPercLimit" %>
-<%@ page import="ca.openosp.openo.billing.CA.ON.dao.BillingPercLimitDao" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+        import="io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO, io.github.carlos_emr.carlos.commn.model.CssStyle, java.util.List" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
     BillingPercLimitDao billingPercLimitDao = SpringUtils.getBean(BillingPercLimitDao.class);

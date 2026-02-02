@@ -40,7 +40,7 @@
 %>
 
 <%@ page
-        import="java.util.*,ca.openosp.openo.report.oscarMeasurements.pageUtil.*" %>
+        import="java.util.*,io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 

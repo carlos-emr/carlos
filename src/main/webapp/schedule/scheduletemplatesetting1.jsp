@@ -28,17 +28,17 @@
 
     String weekdaytag[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.RSchedule" %>
-<%@page import="ca.openosp.openo.commn.dao.RScheduleDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RSchedule" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RScheduleDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 
 <%
     RScheduleDao rScheduleDao = SpringUtils.getBean(RScheduleDao.class);
 %>
 
-<jsp:useBean id="scheduleRscheduleBean" class="ca.openosp.RscheduleBean" scope="session"/>
+<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
 
 
 <% scheduleRscheduleBean.clear(); %>

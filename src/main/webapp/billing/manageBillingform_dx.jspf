@@ -25,8 +25,8 @@
 -->
 
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.CtlDiagCode" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlDiagCodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <form method="post" name="form1" action="dbManageBillingform_dx.jsp">

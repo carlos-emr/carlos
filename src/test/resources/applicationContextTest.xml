@@ -17,9 +17,9 @@
 		load properties from additional property files; oscar.properties is
 		already loaded
 	-->
-	<!-- <bean id="hibernateTemplateTest" class="ca.openosp.openo.commn.dao.HibernateTemplateTest"> </bean> -->
+	<!-- <bean id="hibernateTemplateTest" class="io.github.carlos_emr.carlos.commn.dao.HibernateTemplateTest"> </bean> -->
 	
-	<bean id="propertyConfigurer" class="ca.openosp.openo.commn.OscarPropertyPlaceholderConfigurer">
+	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>
 				<value>classpath:oscar_mcmaster.properties</value>
@@ -36,88 +36,88 @@
 	<import resource="classpath:spring_hibernate_test.xml" />
 
 <!-- hibernated DAO -->
-        <bean id="gstControlDao" class="ca.openosp.openo.billing.CA.dao.GstControlDao" autowire="byName" />
-	<bean id="programDao" class="ca.openosp.openo.PMmodule.dao.ProgramDao" autowire="byName" />
-	<bean id="programQueueDao" class="ca.openosp.openo.PMmodule.dao.ProgramQueueDao" autowire="byName" />
-	<bean id="clientReferralDAO" class="ca.openosp.openo.PMmodule.dao.ClientReferralDAO" autowire="byName" />
-	<bean id="agencyDao" class="ca.openosp.openo.PMmodule.dao.AgencyDao" autowire="byName" />
-	<!-- bean id="admissionDao" class="ca.openosp.openo.commn.dao.AdmissionDao" autowire="byName" /-->
-	<bean id="providerDao" class="ca.openosp.openo.PMmodule.dao.ProviderDaoImpl" autowire="byName" />
-	<bean id="otherIdDao" class="ca.openosp.openo.commn.dao.OtherIdDAO" autowire="byName" />
+        <bean id="gstControlDao" class="io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao" autowire="byName" />
+	<bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" autowire="byName" />
+	<bean id="programQueueDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDao" autowire="byName" />
+	<bean id="clientReferralDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAO" autowire="byName" />
+	<bean id="agencyDao" class="io.github.carlos_emr.carlos.PMmodule.dao.AgencyDao" autowire="byName" />
+	<!-- bean id="admissionDao" class="io.github.carlos_emr.carlos.commn.dao.AdmissionDao" autowire="byName" /-->
+	<bean id="providerDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl" autowire="byName" />
+	<bean id="otherIdDao" class="io.github.carlos_emr.carlos.commn.dao.OtherIdDAO" autowire="byName" />
 
-	<bean id="CaseManagementIssueDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementIssueDAO" autowire="byName" />
-	<bean id="caseManagementIssueDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementIssueDAO" autowire="byName" />
-	<bean id="CaseManagementNoteDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAO" autowire="byName" />
-	<bean id="caseManagementNoteDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAO" autowire="byName" />
-	<bean id="CaseManagementNoteExtDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteExtDAO" autowire="byName" />
-	<bean id="CaseManagementNoteLinkDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteLinkDAO" autowire="byName" />
-	<bean id="CaseManagementCPPDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementCPPDAO" autowire="byName" />
-	<!-- bean id="demoExpListDao" class="ca.openosp.openo.commn.dao.DemographicToExportPCDS_Dao" autowire="byName" / -->
-	<!-- bean id="diseaseRegistryPCDSDao" class="ca.openosp.openo.commn.dao.DiseaseRegistryPCDS_Dao" autowire="byName" / -->
+	<bean id="CaseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO" autowire="byName" />
+	<bean id="caseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO" autowire="byName" />
+	<bean id="CaseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" autowire="byName" />
+	<bean id="caseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" autowire="byName" />
+	<bean id="CaseManagementNoteExtDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO" autowire="byName" />
+	<bean id="CaseManagementNoteLinkDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" autowire="byName" />
+	<bean id="CaseManagementCPPDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementCPPDAO" autowire="byName" />
+	<!-- bean id="demoExpListDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicToExportPCDS_Dao" autowire="byName" / -->
+	<!-- bean id="diseaseRegistryPCDSDao" class="io.github.carlos_emr.carlos.commn.dao.DiseaseRegistryPCDS_Dao" autowire="byName" / -->
 	
 	
-	<bean id="AppointmentArchiveDao" class="ca.openosp.openo.commn.dao.AppointmentArchiveDao" autowire="byName" />
-	<bean id="DxDao" class="ca.openosp.openo.commn.dao.DxDao" autowire="byName" />
-	<bean id="CasemgmtNoteLockDao" class="ca.openosp.openo.commn.dao.CasemgmtNoteLockDao" autowire="byName" />
+	<bean id="AppointmentArchiveDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" autowire="byName" />
+	<bean id="DxDao" class="io.github.carlos_emr.carlos.commn.dao.DxDao" autowire="byName" />
+	<bean id="CasemgmtNoteLockDao" class="io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao" autowire="byName" />
 	
-	<bean id="AllergyDao" class="ca.openosp.openo.commn.dao.AllergyMergedDemographicDao" autowire="byName" />
-	<bean id="allergyDao" class="ca.openosp.openo.commn.dao.AllergyMergedDemographicDao" autowire="byName" />
+	<bean id="AllergyDao" class="io.github.carlos_emr.carlos.commn.dao.AllergyMergedDemographicDao" autowire="byName" />
+	<bean id="allergyDao" class="io.github.carlos_emr.carlos.commn.dao.AllergyMergedDemographicDao" autowire="byName" />
 	
-	<bean id="IssueDAO" class="ca.openosp.openo.casemgmt.dao.IssueDAO" autowire="byName" />
-	<bean id="secroleDao" class="ca.openosp.openo.daos.security.SecroleDao" autowire="byName"/>
-	<bean id="RoleProgramAccessDAO" class="ca.openosp.openo.casemgmt.dao.RoleProgramAccessDAO" autowire="byName" />
-	<bean id="clientImageDAO" class="ca.openosp.openo.casemgmt.dao.ClientImageDAO" autowire="byName" />
-	<bean id="programProviderDAO" class="ca.openosp.openo.PMmodule.dao.ProgramProviderDAO" autowire="byName" />
-	<bean id="programFunctionalUserDAO" class="ca.openosp.openo.PMmodule.dao.ProgramFunctionalUserDAO" autowire="byName" />
-	<bean id="programAccessDAO" class="ca.openosp.openo.PMmodule.dao.ProgramAccessDAO" autowire="byName" />
-	<bean id="defaultRoleAccessDAO" class="ca.openosp.openo.PMmodule.dao.DefaultRoleAccessDAO" autowire="byName" />
-	<bean id="programClientStatusDAO" class="ca.openosp.openo.PMmodule.dao.ProgramClientStatusDAO" autowire="byName" />
-	<bean id="programTeamDAO" class="ca.openosp.openo.PMmodule.dao.ProgramTeamDAO" autowire="byName" />
-	<bean id="bedProgramDao" class="ca.openosp.openo.caisi.dao.BedProgramDao" autowire="byName" />
-	<bean id="demographicDao" class="ca.openosp.openo.commn.dao.DemographicDao" autowire="byName" />
-	<bean id="secUserRoleDao" class="ca.openosp.openo.PMmodule.dao.SecUserRoleDao" autowire="byName" />
-	<bean id="programSignatureDao" class="ca.openosp.openo.PMmodule.dao.ProgramSignatureDao" autowire="byName" />
-	<bean id="programClientRestrictionDAO" class="ca.openosp.openo.PMmodule.dao.ProgramClientRestrictionDAO" autowire="byName" />
-	<bean id="UserPropertyDAO" class="ca.openosp.openo.commn.dao.UserPropertyDAO" autowire="byName" />
-	<bean id="clinicDAO" class="ca.openosp.openo.commn.dao.ClinicDAO" autowire="byName" />
-	<bean id="dataExportDAO" class="ca.openosp.openo.commn.dao.DataExportDao" autowire="byName" />
-	<bean id="siteDao" class="ca.openosp.openo.commn.dao.SiteDao" autowire="byName" />
-	<bean id="BillingmasterDAO" class="ca.openosp.openo.billings.ca.bc.data.BillingmasterDAO" autowire="byName" />
-	<bean id="BillingPreferencesDAO" class="ca.openosp.openo.billings.ca.bc.data.BillingPreferencesDAO" autowire="byName" />
-	<bean id="PrivateBillTransactionDAO" class="ca.openosp.openo.billings.ca.bc.data.PrivateBillTransactionsDAO" autowire="byName" />
-	<bean id="SupServiceCodeAssocDAO" class="ca.openosp.openo.billings.ca.bc.data.SupServiceCodeAssocDAO" autowire="byName" />
-	<bean id="BillingreferralDAO" class="ca.openosp.openo.commn.dao.BillingreferralDao" autowire="byName" />
-	<bean id="DxresearchDAO" class="ca.openosp.openo.commn.dao.DxresearchDAO" autowire="byName" />
-	<bean id="Icd9DAO" class="ca.openosp.openo.commn.dao.Icd9Dao" autowire="byName" />
-	<bean id="defaultIssueDao" class="ca.openosp.openo.daos.DefaultIssueDao" autowire="byName" />
+	<bean id="IssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO" autowire="byName" />
+	<bean id="secroleDao" class="io.github.carlos_emr.carlos.daos.security.SecroleDao" autowire="byName"/>
+	<bean id="RoleProgramAccessDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAO" autowire="byName" />
+	<bean id="clientImageDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAO" autowire="byName" />
+	<bean id="programProviderDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO" autowire="byName" />
+	<bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAO" autowire="byName" />
+	<bean id="programAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO" autowire="byName" />
+	<bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAO" autowire="byName" />
+	<bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAO" autowire="byName" />
+	<bean id="programTeamDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramTeamDAO" autowire="byName" />
+	<bean id="bedProgramDao" class="io.github.carlos_emr.carlos.caisi.dao.BedProgramDao" autowire="byName" />
+	<bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDao" autowire="byName" />
+	<bean id="secUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao" autowire="byName" />
+	<bean id="programSignatureDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramSignatureDao" autowire="byName" />
+	<bean id="programClientRestrictionDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientRestrictionDAO" autowire="byName" />
+	<bean id="UserPropertyDAO" class="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" autowire="byName" />
+	<bean id="clinicDAO" class="io.github.carlos_emr.carlos.commn.dao.ClinicDAO" autowire="byName" />
+	<bean id="dataExportDAO" class="io.github.carlos_emr.carlos.commn.dao.DataExportDao" autowire="byName" />
+	<bean id="siteDao" class="io.github.carlos_emr.carlos.commn.dao.SiteDao" autowire="byName" />
+	<bean id="BillingmasterDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" autowire="byName" />
+	<bean id="BillingPreferencesDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO" autowire="byName" />
+	<bean id="PrivateBillTransactionDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PrivateBillTransactionsDAO" autowire="byName" />
+	<bean id="SupServiceCodeAssocDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO" autowire="byName" />
+	<bean id="BillingreferralDAO" class="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" autowire="byName" />
+	<bean id="DxresearchDAO" class="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" autowire="byName" />
+	<bean id="Icd9DAO" class="io.github.carlos_emr.carlos.commn.dao.Icd9Dao" autowire="byName" />
+	<bean id="defaultIssueDao" class="io.github.carlos_emr.carlos.daos.DefaultIssueDao" autowire="byName" />
 	
-	<!-- <bean id="rourke2009Dao" class="ca.openosp.openo.form.dao.Rourke2009DAO" autowire="byName" /> -->
-	<!-- <bean id="Rourke2017Dao" class="ca.openosp.openo.form.dao.Rourke2017Dao" autowire="byName"/> -->
-  <!-- <bean id="FormBooleanValueDao" class="ca.openosp.openo.form.dao.FormBooleanValueDao" autowire="byName"/> -->
-	<!-- <bean id="ocanSubmissionLogDao" class="ca.openosp.openo.PMmodule.dao.OcanSubmissionLogDao" autowire="byName" /> -->
-	<!-- bean id="Perinatal2017Dao" class="ca.openosp.openo.form.dao.ONPerinatal2017Dao" autowire="byName"/ -->
-	<!-- bean id="Perinatal2017CommentDao" class="ca.openosp.openo.form.dao.ONPerinatal2017CommentDao" autowire="byName"/ -->
+	<!-- <bean id="rourke2009Dao" class="io.github.carlos_emr.carlos.form.dao.Rourke2009DAO" autowire="byName" /> -->
+	<!-- <bean id="Rourke2017Dao" class="io.github.carlos_emr.carlos.form.dao.Rourke2017Dao" autowire="byName"/> -->
+  <!-- <bean id="FormBooleanValueDao" class="io.github.carlos_emr.carlos.form.dao.FormBooleanValueDao" autowire="byName"/> -->
+	<!-- <bean id="ocanSubmissionLogDao" class="io.github.carlos_emr.carlos.PMmodule.dao.OcanSubmissionLogDao" autowire="byName" /> -->
+	<!-- bean id="Perinatal2017Dao" class="io.github.carlos_emr.carlos.form.dao.ONPerinatal2017Dao" autowire="byName"/ -->
+	<!-- bean id="Perinatal2017CommentDao" class="io.github.carlos_emr.carlos.form.dao.ONPerinatal2017CommentDao" autowire="byName"/ -->
 
-	<bean id="lookupDao" class="ca.openosp.openo.daos.LookupDao" autowire="byName" />
-	<!-- <bean id="documentDao" class="ca.openosp.openo.document.dao.DocumentMergeDemographicDAO" autowire="byName" /> -->
-	<bean id="userAccessDao" class="ca.openosp.openo.daos.security.UserAccessDao" autowire="byName" />
-	<bean id="providerInboxRoutingDAO" class="ca.openosp.openo.commn.dao.ProviderInboxRoutingDao" autowire="byName"/>
-	<bean id="ProviderLabRoutingFavoritesDao" class="ca.openosp.openo.commn.dao.ProviderLabRoutingFavoritesDao" autowire="byName"/>
+	<bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDao" autowire="byName" />
+	<!-- <bean id="documentDao" class="io.github.carlos_emr.carlos.document.dao.DocumentMergeDemographicDAO" autowire="byName" /> -->
+	<bean id="userAccessDao" class="io.github.carlos_emr.carlos.daos.security.UserAccessDao" autowire="byName" />
+	<bean id="providerInboxRoutingDAO" class="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" autowire="byName"/>
+	<bean id="ProviderLabRoutingFavoritesDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao" autowire="byName"/>
 
-    <bean id="queueDocumentLinkDAO" class="ca.openosp.openo.commn.dao.QueueDocumentLinkDao" autowire="byName"/>
+    <bean id="queueDocumentLinkDAO" class="io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao" autowire="byName"/>
 
-	<bean id="caseloadDao" class="ca.openosp.openo.commn.dao.CaseloadDao" autowire="byName" />
-	<bean id="inboxResultsDao" class="ca.openosp.openo.commn.dao.InboxResultsDao" autowire="byName" />
+	<bean id="caseloadDao" class="io.github.carlos_emr.carlos.commn.dao.CaseloadDao" autowire="byName" />
+	<bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDao" autowire="byName" />
 	
 	<!-- Dao classes that implement OscarSuperDao -->
-	<bean id="providerSuperDao" class="ca.openosp.openo.dao.ProviderDao" autowire="byName" />
+	<bean id="providerSuperDao" class="io.github.carlos_emr.carlos.dao.ProviderDao" autowire="byName" />
 	
 	
 	<bean id="template" class="org.springframework.orm.hibernate3.HibernateTemplate">  
     <property name="sessionFactory" ref="sessionFactory"></property>  
   </bean>  
 
-	<bean id="hibernateTestDao" class="ca.openosp.openo.util.HibernateTestDao">
+	<bean id="hibernateTestDao" class="io.github.carlos_emr.carlos.util.HibernateTestDao">
     <property name="template" ref="template"/>
 	</bean>
 		

@@ -19,22 +19,22 @@
 --%>
 
 <%@ page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.MyDateFormat,ca.openosp.openo.db.*"
+        import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.db.*"
         errorPage="/errorpage.jsp" %>
 <%@ include file="/admin/dbconnection.jsp" %>
 
 <jsp:useBean id="billingLocalInvNoBean" class="java.util.Properties" scope="page"/>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.RaHeader" %>
-<%@page import="ca.openosp.openo.commn.dao.RaHeaderDao" %>
-<%@page import="ca.openosp.openo.commn.model.RaDetail" %>
-<%@page import="ca.openosp.openo.commn.dao.RaDetailDao" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@page import="ca.openosp.openo.commn.model.Billing" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
     RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
@@ -43,9 +43,9 @@
 %>
 
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

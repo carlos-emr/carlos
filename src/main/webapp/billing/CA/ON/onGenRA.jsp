@@ -36,12 +36,12 @@
     <%isTeamAccessPrivacy = true; %>
 </security:oscarSec>
 
-<%@ page import="java.io.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.util.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingRAImpl" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<jsp:useBean id="documentBean" class="ca.openosp.DocumentBean" scope="request"/>
+<%@ page import="java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.util.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<jsp:useBean id="documentBean" class="io.github.carlos_emr.DocumentBean" scope="request"/>
 
 <%
     JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();

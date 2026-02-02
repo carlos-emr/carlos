@@ -25,8 +25,8 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -43,14 +43,14 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page
-        import="java.util.*,ca.openosp.openo.demographic.data.*,ca.openosp.openo.prevention.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*,ca.openosp.openo.report.data.*,ca.openosp.openo.prevention.pageUtil.*,ca.openosp.openo.demographic.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.demographic.pageUtil.Util" %>
-<%@ page import="ca.openosp.openo.demographic.pageUtil.DemographicExportAction42Action" %>
-<%@ page import="ca.openosp.openo.demographic.pageUtil.PGPEncrypt" %>
-<%@ page import="ca.openosp.openo.report.data.DemographicSets" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+        import="java.util.*,io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,io.github.carlos_emr.carlos.demographic.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -75,7 +75,7 @@
     DemographicSets ds = new DemographicSets();
     List<String> sets = ds.getDemographicSets();
 
-//  ca.openosp.openo.report.data.RptSearchData searchData  = new ca.openosp.openo.report.data.RptSearchData();
+//  io.github.carlos_emr.carlos.report.data.RptSearchData searchData  = new io.github.carlos_emr.carlos.report.data.RptSearchData();
 //  ArrayList queryArray = searchData.getQueryTypes();
 
     String userRole = (String) session.getAttribute("userrole");

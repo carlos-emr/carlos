@@ -15,17 +15,17 @@
         <property name="dataSource" ref="dataSource" />
         <property name="packagesToScan">
             <list>
-                <value>ca.openosp.openo.model</value>
-                <value>ca.openosp.openo.PMmodule.model</value>
-                <value>ca.openosp.openo.casemgmt.model</value>
-                <value>ca.openosp.openo.commn.model</value>
+                <value>io.github.carlos_emr.carlos.model</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model</value>
+                <value>io.github.carlos_emr.carlos.casemgmt.model</value>
+                <value>io.github.carlos_emr.carlos.commn.model</value>
                 <value>com.quatro.model</value>
-                <value>ca.openosp.openo.entities</value>
+                <value>io.github.carlos_emr.carlos.entities</value>
             </list>
         </property>
         <property name="annotatedClasses">
             <list>
-                <value>ca.openosp.openo.commn.model.Admission</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Admission</value>
             </list>
         </property>
         <property name="hibernateProperties">

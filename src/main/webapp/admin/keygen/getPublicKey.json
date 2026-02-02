@@ -1,5 +1,5 @@
-<%@page import="ca.openosp.openo.web.admin.KeyManagerUIBean"%>
-<%@page import="ca.openosp.openo.commn.model.PublicKey"%>
+<%@page import="io.github.carlos_emr.carlos.web.admin.KeyManagerUIBean"%>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PublicKey"%>
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper"%>
 
 <%

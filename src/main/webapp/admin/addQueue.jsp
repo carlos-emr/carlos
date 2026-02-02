@@ -26,7 +26,7 @@
 
 <!DOCTYPE HTML>
 
-<%@page import="ca.openosp.openo.providers.data.*,java.util.*,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.commn.dao.QueueDao" %>
+<%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>

@@ -44,16 +44,16 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.commn.dao.PropertyDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Property" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.clinic.ClinicData" %>
-<%@ page import="ca.openosp.openo.commn.model.SystemPreferences" %>
-<%@ page import="ca.openosp.openo.commn.dao.SystemPreferencesDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.clinic.ClinicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
 <%@ page import="java.util.*" %>
 
 

@@ -39,8 +39,8 @@
     }
 %>
 
-<%@ page import="java.util.*,ca.openosp.openo.report.data.*" %>
-<%@ page import="ca.openosp.openo.report.data.RptConsultReportData" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptConsultReportData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

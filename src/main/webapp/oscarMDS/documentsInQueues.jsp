@@ -41,7 +41,7 @@
 
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ page import="java.util.*, ca.openosp.openo.util.*, ca.openosp.OscarProperties" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.OscarProperties" %>
 <!DOCTYPE HTML >
 
 <html>

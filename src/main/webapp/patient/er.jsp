@@ -28,16 +28,16 @@
     if (session.getValue("patient") == null) response.sendRedirect("logout.jsp");
     String demographic_no = (String) session.getAttribute("demo_no");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*,java.net.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*,java.net.*"
          errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicAccessoryDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicAccessory" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.EncounterDao" %>
-<%@page import="ca.openosp.openo.commn.model.Encounter" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%
     DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);

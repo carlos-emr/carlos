@@ -21,10 +21,10 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 <%@ page errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.appt.ApptStatusData" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptStatusData" %>
 
 <%
     OscarAppointmentDao appointmentDao =

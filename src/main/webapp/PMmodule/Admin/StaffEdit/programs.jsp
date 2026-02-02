@@ -25,12 +25,12 @@
 
 
 <%@ include file="/taglibs.jsp" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.web.formbean.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.formbean.*" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@ page import="ca.openosp.openo.PMmodule.web.formbean.StaffEditProgramContainer" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.ProgramProvider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.formbean.StaffEditProgramContainer" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <script>
     function assignTeam(id, selectBox) {
         var team_id = selectBox.options[selectBox.selectedIndex].value;

@@ -11,7 +11,7 @@
 
 	<tag> 
 		<name>SpecialEncounterTag</name> 
-		<tagclass>ca.openosp.openo.util.plugin.SpecialEncounter</tagclass>
+		<tagclass>io.github.carlos_emr.carlos.util.plugin.SpecialEncounter</tagclass>
 		<bodycontent>jsp</bodycontent>
 		<info>Module whether exist</info> 
 		<attribute>
@@ -33,7 +33,7 @@
 	
 	<tag> 
 		<name>SpecialPlugin</name> 
-		<tagclass>ca.openosp.openo.util.plugin.SpecialPlugins</tagclass>
+		<tagclass>io.github.carlos_emr.carlos.util.plugin.SpecialPlugins</tagclass>
 		<bodycontent>jsp</bodycontent>
 		<info>Module whether exist</info> 
 		<attribute>

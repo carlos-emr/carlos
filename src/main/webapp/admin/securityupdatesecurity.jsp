@@ -42,14 +42,14 @@
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Security" %>
-<%@ page import="ca.openosp.openo.commn.dao.SecurityDao" %>
-<%@ page import="ca.openosp.openo.security.MfaActions2Action" %>
-<%@ page import="ca.openosp.openo.managers.MfaManager" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
+<%@ page import="io.github.carlos_emr.carlos.security.MfaActions2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 
 <%!

@@ -27,7 +27,7 @@
 
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
-<%@ page import="ca.openosp.openo.login.*, ca.openosp.openo.db.*, ca.openosp.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.carlos.db.*, io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -90,11 +90,11 @@
     }
 %>
 
-<%@page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.db.DBPreparedHandler" %>
-<%@ page import="ca.openosp.openo.db.DBPreparedHandlerParam" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <html>
     <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>

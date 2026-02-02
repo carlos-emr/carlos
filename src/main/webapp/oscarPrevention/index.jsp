@@ -26,25 +26,25 @@
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@page import="ca.openosp.openo.commn.model.CVCMapping" %>
-<%@page import="ca.openosp.openo.commn.dao.CVCMappingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.DHIRSubmissionLog" %>
-<%@page import="ca.openosp.openo.managers.DHIRSubmissionManager" %>
-<%@page import="ca.openosp.openo.commn.model.Consent" %>
-<%@page import="ca.openosp.openo.commn.dao.ConsentDao" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao, ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LocaleUtils" %>
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.managers.PreventionManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -145,13 +145,13 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
 
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionData" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionDS" %>
-<%@ page import="ca.openosp.openo.prevention.Prevention" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionDisplayConfig" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDS" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <html>
 
@@ -827,7 +827,7 @@
                         <input type="hidden" name="mrp" value="<%=mrp%>"/>
                         <input type="hidden" name="module" value="prevention">
                                 <%
-                 if (!ca.openosp.OscarProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
+                 if (!io.github.carlos_emr.OscarProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
                    ArrayList<Map<String,Object>> hiddenlist = new ArrayList<Map<String,Object>>();
                   for (int i = 0 ; i < prevList.size(); i++){
                   		HashMap<String,String> h = prevList.get(i);
@@ -904,7 +904,7 @@
                                         <!--<%=refused(hdata.get("refused"))%>-->
                                         Date: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>
                                                 <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
-                    if (ca.openosp.OscarProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){%>
+                    if (io.github.carlos_emr.OscarProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){%>
                                     <div class="comments">
                                         <span><%=StringEscapeUtils.escapeHtml4((String) hExt.get("comments"))%></span>
                                     </div>
@@ -991,7 +991,7 @@
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>
                                                         <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
-                     if (ca.openosp.OscarProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){ %>
+                     if (io.github.carlos_emr.OscarProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){ %>
                                             <div class="comments">
                                                 <span><%=StringEscapeUtils.escapeHtml4((String) hExt.get("comments"))%></span>
                                             </div>

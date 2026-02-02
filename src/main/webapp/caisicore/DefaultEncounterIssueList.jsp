@@ -38,16 +38,16 @@
     }
 %>
 
-<%@page import="java.util.List,ca.openosp.openo.model.DefaultIssue" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.model.DefaultIssue" %>
-<%@page import="ca.openosp.openo.casemgmt.dao.IssueDAO" %>
-<%@page import="ca.openosp.openo.casemgmt.model.Issue" %>
+<%@page import="java.util.List,io.github.carlos_emr.carlos.model.DefaultIssue" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.model.DefaultIssue" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@page import="java.lang.NumberFormatException" %>
 <%@page import="java.lang.Exception" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
 <html>
 <head>

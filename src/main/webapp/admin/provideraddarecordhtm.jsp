@@ -26,23 +26,23 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="java.util.*,ca.openosp.openo.providers.data.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.providers.data.*" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.LookupListItem" %>
-<%@ page import="ca.openosp.openo.commn.model.LookupList" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.managers.LookupListManager" %>
-<%@ page import="ca.openosp.openo.commn.model.ClinicNbr" %>
-<%@ page import="ca.openosp.openo.commn.dao.ClinicNbrDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Site" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.Gender" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderBillCenter" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%
     String curProvider_no = (String) session.getAttribute("user");
     //display the main providers page

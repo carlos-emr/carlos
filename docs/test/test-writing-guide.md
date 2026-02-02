@@ -33,8 +33,8 @@ void setUpSpringUtils() throws Exception {
 <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
     <property name="mappingResources">
         <list>
-            <value>ca/openosp/openo/commn/model/Provider.hbm.xml</value>
-            <value>ca/openosp/openo/commn/model/Demographic.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
         </list>
     </property>
 </bean>
@@ -53,8 +53,8 @@ void setUpSpringUtils() throws Exception {
 
 ```xml
 <!-- Manual DAO definitions to avoid SpringUtils initialization issues -->
-<bean id="ticklerDao" class="ca.openosp.openo.commn.dao.TicklerDaoImpl" autowire="byName" />
-<bean id="oscarLogDao" class="ca.openosp.openo.commn.dao.OscarLogDaoImpl" autowire="byName" />
+<bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl" autowire="byName" />
+<bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
 ```
 
 **When to add new beans**: If you're testing a new DAO that hasn't been tested before, you'll need to add its bean definition to the test context XML file.
@@ -67,8 +67,8 @@ void setUpSpringUtils() throws Exception {
 
 ```xml
 <persistence-unit name="testPersistenceUnit">
-    <class>ca.openosp.openo.commn.model.Tickler</class>
-    <class>ca.openosp.openo.commn.model.OscarLog</class>
+    <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
+    <class>io.github.carlos_emr.carlos.commn.model.OscarLog</class>
     <!-- Explicitly list each entity -->
     <exclude-unlisted-classes>true</exclude-unlisted-classes>
 </persistence-unit>
@@ -83,7 +83,7 @@ void setUpSpringUtils() throws Exception {
 **Solution**: Use MockSecurityInfoManager that always returns true for privilege checks:
 
 ```xml
-<bean id="securityInfoManager" class="ca.openosp.openo.test.mocks.MockSecurityInfoManager" />
+<bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
 ```
 
 ---
@@ -98,7 +98,7 @@ When writing tests, follow this workflow to ensure you're testing actual methods
 
 ```java
 // First, check the actual DAO interface:
-// src/main/java/ca/openosp/openo/commn/dao/TicklerDao.java
+// src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDao.java
 public interface TicklerDao extends AbstractDao<Tickler> {
     public Tickler find(Integer id);  // <-- Real method to test
     public List<Tickler> findActiveByDemographicNo(Integer demoNo); // <-- Real method
@@ -400,10 +400,10 @@ When `mockStatic(LogAction.class)` is called, Java loads and initializes the `Lo
 
 ## File Locations
 
-- **Modern tests**: `src/test-modern/java/ca/openosp/openo/`
-- **Unit test base**: `src/test-modern/java/ca/openosp/openo/test/unit/OpenOUnitTestBase.java`
-- **Manager tests**: `src/test-modern/java/ca/openosp/openo/managers/`
-- **Domain bases**: `src/test-modern/java/ca/openosp/openo/managers/DemographicUnitTestBase.java`
+- **Modern tests**: `src/test-modern/java/io/github/carlos_emr/carlos/`
+- **Unit test base**: `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/OpenOUnitTestBase.java`
+- **Manager tests**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/`
+- **Domain bases**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/DemographicUnitTestBase.java`
 - **Test resources**: `src/test-modern/resources/`
 - **Test context**: `src/test-modern/resources/applicationContext-test.xml`
 - **H2 schema**: `src/test-modern/resources/schema.sql`

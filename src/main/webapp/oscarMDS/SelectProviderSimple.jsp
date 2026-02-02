@@ -12,7 +12,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page import="ca.openosp.openo.mds.data.ProviderData, java.util.ArrayList" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList" %>
 
 <link rel="stylesheet" type="text/css" href="encounterStyles.css">
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>

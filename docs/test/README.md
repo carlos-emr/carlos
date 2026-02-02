@@ -43,7 +43,7 @@ If you're new to the test framework, start here:
 
 ```
 src/test-modern/
-├── java/ca/openosp/openo/
+├── java/io/github/carlos_emr/carlos/
 │   ├── test/
 │   │   ├── base/              # Base test classes
 │   │   ├── unit/              # Unit test infrastructure (OpenOUnitTestBase)

@@ -23,20 +23,20 @@
 
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONItem" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONItemDao" %>
-<%@page import="java.util.*, java.text.*,java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.openo.provider.model.PreventionManager" %>
-<%@page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderPreferenceDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingItemData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONItem" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONItemDao" %>
+<%@page import="java.util.*, java.text.*,java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.provider.model.PreventionManager" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%
     String prov = request.getParameter("billRegion");

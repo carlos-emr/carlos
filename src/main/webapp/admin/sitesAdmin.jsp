@@ -37,8 +37,8 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

@@ -19,22 +19,22 @@
 	<!-- 
 	<bean id="sessionFactory" class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
 	 -->
-	<bean id="sessionFactory" class="ca.openosp.openo.utility.SpringHibernateLocalSessionFactoryBean">
+	<bean id="sessionFactory" class="io.github.carlos_emr.carlos.utility.SpringHibernateLocalSessionFactoryBean">
 		<property name="dataSource" ref="dataSource" />
 		<property name="mappingDirectoryLocations">
 			<!-- only *.hbm.xml will be loaded -->
 			<list>
-				<value>classpath:/ca/openosp/openo/model</value>
-				<value>classpath:/ca/openosp/openo/PMmodule/model</value>
-				<value>classpath:/ca/openosp/openo/casemgmt/model</value>
-				<value>classpath:/ca/openosp/openo/commn/model</value>
+				<value>classpath:/io/github/carlos_emr/carlos/model</value>
+				<value>classpath:/io/github/carlos_emr/carlos/PMmodule/model</value>
+				<value>classpath:/io/github/carlos_emr/carlos/casemgmt/model</value>
+				<value>classpath:/io/github/carlos_emr/carlos/commn/model</value>
 				<value>classpath:/com/quatro/model</value>
-				<value>classpath:/ca/openosp/openo/entities</value>
+				<value>classpath:/io/github/carlos_emr/carlos/entities</value>
 			</list>
 		</property>
 		<property name="annotatedClasses">
 			<list>
-       			<value>ca.openosp.openo.commn.model.Admission</value>
+       			<value>io.github.carlos_emr.carlos.commn.model.Admission</value>
        		</list>            		
  		</property>
 		
@@ -63,14 +63,14 @@
 		</property> -->
 
 <!--
-	<bean id="auditSessionFactory" class="ca.openosp.openo.utility.SpringHibernateLocalSessionFactoryBean">
+	<bean id="auditSessionFactory" class="io.github.carlos_emr.carlos.utility.SpringHibernateLocalSessionFactoryBean">
 		<property name="dataSource" ref="dataSource" />
 		<property name="mappingDirectoryLocations">
 			<list>
-				<value>classpath:/ca/openosp/openo/commn/model</value>
+				<value>classpath:/io/github/carlos_emr/carlos/commn/model</value>
 				<value>classpath:/org/caisi/model</value>
-				<value>classpath:/ca/openosp/openo/PMmodule/model</value>
-				<value>classpath:/ca/openosp/openo/casemgmt/model</value>
+				<value>classpath:/io/github/carlos_emr/carlos/PMmodule/model</value>
+				<value>classpath:/io/github/carlos_emr/carlos/casemgmt/model</value>
 				<value>classpath:/com/quatro/model</value>
 				<value>classpath:/oscar/appt/status/model</value>
 				<value>classpath:/oscar/rx/model</value>

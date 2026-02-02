@@ -18,24 +18,24 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.utility.DateRange" %>
-<%@ page import="java.math.*,java.util.*,java.sql.*,ca.openosp.*,ca.openosp.openo.billing.ca.on.OHIP.*,java.net.*"
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
+<%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.billing.ca.on.OHIP.*,java.net.*"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*,ca.openosp.openo.providers.data.ProviderBillCenter" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>
 
-<jsp:useBean id="apptMainBean" class="ca.openosp.AppointmentMainBean"
+<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean"
              scope="session"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingProviderData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingCreateBillingFile" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingDiskCreatePrep" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCreateBillingFile" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDiskCreatePrep" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 
 <%
     //

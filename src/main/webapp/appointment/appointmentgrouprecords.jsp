@@ -39,17 +39,17 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.commn.dao.AppointmentArchiveDao" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.dao.ScheduleDateDao" %>
-<%@page import="ca.openosp.openo.commn.model.ScheduleDate" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -64,12 +64,12 @@
     boolean bEdit = request.getParameter("appointment_no") != null ? true : false;
 %>
 <%@ page
-        import="java.util.*, java.sql.*,java.net.*, ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.openo.commn.OtherIdManager"
+        import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

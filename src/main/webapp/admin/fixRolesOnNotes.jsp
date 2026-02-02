@@ -24,18 +24,18 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAO" %>
-<%@page import="ca.openosp.openo.commn.model.SecRole" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.SecRoleDao" %>
-<%@page import="ca.openosp.openo.db.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.SecRole" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SecRoleDao" %>
+<%@page import="io.github.carlos_emr.carlos.db.*" %>
 <%@page import="java.sql.*" %>
 <%@page import="java.util.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.utility.DbConnectionFilter" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.log.LogAction" %>
+<%@page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

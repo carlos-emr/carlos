@@ -24,12 +24,12 @@
 %>
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 
-<%@page import="ca.openosp.openo.commn.model.ClinicNbr" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicNbrDao" %>
-<%@page import="ca.openosp.OscarProperties, ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@page import="io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="java.sql.*, java.util.*, ca.openosp.*, ca.openosp.SxmlMisc, ca.openosp.openo.providers.data.ProviderBillCenter"
+        import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
         errorPage="/errorpage.jsp" %>
 
 <html>

@@ -38,7 +38,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%
     String scriptNo = request.getParameter("scriptNo");
     String comment = request.getParameter("comment");

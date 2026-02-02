@@ -27,8 +27,8 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="ca.openosp.openo.commn.model.PreventionsLotNrs" %>
-<%@ page import="ca.openosp.openo.commn.dao.PreventionsLotNrsDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 
 <%
     String curProvider_no = (String) session.getAttribute("user");

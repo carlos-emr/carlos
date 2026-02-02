@@ -25,7 +25,7 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -44,24 +44,24 @@
 %>
 
 <%@page import="java.util.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.renal.CkdScreener" %>
-<%@page import="ca.openosp.openo.renal.CkdScreenerReportHandler" %>
-<%@page import="ca.openosp.openo.renal.CKDReportContainer" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.renal.CkdScreener" %>
+<%@page import="io.github.carlos_emr.carlos.renal.CkdScreenerReportHandler" %>
+<%@page import="io.github.carlos_emr.carlos.renal.CKDReportContainer" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="javax.xml.bind.JAXBContext" %>
 <%@page import="javax.xml.bind.Unmarshaller" %>
-<%@page import="ca.openosp.openo.renal.CkdScreeningReportContainer" %>
-<%@page import="ca.openosp.openo.commn.dao.ORNCkdScreeningReportLogDao" %>
-<%@page import="ca.openosp.openo.commn.model.ORNCkdScreeningReportLog" %>
+<%@page import="io.github.carlos_emr.carlos.renal.CkdScreeningReportContainer" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ORNCkdScreeningReportLogDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ORNCkdScreeningReportLog" %>
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     List<CKDReportContainer> ckds = null;
 
-    String labReqVer = ca.openosp.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.equals("")) {
         labReqVer = "07";
     }

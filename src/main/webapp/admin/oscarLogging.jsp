@@ -44,9 +44,9 @@
 
 <%@page import="java.io.File" %>
 <%@page import="org.apache.commons.io.FileUtils" %>
-<%@page import="ca.openosp.openo.util.*, ca.openosp.*, java.util.*" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <div class="page-header">
     <h4>

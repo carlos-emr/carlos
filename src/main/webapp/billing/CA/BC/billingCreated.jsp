@@ -39,7 +39,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     if (session.getValue("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -49,17 +49,17 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
-<%@ page import="ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.billing.ca.bc.pageUtil.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingreferralDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingSessionBean" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingBillingManager" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.WCBForm" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBForm" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     BillingreferralDao billingReferralDao = (BillingreferralDao) SpringUtils.getBean(BillingreferralDao.class);
 %>

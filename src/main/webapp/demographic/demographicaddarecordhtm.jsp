@@ -25,7 +25,7 @@
 --%>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.Date" %>
-<%@page import="ca.openosp.openo.managers.LookupListManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -41,8 +41,8 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%
     String curUser_no = (String) session.getAttribute("user");
     String str = null;
@@ -54,29 +54,29 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page
-        import="java.util.*, ca.openosp.*, ca.openosp.openo.demographic.data.ProvinceNames, ca.openosp.openo.demographic.pageUtil.Util, ca.openosp.openo.waitinglist.WaitingList" %>
+        import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.demographic.pageUtil.Util, io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page
-        import="ca.openosp.openo.commn.dao.*,ca.openosp.openo.commn.model.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+        import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.managers.ProgramManager2" %>
-<%@page import="ca.openosp.openo.PMmodule.model.ProgramProvider" %>
+<%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 
-<%@page import="ca.openosp.openo.managers.PatientConsentManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.commn.Gender" %>
-<%@ page import="ca.openosp.openo.commn.dao.*" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 
-<jsp:useBean id="apptMainBean" class="ca.openosp.AppointmentMainBean" scope="session"/>
+<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <%!
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

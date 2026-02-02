@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.commn.dao.EFormDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 <%
@@ -47,20 +47,20 @@
 
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%@page import="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialistForm" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialistForm" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.Map" %>
 <%@page import="java.util.HashMap" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.InstitutionDao" %>
-<%@page import="ca.openosp.openo.commn.model.Institution" %>
-<%@page import="ca.openosp.openo.commn.dao.InstitutitionDepartmentDao, ca.openosp.openo.commn.dao.ConsultationServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.InstitutionDepartment, ca.openosp.openo.commn.model.ConsultationServices" %>
-<%@page import="ca.openosp.openo.commn.dao.DepartmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Department" %>
-<%@page import="ca.openosp.openo.commn.model.EForm" %>
-<%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.InstitutionDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Institution" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.InstitutitionDepartmentDao, io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.InstitutionDepartment, io.github.carlos_emr.carlos.commn.model.ConsultationServices" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DepartmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Department" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);

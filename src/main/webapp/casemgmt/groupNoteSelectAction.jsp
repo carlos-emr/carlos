@@ -22,15 +22,15 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.model.Admission" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="ca.openosp.openo.PMmodule.service.AdmissionManager" %>
-<%@page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
-<%@page import="ca.openosp.openo.casemgmt.web.GroupNoteAction" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.GroupNoteAction" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

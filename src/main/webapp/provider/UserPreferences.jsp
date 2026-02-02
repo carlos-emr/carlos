@@ -24,11 +24,11 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.Map" %>
-<%@ page import="ca.openosp.openo.provider.web.UserPreference2Action" %>
-<%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.provider.web.UserPreference2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     @SuppressWarnings("unchecked")

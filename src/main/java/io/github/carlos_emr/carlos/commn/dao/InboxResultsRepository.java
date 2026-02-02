@@ -1,0 +1,29 @@
+//CHECKSTYLE:OFF
+/**
+ * Copyright (c) 2024. Magenta Health. All Rights Reserved.
+ * Copyright (c) 2008-2012 Indivica Inc.
+ * <p>
+ * This software is made available under the terms of the
+ * GNU General Public License, Version 2, 1991 (GPLv2).
+ * License details are available via "indivica.ca/gplv2"
+ * and "gnu.org/licenses/gpl-2.0.html".
+ * <p>
+ * Modifications made by Magenta Health in 2024.
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+
+public interface InboxResultsRepository {
+    //String getLabsSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, String abnormalStatus, InboxQueryParameters.MatchedStatus matchedStatus, Boolean getCounts, Boolean getDemographicCounts, Map<String, String> whereValues);
+    //String getLabsWhereSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, String abnormalStatus, InboxQueryParameters.MatchedStatus matchedStatus, Map<String, String> whereValues);
+    //String getLabsGroupedWhereSql(String providerNumber, String firstName, String lastName, String hin, String status, InboxQueryParameters.MatchedStatus matchedStatus, Map<String, String> whereValues);
+    //String getHRMReportsSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, InboxQueryParameters.MatchedStatus matchedStatus, Boolean getCounts, Boolean getDemographicCounts, Map<String, String> whereValues);
+    //String getHRMReportsWhereSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, InboxQueryParameters.MatchedStatus matchedStatus, Map<String, String> whereValues);
+}

@@ -1,0 +1,66 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import static org.junit.Assert.assertNotNull;
+
+import java.util.Date;
+
+import org.junit.Before;
+import org.junit.Test;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.commn.dao.utils.SchemaUtils;
+import io.github.carlos_emr.carlos.commn.model.ScheduleTemplate;
+import io.github.carlos_emr.carlos.commn.model.ScheduleTemplatePrimaryKey;
+import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+public class ScheduleTemplateDaoTest extends DaoTestFixtures {
+
+    protected ScheduleTemplateDao dao = SpringUtils.getBean(ScheduleTemplateDao.class);
+
+    public ScheduleTemplateDaoTest() {
+    }
+
+
+    @Before
+    public void before() throws Exception {
+        SchemaUtils.restoreTable("scheduletemplate", "scheduledate");
+    }
+
+    @Test
+    public void testCreate() throws Exception {
+        ScheduleTemplate entity = new ScheduleTemplate();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setId(new ScheduleTemplatePrimaryKey("000001", "a"));
+        dao.persist(entity);
+
+        assertNotNull(entity.getId());
+    }
+
+    @Test
+    public void testFindSchedules() {
+        assertNotNull(dao.findSchedules(new Date(), new Date(), "100"));
+    }
+}

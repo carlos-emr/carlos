@@ -24,18 +24,18 @@
 
 --%>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.encounter.pageUtil.EctDisplayLabAction2" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction2" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="java.net.URLEncoder" %>
-<%@page import="ca.openosp.openo.lab.ca.all.web.LabDisplayHelper" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
-<%@ page import="ca.openosp.openo.mds.data.*,ca.openosp.openo.lab.ca.on.*" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.mds.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -55,7 +55,7 @@
 <%
 
 
-    //ca.openosp.openo.mds.data.MDSResultsData mDSData = new ca.openosp.openo.mds.data.MDSResultsData();
+    //io.github.carlos_emr.carlos.mds.data.MDSResultsData mDSData = new io.github.carlos_emr.carlos.mds.data.MDSResultsData();
     CommonLabResultData comLab = new CommonLabResultData();
     //String providerNo = request.getParameter("providerNo");
     String providerNo = (String) session.getAttribute("user");

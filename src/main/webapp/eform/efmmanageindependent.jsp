@@ -23,11 +23,11 @@
     Ontario, Canada
 
 --%>
-<%@page import="java.util.*,ca.openosp.openo.eform.*" %>
-<%@page import="ca.openosp.openo.web.eform.EfmPatientFormList" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
+<%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
+<%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");

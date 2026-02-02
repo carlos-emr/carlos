@@ -56,16 +56,16 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page
-        import="java.lang.*, java.util.*, java.text.*,java.sql.*, ca.openosp.*"
+        import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"
         errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Security" %>
-<%@page import="ca.openosp.openo.commn.dao.SecurityDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Security" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.managers.MfaManager" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);

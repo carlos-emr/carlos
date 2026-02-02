@@ -28,11 +28,11 @@
     if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.sql.*, java.util.*, java.net.*, ca.openosp.*"
+<%@ page import="java.sql.*, java.util.*, java.net.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicAccessoryDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicAccessory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
 <%
     DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
 %>

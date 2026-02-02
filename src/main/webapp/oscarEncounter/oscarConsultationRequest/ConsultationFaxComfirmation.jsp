@@ -25,7 +25,7 @@
 --%>
 
 <%@ page
-        import="java.util.*, org.w3c.dom.*, ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.*" %>
+        import="java.util.*, org.w3c.dom.*, io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

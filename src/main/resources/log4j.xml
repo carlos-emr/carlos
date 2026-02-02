@@ -30,7 +30,7 @@
 
 	<!-- ############################# -->
 
-	<category name="ca.openosp.openo">
+	<category name="io.github.carlos_emr.carlos">
 		<priority value="DEBUG" />
 	</category>
 	
@@ -38,13 +38,13 @@
 		<priority value="DEBUG"/>
 	</category>
 
-	<category name="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorUpdateTask" additivity="false">
+	<category name="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorUpdateTask" additivity="false">
 		<level value="INFO" />
 		<appender-ref ref="INTEGRATOR_FILE" />
 	</category>
 
 <!--
-	<category name="ca.openosp.openo.PMmodule.caisi_integrator">
+	<category name="io.github.carlos_emr.carlos.PMmodule.caisi_integrator">
 		<priority value="DEBUG" />
 	</category>
 -->
@@ -82,11 +82,11 @@
 		<priority value="WARN" />
 	</category>
 
-	<category name="ca.openosp.openo.integration.born">
+	<category name="io.github.carlos_emr.carlos.integration.born">
 		<priority value="INFO" />
 	</category>
 <!--
-	<category name="ca.openosp.openo.encounter.oscarMeasurements">
+	<category name="io.github.carlos_emr.carlos.encounter.oscarMeasurements">
 		<priority value="DEBUG" />
 	</category>
 -->
@@ -108,7 +108,7 @@
 	</category>
 	
 	<!-- control if you want the possible excessive memory usage warnings. WARN and below will show them -->
-	<category name="ca.openosp.openo.utility.ProblemCheckFilter">
+	<category name="io.github.carlos_emr.carlos.utility.ProblemCheckFilter">
 		<priority value="ERROR" />
 	</category>
 	
@@ -120,10 +120,10 @@
 		<priority value="WARN" />
 	</category>
 	
-	<category name="ca.openosp.openo.oscarReport.ClinicalReports">
+	<category name="io.github.carlos_emr.carlos.oscarReport.ClinicalReports">
 		<priority value="DEBUG" />
 	</category>
-	<category name="ca.openosp.openo.hospitalReportManager">
+	<category name="io.github.carlos_emr.carlos.hospitalReportManager">
 		<priority value="INFO" />
 	</category>
 	

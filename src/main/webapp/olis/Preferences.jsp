@@ -11,7 +11,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@ page
-        import="java.util.*,ca.openosp.openo.report.reportByTemplate.*,ca.openosp.openo.olis.*,ca.openosp.openo.olis.model.*, ca.openosp.openo.olis.dao.*, ca.openosp.openo.utility.SpringUtils, org.joda.time.DateTime, org.joda.time.format.DateTimeFormat, org.joda.time.format.DateTimeFormatter" %>
+        import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,io.github.carlos_emr.carlos.olis.*,io.github.carlos_emr.carlos.olis.model.*, io.github.carlos_emr.carlos.olis.dao.*, io.github.carlos_emr.carlos.utility.SpringUtils, org.joda.time.DateTime, org.joda.time.format.DateTimeFormat, org.joda.time.format.DateTimeFormatter" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
 
@@ -50,10 +50,10 @@
     <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 
-<%@ page import="java.util.*,ca.openosp.openo.report.reportByTemplate.*" %>
-<%@ page import="ca.openosp.openo.olis.dao.OLISSystemPreferencesDao" %>
-<%@ page import="ca.openosp.openo.olis.model.OLISSystemPreferences" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
+<%@ page import="io.github.carlos_emr.carlos.olis.dao.OLISSystemPreferencesDao" %>
+<%@ page import="io.github.carlos_emr.carlos.olis.model.OLISSystemPreferences" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

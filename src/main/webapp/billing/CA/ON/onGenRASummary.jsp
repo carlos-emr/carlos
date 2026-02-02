@@ -20,19 +20,19 @@
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.MyDateFormat"
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 
 <jsp:useBean id="billingLocalInvNoBean" class="java.util.Properties" scope="page"/>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.RaHeader" %>
-<%@page import="ca.openosp.openo.commn.dao.RaHeaderDao" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingRAPrep" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%
     RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
 %>

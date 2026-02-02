@@ -13,10 +13,10 @@
     }
 %>
 <%@ page errorPage="/errorpage.jsp"
-         import="java.util.*, ca.openosp.openo.report.data.*" %>
-<%@ page import="ca.openosp.openo.login.*" %>
+         import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportItem" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%
     boolean bDeletedList = false;
     String msg = "Report List";

@@ -43,17 +43,17 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="org.springframework.web.context.WebApplicationContext,
                 org.springframework.web.context.support.WebApplicationContextUtils,
-                ca.openosp.openo.casemgmt.model.CaseManagementNote,
-                ca.openosp.openo.casemgmt.model.CaseManagementNoteLink,
-                ca.openosp.openo.casemgmt.service.CaseManagementManager,
-                ca.openosp.openo.commn.dao.SecRoleDao,
-                ca.openosp.openo.commn.model.SecRole,
-                ca.openosp.openo.utility.SpringUtils,
-                ca.openosp.openo.encounter.data.EctProgram,
+                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote,
+                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink,
+                io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,
+                io.github.carlos_emr.carlos.commn.dao.SecRoleDao,
+                io.github.carlos_emr.carlos.commn.model.SecRole,
+                io.github.carlos_emr.carlos.utility.SpringUtils,
+                io.github.carlos_emr.carlos.encounter.data.EctProgram,
                 java.util.Date,
                 java.util.List" %>
-<%@page import="ca.openosp.openo.log.LogAction, ca.openosp.openo.log.LogConst" %>
-<%@page import="ca.openosp.openo.documentManager.EDocUtil" %>
+<%@page import="io.github.carlos_emr.carlos.log.LogAction, io.github.carlos_emr.carlos.log.LogConst" %>
+<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

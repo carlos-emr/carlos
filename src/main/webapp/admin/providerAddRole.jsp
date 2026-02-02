@@ -30,15 +30,15 @@
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 
-<%@ page import="ca.openosp.openo.login.*" %>
-<%@ page import="ca.openosp.openo.log.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.SecRole" %>
-<%@ page import="ca.openosp.openo.commn.dao.SecRoleDao" %>
-<%@ page import="ca.openosp.openo.PMmodule.utility.RoleCache" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.SecRole" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecRoleDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.utility.RoleCache" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

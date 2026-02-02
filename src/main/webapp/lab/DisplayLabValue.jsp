@@ -40,10 +40,10 @@
 %>
 
 <%@page import="java.io.Serializable" %>
-<%@page import="java.util.*,ca.openosp.openo.lab.ca.on.*,ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabTestValues" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
+<%@page import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
 
 

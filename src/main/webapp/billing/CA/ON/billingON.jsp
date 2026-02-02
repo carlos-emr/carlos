@@ -18,36 +18,36 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page errorPage="/errorpage.jsp"%>
 
-<%@page import="java.util.*,java.net.*,java.sql.*,ca.openosp.*,ca.openosp.openo.util.*,ca.openosp.openo.appt.*" %>
-<%@page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@page import="ca.openosp.openo.billings.ca.bc.decisionSupport.BillingGuidelines" %>
-<%@page import="ca.openosp.openo.commn.dao.CSSStylesDAO, ca.openosp.openo.commn.model.ProviderPreference, ca.openosp.openo.commn.model.CssStyle" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao, ca.openosp.openo.commn.model.BillingService" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicNbrDao, ca.openosp.openo.commn.model.ClinicNbr" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingTypeDao, ca.openosp.openo.commn.model.CtlBillingType" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao, ca.openosp.openo.commn.model.CtlBillingService" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServicePremiumDao, ca.openosp.openo.commn.model.CtlBillingServicePremium" %>
-<%@page import="ca.openosp.openo.commn.dao.DiagnosticCodeDao, ca.openosp.openo.commn.model.CtlDiagCode, ca.openosp.openo.commn.model.DiagnosticCode" %>
-<%@page import="ca.openosp.openo.commn.dao.DxresearchDAO, ca.openosp.openo.commn.model.Dxresearch" %>
-<%@page import="ca.openosp.openo.commn.dao.MyGroupDao, ca.openosp.openo.commn.model.MyGroup" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao, ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.commn.dao.ProfessionalSpecialistDao, ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO, ca.openosp.openo.commn.model.UserProperty" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao, ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.decisionSupport.model.DSConsequence" %>
-<%@page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="java.util.*,java.net.*,java.sql.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.appt.*" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO, io.github.carlos_emr.carlos.commn.model.ProviderPreference, io.github.carlos_emr.carlos.commn.model.CssStyle" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao, io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao, io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao, io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao, io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao, io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao, io.github.carlos_emr.carlos.commn.model.CtlDiagCode, io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO, io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao, io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao, io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao, io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@page import="ca.openosp.openo.managers.DemographicManager,ca.openosp.openo.billing.CA.filters.CodeFilterManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager,io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager" %>
 
 <%
 	ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
@@ -552,24 +552,24 @@
 %>
 
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderPreferenceDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference"%>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference"%>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.appt.JdbcApptImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingSiteIdPrep" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSiteIdPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <html>
 <head>
     <title>Ontario Billing</title>

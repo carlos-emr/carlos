@@ -24,25 +24,25 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ViewDao" %>
-<%@ page import="ca.openosp.openo.commn.model.View" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerLink" %>
-<%@ page import="ca.openosp.openo.commn.dao.TicklerLinkDao" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.commn.model.Site" %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Tickler" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerComment" %>
-<%@ page import="ca.openosp.openo.commn.model.CustomFilter" %>
-<%@ page import="ca.openosp.openo.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ViewDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.View" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.CustomFilter" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.text.DateFormat" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -50,7 +50,7 @@
 <%@ page import="java.time.ZoneId" %>
 <%@ page import="java.time.LocalDateTime" %>
 <%@ page import="java.time.Duration" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -76,7 +76,7 @@
 %>
 
 <%
-    String labReqVer = ca.openosp.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.isEmpty()) {
         labReqVer = "07";
     }
@@ -651,7 +651,7 @@
                     <div class="form-group">
                         <label for="assignedTo"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/></label>
                         <%
-                            if (ca.openosp.openo.commn.IsPropertiesOn.isMultisitesEnable()) {
+                            if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
                                 SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
                                 List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
                         %>

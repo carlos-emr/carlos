@@ -38,44 +38,44 @@
         return;
     }
 %>
-<%@page import="ca.openosp.openo.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@page import="org.apache.commons.beanutils.BeanUtils" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicWs" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.IntegratorFallBackManager" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.db.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
 <%@ page
-        import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager, ca.openosp.openo.caisi_integrator.ws.CachedAppointment, ca.openosp.openo.caisi_integrator.ws.CachedProvider, ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.caisi_integrator.ws.*" %>
-<%@ page import="ca.openosp.openo.commn.model.CachedAppointmentComparator" %>
+        import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager, io.github.carlos_emr.carlos.caisi_integrator.ws.CachedAppointment, io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider, io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.CachedAppointmentComparator" %>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.commn.model.AppointmentArchive" %>
-<%@page import="ca.openosp.openo.commn.dao.AppointmentStatusDao" %>
-<%@page import="ca.openosp.openo.commn.model.AppointmentStatus" %>
-<%@page import="ca.openosp.openo.managers.LookupListManager" %>
-<%@page import="ca.openosp.openo.commn.model.LookupList" %>
-<%@page import="ca.openosp.openo.commn.model.LookupListItem" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.AppointmentArchive" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
+<%@page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
 
-<%@ page import="ca.openosp.openo.commn.model.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
-<%@ page import="ca.openosp.openo.managers.AppointmentManager" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
-<%@ page import="ca.openosp.openo.caisi_integrator.ws.FacilityIdStringCompositePk" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.AppointmentManager" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

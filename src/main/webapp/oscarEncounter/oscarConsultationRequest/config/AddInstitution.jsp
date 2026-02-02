@@ -44,9 +44,9 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitutionForm" %>
-<%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitutionForm" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <html>
 

@@ -142,9 +142,9 @@ The DevContainer automatically creates these directories with appropriate permis
 ## Related Code
 
 Key files that use these directories:
-- `ca.openosp.OscarProperties` - Directory property accessors
-- `ca.openosp.openo.eform.upload.ImageUpload2Action` - Uses `EFORM_IMAGES_DIR`
-- `ca.openosp.openo.documentManager.*` - Uses `DOCUMENT_DIR`
+- `io.github.carlos_emr.OscarProperties` - Directory property accessors
+- `io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action` - Uses `EFORM_IMAGES_DIR`
+- `io.github.carlos_emr.carlos.documentManager.*` - Uses `DOCUMENT_DIR`
 
 ## Related Documentation
 

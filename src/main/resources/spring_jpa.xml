@@ -22,7 +22,7 @@
 	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
 	 -->
 	  <aop:aspectj-autoproxy proxy-target-class="true"/>
-	<bean id="dataSource" class="ca.openosp.openo.utility.OscarTrackingBasicDataSource" destroy-method="close">
+	<bean id="dataSource" class="io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="${db_driver}" />
 		<property name="url" value="${db_uri}${db_name}" />
 		<property name="defaultAutoCommit" value="true" />
@@ -76,7 +76,7 @@
 	<tx:annotation-driven transaction-manager="transactionManager" />
 
 	<!-- Managed Beans -->
-	<context:component-scan base-package="ca.openosp.openo.commn.dao">
+	<context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao">
     <context:exclude-filter type="regex" expression=".*\.UserPropertyDAOImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.DemographicDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.DxresearchDAOImpl$"/>
@@ -109,12 +109,12 @@
 </context:component-scan>
 
 
-	<context:component-scan base-package="ca.openosp.openo.fax.core" />
-	<context:component-scan base-package="ca.openosp.openo.hospitalReportManager.dao" />
-	<context:component-scan base-package="ca.openosp.openo.olis.dao" />
-	<context:component-scan base-package="ca.openosp.openo.billing.CA.ON.dao" />
-	<context:component-scan base-package="ca.openosp.openo.billing.CA.BC.dao" />
-	<context:component-scan base-package="ca.openosp.openo.billing.CA.dao" />
-	<context:component-scan base-package="ca.openosp.openo.PMmodule.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.fax.core" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.hospitalReportManager.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.olis.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.ON.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.BC.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.dao" />
 
 </beans>

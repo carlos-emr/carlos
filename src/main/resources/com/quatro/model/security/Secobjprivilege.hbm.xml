@@ -3,7 +3,7 @@
 "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 
 <hibernate-mapping>
-    <class name="ca.openosp.openo.model.security.Secobjprivilege" table="secObjPrivilege">
+    <class name="io.github.carlos_emr.carlos.model.security.Secobjprivilege" table="secObjPrivilege">
         <composite-id >
             <key-property name="roleusergroup" type="java.lang.String">
                 <column name="roleUserGroup" length="30" />

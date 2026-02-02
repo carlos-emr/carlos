@@ -27,11 +27,11 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.net.*" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Billingreferral" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingreferralDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billingreferral" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
 <%
     BillingreferralDao billingReferralDao = (BillingreferralDao) SpringUtils.getBean(BillingreferralDao.class);
 %>

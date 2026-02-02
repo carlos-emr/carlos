@@ -23,13 +23,13 @@
     }
 %>
 <%@ page errorPage="/errorpage.jsp"
-         import="java.util.*, ca.openosp.openo.report.data.*" %>
-<%@ page import="ca.openosp.openo.report.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.login.*" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportConfigData" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportCreator" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportItem" %>
-<%@ page import="ca.openosp.openo.report.pageUtil.RptFormQuery" %>
+         import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
+<%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptFormQuery" %>
 <%
     String VALUE = "value_";
     String DATE_FORMAT = "dateFormat_";

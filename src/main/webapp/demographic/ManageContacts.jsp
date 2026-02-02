@@ -25,8 +25,8 @@
 --%>
 
 <%@ page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.commn.model.Contact" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicContact" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

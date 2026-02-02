@@ -24,9 +24,9 @@
 --%>
 
 
-<%@page import="ca.openosp.openo.PMmodule.model.VacancyTemplate" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Vacancy" %>
-<%@page import="ca.openosp.openo.PMmodule.service.VacancyTemplateManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Vacancy" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager" %>
 <%@page import="java.util.List" %>
 <%@page import="java.text.SimpleDateFormat" %>
 

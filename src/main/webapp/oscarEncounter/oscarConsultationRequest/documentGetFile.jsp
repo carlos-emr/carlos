@@ -41,12 +41,12 @@
 %>
 
 <%@page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat" %>
+        import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DocumentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Document" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Document" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%
     DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);

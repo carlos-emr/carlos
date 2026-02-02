@@ -39,17 +39,17 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
-<%@page import="ca.openosp.openo.web.MisReportUIBean" %>
-<%@page import="ca.openosp.openo.commn.dao.FunctionalCentreDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.web.MisReportUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FunctionalCentreDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.FunctionalCentre" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.FunctionalCentre" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.GregorianCalendar" %>
 <%@page import="java.text.DateFormatSymbols" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 
 <%

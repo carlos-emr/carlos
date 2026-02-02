@@ -41,8 +41,8 @@
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@ page import="ca.openosp.openo.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%
     String country = request.getLocale().getCountry();
 
@@ -53,12 +53,12 @@
         mygroupno = providerPreference.getMyGroupNo();
     }
     mygroupno = StringUtils.trimToEmpty(mygroupno);
-    String billingRegion = (ca.openosp.OscarProperties.getInstance()).getProperty("billregion");
+    String billingRegion = (io.github.carlos_emr.OscarProperties.getInstance()).getProperty("billregion");
 %>
 <%@ page
-        import="java.util.*, ca.openosp.*, java.sql.*, java.text.*, java.net.*"
+        import="java.util.*, io.github.carlos_emr.*, java.sql.*, java.text.*, java.net.*"
         errorPage="/errorpage.jsp" %>
-<jsp:useBean id="reportMainBean" class="ca.openosp.AppointmentMainBean"
+<jsp:useBean id="reportMainBean" class="io.github.carlos_emr.AppointmentMainBean"
              scope="session"/>
 <% if (!reportMainBean.getBDoConfigure()) { %>
 <%@ include file="reportMainBeanConn.jspf" %>
@@ -773,7 +773,7 @@
                 <td></td>
             </tr>
 
-            <% //if((ca.openosp.OscarProperties.getInstance()).getProperty("demographicExt") != null && (ca.openosp.OscarProperties.getInstance()).getProperty("demographicExt").startsWith("Approximate EDD")) {
+            <% //if((io.github.carlos_emr.OscarProperties.getInstance()).getProperty("demographicExt") != null && (io.github.carlos_emr.OscarProperties.getInstance()).getProperty("demographicExt").startsWith("Approximate EDD")) {
             %>
             <tr>
                 <td width="2"><%=j%>

@@ -94,7 +94,7 @@
         <tr>
             <td colspan="2">
                 <input type="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ca.openosp.openo.appt.status.mgr.label.submit"/>"/>
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.appt.status.mgr.label.submit"/>"/>
             </td>
         </tr>
     </table>

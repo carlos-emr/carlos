@@ -44,29 +44,29 @@
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@page import="ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.*,ca.openosp.openo.commn.model.*" %>
-<%@page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.openo.billing.ca.bc.MSP.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, ca.openosp.openo.entities.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.administration.GstControl2Action" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.administration.GstReport" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.commn.model.*" %>
+<%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
+<%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.GstReport" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.entities.Billingmaster" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingmasterDAO" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.MSP.MSPBillingNote" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingCodeData" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingNote" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.openo.commn.model.Billing" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.entities.Billingmaster" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPBillingNote" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 

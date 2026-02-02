@@ -42,14 +42,14 @@
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page
-        import="ca.openosp.openo.encounter.pageUtil.NavBarDisplayDAO, ca.openosp.openo.util.*, java.util.ArrayList, java.util.Date, java.util.Calendar, java.io.IOException" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.daos.security.SecobjprivilegeDao" %>
-<%@ page import="ca.openosp.openo.model.security.Secobjprivilege" %>
+        import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO, io.github.carlos_emr.carlos.util.*, java.util.ArrayList, java.util.Date, java.util.Calendar, java.io.IOException" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.model.security.Secobjprivilege" %>
 <%@ page import="java.util.List, java.util.regex.Pattern, java.util.regex.Matcher" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.services.security.SecurityManager" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>

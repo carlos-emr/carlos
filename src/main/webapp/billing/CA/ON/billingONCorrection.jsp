@@ -18,43 +18,43 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@page import="ca.openosp.openo.commn.dao.BillingOnItemPaymentDao" %>
-<%@page import="ca.openosp.openo.managers.SecurityInfoManager" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="java.math.*,java.util.*,java.sql.*,ca.openosp.*,java.net.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*" %>
 <!-- errorPage="/errorpage.jsp" -->
-<%@page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@page import="ca.openosp.openo.demographic.data.*" %>
-<%@page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.util.DateUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONErrorCodeDao" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONEAReportDao" %>
-<%@page import="ca.openosp.openo.commn.dao.RaDetailDao" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONPaymentDao" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONExtDao" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicNbrDao" %>
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderSiteDao" %>
-<%@page import="ca.openosp.openo.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="ca.openosp.openo.commn.service.BillingONService" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.service.BillingONService" %>
 <%@page import="java.text.NumberFormat" %>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingRAImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingPageUtil" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>

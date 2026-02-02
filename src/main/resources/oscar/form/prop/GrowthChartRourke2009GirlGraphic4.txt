@@ -45,4 +45,4 @@ __fStartY	:	1.4
 __fEndY		:	25
 
 __xDateScale	:	__xDateScale_1
-__className	:	ca.openosp.openo.form.graphic.FrmPdfGraphicGrowthChart
+__className	:	io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicGrowthChart

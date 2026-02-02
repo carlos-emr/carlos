@@ -24,10 +24,10 @@
 
 --%>
 
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,ca.openosp.openo.utility.OntarioMD,java.util.Hashtable" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,ca.openosp.openo.commn.dao.*,ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
+<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.utility.OntarioMD,java.util.Hashtable" %>
+<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());

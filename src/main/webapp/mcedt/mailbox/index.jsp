@@ -32,7 +32,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ page import="java.util.*,ca.openosp.openo.integration.mcedt.mailbox.ActionUtils" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
 
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>

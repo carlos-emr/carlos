@@ -17,24 +17,24 @@
 
     <!-- Mock DAOs for initial testing -->
     <bean id="demographicDao" class="org.mockito.Mockito" factory-method="mock">
-        <constructor-arg value="ca.openosp.openo.commn.dao.DemographicDao" />
+        <constructor-arg value="io.github.carlos_emr.carlos.commn.dao.DemographicDao" />
     </bean>
 
     <bean id="ticklerDao" class="org.mockito.Mockito" factory-method="mock">
-        <constructor-arg value="ca.openosp.openo.commn.dao.TicklerDao" />
+        <constructor-arg value="io.github.carlos_emr.carlos.commn.dao.TicklerDao" />
     </bean>
 
     <bean id="providerDao" class="org.mockito.Mockito" factory-method="mock">
-        <constructor-arg value="ca.openosp.openo.dao.ProviderDao" />
+        <constructor-arg value="io.github.carlos_emr.carlos.dao.ProviderDao" />
     </bean>
 
     <!-- Mock Managers -->
     <bean id="ticklerManager" class="org.mockito.Mockito" factory-method="mock">
-        <constructor-arg value="ca.openosp.openo.managers.TicklerManager" />
+        <constructor-arg value="io.github.carlos_emr.carlos.managers.TicklerManager" />
     </bean>
 
     <bean id="securityInfoManager" class="org.mockito.Mockito" factory-method="mock">
-        <constructor-arg value="ca.openosp.openo.managers.SecurityInfoManager" />
+        <constructor-arg value="io.github.carlos_emr.carlos.managers.SecurityInfoManager" />
     </bean>
 
 </beans>

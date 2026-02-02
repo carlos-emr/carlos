@@ -28,19 +28,19 @@
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
 %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
-<%@ page import="java.math.*,java.util.*, java.sql.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ReportProvider" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.commn.dao.ReportProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Billing" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="java.math.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);

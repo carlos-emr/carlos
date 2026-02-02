@@ -66,27 +66,27 @@
     @since 2002
 --%>
 
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <%@ page import="org.w3c.dom.*" %>
-<%@ page import="ca.openosp.openo.messenger.util.Msgxml" %>
-<%@ page import="ca.openosp.openo.demographic.data.*" %>
-<%@ page import="ca.openosp.openo.managers.MessagingManager" %>
-<%@ page import="ca.openosp.openo.commn.model.Groups" %>
-<%@ page import="ca.openosp.openo.messenger.data.MsgProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.util.Msgxml" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.MessagingManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Groups" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgProviderData" %>
 <%@ page import="java.util.Map, java.util.List" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.messenger.pageUtil.MsgSessionBean" %>
-<%@ page import="ca.openosp.openo.managers.MessengerGroupManager" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     // Security check: Build role string from session attributes for authorization
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

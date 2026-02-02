@@ -24,8 +24,8 @@
 
 --%>
 <%@page import="java.net.URLEncoder" %>
-<%@ page import="ca.openosp.openo.eform.data.*, ca.openosp.openo.eform.*, java.util.*" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%

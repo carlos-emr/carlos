@@ -17,12 +17,12 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@ page import="java.sql.*, java.util.*,java.net.*, ca.openosp.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.DiagnosticCode" %>
-<%@ page import="ca.openosp.openo.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);

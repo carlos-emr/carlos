@@ -19,11 +19,11 @@
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPayment" %>
-<%@page import="ca.openosp.openo.commn.model.BillingPaymentType" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingPaymentTypeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%
     BillingONPayment billPayment = (BillingONPayment) request.getAttribute("billPayment");
@@ -31,7 +31,7 @@
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%@ page
-        import="java.util.*, ca.openosp.openo.util.*,ca.openosp.openo.billing.ca.on.pageUtil.*,ca.openosp.openo.billing.ca.on.data.*,ca.openosp.openo.providers.data.*,java.math.* ,ca.openosp.openo.billing.ca.on.administration.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*,io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.providers.data.*,java.math.* ,io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
 
 <html>
 <head>

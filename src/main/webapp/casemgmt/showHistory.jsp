@@ -25,7 +25,7 @@
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@page import="ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -41,7 +41,7 @@
 %>
 
 <%@ page
-        import="org.springframework.web.context.*,org.springframework.web.context.support.*, ca.openosp.openo.PMmodule.service.ProviderManager, ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
+        import="org.springframework.web.context.*,org.springframework.web.context.support.*, io.github.carlos_emr.carlos.PMmodule.service.ProviderManager, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     ProviderManager pMgr = (ProviderManager) ctx.getBean(ProviderManager.class);

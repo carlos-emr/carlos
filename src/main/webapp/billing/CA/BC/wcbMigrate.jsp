@@ -39,14 +39,14 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.DbConnectionFilter,java.sql.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.WcbDao" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Wcb" %>
-<%@page import="ca.openosp.openo.billings.ca.bc.data.BillingmasterDAO" %>
-<%@page import="ca.openosp.openo.entities.Billingmaster" %>
+<%@page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter,java.sql.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
+<%@page import="io.github.carlos_emr.carlos.entities.Billingmaster" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
     WcbDao wcbDao = SpringUtils.getBean(WcbDao.class);

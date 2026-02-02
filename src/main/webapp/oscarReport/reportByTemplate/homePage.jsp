@@ -29,12 +29,12 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
-<%@ page import="java.util.*,ca.openosp.openo.report.reportByTemplate.*,ca.openosp.openo.managers.RBTGroupManager" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.RBTGroup" %>
-<%@ page import="ca.openosp.openo.report.reportByTemplate.ReportManager" %>
-<%@ page import="ca.openosp.openo.report.reportByTemplate.ReportObject" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,io.github.carlos_emr.carlos.managers.RBTGroupManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.RBTGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

@@ -28,7 +28,7 @@
     if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
 
 <HTML>

@@ -24,8 +24,8 @@
 
 --%>
 
-<%@ page import="ca.openosp.openo.dxresearch.util.dxResearchCodingSystem" %>
-<%@ page import="ca.openosp.openo.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

@@ -51,18 +51,18 @@
     if (request.getParameter("startDate") != null) startDate = request.getParameter("startDate");
     if (request.getParameter("endDate") != null) endDate = request.getParameter("endDate");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
 
-<jsp:useBean id="providerNameBean" class="ca.openosp.Dict" scope="page"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ReportTemp" %>
-<%@ page import="ca.openosp.openo.commn.dao.ReportTempDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Form" %>
-<%@ page import="ca.openosp.openo.commn.dao.FormDao" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
+<jsp:useBean id="providerNameBean" class="io.github.carlos_emr.Dict" scope="page"/>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportTemp" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportTempDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     ReportTempDao reportTempDao = SpringUtils.getBean(ReportTempDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -144,7 +144,7 @@
                     param2[4] = curUser_no;
 
                     ReportTemp temp = new ReportTemp();
-                    temp.setId(new ca.openosp.openo.commn.model.ReportTempPK());
+                    temp.setId(new io.github.carlos_emr.carlos.commn.model.ReportTempPK());
                     temp.getId().setDemographicNo(f1.getDemographicNo());
                     temp.getId().setEdb(MyDateFormat.getSysDate(param2[0]));
                     temp.setDemoName(param2[1]);

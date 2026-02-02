@@ -25,17 +25,17 @@
 --%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 
-<%@ page import="ca.openosp.openo.eform.data.*" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
-<%@ page import="ca.openosp.openo.commn.model.enumerator.DocumentType" %>
-<%@ page import="ca.openosp.openo.documentManager.DocumentAttachmentManager" %>
-<%@ page import="ca.openosp.openo.managers.EmailComposeManager" %>
-<%@ page import="ca.openosp.openo.managers.SecurityInfoManager"%>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.EmailComposeManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.eform.data.EForm" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
 
 <%!
     public void addHiddenEFormAttachments(LoggedInInfo loggedInInfo, EForm eForm, String eFormId) {

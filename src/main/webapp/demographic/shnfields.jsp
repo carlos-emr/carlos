@@ -40,8 +40,8 @@
 %>
 
 <%@page import="java.util.*" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicExtDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 
 

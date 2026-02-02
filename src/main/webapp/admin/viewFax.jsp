@@ -38,8 +38,8 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.commn.dao.FaxJobDao, ca.openosp.openo.commn.model.FaxJob" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FaxJobDao, io.github.carlos_emr.carlos.commn.model.FaxJob" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.List" %>
 
 <ul style="list-style-type:none;padding:0px;">

@@ -23,8 +23,8 @@
     Ontario, Canada
 
 --%>
-<%@ page import="java.util.*, java.sql.*,java.net.*, ca.openosp.openo.db.DBPreparedHandler, ca.openosp.MyDateFormat, ca.openosp.Misc" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicMerged" %>
+<%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.carlos.db.DBPreparedHandler, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -203,7 +203,7 @@
                 int age = 0;
 
                 ResultSet rs = null;
-                Properties props = ca.openosp.OscarProperties.getInstance();
+                Properties props = io.github.carlos_emr.OscarProperties.getInstance();
                 DBPreparedHandler db = new DBPreparedHandler();
 
                 String keyword = "";
@@ -300,7 +300,7 @@
                     DemographicMerged dmDAO = new DemographicMerged();
 
                     while (rs.next() && idx < Integer.parseInt(strLimit2)) {
-                        String dem_no = ca.openosp.Misc.getString(rs, "demographic_no");
+                        String dem_no = io.github.carlos_emr.Misc.getString(rs, "demographic_no");
                         String head = dmDAO.getHead(dem_no);
 
                         if (head != null && !head.equals(dem_no)) {
@@ -311,15 +311,15 @@
                         bodd = bodd ? false : true; //for the color of rows
                         nItems++; //to calculate if it is the end of records
 
-                        if (!(ca.openosp.Misc.getString(rs, "month_of_birth").equals(""))) {//   ||ca.openosp.Misc.getString(rs,"year_of_birth")||ca.openosp.Misc.getString(rs,"date_of_birth")) {
-                            if (curMonth > Integer.parseInt(ca.openosp.Misc.getString(rs, "month_of_birth"))) {
-                                age = curYear - Integer.parseInt(ca.openosp.Misc.getString(rs, "year_of_birth"));
+                        if (!(io.github.carlos_emr.Misc.getString(rs, "month_of_birth").equals(""))) {//   ||io.github.carlos_emr.Misc.getString(rs,"year_of_birth")||io.github.carlos_emr.Misc.getString(rs,"date_of_birth")) {
+                            if (curMonth > Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "month_of_birth"))) {
+                                age = curYear - Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "year_of_birth"));
                             } else {
-                                if (curMonth == Integer.parseInt(ca.openosp.Misc.getString(rs, "month_of_birth")) &&
-                                        curDay > Integer.parseInt(ca.openosp.Misc.getString(rs, "date_of_birth"))) {
-                                    age = curYear - Integer.parseInt(ca.openosp.Misc.getString(rs, "year_of_birth"));
+                                if (curMonth == Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "month_of_birth")) &&
+                                        curDay > Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "date_of_birth"))) {
+                                    age = curYear - Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "year_of_birth"));
                                 } else {
-                                    age = curYear - Integer.parseInt(ca.openosp.Misc.getString(rs, "year_of_birth")) - 1;
+                                    age = curYear - Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "year_of_birth")) - 1;
                                 }
                             }
                         }
@@ -327,31 +327,31 @@
 
             <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
                 <td><input type="submit" name="demographicNo"
-                           value="<%=ca.openosp.Misc.getString(rs,"demographic_no")%>"
-                           onclick="updateOpener('<%=request.getParameter("labNo")%>','<%=ca.openosp.Misc.getString(rs,"demographic_no")%>');">
+                           value="<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>"
+                           onclick="updateOpener('<%=request.getParameter("labNo")%>','<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>');">
                 </td>
-                <td><%=nbsp(Misc.toUpperLowerCase(ca.openosp.Misc.getString(rs, "last_name")))%>
+                <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name")))%>
                 </td>
-                <td><%=nbsp(Misc.toUpperLowerCase(ca.openosp.Misc.getString(rs, "first_name")))%>
+                <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name")))%>
                 </td>
                 <td><%= age %>
                 </td>
-                <td><%=nbsp(ca.openosp.Misc.getString(rs, "roster_status"))%>
+                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "roster_status"))%>
                 </td>
-                <td><%=nbsp(ca.openosp.Misc.getString(rs, "patient_status"))%>
+                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "patient_status"))%>
                 </td>
-                <td><%=nbsp(ca.openosp.Misc.getString(rs, "sex"))%>
+                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "sex"))%>
                 </td>
-                <td><%=nbsp(ca.openosp.Misc.getString(rs, "year_of_birth") + "-" + ca.openosp.Misc.getString(rs, "month_of_birth") + "-" + ca.openosp.Misc.getString(rs, "date_of_birth"))%>
+                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth"))%>
                 </td>
-                <td><%=providerBean.getProperty(ca.openosp.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : providerBean.getProperty(ca.openosp.Misc.getString(rs, "provider_no")) %>
+                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) %>
                 </td>
 
             </tr>
             <%
-                        bufName = new StringBuffer((ca.openosp.Misc.getString(rs, "last_name") + "," + ca.openosp.Misc.getString(rs, "first_name")));
-                        bufNo = new StringBuffer((ca.openosp.Misc.getString(rs, "demographic_no")));
-                        bufChart = new StringBuffer((ca.openosp.Misc.getString(rs, "chart_no")));
+                        bufName = new StringBuffer((io.github.carlos_emr.Misc.getString(rs, "last_name") + "," + io.github.carlos_emr.Misc.getString(rs, "first_name")));
+                        bufNo = new StringBuffer((io.github.carlos_emr.Misc.getString(rs, "demographic_no")));
+                        bufChart = new StringBuffer((io.github.carlos_emr.Misc.getString(rs, "chart_no")));
                     }
                 }
             %>

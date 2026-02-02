@@ -40,13 +40,13 @@
 %>
 
 <%@ page
-        import="java.util.*, ca.openosp.openo.util.UtilDateUtilities, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*, ca.openosp.openo.prevention.PreventionData, ca.openosp.openo.prescript.data.RxPrescriptionData" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.UtilDateUtilities, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, io.github.carlos_emr.carlos.prevention.PreventionData, io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 
 
 <%

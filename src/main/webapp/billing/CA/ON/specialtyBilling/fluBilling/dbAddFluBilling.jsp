@@ -39,16 +39,16 @@
 <%@ page import="java.sql.*" %>
 
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Billing" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);

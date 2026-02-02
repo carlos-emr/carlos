@@ -29,20 +29,20 @@
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
-        import="java.util.*, java.net.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*"
+        import="java.util.*, java.net.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<jsp:useBean id="myTempBean" class="ca.openosp.ScheduleTemplateBean" scope="page"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleTemplate" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleTemplatePrimaryKey" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleTemplateDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleTemplateCode" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleTemplateCodeDao" %>
+<jsp:useBean id="myTempBean" class="io.github.carlos_emr.ScheduleTemplateBean" scope="page"/>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplatePrimaryKey" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
 <%
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);

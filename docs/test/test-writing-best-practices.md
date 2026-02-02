@@ -449,7 +449,7 @@ class SearchOperationsTests {
 For unit tests that encounter SpringUtils.getBean() calls:
 
 ```java
-// Note: TicklerUnitTestBase is in ca.openosp.openo.tickler package
+// Note: TicklerUnitTestBase is in io.github.carlos_emr.carlos.tickler package
 public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 
     @Mock

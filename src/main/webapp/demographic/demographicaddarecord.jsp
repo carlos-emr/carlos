@@ -40,30 +40,30 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="java.util.*, java.net.URLEncoder, ca.openosp.openo.db.*, ca.openosp.MyDateFormat, ca.openosp.openo.waitinglist.WaitingList, ca.openosp.openo.commn.OtherIdManager" %>
-<%@ page import="ca.openosp.openo.log.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+        import="java.util.*, java.net.URLEncoder, io.github.carlos_emr.carlos.db.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.waitinglist.WaitingList, io.github.carlos_emr.carlos.commn.OtherIdManager" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="ca.openosp.openo.PMmodule.service.AdmissionManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 
-<%@page import="ca.openosp.openo.managers.PatientConsentManager" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.db.DBPreparedHandlerParam" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.commn.dao.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%!
     java.util.Properties oscarVariables = OscarProperties.getInstance();
 
@@ -359,11 +359,11 @@
                     if (paramWLPosition[0].compareTo("") != 0) {
 
                         List<Long> positionList = new ArrayList<Long>();
-                        List<ca.openosp.openo.commn.model.WaitingList> waitingListList = waitingListDao.findByWaitingListId(new Integer(1));
+                        List<io.github.carlos_emr.carlos.commn.model.WaitingList> waitingListList = waitingListDao.findByWaitingListId(new Integer(1));
 
                         if (waitingListList != null) {
 
-                            for (ca.openosp.openo.commn.model.WaitingList waitingList : waitingListList) {
+                            for (io.github.carlos_emr.carlos.commn.model.WaitingList waitingList : waitingListList) {
                                 positionList.add(waitingList.getPosition());
                             }
                             Long maxPosition = 0L;
@@ -373,7 +373,7 @@
 
                             String listId = request.getParameter("list_id");
                             if (listId != null && !listId.equals("") && !listId.equals("0")) {
-                                ca.openosp.openo.commn.model.WaitingList waitingList = new ca.openosp.openo.commn.model.WaitingList();
+                                io.github.carlos_emr.carlos.commn.model.WaitingList waitingList = new io.github.carlos_emr.carlos.commn.model.WaitingList();
                                 waitingList.setListId(Integer.parseInt(request.getParameter("list_id")));
                                 waitingList.setDemographicNo(demographic.getDemographicNo());
                                 waitingList.setNote(request.getParameter("waiting_list_note"));

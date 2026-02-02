@@ -39,29 +39,29 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     if (session.getValue("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
-<%@page import="java.util.*, ca.openosp.openo.demographic.data.*" %>
-<%@page import="ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.billing.ca.bc.pageUtil.*,ca.openosp.*,ca.openosp.oscarClinic.*" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.PropertyDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.SystemPreferencesDao" %>
-<%@ page import="ca.openosp.openo.commn.model.SystemPreferences" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.oscarClinic.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.commn.model.Property" %>
-<%@ page import="ca.openosp.openo.entities.BillHistory" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingBillingManager" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingViewBean" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingHistoryDAO" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.clinic.ClinicData" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
+<%@ page import="io.github.carlos_emr.carlos.entities.BillHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingViewBean" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.clinic.ClinicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%

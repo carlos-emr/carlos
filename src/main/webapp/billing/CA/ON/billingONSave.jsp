@@ -21,22 +21,22 @@
 
 
 <%@ page
-        import="java.util.*,java.sql.*,ca.openosp.openo.util.*,ca.openosp.openo.billing.ca.on.pageUtil.*,ca.openosp.openo.billing.ca.on.data.*,ca.openosp.openo.providers.data.*,java.math.* ,ca.openosp.openo.billing.ca.on.administration.*" %>
+        import="java.util.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*,io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.providers.data.*,java.math.* ,io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page errorPage="/errorpage.jsp" import="java.util.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*,ca.openosp.openo.commn.model.*,ca.openosp.openo.commn.dao.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.appt.ApptStatusData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingSavePrep" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao" %>
-<%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingONExtDao" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingONCHeader1" %>
-<%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingONExt" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptStatusData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingONExt" %>
 <%
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     UserPropertyDAO userPropertyDAO = (UserPropertyDAO) ctx.getBean(UserPropertyDAO.class);

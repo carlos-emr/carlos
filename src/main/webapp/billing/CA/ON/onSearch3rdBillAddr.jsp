@@ -17,9 +17,9 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@page import="ca.openosp.openo.commn.dao.Billing3rdPartyAddressDao" %>
-<%@page import="ca.openosp.openo.billing.CA.ON.model.Billing3rdPartyAddress" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.Billing3rdPartyAddressDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     //
     if (session.getAttribute("user") == null) {

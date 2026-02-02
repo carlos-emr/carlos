@@ -1,4 +1,4 @@
-<%@ page import="ca.openosp.OscarProperties" %><%--
+<%@ page import="io.github.carlos_emr.OscarProperties" %><%--
 
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
     This software is published under the GPL GNU General Public License.

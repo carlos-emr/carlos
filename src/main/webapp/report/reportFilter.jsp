@@ -14,9 +14,9 @@
 %>
 
 <%@ page errorPage="/errorpage.jsp"
-         import="java.util.*, ca.openosp.openo.report.data.*" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportFilter" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportItem" %>
+         import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportFilter" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 // get form name

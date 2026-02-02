@@ -1,0 +1,488 @@
+//CHECKSTYLE:OFF
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+
+package io.github.carlos_emr.carlos.billings.ca.bc.data;
+
+import io.github.carlos_emr.carlos.commn.dao.*;
+import io.github.carlos_emr.carlos.commn.model.*;
+import org.apache.velocity.tools.ConversionUtils;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingStatusTypesDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingStatusTypes;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.entities.BillingStatusType;
+import io.github.carlos_emr.carlos.entities.PaymentType;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+
+import java.util.*;
+
+public class BillingFormData {
+
+    private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
+
+    public ArrayList<PaymentType> getPaymentTypes() {
+        ArrayList<PaymentType> types = new ArrayList<PaymentType>();
+
+        BillingPaymentTypeDao dao = SpringUtils.getBean(BillingPaymentTypeDao.class);
+        for (BillingPaymentType type : dao.findAll()) {
+            PaymentType tp = new PaymentType();
+            tp.setId(type.getId().toString());
+            tp.setPaymentType(type.getPaymentType());
+            types.add(tp);
+        }
+        return types;
+    }
+
+    public String getProviderNo(String billno) {
+        BillingBCDao dao = (BillingBCDao) SpringUtils.getBean(BillingBCDao.class);
+        Billing billing = dao.find(billno);
+        if (billing != null) return billing.getProviderNo();
+
+        MiscUtils.getLogger().error("Unable to find providers for " + billno);
+        return null;
+    }
+
+    /**
+     * Returns a list of status type instances according to the supplied String array of allowable status codes
+     * If the supplied array is null or empty, a full list is returned
+     *
+     * @return List
+     */
+    public List<BillingStatusType> getStatusTypes(String[] codes) {
+        BillingStatusTypesDao dao = SpringUtils.getBean(BillingStatusTypesDao.class);
+        List<BillingStatusTypes> types = null;
+        if (codes == null || codes.length == 0) types = dao.findAll();
+        else types = dao.findByCodes(Arrays.asList(codes));
+
+        ArrayList<BillingStatusType> head = new ArrayList<BillingStatusType>();
+        // prepends a default empty bean to the list
+        BillingStatusType tp = new BillingStatusType();
+        tp.setBillingstatus("");
+        tp.setDisplayNameExt("");
+        head.add(tp);
+
+        for (BillingStatusTypes t : types) {
+            tp = new BillingStatusType();
+            tp.setBillingstatus(t.getId().toString());
+            tp.setDisplayNameExt(t.getDisplayNameExt());
+
+            head.add(tp);
+        }
+        return head;
+    }
+
+    public String getBillingFormDesc(BillingForm[] billformlist, String billForm) {
+        for (int i = 0; i < billformlist.length; i++) {
+            if (billformlist[i].getFormCode().equals(billForm)) {
+                return billformlist[i].getDescription();
+            }
+        }
+
+        return "";
+    }
+
+    public BillingService[] getServiceList(String serviceGroup, String serviceType, String billRegion) {
+        List<BillingService> result = new ArrayList<BillingService>();
+
+        BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
+        List<Object[]> services = dao.findBillingServices(billRegion, serviceGroup, serviceType);
+        for (Object[] s : services)
+            result.add(new BillingService(s));
+        return result.toArray(new BillingService[result.size()]);
+    }
+
+    public BillingService[] getServiceList(String serviceGroup, String serviceType, String billRegion, Date billingDate) {
+        String billReferenceDate = UtilDateUtilities.DateToString(billingDate);
+
+        List<BillingService> result = new ArrayList<BillingService>();
+        BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
+        List<Object[]> services = dao.findBillingServices(billRegion, serviceGroup, serviceType, billReferenceDate);
+        for (Object[] s : services) {
+            result.add(new BillingService(s));
+        }
+        return result.toArray(new BillingService[result.size()]);
+    }
+
+    /**
+     * Checks to see if a service type exists in ctl_billingservice
+     * The service type is a billing form
+     *
+     * @param serviceType the name of the service type/billing form
+     * @return boolean value whether this type exists or not
+     */
+    public boolean serviceExists(String serviceType) {
+        List<BillingService> result = new ArrayList<BillingService>();
+        BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
+        List<Object[]> services = dao.findBillingServicesByType(serviceType);
+        if (services == null || services.isEmpty()) {
+            return false;
+        }
+        return true;
+    }
+
+    public Diagnostic[] getDiagnosticList(String serviceType, String billRegion) {
+        CtlDiagCodeDao dao = SpringUtils.getBean(CtlDiagCodeDao.class);
+
+        List<Diagnostic> result = new ArrayList<Diagnostic>();
+        for (Object[] d : dao.getDiagnostics(billRegion, serviceType)) {
+            result.add(new Diagnostic(d));
+        }
+        return result.toArray(new Diagnostic[result.size()]);
+    }
+
+    public Location[] getLocationList(String billRegion) {
+        BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
+
+        List<Location> result = new ArrayList<Location>();
+        for (Object[] l : dao.findBillingLocations(billRegion)) {
+            result.add(new Location(l));
+        }
+        return result.toArray(new Location[result.size()]);
+    }
+
+    public List<BillingVisit> getVisitType(String billRegion) {
+        BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
+
+        List<BillingVisit> result = new ArrayList<>();
+        for (Object[] v : dao.findBillingVisits(billRegion)) {
+            result.add(new BillingVisit(v));
+        }
+        return result;
+    }
+
+    public BillingPhysician[] getProviderList() {
+        ArrayList<BillingPhysician> lst = new ArrayList<BillingPhysician>();
+        ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+        for (Provider provider : dao.getProvidersWithNonEmptyOhip())
+            lst.add(new BillingPhysician(provider.getFormattedName(), provider.getProviderNo()));
+        return lst.toArray(new BillingPhysician[lst.size()]);
+    }
+
+    public BillingForm[] getFormList() {
+        List<BillingForm> result = new ArrayList<BillingForm>();
+
+        CtlBillingServiceDao dao = SpringUtils.getBean(CtlBillingServiceDao.class);
+        for (Object[] b : dao.getAllServiceTypes()) {
+            result.add(new BillingForm(b));
+        }
+        return result.toArray(new BillingForm[result.size()]);
+    }
+
+    public class BillingService {
+
+        String service_code;
+        String description;
+        String price;
+        String percentage;
+
+        public BillingService(Object[] s) {
+            this(String.valueOf(s[0]), String.valueOf(s[1]), String.valueOf(s[2]), String.valueOf(s[3]));
+        }
+
+        public BillingService(String service_code, String description, String price, String percentage) {
+            this.service_code = service_code;
+            this.description = description;
+            this.price = price;
+            this.percentage = percentage;
+
+        }
+
+        public String getServiceCode() {
+            return service_code;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public String getPrice() {
+            return price;
+        }
+
+        public String getPercentage() {
+            return percentage;
+        }
+
+    }
+
+    public class Diagnostic {
+        String diagnostic_code;
+        String description;
+
+        public Diagnostic(Object[] codes) {
+            this(String.valueOf(codes[0]), String.valueOf(codes[1]));
+        }
+
+        public Diagnostic(String diagnostic_code, String description) {
+            this.diagnostic_code = diagnostic_code;
+            this.description = description;
+
+        }
+
+        public String getDiagnosticCode() {
+            return diagnostic_code;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+    }
+
+    public class Location {
+        String billinglocation;
+        String description;
+
+        public Location(Object[] l) {
+            this(String.valueOf(l[0]), String.valueOf(l[1]));
+        }
+
+        public Location(String billinglocation, String description) {
+            this.billinglocation = billinglocation;
+            this.description = description;
+
+        }
+
+        public String getBillingLocation() {
+            return billinglocation;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+    }
+
+    public static class BillingVisit {
+        String visitType = "";
+        String description = "";
+
+        public BillingVisit(Object[] o) {
+            this(String.valueOf(o[0]), String.valueOf(o[1]));
+        }
+
+        public BillingVisit(String visitType, String description) {
+            this.visitType = visitType;
+            this.description = description;
+
+        }
+
+        public String getVisitType() {
+            return visitType;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public String getDisplayName() {
+            return visitType.equalsIgnoreCase(Property.PROPERTY_VALUE.clinicdefault.name()) ? description : visitType + "|" + description;
+        }
+
+    }
+
+    public class BillingForm {
+        String formcode;
+        String description;
+
+        public BillingForm(Object[] b) {
+            this(String.valueOf(b[0]), String.valueOf(b[1]));
+        }
+
+        public BillingForm(String description, String formcode) {
+            this.formcode = formcode;
+            this.description = description;
+
+        }
+
+        public String getFormCode() {
+            return formcode;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+    }
+
+    public class BillingPhysician {
+        String providername;
+        String provider_no;
+
+        public BillingPhysician(String providername, String provider_no) {
+            this.providername = providername;
+            this.provider_no = provider_no;
+
+        }
+
+        public String getProviderName() {
+            return providername;
+        }
+
+        public String getProviderNo() {
+            return provider_no;
+        }
+
+    }
+
+    public String getBillingType(String billNo) {
+        BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
+        Billing billing = dao.find(billNo);
+        if (billing != null) return billing.getBillingtype();
+        return null;
+    }
+
+    public String getProviderName(String provider_no) {
+        ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+        Provider provider = dao.getProvider(provider_no);
+        if (provider == null) return "";
+        return provider.getFormattedName();
+    }
+
+    public String getPracNo(String provider_no) {
+        ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+        Provider provider = dao.getProvider(provider_no);
+        if (provider == null) return "";
+
+        return provider.getOhipNo();
+    }
+
+    public String getGroupNo(String provider_no) {
+        ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+        Provider provider = dao.getProvider(provider_no);
+        if (provider == null) return "";
+
+        return provider.getBillingNo();
+    }
+
+    public String getDiagDesc(String dx, String reg) {
+        String dxdesc = "";
+        for (DiagnosticCode dcode : diagnosticCodeDao.findByDiagnosticCodeAndRegion(dx, reg)) {
+            dxdesc = dcode.getDescription();
+        }
+        return dxdesc;
+    }
+
+    public String getServiceDesc(String code, String reg) {
+        BillingServiceDao dao = SpringUtils.getBean(BillingServiceDao.class);
+        List<io.github.carlos_emr.carlos.commn.model.BillingService> services = dao.findBillingCodesByCode(code, reg);
+        if (services.isEmpty())
+            return "";
+        int lastPosition = services.size() - 1;
+        io.github.carlos_emr.carlos.commn.model.BillingService service = services.get(lastPosition);
+        if (service != null)
+            return service.getDescription();
+        return "";
+    }
+
+    public String getServiceGroupName(String serviceGroup) {
+        CtlBillingServiceDao dao = SpringUtils.getBean(CtlBillingServiceDao.class);
+        List<CtlBillingService> services = dao.findByServiceGroup(serviceGroup);
+        for (CtlBillingService service : services)
+            return service.getServiceGroupName();
+        return "";
+    }
+
+    public String getServiceGroupName(String serviceGroup, String serviceType) {
+        CtlBillingServiceDao dao = SpringUtils.getBean(CtlBillingServiceDao.class);
+        for (CtlBillingService b : dao.findByServiceGroupAndServiceType(serviceGroup, serviceType))
+            return b.getServiceGroupName();
+        return "";
+    }
+
+    public void setPrivateFees(BillingFormData.BillingService[] svc) {
+        BillingServiceDao dao = SpringUtils.getBean(BillingServiceDao.class);
+
+        for (int i = 0; i < svc.length; i++) {
+            String serviceCode = "A" + svc[i].getServiceCode();
+
+            for (io.github.carlos_emr.carlos.commn.model.BillingService b : dao.findByServiceCode(serviceCode))
+                svc[i].price = b.getValue();
+        }
+    }
+
+    /**
+     * Returns a list of InjuryLocation instances
+     *
+     * @return List
+     */
+    public List<InjuryLocation> getInjuryLocationList() {
+        BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
+        List<InjuryLocation> result = new ArrayList<InjuryLocation>();
+        for (Object[] l : dao.findInjuryLocations())
+            result.add(new InjuryLocation(l));
+        return result;
+    }
+
+    /**
+     * Returns a Properties instance that contains the following key/value pair
+     * * key = A Billing Status Type Code
+     * * value =  A Billing Status Type Extended Description
+     *
+     * @param statusType List
+     * @return Properties
+     */
+    @SuppressWarnings("rawtypes")
+    public Properties getStatusProperties(List statusType) {
+        Properties p = new Properties();
+        for (Iterator iter = statusType.iterator(); iter.hasNext(); ) {
+            BillingStatusType item = (BillingStatusType) iter.next();
+            p.setProperty(item.getBillingstatus(), item.getDisplayNameExt());
+        }
+        return p;
+    }
+
+
+    public ArrayList<String> getRecentReferralDoctorsList(Integer demographicNo) {
+        Set<String> recentList = new HashSet<String>();
+
+        BillingmasterDAO dao = SpringUtils.getBean(BillingmasterDAO.class);
+        List<Object[]> results = dao.getRecentReferralDoctors(demographicNo);
+
+        if (results != null && !results.isEmpty()) {
+            String one;
+            String two;
+
+            for (int i = 0; i < results.size(); i++) {
+
+                one = ConversionUtils.toString((results.get(i))[0]);
+                two = ConversionUtils.toString((results.get(i))[1]);
+
+                if (one != null && !one.equals("")) {
+                    recentList.add(one);
+                }
+
+                if (two != null && !two.equals("")) {
+                    recentList.add(two);
+                }
+            }
+
+        }
+
+        return new ArrayList<String>(recentList);
+    }
+
+}

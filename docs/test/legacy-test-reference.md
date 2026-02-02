@@ -14,7 +14,7 @@ This document describes the existing legacy test suite that continues to run alo
 ```
 src/test/
 ├── java/
-│   ├── ca/openosp/openo/
+│   ├── io/github/carlos_emr/carlos/
 │   │   ├── commn/
 │   │   │   ├── dao/              # DAO tests (largest collection)
 │   │   │   │   └── utils/        # Test utilities
@@ -80,7 +80,7 @@ public class SomeDaoTest extends DaoTestFixtures {
 ### Base Test Classes
 
 #### DaoTestFixtures
-Located at `ca.openosp.openo.commn.dao.DaoTestFixtures`, this base class provides:
+Located at `io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures`, this base class provides:
 - Database connection setup via `@BeforeClass` static initialization
 - Spring context initialization from `applicationContextTest.xml`
 - Database schema utilities through `SchemaUtils`
@@ -89,7 +89,7 @@ Located at `ca.openosp.openo.commn.dao.DaoTestFixtures`, this base class provide
 
 #### Test Utilities
 
-Located in `ca.openosp.openo.commn.dao.utils`:
+Located in `io.github.carlos_emr.carlos.commn.dao.utils`:
 
 - **EntityDataGenerator**: Creates test entities with valid data
 - **SchemaUtils**: Database schema operations for tests (table creation, cleanup)
@@ -114,7 +114,7 @@ mvn test
 mvn test -Dtest=AllergyDaoTest
 
 # Run all tests in a package
-mvn test -Dtest=ca.openosp.openo.commn.dao.*
+mvn test -Dtest=io.github.carlos_emr.carlos.commn.dao.*
 
 # Run tests matching a pattern
 mvn test -Dtest=*DaoTest

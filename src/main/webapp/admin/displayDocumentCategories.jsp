@@ -10,7 +10,7 @@
 --%>
 <!DOCTYPE html>
 <%@ page
-        import="java.util.*, ca.openosp.openo.documentManager.EDocUtil" %>
+        import="java.util.*, io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

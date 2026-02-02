@@ -39,17 +39,17 @@
         return;
     }
 %>
-<%@ page import="ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*" %>
-<%@ page import="ca.openosp.openo.commn.web.Pregnancy2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.web.Pregnancy2Action" %>
 <%@ page import="java.util.List" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.util.LabelValueBean" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.data.FrmData" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     String formClass = "ONAREnhanced";
     String formLink = "formonarenhancedpg1.jsp";

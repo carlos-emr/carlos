@@ -32,8 +32,8 @@
       java.net.*,
       org.apache.commons.io.FileUtils,
       org.apache.commons.text.StringEscapeUtils,
-      ca.openosp.OscarProperties,
-      ca.openosp.openo.util.FileSortByDate
+      io.github.carlos_emr.OscarProperties,
+      io.github.carlos_emr.carlos.util.FileSortByDate
 " %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

@@ -25,7 +25,7 @@
 --%>
 
 <%@page
-        import="ca.openosp.OscarProperties,
+        import="io.github.carlos_emr.OscarProperties,
                 org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%

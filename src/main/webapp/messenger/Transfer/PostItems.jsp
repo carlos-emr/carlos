@@ -82,10 +82,10 @@
 %>
 
 <%@page contentType='text/xml; charset=UTF-8' pageEncoding='UTF-8'
-        import="ca.openosp.openo.messenger.docxfer.send.*, ca.openosp.openo.messenger.docxfer.util.*" %>
-<%@ page import="ca.openosp.openo.messenger.docxfer.util.MsgCommxml" %>
-<%@ page import="ca.openosp.openo.messenger.pageUtil.MsgSessionBean" %>
-<%@ page import="ca.openosp.openo.messenger.docxfer.send.MsgSendDocument" %>
+        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.MsgSendDocument" %>
 <%
     // Process selected document items from form submission
     String checks = "";

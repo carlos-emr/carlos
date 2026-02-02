@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.*,java.util.*" %>
+<%@page import="io.github.carlos_emr.*,java.util.*" %>
 <%@page import="java.io.InputStream" %>
 <%@page import="java.util.ArrayList" %>
 <%@page import="java.util.HashMap" %>
@@ -39,7 +39,7 @@
 <%@page import="org.jdom2.Element" %>
 <%@page import="org.jdom2.filter.ElementFilter" %>
 <%@page import="org.jdom2.input.SAXBuilder" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.apache.logging.log4j.Logger" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">

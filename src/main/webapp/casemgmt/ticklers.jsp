@@ -42,13 +42,13 @@
 <%@ page
         import="java.util.Date,
                 org.caisi.model.*,
-                ca.openosp.openo.casemgmt.model.*,
-                ca.openosp.openo.commn.model.*,
-                ca.openosp.openo.PMmodule.model.*,
+                io.github.carlos_emr.carlos.casemgmt.model.*,
+                io.github.carlos_emr.carlos.commn.model.*,
+                io.github.carlos_emr.carlos.PMmodule.model.*,
                 org.springframework.context.*,
                 org.springframework.web.context.support.*" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.commn.model.Tickler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">

@@ -24,19 +24,19 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page %>
-<%@page import="ca.openosp.openo.demographic.data.*,ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler,java.util.*,ca.openosp.openo.rx.util.*" %>
-<%@page import="ca.openosp.openo.lab.ca.on.*,ca.openosp.openo.util.*,ca.openosp.openo.lab.*" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.lab.SortHashtable" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabTestValues" %>
-<%@ page import="ca.openosp.openo.prescript.util.RxUtil" %>
-<%@ page import="ca.openosp.openo.prescript.util.RenalDosingFactory" %>
-<%@ page import="ca.openosp.openo.prescript.util.DosingRecomendation" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler,java.util.*,io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.SortHashtable" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RenalDosingFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.DosingRecomendation" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

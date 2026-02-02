@@ -17,13 +17,13 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <html>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ page import="ca.openosp.openo.utility.DateRange" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="java.math.*, java.util.*, ca.openosp.openo.util.*" %>
+<%@ page import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -46,16 +46,16 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingReviewPrep" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<jsp:useBean id="SxmlMisc" class="ca.openosp.SxmlMisc" scope="session"/>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></title>

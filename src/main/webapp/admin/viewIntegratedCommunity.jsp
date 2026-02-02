@@ -39,13 +39,13 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedFacility" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility" %>
 <%@page import="java.util.List" %>
-<%@page import="java.util.Calendar,ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="java.util.Calendar,io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%@include file="/layouts/caisi_html_top.jspf" %>
 

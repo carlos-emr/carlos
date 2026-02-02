@@ -14,11 +14,11 @@
 %>
 
 <%@ page errorPage="/errorpage.jsp"
-         import="java.util.*, ca.openosp.openo.report.data.*" %>
-<%@ page import="ca.openosp.openo.login.*" %>
+         import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*" %>
 <%@ page import="org.apache.commons.lang3.*" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportItem" %>
-<%@ page import="ca.openosp.openo.report.data.RptTableFieldNameCaption" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptTableFieldNameCaption" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String tableName = request.getParameter("tableName") != null ? request.getParameter("tableName") : "";

@@ -22,12 +22,12 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ include file="/taglibs.jsp" %>
 
 <%@ include file="/common/messages.jsp" %>
-<%@ page import="ca.openosp.openo.commn.model.Facility" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@ page import="java.util.List" %>
 
 <div class="tabs" id="tabs">

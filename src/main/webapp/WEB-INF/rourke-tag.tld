@@ -7,7 +7,7 @@
     <shortname>rourke</shortname>
     <tag>
         <name>discussionRadioSelect</name>
-        <tagclass>ca.openosp.openo.form.pageUtil.tagLib.FormRourkeDiscussionRadioSelect</tagclass>
+        <tagclass>io.github.carlos_emr.carlos.form.pageUtil.tagLib.FormRourkeDiscussionRadioSelect</tagclass>
         <bodycontent>empty</bodycontent>
         <attribute>
             <name>sectionName</name>

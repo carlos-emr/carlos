@@ -82,19 +82,19 @@ Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All
 <%-- ========== PAGE IMPORTS (MUST BE FIRST) ========== --%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%-- ... all other imports ... --%>
 
-<%-- NOTE: CARLOS EMR uses ca.openosp.openo.* namespace (new)
-     DAOs are in ca.openosp.openo.commn.dao.* (note: "commn" not "common")
-     Models are in ca.openosp.openo.commn.model.*
-     Exception: ProviderDao is at ca.openosp.openo.dao.ProviderDao --%>
+<%-- NOTE: CARLOS EMR uses io.github.carlos_emr.carlos.* namespace (new)
+     DAOs are in io.github.carlos_emr.carlos.commn.dao.* (note: "commn" not "common")
+     Models are in io.github.carlos_emr.carlos.commn.model.*
+     Exception: ProviderDao is at io.github.carlos_emr.carlos.dao.ProviderDao --%>
 
 <%-- ========== TAGLIB DECLARATIONS ========== --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -186,7 +186,7 @@ Wrap database operations and external calls in try-catch:
 **SECURITY REQUIREMENT**: ALL file operations involving user input MUST use `PathValidationUtils` to prevent path traversal attacks.
 
 ```jsp
-<%@ page import="ca.openosp.openo.utility.PathValidationUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 
 <%
     // ===== FILE OPERATIONS - SECURITY CRITICAL =====

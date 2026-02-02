@@ -11,7 +11,7 @@
 
     <rule name="A1C">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.getDataAsDouble() &gt;= 7</java:condition>       
         <java:consequence>     
@@ -22,7 +22,7 @@
 
     <rule name="A1C2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.getDataAsDouble() &lt;= 2</java:condition>   
         <java:condition>m.getDataAsDouble() &gt;= 0.07</java:condition>    

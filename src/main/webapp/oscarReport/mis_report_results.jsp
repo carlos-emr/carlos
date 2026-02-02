@@ -38,13 +38,13 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.ArrayList" %>
 <%@page import="java.util.HashMap" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.web.MisReportUIBean" %>
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
-<%@page import="ca.openosp.openo.web.MisReportUIBean.DataRow" %>
+<%@page import="io.github.carlos_emr.carlos.web.MisReportUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.web.MisReportUIBean.DataRow" %>
 <%@page import="java.util.GregorianCalendar" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

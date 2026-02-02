@@ -5,12 +5,12 @@
     <uri>http://www.oscar-emr.com/tags/integration</uri>
     <function>
         <name>toDate</name>
-        <function-class>ca.openosp.openo.integration.mcedt.Functions</function-class>
+        <function-class>io.github.carlos_emr.carlos.integration.mcedt.Functions</function-class>
         <function-signature>java.util.Date toDate(javax.xml.datatype.XMLGregorianCalendar)</function-signature>
     </function>
     <function>
         <name>toInt</name>
-        <function-class>ca.openosp.openo.integration.mcedt.Functions</function-class>
+        <function-class>io.github.carlos_emr.carlos.integration.mcedt.Functions</function-class>
         <function-signature>int toInt(java.math.BigInteger)</function-signature>
     </function>
 </taglib>

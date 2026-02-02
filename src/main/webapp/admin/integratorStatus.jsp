@@ -23,25 +23,25 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.managers.IntegratorFileLogManager" %>
-<%@page import="ca.openosp.openo.commn.model.IntegratorFileLog" %>
+<%@page import="io.github.carlos_emr.carlos.managers.IntegratorFileLogManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.IntegratorFileLog" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.apache.logging.log4j.Logger" %>
-<%@page import="ca.openosp.openo.commn.dao.IntegratorControlDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.FacilityDao" %>
-<%@page import="ca.openosp.openo.commn.model.Facility" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedFacility" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.IntegratorControlDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FacilityDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="java.util.List" %>
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

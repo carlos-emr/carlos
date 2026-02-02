@@ -43,4 +43,4 @@ __fEndY		:	40
 __finalEDB	:	c_EDD
 __dateFormat	:	dd/MM/yyyy
 
-__className	:	ca.openosp.openo.form.graphic.FrmPdfGraphicAR
+__className	:	io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicAR

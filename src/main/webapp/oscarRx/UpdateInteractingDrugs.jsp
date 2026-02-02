@@ -24,10 +24,10 @@
 
 --%>
 
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="java.util.*" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

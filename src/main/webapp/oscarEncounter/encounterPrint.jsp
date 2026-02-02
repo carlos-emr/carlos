@@ -42,10 +42,10 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.encounter.data.*,java.net.*" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.data.*,java.net.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>

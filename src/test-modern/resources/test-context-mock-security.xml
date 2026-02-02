@@ -8,6 +8,6 @@
     <import resource="test-context-full.xml"/>
 
     <!-- Override SecurityInfoManager with a permissive mock for testing -->
-    <bean id="securityInfoManager" class="ca.openosp.openo.test.mocks.MockSecurityInfoManager" primary="true"/>
+    <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" primary="true"/>
 
 </beans>

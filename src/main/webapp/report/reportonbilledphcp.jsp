@@ -72,9 +72,9 @@
                 providerName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
         }
 %>
-<%@page import="ca.openosp.openo.db.DBPreparedHandler" %>
+<%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 
-<%@page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.Misc" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

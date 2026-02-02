@@ -25,10 +25,10 @@
 --%>
 <%@include file="/casemgmt/taglibs.jsp" %>
 <%@ page
-        import="ca.openosp.openo.providers.data.ProviderData, java.util.ArrayList,java.util.Map, java.util.List, ca.openosp.openo.utility.SpringUtils" %>
+        import="io.github.carlos_emr.carlos.providers.data.ProviderData, java.util.ArrayList,java.util.Map, java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page
-        import="ca.openosp.openo.commn.dao.ProviderLabRoutingFavoritesDao, ca.openosp.openo.commn.model.ProviderLabRoutingFavorite" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao, ca.openosp.openo.commn.model.Provider" %>
+        import="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao, io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.Provider" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>

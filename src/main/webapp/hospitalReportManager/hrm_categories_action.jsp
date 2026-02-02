@@ -25,10 +25,10 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMCategory" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMCategoryDao" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%
     HRMCategoryDao hrmCategoryDao = (HRMCategoryDao) SpringUtils.getBean(HRMCategoryDao.class);
 

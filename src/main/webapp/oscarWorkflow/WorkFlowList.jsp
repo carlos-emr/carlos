@@ -25,16 +25,16 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page
-        import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*,ca.openosp.openo.report.ClinicalReports.*,ca.openosp.openo.workflow.*" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.workflow.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicNameAgeString" %>
-<%@ page import="ca.openosp.openo.workflow.WorkFlowDS" %>
-<%@ page import="ca.openosp.openo.workflow.WorkFlowFactory" %>
-<%@ page import="ca.openosp.openo.workflow.WorkFlowInfo" %>
-<%@ page import="ca.openosp.openo.workflow.WorkFlow" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
+<%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowDS" %>
+<%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlow" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

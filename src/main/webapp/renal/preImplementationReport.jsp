@@ -27,10 +27,10 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="java.util.List" %>
 <%@page import="java.text.DecimalFormat" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.renal.ReportHelper" %>
-<%@page import="ca.openosp.openo.renal.ReportDataContainer" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.renal.ReportHelper" %>
+<%@page import="io.github.carlos_emr.carlos.renal.ReportDataContainer" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

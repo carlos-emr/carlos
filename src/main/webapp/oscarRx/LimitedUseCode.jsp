@@ -31,11 +31,11 @@
 --%>
 
 <%@page %>
-<%@page import="ca.openosp.openo.demographic.data.*,ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler,java.util.*,ca.openosp.openo.rx.util.*" %>
-<%@page import="ca.openosp.openo.lab.ca.on.*,ca.openosp.openo.util.*,ca.openosp.openo.lab.*" %>
-<%@ page import="ca.openosp.openo.prescript.util.LimitedUseCode" %>
-<%@ page import="ca.openosp.openo.prescript.util.LimitedUseLookup" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler,java.util.*,io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
 
 <%
     String din = request.getParameter("din");

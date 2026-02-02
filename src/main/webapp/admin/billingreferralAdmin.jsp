@@ -32,9 +32,9 @@
     <%response.sendRedirect(request.getContextPath() + "/logout.jsp");%>
 </security:oscarSec>
 
-<%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%
     String searchBy = "searchByName";

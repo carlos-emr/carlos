@@ -26,14 +26,14 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.FavoritesDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Favorites" %>
-<%@ page import="ca.openosp.openo.commn.dao.FavoritesPrivilegeDao" %>
-<%@ page import="ca.openosp.openo.commn.model.FavoritesPrivilege" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxCodesData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FavoritesDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Favorites" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FavoritesPrivilegeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
 <%
     FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
     FavoritesPrivilegeDao favoritesPrivilegeDao = SpringUtils.getBean(FavoritesPrivilegeDao.class);

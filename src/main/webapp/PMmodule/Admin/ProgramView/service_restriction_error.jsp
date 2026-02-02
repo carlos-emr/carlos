@@ -24,13 +24,13 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@page import="ca.openosp.openo.PMmodule.web.formbean.*" %>
-<%@page import="ca.openosp.openo.PMmodule.web.utils.UserRoleUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.web.formbean.*" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ClientManager" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicExt" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ClientManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 
 
 <form action="${pageContext.request.contextPath}/PMmodule/ProgramManagerView.do" method="post">

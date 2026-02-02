@@ -27,22 +27,22 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.title"/></title>
     </head>
     <body>
-    <%@ page import="ca.openosp.*,java.text.*, java.util.*" %>
-    <jsp:useBean id="billingBean" scope="session" class="ca.openosp.BillingBean"/>
-    <jsp:useBean id="billingItem" scope="page" class="ca.openosp.BillingItemBean"/>
-    <jsp:useBean id="billingDataBean" class="ca.openosp.BillingDataBean" scope="session"/>
-    <jsp:useBean id="billingPatientDataBean" class="ca.openosp.BillingPatientDataBean" scope="session"/>
+    <%@ page import="io.github.carlos_emr.*,java.text.*, java.util.*" %>
+    <jsp:useBean id="billingBean" scope="session" class="io.github.carlos_emr.BillingBean"/>
+    <jsp:useBean id="billingItem" scope="page" class="io.github.carlos_emr.BillingItemBean"/>
+    <jsp:useBean id="billingDataBean" class="io.github.carlos_emr.BillingDataBean" scope="session"/>
+    <jsp:useBean id="billingPatientDataBean" class="io.github.carlos_emr.BillingPatientDataBean" scope="session"/>
 
-    <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-    <%@ page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-    <%@ page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-    <%@ page import="ca.openosp.openo.commn.model.RecycleBin" %>
-    <%@ page import="ca.openosp.openo.commn.dao.RecycleBinDao" %>
-    <%@ page import="ca.openosp.openo.commn.model.Billing" %>
-    <%@ page import="ca.openosp.openo.commn.dao.BillingDao" %>
-    <%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-    <%@ page import="ca.openosp.BillingItemBean" %>
-    <%@ page import="ca.openosp.MyDateFormat" %>
+    <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+    <%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+    <%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.model.RecycleBin" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+    <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+    <%@ page import="io.github.carlos_emr.BillingItemBean" %>
+    <%@ page import="io.github.carlos_emr.MyDateFormat" %>
     <%
         BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
         RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);

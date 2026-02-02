@@ -24,10 +24,10 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 
-<%@ page import="ca.openosp.openo.PMmodule.web.formbean.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.formbean.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="ca.openosp.openo.PMmodule.web.formbean.ProgramManagerViewFormBean" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.formbean.ProgramManagerViewFormBean" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <form action="${pageContext.request.contextPath}/PMmodule/ProgramManager.do" method="post">

@@ -20,13 +20,13 @@
     String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : ("a.start_time");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*,ca.openosp.openo.commn.model.*,org.apache.commons.lang3.time.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,io.github.carlos_emr.carlos.commn.model.*,org.apache.commons.lang3.time.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
-<jsp:useBean id="daySheetBean" class="ca.openosp.AppointmentMainBean" scope="page"/>
+<%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%
-    ca.openosp.openo.commn.model.ProviderPreference providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
+    io.github.carlos_emr.carlos.commn.model.ProviderPreference providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
     int endHour = providerPreference.getEndHour();
     int startHour = providerPreference.getStartHour();
 

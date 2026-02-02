@@ -25,9 +25,9 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.billing.ca.bc.Teleplan.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.Teleplan.TeleplanSequenceDAO" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.Teleplan.TeleplanUserPassDAO" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanSequenceDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanUserPassDAO" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -60,7 +60,7 @@
             Teleplan
             <%
                 TeleplanSequenceDAO seq = new TeleplanSequenceDAO();
-                ca.openosp.OscarProperties op = ca.openosp.OscarProperties.getInstance();
+                io.github.carlos_emr.OscarProperties op = io.github.carlos_emr.OscarProperties.getInstance();
             %>
             Last Sequence # = <%=seq.getLastSequenceNumber()%>   Current Datacenter #
             = <%=op.getProperty("dataCenterId", "Not Set")%>

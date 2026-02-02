@@ -27,7 +27,7 @@
 <%
     if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
-<%@ page import="java.util.*,ca.openosp.openo.report.pageUtil.*" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%

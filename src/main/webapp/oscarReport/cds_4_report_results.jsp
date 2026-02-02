@@ -38,20 +38,20 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="java.util.HashSet" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.managers.ProviderManager2" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.ProviderManager2" %>
 <%@page import="java.util.Date" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.CdsFormOption" %>
-<%@page import="ca.openosp.openo.web.Cds4ReportUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CdsFormOption" %>
+<%@page import="io.github.carlos_emr.carlos.web.Cds4ReportUIBean" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

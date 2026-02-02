@@ -24,14 +24,14 @@
 
 --%>
 
-<%@ page import="java.sql.*, java.util.*, ca.openosp.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.EncounterTemplateDao" %>
-<%@page import="ca.openosp.openo.commn.model.EncounterTemplate" %>
-<%@page import="ca.openosp.openo.commn.dao.EncounterDao" %>
-<%@page import="ca.openosp.openo.commn.model.Encounter" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.EncounterTemplate" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);

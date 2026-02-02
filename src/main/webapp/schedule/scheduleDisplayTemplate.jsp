@@ -24,15 +24,15 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="java.sql.*, java.util.*" %>
 <%@ page errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ScheduleTemplateDao" %>
-<%@page import="ca.openosp.openo.commn.model.ScheduleTemplate" %>
-<%@page import="ca.openosp.openo.commn.dao.ScheduleTemplateCodeDao" %>
-<%@page import="ca.openosp.openo.commn.model.ScheduleTemplateCode" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
 <%
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
@@ -40,7 +40,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 
-<jsp:useBean id="templateBean" class="ca.openosp.ScheduleTemplateBean"
+<jsp:useBean id="templateBean" class="io.github.carlos_emr.ScheduleTemplateBean"
              scope="page"/>
 <jsp:useBean id="dateTimeCodeBean" class="java.util.Hashtable"
              scope="page"/>

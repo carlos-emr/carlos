@@ -52,7 +52,7 @@
 <p>
 <table width="400" border="0">
     <form name="form1" method="post"
-          action="<%= request.getContextPath() %>/servlet/ca.openosp.DocumentUploadServlet"
+          action="<%= request.getContextPath() %>/servlet/io.github.carlos_emr.DocumentUploadServlet"
           ENCTYPE="multipart/form-data" onsubmit="return onSubmit();">
         <tr>
             <td width="181"><b><font face="Arial, Helvetica, sans-serif"

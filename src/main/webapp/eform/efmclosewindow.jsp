@@ -30,7 +30,7 @@
 </head>
 <body>
 <center>Closing Window, Please Wait....</center>
-<%@page import="ca.openosp.openo.eform.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.eform.data.*" %>
 <script type="text/javascript" language="javascript">
 
     if (!window.opener.closed) {

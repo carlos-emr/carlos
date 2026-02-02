@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 
 
 <html>

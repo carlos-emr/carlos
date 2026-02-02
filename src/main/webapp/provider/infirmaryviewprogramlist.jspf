@@ -5,8 +5,8 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi"%>
-<%@ page import="ca.openosp.openo.utility.*"%>
-<%@ page import="ca.openosp.openo.caisi.CaisiUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.*"%>
+<%@ page import="io.github.carlos_emr.carlos.caisi.CaisiUtil" %>
 
 <%
 String questr=(String)session.getAttribute("infirmaryView_OscarQue"); 

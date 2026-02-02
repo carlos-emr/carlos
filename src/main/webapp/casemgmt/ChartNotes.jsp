@@ -24,50 +24,50 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.Misc" %>
-<%@page import="ca.openosp.openo.util.UtilMisc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.Misc" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@include file="/casemgmt/taglibs.jsp" %>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="ca.openosp.openo.encounter.pageUtil.NavBarDisplayDAO" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
 <%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.casemgmt.model.*,ca.openosp.openo.casemgmt.service.* " %>
-<%@page import="ca.openosp.openo.casemgmt.web.formbeans.*" %>
-<%@page import="ca.openosp.openo.PMmodule.model.*" %>
-<%@page import="ca.openosp.openo.commn.model.*" %>
-<%@page import="ca.openosp.openo.commn.dao.EFormDao" %>
-<%@page import="ca.openosp.openo.util.DateUtils" %>
-<%@page import="ca.openosp.openo.documentManager.EDocUtil" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.casemgmt.common.Colour" %>
-<%@page import="ca.openosp.openo.documentManager.EDoc" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
+<%@page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="com.quatro.dao.security.*,ca.openosp.openo.model.security.Secrole" %>
-<%@page import="ca.openosp.openo.utility.EncounterUtil" %>
+<%@page import="com.quatro.dao.security.*,io.github.carlos_emr.carlos.model.security.Secrole" %>
+<%@page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
 <%@page import="org.apache.cxf.common.i18n.UncheckedException" %>
-<%@page import="ca.openosp.openo.casemgmt.web.NoteDisplay" %>
-<%@page import="ca.openosp.openo.casemgmt.web.CaseManagementViewAction" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@page import="ca.openosp.openo.casemgmt.dao.CaseManagementNoteLinkDAO" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@page import="ca.openosp.openo.casemgmt.web.NoteDisplayNonNote" %>
-<%@page import="ca.openosp.openo.commn.dao.EncounterTemplateDao" %>
-<%@page import="ca.openosp.openo.casemgmt.web.CheckBoxBean" %>
-<%@page import="ca.openosp.openo.managers.ProgramManager2" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.ProgramProvider" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
+<%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 

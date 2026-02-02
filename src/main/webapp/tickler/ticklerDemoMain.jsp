@@ -64,24 +64,24 @@
     else
         updateParent = "false";
 %>
-<%@ page import="java.util.*,java.text.*, ca.openosp.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.model.Tickler" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerComment" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerUpdate" %>
-<%@ page import="ca.openosp.openo.managers.TicklerManager" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerLink" %>
-<%@ page import="ca.openosp.openo.commn.dao.TicklerLinkDao" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
+<%@ page import="java.util.*,java.text.*, io.github.carlos_emr.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerUpdate" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -94,7 +94,7 @@
 
 
 <%
-    String labReqVer = ca.openosp.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.equals("")) {
         labReqVer = "07";
     }

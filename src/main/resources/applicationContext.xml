@@ -41,10 +41,10 @@
 	-->
 	<aop:aspectj-autoproxy proxy-target-class="true"/>
 
-	<bean class="ca.openosp.openo.config.ServletContextConfig"/>
+	<bean class="io.github.carlos_emr.carlos.config.ServletContextConfig"/>
     <!-- Enable annotation-driven transaction management with CGLIB proxies -->
     <tx:annotation-driven proxy-target-class="true"/>
-	<bean id="propertyConfigurer" class="ca.openosp.openo.commn.OscarPropertyPlaceholderConfigurer">
+	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>
 				<value>classpath:oscar_mcmaster.properties</value>
@@ -76,120 +76,120 @@
 
 	<!-- setup CXF -->
 	<import resource="classpath:spring_ws.xml" />
-	<!-- <context:component-scan base-package="ca.openosp.openo.commn.dao" /> -->
+	<!-- <context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao" /> -->
 	
-	<bean id="hl7HandlerMSHMappingDao" class="ca.openosp.openo.commn.dao.HL7HandlerMSHMappingDaoImpl" autowire="byName" />
+	<bean id="hl7HandlerMSHMappingDao" class="io.github.carlos_emr.carlos.commn.dao.HL7HandlerMSHMappingDaoImpl" autowire="byName" />
 	<!-- hibernated DAO -->
-    <bean id="gstControlDao" class="ca.openosp.openo.billing.CA.dao.GstControlDaoImpl" autowire="byName" />
-	<bean id="programDao" class="ca.openosp.openo.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
-	<bean id="programQueueDao" class="ca.openosp.openo.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
-	<bean id="clientReferralDAO" class="ca.openosp.openo.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
-	<bean id="agencyDao" class="ca.openosp.openo.PMmodule.dao.AgencyDaoImpl" autowire="byName" />
-	<bean id="providerDao" class="ca.openosp.openo.PMmodule.dao.ProviderDaoImpl" autowire="byName" />
-	<bean id="otherIdDao" class="ca.openosp.openo.commn.dao.OtherIdDAOImpl" autowire="byName" />
+    <bean id="gstControlDao" class="io.github.carlos_emr.carlos.billing.CA.dao.GstControlDaoImpl" autowire="byName" />
+	<bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
+	<bean id="programQueueDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
+	<bean id="clientReferralDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
+	<bean id="agencyDao" class="io.github.carlos_emr.carlos.PMmodule.dao.AgencyDaoImpl" autowire="byName" />
+	<bean id="providerDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl" autowire="byName" />
+	<bean id="otherIdDao" class="io.github.carlos_emr.carlos.commn.dao.OtherIdDAOImpl" autowire="byName" />
 
-	<bean id="CaseManagementIssueDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
-	<bean id="caseManagementIssueDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
-	<bean id="CaseManagementNoteDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
-	<bean id="caseManagementNoteDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
-	<bean id="CaseManagementTmpSaveDao" class="ca.openosp.openo.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
-	<bean id="caseManagementTmpSaveDao" class="ca.openosp.openo.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
-	<bean id="CaseManagementNoteExtDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteExtDAOImpl" autowire="byName" />
-	<bean id="CaseManagementNoteLinkDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteLinkDAOImpl" autowire="byName" />
-	<bean id="CaseManagementCPPDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementCPPDAOImpl" autowire="byName" />
-	<bean id="queueDao" class="ca.openosp.openo.commn.dao.QueueDaoImpl" autowire="byName" />
-	<bean id="waitingListNameDao" class="ca.openosp.openo.commn.dao.WaitingListNameDaoImpl" autowire="byName" />
+	<bean id="CaseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
+	<bean id="caseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
+	<bean id="CaseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
+	<bean id="caseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
+	<bean id="CaseManagementTmpSaveDao" class="io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
+	<bean id="caseManagementTmpSaveDao" class="io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
+	<bean id="CaseManagementNoteExtDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAOImpl" autowire="byName" />
+	<bean id="CaseManagementNoteLinkDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAOImpl" autowire="byName" />
+	<bean id="CaseManagementCPPDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementCPPDAOImpl" autowire="byName" />
+	<bean id="queueDao" class="io.github.carlos_emr.carlos.commn.dao.QueueDaoImpl" autowire="byName" />
+	<bean id="waitingListNameDao" class="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDaoImpl" autowire="byName" />
 	
 	
 	
-	 <bean id="appointmentArchiveDao" class="ca.openosp.openo.commn.dao.AppointmentArchiveDaoImpl" autowire="byName" />
-	<bean id="appointmentTypeDao" class="ca.openosp.openo.commn.dao.AppointmentTypeDaoImpl" autowire="byName" />
-	<bean id="billingONCHeader1Dao" class="ca.openosp.openo.commn.dao.BillingONCHeader1DaoImpl" autowire="byName" />
+	 <bean id="appointmentArchiveDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl" autowire="byName" />
+	<bean id="appointmentTypeDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDaoImpl" autowire="byName" />
+	<bean id="billingONCHeader1Dao" class="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1DaoImpl" autowire="byName" />
 	
-	<bean id="DxDao" class="ca.openosp.openo.commn.dao.DxDaoImpl" autowire="byName" />
-	<bean id="CasemgmtNoteLockDao" class="ca.openosp.openo.commn.dao.CasemgmtNoteLockDaoImpl" autowire="byName" />
+	<bean id="DxDao" class="io.github.carlos_emr.carlos.commn.dao.DxDaoImpl" autowire="byName" />
+	<bean id="CasemgmtNoteLockDao" class="io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDaoImpl" autowire="byName" />
 	
-	<bean id="AllergyDao" class="ca.openosp.openo.commn.dao.AllergyMergedDemographicDaoImpl" autowire="byName" />
-	<bean id="allergyDao" class="ca.openosp.openo.commn.dao.AllergyMergedDemographicDaoImpl" autowire="byName" />
-	<bean id="secRoleDao" class="ca.openosp.openo.commn.dao.SecRoleDaoImpl" autowire="byName" />
-	<bean id="IssueDAO" class="ca.openosp.openo.casemgmt.dao.IssueDAOImpl" autowire="byName" />
-	<bean id="secroleDao" class="ca.openosp.openo.daos.security.SecroleDaoImpl" autowire="byName"/>
-	<bean id="RoleProgramAccessDAO" class="ca.openosp.openo.casemgmt.dao.RoleProgramAccessDAOImpl" autowire="byName" />
-	<bean id="clientImageDAO" class="ca.openosp.openo.casemgmt.dao.ClientImageDAOImpl" autowire="byName" />
-	<bean id="programProviderDAO" class="ca.openosp.openo.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
-	<bean id="programFunctionalUserDAO" class="ca.openosp.openo.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName" />
-	<bean id="programAccessDAO" class="ca.openosp.openo.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
-	<bean id="defaultRoleAccessDAO" class="ca.openosp.openo.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName" />
-	<bean id="programClientStatusDAO" class="ca.openosp.openo.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName" />
-	<bean id="programTeamDAO" class="ca.openosp.openo.PMmodule.dao.ProgramTeamDAOImpl" autowire="byName" />
-	<bean id="demographicDao" class="ca.openosp.openo.commn.dao.DemographicDaoImpl" autowire="byName" />
-	<bean id="secUserRoleDao" class="ca.openosp.openo.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName"/>
-	<bean id="programSignatureDao" class="ca.openosp.openo.PMmodule.dao.ProgramSignatureDaoImpl" autowire="byName" />
-	<bean id="programClientRestrictionDAO" class="ca.openosp.openo.PMmodule.dao.ProgramClientRestrictionDAOImpl" autowire="byName" />
-	<bean id="UserPropertyDAO" class="ca.openosp.openo.commn.dao.UserPropertyDAOImpl" autowire="byName" />
-	<!-- <bean id="demographicDao" class="ca.openosp.openo.commn.dao.DemographicDaoImpl" autowire="byName" /> -->
-	<bean id="dataExportDAO" class="ca.openosp.openo.commn.dao.DataExportDaoImpl" autowire="byName" />
-	<bean id="siteDao" class="ca.openosp.openo.commn.dao.SiteDaoImpl" autowire="byName" />
-	<bean id="BillingmasterDAO" class="ca.openosp.openo.billings.ca.bc.data.BillingmasterDAO" autowire="byName" />
-	<bean id="BillingPreferencesDAO" class="ca.openosp.openo.billings.ca.bc.data.BillingPreferencesDAO" autowire="byName" />
-	<bean id="PrivateBillTransactionDAO" class="ca.openosp.openo.billings.ca.bc.data.PrivateBillTransactionsDAO" autowire="byName" />
-	<bean id="SupServiceCodeAssocDAO" class="ca.openosp.openo.billings.ca.bc.data.SupServiceCodeAssocDAO" autowire="byName" />
-	<bean id="BillingreferralDAO" class="ca.openosp.openo.commn.dao.BillingreferralDaoImpl" autowire="byName" />
-	<bean id="DxresearchDAO" class="ca.openosp.openo.commn.dao.DxresearchDAOImpl" autowire="byName" />
-	<bean id="icd9Dao" class="ca.openosp.openo.commn.dao.Icd9DaoImpl" autowire="byName" />
-	<bean id="defaultIssueDao" class="ca.openosp.openo.daos.DefaultIssueDaoImpl" autowire="byName" />
+	<bean id="AllergyDao" class="io.github.carlos_emr.carlos.commn.dao.AllergyMergedDemographicDaoImpl" autowire="byName" />
+	<bean id="allergyDao" class="io.github.carlos_emr.carlos.commn.dao.AllergyMergedDemographicDaoImpl" autowire="byName" />
+	<bean id="secRoleDao" class="io.github.carlos_emr.carlos.commn.dao.SecRoleDaoImpl" autowire="byName" />
+	<bean id="IssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.IssueDAOImpl" autowire="byName" />
+	<bean id="secroleDao" class="io.github.carlos_emr.carlos.daos.security.SecroleDaoImpl" autowire="byName"/>
+	<bean id="RoleProgramAccessDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAOImpl" autowire="byName" />
+	<bean id="clientImageDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAOImpl" autowire="byName" />
+	<bean id="programProviderDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
+	<bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName" />
+	<bean id="programAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
+	<bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName" />
+	<bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName" />
+	<bean id="programTeamDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramTeamDAOImpl" autowire="byName" />
+	<bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName" />
+	<bean id="secUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName"/>
+	<bean id="programSignatureDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramSignatureDaoImpl" autowire="byName" />
+	<bean id="programClientRestrictionDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientRestrictionDAOImpl" autowire="byName" />
+	<bean id="UserPropertyDAO" class="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAOImpl" autowire="byName" />
+	<!-- <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName" /> -->
+	<bean id="dataExportDAO" class="io.github.carlos_emr.carlos.commn.dao.DataExportDaoImpl" autowire="byName" />
+	<bean id="siteDao" class="io.github.carlos_emr.carlos.commn.dao.SiteDaoImpl" autowire="byName" />
+	<bean id="BillingmasterDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" autowire="byName" />
+	<bean id="BillingPreferencesDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO" autowire="byName" />
+	<bean id="PrivateBillTransactionDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PrivateBillTransactionsDAO" autowire="byName" />
+	<bean id="SupServiceCodeAssocDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO" autowire="byName" />
+	<bean id="BillingreferralDAO" class="io.github.carlos_emr.carlos.commn.dao.BillingreferralDaoImpl" autowire="byName" />
+	<bean id="DxresearchDAO" class="io.github.carlos_emr.carlos.commn.dao.DxresearchDAOImpl" autowire="byName" />
+	<bean id="icd9Dao" class="io.github.carlos_emr.carlos.commn.dao.Icd9DaoImpl" autowire="byName" />
+	<bean id="defaultIssueDao" class="io.github.carlos_emr.carlos.daos.DefaultIssueDaoImpl" autowire="byName" />
 	
-	<bean id="rourke2009Dao" class="ca.openosp.openo.commn.dao.forms.Rourke2009DAO" autowire="byName" />
+	<bean id="rourke2009Dao" class="io.github.carlos_emr.carlos.commn.dao.forms.Rourke2009DAO" autowire="byName" />
 
-	<bean id="lookupDao" class="ca.openosp.openo.daos.LookupDaoImpl" autowire="byName" />
-	<bean id="documentDao" class="ca.openosp.openo.commn.dao.DocumentMergeDemographicDAOImpl" autowire="byName" />
-	<bean id="userAccessDao" class="ca.openosp.openo.daos.security.UserAccessDaoImpl" autowire="byName" />
-	<bean id="demographicExtDao" class="ca.openosp.openo.commn.dao.DemographicExtDaoImpl" autowire="byName" />
-	<bean id="providerDefaultProgramDao" class="ca.openosp.openo.commn.dao.ProviderDefaultProgramDaoImpl" autowire="byName" />
-	<bean id="providerInboxRoutingDAO" class="ca.openosp.openo.commn.dao.ProviderInboxRoutingDaoImpl" autowire="byName"/>
-	<bean id="ProviderLabRoutingFavoritesDao" class="ca.openosp.openo.commn.dao.ProviderLabRoutingFavoritesDaoImpl" autowire="byName"/>
+	<bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDaoImpl" autowire="byName" />
+	<bean id="documentDao" class="io.github.carlos_emr.carlos.commn.dao.DocumentMergeDemographicDAOImpl" autowire="byName" />
+	<bean id="userAccessDao" class="io.github.carlos_emr.carlos.daos.security.UserAccessDaoImpl" autowire="byName" />
+	<bean id="demographicExtDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicExtDaoImpl" autowire="byName" />
+	<bean id="providerDefaultProgramDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDaoImpl" autowire="byName" />
+	<bean id="providerInboxRoutingDAO" class="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDaoImpl" autowire="byName"/>
+	<bean id="ProviderLabRoutingFavoritesDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDaoImpl" autowire="byName"/>
 
-        <bean id="queueDocumentLinkDAO" class="ca.openosp.openo.commn.dao.QueueDocumentLinkDaoImpl" autowire="byName"/>
+        <bean id="queueDocumentLinkDAO" class="io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDaoImpl" autowire="byName"/>
 
-	<bean id="caseloadDao" class="ca.openosp.openo.commn.dao.CaseloadDaoImpl" autowire="byName" />
-	<bean id="inboxResultsDao" class="ca.openosp.openo.commn.dao.InboxResultsDaoImpl" autowire="byName" />
-    <bean id="inboxResultsRepository" class="ca.openosp.openo.commn.dao.InboxResultsRepositoryImpl" autowire="byName" />
-    <bean id="securityDao" class="ca.openosp.openo.commn.dao.SecurityDaoImpl" autowire="byName" />
-    <bean id="oscarLogDao" class="ca.openosp.openo.commn.dao.OscarLogDaoImpl" autowire="byName" />
-    <bean id="providerPreferenceDao" class="ca.openosp.openo.commn.dao.ProviderPreferenceDaoImpl" autowire="byName" />
-    <bean id="EFormDao" class="ca.openosp.openo.commn.dao.EFormDaoImpl" autowire="byName" />
-    <bean id="encounterFormDao" class="ca.openosp.openo.commn.dao.EncounterFormDaoImpl" autowire="byName" />
-    <bean id="systemMessageDao" class="ca.openosp.openo.commn.dao.SystemMessageDaoImpl" autowire="byName" />
-    <bean id="billingPaymentTypeDao" class="ca.openosp.openo.commn.dao.BillingPaymentTypeDaoImpl" autowire="byName" />
-    <bean id="billingONPaymentDao" class="ca.openosp.openo.commn.dao.BillingONPaymentDaoImpl" autowire="byName" />
+	<bean id="caseloadDao" class="io.github.carlos_emr.carlos.commn.dao.CaseloadDaoImpl" autowire="byName" />
+	<bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDaoImpl" autowire="byName" />
+    <bean id="inboxResultsRepository" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsRepositoryImpl" autowire="byName" />
+    <bean id="securityDao" class="io.github.carlos_emr.carlos.commn.dao.SecurityDaoImpl" autowire="byName" />
+    <bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
+    <bean id="providerPreferenceDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDaoImpl" autowire="byName" />
+    <bean id="EFormDao" class="io.github.carlos_emr.carlos.commn.dao.EFormDaoImpl" autowire="byName" />
+    <bean id="encounterFormDao" class="io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl" autowire="byName" />
+    <bean id="systemMessageDao" class="io.github.carlos_emr.carlos.commn.dao.SystemMessageDaoImpl" autowire="byName" />
+    <bean id="billingPaymentTypeDao" class="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDaoImpl" autowire="byName" />
+    <bean id="billingONPaymentDao" class="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDaoImpl" autowire="byName" />
 	
 
 	<!-- Dao classes that implement OscarSuperDao -->
-	<bean id="providerSuperDao" class="ca.openosp.openo.dao.ProviderDao" autowire="byName" />
+	<bean id="providerSuperDao" class="io.github.carlos_emr.carlos.dao.ProviderDao" autowire="byName" />
 	
 
-	<bean id="eChartDao" class="ca.openosp.openo.commn.dao.EChartDaoImpl" autowire="byName" />
-	<bean id="encounterWindowDao" class="ca.openosp.openo.commn.dao.EncounterWindowDaoImpl" autowire="byName" />
+	<bean id="eChartDao" class="io.github.carlos_emr.carlos.commn.dao.EChartDaoImpl" autowire="byName" />
+	<bean id="encounterWindowDao" class="io.github.carlos_emr.carlos.commn.dao.EncounterWindowDaoImpl" autowire="byName" />
 
 	<!-- OSCAR Desicion Support -->
-	<bean id="dsService" class="ca.openosp.openo.decisionSupport.service.DSServiceImpl">
+	<bean id="dsService" class="io.github.carlos_emr.carlos.decisionSupport.service.DSServiceImpl">
 	</bean>
 
 	<!--Container for holding preventions -->
-	<bean id="preventionMgr" class="ca.openosp.openo.provider.model.PreventionManager"></bean>
+	<bean id="preventionMgr" class="io.github.carlos_emr.carlos.provider.model.PreventionManager"></bean>
   
 	<!-- OscarSuperManager manager provides business logic facade for jsp layer -->
-	<bean id="oscarSuperManager" class="ca.openosp.openo.service.OscarSuperManagerImpl" autowire="byName" init-method="init"/>
+	<bean id="oscarSuperManager" class="io.github.carlos_emr.carlos.service.OscarSuperManagerImpl" autowire="byName" init-method="init"/>
 
-	<bean id="lookupManager" class="ca.openosp.openo.services.LookupManagerImpl" autowire="byName">
+	<bean id="lookupManager" class="io.github.carlos_emr.carlos.services.LookupManagerImpl" autowire="byName">
 		<property name="lookupDao" ref="lookupDao" />
 	</bean>
-	<bean id="userAccessManager" class="ca.openosp.openo.services.security.UserAccessManagerImpl" autowire="byName">
+	<bean id="userAccessManager" class="io.github.carlos_emr.carlos.services.security.UserAccessManagerImpl" autowire="byName">
 		<property name="userAccessDao" ref="userAccessDao" />
 	</bean>
 
 	<!-- configure the available measurement flow sheets -->
-	<bean id="measurementTemplateFlowSheet" class="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig">
+	<bean id="measurementTemplateFlowSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig">
 		<property name="flowSheets">
 			<list>
 				<!--value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/diabetesFlowsheet.xml</value-->
@@ -217,15 +217,15 @@
 	</bean>
 
 	<!-- managers  -->
-	<bean id="agencyManager" class="ca.openosp.openo.PMmodule.service.AgencyManagerImpl" autowire="byName" />
-	<bean id="facilityMessageManager" class="ca.openosp.openo.services.OrganizationMessageManagerImpl">
+	<bean id="agencyManager" class="io.github.carlos_emr.carlos.PMmodule.service.AgencyManagerImpl" autowire="byName" />
+	<bean id="facilityMessageManager" class="io.github.carlos_emr.carlos.services.OrganizationMessageManagerImpl">
 	</bean>
 
 	<!-- Manager classes -->
-	<bean id="programQueueManager" class="ca.openosp.openo.PMmodule.service.ProgramQueueManagerImpl" autowire="byName" />
-	<bean id="admissionManager" class="ca.openosp.openo.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
+	<bean id="programQueueManager" class="io.github.carlos_emr.carlos.PMmodule.service.ProgramQueueManagerImpl" autowire="byName" />
+	<bean id="admissionManager" class="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
 	
-	<bean id="caseManagementManager" class="ca.openosp.openo.casemgmt.service.CaseManagementManagerImpl" autowire="byName">
+	<bean id="caseManagementManager" class="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl" autowire="byName">
 		<property name="caseManagementNoteDAO" ref="CaseManagementNoteDAO" />
 		<property name="caseManagementNoteExtDAO" ref="CaseManagementNoteExtDAO" />
 		<property name="caseManagementNoteLinkDAO" ref="CaseManagementNoteLinkDAO" />
@@ -251,11 +251,11 @@
 		<property name="dxDao" ref="DxDao" />
 	</bean>
 
-	<bean id="ClientImageManager" class="ca.openosp.openo.casemgmt.service.ClientImageManagerImpl" autowire="byName" />
-	<bean id="programManager" class="ca.openosp.openo.PMmodule.service.ProgramManagerImpl" autowire="byName">
+	<bean id="ClientImageManager" class="io.github.carlos_emr.carlos.casemgmt.service.ClientImageManagerImpl" autowire="byName" />
+	<bean id="programManager" class="io.github.carlos_emr.carlos.PMmodule.service.ProgramManagerImpl" autowire="byName">
 		<property name="enabled" value="${pmm.refer.temporaryAdmission.enabled}" />
 	</bean>
-	<bean id="clientManager" class="ca.openosp.openo.PMmodule.service.ClientManagerImpl" autowire="byName">
+	<bean id="clientManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientManagerImpl" autowire="byName">
 		<property name="demographicDao" ref="demographicDao" />
 		<property name="clientReferralDAO" ref="clientReferralDAO" />
 		<property name="programQueueManager" ref="programQueueManager" />
@@ -265,14 +265,14 @@
 		<property name="outsideOfDomainEnabled" value="${pmm.client.search.outside.of.domain.enabled}" />
 	</bean>
   
- 	<bean id="demographicManagerT" class="ca.openosp.openo.services.DemographicManagerTickler">
+ 	<bean id="demographicManagerT" class="io.github.carlos_emr.carlos.services.DemographicManagerTickler">
 		<property name="demographicDao" ref="demographicDao" />
 	</bean>
-	<bean id="preparedTicklerManagerT" class="ca.openosp.openo.wl.prepared.PreparedTicklerManagerImpl" scope="singleton" />
-	<bean id="providerManager" class="ca.openosp.openo.PMmodule.service.ProviderManagerImpl" autowire="byName" />
-	<bean id="clientRestrictionManager" class="ca.openosp.openo.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
+	<bean id="preparedTicklerManagerT" class="io.github.carlos_emr.carlos.wl.prepared.PreparedTicklerManagerImpl" scope="singleton" />
+	<bean id="providerManager" class="io.github.carlos_emr.carlos.PMmodule.service.ProviderManagerImpl" autowire="byName" />
+	<bean id="clientRestrictionManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
 
-	<bean id="ectProgramManager" class="ca.openosp.openo.encounter.data.EctProgramManagerImpl">
+	<bean id="ectProgramManager" class="io.github.carlos_emr.carlos.encounter.data.EctProgramManagerImpl">
 		<constructor-arg ref="demographicDao" />
 		<constructor-arg ref="programProviderDAO" />
 		<constructor-arg ref="providerDefaultProgramDao" />
@@ -280,77 +280,77 @@
 	</bean>
 	
 	<!-- Admin Start -->
-	<bean id="secobjprivilegeDao" class="ca.openosp.openo.daos.security.SecobjprivilegeDaoImpl" autowire="byName" />
-	<bean id="secProviderDao" class="ca.openosp.openo.daos.security.SecProviderDaoImpl" autowire="byName" />
-	<bean id="secuserroleDao" class="ca.openosp.openo.daos.security.SecuserroleDaoImpl" autowire="byName" />
-        <bean id="secObjectNameDao" class="ca.openosp.openo.daos.security.SecObjectNameDaoImpl" autowire="byName"/>
+	<bean id="secobjprivilegeDao" class="io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDaoImpl" autowire="byName" />
+	<bean id="secProviderDao" class="io.github.carlos_emr.carlos.daos.security.SecProviderDaoImpl" autowire="byName" />
+	<bean id="secuserroleDao" class="io.github.carlos_emr.carlos.daos.security.SecuserroleDaoImpl" autowire="byName" />
+        <bean id="secObjectNameDao" class="io.github.carlos_emr.carlos.daos.security.SecObjectNameDaoImpl" autowire="byName"/>
 
-	<bean id="rolesManager" class="ca.openosp.openo.services.security.RolesManagerImpl" autowire="byName">
+	<bean id="rolesManager" class="io.github.carlos_emr.carlos.services.security.RolesManagerImpl" autowire="byName">
 		<property name="secroleDao" ref="secroleDao" />
 		<property name="secobjprivilegeDao" ref="secobjprivilegeDao" />
 	</bean>
 
-	<bean id="drilldownQueryHandler" class="ca.openosp.openo.dashboard.handler.DrilldownQueryHandler" autowire="byName" />
-	<bean id="indicatorQueryHandler" class="ca.openosp.openo.dashboard.handler.IndicatorQueryHandler" autowire="byName" />
-	<bean id="exportQueryHandler" class="ca.openosp.openo.dashboard.handler.ExportQueryHandler" autowire="byName" />
+	<bean id="drilldownQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.DrilldownQueryHandler" autowire="byName" />
+	<bean id="indicatorQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.IndicatorQueryHandler" autowire="byName" />
+	<bean id="exportQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.ExportQueryHandler" autowire="byName" />
 		
-	<bean id="extPrintMeasurements" class="ca.openosp.openo.casemgmt.service.MeasurementPrint" autowire="byName"/>
+	<bean id="extPrintMeasurements" class="io.github.carlos_emr.carlos.casemgmt.service.MeasurementPrint" autowire="byName"/>
 
 	<!-- Encounter Form DAO -->
-	<bean id="Rourke2009DAO" class="ca.openosp.openo.commn.dao.forms.Rourke2009DAO" autowire="byName"/>
-	<bean id="FormBCAR2020Dao" class="ca.openosp.openo.commn.dao.forms.FormBCAR2020Dao" autowire="byName"/>
-	<bean id="FormBCAR2020DataDao" class="ca.openosp.openo.commn.dao.forms.FormBCAR2020DataDao" autowire="byName"/>
-	<bean id="FormBCAR2020TextDao" class="ca.openosp.openo.commn.dao.forms.FormBCAR2020TextDao" autowire="byName"/>
+	<bean id="Rourke2009DAO" class="io.github.carlos_emr.carlos.commn.dao.forms.Rourke2009DAO" autowire="byName"/>
+	<bean id="FormBCAR2020Dao" class="io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020Dao" autowire="byName"/>
+	<bean id="FormBCAR2020DataDao" class="io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020DataDao" autowire="byName"/>
+	<bean id="FormBCAR2020TextDao" class="io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020TextDao" autowire="byName"/>
 
 
 
-	<!--<bean id="preventionMgr" class="ca.openosp.openo.managers.PreventionManagerImpl"></bean>-->
-	<!-- <bean id="allergyManager" class="ca.openosp.openo.managers.AllergyManagerImpl"></bean>
-	<bean id="programManager2" class="ca.openosp.openo.managers.ProgramManager2Impl"></bean>
-	<bean id="measurementManager" class="ca.openosp.openo.managers.MeasurementManagerImpl"></bean>
-	<bean id="prescriptionManager" class="ca.openosp.openo.managers.PrescriptionManagerImpl"></bean>
-	<bean id="formsManager" class="ca.openosp.openo.managers.FormsManagerImpl"></bean>
-	<bean id="drugDispensingManager" class="ca.openosp.openo.managers.DrugDispensingManagerImpl"></bean>
-	<bean id="drugProductManager" class="ca.openosp.openo.managers.DrugProductManagerImpl"></bean>
-	<bean id="rxManager" class="ca.openosp.openo.managers.RxManagerImpl"></bean> -->
-	<!-- <bean id="drugConverter" class="ca.openosp.openo.webserv.rest.conversion.DrugConverterImpl"></bean>
-	<bean id="prescriptionConverter" class="ca.openosp.openo.webserv.rest.conversion.PrescriptionConverterImpl"></bean>
-	<bean id="favoriteConverter" class="ca.openosp.openo.webserv.rest.conversion.FavoriteConverterImpl"></bean> -->
-	<!-- <bean id="consultationManager" class="ca.openosp.openo.managers.ConsultationManagerImpl"></bean>
-	<bean id="demographicManager" class="ca.openosp.openo.managers.DemographicManagerImpl"></bean>
-	<bean id="appManager" class="ca.openosp.openo.managers.AppManagerImpl"></bean>
-	<bean id="billingManager" class="ca.openosp.openo.managers.BillingManagerImpl"></bean> -->
-	<!--<bean id="admissionManager" class="ca.openosp.openo.service.PMmodule.AdmissionManagerImpl"></bean> -->
-	<!-- <bean id="drugLookUp" class="ca.openosp.openo.managers.DrugLookUp"></bean>
-	<bean id="documentManager" class="ca.openosp.openo.managers.DocumentManagerImpl"></bean>
-	<bean id="scheduleManager" class="ca.openosp.openo.managers.ScheduleManagerImpl"></bean>
-	<bean id="appointmentManager" class="ca.openosp.openo.managers.AppointmentManagerImpl"></bean> -->
-	<!--<bean id="providerManager" class="ca.openosp.openo.service.PMmodule.ProviderManagerImpl"></bean>-->
-	<!-- <bean id="preferenceManager" class="ca.openosp.openo.managers.PreferenceManagerImpl"></bean>
-	<bean id="demographicSetsManager" class="ca.openosp.openo.managers.DemographicSetsManagerImpl"></bean>
-	<bean id="eFormReportToolManager" class="ca.openosp.openo.managers.EFormReportToolManagerImpl"></bean>
-	<bean id="oscarJobManager" class="ca.openosp.openo.managers.OscarJobManagerImpl"></bean>
-	<bean id="ticklerManager" class="ca.openosp.openo.managers.TicklerManagerImpl"></bean> -->
-	<!-- <bean id="ticklerConverter" class="ca.openosp.openo.webserv.rest.conversion.TicklerConverter"></bean>
-<bean id="dSService" class="ca.openosp.openo.decisionSupport.service.DSService"></bean> -->
-<!--<bean id="programManager" class="ca.openosp.openo.service.PMmodule.ProgramManagerImpl"></bean>-->
-<!-- <bean id="messagingManager" class="ca.openosp.openo.managers.MessagingManagerImpl"></bean>
-<bean id="dashboardManager" class="ca.openosp.openo.managers.DashboardManagerImpl"></bean>
-<bean id="oscarLogManager" class="ca.openosp.openo.managers.OscarLogManagerImpl"></bean>
-<bean id="patientConsentManager" class="ca.openosp.openo.managers.PatientConsentManagerImpl"></bean> -->
-<!-- <bean id="messagingConverter" class="ca.openosp.openo.webserv.rest.conversion.MessagingConverter"></bean> -->
-<!-- <bean id="labManager" class="ca.openosp.openo.managers.LabManagerImpl"></bean>
-<bean id="inboxManager" class="ca.openosp.openo.managers.InboxManagerImpl"></bean>
-<bean id="appointmentSearchManager" class="ca.openosp.openo.managers.AppointmentSearchManagerImpl"></bean>
-<bean id="facilityManager" class="ca.openosp.openo.managers.FacilityManagerImpl"></bean> -->
-<!-- <bean id="vacancyTemplateManager" class="ca.openosp.openo.service.PMmodule.VacancyTemplateManagerImpl"></bean> -->
- <!-- <bean id="eformDataManager" class="ca.openosp.openo.managers.EformDataManagerImpl"></bean> -->
-<!--<bean id="nioFileManager" class="ca.openosp.openo.managers.NioFileManagerImpl"></bean> -->
+	<!--<bean id="preventionMgr" class="io.github.carlos_emr.carlos.managers.PreventionManagerImpl"></bean>-->
+	<!-- <bean id="allergyManager" class="io.github.carlos_emr.carlos.managers.AllergyManagerImpl"></bean>
+	<bean id="programManager2" class="io.github.carlos_emr.carlos.managers.ProgramManager2Impl"></bean>
+	<bean id="measurementManager" class="io.github.carlos_emr.carlos.managers.MeasurementManagerImpl"></bean>
+	<bean id="prescriptionManager" class="io.github.carlos_emr.carlos.managers.PrescriptionManagerImpl"></bean>
+	<bean id="formsManager" class="io.github.carlos_emr.carlos.managers.FormsManagerImpl"></bean>
+	<bean id="drugDispensingManager" class="io.github.carlos_emr.carlos.managers.DrugDispensingManagerImpl"></bean>
+	<bean id="drugProductManager" class="io.github.carlos_emr.carlos.managers.DrugProductManagerImpl"></bean>
+	<bean id="rxManager" class="io.github.carlos_emr.carlos.managers.RxManagerImpl"></bean> -->
+	<!-- <bean id="drugConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl"></bean>
+	<bean id="prescriptionConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverterImpl"></bean>
+	<bean id="favoriteConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverterImpl"></bean> -->
+	<!-- <bean id="consultationManager" class="io.github.carlos_emr.carlos.managers.ConsultationManagerImpl"></bean>
+	<bean id="demographicManager" class="io.github.carlos_emr.carlos.managers.DemographicManagerImpl"></bean>
+	<bean id="appManager" class="io.github.carlos_emr.carlos.managers.AppManagerImpl"></bean>
+	<bean id="billingManager" class="io.github.carlos_emr.carlos.managers.BillingManagerImpl"></bean> -->
+	<!--<bean id="admissionManager" class="io.github.carlos_emr.carlos.service.PMmodule.AdmissionManagerImpl"></bean> -->
+	<!-- <bean id="drugLookUp" class="io.github.carlos_emr.carlos.managers.DrugLookUp"></bean>
+	<bean id="documentManager" class="io.github.carlos_emr.carlos.managers.DocumentManagerImpl"></bean>
+	<bean id="scheduleManager" class="io.github.carlos_emr.carlos.managers.ScheduleManagerImpl"></bean>
+	<bean id="appointmentManager" class="io.github.carlos_emr.carlos.managers.AppointmentManagerImpl"></bean> -->
+	<!--<bean id="providerManager" class="io.github.carlos_emr.carlos.service.PMmodule.ProviderManagerImpl"></bean>-->
+	<!-- <bean id="preferenceManager" class="io.github.carlos_emr.carlos.managers.PreferenceManagerImpl"></bean>
+	<bean id="demographicSetsManager" class="io.github.carlos_emr.carlos.managers.DemographicSetsManagerImpl"></bean>
+	<bean id="eFormReportToolManager" class="io.github.carlos_emr.carlos.managers.EFormReportToolManagerImpl"></bean>
+	<bean id="oscarJobManager" class="io.github.carlos_emr.carlos.managers.OscarJobManagerImpl"></bean>
+	<bean id="ticklerManager" class="io.github.carlos_emr.carlos.managers.TicklerManagerImpl"></bean> -->
+	<!-- <bean id="ticklerConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.TicklerConverter"></bean>
+<bean id="dSService" class="io.github.carlos_emr.carlos.decisionSupport.service.DSService"></bean> -->
+<!--<bean id="programManager" class="io.github.carlos_emr.carlos.service.PMmodule.ProgramManagerImpl"></bean>-->
+<!-- <bean id="messagingManager" class="io.github.carlos_emr.carlos.managers.MessagingManagerImpl"></bean>
+<bean id="dashboardManager" class="io.github.carlos_emr.carlos.managers.DashboardManagerImpl"></bean>
+<bean id="oscarLogManager" class="io.github.carlos_emr.carlos.managers.OscarLogManagerImpl"></bean>
+<bean id="patientConsentManager" class="io.github.carlos_emr.carlos.managers.PatientConsentManagerImpl"></bean> -->
+<!-- <bean id="messagingConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.MessagingConverter"></bean> -->
+<!-- <bean id="labManager" class="io.github.carlos_emr.carlos.managers.LabManagerImpl"></bean>
+<bean id="inboxManager" class="io.github.carlos_emr.carlos.managers.InboxManagerImpl"></bean>
+<bean id="appointmentSearchManager" class="io.github.carlos_emr.carlos.managers.AppointmentSearchManagerImpl"></bean>
+<bean id="facilityManager" class="io.github.carlos_emr.carlos.managers.FacilityManagerImpl"></bean> -->
+<!-- <bean id="vacancyTemplateManager" class="io.github.carlos_emr.carlos.service.PMmodule.VacancyTemplateManagerImpl"></bean> -->
+ <!-- <bean id="eformDataManager" class="io.github.carlos_emr.carlos.managers.EformDataManagerImpl"></bean> -->
+<!--<bean id="nioFileManager" class="io.github.carlos_emr.carlos.managers.NioFileManagerImpl"></bean> -->
 <!-- <bean id="preventionDS" class="oscar.oscarPrevention.PreventionDSImpl"></bean>
-<bean id="integratorProgressDao" class="ca.openosp.openo.commn.dao.IntegratorProgressDaoImpl"></bean> -->
-<!-- <bean id="messengerDemographicManager" class="ca.openosp.openo.managers.MessengerDemographicManagerImpl"></bean> -->
-<!-- <bean id="documentAttachmentManager" class="ca.openosp.openo.documentManager.DocumentAttachmentManagerImpl"></bean> -->
-<!-- <bean id="faxDocumentManager" class="ca.openosp.openo.managers.FaxDocumentManagerImpl"></bean> -->
+<bean id="integratorProgressDao" class="io.github.carlos_emr.carlos.commn.dao.IntegratorProgressDaoImpl"></bean> -->
+<!-- <bean id="messengerDemographicManager" class="io.github.carlos_emr.carlos.managers.MessengerDemographicManagerImpl"></bean> -->
+<!-- <bean id="documentAttachmentManager" class="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManagerImpl"></bean> -->
+<!-- <bean id="faxDocumentManager" class="io.github.carlos_emr.carlos.managers.FaxDocumentManagerImpl"></bean> -->
 
 
 
@@ -358,12 +358,12 @@
 
 
 	<!--Email Support -->
-        <context:component-scan base-package="ca.openosp.openo.service"/>
+        <context:component-scan base-package="io.github.carlos_emr.carlos.service"/>
 
         <bean id="taskExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor" p:corePoolSize="5"
           p:maxPoolSize="10" p:queueCapacity="100" p:waitForTasksToCompleteOnShutdown="true"/>
 
-        <bean id="asyncMailSender" class="ca.openosp.openo.service.AsyncMailSender" autowire="byName">
+        <bean id="asyncMailSender" class="io.github.carlos_emr.carlos.service.AsyncMailSender" autowire="byName">
            <property name="taskExecutor" ref="taskExecutor" />
         </bean>
 
@@ -386,7 +386,7 @@
             </property>
         </bean>
 		
-		<bean id="eventService" class="ca.openosp.openo.event.EventService"/>
+		<bean id="eventService" class="io.github.carlos_emr.carlos.event.EventService"/>
 		<bean id="applicationEventMulticaster" class="org.springframework.context.event.SimpleApplicationEventMulticaster">  
               <property name="taskExecutor">  
                   <!--  bean class="org.springframework.core.task.SimpleAsyncTaskExecutor"/ -->  

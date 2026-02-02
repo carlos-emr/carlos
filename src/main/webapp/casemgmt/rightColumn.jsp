@@ -28,7 +28,7 @@
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 
 <%
     String demo = request.getParameter("demographicNo");

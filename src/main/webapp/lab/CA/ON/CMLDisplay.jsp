@@ -39,12 +39,12 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.model.PatientLabRouting" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.PatientLabRoutingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
 <%@page errorPage="/errorpage.jsp" %>
 <%@ page
-        import="java.util.*, ca.openosp.openo.mds.data.*,ca.openosp.openo.lab.ca.on.CML.*,ca.openosp.openo.lab.LabRequestReportLink,ca.openosp.openo.db.*,java.sql.*,ca.openosp.openo.log.*,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.casemgmt.service.CaseManagementManager,ca.openosp.openo.casemgmt.model.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
@@ -92,14 +92,14 @@
     String AbnFlag = "";
 %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CML.CMLLabTest" %>
-<%@ page import="ca.openosp.openo.mds.data.ReportStatus" %>
-<%@ page import="ca.openosp.openo.mds.data.MDSSegmentData" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CML.CMLLabTest" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.MDSSegmentData" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

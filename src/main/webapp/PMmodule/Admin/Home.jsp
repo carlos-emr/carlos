@@ -28,7 +28,7 @@
     String _appPath = request.getContextPath();
 %>
 <%@ include file="/taglibs.jsp" %>
-<%@page import="ca.openosp.openo.commons.KeyConstants" %>
+<%@page import="io.github.carlos_emr.carlos.commons.KeyConstants" %>
 
 <table width="100%" height="100%" cellpadding="0px" cellspacing="0px"
        style="border-width: 1px; border-style: solid; bordercolor: black">

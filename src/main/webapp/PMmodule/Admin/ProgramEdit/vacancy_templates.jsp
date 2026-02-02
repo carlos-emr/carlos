@@ -24,8 +24,8 @@
 --%>
 
 
-<%@page import="ca.openosp.openo.PMmodule.model.VacancyTemplate" %>
-<%@page import="ca.openosp.openo.PMmodule.service.VacancyTemplateManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager" %>
 <%@page import="java.util.List" %>
 
 <%@ include file="/taglibs.jsp" %>

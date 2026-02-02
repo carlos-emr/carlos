@@ -30,8 +30,8 @@
 	</parameter>
 	<parameter name="provider" class="java.lang.String" isForPrompting="false"/>
 	<parameter name="payee" class="java.lang.String" isForPrompting="false"/>
-	<parameter name="sumPayed" class="ca.openosp.openo.billings.ca.bc.data.PayRefSummary" isForPrompting="false"/>
-	<parameter name="sumRefunded" class="ca.openosp.openo.billings.ca.bc.data.PayRefSummary" isForPrompting="false"/>
+	<parameter name="sumPayed" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" isForPrompting="false"/>
+	<parameter name="sumRefunded" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" isForPrompting="false"/>
 	<queryString>
 		<![CDATA[select provider.first_name,provider.provider_no,provider.last_name,billing.billing_date,billing.billingtype,billingmaster.service_date, billingmaster.billingmaster_no,billing.billing_no,
 billing.demographic_name,billing.demographic_no,billingmaster.billing_unit,billingmaster.billing_code,billingmaster.bill_amount,billingmaster.billingstatus

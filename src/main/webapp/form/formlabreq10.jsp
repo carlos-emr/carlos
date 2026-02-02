@@ -39,22 +39,22 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="ca.openosp.openo.utility.LocaleUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.FrmLabReqPreSetDao, ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.form.*, ca.openosp.OscarProperties, java.util.Date, ca.openosp.openo.util.UtilDateUtilities" %>
-<%@page import="ca.openosp.openo.prescript.data.RxProviderData, ca.openosp.openo.prescript.data.RxProviderData.Provider" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils,ca.openosp.openo.clinic.ClinicData" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FrmLabReqPreSetDao, io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData, io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.clinic.ClinicData" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordHelp" %>
-<%@ page import="ca.openosp.openo.form.FrmLabReq10Record" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordHelp" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmLabReq10Record" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <html>
     <head>

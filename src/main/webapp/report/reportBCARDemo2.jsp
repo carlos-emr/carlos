@@ -15,11 +15,11 @@
 %>
 
 <%@ page
-        import="java.util.*, ca.openosp.openo.report.data.*, java.sql.*, ca.openosp.openo.login.*, java.net.*"
+        import="java.util.*, io.github.carlos_emr.carlos.report.data.*, java.sql.*, io.github.carlos_emr.carlos.login.*, java.net.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.login.DBHelp" %>
-<%@ page import="ca.openosp.openo.report.data.RptReportCreator" %>
-<% java.util.Properties oscarVariables = ca.openosp.OscarProperties.getInstance(); %>
+<%@ page import="io.github.carlos_emr.carlos.login.DBHelp" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
+<% java.util.Properties oscarVariables = io.github.carlos_emr.OscarProperties.getInstance(); %>
 
 <%
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Report in CSV")) {

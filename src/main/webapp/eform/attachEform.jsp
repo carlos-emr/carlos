@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.eform.EFormAttachDocs" %>
+<%@page import="io.github.carlos_emr.carlos.eform.EFormAttachDocs" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -39,7 +39,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     String user_no = (String) session.getAttribute("user");
     String userfirstname = (String) session.getAttribute("userfirstname");
@@ -51,26 +51,26 @@
 <jsp:useBean id="oscarVariables" class="java.util.Properties"
              scope="page"/>
 <%@ page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.net.*,ca.openosp.MyDateFormat, ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachDocs" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData" %>
+        import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*,io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachDocs" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentToDemographicDao" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMDocument" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMDocumentToDemographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic" %>
 <%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="ca.openosp.openo.commn.model.EFormData" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 
 <!-- Deprecated: Please use attachDocument.jsp. -->
 <%

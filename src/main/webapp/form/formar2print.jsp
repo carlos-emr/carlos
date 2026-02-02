@@ -44,11 +44,11 @@
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
-        import="java.util.*, java.net.*, ca.openosp.openo.util.*, ca.openosp.openo.form.graphic.*"
+        import="java.util.*, java.net.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.graphic.*"
         errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
-<%@ page import="ca.openosp.openo.form.graphic.FrmGraphicAR" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.form.graphic.FrmGraphicAR" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

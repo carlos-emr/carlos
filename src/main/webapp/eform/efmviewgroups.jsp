@@ -24,8 +24,8 @@
 
 --%>
 
-<%@ page import="java.util.*, ca.openosp.openo.eform.*" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.eform.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%

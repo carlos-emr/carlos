@@ -25,12 +25,12 @@
 --%>
 
 <%@ page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat" %>
+        import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.CtlBillingService" %>
-<%@ page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
 <%
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
 %>

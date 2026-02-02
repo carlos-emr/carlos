@@ -9,24 +9,24 @@
 
 --%>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.olis.model.OLISResultNomenclature" %>
-<%@page import="ca.openosp.openo.olis.dao.OLISResultNomenclatureDao" %>
-<%@page import="ca.openosp.openo.commn.model.OLISResults" %>
-<%@page import="ca.openosp.openo.commn.dao.OLISResultsDao" %>
-<%@page import="ca.openosp.openo.log.LogAction" %>
-<%@page import="ca.openosp.openo.commn.model.OscarLog" %>
+<%@page import="io.github.carlos_emr.carlos.olis.model.OLISResultNomenclature" %>
+<%@page import="io.github.carlos_emr.carlos.olis.dao.OLISResultNomenclatureDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.OLISResults" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OLISResultsDao" %>
+<%@page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.OscarLog" %>
 <%@page import="java.io.File" %>
-<%@page import="ca.openosp.openo.olis.OLISUtils" %>
-<%@page import="ca.openosp.openo.lab.FileUploadCheck" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.lab.ca.all.upload.MessageUploader" %>
-<%@page import="ca.openosp.openo.olis.model.OLISRequestNomenclature" %>
-<%@page import="ca.openosp.openo.olis.dao.OLISRequestNomenclatureDao" %>
+<%@page import="io.github.carlos_emr.carlos.olis.OLISUtils" %>
+<%@page import="io.github.carlos_emr.carlos.lab.FileUploadCheck" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader" %>
+<%@page import="io.github.carlos_emr.carlos.olis.model.OLISRequestNomenclature" %>
+<%@page import="io.github.carlos_emr.carlos.olis.dao.OLISRequestNomenclatureDao" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="com.indivica.olis.queries.*,java.util.*,ca.openosp.openo.lab.ca.all.parsers.Factory, ca.openosp.openo.lab.ca.all.parsers.OLISHL7Handler, ca.openosp.openo.lab.ca.all.parsers.OLISHL7Handler.OLISError, ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.olis.OLISResults2Action" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="com.indivica.olis.queries.*,java.util.*,io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory, io.github.carlos_emr.carlos.lab.ca.all.parsers.OLISHL7Handler, io.github.carlos_emr.carlos.lab.ca.all.parsers.OLISHL7Handler.OLISError, io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.olis.OLISResults2Action" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 
 <%
     OLISResultsDao olisResultsDao = SpringUtils.getBean(OLISResultsDao.class);

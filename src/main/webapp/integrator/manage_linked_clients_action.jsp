@@ -22,17 +22,17 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Facility" %>
-<%@page import="ca.openosp.openo.PMmodule.web.ManageLinkedClientsAction" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.web.ManageLinkedClientsAction" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="java.util.Arrays" %>
-<%@page import="ca.openosp.openo.commn.model.FacilityDemographicPrimaryKey" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.FacilityDemographicPrimaryKey" %>
 <%@page import="java.util.HashSet" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="ca.openosp.openo.PMmodule.web.ManageLinkedClients" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.web.ManageLinkedClients" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 
 <%
     int currentDemographicId = Integer.parseInt(request.getParameter("demographicId"));

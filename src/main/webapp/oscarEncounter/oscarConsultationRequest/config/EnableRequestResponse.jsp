@@ -40,10 +40,10 @@
 %>
 
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.PropertyDao, ca.openosp.openo.commn.model.Property" %>
-<%@ page import="ca.openosp.openo.managers.ConsultationManager" %>
-<%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao, io.github.carlos_emr.carlos.commn.model.Property" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

@@ -41,16 +41,16 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@page import="ca.openosp.openo.prescript.data.RxDrugData,java.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData,java.util.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.Calendar" %>
-<%@page import="ca.openosp.openo.rx.data.*" %>
-<%@page import="ca.openosp.openo.rx.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.rx.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.rx.util.*" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <html>
 <head>
     <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/dragiframe.js"/>"></script>

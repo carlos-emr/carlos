@@ -55,25 +55,25 @@
     }
 %>
 <%@ page
-        import="java.util.*, java.sql.*, java.net.*,java.text.DecimalFormat, ca.openosp.*, ca.openosp.openo.demographic.data.ProvinceNames, ca.openosp.openo.waitinglist.WaitingList" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
-<%@page import="ca.openosp.openo.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicCust" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicCustDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.dao.WaitingListDao" %>
-<%@page import="ca.openosp.openo.commn.dao.WaitingListNameDao" %>
-<%@page import="ca.openosp.openo.commn.model.WaitingListName" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.Misc" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+        import="java.util.*, java.sql.*, java.net.*,java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
     DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -392,7 +392,7 @@
             <tr valign="top">
                 <td align="left" nowrap><b>Waiting List: </b> <%
                     String listID = "", wlnote = "";
-                    for (ca.openosp.openo.commn.model.WaitingList w : waitingListDao.search_wlstatus(Integer.parseInt(demographic_no))) {
+                    for (io.github.carlos_emr.carlos.commn.model.WaitingList w : waitingListDao.search_wlstatus(Integer.parseInt(demographic_no))) {
                         listID = String.valueOf(w.getListId());
                         wlnote = w.getNote();
                     }

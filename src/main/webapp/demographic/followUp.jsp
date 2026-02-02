@@ -38,17 +38,17 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedProvider" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.FacilityIdStringCompositePk" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page
-        import="ca.openosp.openo.casemgmt.model.*, ca.openosp.openo.commn.dao.DemographicDao, ca.openosp.openo.utility.SpringUtils, ca.openosp.openo.commn.model.Demographic" %>
+        import="io.github.carlos_emr.carlos.casemgmt.model.*, io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.model.Demographic" %>
 
 
 <%

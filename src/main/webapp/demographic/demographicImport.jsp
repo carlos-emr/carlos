@@ -40,9 +40,9 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.demographic.pageUtil.Util" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao, ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.PMmodule.model.Program" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao, io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

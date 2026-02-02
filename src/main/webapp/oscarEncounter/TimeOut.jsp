@@ -1,4 +1,4 @@
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %><%--
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.

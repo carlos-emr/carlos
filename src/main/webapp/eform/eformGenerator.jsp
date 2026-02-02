@@ -42,9 +42,9 @@
 <%@ page import="java.io.*" %>
 <%@ page import="java.io.File" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.eform.*" %>
-<%@ page import="ca.openosp.openo.eform.data.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
 <!--
 eForm Generator version 7.4 (C) Peter Hutten-Czapski 2014-2023
@@ -74,8 +74,8 @@ AGPL v2+
 and other liscences (MIT, LGPL etc) as indicated
 -->
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.eform.EFormLoader" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormLoader" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     boolean eformGeneratorIndivicaPrintEnabled = OscarProperties.getInstance().isPropertyActive("eform_generator_indivica_print_enabled");

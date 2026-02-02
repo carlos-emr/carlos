@@ -20,16 +20,16 @@
          Component scans
          ========================================================= -->
     <!-- NEW: pick up your OAuth1 controllers + helpers -->
-    <context:component-scan base-package="ca.openosp.openo.webserv.oauth"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.oauth"/>
     <!-- Provider + legacy OAuth session merger lives here -->
-    <context:component-scan base-package="ca.openosp.openo.login"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.login"/>
 
     <!-- Keep existing REST resources (cookie-auth) and SOAP WS -->
-    <context:component-scan base-package="ca.openosp.openo.webserv.rest"/>
-    <context:component-scan base-package="ca.openosp.openo.webserv.rest.util"/>
-    <context:component-scan base-package="ca.openosp.openo.webserv.rest.conversion"/>
-    <context:component-scan base-package="ca.openosp.openo.webserv">
-        <context:exclude-filter type="assignable" expression="ca.openosp.openo.webserv.SystemInfoWs"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.util"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.conversion"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv">
+        <context:exclude-filter type="assignable" expression="io.github.carlos_emr.carlos.webserv.SystemInfoWs"/>
     </context:component-scan>
 
     <aop:aspectj-autoproxy/>
@@ -72,10 +72,10 @@
 
 	<!-- Managed WS Beans -->
 	<!-- The WS classes are turned into spring beans to allow autowiring etc, then the endpoints reference them -->
- 	<context:component-scan base-package="ca.openosp.openo.webserv"/>
+ 	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv"/>
 	
-	<bean id="authenticationInWSS4JInterceptor" class="ca.openosp.openo.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
-	<bean id="oscarUsernameTokenValidator" class="ca.openosp.openo.webserv.OscarUsernameTokenValidator" autowire="byType" />
+	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
+	<bean id="oscarUsernameTokenValidator" class="io.github.carlos_emr.carlos.webserv.OscarUsernameTokenValidator" autowire="byType" />
 
 	<!-- HTTP policy for lab upload service to handle long-running batch operations -->
 	<bean id="labUploadHttpServerPolicy" class="org.apache.cxf.transports.http.configuration.HTTPServerPolicy">
@@ -162,10 +162,10 @@
 		</jaxws:properties>
 	</jaxws:endpoint>	
 	
-	<context:component-scan base-package="ca.openosp.openo.webserv.rest"/>
-	<context:component-scan base-package="ca.openosp.openo.webserv.rest.util"/>
-	<context:component-scan base-package="ca.openosp.openo.webserv.rest.conversion"/>
-	<context:component-scan base-package="ca.openosp.openo.webserv.oauth.util"/>
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest"/>
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.util"/>
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.conversion"/>
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.oauth.util"/>
 
 	<aop:aspectj-autoproxy/>
 	
@@ -174,7 +174,7 @@
 
 		<jaxrs:inInterceptors>
 			<bean name="authInInterceptor"
-				class="ca.openosp.openo.webserv.rest.util.AuthenticationInInterceptor" />
+				class="io.github.carlos_emr.carlos.webserv.rest.util.AuthenticationInInterceptor" />
 		</jaxrs:inInterceptors>
 		
 		<jaxrs:providers>
@@ -190,39 +190,39 @@
 		</jaxrs:features>
 
 		<jaxrs:serviceBeans>
-			<bean class="ca.openosp.openo.webserv.csrf.CsrfTokenService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.PharmacyService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.DemographicService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.ScheduleService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.DemographicMergeService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.MessagingService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.InboxService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.TicklerWebService" autowire="byName"/>
-            <bean class="ca.openosp.openo.webserv.rest.RxWebService" autowire="byName"/>
-            <bean class="ca.openosp.openo.webserv.rest.RxLookupService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.ProviderService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.PatientDetailStatusService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.PersonaService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.FormsService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.OscarJobService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.NotesService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.ProductDispensingService" autowire="byName"/>
-			<bean class="ca.openosp.openo.webserv.rest.RecordUxService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.ReportingService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.BillingService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.StatusService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.ProgramService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.ConsultationWebService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.AppService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.AllergyService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.PreventionService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.ReportByTemplateService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.ResourceService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.DiseaseRegistryService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.csrf.CsrfTokenService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ScheduleService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicMergeService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.MessagingService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.InboxService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.TicklerWebService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.RxWebService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.RxLookupService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ProviderService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PatientDetailStatusService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PersonaService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.FormsService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.OscarJobService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.NotesService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ProductDispensingService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.RecordUxService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ReportingService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.BillingService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.StatusService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ProgramService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ConsultationWebService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.AppService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.AllergyService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PreventionService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
 <!--			<bean class="org.oscarehr.webservbserv.rest.SystemInfoService" autowire="byName" /> -->
-			<bean class="ca.openosp.openo.webserv.rest.LabService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.MeasurementService" autowire="byName" />
-			<bean class="ca.openosp.openo.webserv.rest.ConsentService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName" />
 		</jaxrs:serviceBeans>
 
 		<jaxrs:extensionMappings>
@@ -236,7 +236,7 @@
  
       <property name="extraClass">
          <list>
-           <value>ca.openosp.openo.webserv.transfer_objects.ProviderTransfer</value>
+           <value>io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer</value>
          </list>
       </property>
 

@@ -8,7 +8,7 @@
 
     <rule name="DTaP-IPV 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
@@ -25,7 +25,7 @@
 
     <rule name="DTaP-IPV 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
         <java:condition>prev.getAgeInMonths() &lt;= 72</java:condition>
@@ -42,7 +42,7 @@
     
     <rule name="DTaP-IPV 2.1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.isPassedNextDate("DTaP-IPV")</java:condition>        
         <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 1</java:condition>
@@ -59,7 +59,7 @@
 
     <rule name="DTaP-IPV 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 6</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
@@ -75,7 +75,7 @@
 
     <rule name="DTaP-IPV 3.1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.isPassedNextDate("DTaP-IPV")</java:condition>        
         <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 2</java:condition>
@@ -92,7 +92,7 @@
 
     <rule name="DTaP-IPV 4">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 18</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
@@ -107,7 +107,7 @@
 
         <rule name="DTaP-IPV 4.1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.isPassedNextDate("DTaP-IPV")</java:condition>        
         <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 2</java:condition>
@@ -123,7 +123,7 @@
 
     <rule name="DTaP-IPV 5">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
@@ -138,7 +138,7 @@
     </rule>
     <rule name="DTaP-IPV 6">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 168</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 192</java:condition>
@@ -154,7 +154,7 @@
 
      <rule name="Tdap-IPV 1">
        <parameter identifier="prev">
-           <class>ca.openosp.openo.prevention.Prevention</class>
+           <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
        </parameter>
        <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
        <java:condition>prev.getAgeInMonths() &lt;= 72</java:condition>
@@ -168,7 +168,7 @@
     
      <rule name="Rot 1">
        <parameter identifier="prev">
-           <class>ca.openosp.openo.prevention.Prevention</class>
+           <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
        </parameter>
        <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
        <java:condition>prev.getAgeInMonths() &lt; 5</java:condition>
@@ -182,7 +182,7 @@
 
    <rule name="Rot 2">
        <parameter identifier="prev">
-           <class>ca.openosp.openo.prevention.Prevention</class>
+           <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
        </parameter>
        <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
        <java:condition>prev.getAgeInMonths() &lt;= 6</java:condition>
@@ -199,7 +199,7 @@
     
     <rule name="Hib 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
@@ -212,7 +212,7 @@
     </rule>
     <rule name="Hib 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
@@ -225,7 +225,7 @@
     </rule>
     <rule name="Hib 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 6</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
@@ -238,7 +238,7 @@
     </rule>
     <rule name="Hib 4">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
@@ -251,7 +251,7 @@
     </rule>
     <rule name="Hib 5">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
@@ -264,7 +264,7 @@
     </rule>
     <rule name="Hib 6">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 24</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 60</java:condition>
@@ -278,7 +278,7 @@
 
     <rule name="Pneu-C 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
@@ -291,7 +291,7 @@
     </rule>
     <rule name="Pneu-C 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
@@ -304,7 +304,7 @@
     </rule>
     <rule name="Pneu-C 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 6</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
@@ -317,7 +317,7 @@
     </rule>
     <rule name="Pneu-C 4">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 15</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
@@ -330,7 +330,7 @@
     </rule>
     <rule name="Pneu-C 5">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
@@ -342,7 +342,7 @@
     </rule>
     <rule name="Pneu-C 6">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 14</java:condition>
         <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
@@ -357,7 +357,7 @@
 
      <rule name="MMR 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>     
         <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>        
         <java:condition>prev.getAgeInYears() &lt; 10</java:condition>
@@ -372,7 +372,7 @@
 
    <rule name="MMR 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 10</java:condition>
@@ -386,7 +386,7 @@
 
     <rule name="MMRV 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 10</java:condition>
@@ -400,7 +400,7 @@
 
     <rule name="MenC-C 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 24</java:condition>
@@ -413,7 +413,7 @@
 
     <rule name="MenC-C 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 12</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 13</java:condition>
@@ -425,7 +425,7 @@
     </rule>
 	<rule name="HPV 1">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.getAgeInYears() &gt;= 12</java:condition>
 		<java:condition>prev.getAgeInYears() &lt; 19</java:condition>
@@ -437,7 +437,7 @@
 	</rule>
     <rule name="MenC-C 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 15</java:condition>
         <java:condition>prev.getAgeInYears() &lt;= 19 </java:condition>
@@ -450,7 +450,7 @@
 
     <rule name="VZ 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 15</java:condition>
         <java:condition>prev.getAgeInMonths() &lt;= 24 </java:condition>
@@ -464,7 +464,7 @@
 
     <rule name="VZ 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInMonths() &gt;= 15</java:condition>
         <java:condition>prev.getAgeInMonths() &lt;= 24 </java:condition>
@@ -478,7 +478,7 @@
 
     <rule name="VZ 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 4</java:condition>
         <java:condition>prev.getAgeInYears() &lt;= 6 </java:condition>
@@ -492,7 +492,7 @@
 
     <rule name="VZ 4">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 4</java:condition>
         <java:condition>prev.getAgeInYears() &lt;= 6 </java:condition>
@@ -507,7 +507,7 @@
 
     <rule name="dTap 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getNumberOfPreventionType("dTap") == 0</java:condition> 
         <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 120</java:condition>
@@ -520,7 +520,7 @@
 
     <rule name="Td 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getNumberOfPreventionType("Td") == 0</java:condition> 
         <java:condition>prev.getHowManyMonthsSinceLast("dTaP") &gt;= 120</java:condition>
@@ -532,7 +532,7 @@
 
     <rule name="Td 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getNumberOfPreventionType("Td") &gt;= 1</java:condition> 
         <java:condition>prev.getHowManyMonthsSinceLast("Td") &gt;= 120</java:condition>
@@ -548,7 +548,7 @@
 
     <rule name="Flu 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>       
         <java:condition>prev.isTodayinDateRange("2005-10-01","2006-01-29")</java:condition> 
         <java:condition>!prev.isLastPreventionWithinRange("Flu","2005-10-01","2006-01-29")</java:condition> 
@@ -560,7 +560,7 @@
     
     <rule name="Flu 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>       
         <java:condition>prev.getAgeInYears() &gt;=65</java:condition> 
         <java:condition>prev.getHowManyMonthsSinceLast("Flu") &gt;= 12</java:condition> 
@@ -572,7 +572,7 @@
     
     <rule name="Flu 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>       
         <java:condition>prev.getAgeInYears() &gt;=65</java:condition> 
         <java:condition>prev.getHowManyMonthsSinceLast("Flu") == -1</java:condition> 
@@ -584,7 +584,7 @@
 
     <rule name="Flu Set Date">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>       
         <java:condition>prev.isNextDateSet("Flu")</java:condition>        
         <java:condition>prev.isPassedNextDate("Flu")</java:condition>                    
@@ -595,7 +595,7 @@
     </rule>
 	<rule name="HPV-CERVIX 1">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
 		<java:condition>prev.getAgeInYears() &lt; 75</java:condition>
@@ -612,7 +612,7 @@
 	</rule>
 	<rule name="HPV-CERVIX 2">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
 		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -628,7 +628,7 @@
 	</rule>
 	<rule name="HPV-CERVIX 3">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
 		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -644,7 +644,7 @@
 	</rule>
 	<rule name="PAP 1">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
 		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -662,7 +662,7 @@
 	</rule>
 	<rule name="PAP 2">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
 		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -679,7 +679,7 @@
 	</rule>
 	<rule name="PAP 4">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.isFemale()</java:condition>
 		<java:condition>prev.isNextDateSet("PAP")</java:condition>
@@ -692,7 +692,7 @@
 	</rule>
 	<rule name="PAP debug">
 		<parameter identifier="prev">
-			<class>ca.openosp.openo.prevention.Prevention</class>
+			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
 		</parameter>
 		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
 		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -710,7 +710,7 @@
 <!-- Mammogram Rules Start -->
    <rule name="MAM 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -728,7 +728,7 @@
 
     <rule name="MAM 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -745,7 +745,7 @@
 
     <rule name="MAM 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -761,7 +761,7 @@
 
     <rule name="MAM 4">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>        
         <java:condition>prev.isFemale()</java:condition>                
         <java:condition>prev.isNextDateSet("MAM")</java:condition>        
@@ -776,7 +776,7 @@
 
     <rule name="MAM debug">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 18</java:condition>
         <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
@@ -795,7 +795,7 @@
 <!-- FOBT Rules -->
     <rule name="FOBT 1">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
         <java:condition>prev.getAgeInYears() &lt;= 74</java:condition>
@@ -809,7 +809,7 @@
 
     <rule name="FOBT 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
         <java:condition>prev.getAgeInYears() &lt;= 74</java:condition>
@@ -823,7 +823,7 @@
 
     <rule name="FOBT 3">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
         <java:condition>prev.getAgeInYears() &lt;= 74</java:condition>
@@ -836,7 +836,7 @@
 
     <rule name="FOBT Inelligible">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getHowManyMonthsSinceLast("COLONOSCOPY") != -1</java:condition>
         <java:consequence>
@@ -848,7 +848,7 @@
     
     <rule name="Smoking">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 13</java:condition>
         <java:condition>prev.getHowManyMonthsSinceLast("Smoking") == -1</java:condition>
@@ -860,7 +860,7 @@
     
     <rule name="Bone Mineral Density">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getAgeInYears() &gt;= 65</java:condition>
         <java:condition>prev.getHowManyMonthsSinceLast("BMD") == -1</java:condition>
@@ -872,7 +872,7 @@
     
     <rule name="PHV">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getHowManyMonthsSinceLast("PHV") == -1</java:condition>
         <java:consequence>
@@ -883,7 +883,7 @@
 
     <rule name="PHV 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
 	<java:condition>prev.getHowManyMonthsSinceLast("PHV") &gt; 11</java:condition>
         <java:consequence>
@@ -894,7 +894,7 @@
     
     <rule name="Annual Physical">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getHowManyMonthsSinceLast("Annual Physical") == -1</java:condition>
         <java:consequence>
@@ -905,7 +905,7 @@
     
     <rule name="Annual Physical 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getHowManyMonthsSinceLast("Annual Physical") &gt; 11</java:condition>
         <java:consequence>
@@ -916,7 +916,7 @@
     
     <rule name="Obesity">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getHowManyMonthsSinceLast("Obesity") == -1</java:condition>
         <java:consequence>
@@ -927,7 +927,7 @@
     
     <rule name="Obesity 2">
         <parameter identifier="prev">
-            <class>ca.openosp.openo.prevention.Prevention</class>
+            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
         </parameter>
         <java:condition>prev.getHowManyMonthsSinceLast("Obesity") &gt; 11</java:condition>
         <java:consequence>

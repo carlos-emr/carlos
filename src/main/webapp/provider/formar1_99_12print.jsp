@@ -30,7 +30,7 @@
     if (request.getParameter("oox") != null) oox += Integer.parseInt(request.getParameter("oox"));
     if (request.getParameter("ooy") != null) ooy += Integer.parseInt(request.getParameter("ooy"));
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
 
 <html>

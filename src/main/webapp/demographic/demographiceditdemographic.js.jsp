@@ -24,7 +24,7 @@
 
 --%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 function rs(n,u,w,h,x) {
 args="width="+w+",height="+h+",resizable=yes,scrollbars=yes,status=0,top=360,left=30";
 remote=window.open(u,n,args);

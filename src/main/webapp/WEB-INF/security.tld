@@ -13,7 +13,7 @@
 
     <tag>
         <name>oscarSec</name>
-        <tag-class>ca.openosp.openo.login.tld.SecurityTag</tag-class>
+        <tag-class>io.github.carlos_emr.carlos.login.tld.SecurityTag</tag-class>
         <body-content>JSP</body-content>
 
         <attribute>

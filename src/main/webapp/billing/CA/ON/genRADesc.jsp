@@ -18,20 +18,20 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@page import="ca.openosp.openo.util.DateUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Provider,ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPremium, ca.openosp.openo.commn.dao.BillingONPremiumDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium, io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
 
-<%@ page import="java.io.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.io.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
 <%@ include file="/admin/dbconnection.jsp" %>
 
-<%@page import="ca.openosp.openo.commn.model.RaHeader" %>
-<%@page import="ca.openosp.openo.commn.dao.RaHeaderDao" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%
     RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
 %>

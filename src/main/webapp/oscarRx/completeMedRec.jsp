@@ -43,10 +43,10 @@
 
 
 
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.model.Measurement" %>
-<%@ page import="ca.openosp.openo.commn.dao.MeasurementDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Measurement" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 
 <%

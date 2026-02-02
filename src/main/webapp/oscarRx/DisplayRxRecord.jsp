@@ -23,20 +23,20 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.commn.model.DrugReason" %>
-<%@page import="ca.openosp.openo.commn.dao.DrugReasonDao" %>
-<%@page import="ca.openosp.openo.commn.model.PartialDate" %>
-<%@page import="ca.openosp.openo.commn.dao.PartialDateDao" %>
-<%@page import="ca.openosp.openo.managers.CodingSystemManager" %>
-<%@page import="ca.openosp.openo.managers.PharmacyManager" %>
-<%@page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
-<%@page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DrugReason" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugReasonDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
+<%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.PharmacyManager" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.List" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DrugDao,ca.openosp.openo.commn.model.Drug,ca.openosp.openo.utility.MiscUtils,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.PMmodule.dao.ProviderDao,ca.openosp.openo.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -120,8 +120,8 @@
 
 %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
@@ -498,7 +498,7 @@
             <br/>
 
             <input type="button" value="Annotation" title="Annotation" class="ControlPushButton"
-                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=ca.openosp.openo.casemgmt.model.CaseManagementNoteLink.DISP_PRESCRIP%>&table_id=<%=drug.getId()%>&demo=<%=drug.getDemographicId()%>','anwin','width=400,height=500');">
+                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink.DISP_PRESCRIP%>&table_id=<%=drug.getId()%>&demo=<%=drug.getDemographicId()%>','anwin','width=400,height=500');">
 
 
             <%--

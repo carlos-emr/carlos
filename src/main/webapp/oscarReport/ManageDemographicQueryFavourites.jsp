@@ -42,7 +42,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page import="ca.openosp.openo.report.data.RptSearchData,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
 
 <%
     RptSearchData searchData = new RptSearchData();

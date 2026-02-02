@@ -27,8 +27,8 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page
-        import="ca.openosp.openo.rx.pageUtil.*,ca.openosp.openo.rx.data.*,java.util.*" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
+        import="io.github.carlos_emr.carlos.rx.pageUtil.*,io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

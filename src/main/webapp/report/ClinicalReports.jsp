@@ -41,20 +41,20 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.report.data.DemographicSets, ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*,ca.openosp.openo.report.ClinicalReports.*,ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.encounter.oscarMeasurements.bean.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@page import="com.Ostermiller.util.CSVPrinter,java.io.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicNameAgeString" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
-<%@ page import="ca.openosp.openo.report.ClinicalReports.ReportEvaluator" %>
-<%@ page import="ca.openosp.openo.report.ClinicalReports.ClinicalReportManager" %>
-<%@ page import="ca.openosp.openo.report.ClinicalReports.Numerator" %>
-<%@ page import="ca.openosp.openo.report.ClinicalReports.Denominator" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator" %>
+<%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.ClinicalReportManager" %>
+<%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.Numerator" %>
+<%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.Denominator" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -671,7 +671,7 @@
                         for (Hashtable h : list) {
 
                         Map<String, String> demoHash = deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), "" + h.get("_demographic_no"));
-                            ca.openosp.openo.commn.model.Demographic demoObj = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), "" + h.get("_demographic_no"));
+                            io.github.carlos_emr.carlos.commn.model.Demographic demoObj = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), "" + h.get("_demographic_no"));
 
                             String colour = "";
                             if (h.get("_report_result") != null && ("" + h.get("_report_result")).equals("false")) {
@@ -897,7 +897,7 @@
     }
 
 
-    String commonRow(String heading,Map<String, String> demoHash,ca.openosp.openo.commn.model.Demographic demoObj){
+    String commonRow(String heading,Map<String, String> demoHash,io.github.carlos_emr.carlos.commn.model.Demographic demoObj){
         if (heading == null) {
             return "";
         }

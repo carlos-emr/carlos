@@ -18,12 +18,12 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="java.math.*, java.util.*, ca.openosp.openo.util.*, ca.openosp.openo.billing.ca.on.administration.*, ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingPageUtil" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.administration.GstReport" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
+        import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.billing.ca.on.administration.*, io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

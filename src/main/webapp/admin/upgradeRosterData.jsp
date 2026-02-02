@@ -24,18 +24,18 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicArchive" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicArchiveDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAO" %>
-<%@page import="ca.openosp.openo.commn.model.SecRole" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.SecRoleDao" %>
-<%@page import="ca.openosp.openo.db.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.SecRole" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SecRoleDao" %>
+<%@page import="io.github.carlos_emr.carlos.db.*" %>
 <%@page import="java.sql.*" %>
 <%@page import="java.util.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>

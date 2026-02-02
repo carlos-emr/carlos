@@ -39,13 +39,13 @@ if(!authed) {
 }
 %>
 
-<%@page import="ca.openosp.openo.commn.dao.ReportProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.ReportProvider" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="java.sql.ResultSet" %> 
 <%@page import="java.math.BigDecimal" %>
-<%@ page import="ca.openosp.openo.report.data.VisitReportData" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.VisitReportData" %>
 
 <table class="table table-bordered table-striped table-hover table-condensed" style="font-size:12px;">
 	<thead>

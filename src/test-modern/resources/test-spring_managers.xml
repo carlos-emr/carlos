@@ -11,18 +11,18 @@
     <!-- Test version of spring_managers.xml for testing -->
 
     <!-- Component scan for managers and services needed in tests -->
-    <context:component-scan base-package="ca.openosp.openo.managers" />
-    <context:component-scan base-package="ca.openosp.openo.documentManager" />
-    <context:component-scan base-package="ca.openosp.openo.commn.service" />
-    <context:component-scan base-package="ca.openosp.openo.casemgmt.service" />
-    <context:component-scan base-package="ca.openosp.openo.demographic.pageUtil" />
-    <context:component-scan base-package="ca.openosp.openo.PMmodule.service"/>
-    <context:component-scan base-package="ca.openosp.openo.ticklers.service"/>
-    <context:component-scan base-package="ca.openosp.openo.consultations"/>
-    <context:component-scan base-package="ca.openosp.openo.prevention"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.managers" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.documentManager" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.commn.service" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.casemgmt.service" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.demographic.pageUtil" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.service"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.ticklers.service"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.consultations"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.prevention"/>
 
-    <!-- ca.openosp.openo namespace components with exclusions -->
-    <context:component-scan base-package="ca.openosp.openo">
+    <!-- io.github.carlos_emr.carlos namespace components with exclusions -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos">
         <!-- Exclude all commn.dao implementations that have manual bean definitions -->
         <context:exclude-filter type="regex" expression=".*\.UserPropertyDAOImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.DemographicDaoImpl$"/>

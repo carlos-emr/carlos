@@ -19,7 +19,7 @@
 
 
 
-	<bean id="ckdScreenerScheduledTask" class="ca.openosp.openo.renal.CkdScreenerSchedulerJob" />
+	<bean id="ckdScreenerScheduledTask" class="io.github.carlos_emr.carlos.renal.CkdScreenerSchedulerJob" />
     <!-- Define the scheduled executor factory bean -->
     <bean id="schedulerORN" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
         <property name="scheduledExecutorTasks">

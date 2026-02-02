@@ -30,18 +30,18 @@
     String user_no = (String) session.getAttribute("user");
     String demographic_no = (String) session.getAttribute("demo_no");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*,java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*,java.net.*" errorPage="/errorpage.jsp" %>
 
-<jsp:useBean id="risks" class="ca.openosp.OBRisks_99_12" scope="page"/>
+<jsp:useBean id="risks" class="io.github.carlos_emr.OBRisks_99_12" scope="page"/>
 
 <%@ include file="/admin/dbconnection.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicAccessoryDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicAccessory" %>
-<%@page import="ca.openosp.openo.commn.dao.FormDao" %>
-<%@page import="ca.openosp.openo.commn.model.Form" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);

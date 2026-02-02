@@ -19,7 +19,7 @@
 
 
 	<!-- configure the available measurement flow sheets -->
-	<bean id="measurementTemplateFlowSheet" class="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig">
+	<bean id="measurementTemplateFlowSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig">
 		<property name="flowSheets">
 			<list>
 				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdDiabetesFlowsheet.xml</value>
@@ -38,16 +38,16 @@
 	</bean>
 
 	<!-- DAO -->
-	<bean id="formsDAO" class="ca.openosp.openo.PMmodule.dao.FormsDAOImpl" autowire="byName" />
-	<bean id="populationReportDao" class="ca.openosp.openo.commn.dao.PopulationReportDaoImpl" autowire="byName" />
+	<bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName" />
+	<bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName" />
 
 
 	<!-- managers  -->
-	<bean id="issueAdminManager" class="ca.openosp.openo.services.IssueAdminManager" autowire="byName" />
+	<bean id="issueAdminManager" class="io.github.carlos_emr.carlos.services.IssueAdminManager" autowire="byName" />
 
-	<bean id="oscarSecurityManager" class="ca.openosp.openo.PMmodule.service.impl.OscarSecurityManagerImpl" autowire="byName" />
-	<bean id="formsManagerCaisi" class="ca.openosp.openo.PMmodule.service.impl.FormsManagerImpl" autowire="byName" />
-	<bean id="populationReportManager" class="ca.openosp.openo.commn.service.PopulationReportManager" autowire="byName">
+	<bean id="oscarSecurityManager" class="io.github.carlos_emr.carlos.PMmodule.service.impl.OscarSecurityManagerImpl" autowire="byName" />
+	<bean id="formsManagerCaisi" class="io.github.carlos_emr.carlos.PMmodule.service.impl.FormsManagerImpl" autowire="byName" />
+	<bean id="populationReportManager" class="io.github.carlos_emr.carlos.commn.service.PopulationReportManager" autowire="byName">
 		<property name="issueDAO" ref="IssueDAO" />
 		<property name="populationReportDao" ref="populationReportDao" />
 	</bean>
@@ -57,7 +57,7 @@
 
 	
 
-	 <bean id="scheduledErProgramDischargeTask" class="ca.openosp.openo.PMmodule.task.ErProgramDischargeTask">
+	 <bean id="scheduledErProgramDischargeTask" class="io.github.carlos_emr.carlos.PMmodule.task.ErProgramDischargeTask">
 		<property name="admissionManager" ref="admissionManager" />
 		<property name="providerManager" ref="providerManager" />
 	</bean>
@@ -76,7 +76,7 @@
 	</bean>
 
 
-	<bean id="scheduledAnonymousClientDischargeTask" class="ca.openosp.openo.PMmodule.task.AnonymousClientDischargeTask" />
+	<bean id="scheduledAnonymousClientDischargeTask" class="io.github.carlos_emr.carlos.PMmodule.task.AnonymousClientDischargeTask" />
     <!-- Define the scheduled executor factory bean -->
     <bean class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
         <property name="scheduledExecutorTasks">
@@ -110,7 +110,7 @@
 
 
 
-	<context:component-scan base-package="ca.openosp.openo.PMmodule.dao" />
-	<context:component-scan base-package="ca.openosp.openo.PMmodule.service" />
-	<context:component-scan base-package="ca.openosp.openo.PMmodule.web.admin" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.service" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.web.admin" />
 </beans>

@@ -26,4 +26,4 @@ __fEndY		:	53
 __finalEDB	:	c_birthDate
 __dateFormat	:	dd/MM/yyyy
 
-__className	:	ca.openosp.openo.form.graphic.FrmPdfGraphicRourke
+__className	:	io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicRourke

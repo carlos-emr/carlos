@@ -20,19 +20,19 @@
 
 
 	<!-- Managed JPA Beans -->
- 	<context:component-scan base-package="ca.openosp.openo.managers" />
-    <context:component-scan base-package="ca.openosp.openo.documentManager" />
-    <context:component-scan base-package="ca.openosp.openo.commn.service" />
-    <context:component-scan base-package="ca.openosp.openo.casemgmt.service" />
-    <context:component-scan base-package="ca.openosp.openo.demographic.pageUtil" />
-    <context:component-scan base-package="ca.openosp.openo.PMmodule.service"/>
-    <context:component-scan base-package="ca.openosp.openo.ticklers.service"/>
-    <context:component-scan base-package="ca.openosp.openo.consultations"/>
-    <context:component-scan base-package="ca.openosp.openo.prevention"/>
-    <context:component-scan base-package="ca.openosp.openo.billing.CA.filters"/>
-    <context:component-scan base-package="ca.openosp.openo.integration.fhir.manager"/>
-    <!-- ca.openosp.openo namespace components -->
-    <context:component-scan base-package="ca.openosp.openo">
+ 	<context:component-scan base-package="io.github.carlos_emr.carlos.managers" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.documentManager" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.commn.service" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.casemgmt.service" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.demographic.pageUtil" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.service"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.ticklers.service"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.consultations"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.prevention"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.filters"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.integration.fhir.manager"/>
+    <!-- io.github.carlos_emr.carlos namespace components -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos">
         <!-- Exclude all commn.dao implementations that have manual bean definitions -->
         <context:exclude-filter type="regex" expression=".*\.UserPropertyDAOImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.DemographicDaoImpl$"/>
@@ -66,6 +66,6 @@
     </context:component-scan>
 <!--
     I have a sample listener in here. Leaving commented for now.    
-    <context:component-scan base-package="ca.openosp.openo.listeners" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.listeners" />
 -->    
 </beans>

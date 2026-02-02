@@ -34,7 +34,7 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, ca.openosp.*" %>
+<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" %>
 <%
     String mcedtUsername = (String) session.getAttribute("mcedtUsername");
 %>

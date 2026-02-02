@@ -25,7 +25,7 @@
 --%>
 
 <%@page import="java.net.URLEncoder" %>
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page errorPage="/errorpage.jsp" %>
 
 <%

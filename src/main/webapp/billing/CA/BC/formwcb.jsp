@@ -44,11 +44,11 @@
     }
 %>
 <%@ page
-        import="ca.openosp.openo.form.*, java.util.*,ca.openosp.openo.billing.ca.bc.pageUtil.*,ca.openosp.openo.db.*,ca.openosp.openo.billing.ca.bc.MSP.*, ca.openosp.openo.billing.ca.bc.Teleplan.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.WCBForm" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.Teleplan.WCBCodes" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.MSP.WcbHelper" %>
+        import="io.github.carlos_emr.carlos.form.*, java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*, io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBForm" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.WCBCodes" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.WcbHelper" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 

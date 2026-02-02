@@ -24,7 +24,7 @@
 --%>
 
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.util.*" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -38,13 +38,13 @@
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
-<%@page import="ca.openosp.openo.documentManager.EDocUtil,ca.openosp.openo.documentManager.EDoc" %>
-<%@page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="java.util.Hashtable" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlDocClassDao,ca.openosp.openo.commn.dao.QueueDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

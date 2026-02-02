@@ -1,5 +1,5 @@
-<%@ page import="ca.openosp.openo.report.data.DoctorList" %>
-<%@ page import="ca.openosp.openo.providers.bean.ProviderNameBean" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.DoctorList" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.bean.ProviderNameBean" %>
 <%@ page import="java.util.ArrayList" %>
 
 <%@ include file="/taglibs.jsp" %>

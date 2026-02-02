@@ -2,7 +2,7 @@ Info about Mental Health forms:
 
 The lists that appear in the Mental Health forms are read out of files.  This allows them to be easily updated when changes are recommended.  The following is required:
 
-1. All the files should be kept in a directory called dataFiles located in ca.openosp.openo.encounter
+1. All the files should be kept in a directory called dataFiles located in io.github.carlos_emr.carlos.encounter
 
 2. This folder should contain 3 subfolders: 
 	mhAssessment 

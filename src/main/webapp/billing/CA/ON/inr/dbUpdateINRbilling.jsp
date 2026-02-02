@@ -21,14 +21,14 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 
-<%@page import="java.sql.*, java.util.*,java.net.*, ca.openosp.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.billing.CA.model.BillingInr" %>
-<%@page import="ca.openosp.openo.billing.CA.dao.BillingInrDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     BillingInrDao dao = SpringUtils.getBean(BillingInrDao.class);
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);

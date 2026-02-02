@@ -20,21 +20,21 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 
 
-<jsp:useBean id="SxmlMisc" class="ca.openosp.SxmlMisc" scope="session"/>
+<jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.model.Billing" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-<%@page import="ca.openosp.openo.billing.CA.model.BillingInr" %>
-<%@page import="ca.openosp.openo.billing.CA.dao.BillingInrDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
     BillingInrDao billingInrDao = SpringUtils.getBean(BillingInrDao.class);
 %>
