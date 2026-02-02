@@ -93,6 +93,9 @@ public class EFormBase {
         setImagePath("/oscar");
     }
 
+    /**
+     * Sets the image path in the form HTML by replacing markers with the specified context path.
+     */
     public void setImagePath(String contextPath) {
         String output = contextPath + "/eform/displayImage.do?imagefile=";
         StringBuilder html = new StringBuilder(formHtml);
