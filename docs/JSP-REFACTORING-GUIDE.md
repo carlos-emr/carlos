@@ -1,6 +1,6 @@
-# JSP Refactoring Guide for OpenO EMR
+# JSP Refactoring Guide for CARLOS EMR
 
-This document provides a step-by-step process for refactoring legacy JSP files in the OpenO EMR codebase to achieve separation of concerns, modern HTML standards, and Bootstrap 5 compatibility.
+This document provides a step-by-step process for refactoring legacy JSP files in the CARLOS EMR codebase to achieve separation of concerns, modern HTML standards, and Bootstrap 5 compatibility.
 
 ## Goals
 

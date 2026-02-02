@@ -1,6 +1,6 @@
-# OpenO EMR - GitHub Copilot Instructions
+# CARLOS EMR - GitHub Copilot Instructions
 
-**PROJECT IDENTITY**: Always refer to this system as "OpenO EMR" or "OpenO" - NOT "OSCAR EMR" or "OSCAR McMaster"
+**PROJECT IDENTITY**: Always refer to this system as "CARLOS EMR" or "CARLOS" in user-facing displays and documentation
 
 ## Core Context
 

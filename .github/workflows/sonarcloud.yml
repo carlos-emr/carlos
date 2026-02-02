@@ -1,7 +1,7 @@
 # GitHub Workflow: SonarCloud Analysis
 #
 # Description:
-# This workflow runs SonarCloud static code analysis on the Open-O codebase.
+# This workflow runs SonarCloud static code analysis on the CARLOS EMR codebase.
 # It analyzes code quality, security vulnerabilities, and maintainability issues.
 #
 # Container Images:
@@ -18,7 +18,7 @@
 # - sonar.organization must be set in pom.xml
 #
 # License:
-# This GitHub Workflow file is part of the Open-O project and is subject
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
@@ -68,11 +68,11 @@ jobs:
         id: pull-image
         continue-on-error: true
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
           if docker pull "$IMAGE" 2>pull-image-error.log; then
-            docker tag "$IMAGE" openo-tomcat-dev
+            docker tag "$IMAGE" carlos-tomcat-dev
             echo "pulled=true" >> "$GITHUB_OUTPUT"
             echo "reason=success" >> "$GITHUB_OUTPUT"
             echo "Successfully pulled pre-built image!"
@@ -131,23 +131,23 @@ jobs:
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --load \
-            -t openo-tomcat-dev \
+            -t carlos-tomcat-dev \
             .devcontainer/development
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Start container
         run: |
-          docker run -d --name openo-tomcat-dev \
+          docker run -d --name carlos-tomcat-dev \
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
             -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache \
             -w /workspace \
-            openo-tomcat-dev tail -f /dev/null
+            carlos-tomcat-dev tail -f /dev/null
 
       - name: Configure git safe directory
         run: |
-          docker exec openo-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             git config --global --add safe.directory /workspace
           "
 
@@ -160,13 +160,13 @@ jobs:
           docker exec \
             -e GITHUB_TOKEN="$GITHUB_TOKEN" \
             -e SONAR_TOKEN="$SONAR_TOKEN" \
-            openo-tomcat-dev bash -c "
+            carlos-tomcat-dev bash -c "
               echo '========================================='
               echo 'Running SonarCloud Analysis (Branch)'
               echo '========================================='
               mvn -B verify sonar:sonar \
                 -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.projectKey=openo-beta_Open-O \
+                -Dsonar.projectKey=carlos-emr_carlos \
                 -DskipTests \
                 -DskipModernTests=true \
                 -DskipLegacyTests=true \
@@ -188,7 +188,7 @@ jobs:
             -e PR_NUMBER="$PR_NUMBER" \
             -e PR_BRANCH="$PR_BRANCH" \
             -e PR_BASE="$PR_BASE" \
-            openo-tomcat-dev bash -c "
+            carlos-tomcat-dev bash -c "
               echo '========================================='
               echo 'Running SonarCloud Analysis (Pull Request)'
               echo '========================================='
@@ -198,7 +198,7 @@ jobs:
               echo '========================================='
               mvn -B verify sonar:sonar \
                 -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.projectKey=openo-beta_Open-O \
+                -Dsonar.projectKey=carlos-emr_carlos \
                 \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \
                 \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \

@@ -1,7 +1,7 @@
 # GitHub Workflow: Development Container Images
 #
 # Description:
-# This workflow manages development container images for the Open-O project.
+# This workflow manages development container images for CARLOS EMR.
 # It builds, tests, and pushes container images to GitHub Container Registry (ghcr.io)
 # that are used by both CI workflows and local development environments.
 #
@@ -10,9 +10,9 @@
 # up both CI/CD pipelines and developer onboarding.
 #
 # Containers Managed:
-# - openo-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
-# - openo-mariadb-dev: MariaDB database container with schema initialization scripts
-# - openo-drugref: DrugRef2 service container with Java 11
+# - carlos-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
+# - carlos-mariadb-dev: MariaDB database container with schema initialization scripts
+# - carlos-drugref: DrugRef2 service container with Java 11
 #
 # Freshness Check Strategy:
 # 1. Calculate SHA256 hash of Dockerfile + build context for each container
@@ -29,7 +29,7 @@
 # - Manual dispatch for forced rebuilds (with force_rebuild option)
 #
 # License:
-# This GitHub Workflow file is part of the Open-O project and is subject
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 
 name: Development Container Images
@@ -59,7 +59,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # Images will be: ghcr.io/openo-beta/openo-tomcat-dev, etc.
+  # Images will be: ghcr.io/carlos-emr/carlos-tomcat-dev, etc.
   IMAGE_PREFIX: ${{ github.repository_owner }}
 
 jobs:
@@ -186,10 +186,10 @@ jobs:
         env:
           CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
         run: |
-          echo "Building openo-tomcat-dev container..."
+          echo "Building carlos-tomcat-dev container..."
           docker buildx build \
             --load \
-            -t openo-tomcat-dev:test \
+            -t carlos-tomcat-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -199,7 +199,7 @@ jobs:
         id: test
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-tomcat openo-tomcat-dev:test tail -f /dev/null
+          docker run -d --name test-tomcat carlos-tomcat-dev:test tail -f /dev/null
           sleep 5
 
           # Verify key components are present
@@ -222,11 +222,11 @@ jobs:
       - name: Push to registry
         if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
         run: |
           # Tag with multiple tags
-          docker tag openo-tomcat-dev:test "$IMAGE:latest"
-          docker tag openo-tomcat-dev:test "$IMAGE:${{ github.sha }}"
+          docker tag carlos-tomcat-dev:test "$IMAGE:latest"
+          docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
 
           # Push all tags
           docker push "$IMAGE:latest"
@@ -265,10 +265,10 @@ jobs:
         env:
           CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
         run: |
-          echo "Building openo-mariadb-dev container..."
+          echo "Building carlos-mariadb-dev container..."
           docker buildx build \
             --load \
-            -t openo-mariadb-dev:test \
+            -t carlos-mariadb-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -280,7 +280,7 @@ jobs:
           echo "Testing container starts correctly..."
           docker run -d --name test-mariadb \
             -e MYSQL_ROOT_PASSWORD=testpassword \
-            openo-mariadb-dev:test
+            carlos-mariadb-dev:test
 
           echo "Waiting for MariaDB to start..."
           ready=false
@@ -346,10 +346,10 @@ jobs:
       - name: Push to registry
         if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-mariadb-dev
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
         run: |
-          docker tag openo-mariadb-dev:test "$IMAGE:latest"
-          docker tag openo-mariadb-dev:test "$IMAGE:${{ github.sha }}"
+          docker tag carlos-mariadb-dev:test "$IMAGE:latest"
+          docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
 
           docker push "$IMAGE:latest"
           docker push "$IMAGE:${{ github.sha }}"
@@ -387,10 +387,10 @@ jobs:
         env:
           CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
         run: |
-          echo "Building openo-drugref container..."
+          echo "Building carlos-drugref container..."
           docker buildx build \
             --load \
-            -t openo-drugref:test \
+            -t carlos-drugref:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -400,7 +400,7 @@ jobs:
         id: test
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-drugref -p 8081:8080 openo-drugref:test
+          docker run -d --name test-drugref -p 8081:8080 carlos-drugref:test
 
           echo "Waiting for Tomcat to start..."
           ready=false
@@ -443,10 +443,10 @@ jobs:
       - name: Push to registry
         if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-drugref
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
         run: |
-          docker tag openo-drugref:test "$IMAGE:latest"
-          docker tag openo-drugref:test "$IMAGE:${{ github.sha }}"
+          docker tag carlos-drugref:test "$IMAGE:latest"
+          docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
 
           docker push "$IMAGE:latest"
           docker push "$IMAGE:${{ github.sha }}"

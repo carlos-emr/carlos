@@ -1,6 +1,6 @@
-# Open-OSP EMR DEVCONTAINER Environment Setup
+# CARLOS EMR DEVCONTAINER Environment Setup
 
-This document outlines the steps for setting up your development environment for the Open-OSP EMR project using Docker
+This document outlines the steps for setting up your development environment for the CARLOS EMR project using Docker
 and VS-Code.
 
 ## Prerequisites
@@ -38,8 +38,8 @@ and VS-Code.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/openo-beta/Open-O.git
-   cd open-osp
+   git clone https://github.com/carlos-emr/carlos.git
+   cd carlos
    ```
 
 2. **Confirm port availability:**
@@ -58,7 +58,7 @@ and VS-Code.
         * It will prompt few option, select "Reopen in Container".
 
 4. Once it Reopen in Container, you need to wait until it finishes the setup process. This process will:
-    * Build the Docker images for the Open-OSP application and database.
+    * Build the Docker images for the CARLOS application and database.
     * Configure the images and start the containers.
     * Wait for the database to be fully initialized and healthy before starting the application.
       You will see the extensions in the left sidebar along with the "Workspace" folder.
@@ -86,7 +86,7 @@ Exploded WAR".
 ## Access the application
 
 * Open your web browser and navigate to `http://localhost:8080`.
-* You should see the Open-OSP EMR application running.
+* You should see the CARLOS EMR application running.
 * Login credentials for local development are: 
     * Username: openodoc
     * Password: openo2025
@@ -168,8 +168,8 @@ docker-compose up -d
 ```bash
 docker ps
 # or use predictable names:
-docker logs -f openo-tomcat-dev
-docker logs -f openo-mariadb-dev
+docker logs -f carlos-tomcat-dev
+docker logs -f carlos-mariadb-dev
 ```
 
 ### **Complete cleanup and reset:**
@@ -198,13 +198,13 @@ docker-compose up --build -d
 ### **Maven (.m2) cache management:**
 ```bash
 # View cache size
-docker exec openo-tomcat-dev du -sh /root/.m2
+docker exec carlos-tomcat-dev du -sh /root/.m2
 
 # Clear Maven cache (forces fresh download of all dependencies)
 docker volume rm open-o_m2-volume
 
 # Or clear cache while container is running
-docker exec openo-tomcat-dev rm -rf /root/.m2/repository
+docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
 ```
 
 **When to clear Maven cache:**
@@ -216,7 +216,7 @@ docker exec openo-tomcat-dev rm -rf /root/.m2/repository
 ### **Database troubleshooting:**
 ```bash
 # Check database users
-docker exec openo-mariadb-dev mysql -u root -ppassword oscar -e "SELECT user_name, pin FROM security;"
+docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e "SELECT user_name, pin FROM security;"
 
 # Reset database only (keeps app container and Maven cache)
 docker-compose stop db
@@ -229,7 +229,7 @@ Database volumes persist data between container restarts. This means that even a
 
 ```bash
 # Check database state
-docker exec openo-mariadb-dev mysql -u root -ppassword oscar -e "SHOW TABLES;" | wc -l
+docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e "SHOW TABLES;" | wc -l
 
 # Force complete database rebuild from SQL files
 docker-compose stop db
@@ -237,7 +237,7 @@ docker volume rm open-o_mariadb-files
 docker-compose up db -d
 
 # Wait for initialization, then verify clean state
-docker logs openo-mariadb-dev | grep "ready for connections"
+docker logs carlos-mariadb-dev | grep "ready for connections"
 ```
 
 **When to remove database volume:**
@@ -274,10 +274,10 @@ The database container includes health checks to ensure it's fully ready before 
 docker ps --format "table {{.Names}}\t{{.Status}}"
 
 # View health check logs
-docker inspect openo-mariadb-dev --format='{{json .State.Health}}' | jq
+docker inspect carlos-mariadb-dev --format='{{json .State.Health}}' | jq
 
 # Force health check manually
-docker exec openo-mariadb-dev mysqladmin ping -h localhost -u root -ppassword
+docker exec carlos-mariadb-dev mysqladmin ping -h localhost -u root -ppassword
 ```
 
 The application container will wait up to 10 minutes (60s start period + 10 retries × 10s interval) for the database to become healthy. This prevents connection failures during fresh database initialization.
@@ -293,15 +293,15 @@ python3 scripts/generate_bcrypt_password.py
 # Copy the generated hash (starts with {bcrypt}$2b$...)
 
 # Update the database with the new hash
-docker exec openo-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
   "UPDATE security SET password='YOUR_BCRYPT_HASH_HERE' WHERE user_name='openodoc';"
 
 # Optional: Force password reset on next login
-docker exec openo-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
   "UPDATE security SET forcePasswordReset=1 WHERE user_name='openodoc';"
 
 # Verify the change
-docker exec openo-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
   "SELECT user_name, LEFT(password, 20) as password_start FROM security WHERE user_name='openodoc';"
 ```
 
@@ -313,7 +313,7 @@ Enter password: mynewpassword
 Generated BCrypt hash: {bcrypt}$2b$12$abc123...xyz789
 
 # Update database
-$ docker exec openo-mariadb-dev mysql -u root -ppassword oscar -e \
+$ docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
   "UPDATE security SET password='{bcrypt}\$2b\$12\$abc123...xyz789' WHERE user_name='openodoc';"
 ```
 
@@ -380,8 +380,8 @@ HIBERNATE_FORMAT_SQL=true
 
 * **`.devcontainer/devcontainer.json`:** Defines the configuration for the development environment, including Docker
   images to use, ports to forward, and user settings.
-* **`.devcontainer/development/Dockerfile`:** Defines the Docker image for the Open-OSP application.
-* **`.devcontainer/db/Dockerfile`:** Defines the Docker image for the Open-OSP database.
+* **`.devcontainer/development/Dockerfile`:** Defines the Docker image for the CARLOS application.
+* **`.devcontainer/db/Dockerfile`:** Defines the Docker image for the CARLOS database.
 * **`.devcontainer/development/setup/setup.sh`:** Automates the setup process for the development environment.
 * **` .devcontainer/development/setup/seed_data.sh`:** Automates the setup process for the needed test data files, that will be added into the test database when building the container.
 * **` .devcontainer/development/setup/setup-hot-reload.sh`:** Automates the setup process for the hot reload functionality in the development environment when building the project.
@@ -445,20 +445,20 @@ This script checks that:
     ```bash
     cd softsec
     ```
-5. **Clone the GitHub repo Open-O**
+5. **Clone the repository**
     ```bash
-    git clone https://github.com/cc-ar-emr/Open-O.git
+    git clone https://github.com/carlos-emr/carlos.git
     ```
-6. **Navigate to the Open-O repo dir**
+6. **Navigate to the repository directory**
     ```bash
-    cd Open-O
+    cd carlos
     ```
 7. **Start VS Code.**
     ```bash
     code ./
     ```
 
-* This should open the Open-O repo in VS Code and prompt you to reopen the folder in the dev container environment.
+* This should open CARLOS in VS Code and prompt you to reopen the folder in the dev container environment.
 
 ### Checksum locks
 
@@ -565,4 +565,4 @@ Run Debug Mode
 
 You should now be able to use breakpoints within vscode! 
 
-## Enjoy developing with Open-OSP!
+## Enjoy developing with CARLOS!

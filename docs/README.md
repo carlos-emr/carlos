@@ -1,8 +1,8 @@
-# OpenO EMR Documentation
+# CARLOS EMR Documentation
 
 ## Overview
 
-This directory contains technical documentation for the OpenO EMR (Electronic Medical Records) system. OpenO is a comprehensive healthcare management platform used across Canada with multi-jurisdictional compliance.
+This directory contains technical documentation for CARLOS EMR (Clinical Assisting Recording Ledger Open Source). CARLOS is a Canadian healthcare electronic medical records system with multi-jurisdictional compliance.
 
 ## Documentation Structure
 
