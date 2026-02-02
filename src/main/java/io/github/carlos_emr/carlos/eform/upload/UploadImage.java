@@ -46,6 +46,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.fileupload.DiskFileUpload;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.text.StringEscapeUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarProperties;
@@ -98,7 +99,7 @@ public class UploadImage extends HttpServlet {
         String contextPath = request.getContextPath();
         out.println("<head>");
         out.println("<script language=\"JavaScript\">");
-        out.println("setTimeout(\"top.location.href = '" + contextPath + "/eform/uploadimages.jsp'\",1000);");
+        out.println("setTimeout(\"top.location.href = '" + StringEscapeUtils.escapeEcmaScript(contextPath) + "/eform/uploadimages.jsp'\",1000);");
         out.println("</script>");
         out.println("</head>");
         out.println("<body>");

@@ -90,7 +90,7 @@ public class CustomInterfaceTag extends TagSupport {
                     }
 
                     int randomNo = new Random().nextInt();
-                    out.println("<script id=\"mainScript\" src=\"" + contextPath + "/js/custom/" + customJs + "/" + getSection() + ".js?no-cache=" + randomNo + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
+                    out.println("<script id=\"mainScript\" src=\"" + Encode.forHtmlAttribute(contextPath + "/js/custom/" + Encode.forUriComponent(customJs) + "/" + Encode.forUriComponent(getSection()) + ".js?no-cache=" + randomNo + "&autoRefresh=true") + "\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + Encode.forHtmlAttribute(customTag) + " ></script>");
                 }
             } catch (IOException e) {
                 logger.error("Error", e);

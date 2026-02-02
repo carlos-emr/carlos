@@ -27,6 +27,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import io.github.carlos_emr.Misc;
+import org.owasp.encoder.Encode;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
@@ -53,7 +54,7 @@ public class HtmlTeleplanHelper {
         htmlContentHeader.append("<body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>\n");
         htmlContentHeader.append("<table width='100%' border='0' cellspacing='0' cellpadding='0'> \n");
         htmlContentHeader.append("<tr> \n");
-        htmlContentHeader.append("<td colspan='11' class='bodytext'>" + errorMsg + "</td> \n");
+        htmlContentHeader.append("<td colspan='11' class='bodytext'>").append(Encode.forHtml(errorMsg)).append("</td> \n");
         htmlContentHeader.append("</tr> \n");
         return htmlContentHeader.toString();
     }
@@ -66,8 +67,8 @@ public class HtmlTeleplanHelper {
         }
         StringBuilder htmlContentHeader = new StringBuilder();
         htmlContentHeader.append("<tr> \n");
-        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo + "</td> \n");
-        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of " + dateStr + "</td> \n");
+        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No.").append(Encode.forHtml(providerNo)).append("</td> \n");
+        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of ").append(Encode.forHtml(dateStr)).append("</td> \n");
         htmlContentHeader.append("</tr> \n");
 
         htmlContentHeader.append("<tr> \n");
@@ -91,8 +92,8 @@ public class HtmlTeleplanHelper {
         htmlContentHeader.append("<html><body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>");
         htmlContentHeader.append("<table width='100%' border='0' cellspacing='0' cellpadding='0'>");
         htmlContentHeader.append("<tr>");
-        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo + "</td>");
-        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of " + output + "</td>");
+        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No.").append(Encode.forHtml(providerNo)).append("</td>");
+        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of ").append(Encode.forHtml(output)).append("</td>");
         htmlContentHeader.append("</tr>");
         htmlContentHeader.append("<tr>");
         htmlContentHeader.append("<td width='9%' class='bodytext'>INVOICE</td>");
@@ -107,29 +108,30 @@ public class HtmlTeleplanHelper {
         htmlContentHeader.append("<td width='8%' align='right' class='bodytext'>SEQUENCE</td>");
         htmlContentHeader.append("<td width='5%' align='right' class='bodytext'>COMMENT</td>");
         htmlContentHeader.append("</tr>");
-        htmlContentHeader.append(errorMsg);
+        htmlContentHeader.append(Encode.forHtml(errorMsg));
         return htmlContentHeader.toString();
     }
 
     public static String htmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
         StringBuilder htmlContent = new StringBuilder();
+        String paddedBillingMasterNo = Misc.forwardZero(billingMasterNo, 7);
         htmlContent.append("<tr> \n");
         htmlContent.append("<td class='bodytext'> \n");
         htmlContent.append("<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=");
-        htmlContent.append(Misc.forwardZero(billingMasterNo, 7));
+        htmlContent.append(Encode.forJavaScript(paddedBillingMasterNo));
         htmlContent.append("','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">");
-        htmlContent.append(invNo);
+        htmlContent.append(Encode.forHtml(invNo));
         htmlContent.append("</a>");
         htmlContent.append("</td>\n");
-        htmlContent.append("<td class='bodytext'>" + demoName + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + phn + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + serviceDate + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + billingCode + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + billAmount + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(demoName)).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(phn)).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(serviceDate)).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(billingCode)).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(billAmount)).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(Misc.backwardSpace(dx1, 5))).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(Misc.backwardSpace(dx2, 5))).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(Misc.backwardSpace(dx3, 5))).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(paddedBillingMasterNo)).append("</td>\n");
         htmlContent.append("<td class='bodytext'>&nbsp;</td>\n");
         htmlContent.append("</tr>\n");
         return htmlContent.toString();
@@ -138,7 +140,7 @@ public class HtmlTeleplanHelper {
     public static String htmlFooter(String providerNo, int count, BigDecimal total) {
         StringBuilder htmlFooter = new StringBuilder();
         htmlFooter.append("<tr><td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: ");
-        htmlFooter.append(providerNo);
+        htmlFooter.append(Encode.forHtml(providerNo));
         htmlFooter.append(": ");
         htmlFooter.append(count);
         htmlFooter.append(" RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: ");

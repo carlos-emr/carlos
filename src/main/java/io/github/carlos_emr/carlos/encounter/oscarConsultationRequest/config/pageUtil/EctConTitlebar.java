@@ -32,6 +32,8 @@ import java.util.ResourceBundle;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.owasp.encoder.Encode;
+
 public class EctConTitlebar {
 
     public EctConTitlebar() {
@@ -83,11 +85,11 @@ public class EctConTitlebar {
         for (int i = 0; i < jspVect.size(); i++) {
             if (uri.equals(jspVect.get(i)) && request.getAttribute("upd") == null) {
                 strBuf.append("      <td bgcolor=\"#ccccff\">\n");
-                strBuf.append("         <a href=" + jspVect.get(i) + " class=\"consultButtonsDormant\">" + displayNameVect.get(i) + "</a>\n");
+                strBuf.append("         <a href=\"").append(Encode.forHtmlAttribute(jspVect.get(i))).append("\" class=\"consultButtonsDormant\">").append(Encode.forHtml(displayNameVect.get(i))).append("</a>\n");
                 strBuf.append("      </td>\n");
             } else {
                 strBuf.append("      <td bgcolor=\"#9999ff\">\n");
-                strBuf.append(String.valueOf(String.valueOf((new StringBuilder("         <a href=")).append(jspVect.get(i)).append(" class=\"consultButtonsActive\">").append(displayNameVect.get(i)).append("</a>\n"))));
+                strBuf.append("         <a href=\"").append(Encode.forHtmlAttribute(jspVect.get(i))).append("\" class=\"consultButtonsActive\">").append(Encode.forHtml(displayNameVect.get(i))).append("</a>\n");
                 strBuf.append("      </td>\n");
             }
             strBuf.append("   </tr>\n");

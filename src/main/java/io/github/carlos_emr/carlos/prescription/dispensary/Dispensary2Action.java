@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 public class Dispensary2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -150,7 +151,7 @@ public class Dispensary2Action extends ActionSupport {
             List<DrugProduct> dps = drugProductDao.findByDispensingId(dd.getId());
             for (int x = 0; x < dps.size(); x++) {
                 DrugProduct dp = dps.get(x);
-                sb.append("<tr><td>" + dp.getLotNumber() + "</td><td>" + dp.getExpiryDateAsString() + "</td></tr>");
+                sb.append("<tr><td>").append(Encode.forHtml(dp.getLotNumber())).append("</td><td>").append(Encode.forHtml(dp.getExpiryDateAsString())).append("</td></tr>");
                 totalAmountForDD += dp.getAmount();
             }
             sb.append("</table>");

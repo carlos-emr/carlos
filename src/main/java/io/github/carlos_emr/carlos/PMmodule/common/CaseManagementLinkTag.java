@@ -24,6 +24,8 @@
 package io.github.carlos_emr.carlos.PMmodule.common;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -73,12 +75,12 @@ public class CaseManagementLinkTag extends TagSupport {
             builder.append(req.getContextPath()).append("/");
 
             builder.append("oscarEncounter/IncomingEncounter.do").append("?");
-            builder.append("providerNo=").append(providerNo).append("&");
+            builder.append("providerNo=").append(URLEncoder.encode(providerNo != null ? providerNo : "", StandardCharsets.UTF_8)).append("&");
             builder.append("appointmentNo=").append(0).append("&");
             builder.append("demographicNo=").append(demographicNo).append("&");
-            builder.append("curProviderNo=").append(providerNo).append("&");
+            builder.append("curProviderNo=").append(URLEncoder.encode(providerNo != null ? providerNo : "", StandardCharsets.UTF_8)).append("&");
             builder.append("reason=").append("&");
-            builder.append("userName=").append(providerName).append("&");
+            builder.append("userName=").append(URLEncoder.encode(providerName != null ? providerName : "", StandardCharsets.UTF_8)).append("&");
             builder.append("curDate=").append(placeDate).append("&");
             builder.append("appointmentDate=").append(placeDate).append("&");
             builder.append("startTime=").append(placeTime).append("&");

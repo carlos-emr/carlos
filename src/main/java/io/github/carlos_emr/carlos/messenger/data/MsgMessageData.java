@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.owasp.encoder.Encode;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -471,7 +472,7 @@ public class MsgMessageData {
             if (xmlDoc != null) {
                 ArrayList<String> sortedProvs = vectOfSortedProvs.get(i);
 
-                stringBuffer.append("<br/><br/>Providers at " + theLocationDesc + " receiving this message: <br/> ");
+                stringBuffer.append("<br/><br/>Providers at ").append(Encode.forHtml(theLocationDesc)).append(" receiving this message: <br/> ");
 
                 Element addressBook = xmlDoc.getDocumentElement();
                 NodeList lst = addressBook.getElementsByTagName("address");
@@ -487,7 +488,7 @@ public class MsgMessageData {
 
                         if (providerNo.equals(elly.getAttribute("id"))) {
                             j = lst.getLength();
-                            stringBuffer.append(elly.getAttribute("desc") + ". ");
+                            stringBuffer.append(Encode.forHtml(elly.getAttribute("desc"))).append(". ");
                         }
                     }
 

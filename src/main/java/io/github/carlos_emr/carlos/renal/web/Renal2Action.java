@@ -26,6 +26,7 @@ package io.github.carlos_emr.carlos.renal.web;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.*;
+import org.owasp.encoder.Encode;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -237,7 +238,9 @@ public class Renal2Action extends ActionSupport {
         }
 
         if ((latestEgfr != null && latestEgfr < 30) || (latestAcr != null && latestAcr >= 60)) {
-            nextSteps = "<a href=\"javascript:void();\" onclick=\"window.open('" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + demographicNo + "&teamVar=','Consultation" + demographicNo + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
+            String escapedContextPath = Encode.forJavaScript(request.getContextPath());
+            String escapedDemoNo = Encode.forJavaScript(demographicNo);
+            nextSteps = "<a href=\"javascript:void();\" onclick=\"window.open('" + escapedContextPath + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + escapedDemoNo + "&teamVar=','Consultation" + escapedDemoNo + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
         }
 
         if ((latestAcr != null && latestAcr > 2.8 && latestAcr < 60) && (latestEgfr != null && latestEgfr > 30)) {
@@ -254,7 +257,9 @@ public class Renal2Action extends ActionSupport {
 
         if (latestEgfr != null && aYearAgoEgfr != null) {
             if ((aYearAgoEgfr.doubleValue() - latestEgfr.doubleValue()) > 20) {
-                nextSteps = "Check ACR, and if drop pesistent, <a href=\"javascript:void();\" onclick=\"window.open('" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + demographicNo + "&teamVar=','Consultation" + demographicNo + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
+                String escapedCtxPath = Encode.forJavaScript(request.getContextPath());
+                String escapedDemoNum = Encode.forJavaScript(demographicNo);
+                nextSteps = "Check ACR, and if drop pesistent, <a href=\"javascript:void();\" onclick=\"window.open('" + escapedCtxPath + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + escapedDemoNum + "&teamVar=','Consultation" + escapedDemoNum + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
             }
         }
 

@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -212,10 +213,11 @@ public class WcbSb {
             }
         }
 
-        String ret = "<tr bgcolor='red'><td colspan='11'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Misc.forwardZero(this.billing_no, 7) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + m.toString() + "</a>" + "</td></tr>";
         if ("".equals(m.toString())) {
             return "";
         }
+        String paddedBillingNo = Misc.forwardZero(this.billing_no, 7);
+        String ret = "<tr bgcolor='red'><td colspan='11'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Encode.forJavaScript(paddedBillingNo) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + Encode.forHtml(m.toString()) + "</a>" + "</td></tr>";
         return ret;
     }
 
@@ -387,9 +389,25 @@ public class WcbSb {
     }
 
     public String getHtmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
-        String htmlContent = "<tr>" + "<td class='bodytext'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Misc.forwardZero(billingMasterNo, 7) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + invNo + "</a>" + "</td>" + "<td class='bodytext'>" + demoName + "</td>" + "<td class='bodytext'>" + w_phn + "</td>" + "<td class='bodytext'>" + dateFormat(serviceDate) + "</td>" + "<td class='bodytext'>" + billingCode + "</td>"
-                + "<td align='right' class='bodytext'>" + billAmount + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" + "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" + "<td class='bodytext'>&nbsp;</td>" + "</tr>";
-        return htmlContent;
+        String paddedBillingMasterNo = Misc.forwardZero(billingMasterNo, 7);
+        StringBuilder htmlContent = new StringBuilder();
+        htmlContent.append("<tr>");
+        htmlContent.append("<td class='bodytext'>");
+        htmlContent.append("<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=").append(Encode.forJavaScript(paddedBillingMasterNo)).append("','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">");
+        htmlContent.append(Encode.forHtml(invNo)).append("</a>");
+        htmlContent.append("</td>");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(demoName)).append("</td>");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(w_phn)).append("</td>");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(dateFormat(serviceDate))).append("</td>");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(billingCode)).append("</td>");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(billAmount)).append("</td>");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(Misc.backwardSpace(dx1, 5))).append("</td>");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(Misc.backwardSpace(dx2, 5))).append("</td>");
+        htmlContent.append("<td align='right' class='bodytext'>").append(Encode.forHtml(Misc.backwardSpace(dx3, 5))).append("</td>");
+        htmlContent.append("<td class='bodytext'>").append(Encode.forHtml(paddedBillingMasterNo)).append("</td>");
+        htmlContent.append("<td class='bodytext'>&nbsp;</td>");
+        htmlContent.append("</tr>");
+        return htmlContent.toString();
     }
 
     boolean isFormNeeded() {

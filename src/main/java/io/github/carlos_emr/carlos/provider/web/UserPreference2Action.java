@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.provider.web;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.entities.Provider;
+import org.owasp.encoder.Encode;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;

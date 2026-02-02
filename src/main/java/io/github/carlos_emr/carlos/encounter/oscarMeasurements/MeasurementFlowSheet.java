@@ -45,6 +45,7 @@ import org.apache.commons.collections.OrderedMapIterator;
 import org.apache.commons.collections.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import org.drools.RuleBase;
 import org.drools.WorkingMemory;
 import org.drools.io.RuleBaseLoader;
@@ -163,7 +164,18 @@ public class MeasurementFlowSheet {
                 if (!s.equals("OscarCode:CKDSCREEN")) {
                     String[] type = s.split(":");
                     desc = dao.getCodeDescription(type[0], type[1]);
-                    sb.append("<li><a href='javascript:void(0);' id='dxlink" + type[1] + "' rel='selectedCodingSystem=" + type[0] + "&forward=" + type[1] + "&demographicNo=" + demo + "&providerNo=" + provider + "'>" + s + " " + desc + "</a></li>");
+                    String encodedType0 = Encode.forHtmlAttribute(type[0]);
+                    String encodedType1 = Encode.forHtmlAttribute(type[1]);
+                    String encodedDemo = Encode.forHtmlAttribute(demo);
+                    String encodedProvider = Encode.forHtmlAttribute(provider);
+                    String encodedS = Encode.forHtml(s);
+                    String encodedDesc = Encode.forHtml(desc);
+                    sb.append("<li><a href='javascript:void(0);' id='dxlink").append(encodedType1)
+                      .append("' rel='selectedCodingSystem=").append(encodedType0)
+                      .append("&forward=").append(encodedType1)
+                      .append("&demographicNo=").append(encodedDemo)
+                      .append("&providerNo=").append(encodedProvider)
+                      .append("'>").append(encodedS).append(" ").append(encodedDesc).append("</a></li>");
                 }
             }
 
