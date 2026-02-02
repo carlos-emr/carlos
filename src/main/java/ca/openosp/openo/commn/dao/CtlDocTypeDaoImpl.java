@@ -44,6 +44,9 @@ public class CtlDocTypeDaoImpl extends AbstractDaoImpl<CtlDocType> implements Ct
         super(CtlDocType.class);
     }
 
+    /**
+     * Updates the status of a document type for specified modules.
+     */
     public void changeDocType(String docType, String module, String status) {
         List<String> modules = EDocUtil.getModulesForQuery(module);
         String sql = "UPDATE CtlDocType SET status =?1 WHERE module in (?2) AND doctype =?3";
@@ -63,6 +66,9 @@ public class CtlDocTypeDaoImpl extends AbstractDaoImpl<CtlDocType> implements Ct
         return this.findByStatusAndModule(result, module);
     }
 
+    /**
+     * Retrieves a list of CtlDocType entities by their status and module.
+     */
     public List<CtlDocType> findByStatusAndModule(List<String> status, String module) {
         List<String> modules = EDocUtil.getModulesForQuery(module);
         Query query = entityManager.createQuery("select c from CtlDocType c where c.status in (?1) and c.module in (?2)");
@@ -73,6 +79,9 @@ public class CtlDocTypeDaoImpl extends AbstractDaoImpl<CtlDocType> implements Ct
         return results;
     }
 
+    /**
+     * Retrieves a list of CtlDocType based on the specified document type and module.
+     */
     public List<CtlDocType> findByDocTypeAndModule(String docType, String module) {
         List<String> modules = EDocUtil.getModulesForQuery(module);
         Query query = entityManager.createQuery("select c from CtlDocType c where c.docType=?1 and c.module in (?2)");
@@ -83,6 +92,9 @@ public class CtlDocTypeDaoImpl extends AbstractDaoImpl<CtlDocType> implements Ct
         return results;
     }
 
+    /**
+     * Adds a document type with the specified module to the database.
+     */
     public void addDocType(String docType, String module) {
         if (module == null) {
             throw new IllegalArgumentException("module cannot be null");
