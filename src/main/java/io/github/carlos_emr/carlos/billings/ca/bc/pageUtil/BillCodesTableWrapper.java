@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.util.Map;
 
 import org.displaytag.decorator.TableDecorator;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 /**
@@ -47,11 +48,16 @@ public class BillCodesTableWrapper
     }
 
     public String getAssociationStatus() {
-        String ret = "";
         Map map = (Map) this.getCurrentRowObject();
-        ret = "<a href=\"#\" onClick=\"editAssociation('" + map.get("billingServiceNo") + "','" + map.get("billingServiceTrayNo") + "'); return false;\">Edit</a>";
-        ret += "<br />";
-        ret += "<a href=\"#\" onClick=\"deleteAssociation('" + map.get("id") + "'); return false;\">Delete</a>";
-        return ret;
+        String billingServiceNo = Encode.forJavaScript(String.valueOf(map.get("billingServiceNo")));
+        String billingServiceTrayNo = Encode.forJavaScript(String.valueOf(map.get("billingServiceTrayNo")));
+        String mapId = Encode.forJavaScript(String.valueOf(map.get("id")));
+        StringBuilder ret = new StringBuilder();
+        ret.append("<a href=\"#\" onClick=\"editAssociation('").append(billingServiceNo);
+        ret.append("','").append(billingServiceTrayNo).append("'); return false;\">Modify</a>");
+        ret.append("<br />");
+        ret.append("<a href=\"#\" onClick=\"deleteAssociation('").append(mapId);
+        ret.append("'); return false;\">Remove</a>");
+        return ret.toString();
     }
 }

@@ -349,10 +349,10 @@ public class EForm extends EFormBase {
 
             html.insert(formEndLoc - 1, "<span id='_oscardodatabaseupdatespan' style='position: absolute;' class='DoNotPrint'><input type='checkbox' name='_oscardodatabaseupdate' onchange='_togglehighlight()' /> Update Fields in Database<br />" +
                     "<input type='button' id='_oscarrefreshfieldsbtn' name='_oscarrefreshfieldsbtn' value='Refresh DB Fields' onclick='_refreshfields()' /></span> " +
-                    "<input type='hidden' id='_oscarupdatefields' name='_oscarupdatefields' value='" + fieldValue + "' />" +
-                    "<input type='hidden' id='_oscardemographicno' name='_oscardemographicno' value='" + this.demographicNo + "' />" +
-                    "<input type='hidden' id='_oscarproviderno' name='_oscarproviderno' value='" + this.providerNo + "' />" +
-                    "<input type='hidden' id='_oscarfid' name='_oscarfid' value='" + this.fid + "' />");
+                    "<input type='hidden' id='_oscarupdatefields' name='_oscarupdatefields' value='" + Encode.forHtmlAttribute(fieldValue) + "' />" +
+                    "<input type='hidden' id='_oscardemographicno' name='_oscardemographicno' value='" + Encode.forHtmlAttribute(this.demographicNo) + "' />" +
+                    "<input type='hidden' id='_oscarproviderno' name='_oscarproviderno' value='" + Encode.forHtmlAttribute(this.providerNo) + "' />" +
+                    "<input type='hidden' id='_oscarfid' name='_oscarfid' value='" + Encode.forHtmlAttribute(this.fid) + "' />");
 
             this.formHtml = html.insert(scriptEndLoc, "<script type='text/javascript' src='oscar/library/jquery/jquery-3.6.4.min.js'></script>" +
                     "<script type='text/javascript' src='oscar/js/eform_highlight.js'></script>").toString();
