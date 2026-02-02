@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDrug;
@@ -163,7 +164,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
 
-                    descr = "<span " + getClassColour(drug, now, month) + ">" + descr + "</span>";
+                    descr = "<span " + getClassColour(drug, now, month) + ">" + Encode.forHtml(descr) + "</span>";
 
                     item.setTitle(descr);
                     item.setLinkTitle(tmp + " " + serviceDateStr + " - " + drug.getEndDate());
@@ -175,7 +176,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     // strTitle = "<span " + styleColor + ">" + strTitle + "</span>";
-                    strTitle = "<span " + getClassColour(drug, now, month) + ">" + strTitle + "</span>";
+                    strTitle = "<span " + getClassColour(drug, now, month) + ">" + Encode.forHtml(strTitle) + "</span>";
                     item.setTitle(strTitle);
                     item.setLinkTitle(tmp + " " + serviceDateStr + " - " + drug.getEndDate());
                 }
