@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -94,8 +95,8 @@ public class INRReporter implements Reporter {
                         header.append("<th class=\"reportHeader\">INR</th><th class=\"reportHeader\">Observation Date</th><th class=\"reportHeader\">Dx Code</th>");
                         csvHeader.append(",INR,Observation Date,Dx Code");
                     }
-                    body.append("<td>" + m.getDataField() + "</td><td>" + ConversionUtils.toDateString(m.getDateObserved()) + "</td><td>"
-                            + dx.getDxresearchCode() + "</td>");
+                    body.append("<td>").append(Encode.forHtml(m.getDataField())).append("</td><td>").append(Encode.forHtml(ConversionUtils.toDateString(m.getDateObserved()))).append("</td><td>")
+                            .append(Encode.forHtml(dx.getDxresearchCode())).append("</td>");
                     csvBody.append("," + m.getDataField() + "," + ConversionUtils.toDateString(m.getDateObserved()) + "," + dx.getDxresearchCode());
                 } else {
                     if (firstRow) {
@@ -112,8 +113,8 @@ public class INRReporter implements Reporter {
                     curHeader = 1;
                     demographicNo = d.getDemographicNo().longValue();
                     cssCurrent = cssCurrent.equals(cssRow2) ? cssRow1 : cssRow2;
-                    body.append("<tr class=\"" + cssCurrent + "\">");
-                    body.append("<td>" + d.getLastName() + "</td><td>" + d.getFirstName() + "</td><td>" + d.getBirthDayAsString() + "</td><td>" + d.getProviderNo() + "</td><td>" + m.getDataField() + "</td><td>" + ConversionUtils.toDateString(m.getDateObserved()) + "</td><td>" + dx.getDxresearchCode() + "</td>");
+                    body.append("<tr class=\"").append(Encode.forHtmlAttribute(cssCurrent)).append("\">");
+                    body.append("<td>").append(Encode.forHtml(d.getLastName())).append("</td><td>").append(Encode.forHtml(d.getFirstName())).append("</td><td>").append(Encode.forHtml(d.getBirthDayAsString())).append("</td><td>").append(Encode.forHtml(d.getProviderNo())).append("</td><td>").append(Encode.forHtml(m.getDataField())).append("</td><td>").append(Encode.forHtml(ConversionUtils.toDateString(m.getDateObserved()))).append("</td><td>").append(Encode.forHtml(dx.getDxresearchCode())).append("</td>");
                     csvBody.append(d.getLastName() + "," + d.getFirstName() + "," + d.getBirthDayAsString() + "," + d.getProviderNo() + "," + m.getDataField() + "," + ConversionUtils.toDateString(m.getDateObserved()) + "," + dx.getDxresearchCode());
 
                 }

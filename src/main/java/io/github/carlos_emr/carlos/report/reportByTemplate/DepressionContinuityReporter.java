@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -148,7 +149,7 @@ public class DepressionContinuityReporter implements Reporter {
             html.append("reportRow2\">");
         }
         odd = !odd;
-        html.append("<td>" + demographic_no + "</td><td>" + service_date + "</td><td>" + dx + "</td>");
+        html.append("<td>").append(Encode.forHtml(demographic_no)).append("</td><td>").append(Encode.forHtml(service_date)).append("</td><td>").append(Encode.forHtml(dx)).append("</td>");
         html.append("<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
         html.append("<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
         html.append("</tr>");
@@ -203,8 +204,8 @@ public class DepressionContinuityReporter implements Reporter {
                 rsHtml.append("reportRow2\">");
             }
             odd = !odd;
-            rsHtml.append("<td>" + p7 + "</td><td>&nbsp;</td><td>&nbsp;</td>");
-            rsHtml.append("<td>" + p1 + "</td><td>" + p2 + "</td><td>" + p3 + "</td>");
+            rsHtml.append("<td>").append(Encode.forHtml(String.valueOf(p7))).append("</td><td>&nbsp;</td><td>&nbsp;</td>");
+            rsHtml.append("<td>").append(Encode.forHtml(String.valueOf(p1))).append("</td><td>").append(Encode.forHtml(p2)).append("</td><td>").append(Encode.forHtml(p3)).append("</td>");
 
             rxName = p5;
             if (rxName == null || rxName.equalsIgnoreCase("null")) {
@@ -219,7 +220,7 @@ public class DepressionContinuityReporter implements Reporter {
 
             rxPrescriber = p6 == null ? " " : p6;
 
-            rsHtml.append("<td>" + p4 + "</td><td>" + rxName + "</td><td>" + rxPrescriber + "</td>");
+            rsHtml.append("<td>").append(Encode.forHtml(p4)).append("</td><td>").append(Encode.forHtml(rxName)).append("</td><td>").append(Encode.forHtml(rxPrescriber)).append("</td>");
             rsHtml.append("</tr>");
 
             csv.append(curDemo + ", , ");
