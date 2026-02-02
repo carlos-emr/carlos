@@ -1770,13 +1770,12 @@
                                 <buildDirectory>${project.build.directory}</buildDirectory>
                             </systemPropertyVariables>
                             <!-- Java 21 compatibility flags for JAXB -->
+                            <!-- TESTING: Removed sun.reflect and sun.nio.ch opens to verify if still needed -->
                             <argLine>
                                 -Xmx2048m
                                 -Dnet.bytebuddy.experimental=true
                                 --add-opens java.base/java.lang=ALL-UNNAMED
                                 --add-opens java.base/java.lang.reflect=ALL-UNNAMED
-                                --add-opens java.base/sun.reflect=ALL-UNNAMED
-                                --add-opens java.base/sun.nio.ch=ALL-UNNAMED
                                 --add-opens java.base/java.io=ALL-UNNAMED
                                 --add-opens java.base/java.util=ALL-UNNAMED
                             </argLine>
