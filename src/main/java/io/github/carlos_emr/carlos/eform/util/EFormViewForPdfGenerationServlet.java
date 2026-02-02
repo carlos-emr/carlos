@@ -37,6 +37,19 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     private static final Logger logger = MiscUtils.getLogger();
 
     @Override
+    /**
+     * Handles HTTP GET requests for generating PDF forms.
+     *
+     * Validates the request to ensure it originates from a local machine and checks for required parameters.
+     * It retrieves form data, processes it, and modifies the HTML content accordingly, including setting
+     * security headers and handling specific conditions for fax preparation. The method also manages
+     * image paths and updates the form HTML before sending the response.
+     *
+     * @param request the HttpServletRequest object containing the request data
+     * @param response the HttpServletResponse object for sending the response
+     * @throws ServletException if an error occurs during the servlet processing
+     * @throws IOException if an input or output error occurs while handling the request
+     */
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.
         String remoteAddress = request.getRemoteAddr();
