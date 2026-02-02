@@ -34,6 +34,9 @@ import java.util.Set;
 
 import javax.persistence.*;
 
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import ca.openosp.openo.PMmodule.model.Program;
@@ -110,6 +113,8 @@ public class Tickler extends AbstractModel<Integer> {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private TicklerCategory ticklerCategory;
 
     @OneToMany(fetch = FetchType.LAZY)
@@ -121,28 +126,38 @@ public class Tickler extends AbstractModel<Integer> {
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @OrderBy("updateDate ASC")
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private Set<TicklerComment> comments = new HashSet<TicklerComment>();
 
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "demographic_no", referencedColumnName = "demographic_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private Demographic demographic;
 
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "creator", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private Provider provider;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "task_assigned_to", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private Provider assignee;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "program_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private Program program;
 
 

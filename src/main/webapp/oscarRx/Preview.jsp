@@ -180,7 +180,7 @@
                     <input type="hidden" name="patientCityPostal"
                            value="<%= StringEscapeUtils.escapeHtml4(patient.getCity())+ ", " + StringEscapeUtils.escapeHtml4(patient.getProvince()) + " " + StringEscapeUtils.escapeHtml4(patient.getPostal())%>"/>
                     <input type="hidden" name="patientPhone"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/><%=StringEscapeUtils.escapeHtml4(patient.getPhone()) %>"/>
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=StringEscapeUtils.escapeHtml4(patient.getPhone()) %>"/>
 
                     <input type="hidden" name="rxDate"
                            value="<%= StringEscapeUtils.escapeHtml4(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>

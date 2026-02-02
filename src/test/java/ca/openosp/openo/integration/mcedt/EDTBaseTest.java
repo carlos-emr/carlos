@@ -3,6 +3,7 @@ package ca.openosp.openo.integration.mcedt;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,6 +28,7 @@ import org.apache.xml.security.utils.resolver.ResourceResolver;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Test;
 import ca.openosp.openo.commn.dao.utils.ConfigUtils;
 import ca.openosp.openo.integration.ebs.client.ng.EdtClientBuilder;
 import ca.openosp.openo.integration.ebs.client.ng.EdtClientBuilderConfig;
@@ -337,7 +339,7 @@ public abstract class EDTBaseTest {
         config.setServiceId(serviceId == null ? props.getProperty("mcedt.service.id") : serviceId);
         config.setMtomEnabled(true);
         EdtClientBuilder builder = new EdtClientBuilder(config);
-        setExternalClientKeystoreFilename(props.getProperty("mcedt.service.clientKeystore.properties"));
+        setExternalClientKeystoreFilename(builder, props.getProperty("mcedt.service.clientKeystore.properties"));
         EDTDelegate edtDelegate = builder.build(EDTDelegate.class);
         if (logger.isInfoEnabled()) {
             logger.info("Created new EDT delegate " + edtDelegate);
@@ -345,11 +347,18 @@ public abstract class EDTBaseTest {
         return edtDelegate;
     }
 
-    /*
-     * User can set an external `clientKeystore.properties` by providing the path to the file.
-     * If the path is not provided, it will default to `src/main/resources/clientKeystore.properties`.
+    /**
+     * Set an external client keystore properties file for the EDT client builder in test context.
+     * This method configures a custom keystore properties file path for MCEDT service
+     * client certificate authentication during testing. If the provided path is null or the
+     * file does not exist, the default keystore at src/main/resources/clientKeystore.properties
+     * will be used.
+     *
+     * @param builder EdtClientBuilder the EDT client builder instance to configure
+     * @param clientKeystorePropertiesPath String the absolute path to the client keystore properties file, or null to use default
+     * @since 2026-01-29
      */
-    protected static void setExternalClientKeystoreFilename(String clientKeystorePropertiesPath) {
+    protected static void setExternalClientKeystoreFilename(EdtClientBuilder builder, String clientKeystorePropertiesPath) {
         if (clientKeystorePropertiesPath == null) {
             return;
         }
@@ -357,10 +366,119 @@ public abstract class EDTBaseTest {
         if (Files.exists(signaturePropFile)) {
             File file = new File(clientKeystorePropertiesPath);
             try {
-                EdtClientBuilder.setClientKeystoreFilename(file.toURI().toURL().toString());
+                builder.setClientKeystoreFilename(file.toURI().toURL().toString());
             } catch (MalformedURLException e) {
                 logger.error("Malformed URL: " + clientKeystorePropertiesPath, e);
             }
         }
+    }
+
+    /**
+     * Regression test to verify keystore configuration is isolated per EdtClientBuilder instance.
+     * This test ensures that the race condition fix (making clientKeystore instance-based rather
+     * than static) is maintained. If clientKeystore were ever made static again, this test would fail.
+     */
+    @Test
+    public void clientKeystoreConfigurationIsIsolatedPerBuilderInstance() throws Exception {
+        // Arrange: create two independent EDT configurations and builders
+        OscarProperties props = OscarProperties.getInstance();
+        EdtClientBuilderConfig config1 = new EdtClientBuilderConfig();
+        config1.setMtomEnabled(true);
+        config1.setServiceUrl(props.getProperty("mcedt.service.url"));
+        config1.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
+        config1.setServiceId(props.getProperty("mcedt.service.id"));
+
+        EdtClientBuilderConfig config2 = new EdtClientBuilderConfig();
+        config2.setMtomEnabled(true);
+        config2.setServiceUrl(props.getProperty("mcedt.service.url"));
+        config2.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
+        config2.setServiceId(props.getProperty("mcedt.service.id"));
+
+        EdtClientBuilder builder1 = new EdtClientBuilder(config1);
+        EdtClientBuilder builder2 = new EdtClientBuilder(config2);
+
+        // Act: configure different keystore paths on each builder
+        // Using the default keystore location as a test value
+        String keystorePath1 = "clientKeystore.properties";
+        String keystorePath2 = "alternateKeystore.properties";
+
+        builder1.setClientKeystoreFilename(keystorePath1);
+        builder2.setClientKeystoreFilename(keystorePath2);
+
+        // Assert: client keystore configuration is not shared between builders
+        // Using reflection to access the private clientKeystore field
+        java.lang.reflect.Field clientKeystoreField = EdtClientBuilder.class.getDeclaredField("clientKeystore");
+        clientKeystoreField.setAccessible(true);
+
+        Object clientKeystore1 = clientKeystoreField.get(builder1);
+        Object clientKeystore2 = clientKeystoreField.get(builder2);
+
+        assertNotNull("First builder should have client keystore configured", clientKeystore1);
+        assertNotNull("Second builder should have client keystore configured", clientKeystore2);
+        assertNotSame("Client keystore must be isolated per builder instance", clientKeystore1, clientKeystore2);
+        assertEquals("First builder keystore should match configured value", keystorePath1, clientKeystore1);
+        assertEquals("Second builder keystore should match configured value", keystorePath2, clientKeystore2);
+    }
+
+    /**
+     * Test that setExternalClientKeystoreFilename does not modify the builder when path is null.
+     * Verifies that null paths are treated as "use default keystore" per the method contract.
+     */
+    @Test
+    public void setExternalClientKeystoreFilename_nullPath_usesDefaultKeystore() throws Exception {
+        // Arrange
+        OscarProperties props = OscarProperties.getInstance();
+        EdtClientBuilderConfig config = new EdtClientBuilderConfig();
+        config.setMtomEnabled(true);
+        config.setServiceUrl(props.getProperty("mcedt.service.url"));
+        config.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
+        config.setServiceId(props.getProperty("mcedt.service.id"));
+
+        EdtClientBuilder builder = new EdtClientBuilder(config);
+
+        // Get the default keystore value before calling the method
+        java.lang.reflect.Field clientKeystoreField = EdtClientBuilder.class.getDeclaredField("clientKeystore");
+        clientKeystoreField.setAccessible(true);
+        Object defaultKeystore = clientKeystoreField.get(builder);
+
+        // Act: call with null path
+        setExternalClientKeystoreFilename(builder, null);
+
+        // Assert: keystore should remain unchanged (still the default)
+        Object keystoreAfter = clientKeystoreField.get(builder);
+        assertEquals("Keystore should remain at default when null path is provided", defaultKeystore, keystoreAfter);
+    }
+
+    /**
+     * Test that setExternalClientKeystoreFilename does not modify the builder when path does not exist.
+     * Verifies that non-existent paths are treated as "use default keystore" per the method contract.
+     */
+    @Test
+    public void setExternalClientKeystoreFilename_nonExistentPath_usesDefaultKeystore() throws Exception {
+        // Arrange
+        OscarProperties props = OscarProperties.getInstance();
+        EdtClientBuilderConfig config = new EdtClientBuilderConfig();
+        config.setMtomEnabled(true);
+        config.setServiceUrl(props.getProperty("mcedt.service.url"));
+        config.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
+        config.setServiceId(props.getProperty("mcedt.service.id"));
+
+        EdtClientBuilder builder = new EdtClientBuilder(config);
+
+        // Get the default keystore value before calling the method
+        java.lang.reflect.Field clientKeystoreField = EdtClientBuilder.class.getDeclaredField("clientKeystore");
+        clientKeystoreField.setAccessible(true);
+        Object defaultKeystore = clientKeystoreField.get(builder);
+
+        // Use a path that does not exist
+        Path nonExistentPath = Paths.get("target", "does-not-exist", "clientKeystore.properties");
+        assertFalse("Test precondition failed: non-existent path unexpectedly exists", Files.exists(nonExistentPath));
+
+        // Act: call with non-existent path
+        setExternalClientKeystoreFilename(builder, nonExistentPath.toAbsolutePath().toString());
+
+        // Assert: keystore should remain unchanged (still the default)
+        Object keystoreAfter = clientKeystoreField.get(builder);
+        assertEquals("Keystore should remain at default when non-existent path is provided", defaultKeystore, keystoreAfter);
     }
 }

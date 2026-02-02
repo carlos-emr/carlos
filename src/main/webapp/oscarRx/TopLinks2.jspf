@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", getDrugRefStatus);
             %>
           </select>
 
-            <a style="color:white;" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
+            <a style="color: #0000FF; text-decoration: underline;" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
                onclick="ShowSpin(true); return true;">
               (Edit List)
             </a>

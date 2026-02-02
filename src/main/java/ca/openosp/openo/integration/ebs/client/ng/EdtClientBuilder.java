@@ -101,7 +101,7 @@ public class EdtClientBuilder {
         "{Element}{http://schemas.xmlsoap.org/soap/envelope/}Body;";
 
     private static final AtomicBoolean isInitialized = new AtomicBoolean(false);
-    private static String clientKeystore = DEFAULT_CLIENT_KEYSTORE;
+    private String clientKeystore = DEFAULT_CLIENT_KEYSTORE;
 
     protected EdtClientBuilderConfig config;
 
@@ -357,10 +357,16 @@ public class EdtClientBuilder {
     }
 
     /**
-     * Allows overriding the client keystore filename.
+     * Allows overriding the client keystore filename for this EDT client builder instance.
+     * This method sets the keystore path used for client certificate authentication in EDT
+     * service connections. Each EdtClientBuilder instance maintains its own keystore path
+     * to prevent race conditions when multiple EDT services (MCEDT, HCV) are used concurrently.
+     *
+     * @param filename String the client keystore filename or URL path (e.g., "file:/path/to/keystore.properties")
+     * @since 2026-01-29
      */
-    public static void setClientKeystoreFilename(String filename) {
-        clientKeystore = filename;
+    public void setClientKeystoreFilename(String filename) {
+        this.clientKeystore = filename;
     }
 
     /**

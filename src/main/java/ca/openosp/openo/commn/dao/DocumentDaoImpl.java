@@ -45,6 +45,7 @@ import ca.openosp.openo.commn.model.Document;
 import ca.openosp.openo.commn.model.EFormDocs;
 import org.springframework.stereotype.Repository;
 
+import ca.openosp.openo.documentManager.EDocUtil;
 import ca.openosp.openo.documentManager.EDocUtil.EDocSort;
 
 @Repository
@@ -325,10 +326,11 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
             throw new IllegalArgumentException("moduleid must be a valid integer, but got:" + moduleid, e);
         }
 
+        List<String> modules = EDocUtil.getModulesForQuery(module);
         StringBuilder buf = new StringBuilder("SELECT DISTINCT c, d " +
                 "FROM Document d, CtlDocument c " +
-                "WHERE c.id.documentNo = d.id AND c.id.module = :module");
-        params.put("module", module);
+                "WHERE c.id.documentNo = d.id AND c.id.module IN :modules");
+        params.put("modules", modules);
 
         boolean isShowingAllDocuments = docType == null || docType.equals("all") || docType.length() == 0;
 

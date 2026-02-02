@@ -348,7 +348,7 @@
                        value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(formdata.getSourceFacility()))%>"/>
             </td>
         </tr>
-        <% if (module.equals("providers")) {%>
+        <% if (EDocUtil.isProviderModule(module)) {%>
         <tr>
             <td>Public?</td>
             <td><input type="checkbox" name="docPublic"

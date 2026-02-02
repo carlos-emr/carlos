@@ -23,6 +23,41 @@
     Ontario, Canada
 
 --%>
+
+<%--
+    Prescription Writing Interface
+
+    Purpose:
+    This JSP provides the prescription writing interface for healthcare providers to create and manage
+    patient prescriptions. It handles drug selection, dosage instructions, special instructions,
+    indication coding (ICD-9), allergy alerts, drug interactions, and prescription printing.
+
+    Features:
+    - Drug name entry with ATC code tracking
+    - Indication/diagnosis selection using ICD-9 coding system
+    - Dosage instructions with instruction history lookup
+    - Special instructions with autocomplete functionality
+    - Quantity/Mitte specification
+    - Allergy alert integration
+    - Drug interaction checking (major, moderate, minor, unknown)
+    - Favorites management for common prescriptions
+    - Support for custom drugs and branded medications
+    - Patient compliance tracking
+    - Long-term and short-term prescription designation
+
+    Parameters:
+    - listRxDrugs: List<RxPrescriptionData.Prescription> - List of prescription objects to display
+    - Each prescription contains: drug name, GCN code, ATC code, instructions, special instructions,
+      dates (written, start, last refill), frequency, route, duration, PRN status, repeats, quantity
+
+    Security:
+    - Requires "_rx" write permission via security:oscarSec tag
+    - Uses OWASP Encoder for all user input rendering to prevent XSS
+    - Session-based authentication and role validation
+
+    @since 2009-09-18
+--%>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -209,9 +244,12 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="Add to Favorites" onclick="addFav('<%=rand%>','<%=drugName%>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="$('rx_more_<%=rand%>').toggle();">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >more</span> </a>
 
-    <label style="float:left;width:80px;" title="<%=ATC%>" >Name:</label>
-    <input type="hidden" name="atcCode" value="<%=ATCcode%>" />
-    <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<%=drugName%>"<%} else{%> value='<%=drugName%>'  onchange="changeDrugName('<%=rand%>','<%=drugName%>');" <%}%> TITLE="<%=drugName%>"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
+    <%-- Modern flexbox layout for drug name field - replaces float-based layout for better alignment and responsiveness --%>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
+        <label style="width:101px;flex-shrink:0;" title="<%=Encode.forHtmlAttribute(ATC)%>" >Name:</label>
+        <input type="hidden" name="atcCode" value="<%=Encode.forHtmlAttribute(ATCcode)%>" />
+        <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<%=Encode.forHtmlAttribute(drugName)%>"<%} else{%> value="<%=Encode.forHtmlAttribute(drugName)%>"  onchange="changeDrugName('<%=rand%>','<%=Encode.forJavaScript(drugName)%>');" <%}%> TITLE="<%=Encode.forHtmlAttribute(drugName)%>"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
+    </div>
 
 	<!-- Allergy Alert Table-->
 
@@ -227,47 +265,52 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 	    		<span id="alleg_<%=rand%>" style="font-size:11px;"></span>
 			</td>
 		</tr>
-	</table> 
-	    
+	</table>
+
     <%-- Splice in the Indication field --%>
-<br />
-	<label style="float:left;width:80px;" for="jsonDxSearch_<%=rand%>" >Indication</label>
-		<select name="codingSystem_<%=rand%>" id="codingSystem_<%=rand%>" >
-		<option value="icd9">icd9</option>
-		<%-- option value="limitUse">Limited Use</option --%>
-	</select>
-	<input type="hidden" name="reasonCode_<%=rand%>" id="codeTxt_<%=rand%>" />
-	<input type="text" class="codeTxt" name="jsonDxSearch_<%=rand%>" id="jsonDxSearch_<%=rand%>" placeholder="Search Dx" />
-<br />
+    <%-- Modern flexbox layout for indication field - ensures consistent label width and field alignment --%>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
+        <label style="width:101px;flex-shrink:0;" for="jsonDxSearch_<%=rand%>" >Indication: </label>
+        <select name="codingSystem_<%=rand%>" id="codingSystem_<%=rand%>" >
+            <option value="icd9">icd9</option>
+            <%-- option value="limitUse">Limited Use</option --%>
+        </select>
+        <input type="hidden" name="reasonCode_<%=rand%>" id="codeTxt_<%=rand%>" />
+        <input type="text" class="codeTxt" name="jsonDxSearch_<%=rand%>" id="jsonDxSearch_<%=rand%>" placeholder="Search Dx" />
+    </div>
      <%-- Splice in the Indication field --%>
-     
-    <a tabindex="-1" href="javascript:void(0);" onclick="showHideSpecInst('siAutoComplete_<%=rand%>')" style="float:left;width:80px;">Instructions:</a>
-    <input type="text" id="instructions_<%=Encode.forHtmlAttribute(rand)%>" name="instructions_<%=Encode.forHtmlAttribute(rand)%>" onkeypress="handleEnter(this,event);"
-           value="<%=Encode.forHtmlAttribute(instructions)%>" size="60" onchange="parseIntr(this);"/><a href="javascript:void(0);" tabindex="-1"
-                                                                               onclick="displayMedHistory('<%=Encode.forJavaScriptAttribute(rand)%>');"
-                                                                               style="color:red;font-size:13pt;vertical-align:super;text-decoration:none"
-                                                                               TITLE="Instruction Examples"><b>*</b></a>
-    <a href="javascript:void(0);" tabindex="-1" onclick="displayInstructions('<%=Encode.forJavaScriptAttribute(rand)%>');"><img
-            src="<%= request.getContextPath() %>/images/icon_help_sml.gif" border="0" TITLE="Instructions Field Reference" /></a>
-    <span id="major_<%=Encode.forHtmlAttribute(rand)%>" style="display:none;background-color:red"></span>&nbsp;<span id="moderate_<%=Encode.forHtmlAttribute(rand)%>"
-                                                                                            style="display:none;background-color:orange"></span>&nbsp;<span
-        id='minor_<%=Encode.forHtmlAttribute(rand)%>' style="display:none;background-color:yellow;"></span>&nbsp;<span id='unknown_<%=Encode.forHtmlAttribute(rand)%>'
-                                                                                              style="display:none;background-color:#B1FB17"></span>
-       <br>
-    <label for="siInput_<%=Encode.forHtmlAttribute(rand)%>"></label>
-    <div id="siAutoComplete_<%=Encode.forHtmlAttribute(rand)%>" <%if (isSpecInstPresent) {%> style="overflow:visible;"<%} else {%>
-         style="overflow:visible;display:none;"<%}%> >
-        <label style="float:left;width:80px;">&nbsp;&nbsp;</label><input id="siInput_<%=Encode.forHtmlAttribute(rand)%>" type="text" size="60"
+
+    <%-- Modern flexbox layout for instructions field - improves alignment and collapsible special instructions section --%>
+    <div style="margin-bottom:5px;">
+        <div style="display:flex;align-items:center;gap:5px;">
+            <a tabindex="-1" href="javascript:void(0);" onclick="showHideSpecInst('siAutoComplete_<%=rand%>')" style="width:101px;flex-shrink:0;">Show/Hide Special Instructions: </a>
+            <input type="text" id="instructions_<%=Encode.forHtmlAttribute(rand)%>" name="instructions_<%=Encode.forHtmlAttribute(rand)%>" onkeypress="handleEnter(this,event);"
+                   value="<%=Encode.forHtmlAttribute(instructions)%>" size="60" onchange="parseIntr(this);"/><a href="javascript:void(0);" tabindex="-1"
+                                                                                   onclick="displayMedHistory('<%=Encode.forJavaScriptAttribute(rand)%>');"
+                                                                                   style="color:red;font-size:13pt;vertical-align:super;text-decoration:none"
+                                                                                   TITLE="Instruction Examples"><b>*</b></a>
+            <a href="javascript:void(0);" tabindex="-1" onclick="displayInstructions('<%=Encode.forJavaScriptAttribute(rand)%>');"><img
+                    src="<%= request.getContextPath() %>/images/icon_help_sml.gif" border="0" TITLE="Instructions Field Reference" /></a>
+            <span id="major_<%=Encode.forHtmlAttribute(rand)%>" style="display:none;background-color:red"></span>&nbsp;<span id="moderate_<%=Encode.forHtmlAttribute(rand)%>"
+                                                                                                    style="display:none;background-color:orange"></span>&nbsp;<span
+                id='minor_<%=Encode.forHtmlAttribute(rand)%>' style="display:none;background-color:yellow;"></span>&nbsp;<span id='unknown_<%=Encode.forHtmlAttribute(rand)%>'
+                                                                                                      style="display:none;background-color:#B1FB17"></span>
+        </div>
+        <div id="siAutoComplete_<%=Encode.forHtmlAttribute(rand)%>" <%if (isSpecInstPresent) {%> style="overflow:visible;margin-top:1px;margin-bottom:10px"<%} else {%>
+             style="overflow:visible;display:none;margin-top:1px;margin-bottom:10px"<%}%> >
+            <label style="float:left;width:106px;">&nbsp;&nbsp;</label><input id="siInput_<%=Encode.forHtmlAttribute(rand)%>" type="text" size="60"
                                                                          <%if(!isSpecInstPresent) {%>style="color:gray; width:auto"
                                                                          value="Enter Special Instruction" <%} else {%>
                                                                          style="color:black; width:auto"
                                                                          value="<%=Encode.forHtmlAttribute(specialInstruction)%>" <%}%>
                                                                          onblur="changeText('siInput_<%=Encode.forJavaScriptAttribute(rand)%>');updateSpecialInstruction('siInput_<%=Encode.forJavaScriptAttribute(rand)%>');"
                                                                          onfocus="changeText('siInput_<%=Encode.forJavaScriptAttribute(rand)%>');">
-        <div id="siContainer_<%=Encode.forHtmlAttribute(rand)%>" style="float:right">
-           </div>
-              	<br><br>         
+            <div id="siContainer_<%=Encode.forHtmlAttribute(rand)%>" style="float:right">
+            </div>
+            <div style="clear:both;"></div>
         </div>
+        <br>
+    </div>
 		<div>
         <label id="labelQuantity_<%=Encode.forHtmlAttribute(rand)%>" style="float:left;width:80px;">Qty/Mitte:</label><input
             size="8" <%if (rx.isCustomNote()) {%> disabled <%}%> type="text" id="quantity_<%=Encode.forHtmlAttribute(rand)%>"

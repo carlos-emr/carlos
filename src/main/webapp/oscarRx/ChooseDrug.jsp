@@ -204,7 +204,7 @@
                     </tr>
                     <tr>
                         <td>
-                            <form action="${pageContext.request.contextPath}/oscarRx/searchDrug.do" method="post" focus="searchString" onsubmit="processData();">
+                            <form name="RxSearchDrugForm" action="${pageContext.request.contextPath}/oscarRx/searchDrug.do" method="post" focus="searchString" onsubmit="processData();">
                                 <%if (request.getParameter("rx2") != null && request.getParameter("rx2").equals("true")) { %>
                                 <input type="hidden" name="rx2" value="true"/>
                                 <%}%>

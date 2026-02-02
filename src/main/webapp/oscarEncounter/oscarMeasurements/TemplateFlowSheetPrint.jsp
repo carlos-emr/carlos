@@ -739,6 +739,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     String prevType = (String) h2.get("prevention_type");
                     long startPrevType = System.currentTimeMillis();
                     ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), prevType, Integer.valueOf(demographic_no));
+                    // Reverse to display newest first (matching measurements/drugs display order)
+                    // The query returns ASC order for Prevention page compatibility
+                    Collections.reverse(alist);
                 %>
 
                 <div class="preventionSection" style="<%=hidden%>">

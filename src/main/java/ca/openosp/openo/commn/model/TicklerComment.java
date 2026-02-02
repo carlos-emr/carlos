@@ -24,6 +24,9 @@
  */
 package ca.openosp.openo.commn.model;
 
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import ca.openosp.openo.util.DateUtils;
@@ -56,6 +59,8 @@ public class TicklerComment extends AbstractModel<Integer> {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "provider_no", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
+    @Fetch(FetchMode.SELECT)
+    @BatchSize(size = 25)
     private Provider provider;
 
     public TicklerComment() {

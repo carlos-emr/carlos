@@ -76,7 +76,7 @@ public class DelegateFactory {
         config.setServiceId((serviceId == null || serviceId.trim().equals("")) ? props.getProperty("mcedt.service.id") : serviceId);
         config.setMtomEnabled(true);
         EdtClientBuilder builder = new EdtClientBuilder(config);
-        setExternalClientKeystoreFilename(props.getProperty("mcedt.service.clientKeystore.properties"));
+        setExternalClientKeystoreFilename(builder, props.getProperty("mcedt.service.clientKeystore.properties"));
         EDTDelegate edtDelegate = builder.build(EDTDelegate.class);
         if (logger.isInfoEnabled()) {
             logger.info("Created new EDT delegate " + edtDelegate);
@@ -104,19 +104,26 @@ public class DelegateFactory {
         DelegateFactory.userPropertyDAO = userPropertyDAO;
     }
 
-    /*
-     * Set an external `clientKeystore.properties` by providing the path to the file.
-     * If the path is not provided, it will default to `src/main/resources/clientKeystore.properties`.
+    /**
+     * Set an external client keystore properties file for the EDT client builder.
+     * This method configures a custom keystore properties file path for MCEDT service
+     * client certificate authentication. If the provided path is null or the file does
+     * not exist, the default keystore at src/main/resources/clientKeystore.properties
+     * will be used.
+     *
+     * @param builder EdtClientBuilder the EDT client builder instance to configure
+     * @param clientKeystorePropertiesPath String the absolute path to the client keystore properties file, or null to use default
+     * @since 2026-01-29
      */
-    private static void setExternalClientKeystoreFilename(String clientKeystorePropertiesPath) {
-        if (clientKeystorePropertiesPath == null) {
+    private static void setExternalClientKeystoreFilename(EdtClientBuilder builder, String clientKeystorePropertiesPath) {
+        if (clientKeystorePropertiesPath == null || clientKeystorePropertiesPath.trim().isEmpty()) {
             return;
         }
         Path signaturePropFile = Paths.get(clientKeystorePropertiesPath);
         if (Files.exists(signaturePropFile)) {
             File file = new File(clientKeystorePropertiesPath);
             try {
-                EdtClientBuilder.setClientKeystoreFilename(file.toURI().toURL().toString());
+                builder.setClientKeystoreFilename(file.toURI().toURL().toString());
             } catch (MalformedURLException e) {
                 logger.error("Malformed URL: " + clientKeystorePropertiesPath, e);
             }

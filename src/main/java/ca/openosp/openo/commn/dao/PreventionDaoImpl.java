@@ -184,7 +184,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     @Override
     public List<Prevention> findByTypeAndDemoNo(String preventionType, Integer demoNo) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where preventionType=?1 and demographicId=?2 and deleted='0' order by preventionDate desc";
+        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where preventionType=?1 and demographicId=?2 and deleted='0' order by preventionDate asc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, preventionType);

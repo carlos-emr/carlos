@@ -57,6 +57,7 @@
 <%@ page import="ca.openosp.openo.util.UtilMisc" %>
 <%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
 <%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String mode = "";
     if (request.getAttribute("mode") != null) {
@@ -280,10 +281,10 @@
                        onsubmit="return submitUpload(this);">
     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
     <input type="hidden" name="function"
-           value="<%=formdata.getFunction()%>" size="20"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>" size="20"/>
     <input type="hidden" name="functionId"
-           value="<%=formdata.getFunctionId()%>" size="20"/>
-    <input type="hidden" name="functionid" value="<%=moduleid%>" size="20"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>" size="20"/>
+    <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>" size="20"/>
     <input type="hidden" name="mode" value="<%=mode%>"/>
     <input type="hidden" name="docCreator"
            value="<%=formdata.getDocCreator()%>"/>
@@ -300,7 +301,7 @@
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
                     <% for (int i = 0; i < doctypes.size(); i++) {
                         String doctype = doctypes.get(i); %>
-                    <option value="<%= doctype%>" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%= doctype%>
+                    <option value="<%=Encode.forHtmlAttribute(doctype)%>" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
                     </option>
                     <%}%>
                 </select>
@@ -320,7 +321,7 @@
                             consultShown = true;
                         }
                 %>
-                <option value="<%=reportClass%>" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><%=reportClass%>
+                <option value="<%=Encode.forHtmlAttribute(reportClass)%>" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><%=Encode.forHtmlContent(reportClass)%>
                 </option>
                 <% } %>
             </select>
@@ -328,7 +329,7 @@
         </tr>
         <tr>
             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
-            <td><input type="text" name="docSubClass" id="docSubClass" value="<%=formdata.getDocSubClass()%>"
+            <td><input type="text" name="docSubClass" id="docSubClass" value="<%=Encode.forHtmlAttribute(formdata.getDocSubClass())%>"
                        style="width:330px">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
             </td>
@@ -337,7 +338,7 @@
             <td>Description:</td>
             <td><input <% if (linkhtmlerrors.containsKey("descmissing")) {%>
                     class="warning" <%}%> type="text" name="docDesc" size="30"
-                    onfocus="checkDefaultValue(this)" value="<%=formdata.getDocDesc()%>"></td>
+                    onfocus="checkDefaultValue(this)" value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>"></td>
         </tr>
         <tr>
             <td>Added By:</td>
@@ -353,8 +354,8 @@
                         String selected = "";
                         if (formdata.getResponsibleId().equals(pd.get("providerNo"))) selected = "selected";
                     %>
-                    <option value="<%=pd.get("providerNo")%>" <%=selected%>><%=pd.get("lastName")%>
-                        , <%=pd.get("firstName")%>
+                    <option value="<%=Encode.forHtmlAttribute(String.valueOf(pd.get("providerNo")))%>" <%=selected%>><%=Encode.forHtmlContent(String.valueOf(pd.get("lastName")))%>
+                        , <%=Encode.forHtmlContent(String.valueOf(pd.get("firstName")))%>
                     </option>
                     <% } %>
                 </select>
@@ -385,7 +386,7 @@
                     id="obsdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                       alt="Calendar" border="0"/></a></td>
         </tr>
-        <% if (module.equals("providers")) {%>
+        <% if (EDocUtil.isProviderModule(module)) {%>
         <tr>
             <td>Public?</td>
             <td><input type="checkbox" name="docPublic"

@@ -840,6 +840,9 @@ div.recommendations ul{
     String prevType = (String) h2.get("prevention_type");
     long startPrevType = System.currentTimeMillis();
     ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.parseInt(demographic_no));
+    // Reverse to display newest first (matching measurements/drugs display order)
+    // The query returns ASC order for Prevention page compatibility
+    Collections.reverse(alist);
 
 %>
 

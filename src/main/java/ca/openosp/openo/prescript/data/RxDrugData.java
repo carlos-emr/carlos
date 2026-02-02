@@ -321,13 +321,15 @@ public class RxDrugData {
         }
 
         MinDrug(Hashtable h) {
-			//this.pKey = (String) h.get("id"); //pKey
-			this.pKey = (String) h.get("id");
-            this.name = (String) h.get("name");
-            //this.type = (String) h.get("category");//type
-			this.type = (String) h.get("category");
+			// Fix ClassCastException: Hashtable values may be non-String types (e.g., Integer)
+			// Use String.valueOf() with null checks instead of unsafe direct casting
+			Object idVal = h.get("id");
+			this.pKey = (idVal != null) ? String.valueOf(idVal) : null;
+			Object nameVal = h.get("name");
+			this.name = (nameVal != null) ? String.valueOf(nameVal) : null;
+			Object categoryVal = h.get("category");
+			this.type = (categoryVal != null) ? String.valueOf(categoryVal) : null;
             MiscUtils.getLogger().debug("pkey " + pKey + " name " + name + " type " + type);
-            //d.tag  = (Tag)    h.get("tag");
         }
 
         public String getpKey() {
