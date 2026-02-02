@@ -18,16 +18,16 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="java.util.Date" %>
-<%@page import="ca.openosp.openo.utility.DateRange" %>
-<%@ page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.billing.ca.on.OHIP.*, java.net.*"
+<%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
+<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.billing.ca.on.OHIP.*, java.net.*"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.OHIP.ExtractBean" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.OHIP.ExtractBean" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

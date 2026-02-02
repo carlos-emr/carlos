@@ -14,7 +14,7 @@
 
 
 	<!-- ========================= SCHEDULED JOBS ========================= -->
-	 <bean id="olisScheduledPullTask" class="ca.openosp.openo.olis.OLISSchedulerJob" />
+	 <bean id="olisScheduledPullTask" class="io.github.carlos_emr.carlos.olis.OLISSchedulerJob" />
     <!-- Define the scheduled executor factory bean -->
     <bean id="schedulerOLIS" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
         <property name="scheduledExecutorTasks">

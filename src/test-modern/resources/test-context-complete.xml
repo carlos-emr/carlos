@@ -58,12 +58,12 @@
         <property name="mappingDirectoryLocations">
             <!-- Load Hibernate mapping files like production -->
             <list>
-                <value>classpath:/ca/openosp/openo/model</value>
-                <value>classpath:/ca/openosp/openo/PMmodule/model</value>
-                <value>classpath:/ca/openosp/openo/casemgmt/model</value>
-                <value>classpath:/ca/openosp/openo/commn/model</value>
+                <value>classpath:/io/github/carlos_emr/carlos/model</value>
+                <value>classpath:/io/github/carlos_emr/carlos/PMmodule/model</value>
+                <value>classpath:/io/github/carlos_emr/carlos/casemgmt/model</value>
+                <value>classpath:/io/github/carlos_emr/carlos/commn/model</value>
                 <value>classpath:/com/quatro/model</value>
-                <value>classpath:/ca/openosp/openo/entities</value>
+                <value>classpath:/io/github/carlos_emr/carlos/entities</value>
             </list>
         </property>
         <property name="hibernateProperties">
@@ -84,10 +84,10 @@
         <property name="persistenceUnitName" value="testPersistenceUnit" />
         <property name="packagesToScan">
             <list>
-                <value>ca.openosp.openo.commn.model</value>
-                <value>ca.openosp.openo.PMmodule.model</value>
-                <value>ca.openosp.openo.casemgmt.model</value>
-                <value>ca.openosp.openo.billing.CA.model</value>
+                <value>io.github.carlos_emr.carlos.commn.model</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model</value>
+                <value>io.github.carlos_emr.carlos.casemgmt.model</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.model</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -112,17 +112,17 @@
     </bean>
 
     <!-- Real DAO implementations for testing -->
-    <bean id="demographicDao" class="ca.openosp.openo.commn.dao.DemographicDaoImpl" autowire="byName">
+    <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName">
         <property name="sessionFactory" ref="sessionFactory" />
     </bean>
 
-    <bean id="ticklerDao" class="ca.openosp.openo.commn.dao.TicklerDaoImpl" autowire="byName" />
+    <bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl" autowire="byName" />
 
-    <bean id="providerDao" class="ca.openosp.openo.dao.ProviderDaoImpl" autowire="byName" />
+    <bean id="providerDao" class="io.github.carlos_emr.carlos.dao.ProviderDaoImpl" autowire="byName" />
 
     <!-- Managers -->
-    <bean id="ticklerManager" class="ca.openosp.openo.managers.TicklerManagerImpl" autowire="byName" />
+    <bean id="ticklerManager" class="io.github.carlos_emr.carlos.managers.TicklerManagerImpl" autowire="byName" />
 
-    <bean id="securityInfoManager" class="ca.openosp.openo.managers.SecurityInfoManager" autowire="byName" />
+    <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.managers.SecurityInfoManager" autowire="byName" />
 
 </beans>

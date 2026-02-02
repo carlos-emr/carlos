@@ -47,7 +47,7 @@
 	</filter-mapping>
     <filter>
             <filter-name>WebServiceSessionInvalidatingFilter</filter-name>
-            <filter-class>ca.openosp.openo.webserv.WebServiceSessionInvalidatingFilter</filter-class>
+            <filter-class>io.github.carlos_emr.carlos.webserv.WebServiceSessionInvalidatingFilter</filter-class>
     </filter>
     <filter-mapping>
             <filter-name>WebServiceSessionInvalidatingFilter</filter-name>
@@ -55,7 +55,7 @@
     </filter-mapping>
     <filter>
         <filter-name>ResponseDefaultsFilter</filter-name>
-        <filter-class>ca.openosp.openo.utility.ResponseDefaultsFilter</filter-class>
+        <filter-class>io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter</filter-class>
 		<init-param>
 			<param-name>noCacheEndings</param-name>
 			<param-value>.jsp,.jsf,.json,.do</param-value>
@@ -68,7 +68,7 @@
 
 	<filter>
 		<filter-name>PrivacyStatementAppendingFilter</filter-name>
-		<filter-class>ca.openosp.openo.commn.printing.PrivacyStatementAppendingFilter</filter-class>
+		<filter-class>io.github.carlos_emr.carlos.commn.printing.PrivacyStatementAppendingFilter</filter-class>
 		<init-param>
 			<param-name>exclusions</param-name>
 			<param-value>/messenger,/demographic/demographiccontrol.jsp,/demographic/demographiceditdemographic.js.jsp,/demographic/demographicprintdemographic.jsp,/provider/schedulePage.js.jsp</param-value>
@@ -97,7 +97,7 @@
 
     <filter>
         <filter-name>UserActivityFilter</filter-name>
-        <filter-class>ca.openosp.openo.utility.UserActivityFilter</filter-class>
+        <filter-class>io.github.carlos_emr.carlos.utility.UserActivityFilter</filter-class>
     </filter>
     <filter-mapping>
         <filter-name>UserActivityFilter</filter-name>
@@ -106,15 +106,15 @@
 
 	<filter>
 		<filter-name>DbConnectionFilter</filter-name>
-		<filter-class>ca.openosp.openo.utility.DbConnectionFilter</filter-class>
+		<filter-class>io.github.carlos_emr.carlos.utility.DbConnectionFilter</filter-class>
 	</filter>
 	<filter>
 		<filter-name>LoggedInUserFilter</filter-name>
-		<filter-class>ca.openosp.openo.utility.LoggedInUserFilter</filter-class>
+		<filter-class>io.github.carlos_emr.carlos.utility.LoggedInUserFilter</filter-class>
 	</filter>
 	<filter>
 		<filter-name>LoginFilter</filter-name>
-		<filter-class>ca.openosp.openo.sec.LoginFilter</filter-class>
+		<filter-class>io.github.carlos_emr.carlos.sec.LoginFilter</filter-class>
 	</filter>
 	<filter>
 		<filter-name>ResponseOverrideFilter</filter-name>
@@ -122,7 +122,7 @@
 	</filter>
 	<filter>
 		<filter-name>PMMFilter</filter-name>
-		<filter-class>ca.openosp.openo.PMmodule.web.PMMFilter</filter-class>
+		<filter-class>io.github.carlos_emr.carlos.PMmodule.web.PMMFilter</filter-class>
 	</filter>
 
   <filter-mapping>
@@ -155,16 +155,16 @@
     </listener>
 	
 	<listener>
-		<listener-class>ca.openosp.openo.login.Startup</listener-class>
+		<listener-class>io.github.carlos_emr.carlos.login.Startup</listener-class>
 	</listener>
 	<listener>
-		<listener-class>ca.openosp.openo.commn.web.OscarSpringContextLoader</listener-class>
+		<listener-class>io.github.carlos_emr.carlos.commn.web.OscarSpringContextLoader</listener-class>
 	</listener>
 	<listener>
-		<listener-class>ca.openosp.openo.utility.ContextStartupListener</listener-class>
+		<listener-class>io.github.carlos_emr.carlos.utility.ContextStartupListener</listener-class>
 	</listener>
 	<listener>
-		<listener-class>ca.openosp.openo.web.OscarSessionListener</listener-class>
+		<listener-class>io.github.carlos_emr.carlos.web.OscarSessionListener</listener-class>
 	</listener>
 
     <!--  Cross Site Request Forgery Configuration  -->
@@ -184,7 +184,7 @@
     </context-param>
     <filter>
         <filter-name>CSRFGuard</filter-name>
-        <filter-class>ca.openosp.openo.app.OscarCsrfGuardFilter</filter-class>
+        <filter-class>io.github.carlos_emr.carlos.app.OscarCsrfGuardFilter</filter-class>
     </filter>
     <filter-mapping>
         <filter-name>CSRFGuard</filter-name>
@@ -245,7 +245,7 @@
 
 	<filter>
 		<filter-name>XforwardHeader</filter-name>
-		<filter-class>ca.openosp.openo.app.XforwardHeaderFilter</filter-class>
+		<filter-class>io.github.carlos_emr.carlos.app.XforwardHeaderFilter</filter-class>
 	</filter>
 	<filter-mapping>
 		<filter-name>XforwardHeader</filter-name>
@@ -254,78 +254,78 @@
 
 	<servlet>
 		<servlet-name>UploadDocument</servlet-name>
-		<servlet-class>ca.openosp.DocumentMgtUploadServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.DocumentMgtUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>pdfCreator</servlet-name>
-		<servlet-class>ca.openosp.openo.form.pdfservlet.FrmPDFServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFServlet</servlet-class>
 		<load-on-startup>1</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>pdfCustomedCreator</servlet-name>
-		<servlet-class>ca.openosp.openo.form.pdfservlet.FrmCustomedPDFServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet</servlet-class>
 		<load-on-startup>1</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>pdfCreatorEform</servlet-name>
-		<servlet-class>ca.openosp.openo.eform.util.EFormPDFServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormPDFServlet</servlet-class>
 		<load-on-startup>1</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>reportDownload</servlet-name>
-		<servlet-class>ca.openosp.openo.report.pageUtil.RptDownloadCSVServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.report.pageUtil.RptDownloadCSVServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>OscarDownload</servlet-name>
-		<servlet-class>ca.openosp.openo.util.OscarDownload</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.util.OscarDownload</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>Download</servlet-name>
-		<servlet-class>ca.openosp.openo.util.GenericDownload</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.util.GenericDownload</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>BackupDownload</servlet-name>
-		<servlet-class>ca.openosp.openo.util.BackupDownload</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.util.BackupDownload</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>UploadTeleplanServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.billings.ca.bc.MSP.DocumentTeleplanReportUploadServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.billings.ca.bc.MSP.DocumentTeleplanReportUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>ScatterPlotChartServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.encounter.oscarMeasurements.pageUtil.ScatterPlotChartServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.ScatterPlotChartServlet</servlet-class>
 	</servlet>
 	<servlet>
 		<servlet-name>DocumentUploadServlet</servlet-name>
-		<servlet-class>ca.openosp.DocumentUploadServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.DocumentUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
 	<servlet>
 		<servlet-name>PatientListByAppt</servlet-name>
-		<servlet-class>ca.openosp.openo.report.data.PatientListByAppt</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.report.data.PatientListByAppt</servlet-class>
 	</servlet>
 	<servlet>
 		<servlet-name>ImageRenderingServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.ui.servlet.ImageRenderingServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet</servlet-class>
 	</servlet>
 	<servlet>
 		<servlet-name>ContentRenderingServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.ui.servlet.ContentRenderingServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.ui.servlet.ContentRenderingServlet</servlet-class>
 	</servlet>
 	<servlet>
 		<servlet-name>eformViewForPdfGenerationServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.web.eform.EformViewForPdfGenerationServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet</servlet-class>
 	</servlet>
 
 	<servlet>
 		<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.eform.util.EFormViewForPdfGenerationServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormViewForPdfGenerationServlet</servlet-class>
 	</servlet>
 
 	<servlet>
@@ -347,7 +347,7 @@
 
 	<servlet>
 		<servlet-name>EFormSignatureViewForPdfGenerationServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.eform.util.EFormSignatureViewForPdfGenerationServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormSignatureViewForPdfGenerationServlet</servlet-class>
 	</servlet>
 
 	<servlet-mapping>
@@ -357,7 +357,7 @@
 
 	<servlet>
 		<servlet-name>EFormImageViewForPdfGenerationServlet</servlet-name>
-		<servlet-class>ca.openosp.openo.eform.util.EFormImageViewForPdfGenerationServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormImageViewForPdfGenerationServlet</servlet-class>
 	</servlet>
 
 	<servlet-mapping>
@@ -368,7 +368,7 @@
 
 	<servlet-mapping>
 		<servlet-name>UploadDocument</servlet-name>
-		<url-pattern>/servlet/ca.openosp.DocumentMgtUploadServlet</url-pattern>
+		<url-pattern>/servlet/io.github.carlos_emr.DocumentMgtUploadServlet</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>pdfCreator</servlet-name>
@@ -404,11 +404,11 @@
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>ScatterPlotChartServlet</servlet-name>
-		<url-pattern>/servlet/ca.openosp.openo.encounter.oscarMeasurements.pageUtil.ScatterPlotChartServlet</url-pattern>
+		<url-pattern>/servlet/io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.ScatterPlotChartServlet</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>DocumentUploadServlet</servlet-name>
-		<url-pattern>/servlet/ca.openosp.DocumentUploadServlet</url-pattern>
+		<url-pattern>/servlet/io.github.carlos_emr.DocumentUploadServlet</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>PatientListByAppt</servlet-name>
@@ -462,7 +462,7 @@
 	
 	<servlet>
 		<servlet-name>LoginResourceAction</servlet-name>
-		<servlet-class>ca.openosp.openo.login.LoginResourceAction</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.login.LoginResourceAction</servlet-class>
 	</servlet>
 	
 	<servlet-mapping>

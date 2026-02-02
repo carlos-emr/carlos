@@ -41,17 +41,17 @@
     }
 %>
 
-<%@page import="ca.openosp.*,ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.billing.ca.bc.Teleplan.*,java.math.BigDecimal,ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.commn.model.*" %>
+<%@page import="io.github.carlos_emr.*,io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*,java.math.BigDecimal,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingServiceDao,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.model.*" %>
 <%BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class); %>
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <html>
 
     <head>

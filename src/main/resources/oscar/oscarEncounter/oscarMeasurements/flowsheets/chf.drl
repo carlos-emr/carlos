@@ -40,7 +40,7 @@ should colour be in drools file or some other way
 
     <rule name="REBG 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("REBG") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("REBG") &lt; 6</java:condition>
@@ -52,7 +52,7 @@ should colour be in drools file or some other way
 
     <rule name="REBG 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("REBG") &gt;= 6</java:condition>        
         <java:consequence>              
@@ -63,7 +63,7 @@ should colour be in drools file or some other way
 
     <rule name="REBG 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("REBG") ==  -1</java:condition>
         <java:consequence>              
@@ -76,7 +76,7 @@ should colour be in drools file or some other way
 
     <rule name="A1C 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("A1C") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("A1C") &lt; 6</java:condition>
@@ -88,7 +88,7 @@ should colour be in drools file or some other way
 
     <rule name="A1C 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("A1C") &gt;= 6</java:condition>        
         <java:consequence>              
@@ -99,7 +99,7 @@ should colour be in drools file or some other way
 
     <rule name="A1C 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("A1C") ==  -1</java:condition>
         <java:consequence>              
@@ -112,7 +112,7 @@ should colour be in drools file or some other way
 
     <rule name="DMED 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DMED") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("DMED") &lt; 6</java:condition>
@@ -124,7 +124,7 @@ should colour be in drools file or some other way
 
     <rule name="DMED 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DMED") &gt;= 6</java:condition>        
         <java:consequence>              
@@ -135,7 +135,7 @@ should colour be in drools file or some other way
 
     <rule name="DMED 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DMED") ==  -1</java:condition>
         <java:consequence>              
@@ -150,7 +150,7 @@ should colour be in drools file or some other way
 
     <rule name="BP 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BP") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("BP") &lt; 6</java:condition>
@@ -162,7 +162,7 @@ should colour be in drools file or some other way
 
     <rule name="BP 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BP") &gt;= 6</java:condition>        
         <java:consequence>              
@@ -173,7 +173,7 @@ should colour be in drools file or some other way
 
     <rule name="BP 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BP") ==  -1</java:condition>
         <java:consequence>              
@@ -186,7 +186,7 @@ should colour be in drools file or some other way
 
     <rule name="BMED 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BMED") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("BMED") &lt; 6</java:condition>
@@ -198,7 +198,7 @@ should colour be in drools file or some other way
 
     <rule name="BMED 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BMED") &gt;= 6</java:condition>        
         <java:consequence>              
@@ -209,7 +209,7 @@ should colour be in drools file or some other way
 
     <rule name="BMED 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BMED") ==  -1</java:condition>
         <java:consequence>              
@@ -222,7 +222,7 @@ should colour be in drools file or some other way
 
     <rule name="BMI 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BMI") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("BMI") &lt; 6</java:condition>
@@ -234,7 +234,7 @@ should colour be in drools file or some other way
 
     <rule name="BMI 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BMI") &gt;= 6</java:condition>        
         <java:consequence>              
@@ -245,7 +245,7 @@ should colour be in drools file or some other way
 
     <rule name="BMI 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("BMI") ==  -1</java:condition>
         <java:consequence>              
@@ -258,7 +258,7 @@ should colour be in drools file or some other way
 
     <rule name="DIER 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DIER") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("DIER") &lt; 6</java:condition>
@@ -270,7 +270,7 @@ should colour be in drools file or some other way
 
     <rule name="DIER 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DIER") &gt;= 6</java:condition>        
         <java:consequence>              
@@ -281,7 +281,7 @@ should colour be in drools file or some other way
 
     <rule name="DIER 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DIER") ==  -1</java:condition>
         <java:consequence>              
@@ -294,7 +294,7 @@ should colour be in drools file or some other way
 
     <rule name="NOSK 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("NOSK") &gt;= 3</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("NOSK") &lt; 6</java:condition>
@@ -307,7 +307,7 @@ should colour be in drools file or some other way
 
     <rule name="NOSK 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("NOSK") &gt;= 6</java:condition> 
         <java:condition>m.getLastValueAsInt("NOSK") != 0</java:condition>
@@ -319,7 +319,7 @@ should colour be in drools file or some other way
 
     <rule name="NOSK 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("NOSK") ==  -1</java:condition>
         <java:consequence>              
@@ -333,7 +333,7 @@ should colour be in drools file or some other way
 
     <rule name="LDL 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("LDL") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("LDL") &lt; 12</java:condition>
@@ -345,7 +345,7 @@ should colour be in drools file or some other way
 
     <rule name="LDL 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("LDL") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -356,7 +356,7 @@ should colour be in drools file or some other way
 
     <rule name="LDL 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("LDL") ==  -1</java:condition>
         <java:consequence>              
@@ -371,7 +371,7 @@ should colour be in drools file or some other way
 
     <rule name="TCHD 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("TCHD") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("TCHD") &lt; 12</java:condition>
@@ -383,7 +383,7 @@ should colour be in drools file or some other way
 
     <rule name="TCHD 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("TCHD") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -394,7 +394,7 @@ should colour be in drools file or some other way
 
     <rule name="TCHD 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("TCHD") ==  -1</java:condition>
         <java:consequence>              
@@ -409,7 +409,7 @@ should colour be in drools file or some other way
 
     <rule name="TG 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("TG") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("TG") &lt; 12</java:condition>
@@ -421,7 +421,7 @@ should colour be in drools file or some other way
 
     <rule name="TG 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("TG") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -432,7 +432,7 @@ should colour be in drools file or some other way
 
     <rule name="TG 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("TG") ==  -1</java:condition>
         <java:consequence>              
@@ -446,7 +446,7 @@ should colour be in drools file or some other way
 
     <rule name="LMED 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("LMED") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("LMED") &lt; 12</java:condition>
@@ -458,7 +458,7 @@ should colour be in drools file or some other way
 
     <rule name="LMED 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("LMED") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -469,7 +469,7 @@ should colour be in drools file or some other way
 
     <rule name="LMED 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("LMED") ==  -1</java:condition>
         <java:consequence>              
@@ -482,7 +482,7 @@ should colour be in drools file or some other way
 
     <rule name="FGLC 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FGLC") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("FGLC") &lt; 12</java:condition>
@@ -494,7 +494,7 @@ should colour be in drools file or some other way
 
     <rule name="FGLC 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FGLC") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -505,7 +505,7 @@ should colour be in drools file or some other way
 
     <rule name="FGLC 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FGLC") ==  -1</java:condition>
         <java:consequence>              
@@ -518,7 +518,7 @@ should colour be in drools file or some other way
 
     <rule name="EYEE 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EYEE") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("EYEE") &lt; 12</java:condition>
@@ -530,7 +530,7 @@ should colour be in drools file or some other way
 
     <rule name="EYEE 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EYEE") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -541,7 +541,7 @@ should colour be in drools file or some other way
 
     <rule name="EYEE 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EYEE") ==  -1</java:condition>
         <java:consequence>              
@@ -554,7 +554,7 @@ should colour be in drools file or some other way
 
     <rule name="ACR 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("ACR") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("ACR") &lt; 12</java:condition>
@@ -566,7 +566,7 @@ should colour be in drools file or some other way
 
     <rule name="ACR 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("ACR") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -577,7 +577,7 @@ should colour be in drools file or some other way
 
     <rule name="ACR 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("ACR") ==  -1</java:condition>
         <java:consequence>              
@@ -590,7 +590,7 @@ should colour be in drools file or some other way
 
     <rule name="EGFR 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EGFR") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("EGFR") &lt; 12</java:condition>
@@ -602,7 +602,7 @@ should colour be in drools file or some other way
 
     <rule name="EGFR 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EGFR") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -613,7 +613,7 @@ should colour be in drools file or some other way
 
     <rule name="EGFR 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EGFR") ==  -1</java:condition>
         <java:consequence>              
@@ -627,7 +627,7 @@ should colour be in drools file or some other way
 
     <rule name="FTE 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTE") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("FTE") &lt; 12</java:condition>
@@ -639,7 +639,7 @@ should colour be in drools file or some other way
 
     <rule name="FTE 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTE") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -650,7 +650,7 @@ should colour be in drools file or some other way
 
     <rule name="FTE 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTE") ==  -1</java:condition>
         <java:consequence>              
@@ -664,7 +664,7 @@ should colour be in drools file or some other way
 
     <rule name="FTLS 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTLS") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("FTLS") &lt; 12</java:condition>
@@ -676,7 +676,7 @@ should colour be in drools file or some other way
 
     <rule name="FTLS 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTLS") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -687,7 +687,7 @@ should colour be in drools file or some other way
 
     <rule name="FTLS 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTLS") ==  -1</java:condition>
         <java:consequence>              
@@ -701,7 +701,7 @@ should colour be in drools file or some other way
 
     <rule name="PANE 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("PANE") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("PANE") &lt; 12</java:condition>
@@ -713,7 +713,7 @@ should colour be in drools file or some other way
 
     <rule name="PANE 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("PANE") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -724,7 +724,7 @@ should colour be in drools file or some other way
 
     <rule name="PANE 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("PANE") ==  -1</java:condition>
         <java:consequence>              
@@ -737,7 +737,7 @@ should colour be in drools file or some other way
 
     <rule name="EDGI 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EDGI") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("EDGI") &lt; 12</java:condition>
@@ -749,7 +749,7 @@ should colour be in drools file or some other way
 
     <rule name="EDGI 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EDGI") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -760,7 +760,7 @@ should colour be in drools file or some other way
 
     <rule name="EDGI 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("EDGI") ==  -1</java:condition>
         <java:consequence>              
@@ -775,7 +775,7 @@ should colour be in drools file or some other way
 
     <rule name="DMME 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DMME") &gt;= 10</java:condition>
         <java:condition>m.getLastDateRecordedInMonths("DMME") &lt; 12</java:condition>
@@ -787,7 +787,7 @@ should colour be in drools file or some other way
 
     <rule name="DMME 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DMME") &gt;= 12</java:condition>        
         <java:consequence>              
@@ -798,7 +798,7 @@ should colour be in drools file or some other way
 
     <rule name="DMME 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("DMME") ==  -1</java:condition>
         <java:consequence>              

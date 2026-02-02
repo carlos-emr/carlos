@@ -23,26 +23,26 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.util.LinkedList" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="java.io.File" %>
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="java.util.ArrayList" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.HRMReportParser" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.HRMReport" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.model.HRMDocument" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao" %>
-<%@page import="ca.openosp.openo.commn.model.OscarLog" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.log.LogAction" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReport" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.OscarLog" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

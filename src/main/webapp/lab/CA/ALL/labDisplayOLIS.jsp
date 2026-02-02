@@ -9,23 +9,23 @@
 
 --%>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.lab.ca.all.upload.MessageUploader" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader" %>
 <%@ page language="java" errorPage="/errorpage.jsp" %>
 <%@ page
-        import="java.util.*,java.sql.*,ca.openosp.openo.olis.*,ca.openosp.openo.commn.dao.PatientLabRoutingDao, ca.openosp.openo.utility.SpringUtils, ca.openosp.openo.commn.model.PatientLabRouting,ca.openosp.openo.lab.ca.all.*,ca.openosp.openo.lab.ca.all.util.*,ca.openosp.openo.lab.ca.all.parsers.*,ca.openosp.openo.lab.LabRequestReportLink,ca.openosp.openo.mds.data.ReportStatus,ca.openosp.openo.log.*,org.apache.commons.codec.binary.Base64" %>
-<%@page import="ca.openosp.openo.utility.AppointmentUtil" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.parsers.MessageHandler" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.parsers.OLISHL7Handler" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.parsers.Factory" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.AcknowledgementData" %>
-<%@ page import="ca.openosp.openo.olis.OLISResults2Action" %>
-<%@ page import="ca.openosp.Misc" %>
+        import="java.util.*,java.sql.*,io.github.carlos_emr.carlos.olis.*,io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.model.PatientLabRouting,io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.lab.ca.all.util.*,io.github.carlos_emr.carlos.lab.ca.all.parsers.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.mds.data.ReportStatus,io.github.carlos_emr.carlos.log.*,org.apache.commons.codec.binary.Base64" %>
+<%@page import="io.github.carlos_emr.carlos.utility.AppointmentUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.OLISHL7Handler" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.olis.OLISResults2Action" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
@@ -120,7 +120,7 @@
             try {
                 handler.importSourceOrganizations((OLISHL7Handler) Factory.getHandler(tempId));
             } catch (Exception e) {
-                ca.openosp.openo.utility.MiscUtils.getLogger().error("error", e);
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("error", e);
             }
         }
     }

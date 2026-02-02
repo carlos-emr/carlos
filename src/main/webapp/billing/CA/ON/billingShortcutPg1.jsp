@@ -17,24 +17,24 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@page import="ca.openosp.openo.commn.model.DiagnosticCode" %>
-<%@page import="ca.openosp.openo.commn.dao.DiagnosticCodeDao" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.CtlBillingServicePremium" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServicePremiumDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
 <%@page import="java.util.Date" %>
-<%@page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@page import="ca.openosp.openo.commn.model.CtlBillingService" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicLocation" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao" %>
-<%@page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-<%@page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Billing" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -54,27 +54,27 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page errorPage="/errorpage.jsp" %>
-<%@ page import="java.util.*,java.net.*, java.sql.*, ca.openosp.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicNbr" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicNbrDao" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
-<%@page import="ca.openosp.openo.commn.dao.ProfessionalSpecialistDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingItemData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="ca.openosp.Misc" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
 %>

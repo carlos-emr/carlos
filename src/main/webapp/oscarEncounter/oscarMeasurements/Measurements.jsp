@@ -33,9 +33,9 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 
 <%@ page
-        import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
-<%@ page import="ca.openosp.openo.managers.MeasurementManager" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+        import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     String demo = request.getParameter("demographicNo"); //bean.getDemographicNo();
     request.setAttribute("demo", demo);

@@ -24,12 +24,12 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="ca.openosp.openo.commn.model.OscarLog" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarLogDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.OscarLog" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -47,7 +47,7 @@
 %>
 
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

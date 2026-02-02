@@ -39,7 +39,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
 
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
@@ -56,16 +56,16 @@
   creatorDemo = Encode.forHtmlContent(creatorDemo);
 %>
 
-<%@page import="ca.openosp.openo.demographic.data.*,java.util.*" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlRelationshipsDao" %>
-<%@page import="ca.openosp.openo.commn.model.CtlRelationships" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlRelationshipsDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlRelationships" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicRelationship" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

@@ -8,10 +8,10 @@
     and "gnu.org/licenses/gpl-2.0.html".
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="org.apache.commons.lang3.StringUtils,ca.openosp.openo.log.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -39,29 +39,29 @@
     HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 %>
 
-<%@page import="ca.openosp.openo.hospitalReportManager.*, ca.openosp.openo.hospitalReportManager.model.*, ca.openosp.openo.utility.SpringUtils, ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.*, io.github.carlos_emr.carlos.hospitalReportManager.model.*, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="java.util.*" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.dao.*" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.HRMDisplayReport2Action" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.HRMReportParser" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.HRMReport" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.model.*" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.dao.*" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.model.HRMReportCriteria" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReport" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <!DOCTYPE html>
 
 <%
     Integer hrmReportId = Integer.parseInt(request.getParameter("id"));
     // Access ModelDriven criteria object from request attributes
     HRMReportCriteria criteria =
-        (ca.openosp.openo.hospitalReportManager.model.HRMReportCriteria) request.getAttribute("criteria");
+        (io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria) request.getAttribute("criteria");
     boolean isListView = criteria != null && criteria.getListView() != null ? criteria.getListView() : false;
     String hrmReportTime = "";
     Integer hrmDuplicateNum = null;

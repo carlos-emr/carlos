@@ -22,13 +22,13 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
-<%@page import="ca.openosp.openo.commn.dao.ProviderPreferenceDao" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="java.util.Arrays" %>
 <%@page import="java.util.HashMap" %>
 <%@page import="java.util.Map" %>

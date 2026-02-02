@@ -23,9 +23,9 @@
     Ontario, Canada
 
 --%>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Security" %>
-<%@ page import="ca.openosp.openo.commn.dao.SecurityDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%
     if (session.getValue("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -48,7 +48,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page
-        import="java.lang.*, java.util.*, java.text.*,java.sql.*, ca.openosp.*"
+        import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"
         errorPage="/errorpage.jsp" %>
 
 <%!

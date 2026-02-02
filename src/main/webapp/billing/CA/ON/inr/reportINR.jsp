@@ -25,23 +25,23 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ page import="java.util.*, java.sql.*, java.net.*" %>
 <%@ include file="/admin/dbconnection.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingInr" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingInrDao" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     BillingInrDao billingInrDao = SpringUtils.getBean(BillingInrDao.class);
 
 %>
 
-<jsp:useBean id="SxmlMisc" class="ca.openosp.SxmlMisc" scope="session"/>
+<jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicLocation" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
 %>

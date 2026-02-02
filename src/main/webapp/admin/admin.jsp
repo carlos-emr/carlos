@@ -60,8 +60,8 @@
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<%@page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>

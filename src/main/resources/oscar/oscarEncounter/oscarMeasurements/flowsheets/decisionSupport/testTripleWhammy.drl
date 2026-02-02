@@ -11,7 +11,7 @@
 
     <rule name="LDL">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("LDL") == true</java:condition>       
         <java:condition>m.getDataAsDouble() &lt; 2.0</java:condition>       
@@ -23,7 +23,7 @@
 
     <rule name="LDL_1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("LDL") == false</java:condition>       
         <java:consequence>     
@@ -36,7 +36,7 @@
 
     <rule name="BP_3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("BP") == false</java:condition>       
         <java:consequence>     
@@ -47,7 +47,7 @@
 
    <rule name="BP">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("BP") == true</java:condition>       
         <java:condition>m.getNumberFromSplit("/",0) &lt; 131</java:condition>   
@@ -61,7 +61,7 @@
 
     <rule name="BP_2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("BP") == true</java:condition>       
         <java:condition>m.getNumberFromSplit("/",0) &gt;= 131</java:condition>   
@@ -77,7 +77,7 @@
   
     <rule name="A1C_3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("A1C") == false</java:condition>       
         <java:consequence>     
@@ -89,7 +89,7 @@
 
     <rule name="A1C_1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("A1C") == true</java:condition>       
         <java:condition>m.getDataAsDouble() &lt; 7.0</java:condition> 
@@ -103,7 +103,7 @@
 
     <rule name="A1C_1_2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("A1C") == true</java:condition>       
         <java:condition>m.getDataAsDouble() &gt;= 7.0</java:condition>              
@@ -116,7 +116,7 @@
     
     <rule name="A1C_2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("A1C") == true</java:condition>       
         <java:condition>m.getDataAsDouble() &lt; 0.07</java:condition>       
@@ -130,7 +130,7 @@
 
     <rule name="A1C_2_2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.setMeasurement("A1C") == true</java:condition>       
         <java:condition>m.getDataAsDouble() &gt;= 0.07</java:condition>  

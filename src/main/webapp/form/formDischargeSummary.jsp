@@ -39,9 +39,9 @@
 %>
 
 <%@ page
-        import="ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*, ca.openosp.openo.utility.*" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, io.github.carlos_emr.carlos.utility.*" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%

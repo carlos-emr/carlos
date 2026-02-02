@@ -26,19 +26,19 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="java.util.Calendar" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleTemplateCodeDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleTemplateCode" %>
-<%@ page import="ca.openosp.openo.appointment.web.NextAppointmentSearchHelper" %>
-<%@ page import="ca.openosp.openo.appointment.web.NextAppointmentSearchBean" %>
-<%@ page import="ca.openosp.openo.appointment.web.NextAppointmentSearchResult" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchHelper" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchBean" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchResult" %>
 <%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="ca.openosp.openo.util.LabelValueBean" %>
+<%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
 <%
     SimpleDateFormat dayFormatter = new SimpleDateFormat("yyyy-MM-dd");
     SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm");

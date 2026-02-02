@@ -20,10 +20,10 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingService" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);

@@ -24,9 +24,9 @@
 
 --%>
 
-<%@ page import="ca.openosp.openo.commn.service.FieldNoteManager" %>
-<%@ page import="ca.openosp.openo.commn.model.EForm, ca.openosp.openo.commn.dao.EFormDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EForm, io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

@@ -11,7 +11,7 @@
 
     <rule name="EFGR">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>      
         <java:condition>m.getDataAsDouble() &lt;= 60</java:condition> 
         <java:consequence>     

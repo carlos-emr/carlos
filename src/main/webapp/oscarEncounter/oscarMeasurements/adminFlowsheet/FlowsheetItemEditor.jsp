@@ -26,9 +26,9 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the first page you see when you enter 'report by template' --%>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.dao.FlowSheetUserCreatedDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetUserCreatedDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,9 +48,9 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

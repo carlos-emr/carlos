@@ -18,10 +18,10 @@
 
 --%>
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 %>

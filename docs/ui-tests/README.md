@@ -205,7 +205,7 @@ The Maven dependency for Playwright has been added to `pom.xml`:
 </dependency>
 ```
 
-**Planned**: JUnit 5 test classes in `src/test-modern/java/ca/openosp/openo/ui/smoke/`
+**Planned**: JUnit 5 test classes in `src/test-modern/java/io/github/carlos_emr/carlos/ui/smoke/`
 
 ## Test Credentials
 

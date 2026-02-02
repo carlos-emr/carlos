@@ -18,8 +18,8 @@
 
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%@ page import="java.util.*, ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingSpecPrep" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSpecPrep" %>
 
 <%
     //

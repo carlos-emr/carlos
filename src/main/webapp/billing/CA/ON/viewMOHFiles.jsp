@@ -10,10 +10,10 @@
     
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.util.*,ca.openosp.*,java.io.*,java.net.*,ca.openosp.openo.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,ca.openosp.openo.billing.CA.ON.util.EDTFolder,ca.openosp.openo.utility.MiscUtils"%>
-<%@ page import="ca.openosp.openo.util.FileSortByDate" %>
-<%@ page import="ca.openosp.openo.util.zip" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils"%>
+<%@ page import="io.github.carlos_emr.carlos.util.FileSortByDate" %>
+<%@ page import="io.github.carlos_emr.carlos.util.zip" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
@@ -45,7 +45,7 @@
                 location.href = "<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp";
                 return;
             } else if (fileType == "P" || fileType == "S") {
-                form.action = "<%= request.getContextPath() %>/servlet/ca.openosp.DocumentUploadServlet";
+                form.action = "<%= request.getContextPath() %>/servlet/io.github.carlos_emr.DocumentUploadServlet";
             } else if (fileType == "L") {
                 form.action = "<%= request.getContextPath() %>/billing/CA/ON/billingLreport.jsp";
             } else {

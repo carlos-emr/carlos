@@ -39,14 +39,14 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.form.*, ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.commn.dao.FrmLabReqPreSetDao, ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FrmLabReqPreSetDao, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmLabReqRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmLabReqRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

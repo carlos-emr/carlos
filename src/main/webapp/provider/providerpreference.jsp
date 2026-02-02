@@ -39,25 +39,25 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.web.PrescriptionQrCodeUIBean" %>
-<%@page import="ca.openosp.openo.commn.model.EForm" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.commn.model.EncounterForm" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.CtlBillingService" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.EncounterForm" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.ArrayList" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
 <%!
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);

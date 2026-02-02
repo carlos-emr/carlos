@@ -24,8 +24,8 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.prescript.data.RxDrugData,java.util.*,ca.openosp.openo.rx.util.*" %>
-<%@ page import="ca.openosp.openo.prescript.util.RxDrugRef" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData,java.util.*,io.github.carlos_emr.carlos.rx.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RxDrugRef" %>
 <ul>
     <%
         String searchString = request.getParameter("searchString");

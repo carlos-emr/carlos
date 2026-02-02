@@ -27,13 +27,13 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
-<%@ page import="ca.openosp.openo.rx.data.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPatientData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

@@ -40,11 +40,11 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.dao.DataExportDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DataExportDao" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="ca.openosp.openo.report.data.DemographicSets" %>
+<%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.DataExport" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DataExport" %>
 <%@include file="/casemgmt/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%

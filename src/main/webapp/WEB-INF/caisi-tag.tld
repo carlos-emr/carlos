@@ -9,7 +9,7 @@
     <info>Caisi Tags Library</info>
 <tag>
     <name>isModuleLoad</name>
-    <tagclass>ca.openosp.openo.caisi.IsModuleLoadTag</tagclass>
+    <tagclass>io.github.carlos_emr.carlos.caisi.IsModuleLoadTag</tagclass>
     <bodycontent>jsp</bodycontent>
     <info>Module whether exist</info>
     <attribute>
@@ -31,13 +31,13 @@
 </tag>
 <tag>
     <name>OscarTag</name>
-    <tagclass>ca.openosp.openo.PMmodule.common.OscarTag</tagclass>
+    <tagclass>io.github.carlos_emr.carlos.PMmodule.common.OscarTag</tagclass>
     <bodycontent>empty</bodycontent>
     <info>Oscar Tag</info>
 </tag>
 <tag>
     <name>OscarDemographicLink</name>
-    <tagclass>ca.openosp.openo.PMmodule.common.OscarDemographicLinkTag</tagclass>
+    <tagclass>io.github.carlos_emr.carlos.PMmodule.common.OscarDemographicLinkTag</tagclass>
     <bodycontent>empty</bodycontent>
     <info>Oscar Demographic link Tag</info>
     <attribute>
@@ -48,7 +48,7 @@
 </tag>
 <tag>
     <name>CaseManagementLink</name>
-    <tagclass>ca.openosp.openo.PMmodule.common.CaseManagementLinkTag</tagclass>
+    <tagclass>io.github.carlos_emr.carlos.PMmodule.common.CaseManagementLinkTag</tagclass>
     <bodycontent>empty</bodycontent>
     <info>CAISI Case Management link Tag</info>
     <attribute>
@@ -85,7 +85,7 @@
 </tag>
 <tag>
   <name>ProgramExclusiveView</name>
-  <tagclass>ca.openosp.openo.www.tld.programExclusiveViewTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.www.tld.programExclusiveViewTag</tagclass>
   <bodycontent>jsp</bodycontent>
   <attribute>
     <name>providerNo</name>

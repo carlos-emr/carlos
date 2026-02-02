@@ -41,8 +41,8 @@
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.net.URLEncoder" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>

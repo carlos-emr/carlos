@@ -47,13 +47,13 @@
 </head>
 <body>
 <%@ page
-        import="java.io.*, java.sql.*, java.util.*,java.net.*, ca.openosp.*, java.math.*"
+        import="java.io.*, java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.*, java.math.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.*" %>
+<%@ page import="io.github.carlos_emr.*" %>
 
 
 <jsp:useBean id="dbBillingDataBean" scope="page"
-             class="ca.openosp.dbBillingData">
+             class="io.github.carlos_emr.dbBillingData">
     <jsp:setProperty name="dbBillingDataBean" property="*"/>
 </jsp:useBean>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>

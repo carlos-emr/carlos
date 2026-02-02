@@ -45,9 +45,9 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
-<%@ page import="java.util.*,ca.openosp.openo.rx.data.*,ca.openosp.openo.rx.pageUtil.*, ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxDrugData" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*, io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>

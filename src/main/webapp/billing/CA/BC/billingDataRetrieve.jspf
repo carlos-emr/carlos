@@ -24,13 +24,13 @@
  */
 -->
 
-<%@page import="ca.openosp.MyDateFormat" %>
-<%@page import="ca.openosp.SxmlMisc" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Billing" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 
 <% 
 

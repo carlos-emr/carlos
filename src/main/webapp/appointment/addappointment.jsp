@@ -50,53 +50,53 @@ Ontario, Canada
 <%@ page import="java.time.format.FormatStyle" %>
 <%@ page import="java.time.ZoneId" %>
 
-<%@ page import="java.util.*, java.lang.*, ca.openosp.openo.appt.*" %>
+<%@ page import="java.util.*, java.lang.*, io.github.carlos_emr.carlos.appt.*" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.appt.status.service.AppointmentStatusMgr" %>
-<%@ page import="ca.openosp.openo.appt.status.service.impl.AppointmentStatusMgrImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.decisionSupport.BillingGuidelines" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
-<%@ page import="ca.openosp.openo.commn.model.AppointmentStatus" %>
-<%@ page import="ca.openosp.openo.commn.model.DemographicCust" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicCustDao" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.model.EncounterForm" %>
-<%@ page import="ca.openosp.openo.commn.dao.EncounterFormDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@ page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.ProgramProvider" %>
-<%@ page import="ca.openosp.openo.commn.model.Facility" %>
-<%@ page import="ca.openosp.openo.PMmodule.service.ProviderManager" %>
-<%@ page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@ page import="ca.openosp.openo.managers.ProgramManager2" %>
-<%@ page import="ca.openosp.openo.decisionSupport.model.DSConsequence" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EncounterForm" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.EncounterFormDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
+<%@ page import="io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence" %>
 
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 
-<%@ page import="ca.openosp.openo.managers.LookupListManager" %>
-<%@ page import="ca.openosp.openo.commn.model.LookupList" %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Site" %>
-<%@ page import="ca.openosp.openo.commn.dao.AppointmentTypeDao" %>
-<%@ page import="ca.openosp.openo.commn.model.AppointmentType" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentType" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.appt.JdbcApptImpl" %>
-<%@ page import="ca.openosp.openo.appt.ApptUtil" %>
-<%@ page import="ca.openosp.openo.appt.ApptData" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

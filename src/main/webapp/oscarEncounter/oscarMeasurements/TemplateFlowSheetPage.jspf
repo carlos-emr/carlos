@@ -24,42 +24,42 @@
 
 --%>
 <%@page import="javax.swing.Spring"%>
-<%@page import="ca.openosp.openo.commn.dao.DrugDao"%>
-<%@page import="ca.openosp.openo.commn.dao.DrugReasonDao"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugReasonDao"%>
 <%@page import="org.apache.commons.lang3.StringUtils"%>
-<%@page import="ca.openosp.openo.utility.SpringUtils"%>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%long startTime = System.currentTimeMillis();%>
-<%@page import="ca.openosp.openo.prescript.data.RxPatientData"%>
-<%@page  import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.encounter.oscarMeasurements.bean.*,java.net.*"%>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,ca.openosp.openo.log.*"%>
-<%@page import="org.springframework.web.context.WebApplicationContext,ca.openosp.openo.dxresearch.bean.*"%>
-<%@page import="ca.openosp.openo.commn.dao.FlowSheetCustomizationDao"%>
-<%@page import="ca.openosp.openo.commn.dao.FlowSheetDrugDao,ca.openosp.openo.commn.dao.FlowSheetDxDao,ca.openosp.openo.utility.MiscUtils"%>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedMeasurement,ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager,ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData"%>
+<%@page  import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*"%>
+<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.log.*"%>
+<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.dxresearch.bean.*"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.dao.FlowSheetDxDao,io.github.carlos_emr.carlos.utility.MiscUtils"%>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedMeasurement,io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager,io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
-<%@page import="ca.openosp.OscarProperties"%>
+<%@page import="io.github.carlos_emr.OscarProperties"%>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.services.security.SecurityManager" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.FlowSheetItem" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.dxresearch.bean.dxResearchBean" %>
-<%@ page import="ca.openosp.openo.dxresearch.bean.dxResearchBeanHandler" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.FlowSheetItem" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
 <%
 	if(session.getValue("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");

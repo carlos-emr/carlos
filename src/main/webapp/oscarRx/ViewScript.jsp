@@ -23,19 +23,19 @@
     Ontario, Canada
 
 --%>
-<%@ page import="ca.openosp.openo.providers.data.*, ca.openosp.OscarProperties, ca.openosp.openo.clinic.ClinicData, java.util.*" %>
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
-<%@ page import="ca.openosp.openo.providers.data.ProSignatureData" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxProviderData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

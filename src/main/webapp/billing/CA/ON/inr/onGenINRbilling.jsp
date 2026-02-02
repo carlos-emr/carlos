@@ -20,20 +20,20 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*,java.sql.*,ca.openosp.openo.util.*,ca.openosp.*,ca.openosp.openo.billing.ca.on.data.*"
+<%@ page import="java.util.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.billing.ca.on.data.*"
          errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.billing.CA.model.BillingInr" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.billing.CA.dao.BillingInrDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingItemData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingClaimImpl" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
     BillingInrDao billingInrDao = SpringUtils.getBean(BillingInrDao.class);
 %>

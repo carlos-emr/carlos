@@ -39,8 +39,8 @@
     }
 %>
 
-<%@page import="java.text.*, java.util.*, ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.billing.ca.bc.pageUtil.*,ca.openosp.*,ca.openosp.openo.entities.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.DxReference" %>
+<%@page import="java.text.*, java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.DxReference" %>
 
 <%
     String demo = request.getParameter("demographicNo");

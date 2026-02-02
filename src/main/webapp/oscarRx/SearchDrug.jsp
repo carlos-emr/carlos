@@ -30,12 +30,12 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page
-        import="ca.openosp.openo.rx.data.*,ca.openosp.openo.demographic.data.DemographicData,ca.openosp.OscarProperties,ca.openosp.openo.log.*" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
+        import="io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.demographic.data.DemographicData,io.github.carlos_emr.OscarProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 
 
 <%
@@ -106,20 +106,20 @@
     }
 
 %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.casemgmt.web.PrescriptDrug" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPatientData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPharmacyData" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
-<%@ page import="ca.openosp.openo.commn.model.Drug" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.PrescriptDrug" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
 <html>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>

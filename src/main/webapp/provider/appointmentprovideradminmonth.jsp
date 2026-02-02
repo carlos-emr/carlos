@@ -24,21 +24,21 @@
 
 --%>
 <!DOCTYPE html>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderSiteDao" %>
-<%@ page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleHolidayDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleHoliday" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleDateDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleDate" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleHoliday" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 
 <%
@@ -53,7 +53,7 @@
 <%!
     //multisite starts =====================
     private List<Site> sites;
-    private boolean bMultisites = ca.openosp.openo.commn.IsPropertiesOn.isMultisitesEnable();
+    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
 
     private List<Site> curUserSites = new ArrayList<Site>();
     private String[] curScheduleMultisite;
@@ -207,14 +207,14 @@
 //multisite ends =======================
 %>
 
-<%@ page import="java.lang.*, java.util.*,java.net.*,ca.openosp.*" %>
+<%@ page import="java.lang.*, java.util.*,java.net.*,io.github.carlos_emr.*" %>
 <%
     java.util.Properties oscarVariables = OscarProperties.getInstance();
 %>
 
 <jsp:useBean id="scheduleHolidayBean" class="java.util.Hashtable"
              scope="session"/>
-<jsp:useBean id="providerNameBean" class="ca.openosp.Dict" scope="page"/>
+<jsp:useBean id="providerNameBean" class="io.github.carlos_emr.Dict" scope="page"/>
 <jsp:useBean id="myGrpBean" class="java.util.Properties" scope="page"/>
 
 
@@ -301,9 +301,9 @@
 
     }
 %>
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.appt.ApptUtil" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 

@@ -56,7 +56,7 @@
 --%>
 
 <!DOCTYPE html>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -72,18 +72,18 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@ page import="ca.openosp.openo.encounter.data.*"%>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.*"%>
-<%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.dao.ConsultationRequestExtDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.*"%>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*"%>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
-<%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

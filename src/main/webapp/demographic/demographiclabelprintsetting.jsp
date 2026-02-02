@@ -40,18 +40,18 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.Misc" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

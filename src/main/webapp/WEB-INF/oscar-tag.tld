@@ -9,7 +9,7 @@
 
 <tag>
   <name>preventionWarnings</name>
-  <tagclass>ca.openosp.openo.prevention.tld.PreventionTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.prevention.tld.PreventionTag</tagclass>
   <bodycontent>jsp</bodycontent>
   <attribute>
     <name>demographicNo</name>
@@ -20,7 +20,7 @@
 
 <tag>
   <name>newLab</name>
-  <tagclass>ca.openosp.openo.lab.tld.LabTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.lab.tld.LabTag</tagclass>
   <bodycontent>jsp</bodycontent>
   <attribute>
     <name>providerNo</name>
@@ -31,7 +31,7 @@
 
 <tag>
   <name>agedConsult</name>
-  <tagclass>ca.openosp.openo.encounter.oscarConsultationRequest.tld.ConsultTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.tld.ConsultTag</tagclass>
   <bodycontent>jsp</bodycontent>
   <attribute>
     <name>providerNo</name>
@@ -42,13 +42,13 @@
 
 <tag>
   <name>newUnclaimedLab</name>
-  <tagclass>ca.openosp.openo.lab.tld.UnclaimedLabTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.lab.tld.UnclaimedLabTag</tagclass>
   <bodycontent>jsp</bodycontent>  
 </tag>
 
 <tag>
   <name>filledScratch</name>
-  <tagclass>ca.openosp.openo.scratch.tld.ScratchTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.scratch.tld.ScratchTag</tagclass>
   <bodycontent>jsp</bodycontent>
   <attribute>
     <name>providerNo</name>
@@ -59,7 +59,7 @@
 
 <tag>
   <name>newMessage</name>
-  <tagclass>ca.openosp.openo.messenger.tld.MsgNewMessageTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.messenger.tld.MsgNewMessageTag</tagclass>
   <bodycontent>jsp</bodycontent>
   <attribute>
     <name>providerNo</name>
@@ -70,7 +70,7 @@
 
 <tag>
    <name>oscarPropertiesCheck</name>
-   <tagclass>ca.openosp.openo.util.OscarPropertiesCheck</tagclass>
+   <tagclass>io.github.carlos_emr.carlos.util.OscarPropertiesCheck</tagclass>
    <bodycontent>JSP</bodycontent>       
    <attribute>
      <name>property</name>
@@ -91,7 +91,7 @@
 
 <tag>
   <name>newTickler</name>
-  <tagclass>ca.openosp.openo.tickler.tld.TicklerTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.tickler.tld.TicklerTag</tagclass>
   <bodycontent>jsp</bodycontent>
   <attribute>
     <name>providerNo</name>
@@ -102,7 +102,7 @@
 
 <tag>
   <name>nameage</name>
-  <tagclass>ca.openosp.openo.demographic.tld.DemographicNameAgeTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.demographic.tld.DemographicNameAgeTag</tagclass>
   <bodycontent>empty</bodycontent>
   <attribute>
     <name>demographicNo</name>
@@ -129,7 +129,7 @@
 
 <tag>
   <name>nextAppt</name>
-  <tagclass>ca.openosp.openo.appt.tld.NextApptTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.appt.tld.NextApptTag</tagclass>
   <bodycontent>empty</bodycontent>
   <attribute>
     <name>demographicNo</name>
@@ -151,7 +151,7 @@
 
 <tag>
   <name>customInterface</name>
-  <tagclass>ca.openosp.openo.utility.CustomInterfaceTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.utility.CustomInterfaceTag</tagclass>
   <bodycontent>empty</bodycontent>
   <attribute>
     <name>section</name>

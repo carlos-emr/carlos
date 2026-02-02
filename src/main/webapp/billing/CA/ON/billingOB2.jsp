@@ -21,23 +21,23 @@
     String curUser_no = (String) session.getAttribute("user");
 
 %>
-<%@ page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
 
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicLocation" %>
-<%@ page import="ca.openosp.openo.commn.model.DiagnosticCode" %>
-<%@ page import="ca.openosp.openo.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Billing" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);

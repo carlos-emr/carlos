@@ -39,9 +39,9 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.form.*, java.util.*" %>
-<%@ page import="ca.openosp.openo.encounter.util.EctFileUtil" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 

@@ -28,14 +28,14 @@
 
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Tickler" %>
-<%@ page import="ca.openosp.openo.commn.model.TicklerLink" %>
-<%@ page import="ca.openosp.openo.commn.dao.TicklerLinkDao" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="java.time.LocalDateTime" %>
 

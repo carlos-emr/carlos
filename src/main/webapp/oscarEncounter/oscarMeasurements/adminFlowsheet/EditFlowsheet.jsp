@@ -25,23 +25,23 @@
 --%>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
-        import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.encounter.oscarMeasurements.bean.*,java.net.*" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
 <%@ page
-        import="org.jdom2.Element,ca.openosp.openo.encounter.oscarMeasurements.data.*,org.jdom2.output.Format,org.jdom2.output.XMLOutputter,ca.openosp.openo.encounter.oscarMeasurements.util.*,java.io.*" %>
+        import="org.jdom2.Element,io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*,org.jdom2.output.Format,org.jdom2.output.XMLOutputter,io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.*,java.io.*" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
-<%@ page import="ca.openosp.openo.commn.dao.*,ca.openosp.openo.commn.model.FlowSheetCustomization" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.FlowSheetItem" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.FlowSheetItem" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.FlowSheetCustomizationDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

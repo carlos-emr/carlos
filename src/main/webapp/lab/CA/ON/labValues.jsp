@@ -39,19 +39,19 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.io.Serializable" %>
 <%@page import="org.w3c.dom.Document" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedDemographicLabResult" %>
-<%@page import="ca.openosp.openo.lab.ca.all.web.LabDisplayHelper" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
 <%@ page
-        import="java.util.*,ca.openosp.openo.lab.ca.on.*,ca.openosp.openo.demographic.data.*" %>
+        import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String labType = request.getParameter("labType");

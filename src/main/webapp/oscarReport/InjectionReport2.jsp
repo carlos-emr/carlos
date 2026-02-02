@@ -39,13 +39,13 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="java.util.*,ca.openosp.openo.report.data.*,ca.openosp.openo.util.*,ca.openosp.openo.db.*,java.sql.*,ca.openosp.openo.demographic.data.*,ca.openosp.openo.prevention.*" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionData" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+        import="java.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

@@ -17,12 +17,12 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat" %>
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicLocation" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
 %>

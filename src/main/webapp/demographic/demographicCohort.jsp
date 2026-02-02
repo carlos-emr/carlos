@@ -41,8 +41,8 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.report.data.DemographicSets, ca.openosp.openo.demographic.data.DemographicData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 

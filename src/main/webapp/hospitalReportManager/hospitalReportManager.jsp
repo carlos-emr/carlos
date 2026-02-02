@@ -10,7 +10,7 @@
 --%>
 <!DOCTYPE html>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -29,10 +29,10 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
 <%@ page
-        import="ca.openosp.openo.hospitalReportManager.SFTPConnector, ca.openosp.openo.hospitalReportManager.dao.HRMProviderConfidentialityStatementDao" %>
+        import="io.github.carlos_emr.carlos.hospitalReportManager.SFTPConnector, io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMProviderConfidentialityStatementDao" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

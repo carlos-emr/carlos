@@ -35,16 +35,16 @@
 
 <c:if test="${authenticated eq true}">
 
-    <%@page import="ca.openosp.openo.utility.DigitalSignatureUtils" %>
-    <%@page import="ca.openosp.openo.utility.MiscUtils" %>
+    <%@page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+    <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
     <%@page import="java.io.FileOutputStream" %>
     <%@page import="java.io.InputStream" %>
-    <%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+    <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
     <%@page import="org.apache.commons.codec.binary.Base64" %>
-    <%@ page import="ca.openosp.openo.commn.model.DigitalSignature" %>
-    <%@ page import="ca.openosp.openo.managers.DigitalSignatureManager" %>
-    <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-    <%@ page import="ca.openosp.openo.commn.model.enumerator.ModuleType" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.model.DigitalSignature" %>
+    <%@ page import="io.github.carlos_emr.carlos.managers.DigitalSignatureManager" %>
+    <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
     <%
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

@@ -29,12 +29,12 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroupPrimaryKey" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 
 <%
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);

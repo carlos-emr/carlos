@@ -13,7 +13,7 @@
        default-autowire="no">
 
     <!-- Define the scheduled task (SpireClient) -->
-    <bean id="spireScheduledPullTask" class="ca.openosp.openo.lab.ca.all.download.SpireClient" />
+    <bean id="spireScheduledPullTask" class="io.github.carlos_emr.carlos.lab.ca.all.download.SpireClient" />
 
     <!-- Define the scheduled executor factory bean -->
     <bean id="scheduledExecutorFactoryBean" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">

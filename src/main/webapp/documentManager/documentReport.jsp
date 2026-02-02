@@ -24,10 +24,10 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO, ca.openosp.openo.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%
@@ -57,12 +57,12 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.commn.dao.CtlDocClassDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 

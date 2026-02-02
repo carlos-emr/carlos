@@ -11,19 +11,19 @@
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="java.util.*,
-                ca.openosp.openo.commn.dao.DemographicDao,
-                ca.openosp.openo.commn.model.Demographic,
-                ca.openosp.openo.PMmodule.dao.ProviderDao,
-                ca.openosp.openo.commn.model.Provider,
-                ca.openosp.openo.olis.dao.OLISRequestNomenclatureDao,
-                ca.openosp.openo.olis.dao.OLISResultNomenclatureDao,
-                ca.openosp.openo.olis.model.OLISRequestNomenclature,
-                ca.openosp.openo.olis.model.OLISResultNomenclature,
-                ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.Misc" %>
+                io.github.carlos_emr.carlos.commn.dao.DemographicDao,
+                io.github.carlos_emr.carlos.commn.model.Demographic,
+                io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,
+                io.github.carlos_emr.carlos.commn.model.Provider,
+                io.github.carlos_emr.carlos.olis.dao.OLISRequestNomenclatureDao,
+                io.github.carlos_emr.carlos.olis.dao.OLISResultNomenclatureDao,
+                io.github.carlos_emr.carlos.olis.model.OLISRequestNomenclature,
+                io.github.carlos_emr.carlos.olis.model.OLISResultNomenclature,
+                io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 

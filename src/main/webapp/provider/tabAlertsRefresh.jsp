@@ -30,7 +30,7 @@
     String tab = request.getParameter("id");
 
     if (tab.equals("oscar_new_lab")) { %>
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 <oscar:newLab providerNo="<%=curUser_no%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/></oscar:newLab>
 <% }
     if (tab.equals("oscar_new_msg")) { %>

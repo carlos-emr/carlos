@@ -44,7 +44,7 @@ workspace/
 │   │   └── resources/               # Legacy test resources
 │   └── test-modern/                 # Modern test framework
 │       ├── java/
-│       │   └── ca/openosp/openo/
+│       │   └── io/github/carlos_emr/carlos/
 │       │       ├── test/
 │       │       │   ├── base/        # Base test classes
 │       │       │   │   ├── OpenOTestBase.java
@@ -140,7 +140,7 @@ The framework is integrated into the default build process:
 
 ### 1. OpenOTestBase - Foundation Class
 
-**Location**: `src/test-modern/java/ca/openosp/openo/test/base/OpenOTestBase.java`
+**Location**: `src/test-modern/java/io/github/carlos_emr/carlos/test/base/OpenOTestBase.java`
 
 **Purpose**: Base class for all modern tests, handles Spring context and SpringUtils anti-pattern
 
@@ -185,8 +185,8 @@ public abstract class OpenOTestBase {
 <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
     <property name="mappingResources">
         <list>
-            <value>ca/openosp/openo/commn/model/Provider.hbm.xml</value>
-            <value>ca/openosp/openo/commn/model/Demographic.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
         </list>
     </property>
 </bean>
@@ -198,7 +198,7 @@ public abstract class OpenOTestBase {
 
 ### 3. MockSecurityInfoManager
 
-**Location**: `src/test-modern/java/ca/openosp/openo/test/mocks/MockSecurityInfoManager.java`
+**Location**: `src/test-modern/java/io/github/carlos_emr/carlos/test/mocks/MockSecurityInfoManager.java`
 
 **Purpose**: Bypasses security checks in test environment
 
@@ -224,11 +224,11 @@ public class MockSecurityInfoManager implements SecurityInfoManager {
 ```xml
 <persistence-unit name="testPersistenceUnit" transaction-type="RESOURCE_LOCAL">
     <!-- XML Mappings -->
-    <mapping-file>ca/openosp/openo/commn/model/Provider.hbm.xml</mapping-file>
+    <mapping-file>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</mapping-file>
 
     <!-- JPA Entities -->
-    <class>ca.openosp.openo.commn.model.Tickler</class>
-    <class>ca.openosp.openo.commn.model.TicklerComment</class>
+    <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
+    <class>io.github.carlos_emr.carlos.commn.model.TicklerComment</class>
 
     <exclude-unlisted-classes>true</exclude-unlisted-classes>
 </persistence-unit>
@@ -239,9 +239,9 @@ public class MockSecurityInfoManager implements SecurityInfoManager {
 ### Test Class Structure
 
 ```java
-package ca.openosp.openo.tickler.dao;
+package io.github.carlos_emr.carlos.tickler.dao;
 
-import ca.openosp.openo.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -406,8 +406,8 @@ The codebase uses both Hibernate XML mappings (`.hbm.xml` files) and JPA annotat
 <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
     <property name="mappingResources">
         <list>
-            <value>ca/openosp/openo/commn/model/Provider.hbm.xml</value>
-            <value>ca/openosp/openo/commn/model/Demographic.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
         </list>
     </property>
 </bean>
@@ -425,8 +425,8 @@ The codebase uses both Hibernate XML mappings (`.hbm.xml` files) and JPA annotat
 **Solution**: Manual bean definitions instead of component scanning:
 ```xml
 <!-- Define each DAO manually -->
-<bean id="ticklerDao" class="ca.openosp.openo.commn.dao.TicklerDaoImpl" autowire="byName" />
-<bean id="oscarLogDao" class="ca.openosp.openo.commn.dao.OscarLogDaoImpl" autowire="byName" />
+<bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl" autowire="byName" />
+<bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
 <!-- Add more as needed -->
 ```
 
@@ -438,9 +438,9 @@ The codebase uses both Hibernate XML mappings (`.hbm.xml` files) and JPA annotat
 ```xml
 <persistence-unit name="testPersistenceUnit">
     <!-- List each entity explicitly -->
-    <class>ca.openosp.openo.commn.model.Tickler</class>
-    <class>ca.openosp.openo.commn.model.TicklerComment</class>
-    <class>ca.openosp.openo.commn.model.OscarLog</class>
+    <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
+    <class>io.github.carlos_emr.carlos.commn.model.TicklerComment</class>
+    <class>io.github.carlos_emr.carlos.commn.model.OscarLog</class>
     <!-- Prevent scanning -->
     <exclude-unlisted-classes>true</exclude-unlisted-classes>
 </persistence-unit>

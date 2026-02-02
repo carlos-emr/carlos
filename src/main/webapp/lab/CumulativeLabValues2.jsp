@@ -26,10 +26,10 @@
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page
-        import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.lab.ca.on.*,ca.openosp.openo.util.*,ca.openosp.openo.lab.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabTestValues" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

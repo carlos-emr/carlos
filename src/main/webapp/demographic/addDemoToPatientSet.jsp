@@ -39,7 +39,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.report.data.DemographicSets,java.util.ArrayList" %>
+<%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets,java.util.ArrayList" %>
 
 <%
     String demoNo = request.getParameter("demoNo");

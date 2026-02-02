@@ -63,9 +63,9 @@
 --%>
 
 <%@ page
-        import="ca.openosp.openo.messenger.docxfer.send.*, ca.openosp.openo.messenger.docxfer.util.*, ca.openosp.openo.util.*" %>
+        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="java.util.*, org.w3c.dom.*" %>
-<%@ page import="ca.openosp.openo.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

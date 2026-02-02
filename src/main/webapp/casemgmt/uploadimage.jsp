@@ -40,8 +40,8 @@
 %>
 
 
-<%@ page import="ca.openosp.openo.casemgmt.model.*" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 
 <%
     if (application.getAttribute("javax.servlet.context.tempdir") == null) {

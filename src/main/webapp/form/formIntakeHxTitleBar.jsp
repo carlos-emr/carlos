@@ -39,12 +39,12 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LocaleUtils" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%
     String formClass = "IntakeHx";

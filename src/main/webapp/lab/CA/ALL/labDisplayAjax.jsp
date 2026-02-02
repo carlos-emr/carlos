@@ -25,38 +25,38 @@
 --%>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.model.PatientLabRouting" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.PatientLabRoutingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
 <%@ page import="java.util.*,
                  java.sql.*,
-                 ca.openosp.openo.db.*,
-                 ca.openosp.openo.lab.ca.all.*,
-                 ca.openosp.openo.lab.ca.all.util.*,
-                 ca.openosp.openo.utility.SpringUtils,
-                 ca.openosp.openo.lab.ca.all.parsers.*,
-                 ca.openosp.openo.lab.LabRequestReportLink,
-                 ca.openosp.openo.mds.data.ReportStatus,
-                 ca.openosp.openo.log.*,
-                 ca.openosp.OscarProperties,
+                 io.github.carlos_emr.carlos.db.*,
+                 io.github.carlos_emr.carlos.lab.ca.all.*,
+                 io.github.carlos_emr.carlos.lab.ca.all.util.*,
+                 io.github.carlos_emr.carlos.utility.SpringUtils,
+                 io.github.carlos_emr.carlos.lab.ca.all.parsers.*,
+                 io.github.carlos_emr.carlos.lab.LabRequestReportLink,
+                 io.github.carlos_emr.carlos.mds.data.ReportStatus,
+                 io.github.carlos_emr.carlos.log.*,
+                 io.github.carlos_emr.OscarProperties,
                  org.apache.commons.codec.binary.Base64,
-                 ca.openosp.openo.commn.dao.Hl7TextInfoDao,
-                 ca.openosp.openo.commn.model.Hl7TextInfo,
-                 ca.openosp.openo.commn.dao.UserPropertyDAO,
-                 ca.openosp.openo.commn.model.UserProperty,
+                 io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,
+                 io.github.carlos_emr.carlos.commn.model.Hl7TextInfo,
+                 io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,
+                 io.github.carlos_emr.carlos.commn.model.UserProperty,
                  javax.swing.text.rtf.RTFEditorKit,
                  java.io.ByteArrayInputStream" %>
-<%@ page import="ca.openosp.openo.commn.model.Tickler" %>
-<%@ page import="ca.openosp.openo.managers.TicklerManager" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.parsers.MessageHandler" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.parsers.PATHL7Handler" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.parsers.ExcellerisOntarioHandler" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.parsers.Factory" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.ExcellerisOntarioHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>

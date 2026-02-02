@@ -39,9 +39,9 @@
     }
 %>
 
-<%@ page import="java.util.*,ca.openosp.openo.report.data.*" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.report.data.RptFluReportData" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptFluReportData" %>
 
 
 <%@ include file="/taglibs.jsp" %>

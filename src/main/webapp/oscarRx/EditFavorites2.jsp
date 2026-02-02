@@ -1,7 +1,7 @@
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxDrugData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxCodesData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %><%--
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.

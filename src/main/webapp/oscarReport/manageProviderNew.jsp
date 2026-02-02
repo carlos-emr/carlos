@@ -40,14 +40,14 @@
 %>
 
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.commn.dao.ReportProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ReportProvider" %>
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 
 <%
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);

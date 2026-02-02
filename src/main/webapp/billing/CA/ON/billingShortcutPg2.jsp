@@ -18,14 +18,14 @@
 
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.billing.CA.ON.model.BillingPercLimit" %>
-<%@page import="ca.openosp.openo.billing.CA.ON.dao.BillingPercLimitDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -43,23 +43,23 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page errorPage="/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, ca.openosp.openo.util.*, ca.openosp.*" %>
+<%@ page errorPage="/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*" %>
 
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Billing" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingDetail" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingSavePrep" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);

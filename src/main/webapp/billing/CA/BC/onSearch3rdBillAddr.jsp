@@ -101,8 +101,8 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@page import="ca.openosp.Misc" %>
-<%@ page import="ca.openosp.openo.db.DBPreparedHandler" %>
+<%@page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="dc.created" content="2025-11-07">
-<meta name="description" content="declaration: package: ca.openosp.openo.dashboard.handler, class: IndicatorQueryHandler">
+<meta name="description" content="declaration: package: io.github.carlos_emr.carlos.dashboard.handler, class: IndicatorQueryHandler">
 <meta name="generator" content="javadoc/ClassWriterImpl">
 <link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../../script-dir/jquery-ui.min.css" title="Style">
@@ -84,14 +84,14 @@ loadScripts(document, 'script');</script>
 <main role="main">
 <!-- ======== START OF CLASS DATA ======== -->
 <div class="header">
-<div class="sub-title"><span class="package-label-in-type">Package</span>&nbsp;<a href="package-summary.html">ca.openosp.openo.dashboard.handler</a></div>
+<div class="sub-title"><span class="package-label-in-type">Package</span>&nbsp;<a href="package-summary.html">io.github.carlos_emr.carlos.dashboard.handler</a></div>
 <h1 title="Class IndicatorQueryHandler" class="title">Class IndicatorQueryHandler</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">java.lang.Object</a>
 <div class="inheritance">org.springframework.dao.support.DaoSupport
 <div class="inheritance">org.springframework.orm.hibernate5.support.HibernateDaoSupport
-<div class="inheritance"><a href="AbstractQueryHandler.html" title="class in ca.openosp.openo.dashboard.handler">ca.openosp.openo.dashboard.handler.AbstractQueryHandler</a>
-<div class="inheritance">ca.openosp.openo.dashboard.handler.IndicatorQueryHandler</div>
+<div class="inheritance"><a href="AbstractQueryHandler.html" title="class in io.github.carlos_emr.carlos.dashboard.handler">io.github.carlos_emr.carlos.dashboard.handler.AbstractQueryHandler</a>
+<div class="inheritance">io.github.carlos_emr.carlos.dashboard.handler.IndicatorQueryHandler</div>
 </div>
 </div>
 </div>
@@ -103,7 +103,7 @@ loadScripts(document, 'script');</script>
 </dl>
 <hr>
 <div class="type-signature"><span class="modifiers">public class </span><span class="element-name type-name-label">IndicatorQueryHandler</span>
-<span class="extends-implements">extends <a href="AbstractQueryHandler.html" title="class in ca.openosp.openo.dashboard.handler">AbstractQueryHandler</a></span></div>
+<span class="extends-implements">extends <a href="AbstractQueryHandler.html" title="class in io.github.carlos_emr.carlos.dashboard.handler">AbstractQueryHandler</a></span></div>
 <div class="block">Depends on a proper convention of place-holders in the query text.
  <p>
  RegEx is:  "(\\$){1}(\\{){1}( )*(.)*( )*(\\}){1}"
@@ -116,7 +116,7 @@ loadScripts(document, 'script');</script>
 <section class="field-summary" id="field-summary">
 <h2>Field Summary</h2>
 <div class="inherited-list">
-<h3 id="fields-inherited-from-class-ca.openosp.openo.dashboard.handler.AbstractQueryHandler">Fields inherited from class&nbsp;ca.openosp.openo.dashboard.handler.<a href="AbstractQueryHandler.html" title="class in ca.openosp.openo.dashboard.handler">AbstractQueryHandler</a></h3>
+<h3 id="fields-inherited-from-class-io.github.carlos_emr.carlos.dashboard.handler.AbstractQueryHandler">Fields inherited from class&nbsp;io.github.carlos_emr.carlos.dashboard.handler.<a href="AbstractQueryHandler.html" title="class in io.github.carlos_emr.carlos.dashboard.handler">AbstractQueryHandler</a></h3>
 <code><a href="AbstractQueryHandler.html#sessionFactory">sessionFactory</a></code></div>
 </section>
 </li>
@@ -144,7 +144,7 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#createGraphPlots(java.util.List)" class="member-name-link">createGraphPlots</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;?&gt;&nbsp;results)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
@@ -159,23 +159,23 @@ loadScripts(document, 'script');</script>
 <div class="block">Removes pesky colons, question marks, and comments from the
  query string.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getGraphPlots()" class="member-name-link">getGraphPlots</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToJson(java.util.List)" class="member-name-link">plotsToJson</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToJson(java.util.List)" class="member-name-link">plotsToJson</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToJsonTooltips(java.util.List)" class="member-name-link">plotsToJsonTooltips</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToJsonTooltips(java.util.List)" class="member-name-link">plotsToJsonTooltips</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToStringArray(java.util.List)" class="member-name-link">plotsToStringArray</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToStringArray(java.util.List)" class="member-name-link">plotsToStringArray</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToTooltipsStringArray(java.util.List)" class="member-name-link">plotsToTooltipsStringArray</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#plotsToTooltipsStringArray(java.util.List)" class="member-name-link">plotsToTooltipsStringArray</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setGraphPlots(java.util.List)" class="member-name-link">setGraphPlots</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setGraphPlots(java.util.List)" class="member-name-link">setGraphPlots</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setQuery(java.lang.String)" class="member-name-link">setQuery</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;query)</code></div>
@@ -184,8 +184,8 @@ loadScripts(document, 'script');</script>
 </div>
 </div>
 <div class="inherited-list">
-<h3 id="methods-inherited-from-class-ca.openosp.openo.dashboard.handler.AbstractQueryHandler">Methods inherited from class&nbsp;ca.openosp.openo.dashboard.handler.<a href="AbstractQueryHandler.html" title="class in ca.openosp.openo.dashboard.handler">AbstractQueryHandler</a></h3>
-<code><a href="AbstractQueryHandler.html#addColumns(java.lang.String)">addColumns</a>, <a href="AbstractQueryHandler.html#addParameter(ca.openosp.openo.dashboard.query.Parameter,java.lang.String)">addParameter</a>, <a href="AbstractQueryHandler.html#addParameters(java.util.List,java.lang.String)">addParameters</a>, <a href="AbstractQueryHandler.html#addRange(ca.openosp.openo.dashboard.query.RangeInterface,java.lang.String)">addRange</a>, <a href="AbstractQueryHandler.html#addRanges(java.util.List,java.lang.String)">addRanges</a>, <a href="AbstractQueryHandler.html#buildQuery(java.lang.String)">buildQuery</a>, <a href="AbstractQueryHandler.html#execute()">execute</a>, <a href="AbstractQueryHandler.html#getActions()">getActions</a>, <a href="AbstractQueryHandler.html#getColumns()">getColumns</a>, <a href="AbstractQueryHandler.html#getLoggedInInfo()">getLoggedInInfo</a>, <a href="AbstractQueryHandler.html#getParameters()">getParameters</a>, <a href="AbstractQueryHandler.html#getQuery()">getQuery</a>, <a href="AbstractQueryHandler.html#getRanges()">getRanges</a>, <a href="AbstractQueryHandler.html#getResultList()">getResultList</a>, <a href="AbstractQueryHandler.html#setActions(java.util.List)">setActions</a>, <a href="AbstractQueryHandler.html#setColumns(java.util.List)">setColumns</a>, <a href="AbstractQueryHandler.html#setLoggedInInfo(ca.openosp.openo.utility.LoggedInInfo)">setLoggedInInfo</a>, <a href="AbstractQueryHandler.html#setParameters(java.util.List)">setParameters</a>, <a href="AbstractQueryHandler.html#setRanges(java.util.List)">setRanges</a>, <a href="AbstractQueryHandler.html#setSessionFactoryOverride(org.hibernate.SessionFactory)">setSessionFactoryOverride</a></code></div>
+<h3 id="methods-inherited-from-class-io.github.carlos_emr.carlos.dashboard.handler.AbstractQueryHandler">Methods inherited from class&nbsp;io.github.carlos_emr.carlos.dashboard.handler.<a href="AbstractQueryHandler.html" title="class in io.github.carlos_emr.carlos.dashboard.handler">AbstractQueryHandler</a></h3>
+<code><a href="AbstractQueryHandler.html#addColumns(java.lang.String)">addColumns</a>, <a href="AbstractQueryHandler.html#addParameter(io.github.carlos_emr.carlos.dashboard.query.Parameter,java.lang.String)">addParameter</a>, <a href="AbstractQueryHandler.html#addParameters(java.util.List,java.lang.String)">addParameters</a>, <a href="AbstractQueryHandler.html#addRange(io.github.carlos_emr.carlos.dashboard.query.RangeInterface,java.lang.String)">addRange</a>, <a href="AbstractQueryHandler.html#addRanges(java.util.List,java.lang.String)">addRanges</a>, <a href="AbstractQueryHandler.html#buildQuery(java.lang.String)">buildQuery</a>, <a href="AbstractQueryHandler.html#execute()">execute</a>, <a href="AbstractQueryHandler.html#getActions()">getActions</a>, <a href="AbstractQueryHandler.html#getColumns()">getColumns</a>, <a href="AbstractQueryHandler.html#getLoggedInInfo()">getLoggedInInfo</a>, <a href="AbstractQueryHandler.html#getParameters()">getParameters</a>, <a href="AbstractQueryHandler.html#getQuery()">getQuery</a>, <a href="AbstractQueryHandler.html#getRanges()">getRanges</a>, <a href="AbstractQueryHandler.html#getResultList()">getResultList</a>, <a href="AbstractQueryHandler.html#setActions(java.util.List)">setActions</a>, <a href="AbstractQueryHandler.html#setColumns(java.util.List)">setColumns</a>, <a href="AbstractQueryHandler.html#setLoggedInInfo(io.github.carlos_emr.carlos.utility.LoggedInInfo)">setLoggedInInfo</a>, <a href="AbstractQueryHandler.html#setParameters(java.util.List)">setParameters</a>, <a href="AbstractQueryHandler.html#setRanges(java.util.List)">setRanges</a>, <a href="AbstractQueryHandler.html#setSessionFactoryOverride(org.hibernate.SessionFactory)">setSessionFactoryOverride</a></code></div>
 <div class="inherited-list">
 <h3 id="methods-inherited-from-class-org.springframework.orm.hibernate5.support.HibernateDaoSupport">Methods inherited from class&nbsp;org.springframework.orm.hibernate5.support.HibernateDaoSupport</h3>
 <code>checkDaoConfig, createHibernateTemplate, currentSession, getHibernateTemplate, getSessionFactory, setHibernateTemplate, setSessionFactory</code></div>
@@ -226,7 +226,7 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;?&gt;</span>&nbsp;<span class="element-name">execute</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;query)</span></div>
 <dl class="notes">
 <dt>Overrides:</dt>
-<dd><code><a href="AbstractQueryHandler.html#execute(java.lang.String)">execute</a></code>&nbsp;in class&nbsp;<code><a href="AbstractQueryHandler.html" title="class in ca.openosp.openo.dashboard.handler">AbstractQueryHandler</a></code></dd>
+<dd><code><a href="AbstractQueryHandler.html#execute(java.lang.String)">execute</a></code>&nbsp;in class&nbsp;<code><a href="AbstractQueryHandler.html" title="class in io.github.carlos_emr.carlos.dashboard.handler">AbstractQueryHandler</a></code></dd>
 </dl>
 </section>
 </li>
@@ -236,14 +236,14 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">setQuery</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;query)</span></div>
 <dl class="notes">
 <dt>Overrides:</dt>
-<dd><code><a href="AbstractQueryHandler.html#setQuery(java.lang.String)">setQuery</a></code>&nbsp;in class&nbsp;<code><a href="AbstractQueryHandler.html" title="class in ca.openosp.openo.dashboard.handler">AbstractQueryHandler</a></code></dd>
+<dd><code><a href="AbstractQueryHandler.html#setQuery(java.lang.String)">setQuery</a></code>&nbsp;in class&nbsp;<code><a href="AbstractQueryHandler.html" title="class in io.github.carlos_emr.carlos.dashboard.handler">AbstractQueryHandler</a></code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="getGraphPlots()">
 <h3>getGraphPlots</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;</span>&nbsp;<span class="element-name">getGraphPlots</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;</span>&nbsp;<span class="element-name">getGraphPlots</span>()</div>
 </section>
 </li>
 <li>
@@ -255,26 +255,26 @@ loadScripts(document, 'script');</script>
  query string.</div>
 <dl class="notes">
 <dt>Overrides:</dt>
-<dd><code><a href="AbstractQueryHandler.html#filterQueryString(java.lang.String)">filterQueryString</a></code>&nbsp;in class&nbsp;<code><a href="AbstractQueryHandler.html" title="class in ca.openosp.openo.dashboard.handler">AbstractQueryHandler</a></code></dd>
+<dd><code><a href="AbstractQueryHandler.html#filterQueryString(java.lang.String)">filterQueryString</a></code>&nbsp;in class&nbsp;<code><a href="AbstractQueryHandler.html" title="class in io.github.carlos_emr.carlos.dashboard.handler">AbstractQueryHandler</a></code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="setGraphPlots(java.util.List)">
 <h3>setGraphPlots</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">setGraphPlots</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">setGraphPlots</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
 </section>
 </li>
 <li>
 <section class="detail" id="createGraphPlots(java.util.List)">
 <h3>createGraphPlots</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;</span>&nbsp;<span class="element-name">createGraphPlots</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;?&gt;&nbsp;results)</span></div>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;</span>&nbsp;<span class="element-name">createGraphPlots</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;?&gt;&nbsp;results)</span></div>
 </section>
 </li>
 <li>
 <section class="detail" id="plotsToStringArray(java.util.List)">
 <h3>plotsToStringArray</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToStringArray</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToStringArray</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
 </section>
 </li>
 <li>
@@ -286,19 +286,19 @@ loadScripts(document, 'script');</script>
 <li>
 <section class="detail" id="plotsToJson(java.util.List)">
 <h3>plotsToJson</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToJson</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToJson</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
 </section>
 </li>
 <li>
 <section class="detail" id="plotsToTooltipsStringArray(java.util.List)">
 <h3>plotsToTooltipsStringArray</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToTooltipsStringArray</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToTooltipsStringArray</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
 </section>
 </li>
 <li>
 <section class="detail" id="plotsToJsonTooltips(java.util.List)">
 <h3>plotsToJsonTooltips</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToJsonTooltips</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in ca.openosp.openo.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">plotsToJsonTooltips</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../display/beans/GraphPlot.html" title="class in io.github.carlos_emr.carlos.dashboard.display.beans">GraphPlot</a>[]&gt;&nbsp;graphPlots)</span></div>
 </section>
 </li>
 </ul>

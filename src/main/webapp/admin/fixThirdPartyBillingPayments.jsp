@@ -26,8 +26,8 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="java.math.BigDecimal" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONItemDao" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONItemDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -36,10 +36,10 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
-<%@page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
 
 <%@page import="java.util.Calendar" %>
 <%@page import="java.util.Date" %>
@@ -47,19 +47,19 @@
 
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.Date" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONCHeader1" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
 
-<%@page import="ca.openosp.openo.commn.dao.BillingONPaymentDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPayment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
 
-<%@page import="ca.openosp.openo.commn.dao.BillingOnItemPaymentDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingOnItemPayment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment" %>
 
-<%@page import="ca.openosp.openo.commn.dao.BillingONItemDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONItem" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONItemDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONItem" %>
 
-<%@page import="ca.openosp.openo.commn.dao.BillingONExtDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONExt" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONExt" %>
 
 <%@page import="org.apache.logging.log4j.Logger" %>
 

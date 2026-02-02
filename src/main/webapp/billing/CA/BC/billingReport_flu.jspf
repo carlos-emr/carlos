@@ -24,13 +24,13 @@
  */
 -->
 
-<%@page import="ca.openosp.MyDateFormat" %>
-<%@page import="ca.openosp.SxmlMisc" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="java.math.BigDecimal" %>
 <%@page import="java.sql.ResultSet" %> 
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
 
 <table width="100%" border="2" cellpadding="0" cellspacing="0">
 

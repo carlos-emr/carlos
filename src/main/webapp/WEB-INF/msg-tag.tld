@@ -9,7 +9,7 @@
 
 <tag>
   <name>newMessage</name>
-  <tagclass>ca.openosp.openo.messenger.tld.MsgNewMessageTag</tagclass>
+  <tagclass>io.github.carlos_emr.carlos.messenger.tld.MsgNewMessageTag</tagclass>
   <bodycontent>empty</bodycontent>
   <attribute>
     <name>providerNo</name>

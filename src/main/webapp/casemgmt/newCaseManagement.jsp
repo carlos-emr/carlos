@@ -39,16 +39,16 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.model.Security" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.SecurityDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Security" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@page import="java.util.Collections, java.util.Arrays, java.util.ArrayList" %>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
 "http://www.w3.org/TR/html4/strict.dtd">
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

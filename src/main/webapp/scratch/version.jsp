@@ -27,8 +27,8 @@
 
 
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.commn.model.ScratchPad" %>
-<%@ page import="ca.openosp.openo.utility.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScratchPad" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DateUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite"%>

@@ -27,16 +27,16 @@
     if (request.getParameter("endDate") != null) endDate = request.getParameter("endDate");
 %>
 <%@ page import="java.util.*, java.sql.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.commn.dao.forms.FormsDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.forms.FormsDao" %>
 
 <jsp:useBean id="providerNameBean" class="java.util.Properties" scope="page"/>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);

@@ -23,7 +23,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
-<%@page import="ca.openosp.openo.commons.KeyConstants" %>
+<%@page import="io.github.carlos_emr.carlos.commons.KeyConstants" %>
 
 
 <script type="text/javascript"

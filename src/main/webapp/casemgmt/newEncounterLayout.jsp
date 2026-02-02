@@ -28,20 +28,20 @@
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
 <%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.casemgmt.web.formbeans.*, ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO, ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.provider.web.CppPreferencesUIBean" %>
-<%@page import="ca.openosp.openo.casemgmt.common.Colour" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderData" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.List, java.util.Random" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteExt" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 

@@ -41,12 +41,12 @@
 %>
 
 <%@page import="java.util.*" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicExtDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.managers.LookupListManager" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.model.LookupList" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%
     String demographic_no = request.getParameter("demo");

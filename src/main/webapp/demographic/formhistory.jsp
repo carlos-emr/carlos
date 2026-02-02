@@ -44,12 +44,12 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.RecycleBin" %>
-<%@ page import="ca.openosp.openo.commn.dao.RecycleBinDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Form" %>
-<%@ page import="ca.openosp.openo.commn.dao.FormDao" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.RecycleBin" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);

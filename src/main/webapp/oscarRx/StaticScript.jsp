@@ -23,19 +23,19 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DrugDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.Drug" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicWs" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@page import="ca.openosp.openo.rx.StaticScriptBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
 <%@page import="java.util.ArrayList" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>

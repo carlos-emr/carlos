@@ -38,9 +38,9 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="java.util.*,ca.openosp.openo.lab.ca.on.*,ca.openosp.openo.demographic.data.*" %>
+        import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -85,10 +85,10 @@
 
 %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>

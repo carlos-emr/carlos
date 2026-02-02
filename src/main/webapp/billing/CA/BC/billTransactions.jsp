@@ -1,8 +1,8 @@
 <%@page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.entities.BillHistory" %>
-<%@ page import="ca.openosp.openo.entities.Provider" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingHistoryDAO" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile" %>
+<%@ page import="io.github.carlos_emr.carlos.entities.BillHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.entities.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

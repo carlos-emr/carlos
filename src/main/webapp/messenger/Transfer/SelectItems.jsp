@@ -83,7 +83,7 @@
 
 <%@ page import=" java.util.*, org.w3c.dom.*" %>
 <%@ page
-        import="ca.openosp.openo.messenger.docxfer.send.*,ca.openosp.openo.messenger.docxfer.util.*" %>
+        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*,io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -118,10 +118,10 @@
 
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.messenger.pageUtil.MsgSessionBean" %>
-<%@ page import="ca.openosp.openo.messenger.docxfer.util.MsgCommxml" %>
-<%@ page import="ca.openosp.openo.messenger.docxfer.send.MsgGenerate" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.MsgGenerate" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

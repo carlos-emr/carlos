@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@page import="ca.openosp.openo.billing.ca.bc.MSP.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

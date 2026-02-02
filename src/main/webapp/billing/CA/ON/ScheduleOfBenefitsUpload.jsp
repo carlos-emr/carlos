@@ -33,7 +33,7 @@
     List warnings = (List) request.getAttribute("warnings");
 %>
 
-<%@ page import="ca.openosp.openo.demographic.data.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>

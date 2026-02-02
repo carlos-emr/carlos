@@ -28,11 +28,11 @@
     if (session.getValue("patient") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String demographic_no = (String) session.getAttribute("demo_no");
 %>
-<%@ page import="java.util.*, java.sql.*, java.net.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);

@@ -59,7 +59,7 @@
     <tx:annotation-driven transaction-manager="transactionManager" />
 
     <!-- Component scan for JPA-based DAOs -->
-    <context:component-scan base-package="ca.openosp.openo.commn.dao">
+    <context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao">
         <context:exclude-filter type="regex" expression=".*\.UserPropertyDAOImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.DemographicDaoImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.DxresearchDAOImpl$"/>
@@ -91,12 +91,12 @@
         <context:exclude-filter type="regex" expression=".*\.SecRoleDaoImpl$"/>
     </context:component-scan>
 
-    <context:component-scan base-package="ca.openosp.openo.fax.core" />
-    <context:component-scan base-package="ca.openosp.openo.hospitalReportManager.dao" />
-    <context:component-scan base-package="ca.openosp.openo.olis.dao" />
-    <context:component-scan base-package="ca.openosp.openo.billing.CA.ON.dao" />
-    <context:component-scan base-package="ca.openosp.openo.billing.CA.BC.dao" />
-    <context:component-scan base-package="ca.openosp.openo.billing.CA.dao" />
-    <context:component-scan base-package="ca.openosp.openo.PMmodule.dao" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.fax.core" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.hospitalReportManager.dao" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.olis.dao" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.ON.dao" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.BC.dao" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.dao" />
+    <context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.dao" />
 
 </beans>

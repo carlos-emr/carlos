@@ -28,12 +28,12 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page
-        import="ca.openosp.openo.rx.data.*,java.util.*,ca.openosp.openo.commn.dao.DrugReasonDao,ca.openosp.openo.commn.model.DrugReason" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.util.StringUtils" %>
+        import="io.github.carlos_emr.carlos.rx.data.*,java.util.*,io.github.carlos_emr.carlos.commn.dao.DrugReasonDao,io.github.carlos_emr.carlos.commn.model.DrugReason" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page
-        import="ca.openosp.openo.commn.dao.DxresearchDAO,ca.openosp.openo.commn.model.Dxresearch,ca.openosp.openo.commn.dao.Icd9Dao,ca.openosp.openo.commn.model.Icd9" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.managers.CodingSystemManager" %>
+        import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);

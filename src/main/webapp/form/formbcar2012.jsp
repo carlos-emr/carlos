@@ -39,10 +39,10 @@
 %>
 
 <%@ page language="java" %>
-<%@ page import="ca.openosp.openo.form.*" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%
     int demoNo = Integer.parseInt(request.getParameter("demographic_no"));
     int formId = Integer.parseInt(request.getParameter("formId"));

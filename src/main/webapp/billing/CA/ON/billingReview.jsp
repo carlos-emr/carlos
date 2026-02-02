@@ -22,22 +22,22 @@
 
 %>
 
-<%@ page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*, ca.openosp.openo.dxresearch.bean.*"
+<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.dxresearch.bean.*"
          errorPage="/errorpage.jsp" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ include file="/admin/dbconnection.jsp" %>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicLocation" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingService" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);

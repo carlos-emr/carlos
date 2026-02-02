@@ -24,18 +24,18 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page import="java.sql.*, java.util.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@ page import="ca.openosp.openo.provider.web.ProviderPropertyAction" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction" %>
 
 <html>
     <head>

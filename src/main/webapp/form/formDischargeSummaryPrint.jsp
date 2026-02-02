@@ -40,16 +40,16 @@
 
 
 <%@ page
-        import="ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*, ca.openosp.openo.utility.*" %>
+        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, io.github.carlos_emr.carlos.utility.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <%@ page
         import="org.springframework.context.*,org.springframework.web.context.support.*" %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%
     String formClass = "DischargeSummary";
     String formLink = "formDischargeSummary.jsp";

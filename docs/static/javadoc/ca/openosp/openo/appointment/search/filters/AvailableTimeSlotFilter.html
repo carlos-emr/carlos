@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="dc.created" content="2025-11-07">
-<meta name="description" content="declaration: package: ca.openosp.openo.appointment.search.filters, interface: AvailableTimeSlotFilter">
+<meta name="description" content="declaration: package: io.github.carlos_emr.carlos.appointment.search.filters, interface: AvailableTimeSlotFilter">
 <meta name="generator" content="javadoc/ClassWriterImpl">
 <link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../../../script-dir/jquery-ui.min.css" title="Style">
@@ -84,13 +84,13 @@ loadScripts(document, 'script');</script>
 <main role="main">
 <!-- ======== START OF CLASS DATA ======== -->
 <div class="header">
-<div class="sub-title"><span class="package-label-in-type">Package</span>&nbsp;<a href="package-summary.html">ca.openosp.openo.appointment.search.filters</a></div>
+<div class="sub-title"><span class="package-label-in-type">Package</span>&nbsp;<a href="package-summary.html">io.github.carlos_emr.carlos.appointment.search.filters</a></div>
 <h1 title="Interface AvailableTimeSlotFilter" class="title">Interface AvailableTimeSlotFilter</h1>
 </div>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>All Known Implementing Classes:</dt>
-<dd><code><a href="ExistingAppointmentFilter.html" title="class in ca.openosp.openo.appointment.search.filters">ExistingAppointmentFilter</a></code>, <code><a href="FutureApptFilter.html" title="class in ca.openosp.openo.appointment.search.filters">FutureApptFilter</a></code>, <code><a href="MultiUnitFilter.html" title="class in ca.openosp.openo.appointment.search.filters">MultiUnitFilter</a></code>, <code><a href="OpenAccessFilter.html" title="class in ca.openosp.openo.appointment.search.filters">OpenAccessFilter</a></code>, <code><a href="SufficientContiguousTimeFilter.html" title="class in ca.openosp.openo.appointment.search.filters">SufficientContiguousTimeFilter</a></code></dd>
+<dd><code><a href="ExistingAppointmentFilter.html" title="class in io.github.carlos_emr.carlos.appointment.search.filters">ExistingAppointmentFilter</a></code>, <code><a href="FutureApptFilter.html" title="class in io.github.carlos_emr.carlos.appointment.search.filters">FutureApptFilter</a></code>, <code><a href="MultiUnitFilter.html" title="class in io.github.carlos_emr.carlos.appointment.search.filters">MultiUnitFilter</a></code>, <code><a href="OpenAccessFilter.html" title="class in io.github.carlos_emr.carlos.appointment.search.filters">OpenAccessFilter</a></code>, <code><a href="SufficientContiguousTimeFilter.html" title="class in io.github.carlos_emr.carlos.appointment.search.filters">SufficientContiguousTimeFilter</a></code></dd>
 </dl>
 <hr>
 <div class="type-signature"><span class="modifiers">public interface </span><span class="element-name type-name-label">AvailableTimeSlotFilter</span></div>
@@ -108,13 +108,13 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="../TimeSlot.html" title="class in ca.openosp.openo.appointment.search">TimeSlot</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#filterAvailableTimeSlots(ca.openosp.openo.appointment.search.SearchConfig,java.lang.String,java.lang.String,java.lang.Long,ca.openosp.openo.managers.DayWorkSchedule,java.util.List,java.util.Calendar,java.util.Map)" class="member-name-link">filterAvailableTimeSlots</a><wbr>(<a href="../SearchConfig.html" title="class in ca.openosp.openo.appointment.search">SearchConfig</a>&nbsp;clinic,
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="../TimeSlot.html" title="class in io.github.carlos_emr.carlos.appointment.search">TimeSlot</a>&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#filterAvailableTimeSlots(io.github.carlos_emr.carlos.appointment.search.SearchConfig,java.lang.String,java.lang.String,java.lang.Long,io.github.carlos_emr.carlos.managers.DayWorkSchedule,java.util.List,java.util.Calendar,java.util.Map)" class="member-name-link">filterAvailableTimeSlots</a><wbr>(<a href="../SearchConfig.html" title="class in io.github.carlos_emr.carlos.appointment.search">SearchConfig</a>&nbsp;clinic,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;mrp,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;providerId,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;appointmentTypeId,
- <a href="../../../managers/DayWorkSchedule.html" title="class in ca.openosp.openo.managers">DayWorkSchedule</a>&nbsp;dayWorkScheduleTransfer,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TimeSlot.html" title="class in ca.openosp.openo.appointment.search">TimeSlot</a>&gt;&nbsp;currentlyAllowedTimeSlots,
+ <a href="../../../managers/DayWorkSchedule.html" title="class in io.github.carlos_emr.carlos.managers">DayWorkSchedule</a>&nbsp;dayWorkScheduleTransfer,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TimeSlot.html" title="class in io.github.carlos_emr.carlos.appointment.search">TimeSlot</a>&gt;&nbsp;currentlyAllowedTimeSlots,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Calendar.html" title="class or interface in java.util" class="external-link">Calendar</a>&nbsp;date,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;params)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
@@ -133,14 +133,14 @@ loadScripts(document, 'script');</script>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="filterAvailableTimeSlots(ca.openosp.openo.appointment.search.SearchConfig,java.lang.String,java.lang.String,java.lang.Long,ca.openosp.openo.managers.DayWorkSchedule,java.util.List,java.util.Calendar,java.util.Map)">
+<section class="detail" id="filterAvailableTimeSlots(io.github.carlos_emr.carlos.appointment.search.SearchConfig,java.lang.String,java.lang.String,java.lang.Long,io.github.carlos_emr.carlos.managers.DayWorkSchedule,java.util.List,java.util.Calendar,java.util.Map)">
 <h3>filterAvailableTimeSlots</h3>
-<div class="member-signature"><span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TimeSlot.html" title="class in ca.openosp.openo.appointment.search">TimeSlot</a>&gt;</span>&nbsp;<span class="element-name">filterAvailableTimeSlots</span><wbr><span class="parameters">(<a href="../SearchConfig.html" title="class in ca.openosp.openo.appointment.search">SearchConfig</a>&nbsp;clinic,
+<div class="member-signature"><span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TimeSlot.html" title="class in io.github.carlos_emr.carlos.appointment.search">TimeSlot</a>&gt;</span>&nbsp;<span class="element-name">filterAvailableTimeSlots</span><wbr><span class="parameters">(<a href="../SearchConfig.html" title="class in io.github.carlos_emr.carlos.appointment.search">SearchConfig</a>&nbsp;clinic,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;mrp,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;providerId,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;appointmentTypeId,
- <a href="../../../managers/DayWorkSchedule.html" title="class in ca.openosp.openo.managers">DayWorkSchedule</a>&nbsp;dayWorkScheduleTransfer,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TimeSlot.html" title="class in ca.openosp.openo.appointment.search">TimeSlot</a>&gt;&nbsp;currentlyAllowedTimeSlots,
+ <a href="../../../managers/DayWorkSchedule.html" title="class in io.github.carlos_emr.carlos.managers">DayWorkSchedule</a>&nbsp;dayWorkScheduleTransfer,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TimeSlot.html" title="class in io.github.carlos_emr.carlos.appointment.search">TimeSlot</a>&gt;&nbsp;currentlyAllowedTimeSlots,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Calendar.html" title="class or interface in java.util" class="external-link">Calendar</a>&nbsp;date,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;params)</span></div>
 <dl class="notes">

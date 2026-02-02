@@ -24,8 +24,8 @@
     session.setAttribute("homepath", props.getProperty("project_home", ""));
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ page import="ca.openosp.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <html>
 <head>
@@ -43,10 +43,10 @@
             }
             if (val1.substring(0, 1) == "P" || val1.substring(0, 1) == "S") {
                 if (document.all) {
-                    document.all.form1.action = "${pageContext.request.contextPath}/servlet/ca.openosp.DocumentUploadServlet";
+                    document.all.form1.action = "${pageContext.request.contextPath}/servlet/io.github.carlos_emr.DocumentUploadServlet";
                     document.all.form1.submit();
                 } else {
-                    document.getElementById('form1').action = "${pageContext.request.contextPath}/servlet/ca.openosp.DocumentUploadServlet";
+                    document.getElementById('form1').action = "${pageContext.request.contextPath}/servlet/io.github.carlos_emr.DocumentUploadServlet";
                     document.getElementById('form1').submit();
                 }
             } else {

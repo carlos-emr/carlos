@@ -13,7 +13,7 @@
 
 	<!-- ========================= SCHEDULED JOBS ========================= -->
 
-	 <bean id="erxScheduledTimerTask" class="ca.openosp.openo.rx.erx.ERxScheduler" />
+	 <bean id="erxScheduledTimerTask" class="io.github.carlos_emr.carlos.rx.erx.ERxScheduler" />
 
     <!-- Define the scheduled executor factory bean -->
     <bean id="schedulerERx" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
@@ -30,6 +30,6 @@
     </bean>
 	
 	<!-- === EventManager: Action Listeners specific for the external prescription providers service === -->
-	<bean id="ERxPatientCheckedInListener" class="ca.openosp.openo.rx.erx.listeners.PatientCheckedInListener" />
+	<bean id="ERxPatientCheckedInListener" class="io.github.carlos_emr.carlos.rx.erx.listeners.PatientCheckedInListener" />
 		
 </beans>

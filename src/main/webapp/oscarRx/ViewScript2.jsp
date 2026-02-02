@@ -24,38 +24,38 @@
 
 --%>
 <%@ page
-        import="ca.openosp.openo.providers.data.*,ca.openosp.OscarProperties, ca.openosp.openo.clinic.ClinicData, java.util.*" %>
+        import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="ca.openosp.openo.utility.DigitalSignatureUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.ui.servlet.ImageRenderingServlet" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.managers.FaxManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.PMmodule.service.ProviderManager" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="ca.openosp.openo.commn.model.enumerator.ModuleType" %>
-<%@ page import="ca.openosp.openo.providers.data.ProSignatureData" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxProviderData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPharmacyData" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
 <%
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);

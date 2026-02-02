@@ -24,8 +24,8 @@
         <property name="dataSource" ref="dataSource" />
         <property name="packagesToScan">
             <list>
-                <value>ca.openosp.openo.commn.model</value>
-                <value>ca.openosp.openo.PMmodule.model</value>
+                <value>io.github.carlos_emr.carlos.commn.model</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -56,7 +56,7 @@
     <bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor" />
 
     <!-- Manually define DAOs needed for tests -->
-    <bean id="demographicDao" class="ca.openosp.openo.commn.dao.DemographicDaoImpl">
+    <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl">
         <property name="entityManager">
             <bean class="org.springframework.orm.jpa.support.SharedEntityManagerBean">
                 <property name="entityManagerFactory" ref="entityManagerFactory"/>
@@ -64,7 +64,7 @@
         </property>
     </bean>
 
-    <bean id="ticklerDao" class="ca.openosp.openo.commn.dao.TicklerDaoImpl">
+    <bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl">
         <property name="entityManager">
             <bean class="org.springframework.orm.jpa.support.SharedEntityManagerBean">
                 <property name="entityManagerFactory" ref="entityManagerFactory"/>
@@ -72,7 +72,7 @@
         </property>
     </bean>
 
-    <bean id="providerDao" class="ca.openosp.openo.dao.ProviderDaoImpl">
+    <bean id="providerDao" class="io.github.carlos_emr.carlos.dao.ProviderDaoImpl">
         <property name="entityManager">
             <bean class="org.springframework.orm.jpa.support.SharedEntityManagerBean">
                 <property name="entityManagerFactory" ref="entityManagerFactory"/>
@@ -81,10 +81,10 @@
     </bean>
 
     <!-- Managers -->
-    <bean id="ticklerManager" class="ca.openosp.openo.managers.impl.TicklerManagerImpl">
+    <bean id="ticklerManager" class="io.github.carlos_emr.carlos.managers.impl.TicklerManagerImpl">
         <property name="ticklerDao" ref="ticklerDao"/>
     </bean>
 
-    <bean id="securityInfoManager" class="ca.openosp.openo.managers.SecurityInfoManager"/>
+    <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.managers.SecurityInfoManager"/>
 
 </beans>

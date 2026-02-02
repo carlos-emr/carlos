@@ -90,13 +90,13 @@
     }
 %>
 
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.demographic.data.DemographicMerged" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="java.lang.System" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%
     List<Demographic> demoList = null;  //demographicDao.getDemographicByProvider( "55");

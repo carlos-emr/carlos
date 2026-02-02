@@ -3,7 +3,7 @@
 	"-//Hibernate/Hibernate Mapping DTD//EN"
 	"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd" >
 <hibernate-mapping>
-	<class name="ca.openosp.openo.model.security.UserAccessValue" table="v_user_access"
+	<class name="io.github.carlos_emr.carlos.model.security.UserAccessValue" table="v_user_access"
 				 mutable="false">
 		<composite-id>
 			<key-property name="functionCd" column="objectname" />
@@ -15,7 +15,7 @@
 		<property name="orgApplicable" column="orgapplicable" />
 	</class>
 	<sql-query name="user_access">
-		<return alias="uav" class="ca.openosp.openo.model.security.UserAccessValue" />
+		<return alias="uav" class="io.github.carlos_emr.carlos.model.security.UserAccessValue" />
 
 		select a.provider_no as {uav.providerNo}, c.code as {uav.orgCd},
 		c.codecsv as {uav.orgCdcsv}, b.objectname as

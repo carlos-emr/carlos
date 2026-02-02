@@ -46,8 +46,8 @@
 %>
 
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.openo.util.*,ca.openosp.openo.providers.data.ProviderData,ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.entities.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillActivityDAO" %>
+        import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.ProviderData,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.entities.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>

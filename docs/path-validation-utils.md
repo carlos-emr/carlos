@@ -4,7 +4,7 @@
 
 `PathValidationUtils` is a centralized utility class for validating file paths to prevent path traversal attacks in CARLOS EMR. It provides consistent, robust validation across the entire codebase.
 
-**Package**: `ca.openosp.openo.utility.PathValidationUtils`
+**Package**: `io.github.carlos_emr.carlos.utility.PathValidationUtils`
 **Since**: 2025-12-09
 
 ## Why Use PathValidationUtils?
@@ -224,7 +224,7 @@ try {
 ## Testing
 
 Tests are located at:
-`src/test-modern/java/ca/openosp/openo/utility/PathValidationUtilsTest.java`
+`src/test-modern/java/io/github/carlos_emr/carlos/utility/PathValidationUtilsTest.java`
 
 Run tests with:
 ```bash

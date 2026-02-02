@@ -23,8 +23,8 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -39,16 +39,16 @@
     String month = request.getParameter("pmonth") != null ? request.getParameter("pmonth") : "5";
     String day = request.getParameter("pday") != null ? request.getParameter("pday") : "8";
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
          errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.dao.MyGroupAccessRestrictionDao" %>
-<%@page import="ca.openosp.openo.commn.model.MyGroupAccessRestriction" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction" %>
 <%
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -93,8 +93,8 @@
 
 %>
 
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

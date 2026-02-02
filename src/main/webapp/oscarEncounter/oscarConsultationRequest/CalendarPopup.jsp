@@ -27,8 +27,8 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*" %>
-<%@ page import="ca.openosp.DateInMonthTable" %>
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*" %>
+<%@ page import="io.github.carlos_emr.DateInMonthTable" %>
 <%
     //to prepare calendar display
     String type = "admissfdfion";//request.getParameter("type");

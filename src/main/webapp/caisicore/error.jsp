@@ -24,7 +24,7 @@
 <%@page isErrorPage="true" %>
 
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Doh!</title>

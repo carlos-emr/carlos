@@ -24,7 +24,7 @@
     }
 %>
 
-<%@page import="java.util.*, ca.openosp.openo.hospitalReportManager.*, ca.openosp.openo.hospitalReportManager.model.HRMCategory, ca.openosp.openo.hospitalReportManager.dao.HRMCategoryDao, ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.hospitalReportManager.*, io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory, io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

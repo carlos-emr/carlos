@@ -12,7 +12,7 @@
 
 
 	<!-- ========================= SCHEDULED JOBS ========================= -->
-	 <bean id="emeraldA04ScheduledPushTask" class="ca.openosp.openo.commn.hl7.v2.EmeraldHL7A04TransportTask" />
+	 <bean id="emeraldA04ScheduledPushTask" class="io.github.carlos_emr.carlos.commn.hl7.v2.EmeraldHL7A04TransportTask" />
 
     <!-- Define the scheduled executor factory bean -->
     <bean id="schedulerEmeraldA04" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">

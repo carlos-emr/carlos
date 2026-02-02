@@ -41,8 +41,8 @@ if(!authed) {
 }
 %>
 
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference"%>
-<%@page import="ca.openosp.openo.utility.SessionConstants"%>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference"%>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants"%>
 <%
     String curProvider_no = (String) session.getAttribute("user");
     

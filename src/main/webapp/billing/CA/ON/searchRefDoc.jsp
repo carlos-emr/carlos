@@ -24,9 +24,9 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
-<%@page import="ca.openosp.openo.commn.dao.ProfessionalSpecialistDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
 %>

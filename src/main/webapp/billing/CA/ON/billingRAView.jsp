@@ -25,8 +25,8 @@
 --%>
 
 <%@ page
-        import="java.math.*,java.util.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.openo.billing.ca.bc.MSP.*,ca.openosp.openo.util.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.RAData" %>
+        import="java.math.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.RAData" %>
 
 <%
     String billingNo = request.getParameter("billing_no");

@@ -1,0 +1,213 @@
+//CHECKSTYLE:OFF
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+
+
+package io.github.carlos_emr.carlos.billings.ca.on.OHIP;
+
+import java.io.*;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
+import io.github.carlos_emr.OscarProperties;
+
+
+/**
+ * @author Jay Gallagher
+ */
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
+public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    Logger _logger = MiscUtils.getLogger();
+
+    boolean checkBox(String str) {
+        boolean check = false;
+        if (str != null && str.equals("on")) {
+            check = true;
+        }
+        return check;
+    }
+
+    public String execute() {
+        List warnings = new ArrayList();
+        String outcome = "";
+
+        boolean forceUpdate = false;
+        boolean updateAssistantFees = checkBox(request.getParameter("updateAssistantFees"));
+        boolean updateAnaesthetistFees = checkBox(request.getParameter("updateAnaesthetistFees"));
+        BigDecimal updateAssistantFeesValue = updateAssistantFees ? getBDValue(request.getParameter("updateAssistantFeesValue")) : null;
+        BigDecimal updateAnaesthetistFeesValue = updateAnaesthetistFees ? getBDValue(request.getParameter("updateAnaesthetistFeesValue")) : null;
+        try {
+
+            InputStream is = new java.io.FileInputStream(importFile);
+
+            ScheduleOfBenefits sob = new ScheduleOfBenefits();
+            String codeChanges = request.getParameter("showChangedCodes");
+            String newCodes = request.getParameter("showNewCodes");
+
+            boolean showNewCodes = checkBox(newCodes);
+            boolean showChangedCodes = checkBox(codeChanges);
+            forceUpdate = checkBox(request.getParameter("forceUpdate"));
+
+            warnings = sob.processNewFeeSchedule(is, showNewCodes, showChangedCodes, forceUpdate, updateAssistantFeesValue, updateAnaesthetistFeesValue);
+
+            outcome = "success";
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error", e);
+            outcome = "exception";
+        }
+        MiscUtils.getLogger().debug("warnings " + warnings.size());
+        request.setAttribute("warnings", warnings);
+        request.setAttribute("outcome", outcome);
+        request.setAttribute("forceUpdate", forceUpdate);
+        if (forceUpdate) {
+            return "forceUpdate";
+        }
+        return SUCCESS;
+    }
+
+    private BigDecimal getBDValue(String value) {
+        if (value == null || value.trim().equals("")) {
+            return BigDecimal.ZERO;
+        }
+        return new BigDecimal(value).setScale(2, BigDecimal.ROUND_HALF_UP);
+    }
+
+
+    /**
+     * @param stream
+     * @param filename
+     * @return boolean
+     */
+    public static boolean saveFile(InputStream stream, String filename) {
+        String retVal = null;
+        boolean isAdded = true;
+
+        try {
+            //retrieve the file data
+            //ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            //InputStream stream = file.getInputStream();
+            OscarProperties props = OscarProperties.getInstance();
+
+            //properties must exist
+            String place = props.getProperty("DOCUMENT_DIR");
+
+            if (!place.endsWith("/"))
+                place = new StringBuilder(place).insert(place.length(), "/").toString();
+            retVal = place + "LabUpload." + filename + "." + (new Date()).getTime();
+            MiscUtils.getLogger().debug(retVal);
+            //write the file to the file specified
+            OutputStream bos = new FileOutputStream(retVal);
+            int bytesRead = 0;
+            //byte[] buffer = file.getFileData();
+            //while ((bytesRead = stream.read(buffer)) != -1){
+            //   bos.write(buffer, 0, bytesRead);
+            while ((bytesRead = stream.read()) != -1) {
+                bos.write(bytesRead);
+            }
+            bos.close();
+
+            //close the stream
+            stream.close();
+        } catch (FileNotFoundException fnfe) {
+
+            MiscUtils.getLogger().debug("File not found");
+            MiscUtils.getLogger().error("Error", fnfe);
+            return isAdded = false;
+
+        } catch (IOException ioe) {
+            MiscUtils.getLogger().error("Error", ioe);
+            return isAdded = false;
+        }
+
+        return isAdded;
+    }
+
+    private File importFile;          // 上传的文件
+    private String importFileFileName; // 上传文件的名称
+    private boolean updateAssistantFees;
+    private boolean updateAnaesthetistFees;
+    private BigDecimal updateAssistantFeesValue;
+    private BigDecimal updateAnaesthetistFeesValue;
+
+    public File getImportFile() {
+        return importFile;
+    }
+
+    public void setImportFile(File importFile) {
+        this.importFile = importFile;
+    }
+
+    public String getImportFileFileName() {
+        return importFileFileName;
+    }
+
+    public void setImportFileFileName(String importFileFileName) {
+        this.importFileFileName = importFileFileName;
+    }
+
+    public boolean isUpdateAssistantFees() {
+        return updateAssistantFees;
+    }
+
+    public void setUpdateAssistantFees(boolean updateAssistantFees) {
+        this.updateAssistantFees = updateAssistantFees;
+    }
+
+    public boolean isUpdateAnaesthetistFees() {
+        return updateAnaesthetistFees;
+    }
+
+    public void setUpdateAnaesthetistFees(boolean updateAnaesthetistFees) {
+        this.updateAnaesthetistFees = updateAnaesthetistFees;
+    }
+
+    public BigDecimal getUpdateAssistantFeesValue() {
+        return updateAssistantFeesValue;
+    }
+
+    public void setUpdateAssistantFeesValue(BigDecimal updateAssistantFeesValue) {
+        this.updateAssistantFeesValue = updateAssistantFeesValue;
+    }
+
+    public BigDecimal getUpdateAnaesthetistFeesValue() {
+        return updateAnaesthetistFeesValue;
+    }
+
+    public void setUpdateAnaesthetistFeesValue(BigDecimal updateAnaesthetistFeesValue) {
+        this.updateAnaesthetistFeesValue = updateAnaesthetistFeesValue;
+    }
+}

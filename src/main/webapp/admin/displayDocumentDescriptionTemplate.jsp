@@ -29,10 +29,10 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@page import="ca.openosp.openo.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="java.util.ArrayList" %>
 
 <%

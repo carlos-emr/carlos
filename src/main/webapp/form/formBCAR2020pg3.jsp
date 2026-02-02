@@ -40,13 +40,13 @@
     }
 %>
 
-<%@ page import=" ca.openosp.openo.form.*, ca.openosp.openo.form.data.*, java.util.Properties" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import=" io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, java.util.Properties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="ca.openosp.openo.form.FrmBCAR2020Record" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String formClass = "BCAR2020";

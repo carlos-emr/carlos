@@ -20,26 +20,26 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@page import="ca.openosp.openo.util.DateUtils,ca.openosp.openo.utility.SpringUtils, ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils,io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="java.util.Properties,java.util.Date,java.util.List,java.util.ArrayList,java.math.BigDecimal" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONPaymentDao,ca.openosp.openo.commn.model.BillingONPayment" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao,ca.openosp.openo.commn.model.BillingService" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicDAO,ca.openosp.openo.commn.model.Clinic" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao,ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao,ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONExtDao,ca.openosp.openo.commn.model.BillingONExt" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao,ca.openosp.openo.commn.model.BillingONCHeader1" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONItem, ca.openosp.openo.commn.service.BillingONService" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LocaleUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
-<%@page import="ca.openosp.openo.billings.ca.on.administration.GstControl2Action" %>
-<%@ page import="ca.openosp.openo.billing.CA.ON.util.DisplayInvoiceLogo2Action" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao,io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao,io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicDAO,io.github.carlos_emr.carlos.commn.model.Clinic" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao,io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao,io.github.carlos_emr.carlos.commn.model.BillingONExt" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao,io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONItem, io.github.carlos_emr.carlos.commn.service.BillingONService" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

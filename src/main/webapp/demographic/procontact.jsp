@@ -25,10 +25,10 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicContact" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     String id = request.getParameter("id");
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);

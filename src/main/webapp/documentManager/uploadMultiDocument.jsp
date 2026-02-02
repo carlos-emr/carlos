@@ -52,12 +52,12 @@
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 
 <%@ page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.net.*,ca.openosp.MyDateFormat, ca.openosp.openo.demographic.data.DemographicData" %>
+        import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*,io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@page import="ca.openosp.openo.providers.data.*" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.providers.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%
     List providers = ProviderData.getProviderList();
     String provider = "";

@@ -56,11 +56,11 @@
             : request.getParameter("providerview");
 %>
 <%@ page
-        import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*" %>
+        import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
 <%@ include file="/admin/dbconnection.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%
     DemographicDao demographicDao = SpringUtils
             .getBean(DemographicDao.class);

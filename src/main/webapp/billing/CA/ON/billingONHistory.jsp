@@ -33,22 +33,22 @@
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.db.*"
+        import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@page import="ca.openosp.openo.billing.CA.ON.dao.*" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONExtDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@page import="ca.openosp.openo.commn.dao.BillingONPaymentDao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONPayment" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao" %>
-<%@page import="ca.openosp.openo.commn.model.BillingONCHeader1" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingItemData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
     BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);

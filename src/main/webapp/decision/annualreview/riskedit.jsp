@@ -32,9 +32,9 @@
         throw new NullPointerException("Cannot resolve real path for /decision/annualreview/ - check deployment configuration");
     }
 %>
-<%@ page import="java.util.*, java.sql.*, java.io.*, ca.openosp.*"
+<%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 
 <html>
 <head>

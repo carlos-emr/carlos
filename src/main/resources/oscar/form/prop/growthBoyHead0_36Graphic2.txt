@@ -28,4 +28,4 @@ __fEndX		:	110
 __fStartY	:	1.4
 __fEndY		:	24.6
 
-__className	:	ca.openosp.openo.form.graphic.FrmPdfGraphicGrowthChart
+__className	:	io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicGrowthChart

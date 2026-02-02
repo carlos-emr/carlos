@@ -18,10 +18,10 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 
 <%
     String user_no = (String) session.getAttribute("user");
@@ -29,11 +29,11 @@
             "all" : request.getParameter("providerview");
 %>
 
-<%@ page import="java.util.*, ca.openosp.openo.login.*, ca.openosp.*, java.net.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ReportProvider" %>
-<%@ page import="ca.openosp.openo.commn.dao.ReportProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
 
 <%
@@ -173,10 +173,10 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <html>
 <head>

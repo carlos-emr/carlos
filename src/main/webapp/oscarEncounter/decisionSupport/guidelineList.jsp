@@ -47,13 +47,13 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
-<%@ page import="ca.openosp.openo.decisionSupport.model.DSGuideline" %>
+<%@ page import="io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline" %>
 
 <%
     pageContext.setAttribute("demographic_no", request.getParameter("demographic_no"));

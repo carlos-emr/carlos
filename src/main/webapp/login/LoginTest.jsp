@@ -28,9 +28,9 @@
     Author     : rjonasz
 --%>
 <%@page import="java.util.List, java.util.Map, java.util.Date, java.util.Calendar, java.util.GregorianCalendar, java.io.*,java.text.SimpleDateFormat" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.commn.dao.PropertyDao,ca.openosp.openo.commn.model.Property" %>
-<%@page import="ca.openosp.openo.commn.service.AcceptableUseAgreementManager" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.PMmodule.dao.ProviderDao,ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.PropertyDao,io.github.carlos_emr.carlos.commn.model.Property" %>
+<%@page import="io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>

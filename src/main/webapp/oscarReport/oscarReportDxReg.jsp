@@ -18,8 +18,8 @@
 
 --%>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -39,16 +39,16 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.commn.dao.DxresearchDAO" %>
-<%@ page import="ca.openosp.openo.commn.model.Dxresearch" %>
-<%@ page import="ca.openosp.openo.dxresearch.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.util.*" %>
 <%@ page import="java.util.*, java.sql.*" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

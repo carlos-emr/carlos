@@ -42,11 +42,11 @@
 <%
     String curUser_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*" %>
+<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.DiagnosticCode" %>
-<%@ page import="ca.openosp.openo.commn.dao.DiagnosticCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 %>

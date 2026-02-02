@@ -27,11 +27,11 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.InstitutionDao" %>
-<%@page import="ca.openosp.openo.commn.model.Institution" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.InstitutionDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Institution" %>
 <%@page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);

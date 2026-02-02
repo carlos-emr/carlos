@@ -27,13 +27,13 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="ca.openosp.openo.rx.data.*,java.util.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPatientData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPharmacyData" %>
-<%@ page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 
 <%
     RxSessionBean bean = null;

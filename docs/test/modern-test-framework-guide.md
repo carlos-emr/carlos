@@ -38,9 +38,9 @@ mvn test -Dtest=TicklerDaoIntegrationTest
 ### Writing Your First Test
 
 ```java
-package ca.openosp.openo.your.domain;
+package io.github.carlos_emr.carlos.your.domain;
 
-import ca.openosp.openo.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
 
@@ -70,7 +70,7 @@ public class YourComponentIntegrationTest extends OpenOTestBase {
 
 ```
 src/test-modern/
-├── java/ca/openosp/openo/
+├── java/io/github/carlos_emr/carlos/
 │   ├── test/
 │   │   ├── base/              # Base test classes
 │   │   │   ├── OpenOTestBase.java
@@ -395,9 +395,9 @@ mvn test-compile
 - `/workspace/CLAUDE.md` - Project context including test section
 
 ### Examples
-- `ca.openosp.openo.tickler.dao.*` - DAO integration tests
-- `ca.openosp.openo.tickler.manager.*` - Service unit tests
-- `ca.openosp.openo.test.base.*` - Framework base classes
+- `io.github.carlos_emr.carlos.tickler.dao.*` - DAO integration tests
+- `io.github.carlos_emr.carlos.tickler.manager.*` - Service unit tests
+- `io.github.carlos_emr.carlos.test.base.*` - Framework base classes
 
 ### Tools
 - JUnit 5: https://junit.org/junit5/docs/current/user-guide/

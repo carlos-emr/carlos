@@ -25,38 +25,38 @@
 --%>
 <!DOCTYPE html>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupAccessRestrictionDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleTemplateCodeDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleDateDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderSiteDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.ProgramProvider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@page import="ca.openosp.openo.util.*" %>
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference" %>
-<%@ page import="ca.openosp.openo.managers.*" %>
-<%@ page import="java.util.*,java.text.*,java.net.*,ca.openosp.*,ca.openosp.openo.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.*" %>
+<%@ page import="java.util.*,java.text.*,java.net.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.managers.*" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
@@ -110,7 +110,7 @@
 </security:oscarSec>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-<jsp:useBean id="as" class="ca.openosp.openo.appt.ApptStatusData"/>
+<jsp:useBean id="as" class="io.github.carlos_emr.carlos.appt.ApptStatusData"/>
 <jsp:useBean id="dateTimeCodeBean" class="java.util.HashMap"/>
 
 <c:set var="rand"><%= java.lang.Math.round(java.lang.Math.random() * 2345) %>
@@ -134,7 +134,7 @@
     AppManager appManager = SpringUtils.getBean(AppManager.class);
     String resourcehelpHtml = "";
     UserProperty rbuHtml = userPropertyDao.getProp("resource_helpHtml");
-    ca.openosp.openo.managers.PreventionManager providerPreventionManager = SpringUtils.getBean(ca.openosp.openo.managers.PreventionManager.class);
+    io.github.carlos_emr.carlos.managers.PreventionManager providerPreventionManager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.PreventionManager.class);
 %>
 <%
     if (rbuHtml != null) {
@@ -150,7 +150,7 @@
 %>
 <%!
     //multisite starts =====================
-    private boolean bMultisites = ca.openosp.openo.commn.IsPropertiesOn.isMultisitesEnable();
+    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
     private List<Site> sites = new ArrayList<Site>();
     private List<Site> curUserSites = new ArrayList<Site>();
     private List<String> siteProviderNos = new ArrayList<String>();
@@ -295,11 +295,11 @@
 //        tklerProviderNo = curUser_no;
 //    }
 //
-//    if (ca.openosp.openo.commn.IsPropertiesOn.isCaisiEnable() && ca.openosp.openo.commn.IsPropertiesOn.propertiesOn("OCAN_warning_window")) {
+//    if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable() && io.github.carlos_emr.carlos.commn.IsPropertiesOn.propertiesOn("OCAN_warning_window")) {
 //        ocanWarningWindow = (String) session.getAttribute("ocanWarningWindow");
 //    }
 //
-//    if (ca.openosp.openo.commn.IsPropertiesOn.isCaisiEnable() && ca.openosp.openo.commn.IsPropertiesOn.propertiesOn("CBI_REMINDER_WINDOW")) {
+//    if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable() && io.github.carlos_emr.carlos.commn.IsPropertiesOn.propertiesOn("CBI_REMINDER_WINDOW")) {
 //        cbiReminderWindow = (String) session.getAttribute("cbiReminderWindow");
 //    }
 
@@ -470,7 +470,7 @@
             if (!caseload) {
         %>
         <c:if test="${empty sessionScope.archiveView or sessionScope.archiveView != true}">
-            <%!String refresh = ca.openosp.OscarProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
+            <%!String refresh = io.github.carlos_emr.OscarProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
             <%="-1".equals(refresh) ? "" : "<meta http-equiv=\"refresh\" content=\"" + refresh + "\">"%>
         </c:if>
         <%
@@ -583,7 +583,7 @@
         <script src="${pageContext.request.contextPath}/csrfguard"></script>
     </head>
     <%
-        if (ca.openosp.openo.commn.IsPropertiesOn.isCaisiEnable()) {
+        if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable()) {
     %>
     <body onload="load();">
     <%
@@ -996,7 +996,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">
                                 <%
                                     DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
-                                    List<ca.openosp.openo.commn.model.Dashboard> dashboards = dashboardManager.getActiveDashboards(loggedInInfo1);
+                                    List<io.github.carlos_emr.carlos.commn.model.Dashboard> dashboards = dashboardManager.getActiveDashboards(loggedInInfo1);
                                     pageContext.setAttribute("dashboards", dashboards);
                                 %>
 

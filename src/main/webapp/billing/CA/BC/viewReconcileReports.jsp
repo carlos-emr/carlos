@@ -40,18 +40,18 @@
 %>
 
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat"
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat"
          errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.TeleplanS21Dao" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.TeleplanS21" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS21Dao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS21" %>
 
 <%
     TeleplanS21Dao teleplanS21Dao = SpringUtils.getBean(TeleplanS21Dao.class);
 %>
 
-<jsp:useBean id="documentBean" class="ca.openosp.DocumentBean" scope="request"/>
+<jsp:useBean id="documentBean" class="io.github.carlos_emr.DocumentBean" scope="request"/>
 
 
 <%
@@ -68,7 +68,7 @@
 %>
 
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>

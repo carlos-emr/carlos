@@ -39,11 +39,11 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="org.apache.commons.lang3.StringUtils,org.apache.commons.text.StringEscapeUtils,java.util.*,ca.openosp.openo.util.*,ca.openosp.openo.report.data.*,ca.openosp.openo.db.*,java.sql.*,ca.openosp.openo.demographic.data.*,ca.openosp.openo.eform.*,ca.openosp.openo.commn.model.Provider,ca.openosp.openo.managers.ProviderManager2,ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.eform.OneTimeConsultUtil" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+        import="org.apache.commons.lang3.StringUtils,org.apache.commons.text.StringEscapeUtils,java.util.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.eform.*,io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.managers.ProviderManager2,io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.OneTimeConsultUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -53,7 +53,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
 
-<jsp:useBean id="reportMainBean" class="ca.openosp.AppointmentMainBean"
+<jsp:useBean id="reportMainBean" class="io.github.carlos_emr.AppointmentMainBean"
              scope="session"/>
 <% if (!reportMainBean.getBDoConfigure()) { %>
 <%@ include file="/report/reportMainBeanConn.jspf" %>

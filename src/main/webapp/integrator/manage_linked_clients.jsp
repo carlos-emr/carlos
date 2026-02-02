@@ -22,13 +22,13 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.PMmodule.web.ManageLinkedClients.LinkedDemographicHolder" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.web.ManageLinkedClients.LinkedDemographicHolder" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.ArrayList" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.PMmodule.web.ManageLinkedClients" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.web.ManageLinkedClients" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

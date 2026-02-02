@@ -19,8 +19,8 @@
 
 --%>
 <%@ page
-        import="java.util.*,ca.openosp.openo.report.data.*, java.util.Properties, ca.openosp.openo.billing.ca.on.administration.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.administration.GstControl2Action" %>
+        import="java.util.*,io.github.carlos_emr.carlos.report.data.*, java.util.Properties, io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

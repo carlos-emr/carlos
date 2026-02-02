@@ -23,16 +23,16 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.PMmodule.model.Vacancy" %>
-<%@page import="ca.openosp.openo.PMmodule.model.VacancyTemplate" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Criteria" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.CriteriaDao" %>
-<%@page import="ca.openosp.openo.PMmodule.model.CriteriaType" %>
-<%@page import="ca.openosp.openo.PMmodule.service.VacancyTemplateManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Vacancy" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Criteria" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.CriteriaDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.CriteriaType" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.ArrayList" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.Date" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>

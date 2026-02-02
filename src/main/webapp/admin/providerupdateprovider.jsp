@@ -23,10 +23,10 @@
     Ontario, Canada
 
 --%>
-<%@ page import="ca.openosp.openo.commn.model.LookupListItem" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.commn.model.LookupList" %>
-<%@ page import="ca.openosp.openo.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -43,27 +43,27 @@
         return;
     }
 %>
-<%@ page import="java.util.*, ca.openosp.SxmlMisc, ca.openosp.openo.providers.data.ProviderBillCenter" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.log.LogAction,ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.commn.model.ClinicNbr" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.ClinicNbrDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.SecurityDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Security" %>
-<%@ page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@ page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderSite" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderSiteDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@ page import="java.util.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderSite" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.commn.Gender" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);

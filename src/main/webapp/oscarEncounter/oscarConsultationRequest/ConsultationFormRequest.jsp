@@ -39,7 +39,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
@@ -51,51 +51,51 @@
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 
-<%@page import="java.util.ArrayList, java.util.List, java.util.*, ca.openosp.OscarProperties, ca.openosp.openo.lab.ca.on.*" %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager,ca.openosp.openo.casemgmt.model.CaseManagementNote,ca.openosp.openo.casemgmt.model.Issue,ca.openosp.openo.commn.dao.UserPropertyDAO,org.springframework.web.context.support.*,org.springframework.web.context.*" %>
+<%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote,io.github.carlos_emr.carlos.casemgmt.model.Issue,io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,org.springframework.web.context.support.*,org.springframework.web.context.*" %>
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
-<%@page import="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Form" %>
-<%@page import="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
-<%@page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@page import="ca.openosp.openo.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils,ca.openosp.openo.clinic.ClinicData" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.utility.DigitalSignatureUtils" %>
-<%@ page import="ca.openosp.openo.ui.servlet.ImageRenderingServlet" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao, ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.demographic.data.DemographicData, ca.openosp.openo.prescript.data.RxProviderData, ca.openosp.openo.prescript.data.RxProviderData.Provider, ca.openosp.openo.clinic.ClinicData" %>
-<%@ page import="ca.openosp.openo.commn.dao.FaxConfigDao" %>
-<%@page import="ca.openosp.openo.commn.dao.ConsultationServiceDao" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@page import="ca.openosp.openo.commn.dao.ContactSpecialtyDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicContactDao" %>
-<%@ page import="ca.openosp.openo.commn.model.enumerator.ConsultationRequestExtKey" %>
-<%@ page import="ca.openosp.openo.commn.dao.ConsultationRequestExtDao" %>
-<%@ page import="ca.openosp.openo.managers.ConsultationManager" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Form" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.clinic.ClinicData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao, io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.DemographicData, io.github.carlos_emr.carlos.prescript.data.RxProviderData, io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider, io.github.carlos_emr.carlos.clinic.ClinicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FaxConfigDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.util.StringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.enumerator.ModuleType" %>
-<%@ page import="ca.openosp.openo.demographic.data.EctInformation" %>
-<%@ page import="ca.openosp.openo.demographic.data.RxInformation" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
-<%@ page import="ca.openosp.openo.managers.LookupListManager" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.EctInformation" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.RxInformation" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 
 <jsp:useBean id="displayServiceUtil" scope="request"
-             class="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayServiceUtil"/>
+             class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayServiceUtil"/>
 <!DOCTYPE html>
 <html>
 

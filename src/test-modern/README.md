@@ -22,7 +22,7 @@ This directory contains the modern test framework for CARLOS EMR, built with JUn
 ```
 src/test-modern/
 ├── java/
-│   └── ca/openosp/openo/
+│   └── io/github/carlos_emr/carlos/
 │       ├── test/base/          # Base test classes
 │       │   ├── OpenOTestBase.java
 │       │   ├── OpenODaoTestBase.java

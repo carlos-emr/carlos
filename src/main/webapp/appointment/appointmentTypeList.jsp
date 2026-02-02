@@ -18,7 +18,7 @@
 
 --%>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*, ca.openosp.openo.appt.*, ca.openosp.openo.commn.dao.AppointmentTypeDao, ca.openosp.openo.commn.model.AppointmentType, ca.openosp.openo.utility.SpringUtils" %>
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*, io.github.carlos_emr.carlos.appt.*, io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao, io.github.carlos_emr.carlos.commn.model.AppointmentType, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib prefix="s" uri="/struts-tags" %>
@@ -37,11 +37,11 @@
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
-<%@ page import="ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.login.*" %>
-<%@ page import="ca.openosp.openo.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
 <head>
     <title>

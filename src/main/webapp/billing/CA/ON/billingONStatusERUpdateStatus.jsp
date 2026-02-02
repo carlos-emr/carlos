@@ -23,9 +23,9 @@
     //String user_no = (String) session.getAttribute("user");
 %>
 <%@ page
-        import="ca.openosp.openo.billing.ca.on.data.*, java.sql.*, ca.openosp.*, java.net.*"
+        import="io.github.carlos_emr.carlos.billing.ca.on.data.*, java.sql.*, io.github.carlos_emr.*, java.net.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingErrorRepImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingErrorRepImpl" %>
 <%
     String id = request.getParameter("id");
     String val = request.getParameter("val");

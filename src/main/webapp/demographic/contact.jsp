@@ -26,9 +26,9 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicContact" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%
     String id = request.getParameter("id");
     StringUtils.trimToEmpty(id);

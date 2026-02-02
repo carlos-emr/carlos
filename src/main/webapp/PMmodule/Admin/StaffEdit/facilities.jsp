@@ -25,11 +25,11 @@
 
 
 <%@ include file="/taglibs.jsp" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.*" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.web.formbean.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.formbean.*" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.commn.model.Facility" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
 
 <script>
     function facility_change(facility_id) {

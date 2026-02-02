@@ -38,8 +38,8 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.encounter.data.EctPatientData" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctPatientData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%
     String demoNo = request.getParameter("demographic_no");

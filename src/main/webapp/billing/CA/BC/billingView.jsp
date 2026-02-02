@@ -39,7 +39,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     if (session.getValue("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -50,13 +50,13 @@
 
 <%@ page import="java.util.*" %>
 <%@ page
-        import="ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.billing.ca.bc.pageUtil.*" %>
+        import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingBillingManager" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingViewBean" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingViewBean" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
 
     String color = "", colorflag = "";

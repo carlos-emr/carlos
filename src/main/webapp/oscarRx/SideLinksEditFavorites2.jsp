@@ -23,20 +23,20 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.commn.dao.DxresearchDAO" %>
-<%@page import="ca.openosp.openo.commn.model.Dxresearch" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPatientData" %>
-<%@page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.managers.CodingSystemManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
-<%@page import="ca.openosp.openo.casemgmt.model.Issue" %>
-<%@page import="ca.openosp.openo.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.commn.model.Allergy" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

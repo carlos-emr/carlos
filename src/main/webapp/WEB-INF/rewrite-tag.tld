@@ -15,7 +15,7 @@
 
 <tag>
   <name>reWrite</name>
-        <tag-class>ca.openosp.openo.util.FullPathReWrite</tag-class>
+        <tag-class>io.github.carlos_emr.carlos.util.FullPathReWrite</tag-class>
         <body-content>empty</body-content>
         <!-- Forte4J_TLDX:  This comment contains code generation information. Do not delete.
         <tldx>

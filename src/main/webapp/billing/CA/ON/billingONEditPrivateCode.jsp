@@ -24,10 +24,10 @@
     }
 %>
 <%@ page errorPage="/errorpage.jsp" import="java.util.*,java.sql.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingCodeImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl" %>
 <%
     //
     //int serviceCodeLen = 5;

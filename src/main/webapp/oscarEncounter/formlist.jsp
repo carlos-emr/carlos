@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -42,9 +42,9 @@
 %>
 
 <%@ page
-        import="ca.openosp.openo.util.UtilMisc,ca.openosp.openo.encounter.data.*,java.net.*,java.util.*" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.util.UtilMisc,io.github.carlos_emr.carlos.encounter.data.*,java.net.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String provNo = request.getParameter("provider_no");

@@ -39,13 +39,13 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRourke2009Record" %>
-<%@ page import="ca.openosp.openo.form.data.FrmData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2009Record" %>
+<%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

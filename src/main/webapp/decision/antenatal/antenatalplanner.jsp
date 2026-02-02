@@ -32,16 +32,16 @@
     String curUser_no = (String) session.getAttribute("user");
 
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*,java.io.*" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,java.io.*" %>
 <jsp:useBean id="riskDataBean" class="java.util.Properties" scope="page"/>
-<jsp:useBean id="risks" class="ca.openosp.openo.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
-<jsp:useBean id="checklist" class="ca.openosp.openo.decision.DesAntenatalPlannerChecklist_99_12" scope="page"/>
+<jsp:useBean id="risks" class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
+<jsp:useBean id="checklist" class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerChecklist_99_12" scope="page"/>
 <%@ include file="/admin/dbconnection.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Desaprisk" %>
-<%@page import="ca.openosp.openo.commn.dao.DesapriskDao" %>
-<%@ page import="ca.openosp.openo.db.DBHandler" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBHandler" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%
     DesapriskDao desapriskDao = SpringUtils.getBean(DesapriskDao.class);
 %>

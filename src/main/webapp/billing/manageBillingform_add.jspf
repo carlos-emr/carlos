@@ -25,8 +25,8 @@
 -->
 
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.CtlBillingService" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <form name="servicetypeform" method="post">

@@ -24,13 +24,13 @@
 
 --%>
 
-<%! boolean bMultisites = ca.openosp.openo.commn.IsPropertiesOn.isMultisitesEnable(); %>
+<%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
 <%! String[] bgColors; %>
 
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ScheduleTemplateDao" %>
-<%@page import="ca.openosp.openo.commn.model.ScheduleTemplate" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
 <%
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
 %>
@@ -56,9 +56,9 @@
 
 %>
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

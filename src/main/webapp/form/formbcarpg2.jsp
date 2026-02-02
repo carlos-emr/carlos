@@ -13,15 +13,15 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.form.graphic.*, ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.form.graphic.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.data.FrmData" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
-<%@ page import="ca.openosp.openo.form.graphic.FrmGraphicAR" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.form.graphic.FrmGraphicAR" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 
 <%

@@ -18,8 +18,8 @@
 
 --%>
 <%@ page
-        import="ca.openosp.openo.util.*,ca.openosp.openo.billing.ca.on.pageUtil.*,ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
+        import="io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*,io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>

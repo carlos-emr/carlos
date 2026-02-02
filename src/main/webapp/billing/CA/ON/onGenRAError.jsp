@@ -19,10 +19,10 @@
 --%>
 
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat"
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingRAPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
 
 <html>
 <head>

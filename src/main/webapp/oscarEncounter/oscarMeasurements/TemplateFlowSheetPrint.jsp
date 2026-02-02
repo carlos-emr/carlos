@@ -24,26 +24,26 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
-        import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.encounter.oscarMeasurements.bean.*,java.net.*" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
-<%@ page import="ca.openosp.openo.commn.dao.FlowSheetCustomizationDao,ca.openosp.openo.commn.model.FlowSheetCustomization" %>
-<%@ page import="ca.openosp.openo.commn.dao.FlowSheetDrugDao,ca.openosp.openo.commn.model.FlowSheetDrug" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.FlowSheetItem" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionData" %>
-<%@ page import="ca.openosp.openo.prevention.Prevention" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.model.FlowSheetDrug" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.FlowSheetItem" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

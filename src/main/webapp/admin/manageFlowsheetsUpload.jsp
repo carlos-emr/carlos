@@ -43,7 +43,7 @@
 %>
 
 
-<%@ page import="java.util.*,ca.openosp.openo.report.reportByTemplate.*" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -53,11 +53,11 @@
 <%@ page import="org.apache.commons.fileupload.FileUploadException" %>
 <%@ page import="java.io.File" %>
 <%@ page import="java.io.StringWriter" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet" %>
-<%@ page import="ca.openosp.openo.commn.model.Flowsheet" %>
-<%@ page import="ca.openosp.openo.commn.dao.FlowsheetDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%
     boolean isMultipart = FileUpload.isMultipartContent(request);

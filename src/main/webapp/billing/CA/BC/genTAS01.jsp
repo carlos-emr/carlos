@@ -38,12 +38,12 @@
     }
 %>
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.MyDateFormat"
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat"
          errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.TeleplanS00Dao" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.TeleplanS00" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
 
 <%
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);

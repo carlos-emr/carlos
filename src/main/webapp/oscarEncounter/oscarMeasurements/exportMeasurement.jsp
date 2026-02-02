@@ -28,10 +28,10 @@
 %>
 <%@page contentType="text/xml; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page
-        import="ca.openosp.openo.encounter.oscarMeasurements.bean.*,ca.openosp.openo.encounter.oscarMeasurements.data.*" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.data.ExportMeasurementType" %>
+        import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ExportMeasurementType" %>
 <%
     String mstring = request.getParameter("mType");
     String export = "<ERROR>";

@@ -24,8 +24,8 @@
 
 --%>
 
-<%@ page import="java.util.*, ca.openosp.*, ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.util.UtilDict" %>
+<%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");

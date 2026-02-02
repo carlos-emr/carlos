@@ -6,7 +6,7 @@
 
 
 	<!-- Define the scheduled task (FaxSchedulerJob) -->
-	<bean id="faxSchedulerJob" class="ca.openosp.openo.fax.core.FaxSchedulerJob" />
+	<bean id="faxSchedulerJob" class="io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob" />
 
 	<!-- Define the scheduled executor factory bean -->
 	<bean id="scheduledExecutorFactoryBean" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">

@@ -2570,7 +2570,7 @@ insert into `secObjPrivilege` values('admin','_rx.editPharmacy','x',0,'999998');
 
 insert into ProductLocation (name) values ('Default');
 
-INSERT INTO `OscarJobType` VALUES (null,'OSCAR MSG REVIEW','Sends OSCAR Messages to Residents Supervisors when charts need to be reviewed','ca.openosp.openo.jobs.OscarMsgReviewSender',0,now());
+INSERT INTO `OscarJobType` VALUES (null,'OSCAR MSG REVIEW','Sends OSCAR Messages to Residents Supervisors when charts need to be reviewed','io.github.carlos_emr.carlos.jobs.OscarMsgReviewSender',0,now());
 INSERT INTO `OscarJob` VALUES (null,'OSCAR Message Review','',(select id from OscarJobType where name = 'OSCAR MSG REVIEW') ,'0 0/30 * * * *','999998',0,now(),null);
 
 INSERT INTO `consentType`(`id`, `type`, `name`, `description`, `active`) VALUES ('1', 'default_consent_entry', 'Demonstraton Consent', 'This is a demonstration consent. Modify the consentType and Consent tables to replace this message with a desired consent description, or to add new consents.', '0');
@@ -2584,7 +2584,7 @@ insert into scheduletemplate Values('Public','P:OnCallClinic','Weekends/Holidays
 
 insert into scheduletemplatecode Values(null,'C','On Call Clinic','15','green','Onc',1);
 
-insert into OscarJobType Values(null,'OSCAR ON CALL CLINIC', 'Notifies MRP if patient seen during on-call clinic','ca.openosp.openo.jobs.OscarOnCallClinic',false,now());
+insert into OscarJobType Values(null,'OSCAR ON CALL CLINIC', 'Notifies MRP if patient seen during on-call clinic','io.github.carlos_emr.carlos.jobs.OscarOnCallClinic',false,now());
 
 insert into OscarJob Values(null,'OSCAR On-Call Clinic',null,(select id from OscarJobType where name = 'OSCAR ON CALL CLINIC'),'0 0 4 * * *','999998',false,now(),null);
 

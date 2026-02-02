@@ -39,27 +39,27 @@
 <%@page import="org.hl7.fhir.dstu3.model.Organization" %>
 <%@page import="org.hl7.fhir.dstu3.model.MessageHeader" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent" %>
-<%@page import="ca.openosp.openo.commn.model.Prevention" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.model.CVCMapping" %>
-<%@page import="ca.openosp.openo.commn.dao.CVCImmunizationDao" %>
-<%@page import="ca.openosp.openo.commn.dao.CVCMappingDao" %>
-<%@page import="ca.openosp.openo.commn.model.CVCMedicationLotNumber" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Prevention" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.CVCImmunization" %>
-<%@page import="ca.openosp.openo.managers.CanadianVaccineCatalogueManager" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.providers.data.ProviderData" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CVCImmunization" %>
+<%@page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page
-        import="ca.openosp.openo.demographic.data.DemographicData,java.text.SimpleDateFormat, java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicExtDao" %>
-<%@page import="ca.openosp.openo.commn.dao.PreventionsLotNrsDao" %>
-<%@page import="ca.openosp.openo.commn.model.PreventionsLotNrs" %>
+        import="io.github.carlos_emr.carlos.demographic.data.DemographicData,java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

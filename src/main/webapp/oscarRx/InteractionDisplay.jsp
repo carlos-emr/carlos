@@ -40,9 +40,9 @@
 %>
 
 <%@ page
-        import="java.util.*,ca.openosp.openo.rx.data.*,ca.openosp.openo.rx.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxDrugData" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
+        import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%
     RxSessionBean bean = (RxSessionBean) session.getAttribute("RxSessionBean");
     if (bean == null) {

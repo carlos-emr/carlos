@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.www.admin.SecurityAddSecurityHelper" %>
+<%@page import="io.github.carlos_emr.carlos.www.admin.SecurityAddSecurityHelper" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -43,15 +43,15 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ page import="java.sql.*, java.util.*,java.security.*,ca.openosp.*,ca.openosp.openo.db.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.log.LogAction,ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Security" %>
-<%@ page import="ca.openosp.openo.commn.dao.SecurityDao" %>
+<%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

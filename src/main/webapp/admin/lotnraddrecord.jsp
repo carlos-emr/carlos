@@ -44,16 +44,16 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ page import="java.sql.*, java.util.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.log.LogAction,ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.log.*, ca.openosp.openo.db.*" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*, io.github.carlos_emr.carlos.db.*" %>
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.PreventionsLotNrs" %>
-<%@ page import="ca.openosp.openo.commn.dao.PreventionsLotNrsDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%
     PreventionsLotNrsDao PreventionsLotNrsDao = (PreventionsLotNrsDao) SpringUtils.getBean(PreventionsLotNrsDao.class);
 %>

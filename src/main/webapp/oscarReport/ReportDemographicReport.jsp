@@ -42,9 +42,9 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page import="ca.openosp.openo.report.data.RptSearchData,java.util.*" %>
-<%@ page import="ca.openosp.openo.report.data.RptDemographicColumnNames" %>
-<%@ page import="ca.openosp.openo.report.pageUtil.RptDemographicReport2Form" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptDemographicColumnNames" %>
+<%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%!
     // Helper method to check if a value exists in an array

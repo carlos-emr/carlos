@@ -39,9 +39,9 @@ if(!authed) {
 }
 %>
 
-<%@page import="ca.openosp.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="java.math.BigDecimal" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 
 <%
 	String cTotal = "0", hTotal = "0", oTotal = "0", mNum = "", fNum = "";

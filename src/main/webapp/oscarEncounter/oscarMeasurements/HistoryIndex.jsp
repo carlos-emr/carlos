@@ -24,9 +24,9 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
-<%@page import="ca.openosp.openo.utility.LocaleUtils" %>
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%
     if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
@@ -35,13 +35,13 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.*" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*" %>
 <%@ page import="java.util.Vector" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.data.MeasurementMapConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig" %>
 <%
     EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
     MeasurementMapConfig measurementMapConfig = new MeasurementMapConfig();

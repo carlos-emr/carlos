@@ -3,7 +3,7 @@
 	"-//Hibernate/Hibernate Mapping DTD//EN"
 	"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd" >
 <hibernate-mapping>
-	<class name="ca.openosp.openo.model.LookupCodeValue" mutable="false">
+	<class name="io.github.carlos_emr.carlos.model.LookupCodeValue" mutable="false">
 		<id name="code" />
 		<property name="prefix" />
 		<property name="description" />

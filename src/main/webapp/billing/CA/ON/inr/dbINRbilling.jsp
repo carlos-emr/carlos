@@ -23,11 +23,11 @@
     userfirstname = (String) session.getAttribute("userfirstname");
     userlastname = (String) session.getAttribute("userlastname");
 %>
-<%@ page import="java.sql.*, java.util.*,java.net.*, ca.openosp.MyDateFormat" %>
+<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.billing.CA.model.BillingInr" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillingInrDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
 <%
     BillingInrDao billingInrDao = SpringUtils.getBean(BillingInrDao.class);
 %>

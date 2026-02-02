@@ -24,8 +24,8 @@
 
 --%>
 <%@ page
-        import="ca.openosp.openo.eform.data.*, ca.openosp.openo.eform.*, java.util.*, ca.openosp.openo.util.*, org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
+        import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*, io.github.carlos_emr.carlos.util.*, org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%

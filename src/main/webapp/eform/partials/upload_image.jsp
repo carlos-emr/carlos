@@ -24,7 +24,7 @@
 
 --%>
 <!DOCTYPE html>
-<%@ page import="ca.openosp.openo.eform.data.*, ca.openosp.OscarProperties, ca.openosp.openo.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

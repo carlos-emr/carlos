@@ -25,8 +25,8 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.util.DateUtils" %>
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no = "";
@@ -34,9 +34,9 @@
 %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.*, java.sql.*, java.net.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicLocationDao, ca.openosp.openo.PMmodule.dao.ProviderDao, ca.openosp.openo.commn.dao.BatchBillingDAO, ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicLocation, ca.openosp.openo.commn.model.Provider, ca.openosp.openo.commn.model.BatchBilling, ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO, io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation, io.github.carlos_emr.carlos.commn.model.Provider, io.github.carlos_emr.carlos.commn.model.BatchBilling, io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);

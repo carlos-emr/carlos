@@ -22,14 +22,14 @@
     Toronto, Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.commn.dao.FacilityDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Facility" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FacilityDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@include file="/layouts/caisi_html_top.jspf" %>
-<%@ page import="ca.openosp.openo.login.Login2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.login.Login2Action" %>
 <h2>Please select which facility you would like to currently work in</h2>
 <%
     FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);

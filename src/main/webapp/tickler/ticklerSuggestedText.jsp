@@ -24,8 +24,8 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.commn.model.TicklerTextSuggest, ca.openosp.openo.commn.dao.TicklerTextSuggestDao" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest, io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

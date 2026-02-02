@@ -22,10 +22,10 @@
     EMR System
 
 --%>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.WcbBpCode" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.billing.CA.dao.WcbBpCodeDao" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");

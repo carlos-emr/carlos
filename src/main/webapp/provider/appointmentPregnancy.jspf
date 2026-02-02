@@ -1,8 +1,8 @@
-<%@page import="ca.openosp.openo.web.AppointmentProviderAdminDayUIBean"%>
+<%@page import="io.github.carlos_emr.carlos.web.AppointmentProviderAdminDayUIBean"%>
 <%@page import="java.util.Collection, java.util.Collections, java.util.List, java.util.ArrayList"%>
 <%@page import="org.apache.commons.text.StringEscapeUtils"%>
-<%@page import="ca.openosp.openo.commn.model.ProviderPreference"%>
-<%@page import="ca.openosp.openo.commn.dao.PregnancyFormsDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PregnancyFormsDao" %>
 <%
 //do they have an enhanced form started?
 String demographicNoStr = request.getParameter("demographicNo");

@@ -30,16 +30,16 @@
     String provider_no = request.getParameter("provider_no");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 <jsp:useBean id="scheduleDateBean" class="java.util.Hashtable" scope="session"/>
-<jsp:useBean id="scheduleRscheduleBean" class="ca.openosp.RscheduleBean" scope="session"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleDate" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleDateDao" %>
+<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
 %>

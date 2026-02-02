@@ -40,16 +40,16 @@
     }
 %>
 
-<%@ page import="java.sql.*, java.util.*, ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.openo.commn.OtherIdManager" %>
-<%@ page import="ca.openosp.openo.event.EventService" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager" %>
+<%@ page import="io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@page import="ca.openosp.openo.commn.dao.AppointmentArchiveDao" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);

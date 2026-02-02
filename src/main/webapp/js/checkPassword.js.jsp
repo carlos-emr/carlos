@@ -22,7 +22,7 @@
     Toronto, Ontario, Canada
 
 --%>
-    <%@ page import="ca.openosp.OscarProperties"%>
+    <%@ page import="io.github.carlos_emr.OscarProperties"%>
     <%@ page import="org.springframework.web.util.JavaScriptUtils"%>
 
     <%@ page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>

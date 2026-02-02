@@ -38,18 +38,18 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.util.SqlUtils" %>
-<%@page import="ca.openosp.openo.web.ProviderServiceReportUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.util.SqlUtils" %>
+<%@page import="io.github.carlos_emr.carlos.web.ProviderServiceReportUIBean" %>
 <%@page import="java.util.*" %>
 <%@page import="org.caisi.model.*" %>
-<%@page import="ca.openosp.openo.PMmodule.model.*" %>
-<%@page import="ca.openosp.openo.PMmodule.web.*" %>
-<%@page import="ca.openosp.openo.commn.model.*" %>
-<%@page import="ca.openosp.openo.utility.*" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.web.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.*" %>
 <%@page import="java.text.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
-    String agencyName = ca.openosp.OscarProperties.getInstance().getProperty("db_name", "");
+    String agencyName = io.github.carlos_emr.OscarProperties.getInstance().getProperty("db_name", "");
     String startDateString = request.getParameter("startDate");
     String endDateString = request.getParameter("endDate");
     SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy");

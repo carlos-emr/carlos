@@ -29,9 +29,9 @@
 	Imported solely into the eformsowform_data.jsp and eformadd_data.jsp pages. 
 --%>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import=" ca.openosp.openo.managers.FaxManager"%>
-<%@ page import=" ca.openosp.openo.managers.EmailComposeManager"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import=" io.github.carlos_emr.carlos.managers.FaxManager"%>
+<%@ page import=" io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
 <%@ taglib prefix = "c" uri = "http://java.sun.com/jsp/jstl/core" %>
 <%
   EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);

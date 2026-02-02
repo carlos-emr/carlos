@@ -24,7 +24,7 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -34,9 +34,9 @@
 %>
 
 <%@page import="java.util.*" %>
-<%@page import="ca.openosp.openo.commn.model.Episode" %>
-<%@page import="ca.openosp.openo.commn.dao.EpisodeDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Episode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EpisodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%
 

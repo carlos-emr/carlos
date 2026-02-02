@@ -27,14 +27,14 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page
-        import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager, ca.openosp.openo.utility.LoggedInInfo, ca.openosp.openo.commn.model.Facility" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
+        import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager, io.github.carlos_emr.carlos.utility.LoggedInInfo, io.github.carlos_emr.carlos.commn.model.Facility" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

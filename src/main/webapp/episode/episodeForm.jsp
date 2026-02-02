@@ -40,8 +40,8 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
-<%@ page import="ca.openosp.openo.commn.model.Episode" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Episode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.List" %>
 
 <%

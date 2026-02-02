@@ -11,12 +11,12 @@
 
 	<!-- ############################# -->
 
-	<category name="ca.openosp.openo">
+	<category name="io.github.carlos_emr.carlos">
 		<priority value="INFO" />
 	</category>
 
 	<!-- E2E will test many cases which will spam log output; this will squelch it -->
-	<category name="ca.openosp.openo.e2e">
+	<category name="io.github.carlos_emr.carlos.e2e">
 		<priority value="FATAL" />
 	</category>
 

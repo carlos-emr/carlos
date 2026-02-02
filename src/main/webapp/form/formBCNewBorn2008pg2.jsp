@@ -40,12 +40,12 @@
 %>
 
 <%@ page language="java" %>
-<%@ page import="ca.openosp.openo.form.*, ca.openosp.openo.form.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.data.FrmData" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <%
     String formClass = "BCNewBorn2008";

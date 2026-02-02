@@ -25,8 +25,8 @@
 --%>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.commn.ISO36612" %>
-<%@page import="ca.openosp.openo.managers.LookupListManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
+<%@page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -41,19 +41,19 @@
         return;
     }
 %>
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.ConformanceTestHelper" %>
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.ConformanceTestHelper" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.commn.Gender" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.managers.ProgramManager2" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.PMmodule.model.ProgramProvider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.Gender" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@page import="java.util.HashSet" %>
-<%@page import="ca.openosp.openo.managers.PatientConsentManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<jsp:useBean id="apptMainBean" class="ca.openosp.AppointmentMainBean" scope="session"/>
+<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <%
     String demographic$ = request.getParameter("demographic_no");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -74,22 +74,22 @@
 
 %>
 <%@ page
-        import="java.util.*, java.net.*,java.text.DecimalFormat, ca.openosp.*, ca.openosp.openo.demographic.data.ProvinceNames, ca.openosp.openo.waitinglist.WaitingList, ca.openosp.openo.report.data.DemographicSets,ca.openosp.openo.log.*" %>
-<%@ page import="ca.openosp.openo.demographic.data.*" %>
-<%@ page import="ca.openosp.openo.demographic.pageUtil.Util" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.commn.dao.*,ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.commn.OtherIdManager" %>
-<%@ page import="ca.openosp.openo.commn.web.Contact2Action" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramDao" %>
-<%@page import="ca.openosp.openo.PMmodule.service.AdmissionManager" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+        import="java.util.*, java.net.*,java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList, io.github.carlos_emr.carlos.report.data.DemographicSets,io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 
 <%!
@@ -181,7 +181,7 @@
 
 
     String currentProgram = "";
-    String programId = (String) session.getAttribute(ca.openosp.openo.utility.SessionConstants.CURRENT_PROGRAM_ID);
+    String programId = (String) session.getAttribute(io.github.carlos_emr.carlos.utility.SessionConstants.CURRENT_PROGRAM_ID);
     if (programId != null && programId.length() > 0) {
         Integer prId = null;
         try {
@@ -226,18 +226,18 @@
 
 %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicMerged" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicRelationship" %>
-<%@ page import="ca.openosp.openo.utility.*" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.commn.dao.*" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <!DOCTYPE html>
 <html>
 
@@ -987,11 +987,11 @@
                                             }
                                             //----------------------------REFERRAL DOCTOR --------------end-----------
 
-                                            if (ca.openosp.openo.util.StringUtils.filled(demographic.getYearOfBirth()))
+                                            if (io.github.carlos_emr.carlos.util.StringUtils.filled(demographic.getYearOfBirth()))
                                                 birthYear = StringUtils.trimToEmpty(demographic.getYearOfBirth());
-                                            if (ca.openosp.openo.util.StringUtils.filled(demographic.getMonthOfBirth()))
+                                            if (io.github.carlos_emr.carlos.util.StringUtils.filled(demographic.getMonthOfBirth()))
                                                 birthMonth = StringUtils.trimToEmpty(demographic.getMonthOfBirth());
-                                            if (ca.openosp.openo.util.StringUtils.filled(demographic.getDateOfBirth()))
+                                            if (io.github.carlos_emr.carlos.util.StringUtils.filled(demographic.getDateOfBirth()))
                                                 birthDate = StringUtils.trimToEmpty(demographic.getDateOfBirth());
 
                                             dob_year = Integer.parseInt(birthYear);
@@ -2670,7 +2670,7 @@
                                                         </td>
                                                         <td align="left">
                                                             <%
-                                                                String lang = ca.openosp.openo.util.StringUtils.noNull(demographic.getOfficialLanguage()); %>
+                                                                String lang = io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic.getOfficialLanguage()); %>
                                                             <select name="official_lang" <%=getDisabled("official_lang")%>>
                                                                 <option value="English" <%=lang.equals("English") ? "selected" : ""%> >
                                                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEnglish"/></option>
@@ -2685,7 +2685,7 @@
                                                         </td>
                                                         <td>
                                                             <%
-                                                                String spokenLang = ca.openosp.openo.util.StringUtils.noNull(demographic.getSpokenLanguage()); %>
+                                                                String spokenLang = io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic.getSpokenLanguage()); %>
                                                             <select name="spoken_lang"
                                                                     style="width: 200px;" <%=getDisabled("spoken_lang")%>>
                                                                 <%for (String splang : Util.spokenLangProperties.getLangSorted()) { %>
@@ -3305,7 +3305,7 @@
                                                         </b></td>
                                                         <td align="left">
                                                             <%
-                                                                String newsletter = ca.openosp.openo.util.StringUtils.noNull(demographic.getNewsletter()).trim();
+                                                                String newsletter = io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic.getNewsletter()).trim();
                                                                 if (newsletter == null || newsletter.equals("")) {
                                                                     newsletter = "Unknown";
                                                                 }
@@ -3750,7 +3750,7 @@
                                                             <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNotSet"/></option>
                                                             <%for (CountryCode cc : countryList) { %>
                                                             <option value="<%=cc.getCountryId()%>"
-                                                                    <% if (ca.openosp.openo.util.StringUtils.noNull(demographic.getCountryOfOrigin()).equals(cc.getCountryId())) {
+                                                                    <% if (io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic.getCountryOfOrigin()).equals(cc.getCountryId())) {
                                                                         out.print("SELECTED");
                                                                     }%>><%=cc.getCountryName() %>
                                                             </option>
@@ -4651,12 +4651,12 @@
                                                                         <td align="left">
                                                                             <%
 
-                                                                                List<ca.openosp.openo.commn.model.WaitingList> wls = waitingListDao.search_wlstatus(Integer.parseInt(demographic_no));
+                                                                                List<io.github.carlos_emr.carlos.commn.model.WaitingList> wls = waitingListDao.search_wlstatus(Integer.parseInt(demographic_no));
 
                                                                                 String wlId = "", listID = "", wlnote = "";
                                                                                 String wlReferralDate = "";
                                                                                 if (wls.size() > 0) {
-                                                                                    ca.openosp.openo.commn.model.WaitingList wl = wls.get(0);
+                                                                                    io.github.carlos_emr.carlos.commn.model.WaitingList wl = wls.get(0);
                                                                                     wlId = wl.getId().toString();
                                                                                     listID = String.valueOf(wl.getListId());
                                                                                     wlnote = wl.getNote();
@@ -4677,7 +4677,7 @@
                                                                             <%} %>
                                                                             <%
 
-                                                                                List<WaitingListName> wlns = waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(ca.openosp.openo.utility.SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo());
+                                                                                List<WaitingListName> wlns = waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(io.github.carlos_emr.carlos.utility.SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo());
                                                                                 for (WaitingListName wln : wlns) {
                                                                             %>
                                                                             <option value="<%=wln.getId()%>"

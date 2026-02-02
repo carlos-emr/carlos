@@ -25,25 +25,25 @@
 --%>
 
 <%@page import="org.apache.commons.text.StringEscapeUtils"%>
-<%@page import="ca.openosp.openo.util.ConversionUtils"%>
-<%@page import="ca.openosp.openo.casemgmt.web.NoteDisplay"%>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils"%>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay"%>
 <%  long start = System.currentTimeMillis(); %>
 <%@include file="/casemgmt/taglibs.jsp"%>
 <%@page
-	import="java.util.List, java.util.Set, java.util.Iterator, ca.openosp.openo.casemgmt.model.CaseManagementIssue, ca.openosp.openo.casemgmt.model.CaseManagementNoteExt, ca.openosp.openo.casemgmt.model.CaseManagementNote"%>
-<%@page import="ca.openosp.openo.commn.model.Provider"%>
-<%@page import="ca.openosp.openo.provider.web.CppPreferencesUIBean"%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo"%>
-<%@page import="ca.openosp.openo.casemgmt.web.CaseManagementViewAction"%>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO"%>
-<%@page import="ca.openosp.openo.commn.model.UserProperty"%>
-<%@page import="ca.openosp.openo.commn.model.PartialDate"%>
-<%@page import="ca.openosp.openo.utility.SpringUtils"%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo"%>
+	import="java.util.List, java.util.Set, java.util.Iterator, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote"%>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider"%>
+<%@page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean"%>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate"%>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.services.security.SecurityManager" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>

@@ -19,15 +19,15 @@
 --%>
 <!DOCTYPE html>
 <%@ page
-        import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.db.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.utility.DateRange" %>
+        import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingItemData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("user") == null)

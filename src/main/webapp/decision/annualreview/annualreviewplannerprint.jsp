@@ -31,25 +31,25 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, ca.openosp.openo.util.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/errorpage.jsp" %>
 
 <jsp:useBean id="riskDataBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="risks"
-             class="ca.openosp.openo.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
+             class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerRisks_99_12" scope="page"/>
 <jsp:useBean id="checklist"
-             class="ca.openosp.openo.decision.DesAnnualReviewPlannerChecklist" scope="page"/>
+             class="io.github.carlos_emr.carlos.decision.DesAnnualReviewPlannerChecklist" scope="page"/>
 <%@ include file="/admin/dbconnection.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.DesAnnualReviewPlan" %>
-<%@page import="ca.openosp.openo.commn.dao.DesAnnualReviewPlanDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DesAnnualReviewPlan" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DesAnnualReviewPlanDao" %>
 <%
     DesAnnualReviewPlanDao desAnnualReviewPlanDao = SpringUtils.getBean(DesAnnualReviewPlanDao.class);
 %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     String folderPath = pageContext.getServletContext().getRealPath("/decision/annualreview/");

@@ -24,16 +24,16 @@
 --%>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.eform.EFormUtil" %>
+<%@page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.PMmodule.model.ProgramQueue" %>
-<%@ page import="ca.openosp.openo.PMmodule.web.admin.ProgramManager2Action.RemoteQueueEntry" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action.RemoteQueueEntry" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProgramProviderDAO" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ include file="/taglibs.jsp" %>

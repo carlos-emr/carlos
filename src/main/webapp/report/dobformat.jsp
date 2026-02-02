@@ -42,11 +42,11 @@
 <%
 
 %>
-<%@ page import="java.util.*, java.sql.*,java.io.*, ca.openosp.openo.util.*, java.text.*, java.net.*,sun.misc.*"
+<%@ page import="java.util.*, java.sql.*,java.io.*, io.github.carlos_emr.carlos.util.*, java.text.*, java.net.*,sun.misc.*"
          errorPage="/errorpage.jsp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
 %>

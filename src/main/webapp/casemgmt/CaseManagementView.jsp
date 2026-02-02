@@ -30,17 +30,17 @@
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
-<%@ page import="ca.openosp.openo.casemgmt.model.*" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
-<%@page import="ca.openosp.openo.casemgmt.web.CaseManagementViewAction" %>
-<%@page import="ca.openosp.openo.casemgmt.web.NoteDisplay" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.CaseManagementViewFormBean" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementCPP" %>
-<%@ page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementViewFormBean" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%
     Logger logger = MiscUtils.getLogger();
 

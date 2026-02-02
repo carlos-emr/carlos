@@ -38,9 +38,9 @@
 %>
 
 
-<%@ page import="ca.openosp.openo.casemgmt.model.*" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <style type="text/css" media="print">
     .header {
         display: none;

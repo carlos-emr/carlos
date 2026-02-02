@@ -39,27 +39,27 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@page import="java.util.Date" %>
-<%@page import="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAO" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@page import="ca.openosp.openo.commn.model.Drug" %>
-<%@page import="ca.openosp.openo.commn.dao.DrugDao" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderInboxRoutingDao" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderInboxItem" %>
-<%@page import="ca.openosp.openo.managers.TicklerManager" %>
-<%@page import="ca.openosp.openo.commn.model.CustomFilter" %>
-<%@page import="ca.openosp.openo.commn.dao.DocumentDao" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
+<%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CustomFilter" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>

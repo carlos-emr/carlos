@@ -38,7 +38,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.WebUtils,ca.openosp.openo.commn.service.AcceptableUseAgreementManager,ca.openosp.openo.commn.model.Property" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils,io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager,io.github.carlos_emr.carlos.commn.model.Property" %>
 <%
 
     Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();

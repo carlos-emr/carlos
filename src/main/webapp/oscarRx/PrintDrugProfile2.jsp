@@ -23,22 +23,22 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
-<%@ page import="ca.openosp.openo.rx.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="java.util.ArrayList,ca.openosp.openo.util.*,java.util.*,ca.openosp.openo.commn.model.Drug,ca.openosp.openo.commn.dao.*" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPatientData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPharmacyData" %>
-<%@ page import="ca.openosp.openo.commn.dao.DrugDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="java.util.ArrayList,io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
 <%
     RxSessionBean bean = null;
 %>

@@ -40,9 +40,9 @@
 %>
 
 <%@ page
-        import="java.math.*, java.util.*, java.sql.*, ca.openosp.*, java.net.*, ca.openosp.openo.dxresearch.bean.*" %>
-<%@ page import="ca.openosp.openo.dxresearch.bean.dxResearchBean" %>
-<%@ page import="ca.openosp.openo.dxresearch.bean.dxResearchBeanHandler" %>
+        import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.dxresearch.bean.*" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <ul
         <%
             String demoNO = request.getParameter("demographicNo");

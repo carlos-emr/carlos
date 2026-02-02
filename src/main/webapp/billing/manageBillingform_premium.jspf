@@ -25,8 +25,8 @@
 --%>
 
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.commn.model.CtlBillingServicePremium" %>
-<%@page import="ca.openosp.openo.commn.dao.CtlBillingServicePremiumDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <% 

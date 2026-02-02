@@ -41,28 +41,28 @@
     }
 %>
 <%@ page
-        import="java.sql.*, ca.openosp.openo.login.*, java.util.*,ca.openosp.*,ca.openosp.openo.db.*,ca.openosp.openo.providers.data.ProviderBillCenter"
+        import="java.sql.*, io.github.carlos_emr.carlos.login.*, java.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
         errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderArchive" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderArchiveDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderArchive" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.apache.commons.beanutils.BeanUtils" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderSite" %>
-<%@page import="ca.openosp.openo.commn.model.ProviderSitePK" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderSiteDao" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@ page import="ca.openosp.openo.db.DBPreparedHandler" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSite" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSitePK" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);

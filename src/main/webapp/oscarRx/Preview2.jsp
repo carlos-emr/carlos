@@ -23,29 +23,29 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.prescript.data.RxPatientData" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ page import="ca.openosp.openo.providers.data.ProSignatureData, ca.openosp.openo.providers.data.ProviderData" %>
-<%@ page import="ca.openosp.openo.rx.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData, io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 
-<%@ page import="ca.openosp.*,
+<%@ page import="io.github.carlos_emr.*,
                  java.lang.*,
                  java.util.Date,
                  java.text.SimpleDateFormat,
-                 ca.openosp.openo.prescript.util.RxUtil,
+                 io.github.carlos_emr.carlos.prescript.util.RxUtil,
                  org.springframework.web.context.WebApplicationContext,
                  org.springframework.web.context.support.WebApplicationContextUtils,
-                 ca.openosp.openo.commn.dao.UserPropertyDAO,
-                 ca.openosp.openo.commn.model.UserProperty" %>
+                 io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,
+                 io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 
 <!-- Classes needed for signature injection -->
-<%@page import="ca.openosp.openo.commn.model.*" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.utility.DigitalSignatureUtils" %>
-<%@page import="ca.openosp.openo.ui.servlet.ImageRenderingServlet" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+<%@page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <!-- end -->
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
@@ -56,16 +56,16 @@
     RxSessionBean bean = null;
 %>
 
-<%@page import="ca.openosp.openo.web.PrescriptionQrCodeUIBean" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.Objects" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxProviderData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPharmacyData" %>
-<%@ page import="ca.openosp.openo.commn.model.DemographicExt" %>
-<%@ page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -507,17 +507,17 @@
 										<oscar:oscarPropertiesCheck value="true" property="showRxBandNumber">
                                             <c:if test="${ not empty bandNumber }">
                                                 <br/>
-                                                <b><fmt:setBundle basename="oscarResources"/><fmt:message key="ca.openosp.openo.rx.bandNumber"/></b>
+                                                <b><fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.rx.bandNumber"/></b>
                                                 <c:out value="${ bandNumber }"/>
                                             </c:if>
                                         </oscar:oscarPropertiesCheck>
 										<b>
 											<% if (!props.getProperty("showRxHin", "").equals("false")) { %>
-												<fmt:setBundle basename="oscarResources"/><fmt:message key="ca.openosp.openo.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
+												<fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
 											<% } %>
 										</b><br>
 										<% if (props.getProperty("showRxChartNo", "").equalsIgnoreCase("true")) { %>
-											<fmt:setBundle basename="oscarResources"/><fmt:message key="ca.openosp.openo.rx.chartNo"/><%=ptChartNo%>
+											<fmt:setBundle basename="oscarResources"/><fmt:message key="io.github.carlos_emr.carlos.rx.chartNo"/><%=ptChartNo%>
 										<% } %>
 								</span>
                                 <span style="float:right">
@@ -527,8 +527,8 @@
                         </tr>
                         </thead>
                         <tfoot>
-                        <% if (ca.openosp.OscarProperties.getInstance().getProperty("RX_FOOTER") != null) {
-                            out.write(ca.openosp.OscarProperties.getInstance().getProperty("RX_FOOTER"));
+                        <% if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER") != null) {
+                            out.write(io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER"));
                         } %>
 
                         <tr valign=bottom>
@@ -633,10 +633,10 @@
                         </tr>
                         <% } %>
 
-                        <% if (ca.openosp.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && ca.openosp.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT").length() > 0) { %>
+                        <% if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT").length() > 0) { %>
                         <tr valign=bottom align="center">
                             <td height=25px colspan="2" style="font-size: 9px"></br>
-                                <%= ca.openosp.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
+                                <%= io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
                             </td>
                         </tr>
                         <% } %>
@@ -651,7 +651,7 @@
                                 String fullOutLine = rx.getFullOutLine().replaceAll(";", "<br />");
 
                                 if (fullOutLine == null || fullOutLine.length() <= 6) {
-                                    ca.openosp.openo.utility.MiscUtils.getLogger();
+                                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
                                     fullOutLine = "<span style=\"color:red;font-size:16;font-weight:bold\">An error occurred, please write a new prescription.</span><br />" + fullOutLine;
                                 }
                         %>

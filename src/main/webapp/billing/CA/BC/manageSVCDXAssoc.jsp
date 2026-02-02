@@ -15,8 +15,8 @@
 %>
 
 <%@page
-        import="java.util.*,ca.openosp.openo.billings.ca.bc.data.BillingCodeData,ca.openosp.openo.billing.ca.bc.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
+        import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

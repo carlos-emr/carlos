@@ -25,8 +25,8 @@
 --%>
 
 
-<%@ page import="ca.openosp.openo.login.UAgentInfo" %>
-<%@ page import="ca.openosp.openo.managers.MfaManager" %>
+<%@ page import="io.github.carlos_emr.carlos.login.UAgentInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri='http://java.sun.com/jsp/jstl/core' prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -41,7 +41,7 @@
     pageContext.setAttribute("isMobileDevice", isMobileDevice);
 %>
 
-<jsp:useBean id="LoginResourceBean" beanName="ca.openosp.openo.login.LoginResourceBean" type="ca.openosp.openo.login.LoginResourceBean"/>
+<jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
 <c:set var="login_error" value="" scope="page"/>
 <!DOCTYPE html>
 <html>

@@ -7,7 +7,7 @@
 	<import value="net.sf.jasperreports.engine.*"/>
 	<import value="java.util.*"/>
 	<import value="net.sf.jasperreports.engine.data.*"/>
-	<import value="ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile"/>
+	<import value="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
 	<parameter name="s21id" class="java.lang.String"/>
 	<parameter name="providerNo" class="java.lang.String"/>
 	<parameter name="msgs" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>

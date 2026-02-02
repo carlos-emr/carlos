@@ -11,18 +11,18 @@
 
 #### The Correct ProviderDao
 ```java
-import ca.openosp.openo.dao.ProviderDao;  // ✅ CORRECT
+import io.github.carlos_emr.carlos.dao.ProviderDao;  // ✅ CORRECT
 ```
 
 #### Incorrect Locations (DO NOT USE)
 ```java
-import ca.openosp.openo.commn.dao.ProviderDao;     // ❌ WRONG - doesn't exist
-import ca.openosp.openo.PMmodule.dao.ProviderDao;  // ❌ WRONG - different purpose
+import io.github.carlos_emr.carlos.commn.dao.ProviderDao;     // ❌ WRONG - doesn't exist
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;  // ❌ WRONG - different purpose
 ```
 
 #### Why This Matters
-- Most DAOs are in `ca.openosp.openo.commn.dao.*`
-- ProviderDao is an **EXCEPTION** - it's at `ca.openosp.openo.dao.ProviderDao`
+- Most DAOs are in `io.github.carlos_emr.carlos.commn.dao.*`
+- ProviderDao is an **EXCEPTION** - it's at `io.github.carlos_emr.carlos.dao.ProviderDao`
 - This is explicitly documented in CLAUDE.md as a special case
 - Using the wrong one will cause compilation errors or incorrect behavior
 
@@ -31,26 +31,26 @@ import ca.openosp.openo.PMmodule.dao.ProviderDao;  // ❌ WRONG - different purp
 For most DAOs, use the commn.dao package:
 ```java
 // Standard pattern for most DAOs
-import ca.openosp.openo.commn.dao.DemographicDao;
-import ca.openosp.openo.commn.dao.TicklerDao;
-import ca.openosp.openo.commn.dao.AppointmentDao;
-import ca.openosp.openo.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 ```
 
 Exception for ProviderDao:
 ```java
 // Special case - ProviderDao is NOT in commn.dao
-import ca.openosp.openo.dao.ProviderDao;
+import io.github.carlos_emr.carlos.dao.ProviderDao;
 ```
 
 ## Multiple ProviderDao Classes in Codebase
 
 The system has several Provider-related DAOs for different purposes:
 
-1. **`ca.openosp.openo.dao.ProviderDao`** - Main provider DAO (USE THIS ONE)
-2. **`ca.openosp.openo.PMmodule.dao.ProviderDao`** - Program module specific
-3. **`ca.openosp.openo.commn.dao.ReportProviderDao`** - Reporting specific
-4. **`ca.openosp.openo.daos.security.SecProviderDao`** - Security specific
+1. **`io.github.carlos_emr.carlos.dao.ProviderDao`** - Main provider DAO (USE THIS ONE)
+2. **`io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao`** - Program module specific
+3. **`io.github.carlos_emr.carlos.commn.dao.ReportProviderDao`** - Reporting specific
+4. **`io.github.carlos_emr.carlos.daos.security.SecProviderDao`** - Security specific
 
 Always verify you're importing the correct one for your use case. When in doubt, check CLAUDE.md.
 

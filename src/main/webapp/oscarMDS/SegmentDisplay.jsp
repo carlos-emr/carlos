@@ -26,9 +26,9 @@
 <%@page errorPage="/errorpage.jsp" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
-        import="java.util.*, ca.openosp.openo.mds.data.*,ca.openosp.openo.lab.ca.on.*" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.mds.data.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

@@ -28,7 +28,7 @@
 
 
 <%@ page
-        import="java.util.*, ca.openosp.openo.encounter.oscarMeasurements.data.MeasurementMapConfig, ca.openosp.OscarProperties, ca.openosp.openo.util.StringUtils" %>
+        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%
 

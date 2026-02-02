@@ -25,15 +25,15 @@
 --%>
 <%@page import="com.indivica.olis.parameters.*,com.indivica.olis.*,com.indivica.olis.queries.*,org.apache.commons.lang3.time.DateUtils" %>
 <%@page
-        import="ca.openosp.OscarProperties,java.net.InetAddress,java.io.*,java.util.List,java.util.*,javax.net.ssl.*,java.security.*,java.security.cert.*" %>
+        import="io.github.carlos_emr.OscarProperties,java.net.InetAddress,java.io.*,java.util.List,java.util.*,javax.net.ssl.*,java.security.*,java.security.cert.*" %>
 <%@page
-        import="ca.openosp.openo.utility.DbConnectionFilter,java.sql.*,ca.openosp.openo.utility.SpringUtils,ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.olis1.Driver" %>
-<%@ page import="ca.openosp.openo.olis1.parameters.OBR22" %>
-<%@ page import="ca.openosp.openo.olis1.parameters.ZRP1" %>
-<%@ page import="ca.openosp.openo.olis1.parameters.PID3" %>
-<%@ page import="ca.openosp.openo.olis1.queries.Query" %>
-<%@ page import="ca.openosp.openo.olis1.queries.Z01Query" %>
+        import="io.github.carlos_emr.carlos.utility.DbConnectionFilter,java.sql.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.olis1.Driver" %>
+<%@ page import="io.github.carlos_emr.carlos.olis1.parameters.OBR22" %>
+<%@ page import="io.github.carlos_emr.carlos.olis1.parameters.ZRP1" %>
+<%@ page import="io.github.carlos_emr.carlos.olis1.parameters.PID3" %>
+<%@ page import="io.github.carlos_emr.carlos.olis1.queries.Query" %>
+<%@ page import="io.github.carlos_emr.carlos.olis1.queries.Z01Query" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) {

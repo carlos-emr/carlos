@@ -22,21 +22,21 @@
 <%@page import="java.text.DecimalFormat" %>
 <%@page import="java.text.NumberFormat" %>
 <%@page import="java.util.*" %>
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@page import="ca.openosp.openo.util.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingStatusPrep" %>
-<%@ page import="ca.openosp.openo.util.LabelValueBean" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingStatusPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%--
     The taglib directive below imports the JSTL library. If you uncomment it,

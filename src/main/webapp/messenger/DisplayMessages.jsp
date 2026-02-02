@@ -54,15 +54,15 @@
     @since 2002
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicData" %>
-<%@ page import="ca.openosp.openo.messenger.pageUtil.MsgSessionBean" %>
-<%@ page import="ca.openosp.openo.messenger.data.MsgDisplayMessage" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     // Build security role string from session attributes
@@ -136,7 +136,7 @@
 <%
     MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
 %>
-<jsp:useBean id="DisplayMessagesBeanId" scope="session" class="ca.openosp.openo.messenger.pageUtil.MsgDisplayMessagesBean"/>
+<jsp:useBean id="DisplayMessagesBeanId" scope="session" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessagesBean"/>
 <% DisplayMessagesBeanId.setProviderNo(bean.getProviderNo());
     bean.nullAttachment();
 %>

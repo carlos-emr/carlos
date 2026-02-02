@@ -40,7 +40,7 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 
 <script>
     function popupNotePage(varpage) {

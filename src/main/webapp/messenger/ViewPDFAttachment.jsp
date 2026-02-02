@@ -64,9 +64,9 @@
 --%>
 
 <%@ page
-        import="ca.openosp.openo.messenger.docxfer.send.*, ca.openosp.openo.messenger.docxfer.util.*, ca.openosp.openo.util.*" %>
+        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="java.util.*, org.w3c.dom.*" %>
-<%@ page import="ca.openosp.openo.util.Doc2PDF" %>
+<%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 

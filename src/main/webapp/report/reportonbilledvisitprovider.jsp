@@ -21,9 +21,9 @@
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.model.security.Secuserrole" %>
-<%@ page import="ca.openosp.openo.daos.security.SecuserroleDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.model.security.Secuserrole" %>
+<%@ page import="io.github.carlos_emr.carlos.daos.security.SecuserroleDao" %>
 <%
     SecuserroleDao secuserroleDao = (SecuserroleDao) SpringUtils.getBean(SecuserroleDao.class);
 %>
@@ -65,9 +65,9 @@
         }
     }
 %>
-<%@page import="ca.openosp.openo.db.DBPreparedHandler" %>
+<%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 
-<%@page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.Misc" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

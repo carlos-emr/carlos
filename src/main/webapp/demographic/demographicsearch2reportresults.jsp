@@ -56,14 +56,14 @@
 
 %>
 
-<%@ page import="java.util.*, java.sql.*,java.net.*, ca.openosp.*" %>
+<%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 

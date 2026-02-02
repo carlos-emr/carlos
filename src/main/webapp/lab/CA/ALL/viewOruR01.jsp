@@ -39,7 +39,7 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.lab.ca.all.pageUtil.ViewOruR01UIBean" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.ViewOruR01UIBean" %>
 
 <%@include file="/layouts/html_top.jspf" %>
 

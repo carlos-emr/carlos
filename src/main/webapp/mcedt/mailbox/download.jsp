@@ -35,7 +35,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page
-        import="java.math.BigInteger,java.util.*,ca.openosp.openo.integration.mcedt.mailbox.DetailDataCustom,ca.openosp.openo.integration.mcedt.mailbox.ActionUtils" %>
+        import="java.math.BigInteger,java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.DetailDataCustom,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
 
 <html>
 <head>

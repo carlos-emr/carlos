@@ -18,20 +18,20 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 --%>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="java.util.*,java.sql.*,ca.openosp.*,ca.openosp.openo.util.*,java.net.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="java.util.*,java.sql.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*,java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 
-<%@ page import="ca.openosp.openo.billing.CA.model.BillActivity" %>
-<%@ page import="ca.openosp.openo.billing.CA.dao.BillActivityDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillActivity" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao" %>
 
-<%@ page import="ca.openosp.openo.commn.model.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -39,14 +39,14 @@
 <%@ include file="/admin/dbconnection.jsp" %>
 
 
-<%@page import="ca.openosp.openo.commn.model.ProviderBillCenter" %>
-<%@page import="ca.openosp.openo.commn.dao.ProviderBillCenterDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.BillingDiskNameData" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.JdbcBillingPageUtil" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingReviewPrep" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderBillCenter" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

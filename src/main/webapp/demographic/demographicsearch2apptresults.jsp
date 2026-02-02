@@ -49,28 +49,28 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedProvider" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.FacilityIdStringCompositePk" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.util.DateUtils" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicTransfer" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.MatchingDemographicTransferScore" %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 
-<%@ page import="java.util.*, java.sql.*,java.net.*, ca.openosp.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicMerged" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarLogDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.Misc" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -405,7 +405,7 @@
 
                 <%
                     String ptstatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
-                    ca.openosp.openo.utility.MiscUtils.getLogger().debug("PSTATUS " + ptstatus);
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().debug("PSTATUS " + ptstatus);
 
                     int rowCounter = 0;
                     String bgColor = rowCounter % 2 == 0 ? "#EEEEFF" : "white";

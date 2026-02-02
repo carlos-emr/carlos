@@ -24,8 +24,8 @@
 
 --%>
 
-<%@ page import="java.util.*,ca.openosp.openo.rx.data.*,ca.openosp.openo.rx.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

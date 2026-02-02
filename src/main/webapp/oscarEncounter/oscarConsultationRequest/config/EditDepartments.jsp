@@ -42,11 +42,11 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DepartmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Department" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DepartmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Department" %>
 <%@page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 
 <%
     DepartmentDao departmentDao = SpringUtils.getBean(DepartmentDao.class);

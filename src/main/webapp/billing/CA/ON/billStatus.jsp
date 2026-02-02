@@ -25,7 +25,7 @@
 --%>
 
 <%@ page
-        import="java.math.*,java.util.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.openo.billing.ca.bc.MSP.*,ca.openosp.openo.util.*,ca.openosp.openo.providers.data.*,ca.openosp.openo.billing.ca.on.data.*" %>
+        import="java.math.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

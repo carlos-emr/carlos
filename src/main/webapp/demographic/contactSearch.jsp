@@ -25,8 +25,8 @@
 --%>
 
 <%@ page import="java.util.*,java.sql.*, java.net.*" %>
-<%@ page import="ca.openosp.openo.commn.web.Contact2Action" %>
-<%@ page import="ca.openosp.openo.commn.model.Contact" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 

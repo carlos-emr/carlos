@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<message-configuration id="HL7_upload" version="1.0">
+	<handler name="ALPHA" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.AlphaHandler"/>
+	<handler name="BIOTEST" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.BioTestHandler"/>
+	<handler name="CDL" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.CDLHandler"/>
+    <handler name="CLS"		className="io.github.carlos_emr.carlos.lab.ca.all.parsers.CLSHandler"/>
+	<handler name="CML" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler"/>
+	<handler name="EPSILON" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.EpsilonHandler" />
+	<handler name="ExcellerisON" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.ExcellerisOntarioHandler" />
+	<handler name="GDML" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.GDMLHandler"/>
+	<handler name="HHSEMR" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.HHSEmrDownloadHandler"/>
+	<handler name="ICL" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.ICLHandler" />
+	<handler name="IHA" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.IHAPOIHandler"/>
+	<handler name="IHAPOI" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.IHAPOIHandler" />
+	<handler name="MDS" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.MDSHandler" />
+	<handler name="OLIS_HL7" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.OLISHL7Handler" />   
+	<handler name="OSCAR_TO_OSCAR_HL7_V2" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.OscarToOscarHl7V2Handler"/>
+	<handler name="PATHL7" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler" />
+        <handler name="PDFDOC" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.PDFHandler" />
+	<handler name="PHS" className="io.github.carlos_emr.carlos.integration.hl7.handlers.upload.PhsStarHandler"/>
+	<handler name="TDIS"    className="io.github.carlos_emr.carlos.lab.ca.all.parsers.TDISHandler" />
+	<handler name="MEDVUE"  className="io.github.carlos_emr.carlos.lab.ca.all.parsers.MEDVUEHandler" />
+	<handler name="PFHT"	className="io.github.carlos_emr.carlos.lab.ca.all.parsers.PFHTHandler"/>
+	<handler name="Spire"	className="io.github.carlos_emr.carlos.lab.ca.all.parsers.SpireHandler"/>
+	<handler name="TRUENORTH"	className="io.github.carlos_emr.carlos.lab.ca.all.parsers.TRUENORTHHandler"/>
+    <handler name="MEDITECH"   className="io.github.carlos_emr.carlos.lab.ca.all.parsers.MEDITECHHandler" /> 
+    <handler name="FHIR_COMMUNICATION_REQUEST" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.FHIRCommunicationRequestHandler"/>
+</message-configuration>

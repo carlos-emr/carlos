@@ -21,10 +21,10 @@
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, ca.openosp.openo.db.*,java.net.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, io.github.carlos_emr.carlos.db.*,java.net.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.db.DBPreparedHandler" %>
-<%@ page import="ca.openosp.openo.db.DBPreparedHandlerParam" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -64,15 +64,15 @@
     String sql = "select provider_no, last_name, first_name from provider where provider_type like 'nurse%'";
     ResultSet rs = db.queryResults(sql);
     while (rs.next()) {
-        vNurse.add(ca.openosp.Misc.getString(rs, "last_name") + ", " + ca.openosp.Misc.getString(rs, "first_name"));
-        vNurseNo.add(ca.openosp.Misc.getString(rs, "provider_no"));
+        vNurse.add(io.github.carlos_emr.Misc.getString(rs, "last_name") + ", " + io.github.carlos_emr.Misc.getString(rs, "first_name"));
+        vNurseNo.add(io.github.carlos_emr.Misc.getString(rs, "provider_no"));
     }
 
 // get total patPhys
     sql = "select count(distinct(b.demographic_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>='" + sdate + "' and b.billing_date<='" + edate + "' and b.status!='D' and p.provider_type='doctor'";
     rs = db.queryResults(sql);
     while (rs.next()) {
-        props.setProperty("patPhys", ca.openosp.Misc.getString(rs, 1));
+        props.setProperty("patPhys", io.github.carlos_emr.Misc.getString(rs, 1));
     }
 /*
 out.println("<hr>");
@@ -84,7 +84,7 @@ out.flush();
     sql = "select count(distinct(b.demographic_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='resident'";
     rs = db.queryResults(sql, params);
     while (rs.next()) {
-        props.setProperty("patRes", ca.openosp.Misc.getString(rs, 1));
+        props.setProperty("patRes", io.github.carlos_emr.Misc.getString(rs, 1));
     }
 
 /*
@@ -99,7 +99,7 @@ out.flush();
         sql = "select count(distinct(b.demographic_no)) from billing b  where b.creator='" + vNurseNo.get(i) + "' and b.billing_date>=? and b.billing_date<=? and b.status!='D'";
         rs = db.queryResults(sql, params);
         while (rs.next()) {
-            props.setProperty("patNurse" + i, ca.openosp.Misc.getString(rs, 1));
+            props.setProperty("patNurse" + i, io.github.carlos_emr.Misc.getString(rs, 1));
         }
 
 /*
@@ -115,7 +115,7 @@ out.flush();
     sql = "select count(distinct(b.billing_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='doctor'";
     rs = db.queryResults(sql, params);
     while (rs.next()) {
-        props.setProperty("visPhys", ca.openosp.Misc.getString(rs, 1));
+        props.setProperty("visPhys", io.github.carlos_emr.Misc.getString(rs, 1));
     }
 
 /*
@@ -129,7 +129,7 @@ out.flush();
     sql = "select count(distinct(b.billing_no)) from billing b, provider p where b.creator=p.provider_no  and b.billing_date>=? and b.billing_date<=? and b.status!='D' and p.provider_type='resident'";
     rs = db.queryResults(sql, params);
     while (rs.next()) {
-        props.setProperty("visRes", ca.openosp.Misc.getString(rs, 1));
+        props.setProperty("visRes", io.github.carlos_emr.Misc.getString(rs, 1));
     }
 
 /*
@@ -144,7 +144,7 @@ out.flush();
         sql = "select count(distinct(b.billing_no)) from billing b  where b.creator='" + vNurseNo.get(i) + "' and b.billing_date>=? and b.billing_date<=? and b.status!='D'";
         rs = db.queryResults(sql, params);
         while (rs.next()) {
-            props.setProperty("visNurse" + i, ca.openosp.Misc.getString(rs, 1));
+            props.setProperty("visNurse" + i, io.github.carlos_emr.Misc.getString(rs, 1));
         }
 
 /*

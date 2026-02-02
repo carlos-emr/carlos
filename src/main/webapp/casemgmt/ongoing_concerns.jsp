@@ -39,8 +39,8 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.casemgmt.model.*" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">

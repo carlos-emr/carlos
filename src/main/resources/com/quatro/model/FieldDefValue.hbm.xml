@@ -3,7 +3,7 @@
 	"-//Hibernate/Hibernate Mapping DTD//EN"
 	"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd" >
 <hibernate-mapping>
-	<class name="ca.openosp.openo.model.FieldDefValue" table="app_lookuptable_fields"
+	<class name="io.github.carlos_emr.carlos.model.FieldDefValue" table="app_lookuptable_fields"
 				 mutable="false">
 		<composite-id>
 			<key-property column="tableid" name="tableId" type="string" />

@@ -30,8 +30,8 @@
 %>
 
 <%@ page
-        import="java.util.*,ca.openosp.openo.report.reportByTemplate.*,java.sql.*, org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="ca.openosp.openo.report.reportByTemplate.ReportObjectGeneric" %>
+        import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,java.sql.*, org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObjectGeneric" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

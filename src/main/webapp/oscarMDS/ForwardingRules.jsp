@@ -27,7 +27,7 @@
 
 
 <%@ page
-        import="ca.openosp.openo.mds.data.ProviderData, java.util.ArrayList, ca.openosp.openo.lab.ForwardingRules, ca.openosp.OscarProperties" %>
+        import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList, io.github.carlos_emr.carlos.lab.ForwardingRules, io.github.carlos_emr.OscarProperties" %>
 
 <%
 

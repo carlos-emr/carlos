@@ -40,10 +40,10 @@
 %>
 
 <%@ page
-        import="ca.openosp.openo.util.*, ca.openosp.openo.form.*, ca.openosp.openo.form.data.*,java.util.*, ca.openosp.openo.providers.data.*, ca.openosp.openo.prevention.*" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionData" %>
-<%@ page import="ca.openosp.openo.providers.data.ProviderData" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
 <%
     String id = request.getParameter("id");

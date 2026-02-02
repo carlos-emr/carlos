@@ -24,17 +24,17 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.commn.model.EForm" %>
-<%@page import="ca.openosp.openo.commn.dao.EFormDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.EFormData" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.EFormData" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.EFormGroup" %>
-<%@page import="ca.openosp.openo.commn.dao.EFormDataDao" %>
-<%@page import="ca.openosp.openo.commn.dao.EFormGroupDao" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@page import="ca.openosp.openo.commn.dao.LabRequestReportLinkDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.EFormGroup" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDataDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EFormGroupDao" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.LabRequestReportLinkDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -53,15 +53,15 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.forms.FormsDao" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.forms.FormsDao" %>
 <%@page import="
 		java.util.Date,
                 java.util.Hashtable,
                 java.util.Vector,
-                ca.openosp.openo.lab.LabRequestReportLink,
-                ca.openosp.openo.util.UtilDateUtilities" %>
+                io.github.carlos_emr.carlos.lab.LabRequestReportLink,
+                io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%
     LabRequestReportLinkDao linkDao = SpringUtils.getBean(LabRequestReportLinkDao.class);
     EFormGroupDao eformGroupDao = SpringUtils.getBean(EFormGroupDao.class);
@@ -86,7 +86,7 @@
     Vector<String> formName = new Vector<String>(); //formname or eformname
     Vector<Integer> formType = new Vector<Integer>(); //1=form, 2=eform
 
-    ca.openosp.openo.commn.model.LabRequestReportLink existingLink = null;
+    io.github.carlos_emr.carlos.commn.model.LabRequestReportLink existingLink = null;
 
     boolean close = false;
 
@@ -201,7 +201,7 @@
 %>
 
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <html>
 <head>
     <title>Link to Lab Requisition</title>

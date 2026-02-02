@@ -18,18 +18,18 @@
 
 --%>
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.MyDateFormat"
+<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.RaHeader" %>
-<%@page import="ca.openosp.openo.commn.dao.RaHeaderDao" %>
-<%@page import="ca.openosp.openo.commn.model.RaDetail" %>
-<%@page import="ca.openosp.openo.commn.dao.RaDetailDao" %>
-<%@page import="ca.openosp.openo.commn.model.Billing" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingRAPrep" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
 <%
     RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);

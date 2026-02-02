@@ -24,13 +24,13 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
 
 <%@page
-        import="ca.openosp.openo.encounter.data.*,ca.openosp.openo.encounter.pageUtil.EctSessionBean, java.net.*" %>
+        import="io.github.carlos_emr.carlos.encounter.data.*,io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean, java.net.*" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 

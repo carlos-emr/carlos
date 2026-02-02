@@ -1,8 +1,8 @@
-<%@ page import="ca.openosp.openo.commn.model.FaxJob, ca.openosp.openo.commn.model.FaxClientLog, ca.openosp.openo.commn.dao.ProviderDataDao, ca.openosp.openo.commn.model.ProviderData, ca.openosp.openo.commn.dao.DemographicDao, ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.FaxJob, io.github.carlos_emr.carlos.commn.model.FaxClientLog, io.github.carlos_emr.carlos.commn.dao.ProviderDataDao, io.github.carlos_emr.carlos.commn.model.ProviderData, io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.List" %>
 <%@ page import="org.apache.commons.lang3.time.DateFormatUtils"%>
-<%@ page import="ca.openosp.openo.managers.FaxManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib prefix = "c" uri = "http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>

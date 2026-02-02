@@ -23,10 +23,10 @@
     Ontario, Canada
 
 --%>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.WcbNoiCode" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.WcbNoiCodeDao" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.WcbNoiCode" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbNoiCodeDao" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <html>
     <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

@@ -18,13 +18,13 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="ca.openosp.openo.commn.dao.BillingServiceDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DxresearchDAO" %>
-<%@page import="ca.openosp.openo.commn.model.Dxresearch" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -34,17 +34,17 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <%@ page errorPage="/errorpage.jsp"
-         import="java.util.*,java.math.*,java.net.*,java.sql.*,ca.openosp.openo.util.*,ca.openosp.*,ca.openosp.openo.appt.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.administration.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*, java.util.Properties" %>
+         import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.DiagnosticCode" %>
-<%@ page import="ca.openosp.openo.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.BillingONCHeader1Dao, ca.openosp.openo.commn.model.BillingONCHeader1" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao, io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
 
 
 <%
@@ -268,21 +268,21 @@
 <c:set var="demographicNo" value="${param.demographic_no}" scope="request"/>
 
 
-<%@page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Site" %>
-<%@ page import="ca.openosp.openo.appt.ApptUtil" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.administration.GstReport" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.administration.GstControl2Action" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingReviewPrep" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxProviderData" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@ page import="ca.openosp.openo.commn.IsPropertiesOn" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <head>
     <title>OscarBilling</title>
 

@@ -39,21 +39,21 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page
-        import="java.util.ArrayList, ca.openosp.openo.lab.ca.on.*, ca.openosp.openo.util.StringUtils" %>
+        import="java.util.ArrayList, io.github.carlos_emr.carlos.lab.ca.on.*, io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentToDemographicDao" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.model.HRMDocument" %>
-<%@ page import="ca.openosp.openo.hospitalReportManager.model.HRMDocumentToDemographic" %>
-<%@ page import="ca.openosp.openo.commn.model.EFormData" %>
-<%@ page import="ca.openosp.openo.eform.EFormUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument" %>
+<%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

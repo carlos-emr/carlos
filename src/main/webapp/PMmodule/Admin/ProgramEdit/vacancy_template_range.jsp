@@ -25,14 +25,14 @@
 --%>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.model.VacancyTemplate" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Criteria" %>
-<%@page import="ca.openosp.openo.PMmodule.model.CriteriaType" %>
-<%@page import="ca.openosp.openo.PMmodule.model.CriteriaTypeOption" %>
-<%@page import="ca.openosp.openo.PMmodule.service.VacancyTemplateManager" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.CriteriaTypeDao" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.CriteriaTypeOptionDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Criteria" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.CriteriaType" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.CriteriaTypeOption" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.CriteriaTypeDao" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.CriteriaTypeOptionDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     CriteriaTypeDao criteriaTypeDAO = SpringUtils.getBean(CriteriaTypeDao.class);
     CriteriaTypeOptionDao criteriaTypeOptionDAO = SpringUtils.getBean(CriteriaTypeOptionDao.class);

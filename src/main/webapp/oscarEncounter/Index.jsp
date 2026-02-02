@@ -27,12 +27,12 @@
 <%--
     DEPRECATED: This is the legacy encounter page.
     It is displayed for users who are not enabled for the new encounter page (Index2.jsp).
-    The selection logic is in ca.openosp.openo.encounter.pageUtil.EctIncomingEncounter2Action.java
+    The selection logic is in io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action.java
 --%>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.prescript.data.RxPatientData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -83,11 +83,11 @@
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 
 <%@page
-        import="ca.openosp.openo.log.*,ca.openosp.openo.util.UtilMisc,ca.openosp.openo.encounter.data.*, java.net.*,java.util.*,ca.openosp.openo.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.util.UtilMisc,io.github.carlos_emr.carlos.encounter.data.*, java.net.*,java.util.*,io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page
-        import="ca.openosp.openo.mds.data.MDSResultsData,ca.openosp.openo.lab.ca.on.*, ca.openosp.openo.messenger.util.MsgDemoMap, ca.openosp.openo.messenger.data.MsgMessageData" %>
+        import="io.github.carlos_emr.carlos.mds.data.MDSResultsData,io.github.carlos_emr.carlos.lab.ca.on.*, io.github.carlos_emr.carlos.messenger.util.MsgDemoMap, io.github.carlos_emr.carlos.messenger.data.MsgMessageData" %>
 <%@page
-        import="ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.dxresearch.bean.*" %>
+        import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.dxresearch.bean.*" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 
 <%
@@ -153,23 +153,23 @@
 %>
 
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.encounter.immunization.data.EctImmImmunizationData" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctWindowSizes" %>
-<%@ page import="ca.openosp.openo.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctFormData" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctProviderData" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctPatientData" %>
-<%@ page import="ca.openosp.openo.encounter.data.EctSplitChart" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.CommonLabResultData" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.LabResultData" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
-<%@ page import="ca.openosp.openo.dxresearch.bean.dxResearchBeanHandler" %>
-<%@ page import="ca.openosp.openo.commn.model.Allergy" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctWindowSizes" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctSplitChart" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

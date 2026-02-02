@@ -39,7 +39,7 @@
     }
 %>
 
-<%@ page import="java.util.*,ca.openosp.openo.report.data.*" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

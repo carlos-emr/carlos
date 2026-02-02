@@ -27,9 +27,9 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page
-        import="ca.openosp.openo.appt.*"
+        import="io.github.carlos_emr.carlos.appt.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

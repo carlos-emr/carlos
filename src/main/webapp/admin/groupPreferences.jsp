@@ -29,10 +29,10 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ page import="java.util.List" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup, ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroupPrimaryKey" %>
-<%@ page import="ca.openosp.openo.commn.model.CtlBillingService, ca.openosp.openo.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup, io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService, io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

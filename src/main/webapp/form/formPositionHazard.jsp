@@ -41,11 +41,11 @@
 
 <%@ page language="java" %>
 <%@ page
-        import="ca.openosp.openo.form.*, ca.openosp.OscarProperties, java.util.Date, ca.openosp.openo.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.form.FrmRecord" %>
-<%@ page import="ca.openosp.openo.form.FrmRecordFactory" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 
 <html>
     <% response.setHeader("Cache-Control", "no-cache");%>

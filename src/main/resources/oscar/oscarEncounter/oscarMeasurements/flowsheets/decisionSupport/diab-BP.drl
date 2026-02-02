@@ -11,7 +11,7 @@
 
     <rule name="BP">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.getNumberFromSplit("/",0) &gt; 130</java:condition>       
         <java:condition>m.getNumberFromSplit("/",1) &gt; 80</java:condition>       
@@ -23,7 +23,7 @@
 
     <rule name="BP 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.getNumberFromSplit("/",0) &lt;= 130</java:condition>       
         <java:condition>m.getNumberFromSplit("/",1) &gt; 80</java:condition>       
@@ -35,7 +35,7 @@
 
     <rule name="BP 3">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
         </parameter>
         <java:condition>m.getNumberFromSplit("/",0) &gt; 130</java:condition>       
         <java:condition>m.getNumberFromSplit("/",1) &lt;= 80</java:condition>       

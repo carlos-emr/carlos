@@ -25,12 +25,12 @@
 --%>
 <!DOCTYPE html>
 
-<%@page import="java.util.*,ca.openosp.openo.eform.*" %>
+<%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>

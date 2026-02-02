@@ -121,19 +121,19 @@
         <!-- Scan all packages with entities -->
         <property name="packagesToScan">
             <list>
-                <value>ca.openosp.openo</value>
+                <value>io.github.carlos_emr.carlos</value>
             </list>
         </property>
         <!-- Use same mappings as SessionFactory -->
         <property name="mappingResources">
             <list>
-                <value>ca/openosp/openo/commn/model/Provider.hbm.xml</value>
-                <value>ca/openosp/openo/commn/model/Demographic.hbm.xml</value>
-                <value>ca/openosp/openo/PMmodule/model/Program.hbm.xml</value>
-                <value>ca/openosp/openo/PMmodule/model/ProgramClientStatus.hbm.xml</value>
-                <value>ca/openosp/openo/PMmodule/model/ProgramTeam.hbm.xml</value>
-                <value>ca/openosp/openo/PMmodule/model/ProgramAccess.hbm.xml</value>
-                <value>ca/openosp/openo/PMmodule/model/AccessType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
                 <value>com/quatro/model/security/Secrole.hbm.xml</value>
             </list>
         </property>
@@ -182,32 +182,32 @@
     <!-- This avoids issues with DAOs trying to access SpringUtils during initialization -->
 
     <!-- Manually define DAOs needed for Tickler tests -->
-    <bean id="ticklerDao" class="ca.openosp.openo.commn.dao.TicklerDaoImpl" autowire="byName" />
-    <bean id="ticklerCommentDao" class="ca.openosp.openo.commn.dao.TicklerCommentDaoImpl" autowire="byName" />
-    <bean id="ticklerLinkDao" class="ca.openosp.openo.commn.dao.TicklerLinkDaoImpl" autowire="byName" />
-    <bean id="ticklerUpdateDao" class="ca.openosp.openo.commn.dao.TicklerUpdateDaoImpl" autowire="byName" />
-    <bean id="ticklerTextSuggestDao" class="ca.openosp.openo.commn.dao.TicklerTextSuggestDaoImpl" autowire="byName" />
-    <bean id="ticklerCategoryDao" class="ca.openosp.openo.commn.dao.TicklerCategoryDaoImpl" autowire="byName" />
-    <bean id="customFilterDao" class="ca.openosp.openo.commn.dao.CustomFilterDaoImpl" autowire="byName" />
-    <bean id="oscarLogDao" class="ca.openosp.openo.commn.dao.OscarLogDaoImpl" autowire="byName" />
+    <bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl" autowire="byName" />
+    <bean id="ticklerCommentDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerCommentDaoImpl" autowire="byName" />
+    <bean id="ticklerLinkDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDaoImpl" autowire="byName" />
+    <bean id="ticklerUpdateDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerUpdateDaoImpl" autowire="byName" />
+    <bean id="ticklerTextSuggestDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDaoImpl" autowire="byName" />
+    <bean id="ticklerCategoryDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerCategoryDaoImpl" autowire="byName" />
+    <bean id="customFilterDao" class="io.github.carlos_emr.carlos.commn.dao.CustomFilterDaoImpl" autowire="byName" />
+    <bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
 
     <!-- Additional DAOs required by TicklerManager -->
-    <bean id="programAccessDAO" class="ca.openosp.openo.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
-    <bean id="ProgramAccessDAO" class="ca.openosp.openo.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
-    <bean id="programProviderDAO" class="ca.openosp.openo.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
-    <bean id="ProgramProviderDAO" class="ca.openosp.openo.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
-    <bean id="providerDao" class="ca.openosp.openo.PMmodule.dao.ProviderDaoImpl" autowire="byName" />
-    <bean id="providerExtDao" class="ca.openosp.openo.commn.dao.ProviderExtDaoImpl" autowire="byName" />
-    <bean id="hashAuditDao" class="ca.openosp.openo.commn.dao.HashAuditDaoImpl" autowire="byName" />
+    <bean id="programAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
+    <bean id="ProgramAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
+    <bean id="programProviderDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
+    <bean id="ProgramProviderDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
+    <bean id="providerDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl" autowire="byName" />
+    <bean id="providerExtDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderExtDaoImpl" autowire="byName" />
+    <bean id="hashAuditDao" class="io.github.carlos_emr.carlos.commn.dao.HashAuditDaoImpl" autowire="byName" />
 
     <!-- Manually define managers -->
-    <bean id="ticklerManager" class="ca.openosp.openo.managers.TicklerManagerImpl" autowire="byName" />
+    <bean id="ticklerManager" class="io.github.carlos_emr.carlos.managers.TicklerManagerImpl" autowire="byName" />
     <!-- Use mock SecurityInfoManager that always grants access for tests -->
-    <bean id="securityInfoManager" class="ca.openosp.openo.test.mocks.MockSecurityInfoManager" />
-    <bean id="programManager" class="ca.openosp.openo.PMmodule.service.ProgramManagerImpl" autowire="byName">
+    <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
+    <bean id="programManager" class="io.github.carlos_emr.carlos.PMmodule.service.ProgramManagerImpl" autowire="byName">
         <property name="enabled" value="${pmm.refer.temporaryAdmission.enabled}" />
     </bean>
-    <bean id="caseManagementManager" class="ca.openosp.openo.casemgmt.service.CaseManagementManagerImpl" autowire="byName">
+    <bean id="caseManagementManager" class="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl" autowire="byName">
         <property name="caseManagementNoteDAO" ref="CaseManagementNoteDAO" />
         <property name="caseManagementNoteExtDAO" ref="CaseManagementNoteExtDAO" />
         <property name="caseManagementNoteLinkDAO" ref="CaseManagementNoteLinkDAO" />
@@ -232,52 +232,52 @@
     </bean>
 
     <!-- Specific DAOs that might need manual configuration -->
-    <bean id="gstControlDao" class="ca.openosp.openo.billing.CA.dao.GstControlDaoImpl" autowire="byName" />
+    <bean id="gstControlDao" class="io.github.carlos_emr.carlos.billing.CA.dao.GstControlDaoImpl" autowire="byName" />
 
-    <bean id="demographicDao" class="ca.openosp.openo.commn.dao.DemographicDaoImpl" autowire="byName">
+    <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName">
         <property name="sessionFactory" ref="sessionFactory" />
     </bean>
 
-    <bean id="programDao" class="ca.openosp.openo.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
-    <bean id="programQueueDao" class="ca.openosp.openo.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
-    <bean id="clientReferralDAO" class="ca.openosp.openo.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
-    <bean id="agencyDao" class="ca.openosp.openo.PMmodule.dao.AgencyDaoImpl" autowire="byName" />
+    <bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
+    <bean id="programQueueDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
+    <bean id="clientReferralDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
+    <bean id="agencyDao" class="io.github.carlos_emr.carlos.PMmodule.dao.AgencyDaoImpl" autowire="byName" />
 
     <!-- Case Management DAOs -->
-    <bean id="CaseManagementIssueDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
-    <bean id="caseManagementIssueDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
-    <bean id="CaseManagementNoteDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
-    <bean id="caseManagementNoteDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
-    <bean id="CaseManagementTmpSaveDao" class="ca.openosp.openo.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
-    <bean id="caseManagementTmpSaveDao" class="ca.openosp.openo.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
-    <bean id="CaseManagementNoteExtDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteExtDAOImpl" autowire="byName" />
-    <bean id="CaseManagementNoteLinkDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementNoteLinkDAOImpl" autowire="byName" />
-    <bean id="CaseManagementCPPDAO" class="ca.openosp.openo.casemgmt.dao.CaseManagementCPPDAOImpl" autowire="byName" />
+    <bean id="CaseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
+    <bean id="caseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
+    <bean id="CaseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
+    <bean id="caseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
+    <bean id="CaseManagementTmpSaveDao" class="io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
+    <bean id="caseManagementTmpSaveDao" class="io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
+    <bean id="CaseManagementNoteExtDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAOImpl" autowire="byName" />
+    <bean id="CaseManagementNoteLinkDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAOImpl" autowire="byName" />
+    <bean id="CaseManagementCPPDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementCPPDAOImpl" autowire="byName" />
 
     <!-- More DAOs -->
-    <bean id="IssueDAO" class="ca.openosp.openo.casemgmt.dao.IssueDAOImpl" autowire="byName" />
-    <bean id="RoleProgramAccessDAO" class="ca.openosp.openo.casemgmt.dao.RoleProgramAccessDAOImpl" autowire="byName" />
-    <bean id="UserPropertyDAO" class="ca.openosp.openo.commn.dao.UserPropertyDAOImpl" autowire="byName" />
-    <bean id="DxresearchDAO" class="ca.openosp.openo.commn.dao.DxresearchDAOImpl" autowire="byName" />
-    <bean id="appointmentArchiveDao" class="ca.openosp.openo.commn.dao.AppointmentArchiveDaoImpl" autowire="byName" />
-    <bean id="DxDao" class="ca.openosp.openo.commn.dao.DxDaoImpl" autowire="byName" />
-    <bean id="eChartDao" class="ca.openosp.openo.commn.dao.EChartDaoImpl" autowire="byName" />
-    <bean id="encounterWindowDao" class="ca.openosp.openo.commn.dao.EncounterWindowDaoImpl" autowire="byName" />
+    <bean id="IssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.IssueDAOImpl" autowire="byName" />
+    <bean id="RoleProgramAccessDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAOImpl" autowire="byName" />
+    <bean id="UserPropertyDAO" class="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAOImpl" autowire="byName" />
+    <bean id="DxresearchDAO" class="io.github.carlos_emr.carlos.commn.dao.DxresearchDAOImpl" autowire="byName" />
+    <bean id="appointmentArchiveDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl" autowire="byName" />
+    <bean id="DxDao" class="io.github.carlos_emr.carlos.commn.dao.DxDaoImpl" autowire="byName" />
+    <bean id="eChartDao" class="io.github.carlos_emr.carlos.commn.dao.EChartDaoImpl" autowire="byName" />
+    <bean id="encounterWindowDao" class="io.github.carlos_emr.carlos.commn.dao.EncounterWindowDaoImpl" autowire="byName" />
 
     <!-- Managers -->
-    <bean id="admissionManager" class="ca.openosp.openo.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
+    <bean id="admissionManager" class="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
 
     <!-- Security DAOs -->
-    <bean id="secroleDao" class="ca.openosp.openo.daos.security.SecroleDaoImpl" autowire="byName"/>
-    <bean id="secobjprivilegeDao" class="ca.openosp.openo.daos.security.SecobjprivilegeDaoImpl" autowire="byName" />
-    <bean id="secUserRoleDao" class="ca.openosp.openo.daos.security.SecuserroleDaoImpl" autowire="byName" />
+    <bean id="secroleDao" class="io.github.carlos_emr.carlos.daos.security.SecroleDaoImpl" autowire="byName"/>
+    <bean id="secobjprivilegeDao" class="io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDaoImpl" autowire="byName" />
+    <bean id="secUserRoleDao" class="io.github.carlos_emr.carlos.daos.security.SecuserroleDaoImpl" autowire="byName" />
 
-    <bean id="rolesManager" class="ca.openosp.openo.services.security.RolesManagerImpl" autowire="byName">
+    <bean id="rolesManager" class="io.github.carlos_emr.carlos.services.security.RolesManagerImpl" autowire="byName">
         <property name="secroleDao" ref="secroleDao" />
         <property name="secobjprivilegeDao" ref="secobjprivilegeDao" />
     </bean>
 
     <!-- OscarSuperManager -->
-    <bean id="oscarSuperManager" class="ca.openosp.openo.service.OscarSuperManagerImpl" autowire="byName"/>
+    <bean id="oscarSuperManager" class="io.github.carlos_emr.carlos.service.OscarSuperManagerImpl" autowire="byName"/>
 
 </beans>

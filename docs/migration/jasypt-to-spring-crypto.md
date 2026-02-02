@@ -12,7 +12,7 @@ CARLOS EMR has migrated from the stale jasypt library (last updated 2017) to Spr
 
 ### Code Changes
 
-**File Modified**: `src/main/java/ca/openosp/openo/managers/DashboardManagerImpl.java`
+**File Modified**: `src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java`
 
 **Before** (jasypt):
 ```java

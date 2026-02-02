@@ -24,9 +24,9 @@
 
 --%>
 
-<%@ page import="java.util.*, ca.openosp.openo.report.reportByTemplate.*" %>
-<%@ page import="ca.openosp.openo.report.reportByTemplate.ReportManager" %>
-<%@ page import="ca.openosp.openo.report.reportByTemplate.ReportObject" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%
 
     if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");

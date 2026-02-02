@@ -28,7 +28,7 @@
 
 %>
 <%@ page
-        import="java.util.*, java.sql.*, ca.openosp.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/errorpage.jsp" %>
 <%
     //to prepare calendar display  

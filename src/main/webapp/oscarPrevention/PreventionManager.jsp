@@ -24,12 +24,12 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.prevention.*" %>
-<%@page import="ca.openosp.openo.commn.model.Property" %>
-<%@page import="ca.openosp.openo.provider.model.PreventionManager" %>
-<%@page import="ca.openosp.openo.commn.dao.PropertyDao" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.prevention.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Property" %>
+<%@page import="io.github.carlos_emr.carlos.provider.model.PreventionManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
 
 <%@page import="java.util.ArrayList" %>
 <%@page import="java.util.List" %>
@@ -37,7 +37,7 @@
 <%@page import="java.util.regex.Pattern" %>
 <%@page import="java.util.regex.*" %>
 <%@page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.prevention.PreventionDisplayConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -112,7 +112,7 @@
         ArrayList<HashMap<String, String>> prevList = pdc.getPreventions();
 
 //TODO the rest of this code should be moved into an Action Class and handled by the PreventionManager
-        ca.openosp.openo.managers.PreventionManager preventionManager = SpringUtils.getBean(ca.openosp.openo.managers.PreventionManager.class);
+        io.github.carlos_emr.carlos.managers.PreventionManager preventionManager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.PreventionManager.class);
 
         PropertyDao propDao = (PropertyDao) SpringUtils.getBean(PropertyDao.class);
         List<Property> pList = propDao.findByName(vProp);

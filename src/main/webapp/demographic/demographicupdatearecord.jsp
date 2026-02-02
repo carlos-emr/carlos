@@ -38,41 +38,41 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.provider.model.PreventionManager" %>
+<%@page import="io.github.carlos_emr.carlos.provider.model.PreventionManager" %>
 <%@ page
-        import="java.sql.*, java.util.*, ca.openosp.MyDateFormat, ca.openosp.openo.waitinglist.util.WLWaitingListUtil, ca.openosp.openo.log.*, ca.openosp.openo.commn.OtherIdManager" %>
+        import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil, io.github.carlos_emr.carlos.log.*, io.github.carlos_emr.carlos.commn.OtherIdManager" %>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicArchiveDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicCust" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicCustDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicExtDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicExtArchiveDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicExt" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicExtArchive" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicExtArchive" %>
 
-<%@ page import="ca.openosp.openo.commn.dao.WaitingListDao" %>
-<%@ page import="ca.openosp.openo.commn.model.WaitingList" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingList" %>
 
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@page import="ca.openosp.openo.provider.model.PreventionManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.provider.model.PreventionManager" %>
 
-<%@ page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.PMmodule.service.ProgramManager" %>
-<%@page import="ca.openosp.openo.PMmodule.service.AdmissionManager" %>
-<%@page import="ca.openosp.openo.managers.PatientConsentManager" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.commn.model.ConsentType" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicNameAgeString" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ConsentType" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -384,7 +384,7 @@
 
 
             //add to waiting list if the waiting_list parameter in the property file is set to true
-            ca.openosp.openo.waitinglist.WaitingList wL = ca.openosp.openo.waitinglist.WaitingList.getInstance();
+            io.github.carlos_emr.carlos.waitinglist.WaitingList wL = io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
             if (wL.getFound() && OscarProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
                 WLWaitingListUtil.updateWaitingListRecord(
                         request.getParameter("list_id"), request.getParameter("waiting_list_note"),

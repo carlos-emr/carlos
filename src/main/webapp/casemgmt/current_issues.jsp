@@ -40,12 +40,12 @@
     }
 %>
 
-<%@ page import="ca.openosp.openo.casemgmt.model.*" %>
-<%@ page import="ca.openosp.openo.casemgmt.web.formbeans.*" %>
-<%@page import="ca.openosp.openo.casemgmt.web.CaseManagementViewAction" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="java.util.Map" %>
-<%@page import="ca.openosp.openo.casemgmt.web.CheckBoxBean" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
 
 
 <%

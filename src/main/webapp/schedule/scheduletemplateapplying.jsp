@@ -24,30 +24,30 @@
 
 --%>
 <!DOCTYPE html>
-<%@ page import="java.util.*, java.net.*, ca.openosp.*, ca.openosp.openo.util.*, java.lang.*" %>
-<jsp:useBean id="scheduleRscheduleBean" class="ca.openosp.RscheduleBean" scope="session"/>
+<%@ page import="java.util.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.lang.*" %>
+<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleDate" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleDateDao" %>
-<%@ page import="ca.openosp.openo.commn.model.RSchedule" %>
-<%@ page import="ca.openosp.openo.commn.dao.RScheduleDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ScheduleTemplate" %>
-<%@ page import="ca.openosp.openo.commn.dao.ScheduleTemplateDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.RSchedule" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.RScheduleDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
     RScheduleDao rScheduleDao = SpringUtils.getBean(RScheduleDao.class);
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
 %>
-<%@ page import="ca.openosp.openo.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <html>
 
     <%
@@ -66,7 +66,7 @@
     </security:oscarSec>
 
 
-    <%! boolean bMultisites = ca.openosp.openo.commn.IsPropertiesOn.isMultisitesEnable(); %>
+    <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
     <%! String[] bgColors; %>
     <%! List<String> excludedSites = new ArrayList<>(); %>
     <%

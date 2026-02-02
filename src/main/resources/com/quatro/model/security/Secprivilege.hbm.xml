@@ -3,7 +3,7 @@
 "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 
 <hibernate-mapping>
-    <class name="ca.openosp.openo.model.security.Secprivilege" table="secPrivilege">
+    <class name="io.github.carlos_emr.carlos.model.security.Secprivilege" table="secPrivilege">
         <id name="id" type="java.lang.Integer">
             <column name="id" precision="2" scale="0" />
             <generator class="assigned" />

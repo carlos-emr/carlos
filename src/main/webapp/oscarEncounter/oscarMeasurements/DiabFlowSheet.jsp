@@ -8,29 +8,29 @@
     and "gnu.org/licenses/gpl-2.0.html".
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <% long startTime = System.currentTimeMillis(); %>
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="ca.openosp.openo.demographic.data.*,java.util.*,ca.openosp.openo.prevention.*,ca.openosp.openo.encounter.oscarMeasurements.*,ca.openosp.openo.encounter.oscarMeasurements.bean.*,java.net.*, ca.openosp.openo.rx.util.*" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,ca.openosp.openo.log.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,ca.openosp.openo.dxresearch.bean.*" %>
-<%@page import="ca.openosp.openo.commn.dao.FlowSheetCustomizationDao,ca.openosp.openo.commn.model.FlowSheetCustomization" %>
-<%@page import="ca.openosp.openo.commn.dao.FlowSheetDrugDao,ca.openosp.openo.commn.model.FlowSheetDrug" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO,ca.openosp.openo.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*, io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.log.*" %>
+<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.dxresearch.bean.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.model.FlowSheetDrug" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 
-<%@page import="ca.openosp.openo.commn.dao.AllergyDao" %>
-<%@page import="ca.openosp.openo.commn.model.Allergy" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementFlowSheet" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.FlowSheetItem" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
-<%@ page import="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
-<%@ page import="ca.openosp.openo.prescript.util.RxUtil" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.AllergyDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.FlowSheetItem" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 
 <%@ include file="/common/webAppContextAndSuperMgr.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

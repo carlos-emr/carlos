@@ -49,14 +49,14 @@
 <%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 
 <%@ page
-        import="java.util.*, ca.openosp.*, ca.openosp.openo.util.*, ca.openosp.openo.providers.data.ProviderData, ca.openosp.openo.utility.SpringUtils, ca.openosp.openo.commn.dao.CtlDocClassDao" %>
-<%@ page import="ca.openosp.openo.documentManager.data.AddEditDocument2Form" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="ca.openosp.openo.util.UtilMisc" %>
-<%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+        import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     String mode = "";

@@ -40,8 +40,8 @@
 %>
 
 <%@page import="java.util.Date" %>
-<%@page import="ca.openosp.openo.integration.mchcv.HCMagneticStripe" %>
-<%@page import="ca.openosp.openo.integration.mchcv.HCValidationResult" %>
+<%@page import="io.github.carlos_emr.carlos.integration.mchcv.HCMagneticStripe" %>
+<%@page import="io.github.carlos_emr.carlos.integration.mchcv.HCValidationResult" %>
 
 <html>
 <head>

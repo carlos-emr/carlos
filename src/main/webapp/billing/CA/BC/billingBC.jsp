@@ -41,32 +41,32 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@page import="java.util.*, ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.billing.ca.bc.pageUtil.*,ca.openosp.*,ca.openosp.openo.entities.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingreferralDao" %>
-<%@ page import="ca.openosp.openo.dxresearch.util.dxResearchCodingSystem" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.commn.dao.PropertyDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Property" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager,ca.openosp.openo.billings.ca.bc.MSP.ServiceCodeValidationLogic" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager,io.github.carlos_emr.carlos.billings.ca.bc.MSP.ServiceCodeValidationLogic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="ca.openosp.openo.entities.PaymentType" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingSessionBean" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingPreferencesDAO" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingAssociationPersistence" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.pageUtil.BillingCreateBillingForm" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.SupServiceCodeAssocDAO" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingPreference" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.entities.PaymentType" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAssociationPersistence" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingCreateBillingForm" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%!
 

@@ -18,9 +18,9 @@
 	<appointment_code code="1" duration="15"/>	
 	<appointment_code code="2" duration="30"/>
 	<filters>
-		<filter buffer="30">ca.openosp.openo.oscar_clinic_component.booking.filters.FutureApptFilter</filter>
-	    <filter>ca.openosp.openo.oscar_clinic_component.booking.filters.ExistingAppointmentFilter</filter>
-	    <filter>ca.openosp.openo.oscar_clinic_component.booking.filters.MultiUnitFilter</filter>
+		<filter buffer="30">io.github.carlos_emr.carlos.oscar_clinic_component.booking.filters.FutureApptFilter</filter>
+	    <filter>io.github.carlos_emr.carlos.oscar_clinic_component.booking.filters.ExistingAppointmentFilter</filter>
+	    <filter>io.github.carlos_emr.carlos.oscar_clinic_component.booking.filters.MultiUnitFilter</filter>
 	</filters>
 	<allowedProvider providerNo="-1">
 		<allowed_appointment id="1" appointment_codes="o,1"/>

@@ -63,16 +63,16 @@
 
 %>
 
-<%@ page import="java.math.*,java.util.*,java.sql.*,ca.openosp.*,java.net.*"
+<%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.ClinicNbr" %>
-<%@page import="ca.openosp.openo.commn.dao.ClinicNbrDao" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.data.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 
 <%
     GregorianCalendar now = new GregorianCalendar();

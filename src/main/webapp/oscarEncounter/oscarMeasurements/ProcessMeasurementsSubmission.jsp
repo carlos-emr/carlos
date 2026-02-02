@@ -29,7 +29,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ page import="java.lang.*,ca.openosp.openo.encounter.oscarMeasurements.pageUtil.*" %>
+<%@ page import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
 
 <html>
     <head>

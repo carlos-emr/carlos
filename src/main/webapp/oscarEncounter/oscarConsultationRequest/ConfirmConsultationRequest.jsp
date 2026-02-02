@@ -24,7 +24,7 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -45,7 +45,7 @@
 %>
 
 
-<%@page import="ca.openosp.openo.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <html>
 
     <head>

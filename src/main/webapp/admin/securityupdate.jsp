@@ -44,15 +44,15 @@
 %>
 
 
-<%@ page import="java.sql.*, java.util.*,java.security.*,ca.openosp.*,ca.openosp.openo.db.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.log.LogAction,ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.model.Security" %>
-<%@ page import="ca.openosp.openo.commn.dao.SecurityDao" %>
-<%@ page import="ca.openosp.openo.managers.SecurityManager" %>
-<%@ page import="ca.openosp.MyDateFormat" %>
-<%@ page import="ca.openosp.Misc" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 %>

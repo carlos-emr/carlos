@@ -39,17 +39,17 @@
         return;
     }
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*, java.text.*" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.commn.dao.AppointmentArchiveDao" %>
-<%@ page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@ page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@ page import="ca.openosp.openo.commn.model.MyGroup" %>
-<%@ page import="ca.openosp.openo.commn.dao.MyGroupDao" %>
-<%@ page import="ca.openosp.openo.commn.model.ProviderData" %>
-<%@ page import="ca.openosp.openo.commn.dao.ProviderDataDao" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<jsp:useBean id="daySheetBean" class="ca.openosp.AppointmentMainBean" scope="page"/>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -58,7 +58,7 @@
     String curProvider_no = (String) session.getAttribute("user");
     String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : ("start_time");
 
-    java.util.Properties oscarVariables = ca.openosp.OscarProperties.getInstance();
+    java.util.Properties oscarVariables = io.github.carlos_emr.OscarProperties.getInstance();
 
     SimpleDateFormat dayFormatter = new SimpleDateFormat("yyyy-MM-dd");
     String deepColor = "#CCCCFF", weakColor = "#EEEEFF";
@@ -197,7 +197,7 @@
                         appointmentArchiveDao.archiveAppointment(appt);
                     }
                 } catch (java.text.ParseException e) {
-                    ca.openosp.openo.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
                 }
                 for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {
                     if (a.getProviderNo().equals(provider_no)) {
@@ -216,7 +216,7 @@
                         appointmentArchiveDao.archiveAppointment(appt);
                     }
                 } catch (java.text.ParseException e) {
-                    ca.openosp.openo.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
                 }
                 for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {
                     a.setStatus("T");

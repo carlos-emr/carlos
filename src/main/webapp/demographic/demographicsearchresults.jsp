@@ -41,16 +41,16 @@
 <!DOCTYPE HTML>
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.CachedProvider" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.FacilityIdStringCompositePk" %>
-<%@page import="ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarLogDao" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.DemographicTransfer" %>
-<%@page import="ca.openosp.openo.caisi_integrator.ws.MatchingDemographicTransferScore" %>
-<%@page import="ca.openosp.openo.casemgmt.service.CaseManagementManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer" %>
+<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -74,16 +74,16 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, java.net.URLEncoder, ca.openosp.*, ca.openosp.openo.util.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@ page import="ca.openosp.openo.demographic.data.DemographicMerged" %>
+<%@ page import="java.util.*, java.sql.*, java.net.URLEncoder, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="ca.openosp.openo.commn.dao.DemographicExtDao" %>
-<%@ page import="ca.openosp.openo.commn.model.DemographicExt" %>
-<%@ page import="ca.openosp.Misc" %>
-<%@ page import="ca.openosp.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%

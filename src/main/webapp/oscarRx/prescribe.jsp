@@ -62,10 +62,10 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@page import="java.util.*" %>
-<%@page import="ca.openosp.openo.rx.util.*" %>
-<%@page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.prescript.util.RxUtil" %>
-<%@ page import="ca.openosp.openo.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" />
 

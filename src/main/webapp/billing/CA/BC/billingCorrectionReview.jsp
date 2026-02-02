@@ -47,15 +47,15 @@
 </head>
 <body bgcolor="#FFFFFF" text="#000000" topmargin="5" leftmargin="0"
       rightmargin="0">
-<%@ page import="ca.openosp.*,java.text.*, java.util.*" %>
-<%@ page import="ca.openosp.BillingItemBean" %>
-<%@ page import="ca.openosp.SxmlMisc" %>
-<jsp:useBean id="billing" scope="session" class="ca.openosp.BillingBean"/>
-<jsp:useBean id="billingItem" scope="page" class="ca.openosp.BillingItemBean"/>
-<jsp:useBean id="billingDataBean" class="ca.openosp.BillingDataBean"
+<%@ page import="io.github.carlos_emr.*,java.text.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.BillingItemBean" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<jsp:useBean id="billing" scope="session" class="io.github.carlos_emr.BillingBean"/>
+<jsp:useBean id="billingItem" scope="page" class="io.github.carlos_emr.BillingItemBean"/>
+<jsp:useBean id="billingDataBean" class="io.github.carlos_emr.BillingDataBean"
              scope="session"/>
 <jsp:useBean id="billingPatientDataBean"
-             class="ca.openosp.BillingPatientDataBean" scope="session"/>
+             class="io.github.carlos_emr.BillingPatientDataBean" scope="session"/>
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr bgcolor="#000000">
         <td height="40" width="10%"></td>

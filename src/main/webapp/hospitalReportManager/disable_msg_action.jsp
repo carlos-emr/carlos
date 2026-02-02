@@ -8,8 +8,8 @@
     and "gnu.org/licenses/gpl-2.0.html".
 
 --%>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.hospitalReportManager.SFTPConnector" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.SFTPConnector" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     SFTPConnector.addMeToDoNotSendList(loggedInInfo);

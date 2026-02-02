@@ -41,7 +41,7 @@
 
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ page
-        import="ca.openosp.openo.utility.WebUtils" %>
+        import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="java.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -50,21 +50,21 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
-<%@ page import="ca.openosp.openo.log.*" %>
-<%@ page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.lab.ca.all.*,ca.openosp.openo.mds.data.*" %>
-<%@page import="ca.openosp.openo.commn.dao.*,ca.openosp.openo.commn.model.*,ca.openosp.openo.utility.SpringUtils" %>
-<%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
-<%@ page import="ca.openosp.openo.documentManager.EDoc" %>
-<%@ page import="ca.openosp.openo.documentManager.IncomingDocUtil" %>
-<%@ page import="ca.openosp.openo.log.LogAction" %>
-<%@ page import="ca.openosp.openo.log.LogConst" %>
-<%@ page import="ca.openosp.openo.lab.ca.all.AcknowledgementData" %>
-<%@ page import="ca.openosp.openo.mds.data.ReportStatus" %>
-<%@ page import="ca.openosp.openo.commn.dao.*" %>
-<%@ page import="ca.openosp.openo.commn.model.*" %>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.mds.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);

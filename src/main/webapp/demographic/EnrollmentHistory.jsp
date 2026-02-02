@@ -43,18 +43,18 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.PMmodule.dao.ProviderDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicArchiveDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicArchive" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.Date" %>
-<%@page import="ca.openosp.openo.util.DateUtils" %>
-<%@page import="ca.openosp.openo.util.StringUtils" %>
-<%@page import="ca.openosp.openo.demographic.pageUtil.Util" %>
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
 <html>
     <head>
         <title>Enrollment History</title>

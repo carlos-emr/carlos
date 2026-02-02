@@ -3,7 +3,7 @@
 "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 
 <hibernate-mapping>
-    <class name="ca.openosp.openo.model.security.Secobjectname" table="secObjectName" >
+    <class name="io.github.carlos_emr.carlos.model.security.Secobjectname" table="secObjectName" >
         <id name="objectname" type="java.lang.String">
             <column name="objectName" length="100" />
             <generator class="assigned" />

@@ -24,12 +24,12 @@
 --%>
 
 
-<%@page import="ca.openosp.openo.PMmodule.model.VacancyTemplate" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Criteria" %>
-<%@page import="ca.openosp.openo.PMmodule.model.CriteriaType" %>
-<%@page import="ca.openosp.openo.PMmodule.service.VacancyTemplateManager" %>
-<%@page import="ca.openosp.openo.PMmodule.model.Program" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Criteria" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.CriteriaType" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="java.util.List" %>
 <%@ include file="/taglibs.jsp" %>

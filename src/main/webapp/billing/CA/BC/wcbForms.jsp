@@ -42,10 +42,10 @@
 
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="ca.openosp.openo.demographic.data.*,ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="java.text.*, java.util.*, ca.openosp.openo.billing.ca.bc.data.*,ca.openosp.openo.billing.ca.bc.pageUtil.*,ca.openosp.*,ca.openosp.openo.entities.*" %>
-<%@ page import="ca.openosp.openo.entities.WCB" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.data.BillingmasterDAO" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="java.text.*, java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
+<%@ page import="io.github.carlos_emr.carlos.entities.WCB" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
 <%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%

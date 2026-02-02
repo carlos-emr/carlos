@@ -49,12 +49,12 @@
 
 
 <%@ page import="java.util.*, java.text.*" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Measurement" %>
-<%@page import="ca.openosp.openo.commn.dao.MeasurementDao" %>
-<%@page import="ca.openosp.openo.commn.dao.DxresearchDAO" %>
-<%@page import="ca.openosp.openo.commn.model.Dxresearch" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Measurement" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.MeasurementDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);
     DxresearchDAO dxResearchDao = (DxresearchDAO) SpringUtils.getBean(DxresearchDAO.class);
@@ -62,7 +62,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     pageContext.setAttribute("demographic_no", request.getParameter("demographic_no"));
-    String labReqVer = ca.openosp.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.equals("")) {
         labReqVer = "07";
     }
@@ -202,7 +202,7 @@ Order Labs - <a title="Create Lab Requisition" href="javascript:void(0);"
                 onclick="generateLabReq(<%=demographicNo %>);return false;">Lab Requisition</a>
 <br/><br/>
 <%
-    String flowsheet = ca.openosp.OscarProperties.getInstance().getProperty("ckd_flowsheet", "indicators");
+    String flowsheet = io.github.carlos_emr.OscarProperties.getInstance().getProperty("ckd_flowsheet", "indicators");
     if (flowsheet.equals("indicators")) {
 %>
 Go to CDM Indicators <a href="javascript:void(0);"

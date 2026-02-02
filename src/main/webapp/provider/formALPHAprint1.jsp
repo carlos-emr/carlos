@@ -33,7 +33,7 @@
     if (request.getParameter("bNewForm") != null && request.getParameter("bNewForm").compareTo("0") == 0)
         bNew = false;
 %>
-<%@ page import="java.util.*, java.sql.*, ca.openosp.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
 
 <HTML>

@@ -40,11 +40,11 @@
 %>
 
 <!DOCTYPE html>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.lab.ca.all.pageUtil.SendOruR01UIBean" %>
-<%@page import="ca.openosp.openo.commn.model.ProfessionalSpecialist" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.commn.Gender" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.SendOruR01UIBean" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <html>
 <head>

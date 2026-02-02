@@ -16,14 +16,14 @@
 %>
 
 <%@ page
-        import="java.math.*,java.util.*, java.sql.*, ca.openosp.*, java.net.*,ca.openosp.openo.billing.ca.bc.MSP.*,ca.openosp.openo.util.*" %>
+        import="java.math.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.util.*" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.ReportProviderDao" %>
-<%@page import="ca.openosp.openo.commn.model.ReportProvider" %>
-<%@page import="ca.openosp.openo.commn.model.Provider" %>
-<%@ page import="ca.openosp.openo.billings.ca.bc.MSP.MSPReconcile" %>
-<%@ page import="ca.openosp.openo.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);

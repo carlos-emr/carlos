@@ -39,12 +39,12 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="java.util.List" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%
 
     String postTo = request.getParameter("postTo");

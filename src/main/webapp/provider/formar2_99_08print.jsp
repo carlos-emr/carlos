@@ -32,9 +32,9 @@
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
-        import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.util.UtilMisc, ca.openosp.openo.form.graphic.*"
+        import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.UtilMisc, io.github.carlos_emr.carlos.form.graphic.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.form.graphic.FrmGraphicAR" %>
+<%@ page import="io.github.carlos_emr.carlos.form.graphic.FrmGraphicAR" %>
 
 <html>
 <head>

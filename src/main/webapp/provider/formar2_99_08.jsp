@@ -30,25 +30,25 @@
     String username = (String) session.getAttribute("userlastname") + "," + (String) session.getAttribute("userfirstname");
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.util.*, java.sql.*, java.net.*, ca.openosp.*, ca.openosp.openo.util.UtilDateUtilities, ca.openosp.openo.form.graphic.*"
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.UtilDateUtilities, io.github.carlos_emr.carlos.form.graphic.*"
          errorPage="/errorpage.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicAccessoryDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicAccessory" %>
-<%@page import="ca.openosp.openo.commn.dao.FormDao" %>
-<%@page import="ca.openosp.openo.commn.model.Form" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.form.graphic.FrmGraphicAR" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.form.graphic.FrmGraphicAR" %>
 <%
     DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 %>
 
-<jsp:useBean id="checklist" class="ca.openosp.OBChecklist_99_12" scope="page"/>
-<jsp:useBean id="risks" class="ca.openosp.OBRisks_99_12" scope="page"/>
+<jsp:useBean id="checklist" class="io.github.carlos_emr.OBChecklist_99_12" scope="page"/>
+<jsp:useBean id="risks" class="io.github.carlos_emr.OBRisks_99_12" scope="page"/>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 
 <html>

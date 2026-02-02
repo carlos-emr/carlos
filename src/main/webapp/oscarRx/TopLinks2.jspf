@@ -23,8 +23,8 @@
 
 <%@ page import="java.io.StringWriter" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
-<%@ page import="ca.openosp.openo.commn.model.PharmacyInfo" %>
-<%@ page import="ca.openosp.openo.prescript.data.*,ca.openosp.openo.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.*,io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

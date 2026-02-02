@@ -24,17 +24,17 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="ca.openosp.openo.PMmodule.web.utils.UserRoleUtils" %>
-<%@ page import="ca.openosp.openo.utility.SessionConstants" %>
-<%@ page import="java.util.*,java.net.*, ca.openosp.openo.util.*"
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.util.UtilDict" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
 
 <caisi:isModuleLoad moduleName="caisi">
     <%

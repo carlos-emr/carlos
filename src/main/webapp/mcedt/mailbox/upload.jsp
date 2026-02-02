@@ -35,7 +35,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page
-        import="java.io.*,java.util.*, java.sql.*, ca.openosp.*, java.net.*, ca.openosp.openo.integration.mcedt.mailbox.ActionUtils" %>
+        import="java.io.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">

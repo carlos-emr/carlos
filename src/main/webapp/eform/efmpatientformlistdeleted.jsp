@@ -31,11 +31,11 @@
 	String demographic_no = request.getParameter("demographic_no");
 	String deepColor = "#CCCCFF" , weakColor = "#EEEEFF" ;
 %>
-<%@ page import="java.util.*, ca.openosp.openo.eform.*"%>
-<%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@ page import="ca.openosp.openo.managers.DemographicManager" %>
-<%@ page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@ page import="ca.openosp.openo.utility.SpringUtils" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.eform.*"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>

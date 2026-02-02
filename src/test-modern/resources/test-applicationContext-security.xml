@@ -10,14 +10,14 @@
 
     <!-- Security managers can be mocked or use test implementations -->
     <bean id="securityTokenManager" class="org.mockito.Mockito" factory-method="mock">
-        <constructor-arg value="ca.openosp.openo.managers.SecurityTokenManager"/>
+        <constructor-arg value="io.github.carlos_emr.carlos.managers.SecurityTokenManager"/>
     </bean>
 
     <bean id="privacyManager" class="org.mockito.Mockito" factory-method="mock">
-        <constructor-arg value="ca.openosp.openo.managers.PrivacyManager"/>
+        <constructor-arg value="io.github.carlos_emr.carlos.managers.PrivacyManager"/>
     </bean>
 
     <!-- LoggedInInfo factory for tests -->
-    <bean id="loggedInInfoFactory" class="ca.openosp.openo.test.fixtures.LoggedInInfoTestFactory"/>
+    <bean id="loggedInInfoFactory" class="io.github.carlos_emr.carlos.test.fixtures.LoggedInInfoTestFactory"/>
 
 </beans>

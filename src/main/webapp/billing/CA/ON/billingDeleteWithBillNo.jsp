@@ -25,18 +25,18 @@
 <%
     String curUser_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.sql.*, java.util.*,ca.openosp.*" errorPage="/errorpage.jsp" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.pageUtil.*" %>
-<%@ page import="ca.openosp.openo.billing.ca.on.data.*" %>
+<%@ page import="java.sql.*, java.util.*,io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ include file="/admin/dbconnection.jsp" %>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.BillingDao" %>
-<%@page import="ca.openosp.openo.commn.model.Billing" %>
-<%@page import="ca.openosp.openo.commn.dao.AppointmentArchiveDao" %>
-<%@page import="ca.openosp.openo.commn.dao.OscarAppointmentDao" %>
-<%@page import="ca.openosp.openo.commn.model.Appointment" %>
-<%@ page import="ca.openosp.openo.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
 
 <%
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);

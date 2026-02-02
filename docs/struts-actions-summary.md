@@ -124,7 +124,7 @@ The following actions were removed as their corresponding Java classes no longer
 ## Technical Notes
 
 1. **Naming Convention**: All action classes use the `*2Action` suffix, suggesting a migration from an earlier Struts version
-2. **Package Structure**: Actions are organized by functional module under the `ca.openosp.openo.*` package
+2. **Package Structure**: Actions are organized by functional module under the `io.github.carlos_emr.carlos.*` package
 3. **Result Mappings**: Most actions define multiple result mappings for different outcomes (success, failure, error, etc.)
 4. **JSP Integration**: Actions primarily forward to JSP pages for view rendering
 

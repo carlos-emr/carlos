@@ -42,9 +42,9 @@
 
 <%@page import="org.springframework.web.context.WebApplicationContext,
                 org.springframework.web.context.support.WebApplicationContextUtils,
-                ca.openosp.openo.casemgmt.model.CaseManagementNote,
-                ca.openosp.openo.casemgmt.model.CaseManagementNoteLink,
-                ca.openosp.openo.casemgmt.service.CaseManagementManager,
+                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote,
+                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink,
+                io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,
                 org.owasp.encoder.Encode,
                 java.util.List" %>
 <%

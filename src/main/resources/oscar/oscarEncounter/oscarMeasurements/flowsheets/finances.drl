@@ -9,7 +9,7 @@
 
     <rule name="OW 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("OW") &gt;= 12</java:condition>
         <java:consequence>
@@ -19,7 +19,7 @@
 
     <rule name="OW 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("OW") == -1</java:condition>
         <java:consequence>
@@ -29,7 +29,7 @@
 
     <rule name="ODSP 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("ODSP") &gt;= 12</java:condition>
         <java:consequence>
@@ -39,7 +39,7 @@
 
     <rule name="ODSP 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("ODSP") == -1</java:condition>
         <java:consequence>
@@ -49,7 +49,7 @@
 
     <rule name="CPP 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("CPP") &gt;= 12</java:condition>
         <java:consequence>
@@ -59,7 +59,7 @@
 
     <rule name="CPP 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("CPP") == -1</java:condition>
         <java:consequence>
@@ -69,7 +69,7 @@
 
     <rule name="OAS 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("OAS") &gt;= 12</java:condition>
         <java:consequence>
@@ -79,7 +79,7 @@
 
     <rule name="OAS 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("OAS") == -1</java:condition>
         <java:consequence>
@@ -89,7 +89,7 @@
 
     <rule name="GAIN 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("GAIN") &gt;= 12</java:condition>
         <java:consequence>
@@ -99,7 +99,7 @@
 
     <rule name="GAIN 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("GAIN") == -1</java:condition>
         <java:consequence>
@@ -109,7 +109,7 @@
 
     <rule name="Empl 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("Empl") &gt;= 12</java:condition>
         <java:consequence>
@@ -119,7 +119,7 @@
 
     <rule name="Empl 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("Empl") == -1</java:condition>
         <java:consequence>
@@ -129,7 +129,7 @@
 
     <rule name="FTHR 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTHR") &gt;= 12</java:condition>
         <java:consequence>
@@ -139,7 +139,7 @@
 
     <rule name="FTHR 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("FTHR") == -1</java:condition>
         <java:consequence>
@@ -149,7 +149,7 @@
 
     <rule name="PGT 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("PGT") &gt;= 12</java:condition>
         <java:consequence>
@@ -159,7 +159,7 @@
 
     <rule name="PGT 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("PGT") == -1</java:condition>
         <java:consequence>
@@ -169,7 +169,7 @@
 
     <rule name="SPDT 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("SPDT") &gt;= 12</java:condition>
         <java:consequence>
@@ -179,7 +179,7 @@
 
     <rule name="SPDT 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("SPDT") == -1</java:condition>
         <java:consequence>
@@ -189,7 +189,7 @@
 
     <rule name="Fsup 1">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("Fsup") &gt;= 12</java:condition>
         <java:consequence>
@@ -199,7 +199,7 @@
 
     <rule name="Fsup 2">
         <parameter identifier="m">
-            <class>ca.openosp.openo.encounter.oscarMeasurements.MeasurementInfo</class>
+            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
         </parameter>
         <java:condition>m.getLastDateRecordedInMonths("Fsup") == -1</java:condition>
         <java:consequence>

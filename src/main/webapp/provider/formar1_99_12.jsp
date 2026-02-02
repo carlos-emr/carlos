@@ -29,23 +29,23 @@
     String user_no = (String) session.getAttribute("user");
     String resource_baseurl = "http://resource.oscarmcmaster.org/oscarResource/";
 %>
-<%@ page import="java.util.*, java.sql.*, java.net.URLEncoder, ca.openosp.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.URLEncoder, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicAccessoryDao" %>
-<%@page import="ca.openosp.openo.commn.model.DemographicAccessory" %>
-<%@page import="ca.openosp.openo.commn.dao.FormDao" %>
-<%@page import="ca.openosp.openo.commn.model.Form" %>
-<%@page import="ca.openosp.openo.commn.dao.DemographicDao" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 %>
 
-<jsp:useBean id="risks" class="ca.openosp.OBRisks_99_12" scope="page"/>
+<jsp:useBean id="risks" class="io.github.carlos_emr.OBRisks_99_12" scope="page"/>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 
 <html>

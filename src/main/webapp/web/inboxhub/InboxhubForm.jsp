@@ -18,16 +18,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 -->
 
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.OscarProperties" %>
-<%@ page import="ca.openosp.openo.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
-<%@page import="ca.openosp.openo.utility.MiscUtils,org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="org.apache.logging.log4j.Logger,ca.openosp.openo.commn.dao.OscarLogDao,ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.inboxhub.query.InboxhubQuery" %>
-<%@ page import="ca.openosp.openo.mds.data.CategoryData" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <fmt:setBundle basename="oscarResources"/>

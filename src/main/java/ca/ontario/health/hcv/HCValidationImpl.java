@@ -34,7 +34,7 @@ import javax.jws.WebService;
  *
  * @see HCValidation
  * @see HCValidationService
- * @see ca.openosp.openo.integration.mchcv.HCValidationFactory
+ * @see io.github.carlos_emr.carlos.integration.mchcv.HCValidationFactory
  * @since 2026-01-24
  */
 @WebService(serviceName = "HCValidationService", portName = "HCValidationPort.1", targetNamespace = "http://hcv.health.ontario.ca/", wsdlLocation = "file:/home/oscara/mcedt/hcv-stubs/src/main/resources/from_ohip_web_site/HCValidationService.wsdl", endpointInterface = "ca.ontario.health.hcv.HCValidation")

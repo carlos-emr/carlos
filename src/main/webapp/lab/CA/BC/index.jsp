@@ -39,16 +39,16 @@
     }
 %>
 
-<%@page import="ca.openosp.openo.util.ConversionUtils" %>
-<%@page import="ca.openosp.openo.commn.model.Demographic" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Obr" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Pid" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid" %>
 <%@page import="java.util.List" %>
 <%@page import="java.sql.ResultSet" %>
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.dao.Hl7LinkDao" %>
-<%@page import="ca.openosp.openo.billing.CA.BC.model.Hl7Link" %>
-<%@ page import="ca.openosp.Misc" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 
 <%
 

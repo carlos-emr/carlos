@@ -42,8 +42,8 @@
 %>
 
 <%@ page import="java.util.*" %>
-<%@ page import="ca.openosp.openo.report.reportByTemplate.*" %>
-<%@ page import="ca.openosp.openo.commn.model.Clinic" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Clinic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
