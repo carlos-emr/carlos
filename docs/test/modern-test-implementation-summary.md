@@ -2,7 +2,7 @@
 
 ## What Was Implemented
 
-A parallel modern test framework using JUnit 5 (Jupiter) has been successfully added to the OpenO EMR project alongside the existing JUnit 4 tests.
+A parallel modern test framework using JUnit 5 (Jupiter) has been successfully added to the CARLOS EMR project alongside the existing JUnit 4 tests.
 
 ## Key Changes
 

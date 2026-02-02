@@ -1,8 +1,8 @@
-# OpenO EMR Runtime Directories
+# CARLOS EMR Runtime Directories
 
 ## Overview
 
-OpenO EMR requires several directories to exist at runtime with proper read/write permissions. These are **not** the same as classpath resources in `src/main/resources/` - these are filesystem directories where the application stores uploaded files, documents, exports, and other runtime data.
+CARLOS EMR requires several directories to exist at runtime with proper read/write permissions. These are **not** the same as classpath resources in `src/main/resources/` - these are filesystem directories where the application stores uploaded files, documents, exports, and other runtime data.
 
 **Key Distinction:**
 - **Classpath resources** (`src/main/resources/`) - Static files bundled with the application (forms, configs)

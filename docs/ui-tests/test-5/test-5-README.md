@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 5 validates the tickler (task reminder) and messaging workflows in OpenO EMR, including creating ticklers, assigning to providers, managing tickler status, and viewing the inbox.
+Test 5 validates the tickler (task reminder) and messaging workflows in CARLOS EMR, including creating ticklers, assigning to providers, managing tickler status, and viewing the inbox.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~8-10 minutes
@@ -22,7 +22,7 @@ Test 5 validates the tickler (task reminder) and messaging workflows in OpenO EM
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Database accessible and writable
 - Playwright MCP configured (headless Chromium)
 

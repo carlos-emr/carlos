@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 9 validates the preventive care and immunization tracking workflow in OpenO EMR, including viewing prevention records, adding immunizations, and printing prevention reports.
+Test 9 validates the preventive care and immunization tracking workflow in CARLOS EMR, including viewing prevention records, adding immunizations, and printing prevention reports.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~10-12 minutes
@@ -23,7 +23,7 @@ Test 9 validates the preventive care and immunization tracking workflow in OpenO
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Database accessible and writable
 - Prevention/immunization module configured
 - Playwright MCP configured (headless Chromium)

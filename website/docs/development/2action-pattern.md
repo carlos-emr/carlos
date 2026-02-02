@@ -1,6 +1,6 @@
 # The 2Action Pattern
 
-OpenO EMR uses a unique migration pattern called "2Action" for transitioning from legacy Struts1 to modern Struts2 actions. This pattern allows for gradual modernization while maintaining backward compatibility.
+CARLOS EMR uses a unique migration pattern called "2Action" for transitioning from legacy Struts1 to modern Struts2 actions. This pattern allows for gradual modernization while maintaining backward compatibility.
 
 ## Pattern Overview
 
@@ -106,11 +106,11 @@ public class PatientManagement2Action extends BasePatientAction {
 
 ## Examples in Codebase
 
-Some notable 2Action implementations in OpenO EMR:
+Some notable 2Action implementations in CARLOS EMR:
 
 - `CaseloadContent2Action`: Patient caseload management
 - `EctDisplayMeasurements2Action`: Clinical measurements display
 - `AppointmentType2Action`: Appointment type management
 - `ProgramManager2Action`: Program administration
 
-This pattern has allowed OpenO EMR to modernize gradually while maintaining stability and feature parity during the transition period.
+This pattern has allowed CARLOS EMR to modernize gradually while maintaining stability and feature parity during the transition period.

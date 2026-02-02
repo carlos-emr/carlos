@@ -1,14 +1,14 @@
-# OpenO EMR Password System
+# CARLOS EMR Password System
 
 ## Overview
 
-OpenO EMR uses a modern password hashing system based on Spring Security's `DelegatingPasswordEncoder` with BCrypt as the primary hashing algorithm. This system supports both modern BCrypt hashes and legacy SHA hashes for backward compatibility.
+CARLOS EMR uses a modern password hashing system based on Spring Security's `DelegatingPasswordEncoder` with BCrypt as the primary hashing algorithm. This system supports both modern BCrypt hashes and legacy SHA hashes for backward compatibility.
 
 ## Password Hashing Architecture
 
 ### Current Implementation (Recommended)
 
-OpenO uses **BCrypt** for all new passwords with the following characteristics:
+CARLOS uses **BCrypt** for all new passwords with the following characteristics:
 
 - **Algorithm**: BCrypt with cost factor 12
 - **Format**: `{bcrypt}$2b$12$...` (Spring Security DelegatingPasswordEncoder format)
@@ -17,7 +17,7 @@ OpenO uses **BCrypt** for all new passwords with the following characteristics:
 
 ### Legacy Support
 
-OpenO maintains backward compatibility with legacy SHA hashes:
+CARLOS maintains backward compatibility with legacy SHA hashes:
 
 - **Format**: Concatenated byte values (e.g., `-51-282443-97-5-9410489-60-1021-45-127-12435464-32`)
 - **Usage**: Existing passwords only, automatically upgraded when user logs in
@@ -285,4 +285,4 @@ ORDER BY user_name;
 
 - Spring Security DelegatingPasswordEncoder: [Documentation](https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html#authentication-password-storage-dpe)
 - BCrypt Algorithm: [Wikipedia](https://en.wikipedia.org/wiki/Bcrypt)
-- OpenO Security Classes: `ca.openosp.openo.utility.password.*`, `ca.openosp.openo.managers.SecurityManager`
+- CARLOS Security Classes: `ca.openosp.openo.utility.password.*`, `ca.openosp.openo.managers.SecurityManager`

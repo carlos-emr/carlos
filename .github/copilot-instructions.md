@@ -726,7 +726,7 @@ make lock                     # Update Maven dependency lock file
 ### Legacy Integration & Unique Struts2 Migration Pattern
 
 #### **Migration Strategy Overview**
-OpenO EMR uses a unique incremental migration approach from Struts 1.x to Struts 2.x using a "2Action" naming convention that allows both frameworks to coexist during the transition period.
+CARLOS EMR uses a unique incremental migration approach from Struts 1.x to Struts 2.x using a "2Action" naming convention that allows both frameworks to coexist during the transition period.
 
 #### **2Action Naming Convention & Structure**
 - **Naming Pattern**: All migrated Struts2 actions follow `*2Action.java` naming (e.g., `AddTickler2Action`, `DisplayDashboard2Action`, `Login2Action`)
@@ -836,7 +836,7 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Follow PHI protection patterns
 - Use healthcare-specific validation
 
-This migration pattern allows OpenO EMR to modernize incrementally while maintaining system stability and regulatory compliance throughout the transition process.
+This migration pattern allows CARLOS EMR to modernize incrementally while maintaining system stability and regulatory compliance throughout the transition process.
 
 ## File Patterns
 
@@ -1018,7 +1018,7 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 - `.devcontainer/` - Docker development with AI tools
 
 **Critical Patterns**:
-- **Project Name**: "OpenO EMR" (NOT "OSCAR EMR")
+- **Project Name**: "CARLOS EMR" (NOT "OSCAR EMR")
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `ca.openosp.openo.*` (new) vs `org.oscarehr.*` (legacy)

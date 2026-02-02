@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 1 is a foundational smoke test that validates the most common workflow in OpenO EMR: logging in as a healthcare provider and accessing patient demographic records through the search interface.
+Test 1 is a foundational smoke test that validates the most common workflow in CARLOS EMR: logging in as a healthcare provider and accessing patient demographic records through the search interface.
 
 **Test Duration**: ~2 minutes
 **Test Type**: Manual (via Playwright MCP)
@@ -69,7 +69,7 @@ Test 1 is a foundational smoke test that validates the most common workflow in O
 
 ### Application Running
 ```bash
-# Start OpenO EMR
+# Start CARLOS EMR
 server start
 
 # Verify application is running

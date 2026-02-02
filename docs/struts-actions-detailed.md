@@ -1,8 +1,8 @@
-# OpenO EMR Struts Actions Reference
+# CARLOS EMR Struts Actions Reference
 
 ## Overview
 
-This document provides a comprehensive reference of all Struts actions in the OpenO EMR system. These actions serve as the primary entry points for handling HTTP requests and coordinating business logic within the web application.
+This document provides a comprehensive reference of all Struts actions in the CARLOS EMR system. These actions serve as the primary entry points for handling HTTP requests and coordinating business logic within the web application.
 
 ## Statistics
 

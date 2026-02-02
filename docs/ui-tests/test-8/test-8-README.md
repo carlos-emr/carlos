@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 8 validates the lab results viewing workflow in OpenO EMR, including accessing lab inbox, viewing lab result details, reviewing patient context, and managing lab result status.
+Test 8 validates the lab results viewing workflow in CARLOS EMR, including accessing lab inbox, viewing lab result details, reviewing patient context, and managing lab result status.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~10-12 minutes
@@ -23,7 +23,7 @@ Test 8 validates the lab results viewing workflow in OpenO EMR, including access
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Database accessible
 - Lab results in database (if available)
 - Playwright MCP configured (headless Chromium)

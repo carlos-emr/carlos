@@ -1,6 +1,6 @@
-# OpenO EMR UI Test Suite
+# CARLOS EMR UI Test Suite
 
-Comprehensive UI testing for OpenO EMR using Playwright MCP (Model Context Protocol) server for browser automation.
+Comprehensive UI testing for CARLOS EMR using Playwright MCP (Model Context Protocol) server for browser automation.
 
 ## 📚 Quick Start
 
@@ -11,7 +11,7 @@ Comprehensive UI testing for OpenO EMR using Playwright MCP (Model Context Proto
 
 ## Overview
 
-This UI test suite validates critical user workflows in OpenO EMR to ensure core functionality works as expected after deployments or significant code changes.
+This UI test suite validates critical user workflows in CARLOS EMR to ensure core functionality works as expected after deployments or significant code changes.
 
 ### Test Types Supported
 
@@ -485,5 +485,5 @@ grep "⚠️\|❌" docs/ui-tests/smoke-test-results.md
 
 ---
 
-*Generated for OpenO EMR UI Test Suite*
+*Generated for CARLOS EMR UI Test Suite*
 *Last Updated: 2026-01-16*

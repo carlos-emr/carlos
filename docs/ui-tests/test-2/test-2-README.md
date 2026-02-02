@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 2 is a **comprehensive end-to-end UI test** for the Demographic module in OpenO EMR. Unlike Test 1 (smoke test with 7 steps), Test 2 thoroughly validates all major demographic workflows including patient creation, data modification, search functionality, and filters.
+Test 2 is a **comprehensive end-to-end UI test** for the Demographic module in CARLOS EMR. Unlike Test 1 (smoke test with 7 steps), Test 2 thoroughly validates all major demographic workflows including patient creation, data modification, search functionality, and filters.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~25-30 minutes
@@ -25,7 +25,7 @@ Test 2 is a **comprehensive end-to-end UI test** for the Demographic module in O
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Database accessible and writable
 - Playwright MCP configured (headless Chromium)
 

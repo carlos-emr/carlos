@@ -6,7 +6,7 @@
 
 ## Overview
 
-OpenO EMR has migrated from the stale jasypt library (last updated 2017) to Spring Security Crypto for encryption functionality. This migration affects the Shared Outcomes Dashboard integration.
+CARLOS EMR has migrated from the stale jasypt library (last updated 2017) to Spring Security Crypto for encryption functionality. This migration affects the Shared Outcomes Dashboard integration.
 
 ## What Changed
 
@@ -217,7 +217,7 @@ Tests verify:
    ```
 
 2. **Generate shared dashboard URL**:
-   - Log in to OpenO EMR
+   - Log in to CARLOS EMR
    - Navigate to Shared Outcomes Dashboard
    - Verify URL is generated without errors
 

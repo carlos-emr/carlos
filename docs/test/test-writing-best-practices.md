@@ -1,4 +1,4 @@
-# OpenO EMR Test Writing Best Practices
+# CARLOS EMR Test Writing Best Practices
 
 ## BDD Naming Convention
 

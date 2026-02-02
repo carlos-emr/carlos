@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 4 validates the prescription management workflow in OpenO EMR, including drug search, allergy management, prescription creation, interaction checking, and prescription history.
+Test 4 validates the prescription management workflow in CARLOS EMR, including drug search, allergy management, prescription creation, interaction checking, and prescription history.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~15-20 minutes
@@ -24,7 +24,7 @@ Test 4 validates the prescription management workflow in OpenO EMR, including dr
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Database accessible and writable
 - Drug database populated (DrugRef data)
 - Playwright MCP configured (headless Chromium)

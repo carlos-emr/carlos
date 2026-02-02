@@ -1,6 +1,6 @@
-# Welcome to OpenO EMR Documentation
+# Welcome to CARLOS EMR Documentation
 
-OpenO EMR is an open-source Electronic Medical Records system designed for healthcare providers. Originally based on OSCAR McMaster, OpenO has evolved into a modern, secure, and feature-rich healthcare platform.
+CARLOS EMR is an open-source Electronic Medical Records system designed for healthcare providers. Originally forked from OpenO EMR (which itself was based on OSCAR McMaster), CARLOS has evolved into a modern, secure, and feature-rich healthcare platform.
 
 ## Key Features
 
@@ -24,18 +24,18 @@ OpenO EMR is an open-source Electronic Medical Records system designed for healt
 
 Choose your path:
 
-- [Installation Guide](getting-started/installation) - Set up OpenO EMR for the first time
+- [Installation Guide](getting-started/installation) - Set up CARLOS EMR for the first time
 - [Development Setup](getting-started/development-setup) - Configure your development environment
-- [API Documentation](api/rest-endpoints) - Integrate with OpenO EMR
+- [API Documentation](api/rest-endpoints) - Integrate with CARLOS EMR
 
 ## Project Identity
 
-**Important**: This project is **OpenO EMR**, not "OSCAR EMR". While historically derived from OSCAR McMaster, OpenO represents a significant evolution and modernization of the original codebase.
+**Important**: This project is **CARLOS EMR**, a fork of OpenO EMR. While historically derived from OSCAR McMaster through OpenO EMR, CARLOS represents the continued evolution and modernization of the codebase.
 
 ## Community
 
-OpenO EMR is developed by a community of healthcare professionals, developers, and organizations committed to open-source healthcare technology.
+CARLOS EMR is developed by a community of healthcare professionals, developers, and organizations committed to open-source healthcare technology.
 
-- [GitHub Repository](https://github.com/openosp/Open-O)
-- [Issue Tracking](https://github.com/openosp/Open-O/issues)
-- [Discussions](https://github.com/openosp/Open-O/discussions)
+- [GitHub Repository](https://github.com/carlos-emr/carlos)
+- [Issue Tracking](https://github.com/carlos-emr/carlos/issues)
+- [Discussions](https://github.com/carlos-emr/carlos/discussions)

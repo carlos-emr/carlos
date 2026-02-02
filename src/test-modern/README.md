@@ -1,11 +1,11 @@
-# OpenO EMR Modern Test Framework
+# CARLOS EMR Modern Test Framework
 
 ## Author: yingbull
 ## Date: September 15, 2025
 
 ## Overview
 
-This directory contains the modern test framework for OpenO EMR, built with JUnit 5, Spring Test, and modern Java 21 features. The framework is designed to coexist with legacy tests while providing a migration path to modern testing practices.
+This directory contains the modern test framework for CARLOS EMR, built with JUnit 5, Spring Test, and modern Java 21 features. The framework is designed to coexist with legacy tests while providing a migration path to modern testing practices.
 
 ## Table of Contents
 - [Architecture](#architecture)

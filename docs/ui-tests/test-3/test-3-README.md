@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 3 validates the appointment scheduling workflow in OpenO EMR, including viewing schedules, creating appointments, modifying appointments, and navigating schedule views.
+Test 3 validates the appointment scheduling workflow in CARLOS EMR, including viewing schedules, creating appointments, modifying appointments, and navigating schedule views.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~10-15 minutes
@@ -23,7 +23,7 @@ Test 3 validates the appointment scheduling workflow in OpenO EMR, including vie
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Database accessible and writable
 - Playwright MCP configured (headless Chromium)
 
