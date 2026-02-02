@@ -1,25 +1,25 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.oscarehr</groupId>
-    <artifactId>oscar</artifactId>
+    <groupId>io.github.carlos_emr</groupId>
+    <artifactId>carlos</artifactId>
     <packaging>war</packaging>
     <version>0-SNAPSHOT</version>
     <name>CARLOS</name>
-    <description>OpenOSP EMR is a web-based electronic medical record (EMR) system.</description>
-    <inceptionYear>2018</inceptionYear>
+    <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
+    <inceptionYear>2024</inceptionYear>
     <licenses>
         <license>
             <name>GPLv2</name>
             <url>https://www.gnu.org/licenses/gpl-2.0.txt</url>
         </license>
     </licenses>
-    <url>https://www.openosp.ca</url>
+    <url>https://github.com/carlos-emr/carlos</url>
     <scm>
-        <url>https://bitbucket.org/openoscar/oscar/wiki/Home</url>
-        <connection>scm:git:https://bitbucket.org/openoscar/oscar/branch/master</connection>
-        <developerConnection>scm:git:ssh:git@bitbucket.org:openoscar/oscar.git</developerConnection>
-        <tag>master</tag>
+        <url>https://github.com/carlos-emr/carlos</url>
+        <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
+        <tag>develop</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

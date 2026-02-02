@@ -119,11 +119,11 @@ build_and_deploy() {
   # This will allow us to handle versioned directories during deployment.
   pom_file="pom.xml"
   version=$(grep -oPm 1 '<version>\K[^<]+' "$pom_file")
-  snapshot_src_dir="oscar-$version"
+  snapshot_src_dir="carlos-$version"
   snapshot_dest_dir="oscar"
 
   # Create a symlink from the exploded WAR directory to the Tomcat webapps directory.
-  # This ensures the app is deployed with the expected name (`oscar`) rather than `oscar-<version>`.
+  # This ensures the app is deployed with the context path `/oscar` for backward compatibility.
   if [ -d "target/$snapshot_src_dir" ] && [ ! -L "target/$snapshot_src_dir" ]; then
     mv "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
     ln -s "/usr/local/tomcat/webapps/$snapshot_dest_dir" "target/$snapshot_src_dir"

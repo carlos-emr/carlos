@@ -207,7 +207,7 @@ public class AddEForm2Action extends ActionSupport {
         EForm curForm = new EForm(fid, demographic_no, providerNo);
         curForm.setContextPath(request.getContextPath());
 		curForm.setRealPath(request.getServletContext().getRealPath(File.separator));
-		curForm.setImagePath();
+		curForm.setImagePath(request.getContextPath());
 
         //add eform_link value from session attribute
         ArrayList<String> openerNames = curForm.getOpenerNames();

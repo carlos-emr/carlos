@@ -17,14 +17,14 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect("/oscar/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean bodd = false;
     EDTFolder folder = EDTFolder.getFolder(request.getParameter("folder"));
     String folderPath = folder.getPath();
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup,_admin.billing" rights="r" reverse="<%=true%>">
-    <% response.sendRedirect("/oscar/logout.jsp"); %>
+    <% response.sendRedirect(request.getContextPath() + "/logout.jsp"); %>
 </security:oscarSec>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <html>
