@@ -1,6 +1,6 @@
-# OpenO EMR Test Writing Guide
+# CARLOS EMR Test Writing Guide
 
-This guide contains detailed patterns and configurations for writing tests in the OpenO EMR codebase. For a quick reference, see the summary in [CLAUDE.md](/CLAUDE.md#modern-test-framework-junit-5).
+This guide contains detailed patterns and configurations for writing tests in the CARLOS EMR codebase. For a quick reference, see the summary in [CLAUDE.md](/CLAUDE.md#modern-test-framework-junit-5).
 
 ## Critical Dependency Resolution Patterns
 

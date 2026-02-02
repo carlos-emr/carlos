@@ -134,9 +134,9 @@ The make script supports various test execution options:
 
 **Note:** Running tests adds time to the build process. Modern unit tests execute in < 4 seconds, while legacy tests may take 5-15 minutes.
 
-### View OpenO application logs
+### View CARLOS application logs
 
-OpenO logs are sent to the console and can be viewed using Docker commands. The development environment is configured with DEBUG level logging by default for comprehensive troubleshooting.
+CARLOS logs are sent to the console and can be viewed using Docker commands. The development environment is configured with DEBUG level logging by default for comprehensive troubleshooting.
 
 **View real-time logs:**
    ```bash
@@ -356,7 +356,7 @@ HIBERNATE_FORMAT_SQL=true
 ## Additional Notes
 
 * The `.devcontainer/development/config/shared/local.env` file contains environment variables that can be customized for your development environment.
-* You can find more information about the OpenO EMR project and its development environment in the project's documentation.
+* You can find more information about the CARLOS EMR project and its development environment in the project's documentation.
 
 ## Switching Branches 
 

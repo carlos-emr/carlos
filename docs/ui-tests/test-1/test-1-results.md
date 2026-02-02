@@ -2,14 +2,14 @@
 
 **Test Date**: 2026-01-16
 **Test Type**: Manual smoke test using Playwright MCP
-**Application**: OpenO EMR (Development)
+**Application**: CARLOS EMR (Development)
 **Environment**: http://localhost:8080/oscar
 
 ---
 
 ## Test Overview
 
-Test 1 validates the complete workflow for logging into OpenO EMR and accessing patient demographic records through the search functionality. This test demonstrates the primary path that healthcare providers use to look up patient information.
+Test 1 validates the complete workflow for logging into CARLOS EMR and accessing patient demographic records through the search functionality. This test demonstrates the primary path that healthcare providers use to look up patient information.
 
 **Status**: ✅ **PASSING** (100% - 7/7 steps completed successfully)
 
@@ -327,5 +327,5 @@ The search workflow demonstrates that:
 
 ---
 
-*Generated for OpenO EMR Test 1*
+*Generated for CARLOS EMR Test 1*
 *Test Execution Date: 2026-01-16*

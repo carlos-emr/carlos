@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 7 validates the Ontario MOH billing workflow in OpenO EMR, including creating billing entries, selecting service codes, adding diagnostic codes, and viewing billing history.
+Test 7 validates the Ontario MOH billing workflow in CARLOS EMR, including creating billing entries, selecting service codes, adding diagnostic codes, and viewing billing history.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~12-15 minutes
@@ -25,7 +25,7 @@ Test 7 validates the Ontario MOH billing workflow in OpenO EMR, including creati
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Ontario (ON) billing configuration enabled
 - OHIP service codes loaded
 - Database accessible and writable

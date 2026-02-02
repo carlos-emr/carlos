@@ -2,7 +2,7 @@
 
 ## Overview
 
-MyDrugref is an external drug reference and clinical decision support service that provides comprehensive medication information, drug interaction checks, clinical guidelines, and treatment recommendations to OpenO EMR. This service enhances patient safety by providing real-time drug information at the point of care.
+MyDrugref is an external drug reference and clinical decision support service that provides comprehensive medication information, drug interaction checks, clinical guidelines, and treatment recommendations to CARLOS EMR. This service enhances patient safety by providing real-time drug information at the point of care.
 
 ## Features and Capabilities
 
@@ -44,7 +44,7 @@ MyDrugref uses **XML-RPC** (XML Remote Procedure Call) for communication:
 - Uses HTTP as transport and XML for encoding
 - Synchronous request-response pattern
 
-### Integration Points in OpenO EMR
+### Integration Points in CARLOS EMR
 
 #### 1. Prescription Module (`oscarRx`)
 - **Location**: `/src/main/webapp/oscarRx/`
@@ -115,7 +115,7 @@ Each provider needs a MyDrugref ID stored in the `property` table:
    - Contact MyDrugref service provider
    - Receive provider-specific credentials
 
-2. **Configure OpenO EMR**
+2. **Configure CARLOS EMR**
    - Set `MY_DRUGREF_URL` in system properties
    - Add provider IDs to user properties
 

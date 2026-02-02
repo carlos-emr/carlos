@@ -45,7 +45,7 @@ fi
 # Short welcome banner
 echo ""
 echo "========================================="
-echo "  OpenO EMR Development Environment"
+echo "  CARLOS EMR Development Environment"
 echo "========================================="
 echo "  Type 'help-dev' for commands reference"
 echo "  Type 'make help' for build options"

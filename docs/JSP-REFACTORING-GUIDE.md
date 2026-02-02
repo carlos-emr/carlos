@@ -91,7 +91,7 @@ Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All
 <%@ page import="org.owasp.encoder.Encode" %>
 <%-- ... all other imports ... --%>
 
-<%-- NOTE: OpenO EMR uses ca.openosp.openo.* namespace (new)
+<%-- NOTE: CARLOS EMR uses ca.openosp.openo.* namespace (new)
      DAOs are in ca.openosp.openo.commn.dao.* (note: "commn" not "common")
      Models are in ca.openosp.openo.commn.model.*
      Exception: ProviderDao is at ca.openosp.openo.dao.ProviderDao --%>
@@ -544,7 +544,7 @@ Note: Use dynamic locale from request, not hardcoded "en".
 
 ### Step 3.5: Form Structure with CSRF Protection
 
-OpenO EMR uses OWASP CSRF Guard (configured in `web.xml` and `Owasp.CsrfGuard.properties`). **All POST forms MUST include the CSRF token** to prevent Cross-Site Request Forgery attacks.
+CARLOS EMR uses OWASP CSRF Guard (configured in `web.xml` and `Owasp.CsrfGuard.properties`). **All POST forms MUST include the CSRF token** to prevent Cross-Site Request Forgery attacks.
 
 **CSRF Token Implementation:**
 The project uses `CSRFPreservingFilter` and `CsrfJavaScriptInjectionFilter` for automatic token handling.
@@ -644,7 +644,7 @@ If you need to manually include the token (rare cases):
 Per project requirements, add slight rounding to separators and backgrounds:
 
 ```css
-/* Custom styles for OpenO EMR */
+/* Custom styles for CARLOS EMR */
 .card {
     border-radius: 0.375rem; /* Slight rounding */
 }
@@ -844,7 +844,7 @@ Document these and plan for gradual replacement:
 
 ### Step 5.6: Popup Window Considerations
 
-Many OpenO EMR pages are popup windows. Preserve these relationships:
+Many CARLOS EMR pages are popup windows. Preserve these relationships:
 
 ```javascript
 // Preserve window opener communication

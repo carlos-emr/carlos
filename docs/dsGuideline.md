@@ -1,7 +1,7 @@
 # Decision Support Guideline XSD Schema
 
 ## Overview
-The `dsGuideline.xsd` file is an XML Schema Definition that validates the structure of decision support guidelines used by the OpenO EMR system. These guidelines are used to provide clinical decision support based on various patient conditions.
+The `dsGuideline.xsd` file is an XML Schema Definition that validates the structure of decision support guidelines used by the CARLOS EMR system. These guidelines are used to provide clinical decision support based on various patient conditions.
 
 ## Location History
 - **Originally**: `/src/main/resources/k2a/dsGuideline.xsd` - Was incorrectly placed in a K2A-specific directory

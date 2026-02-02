@@ -1,8 +1,8 @@
-# OpenO EMR Test Documentation
+# CARLOS EMR Test Documentation
 
 ## Overview
 
-This directory contains comprehensive documentation for the OpenO EMR modern test framework, which uses JUnit 5 (Jupiter) running alongside legacy JUnit 4 tests.
+This directory contains comprehensive documentation for the CARLOS EMR modern test framework, which uses JUnit 5 (Jupiter) running alongside legacy JUnit 4 tests.
 
 ## Current Status
 

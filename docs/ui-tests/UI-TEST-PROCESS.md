@@ -1,4 +1,4 @@
-# OpenO EMR UI Test Process
+# CARLOS EMR UI Test Process
 
 **Version**: 1.0
 **Last Updated**: 2026-01-16
@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document defines the standard process for executing UI tests in OpenO EMR using Playwright MCP. UI tests validate critical user workflows to ensure core functionality works after deployments or code changes.
+This document defines the standard process for executing UI tests in CARLOS EMR using Playwright MCP. UI tests validate critical user workflows to ensure core functionality works after deployments or code changes.
 
 ### Test Framework Scope
 
@@ -646,5 +646,5 @@ mysql -h db -uroot -ppassword oscar -e \
 
 ---
 
-*OpenO EMR UI Test Process v1.0*
+*CARLOS EMR UI Test Process v1.0*
 *Last Updated: 2026-01-16*

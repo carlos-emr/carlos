@@ -2,7 +2,7 @@
 
 ## Overview
 
-`PathValidationUtils` is a centralized utility class for validating file paths to prevent path traversal attacks in OpenO EMR. It provides consistent, robust validation across the entire codebase.
+`PathValidationUtils` is a centralized utility class for validating file paths to prevent path traversal attacks in CARLOS EMR. It provides consistent, robust validation across the entire codebase.
 
 **Package**: `ca.openosp.openo.utility.PathValidationUtils`
 **Since**: 2025-12-09

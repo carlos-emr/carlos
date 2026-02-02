@@ -2,7 +2,7 @@
 
 ## Overview
 
-Test 6 validates the clinical documentation workflow in OpenO EMR, including the E-Chart interface, encounter creation, vital signs entry, diagnosis coding, and clinical note documentation.
+Test 6 validates the clinical documentation workflow in CARLOS EMR, including the E-Chart interface, encounter creation, vital signs entry, diagnosis coding, and clinical note documentation.
 
 **Test Type**: Comprehensive End-to-End Test
 **Duration**: ~20-25 minutes
@@ -26,7 +26,7 @@ Test 6 validates the clinical documentation workflow in OpenO EMR, including the
 ## Prerequisites
 
 ### Application Requirements
-- OpenO EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/oscar
 - Database accessible and writable
 - ICD diagnosis codes loaded
 - Playwright MCP configured (headless Chromium)

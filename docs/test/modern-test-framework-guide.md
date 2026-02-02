@@ -1,8 +1,8 @@
-# OpenO EMR Modern Test Framework Guide
+# CARLOS EMR Modern Test Framework Guide
 
 ## Overview
 
-OpenO EMR uses a dual test framework approach with JUnit 5 (modern) tests running alongside legacy JUnit 4 tests. This guide covers the current state of the modern test framework and how to develop tests.
+CARLOS EMR uses a dual test framework approach with JUnit 5 (modern) tests running alongside legacy JUnit 4 tests. This guide covers the current state of the modern test framework and how to develop tests.
 
 **Status**: ✅ Production Ready
 

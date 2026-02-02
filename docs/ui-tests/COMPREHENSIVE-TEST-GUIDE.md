@@ -1,4 +1,4 @@
-# Comprehensive UI Test Guide for OpenO EMR
+# Comprehensive UI Test Guide for CARLOS EMR
 
 This guide provides a complete overview of the UI test suite, covering all 9 tests and their interdependencies.
 

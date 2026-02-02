@@ -64,7 +64,7 @@ Key testing resources:
 
 ## Project Context
 
-**OpenO EMR** is a Canadian healthcare EMR system with:
+**CARLOS EMR** is a Canadian healthcare EMR system with:
 - Multi-jurisdictional compliance (BC, ON, generic)
 - Java 21, Spring 5.3.39, Maven 3, Tomcat 9, MariaDB/MySQL
 - HIPAA/PIPEDA compliance for PHI protection
