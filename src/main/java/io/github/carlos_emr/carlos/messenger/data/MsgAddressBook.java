@@ -30,6 +30,8 @@ import java.util.List;
 
 import javax.servlet.jsp.JspWriter;
 
+import org.owasp.encoder.Encode;
+
 import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
 import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -214,16 +216,16 @@ public class MsgAddressBook {
                 }
                 out.print("</span>");
                 if (depth == 1) {
-                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#0c7bd6><b>" + CurrentLocationName + "</b></font><br>");
+                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#0c7bd6><b>" + Encode.forHtml(CurrentLocationName) + "</b></font><br>");
                 } else {
-                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#0c7bd6><b>" + element.getAttribute("desc") + "</b></font><br>");
+                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#0c7bd6><b>" + Encode.forHtml(element.getAttribute("desc")) + "</b></font><br>");
                 }
 
             } else {
                 if (java.util.Arrays.binarySearch(thePros, element.getAttribute("id")) < 0) {
-                    out.print("<input type=\"checkbox\" name=providerNos value=" + element.getAttribute("id") + "  > <font color=#0e8ef7>" + element.getAttribute("desc") + "</font>\n");
+                    out.print("<input type=\"checkbox\" name=providerNos value=\"" + Encode.forHtmlAttribute(element.getAttribute("id")) + "\"> <font color=#0e8ef7>" + Encode.forHtml(element.getAttribute("desc")) + "</font>\n");
                 } else {
-                    out.print("<input type=\"checkbox\" name=providerNos value=" + element.getAttribute("id") + " checked > " + element.getAttribute("desc") + "\n");
+                    out.print("<input type=\"checkbox\" name=providerNos value=\"" + Encode.forHtmlAttribute(element.getAttribute("id")) + "\" checked> " + Encode.forHtml(element.getAttribute("desc")) + "\n");
                 }
             }
             if (node.hasChildNodes()) {
@@ -284,9 +286,9 @@ public class MsgAddressBook {
                 }
                 out.print("</span>");
                 if (depth == 1) {
-                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#ff9452><b>" + ((String) remoteLocationDesc.elementAt(remoId)) + "</b></font><br>");
+                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#ff9452><b>" + Encode.forHtml((String) remoteLocationDesc.elementAt(remoId)) + "</b></font><br>");
                 } else {
-                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#ff9452><b>" + element.getAttribute("desc") + "</b></font><br>");
+                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "');\"><font color=#ff9452><b>" + Encode.forHtml(element.getAttribute("desc")) + "</b></font><br>");
                 }
 
             } else {
@@ -295,9 +297,9 @@ public class MsgAddressBook {
                 MiscUtils.getLogger().debug("the binsearch returned " + binSearch + " there are " + locationVector.size() + " in the locationVector ");
                 if ((binSearch > 0) && (((String) locationVector.elementAt(binSearch)).equals(remoteLocationId.elementAt(remoId)))) {
                     MiscUtils.getLogger().debug("i found it at = " + locationVector.elementAt(binSearch));
-                    out.print("<input type=\"checkbox\" name=providers value=" + element.getAttribute("id") + "@" + ((String) remoteLocationId.elementAt(remoId)) + " checked > " + element.getAttribute("desc") + "\n");
+                    out.print("<input type=\"checkbox\" name=providers value=\"" + Encode.forHtmlAttribute(element.getAttribute("id")) + "@" + Encode.forHtmlAttribute((String) remoteLocationId.elementAt(remoId)) + "\" checked> " + Encode.forHtml(element.getAttribute("desc")) + "\n");
                 } else {
-                    out.print("<input type=\"checkbox\" name=providers value=" + element.getAttribute("id") + "@" + ((String) remoteLocationId.elementAt(remoId)) + "  ><font color=#ff5900>" + element.getAttribute("desc") + "</font>\n");
+                    out.print("<input type=\"checkbox\" name=providers value=\"" + Encode.forHtmlAttribute(element.getAttribute("id")) + "@" + Encode.forHtmlAttribute((String) remoteLocationId.elementAt(remoId)) + "\"><font color=#ff5900>" + Encode.forHtml(element.getAttribute("desc")) + "</font>\n");
                 }
             }
             if (node.hasChildNodes()) {
@@ -358,9 +360,9 @@ public class MsgAddressBook {
                 }
                 out.print("</span>");
                 if (depth == 1) {
-                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "',event);\"><font color=#ff9452><b>" + ((String) remoteLocationDesc.elementAt(remoId)) + "</b></font><br>");
+                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "',event);\"><font color=#ff9452><b>" + Encode.forHtml((String) remoteLocationDesc.elementAt(remoId)) + "</b></font><br>");
                 } else {
-                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "',event);\"><font color=#ff9452><b>" + element.getAttribute("desc") + "</b></font><br>");
+                    out.print("<input type=\"checkbox\" name=tblDFR" + depth + " onclick=\"javascript:checkGroup('tblDFR" + (depth + 1) + "',event);\"><font color=#ff9452><b>" + Encode.forHtml(element.getAttribute("desc")) + "</b></font><br>");
                 }
 
             } else {
@@ -370,9 +372,9 @@ public class MsgAddressBook {
                 //if ( ( binSearch > 0 ) && ( ( (String) locationVector.elementAt(binSearch) ).equals( (String) remoteLocationId.elementAt(remoId)  ) )){
 
                 if (reData.remoContains(element.getAttribute("id"), (String) remoteLocationId.elementAt(remoId))) {
-                    out.print("<input type=\"checkbox\" name=providers value=" + element.getAttribute("id") + "@" + ((String) remoteLocationId.elementAt(remoId)) + " checked > " + element.getAttribute("desc") + "\n");
+                    out.print("<input type=\"checkbox\" name=providers value=\"" + Encode.forHtmlAttribute(element.getAttribute("id")) + "@" + Encode.forHtmlAttribute((String) remoteLocationId.elementAt(remoId)) + "\" checked> " + Encode.forHtml(element.getAttribute("desc")) + "\n");
                 } else {
-                    out.print("<input type=\"checkbox\" name=providers value=" + element.getAttribute("id") + "@" + ((String) remoteLocationId.elementAt(remoId)) + "  ><font color=#ff5900>" + element.getAttribute("desc") + "</font>\n");
+                    out.print("<input type=\"checkbox\" name=providers value=\"" + Encode.forHtmlAttribute(element.getAttribute("id")) + "@" + Encode.forHtmlAttribute((String) remoteLocationId.elementAt(remoId)) + "\"><font color=#ff5900>" + Encode.forHtml(element.getAttribute("desc")) + "</font>\n");
                 }
             }
             if (node.hasChildNodes()) {

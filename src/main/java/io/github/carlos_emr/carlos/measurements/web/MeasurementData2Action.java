@@ -192,15 +192,16 @@ public class MeasurementData2Action extends ActionSupport {
             Measurement value = measurementMap.get(key);
             if ((freshMap.get(key) == null) || (freshMap.get(key) != null && value.getAppointmentNo() == Integer.parseInt(appointmentNo))) {
                 //script.append("jQuery(\"[measurement='"+key+"']\").val(\""+value.getDataField().replace("\n", "\\n")+"\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
-                script.append("jQuery(\"[measurement='" + key + "']\").val(\"" + StringEscapeUtils.escapeEcmaScript(value.getDataField()) + "\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
+                String escapedKey = StringEscapeUtils.escapeEcmaScript(key);
+                script.append("jQuery(\"[measurement='" + escapedKey + "']\").val(\"" + StringEscapeUtils.escapeEcmaScript(value.getDataField()) + "\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
                 if (apptNo > 0 && apptNo == value.getAppointmentNo()) {
-                    script.append("jQuery(\"[measurement='" + key + "']\").addClass('examfieldwhite');\n");
+                    script.append("jQuery(\"[measurement='" + escapedKey + "']\").addClass('examfieldwhite');\n");
                 }
                 if (prevApptNo > 0 && value.getAppointmentNo() == prevApptNo) {
-                    script.append("jQuery(\"[measurement='" + key + "']\").attr('prev_appt','true');\n");
+                    script.append("jQuery(\"[measurement='" + escapedKey + "']\").attr('prev_appt','true');\n");
                 }
                 if (apptNo > 0 && value.getAppointmentNo() == apptNo) {
-                    script.append("jQuery(\"[measurement='" + key + "']\").attr('current_appt','true');\n");
+                    script.append("jQuery(\"[measurement='" + escapedKey + "']\").attr('current_appt','true');\n");
                 }
                 if (key.equals("os_iop_applanation") || key.equals("od_iop_applanation")) {
                     if (applanationTs == null) {

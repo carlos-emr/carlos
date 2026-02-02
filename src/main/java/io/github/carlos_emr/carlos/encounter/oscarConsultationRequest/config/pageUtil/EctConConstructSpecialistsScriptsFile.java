@@ -81,7 +81,7 @@ public class EctConConstructSpecialistsScriptsFile {
             for (int i = 0; i < serviceId.size(); i++) {
                 String servId = serviceId.elementAt(i);
                 String servDesc = serviceDesc.elementAt(i);
-                fileWriter.write("K(" + servId + ",\"" + servDesc + "\");\n");
+                fileWriter.write("K(" + servId + ",\"" + StringEscapeUtils.escapeEcmaScript(servDesc) + "\");\n");
                 for (Object[] o : dao.findSpecialists(ConversionUtils.fromIntString(servId))) {
                     ServiceSpecialists ser = (ServiceSpecialists) o[0];
                     ProfessionalSpecialist pro = (ProfessionalSpecialist) o[1];
@@ -92,7 +92,7 @@ public class EctConConstructSpecialistsScriptsFile {
                     String phone = pro.getPhoneNumber();
                     String address = pro.getStreetAddress();
                     String fax = pro.getFaxNumber();
-                    fileWriter.write("D(" + servId + ",\"" + specId + "\",\"" + phone + "\",\"" + name + "\",\"" + fax + "\",\"" + address + "\");\n");
+                    fileWriter.write("D(" + servId + ",\"" + specId + "\",\"" + StringEscapeUtils.escapeEcmaScript(phone) + "\",\"" + StringEscapeUtils.escapeEcmaScript(name) + "\",\"" + StringEscapeUtils.escapeEcmaScript(fax) + "\",\"" + StringEscapeUtils.escapeEcmaScript(address) + "\");\n");
                 }
 
                 fileWriter.write("\n");
@@ -128,7 +128,7 @@ public class EctConConstructSpecialistsScriptsFile {
         for (int i = 0; i < serviceId.size(); i++) {
             String servId = serviceId.elementAt(i);
             String servDesc = serviceDesc.elementAt(i);
-            stringBuffer.append(String.valueOf(String.valueOf((new StringBuilder("K(")).append(servId).append(",\"").append(servDesc).append("\");\n"))));
+            stringBuffer.append(String.valueOf(String.valueOf((new StringBuilder("K(")).append(servId).append(",\"").append(this.escapeString(servDesc)).append("\");\n"))));
 
             for (Object[] o : dao.findSpecialists(ConversionUtils.fromIntString(servId))) {
                 ServiceSpecialists ser = (ServiceSpecialists) o[0];
@@ -137,10 +137,9 @@ public class EctConConstructSpecialistsScriptsFile {
                 String name = pro.getLastName() + ", " + pro.getFirstName() + (pro.getProfessionalLetters() == null ? "" : " " + pro.getProfessionalLetters());
                 name = this.escapeString(name);
                 String specId = "" + ser.getId().getSpecId();
-                String phone = pro.getPhoneNumber();
-                String address = pro.getStreetAddress();
-                address = this.escapeString(address);
-                String fax = pro.getFaxNumber();
+                String phone = this.escapeString(pro.getPhoneNumber());
+                String address = this.escapeString(pro.getStreetAddress());
+                String fax = this.escapeString(pro.getFaxNumber());
                 stringBuffer.append("D(" + servId + ",\"" + specId + "\",\"" + phone + "\",\"" + name + "\",\"" + fax + "\",\"" + address + "\");\n");
             }
 

@@ -32,6 +32,8 @@ import java.util.Locale;
 
 import javax.servlet.jsp.JspWriter;
 
+import org.owasp.encoder.Encode;
+
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
@@ -148,7 +150,7 @@ public class MsgMessengerGroupData {
         GroupsDao dao = SpringUtils.getBean(GroupsDao.class);
         // Iterate through all child groups of the specified parent
         for (Groups g : dao.findByParentId(ConversionUtils.fromIntString(groupNo))) {
-            stringBuffer.append("<a href=\"MessengerAdmin.jsp?groupNo=" + g.getId() + "\">" + g.getGroupDesc() + "</a><br>");
+            stringBuffer.append("<a href=\"MessengerAdmin.jsp?groupNo=" + g.getId() + "\">" + Encode.forHtml(g.getGroupDesc()) + "</a><br>");
             numGroups++;
         }
         return stringBuffer.toString();
@@ -216,20 +218,20 @@ public class MsgMessengerGroupData {
                 out.print("      <td>");
                 // Check the checkbox if provider is already a member
                 if (vector.contains(p.getProviderNo())) {
-                    out.print("<input type=\"checkbox\" name=providers value=" + p.getProviderNo() + " checked >");
+                    out.print("<input type=\"checkbox\" name=providers value=\"" + Encode.forHtmlAttribute(p.getProviderNo()) + "\" checked>");
                 } else {
-                    out.print("<input type=\"checkbox\" name=providers value=" + p.getProviderNo() + ">");
+                    out.print("<input type=\"checkbox\" name=providers value=\"" + Encode.forHtmlAttribute(p.getProviderNo()) + "\">");
                 }
                 out.print("      </td>");
                 out.print("      <td>");
-                out.print(p.getLastName());
+                out.print(Encode.forHtml(p.getLastName()));
                 out.print("      </td>");
                 out.print("      <td>");
-                out.print(p.getFirstName());
+                out.print(Encode.forHtml(p.getFirstName()));
                 out.print("      </td>");
                 out.print("      <td>");
                 String strProviderType = p.getProviderType();
-                out.print(strProviderType);
+                out.print(Encode.forHtml(strProviderType));
                 out.print("      </td>");
                 out.print("   </tr>");
             }
@@ -270,7 +272,7 @@ public class MsgMessengerGroupData {
                     untilZero = g.getParentId();
                     // Insert at beginning to build path in correct order (root to child)
                     stringBuffer.insert(0, " <a href=\"MessengerAdmin.jsp?groupNo=" + g.getId() + "\"> > "
-                            + g.getGroupDesc() + "</a>");
+                            + Encode.forHtml(g.getGroupDesc()) + "</a>");
                 } else {
                     // Group not found, stop traversal
                     untilZero = 0;

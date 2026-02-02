@@ -32,6 +32,8 @@ import javax.servlet.jsp.JspException;
 import javax.servlet.jsp.JspWriter;
 import javax.servlet.jsp.tagext.TagSupport;
 
+import org.owasp.encoder.Encode;
+
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -74,7 +76,7 @@ public class PreventionTag extends TagSupport {
         try {
             JspWriter out = super.pageContext.getOut();
             if (numWarnings > 0)
-                out.print("<span style=\"color:red;\" title=\"" + title + "\">  ");
+                out.print("<span style=\"color:red;\" title=\"" + Encode.forHtmlAttribute(title) + "\">  ");
             else
                 out.print("<span>  ");
         } catch (Exception eWriter) {
