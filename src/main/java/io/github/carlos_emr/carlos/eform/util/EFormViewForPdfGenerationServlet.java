@@ -109,7 +109,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         eForm.setFormHtml(eForm.getFormHtml().replace("${oscar_image_path}", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile="));
         eForm.setFormHtml(eForm.getFormHtml().replace("$%7Boscar_image_path%7D", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile="));
         eForm.setFormHtml(eForm.getFormHtml().replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;"));
-        eForm.setImagePath();
+        eForm.setImagePath(request.getContextPath());
         eForm.setNowDateTime();
 
         response.setContentType("text/html");
