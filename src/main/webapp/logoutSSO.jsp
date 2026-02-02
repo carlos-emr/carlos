@@ -24,72 +24,22 @@
 
 --%>
 
-<%@page import="ca.openosp.openo.utility.SpringUtils" %>
-<%@page import="ca.openosp.openo.utility.LoggedInInfo" %>
-<%@page import="ca.openosp.openo.commn.model.UserProperty" %>
-<%@page import="ca.openosp.openo.commn.dao.UserPropertyDAO" %>
 <%@page import="java.net.URLEncoder" %>
 <%@page import="ca.openosp.OscarProperties" %>
-<%@page import="java.util.HashMap, ca.openosp.openo.log.*"
-        errorPage="/errorpage.jsp" %>
+<%@page errorPage="/errorpage.jsp" %>
 
 <%
-    String message = null;
     String econsultUrl = OscarProperties.getInstance().getProperty("backendEconsultUrl");
     StringBuffer oscarUrl = request.getRequestURL();
     oscarUrl.setLength(oscarUrl.length() - request.getServletPath().length());
     String redirectURL = econsultUrl + "/SAML2/logout?oscarReturnURL=" + URLEncoder.encode(oscarUrl + "/logout.jsp", "UTF-8");
 
-
-    UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
-    UserProperty prop = userPropertyDAO.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), "clinicalConnectDisableLogoutWarning");
-    if (prop != null && "true".equals(prop.getValue())) {
+    // Check if this is a OneID SSO session
+    if (request.getSession().getAttribute("oneIdEmail") != null && !request.getSession().getAttribute("oneIdEmail").equals("")) {
         response.sendRedirect(redirectURL);
         return;
-    }
-
-
-    if (request.getSession().getAttribute("CC_EHR_LOADED") == null) {
-        if (request.getSession().getAttribute("oneIdEmail") != null && !request.getSession().getAttribute("oneIdEmail").equals("")) {
-
-            response.sendRedirect(redirectURL);
-            return;
-        } else {
-            response.sendRedirect(request.getContextPath() + "/logout.jsp");
-        }
     } else {
-        message = "Please be aware that any browser windows that you were working on will remain open. To ensure patient privacy, close all browser windows containing confidential or private health information (PHI) after logging out of your EMR.";
-        message = "Warning: Any browser windows that you opened during your session will remain open. To ensure patient privacy, close all browser windows containing confidential or private health information (PHI) after signing out.";
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
     }
-
 %>
-<html>
-<head>
-    <meta http-equiv="refresh"
-          content="10; url=<%=econsultUrl + "/SAML2/logout?oscarReturnURL=" + URLEncoder.encode(oscarUrl + "/logout.jsp", "UTF-8") %>">
-
-</head>
-
-<body>
-<br/></br/><br/>
-<center><img src="images/oscar_emr_logo.png"/></center>
-<br/>
-
-<div style="margin-left:auto;margin-right:auto;width:40em;font-size:15pt"><%=message %>
-</div>
-<br/>
-<div style="margin-left:auto;margin-right:auto;width:40em;font-size:15pt;text-align:center">
-    CONFIRM SIGN OUT*
-    <br/>
-    <input type="button" value="SIGN OUT"
-           onClick="window.location.href='<%=econsultUrl + "/SAML2/logout?oscarReturnURL=" + URLEncoder.encode(oscarUrl + "/logout.jsp", "UTF-8") %>'"/>
-    <input type="button" value="CANCEL" onClick="window.history.back();"/>
-    <br/>
-
-    <br/><br/>
-    <h6>* If not action is taken in 10 seconds, you will automatically be signed out. To disable this warning, to go
-        Preferences -> ClinicalConnect settings.</h6>
-</div>
-
-</body>
-</html>

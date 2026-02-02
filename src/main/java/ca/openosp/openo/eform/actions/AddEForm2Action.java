@@ -64,6 +64,7 @@ import java.util.*;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -337,7 +338,7 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer";
+                String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     fdid,
@@ -431,7 +432,7 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer";
+                String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     prev_fdid,

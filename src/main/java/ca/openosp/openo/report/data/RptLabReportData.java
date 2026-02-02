@@ -32,12 +32,12 @@ import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.dao.DemographicDao;
 import ca.openosp.openo.commn.dao.DocumentDao;
@@ -73,7 +73,7 @@ public class RptLabReportData {
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
         List<Provider> ps = dao.getProvidersByType(ProviderDao.PR_TYPE_DOCTOR);
-        Collections.sort(ps, new BeanComparator("lastName"));
+        Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         for (Provider p : ps) {
             ArrayList a = new ArrayList();
             a.add(p.getProviderNo());

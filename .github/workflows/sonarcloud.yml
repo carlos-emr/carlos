@@ -1,0 +1,209 @@
+# GitHub Workflow: SonarCloud Analysis
+#
+# Description:
+# This workflow runs SonarCloud static code analysis on the Open-O codebase.
+# It analyzes code quality, security vulnerabilities, and maintainability issues.
+#
+# Container Images:
+# This workflow uses the same dev container as maven-project.yml to ensure
+# all local_repo dependencies are available for the build.
+#
+# Usage:
+# - Triggered on pushes to the develop branch
+# - Triggered on pull requests targeting the develop branch
+#
+# Requirements:
+# - SONAR_TOKEN secret must be configured in repository settings
+# - Project must be set up on SonarCloud (https://sonarcloud.io)
+# - sonar.organization must be set in pom.xml
+#
+# License:
+# This GitHub Workflow file is part of the Open-O project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+#
+# Last Updated:
+# January 2026
+
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  packages: read
+
+jobs:
+  build:
+    name: Build and analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try to pull pre-built image from ghcr.io
+        id: pull-image
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openo-tomcat-dev:latest
+        run: |
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          if docker pull "$IMAGE" 2>pull-image-error.log; then
+            docker tag "$IMAGE" openo-tomcat-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "Image pull failed due to an unexpected error:"
+              cat pull-image-error.log
+            fi
+          fi
+          rm -f pull-image-error.log
+
+      - name: Fail on unexpected image pull error
+        if: steps.pull-image.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
+
+      - name: Cache Docker layers
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: .m2-cache
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml', 'dependencies-lock.json') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: .sonar-cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Prepare cache directories
+        run: |
+          mkdir -p .m2-cache
+          mkdir -p .sonar-cache
+
+      - name: Build dev container (fallback)
+        if: steps.pull-image.outputs.pulled != 'true'
+        run: |
+          echo "Building container locally..."
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            -t openo-tomcat-dev \
+            .devcontainer/development
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Start container
+        run: |
+          docker run -d --name openo-tomcat-dev \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
+            -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache \
+            -w /workspace \
+            openo-tomcat-dev tail -f /dev/null
+
+      - name: Configure git safe directory
+        run: |
+          docker exec openo-tomcat-dev bash -c "
+            git config --global --add safe.directory /workspace
+          "
+
+      - name: Build and analyze (Push to develop)
+        if: github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          docker exec \
+            -e GITHUB_TOKEN="$GITHUB_TOKEN" \
+            -e SONAR_TOKEN="$SONAR_TOKEN" \
+            openo-tomcat-dev bash -c "
+              echo '========================================='
+              echo 'Running SonarCloud Analysis (Branch)'
+              echo '========================================='
+              mvn -B verify sonar:sonar \
+                -Dsonar.host.url=https://sonarcloud.io \
+                -Dsonar.projectKey=openo-beta_Open-O \
+                -DskipTests \
+                -DskipModernTests=true \
+                -DskipLegacyTests=true \
+                -T 1C
+            "
+
+      - name: Build and analyze (Pull Request)
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.head_ref }}
+          PR_BASE: ${{ github.base_ref }}
+        run: |
+          docker exec \
+            -e GITHUB_TOKEN="$GITHUB_TOKEN" \
+            -e SONAR_TOKEN="$SONAR_TOKEN" \
+            -e PR_NUMBER="$PR_NUMBER" \
+            -e PR_BRANCH="$PR_BRANCH" \
+            -e PR_BASE="$PR_BASE" \
+            openo-tomcat-dev bash -c "
+              echo '========================================='
+              echo 'Running SonarCloud Analysis (Pull Request)'
+              echo '========================================='
+              echo \"PR Number: \$PR_NUMBER\"
+              echo \"PR Branch: \$PR_BRANCH\"
+              echo \"PR Base: \$PR_BASE\"
+              echo '========================================='
+              mvn -B verify sonar:sonar \
+                -Dsonar.host.url=https://sonarcloud.io \
+                -Dsonar.projectKey=openo-beta_Open-O \
+                \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \
+                \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
+                \"-Dsonar.pullrequest.base=\$PR_BASE\" \
+                -DskipTests \
+                -DskipModernTests=true \
+                -DskipLegacyTests=true \
+                -T 1C
+            "

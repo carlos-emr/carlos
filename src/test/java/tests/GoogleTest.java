@@ -1,27 +1,22 @@
 package tests;
 
 import org.testng.annotations.Test;
-
 import org.testng.Assert;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
 
-public class GoogleTest {
-    
+public class GoogleTest extends BaseTest {
+
     @Test
     public void testGooglePage() {
+        WebDriver driver = createHeadlessDriver();
 
-        // Open Google
-        System.setProperty("webdriver.chrome.driver", "/opt/homebrew/bin/chromedriver");
-        WebDriver driver = new ChromeDriver();
-        driver.get("https://www.google.com");
-        
-        // Verify the title
-        Assert.assertEquals("Google", driver.getTitle());
-        System.out.println("The title is: " + driver.getTitle());
+        try {
+            driver.get("https://www.google.com");
 
-        // Close the browser
-        driver.quit();
+            Assert.assertEquals(driver.getTitle(), "Google");
+            System.out.println("The title is: " + driver.getTitle());
+        } finally {
+            driver.quit();
+        }
     }
-
 }

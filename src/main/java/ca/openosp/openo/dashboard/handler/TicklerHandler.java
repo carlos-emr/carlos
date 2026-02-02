@@ -33,7 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.Tickler;
 import ca.openosp.openo.managers.TicklerManager;
@@ -124,7 +124,7 @@ public class TicklerHandler {
             Tickler ticklerCopy = new Tickler();
 
             try {
-                BeanUtils.copyProperties(ticklerCopy, getMasterTickler());
+                BeanUtils.copyProperties(getMasterTickler(), ticklerCopy);
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Failed to create Tickler for demographicNo: " + demographicNo, e);
                 success = Boolean.FALSE;

@@ -26,28 +26,25 @@
 
 package ca.openosp.openo.prescript.pageUtil;
 
-import java.io.IOException;
-import java.util.HashMap;
+import ca.openosp.OscarProperties;
+import ca.openosp.openo.commn.dao.UserPropertyDAO;
+import ca.openosp.openo.commn.model.UserProperty;
+import ca.openosp.openo.managers.SecurityInfoManager;
+import ca.openosp.openo.prescript.data.RxPatientData;
+import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.SpringUtils;
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.commons.lang3.BooleanUtils;
+import org.apache.struts2.ServletActionContext;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import org.apache.commons.lang3.BooleanUtils;
-import ca.openosp.openo.commn.dao.UserPropertyDAO;
-import ca.openosp.openo.commn.model.UserProperty;
-import ca.openosp.openo.managers.SecurityInfoManager;
-import ca.openosp.openo.utility.LoggedInInfo;
-import ca.openosp.openo.utility.MiscUtils;
-import ca.openosp.openo.utility.SpringUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
-
-import ca.openosp.OscarProperties;
-import ca.openosp.openo.prescript.data.RxPatientData;
-
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
+import java.io.IOException;
+import java.util.HashMap;
 
 public final class RxChoosePatient2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,7 +66,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new RuntimeException("missing required sec object (_demoraphic)");
+            throw new RuntimeException("missing required sec object (_demographic)");
         }
 
         // p("locale",locale.toString());

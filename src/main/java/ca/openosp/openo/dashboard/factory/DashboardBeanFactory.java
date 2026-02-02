@@ -24,11 +24,10 @@
  */
 package ca.openosp.openo.dashboard.factory;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.Dashboard;
 import ca.openosp.openo.commn.model.IndicatorTemplate;
@@ -86,10 +85,8 @@ public class DashboardBeanFactory {
     private void setDashboardBean(DashboardBean dashboardBean) {
         try {
             // copy matching properties from Bean to Bean
-            BeanUtils.copyProperties(dashboardBean, getDashboardEntity());
-        } catch (IllegalAccessException e) {
-            logger.error("Error", e);
-        } catch (InvocationTargetException e) {
+            BeanUtils.copyProperties(getDashboardEntity(), dashboardBean);
+        } catch (Exception e) {
             logger.error("Error", e);
         }
 

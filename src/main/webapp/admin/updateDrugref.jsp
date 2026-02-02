@@ -45,64 +45,120 @@
 
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
+<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
 <html>
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></title>
+        <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
         <link href="<c:out value="${ctx}/css/bootstrap.css"/>" rel="stylesheet" type="text/css">
-        <script src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
-        <script src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
+
         <script>
             function getUpdateTime() {
-                var data = "method=getLastUpdate";
-                var url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        var json = transport.responseText.evalJSON();
-                        if (json.lastUpdate == null) {
-                            $('dbInfo').innerHTML = 'Drugref database has not been updated, please update.';
-                            $('updatedb').show();
-                        } else if (json.lastUpdate == 'updating') {
-                            $('dbInfo').innerHTML = 'Drugref database is updating';
-                            $('updatedb').hide();
-                        } else {
-                            $('dbInfo').innerHTML = 'Drugref has been updated on ' + json.lastUpdate;
-                            $('updatedb').show();
-                        }
-                    }, onFailure: function (transport) {
-                        $('dbInfo').innerHTML = 'Drugref database has not been updated, please update.';
-                        $('updatedb').show();
+                const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
+                const formData = new URLSearchParams();
+                formData.append('method', 'verify');
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData.toString()
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(function(json) {
+                    if (json.lastUpdate == null) {
+                        document.getElementById('dbInfo').innerHTML = 'Drugref database has not been updated, please update.';
+                        document.getElementById('updatedb').style.display = 'block';
+                        document.getElementById('statusDisplay').style.display = 'none';
+                    } else if (json.lastUpdate === 'updating') {
+                        document.getElementById('dbInfo').innerHTML = 'Drugref database is updating';
+                        document.getElementById('statusDisplay').style.display = 'none';
+                        document.getElementById('updateButton').style.display = 'none';
+                    } else {
+                        document.getElementById('dbDateTime').innerHTML = json.lastUpdate;
+                        document.getElementById('drugDatabaseVersion').innerHTML = json.version;
+                        document.getElementById('drugDatabase').innerHTML = json.drugDatabase;
+                        document.getElementById('dbInfo').style.display = 'none';
+                        document.getElementById('statusDisplay').style.display = 'block';
                     }
                 })
-
+                .catch(function(error) {
+                    document.getElementById('dbInfo').innerHTML = 'Drugref database has not been updated, please update.';
+                    document.getElementById('updatedb').style.display = 'block';
+                    document.getElementById('statusDisplay').style.display = 'none';
+                });
             }
 
             function updateDB() {
-                var data = "method=updateDB";
-                var url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        var json = transport.responseText.evalJSON();
-                        if (json.result == 'running')
-                            $('updateResult').innerHTML = "Update has started, it'll take about 1 hour to finish";
-                        else if (json.result == 'updating')
-                            $('updateResult').innerHTML = "Some one has already been updating it";
+                const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
+                const formData = new URLSearchParams();
+                formData.append('method', 'updateDB');
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData.toString()
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(function(json) {
+                    if (json.result === 'running') {
+                        document.getElementById('updateResult').innerHTML = "Update has started, it'll take about 1 hour to finish";
+                    } else if (json.result === 'updating') {
+                        document.getElementById('updateResult').innerHTML = "Some one has already been updating it";
                     }
                 })
+                .catch(function(error) {
+                    console.error('Error updating database:', error);
+                });
             }
+
+            document.addEventListener("DOMContentLoaded", getUpdateTime);
         </script>
+      <style>
+        #updateButton {
+          padding-top: 19px;
+        }
+        #statusDisplay label {
+          font-weight: bold;
+          display: inline-block !important;
+        }
+      </style>
     </head>
-    <body class="mainbody" onload="getUpdateTime();">
-    <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></h4>
+    <body class="mainbody">
+    <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
     <div class="well">
-        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DrugRef"/></p>
-        <p><a id="dbInfo" href="javascript:void(0);"></a></p>
-        <p><a id="updatedb" style="display:none" onclick="updateDB();" href="javascript:void(0);"
-              class="btn btn-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a>
-        <p><a id="updateResult"></a>
-        <p>
+        <div id="dbInfo"></div>
+        <div id="statusDisplay" style="display:none;">
+          <div>
+            <label for="drugDatabase"><fmt:message key="admin.admin.DrugRef.database"/>&colon; </label>
+            <span id="drugDatabase"></span></div>
+          <div>
+            <label for="drugDatabaseVersion"><fmt:message key="admin.admin.DrugRef.databaseVersion"/>&colon; </label>
+            <span id="drugDatabaseVersion"></span></div>
+          <div>
+            <label for="dbDateTime"><fmt:message key="admin.admin.DrugRef.updateDate"/>&colon; </label>
+            <span id="dbDateTime"></span></div>
+        </div>
+        <div id="updateButton">
+          <a id="updatedb" onclick="updateDB();" href="javascript:void(0);"
+              class="btn btn-primary"><fmt:message key="admin.admin.UpdateDrugref"/></a>
+        </div>
+        <div><a id="updateResult"></a></div>
     </div>
     </body>
 

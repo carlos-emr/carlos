@@ -26,15 +26,6 @@
 
 package ca.openosp.openo.prescript.pageUtil;
 
-import ca.openosp.openo.commn.model.*;
-import com.opensymphony.xwork2.ActionSupport;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.dispatcher.mapper.ActionMapping;
-
 import ca.openosp.openo.casemgmt.model.CaseManagementNote;
 import ca.openosp.openo.casemgmt.model.CaseManagementNoteLink;
 import ca.openosp.openo.casemgmt.service.CaseManagementManager;
@@ -42,22 +33,33 @@ import ca.openosp.openo.commn.dao.DrugDao;
 import ca.openosp.openo.commn.dao.DrugReasonDao;
 import ca.openosp.openo.commn.dao.PartialDateDao;
 import ca.openosp.openo.commn.dao.UserPropertyDAO;
+import ca.openosp.openo.commn.model.Demographic;
+import ca.openosp.openo.commn.model.Drug;
+import ca.openosp.openo.commn.model.DrugReason;
+import ca.openosp.openo.commn.model.PartialDate;
+import ca.openosp.openo.commn.model.UserProperty;
+import ca.openosp.openo.log.LogAction;
+import ca.openosp.openo.log.LogConst;
 import ca.openosp.openo.managers.CodingSystemManager;
 import ca.openosp.openo.managers.DemographicManager;
 import ca.openosp.openo.managers.RxManager;
 import ca.openosp.openo.managers.SecurityInfoManager;
-import ca.openosp.openo.utility.LoggedInInfo;
-import ca.openosp.openo.utility.MiscUtils;
-import ca.openosp.openo.utility.SpringUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
-import ca.openosp.openo.log.LogAction;
-import ca.openosp.openo.log.LogConst;
 import ca.openosp.openo.prescript.data.RxDrugData;
 import ca.openosp.openo.prescript.data.RxDrugData.DrugMonograph.DrugComponent;
 import ca.openosp.openo.prescript.data.RxPrescriptionData;
 import ca.openosp.openo.prescript.util.RxUtil;
 import ca.openosp.openo.util.StringUtils;
+import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.SpringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -65,7 +67,18 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Vector;
 
 public final class RxWriteScript2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -92,39 +105,32 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     public String execute() throws IOException, ServletException, Exception {
         String method = request.getParameter("parameterValue");
-        
-        if ("updateReRxDrug".equals(method)) {
-            return updateReRxDrug();
-        } else if ("saveCustomName".equals(method)) {
-            return saveCustomName();
-        } else if ("newCustomNote".equals(method)) {
-            return newCustomNote();
-        } else if ("listPreviousInstructions".equals(method)) {
-            return listPreviousInstructions();
-        } else if ("newCustomDrug".equals(method)) {
-            return newCustomDrug();
-        } else if ("normalDrugSetCustom".equals(method)) {
-            return normalDrugSetCustom();
-        } else if ("createNewRx".equals(method)) {
-            return createNewRx();
-        } else if ("updateDrug".equals(method)) {
-            return updateDrug();
-        } else if ("iterateStash".equals(method)) {
-            return iterateStash();
-        } else if ("updateSpecialInstruction".equals(method)) {
-            return updateSpecialInstruction();
-        } else if ("updateProperty".equals(method)) {
-            return updateProperty();
-        } else if ("updateSaveAllDrugs".equals(method)) {
-            return updateSaveAllDrugs();
-        } else if ("getDemoNameAndHIN".equals(method)) {
-            return getDemoNameAndHIN();
-        } else if ("updateToLongTerm".equals(method)) {
-            return updateToLongTerm();
-        } else if ("checkNoStashItem".equals(method)) {
-            return checkNoStashItem();
-        } else if ("searchSpecialInstructions".equals(method)) {
-            searchSpecialInstructions();
+
+        String dispatchResult = switch (method != null ? method : "") {
+            case "updateReRxDrug" -> updateReRxDrug();
+            case "saveCustomName" -> saveCustomName();
+            case "newCustomNote" -> newCustomNote();
+            case "listPreviousInstructions" -> listPreviousInstructions();
+            case "newCustomDrug" -> newCustomDrug();
+            case "normalDrugSetCustom" -> normalDrugSetCustom();
+            case "createNewRx" -> createNewRx();
+            case "updateDrug" -> updateDrug();
+            case "iterateStash" -> iterateStash();
+            case "updateSpecialInstruction" -> updateSpecialInstruction();
+            case "updateProperty" -> updateProperty();
+            case "updateSaveAllDrugs" -> updateSaveAllDrugs();
+            case "getDemoNameAndHIN" -> getDemoNameAndHIN();
+            case "updateLongTermStatus" -> updateLongTermStatus();
+            case "checkNoStashItem" -> checkNoStashItem();
+            case "searchSpecialInstructions" -> {
+                searchSpecialInstructions();
+                yield null;
+            }
+            default -> null;
+        };
+
+        if (dispatchResult != null || (method != null && !method.isEmpty())) {
+            return dispatchResult;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -145,16 +151,16 @@ public final class RxWriteScript2Action extends ActionSupport {
             RxPrescriptionData.Prescription rx = bean.getStashItem(bean.getStashIndex());
             RxPrescriptionData prescription = new RxPrescriptionData();
 
-            if (this.getGCN_SEQNO() != 0) { // not custom
-                if (this.getBrandName().equals(rx.getBrandName()) == false) {
-                    rx.setBrandName(this.getBrandName());
+			if (! this.getGCN_SEQNO().equals("0")) { // not custom
+				if (this.getBrandName().equals(rx.getBrandName()) == false) {
+					rx.setBrandName(this.getBrandName());
                 } else {
-                    rx.setGCN_SEQNO(this.getGCN_SEQNO());
+					rx.setGCN_SEQNO(this.getGCN_SEQNO());
                 }
             } else { // custom
                 rx.setBrandName(null);
-                rx.setGCN_SEQNO(0);
-                rx.setCustomName(this.getCustomName());
+				rx.setGCN_SEQNO("0");
+				rx.setCustomName(this.getCustomName());
             }
 
             rx.setRxDate(RxUtil.StringToDate(this.getRxDate(), "yyyy-MM-dd"));
@@ -377,7 +383,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setRoute("");
             rx.setDosage("");
             rx.setUnit("");
-            rx.setGCN_SEQNO(0);
+			rx.setGCN_SEQNO("0");
             rx.setRegionalIdentifier("");
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx);
@@ -470,7 +476,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setRoute("");
             rx.setDosage("");
             rx.setUnit("");
-            rx.setGCN_SEQNO(0);
+			rx.setGCN_SEQNO("0");
             rx.setRegionalIdentifier("");
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx);// 1 OD, 20, 0;
@@ -530,7 +536,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 customRx.setRoute("");
                 customRx.setDosage("");
                 customRx.setUnit("");
-                customRx.setGCN_SEQNO(0);
+				customRx.setGCN_SEQNO("0");
                 customRx.setRegionalIdentifier("");
                 customRx.setAtcCode("");
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), customRx);
@@ -555,13 +561,10 @@ public final class RxWriteScript2Action extends ActionSupport {
         logger.debug("=============Start createNewRx RxWriteScript2Action.java===============");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
-
+        response.setContentType("application/json");
         String success = "newRx";
         // set default quantity
         setDefaultQuantity(request);
-        userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty propUseRx3 = userPropertyDAO.getProp((String) request.getSession().getAttribute("user"), UserProperty.RX_USE_RX3);
-
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
             response.sendRedirect("error.html");
@@ -576,32 +579,71 @@ public final class RxWriteScript2Action extends ActionSupport {
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo());
 
             String ra = request.getParameter("randomId");
-            int randomId = Integer.parseInt(ra);
+			int randomId = 0;
+			if(ra != null && !ra.isEmpty()) {
+				randomId = Integer.parseInt(ra);
+			}
+
             rx.setRandomId(randomId);
             String drugId = request.getParameter("drugId");
             String text = request.getParameter("text");
 
-            // TODO: Is this to slow to do here? It's possible to do this in ajax, as in when this comes back launch an ajax request to fill in.
+			if(text != null) {
+				text = Encode.forJava(text);
+			}
+
+			if(drugId != null) {
+				drugId = Encode.forJava(drugId);
+			}
+
             logger.debug("requesting drug from drugref id=" + drugId);
             RxDrugData.DrugMonograph dmono = drugData.getDrug2(drugId);
 
-            String brandName = null;
+			// this is the drug name the user selected from the autocomplete interface
+			rx.setDrugPrescribed(text);
+
             ArrayList<DrugComponent> drugComponents = dmono.getDrugComponentList();
-
-            if (StringUtils.isNullOrEmpty(brandName)) {
-                brandName = text;
-            }
-
             if (drugComponents != null && drugComponents.size() > 0) {
 
                 StringBuilder stringBuilder = new StringBuilder();
                 int count = 0;
                 for (RxDrugData.DrugMonograph.DrugComponent drugComponent : drugComponents) {
 
-                    stringBuilder.append(drugComponent.getName());
-                    stringBuilder.append(" ");
-                    stringBuilder.append(drugComponent.getStrength());
-                    stringBuilder.append(drugComponent.getUnit());
+					String strength = drugComponent.getStrength();
+					String unit = drugComponent.getUnit();
+					String drugName = drugComponent.getName();
+					String drugForm = dmono.drugForm;
+
+					if(strength == null) {
+						strength = "";
+					}
+
+					if(unit == null) {
+						unit = "";
+					}
+
+					if (drugName == null) {
+						drugName = "";
+					}
+
+					if(drugForm == null) {
+						drugForm = "";
+					}
+
+					if(! strength.contains("/")) {
+						strength = strength.toLowerCase().replaceAll(unit.toLowerCase(), "");
+						strength += unit.toLowerCase();
+					}
+
+					stringBuilder.append(drugName.trim());
+
+					if( ! stringBuilder.toString().toLowerCase().contains(strength.toLowerCase())) {
+						stringBuilder.append( " " + strength.toLowerCase() );
+					}
+
+					if(! stringBuilder.toString().toLowerCase().endsWith(drugForm.toLowerCase())) {
+						stringBuilder.append(" " + drugForm.toLowerCase());
+					}
 
                     count++;
                     if (count > 0 && count != drugComponents.size()) {
@@ -609,13 +651,16 @@ public final class RxWriteScript2Action extends ActionSupport {
                     }
                 }
 
-                rx.setGenericName(stringBuilder.toString());
+				rx.setGenericName(stringBuilder.toString().trim());
             } else {
                 rx.setGenericName(dmono.name);
             }
 
-            rx.setBrandName(brandName);
-
+			if(dmono.getProduct() != null && ! dmono.getProduct().isEmpty()) {
+				rx.setBrandName(dmono.getProduct());
+			} else {
+				rx.setBrandName(text);
+			}
 
             //there's a change there's multiple forms. Select the first one by default
             //save the list in a separate variable to make a drop down in the interface.
@@ -652,11 +697,26 @@ public final class RxWriteScript2Action extends ActionSupport {
                 RxDrugData.DrugMonograph.DrugComponent drugComp = (RxDrugData.DrugMonograph.DrugComponent) comps.get(i);
                 String strength = drugComp.strength;
                 unit = drugComp.unit;
-                dosage = dosage + " " + strength + " " + unit;// get drug dosage from strength and unit.
+
+				if(strength == null) {
+					strength = "";
+				}
+
+				if(unit == null) {
+					unit = "";
+				}
+
+				// covers all cases when unit is missing -or- included with the strength.
+				if(! strength.contains("/")) {
+					strength = strength.toLowerCase().trim().replaceAll(unit.toLowerCase().trim(), "");
+					strength += unit.toLowerCase().trim();
+				}
+
+				dosage += (" " + strength.toLowerCase());
             }
             rx.setDosage(removeExtraChars(dosage));
             rx.setUnit(removeExtraChars(unit));
-            rx.setGCN_SEQNO(Integer.parseInt(drugId));
+            rx.setGCN_SEQNO(drugId+"");
             rx.setRegionalIdentifier(dmono.regionalIdentifier);
             String atcCode = dmono.atc;
             rx.setAtcCode(atcCode);
@@ -666,7 +726,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
                 listRxDrugs.add(rx);
             }
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
+			bean.addAttributeName(rx.getAtcCode() + "-" + bean.getStashIndex());
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
             String today = null;
@@ -680,7 +740,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             Date tod = RxUtil.StringToDate(today, "yyyy-MM-dd");
             rx.setRxDate(tod);
             rx.setWrittenDate(tod);
-            rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));// check and set if prescript was discontinued before.
+			rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));// check and set if rx was discontinued before.
             request.setAttribute("listRxDrugs", listRxDrugs);
         } catch (Exception e) {
             logger.error("Error", e);
@@ -701,6 +761,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         String action = request.getParameter("action");
+        response.setContentType("application/json");
 
         if ("parseInstructions".equals(action)) {
 
@@ -820,6 +881,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
                 ObjectNode jsonObject = objectMapper.valueToTree(hm);
+
                 response.getOutputStream().write(jsonObject.toString().getBytes());
             } catch (Exception e) {
                 logger.error("Error", e);
@@ -1217,7 +1279,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return null;
     }
 
-    public String updateToLongTerm() throws IOException, Exception {
+    public String updateLongTermStatus() throws IOException, Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
@@ -1226,9 +1288,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         boolean isLongTerm = Boolean.parseBoolean(request.getParameter("isLongTerm"));
 
         if (Objects.isNull(strId)) {
-	    hm.put("success", false);
-		} else 
-        if (strId != null) {
+	        hm.put("success", false);
+		} else {
             int drugId = Integer.parseInt(strId);
             RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
             if (bean == null) {
@@ -1243,18 +1304,18 @@ public final class RxWriteScript2Action extends ActionSupport {
             boolean saveStatus = oldRx.Save(oldRx.getScript_no());
 
             if (saveStatus) {
-    	        saveStatus = this.rxManager.archiveDrug(loggedInInfo, drugId, bean.getDemographicNo(),
-		isLongTerm ? Drug.ARCHIVED_REASON_LT_ENABLED : Drug.ARCHIVED_REASON_LT_DISABLED);
-	
+                saveStatus = this.rxManager.archiveDrug(loggedInInfo, drugId, bean.getDemographicNo(),
+                        isLongTerm ? Drug.ARCHIVED_REASON_LT_ENABLED : Drug.ARCHIVED_REASON_LT_DISABLED);
             }
 
             hm.put("success", saveStatus);
         }
+        response.setContentType("application/json");
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         response.getOutputStream().write(jsonObject.toString().getBytes());
         return null;
     }
-
+  
     public void saveDrug(final HttpServletRequest request) throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
@@ -1440,7 +1501,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     String writtenDate = null;    //cnv to Date
     String GN = null;
     String BN = null;
-    int GCN_SEQNO = 0;
+    String GCN_SEQNO = "0";
     String customName = null;
     String takeMin = null;
     String takeMax = null;
@@ -1534,11 +1595,11 @@ public final class RxWriteScript2Action extends ActionSupport {
         this.BN = RHS;
     }
 
-    public int getGCN_SEQNO() {
+    public String getGCN_SEQNO() {
         return this.GCN_SEQNO;
     }
 
-    public void setGCN_SEQNO(int RHS) {
+    public void setGCN_SEQNO(String RHS) {
         this.GCN_SEQNO = RHS;
     }
 
@@ -1712,8 +1773,18 @@ public final class RxWriteScript2Action extends ActionSupport {
         this.patientCompliance = trueFalseNull;
     }
 
-    public void setDrugId(int drugId) {
-        this.drugId = drugId;
+    /**
+     * Setter accepts String to handle both numeric IDs and composite IDs.
+     * Only sets the int property if the input is a pure integer.
+     */
+    public void setDrugId(String drugId) {
+        if (drugId != null) {
+            try {
+                this.drugId = Integer.parseInt(drugId);
+            } catch (NumberFormatException e) {
+                // Non-integer drugIds (like Vigilance composite IDs) are handled via request.getParameter()
+            }
+        }
     }
 
     public String getGN() {

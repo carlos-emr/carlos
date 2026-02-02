@@ -31,6 +31,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+/**
+ * SendGrid API-based email sender for OpenO EMR healthcare system.
+ *
+ * This class provides functionality to send emails through the SendGrid Web API v3,
+ * supporting healthcare-specific requirements including security privilege checks,
+ * SSL/TLS encryption, and file attachments. All email operations are subject to
+ * HIPAA/PIPEDA compliance requirements and require appropriate security permissions.
+ *
+ * The implementation uses Apache HttpClient with SSL context for secure communication
+ * with SendGrid's API endpoint. Email content is serialized to JSON format according
+ * to SendGrid's API specification, supporting multiple recipients, HTML/plain text
+ * content, and Base64-encoded file attachments.
+ *
+ * Security considerations:
+ * - Requires _email WRITE privilege for all send operations
+ * - API keys are stored in EmailConfig and must be protected
+ * - SSL client authentication is enabled for enhanced security
+ * - PHI data in email content must be appropriately secured
+ *
+ * @see EmailConfig
+ * @see EmailAttachment
+ * @see SecurityInfoManager
+ * @see ca.openosp.openo.utility.EmailSendingException
+ * @since 2026-01-24
+ */
 public class APISendGridEmailSender {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -45,9 +70,29 @@ public class APISendGridEmailSender {
     private String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
     private List<EmailAttachment> attachments;
 
+    /**
+     * Private no-argument constructor to prevent instantiation without required parameters.
+     */
     private APISendGridEmailSender() {
     }
 
+    /**
+     * Constructs an APISendGridEmailSender with email parameters and attachments.
+     *
+     * This constructor initializes the email sender with all required parameters for
+     * sending emails through SendGrid's API. The logged-in user information is used
+     * for security privilege checks to ensure the user has permission to send emails.
+     *
+     * @param loggedInInfo LoggedInInfo the current logged-in user session information,
+     *                     used for security privilege validation
+     * @param emailConfig EmailConfig the email configuration containing sender details,
+     *                    API credentials, and SendGrid endpoint information
+     * @param recipients String[] array of recipient email addresses in RFC 5322 format
+     * @param subject String the email subject line
+     * @param body String the email body content (plain text format)
+     * @param attachments List&lt;EmailAttachment&gt; list of file attachments to include
+     *                    in the email, may be empty but not null
+     */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
@@ -57,6 +102,25 @@ public class APISendGridEmailSender {
         this.attachments = attachments;
     }
 
+    /**
+     * Constructs an APISendGridEmailSender with email parameters, additional parameters, and attachments.
+     *
+     * This extended constructor includes support for additional custom parameters that may be
+     * required for specific SendGrid API features or custom email processing requirements.
+     * The logged-in user information is used for security privilege checks.
+     *
+     * @param loggedInInfo LoggedInInfo the current logged-in user session information,
+     *                     used for security privilege validation
+     * @param emailConfig EmailConfig the email configuration containing sender details,
+     *                    API credentials, and SendGrid endpoint information
+     * @param recipients String[] array of recipient email addresses in RFC 5322 format
+     * @param subject String the email subject line
+     * @param body String the email body content (plain text format)
+     * @param additionalParams String additional custom parameters for SendGrid API,
+     *                         may be null if not required
+     * @param attachments List&lt;EmailAttachment&gt; list of file attachments to include
+     *                    in the email, may be empty but not null
+     */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, String additionalParams, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
@@ -67,6 +131,30 @@ public class APISendGridEmailSender {
         this.attachments = attachments;
     }
 
+    /**
+     * Sends the email through SendGrid's Web API v3 with security validation.
+     *
+     * This method performs the following operations:
+     * 1. Validates that the logged-in user has _email WRITE privilege
+     * 2. Establishes an SSL/TLS connection to SendGrid's API endpoint
+     * 3. Constructs the email JSON payload according to SendGrid API specification
+     * 4. Transmits the email via HTTP POST request with Bearer token authentication
+     * 5. Validates the HTTP response status code
+     *
+     * The method uses Apache HttpClient with custom SSL context configuration that
+     * enables client authentication for enhanced security. All attachments are
+     * Base64-encoded before transmission.
+     *
+     * HIPAA/PIPEDA Compliance Note: Ensure that any Protected Health Information (PHI)
+     * included in email content is appropriately secured and that transmission is
+     * authorized under applicable privacy regulations.
+     *
+     * @throws EmailSendingException if the user lacks required security privileges,
+     *                               if SSL context initialization fails, if the HTTP
+     *                               request fails (status code >= 400), if API credentials
+     *                               are invalid, or if attachment encoding fails
+     * @throws RuntimeException if the logged-in user does not have _email WRITE privilege
+     */
     public void send() throws EmailSendingException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");

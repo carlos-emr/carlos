@@ -44,6 +44,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Locale;
 
 public class EDoc extends TagObject implements Comparable<EDoc> {
     private static final Logger logger = MiscUtils.getLogger();
@@ -596,7 +597,11 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
 
         ctlDocument = new CtlDocument();
         CtlDocumentPK cdpk = new CtlDocumentPK();
-        cdpk.setModule(this.getModule());
+        String moduleValue = this.getModule();
+        if (moduleValue == null) {
+            throw new IllegalArgumentException("module cannot be null");
+        }
+        cdpk.setModule(moduleValue.toLowerCase(Locale.ROOT));
         cdpk.setModuleId(Integer.parseInt(this.getModuleId()));
 
         ctlDocument.setId(cdpk);

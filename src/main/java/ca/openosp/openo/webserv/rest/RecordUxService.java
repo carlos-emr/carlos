@@ -64,7 +64,6 @@ import ca.openosp.openo.webserv.rest.to.EncounterTemplateResponse;
 import ca.openosp.openo.webserv.rest.to.model.EncounterTemplateTo1;
 import ca.openosp.openo.webserv.rest.to.model.MenuItemTo1;
 import ca.openosp.openo.webserv.rest.to.model.SummaryTo1;
-import ca.openosp.openo.webserv.rest.util.ClinicalConnectUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -212,14 +211,6 @@ public class RecordUxService extends AbstractServiceImpl {
             morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../oscarEncounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
         }
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            if (ClinicalConnectUtil.isReady(loggedInInfo.getLoggedInProviderNo())) {
-                //Launch ClinicalConnect and open patient record
-                String url = ClinicalConnectUtil.getLaunchURL(loggedInInfo, demographicNo.toString());
-                morelist.add(new MenuItemTo1(idCounter++, "Launch ClinicalConnect", url));
-            }
-        }
-		
 		/*measurements,<a onclick="popupPage(600,1000,'measurements69','/oscar/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
 		 <a onclick="popupPage(500,900,'episode69','/oscar/Episode.do?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
 		 <a onclick="popupPage(500,900,'pregnancy69','/oscar/Pregnancy.do?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>

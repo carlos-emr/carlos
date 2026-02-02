@@ -25,9 +25,8 @@
 
 package ca.openosp.openo.util;
 
-import java.lang.reflect.InvocationTargetException;
-
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
 import ca.openosp.openo.utility.MiscUtils;
 
 /**
@@ -53,12 +52,10 @@ public class BeanUtilHlp {
 
         String value = "";
         try {
-            value = BeanUtils.getProperty(bean, fieldName);
-        } catch (NoSuchMethodException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        } catch (InvocationTargetException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        } catch (IllegalAccessException ex) {
+            BeanWrapper beanWrapper = new BeanWrapperImpl(bean);
+            Object propertyValue = beanWrapper.getPropertyValue(fieldName);
+            value = propertyValue != null ? propertyValue.toString() : "null";
+        } catch (Exception ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
         return value;

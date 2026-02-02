@@ -51,17 +51,76 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Controller for managing laboratory and medical document data in the InboxHub system.
+ *
+ * <p>This controller provides comprehensive functionality for retrieving, filtering, and processing
+ * laboratory results, medical documents, and Hospital Report Manager (HRM) records. It serves as the
+ * primary data access layer for the InboxHub feature, handling various types of medical data including:</p>
+ *
+ * <ul>
+ *   <li>Laboratory results (CML, HL7 TEXT, MDS formats)</li>
+ *   <li>Medical documents</li>
+ *   <li>Hospital Report Manager (HRM) documents</li>
+ *   <li>Reference and consultation documents (REF_I12, ORU_R01)</li>
+ * </ul>
+ *
+ * <p>The controller supports advanced filtering capabilities including:</p>
+ * <ul>
+ *   <li>Provider-based filtering (specific provider, all providers, or unclaimed)</li>
+ *   <li>Patient-based filtering (demographic matching, name, health number)</li>
+ *   <li>Status filtering (new, acknowledged, filed)</li>
+ *   <li>Date range filtering</li>
+ *   <li>Abnormal results filtering</li>
+ *   <li>Document type filtering (lab, doc, HRM, or all)</li>
+ * </ul>
+ *
+ * <p>Key healthcare features include:</p>
+ * <ul>
+ *   <li>Duplicate lab version filtering based on accession numbers and date proximity</li>
+ *   <li>URL generation for different lab display types with proper encoding</li>
+ *   <li>Category-based document counting for inbox organization</li>
+ *   <li>Support for matched and unmatched patient records</li>
+ * </ul>
+ *
+ * @see InboxhubQuery
+ * @see LabResultData
+ * @see CategoryData
+ * @see CommonLabResultData
+ * @see HRMResultsData
+ * @since 2026-01-24
+ */
 public class LabDataController {
 
     private boolean providerSearch;
     private boolean patientSearch;
 
+    /**
+     * Constructs a new LabDataController with default search settings.
+     *
+     * <p>Initializes the controller with both provider and patient search enabled by default.
+     * These flags control whether provider-specific and patient-specific filtering is applied
+     * when retrieving laboratory and document data.</p>
+     */
     public LabDataController() {
         providerSearch = true;
         patientSearch = true;
     }
 
-    //Converts given string date to date object. Returns null if not in yyyy-MM-dd format or blank.
+    /**
+     * Converts a string date representation to a Date object.
+     *
+     * <p>Parses a date string in ISO 8601 format (yyyy-MM-dd) and converts it to a java.util.Date
+     * object. The conversion uses the system default time zone and sets the time to the start of
+     * day (00:00:00). If the input string is empty or not in the expected format, returns null.</p>
+     *
+     * <p>This method is used throughout the InboxHub system to convert user-provided date strings
+     * from query parameters into Date objects for database queries and date range filtering.</p>
+     *
+     * @param stringDate String the date string to convert in yyyy-MM-dd format
+     * @return Date the converted Date object set to start of day in system default timezone,
+     *         or null if the input is empty or cannot be parsed
+     */
     public Date convertDate(String stringDate) {
         if (!stringDate.isEmpty()) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
@@ -77,7 +136,39 @@ public class LabDataController {
         return null;
     }
 
-    //Grabs lab link for specific inbox item.
+    /**
+     * Generates display URLs for laboratory results and medical documents.
+     *
+     * <p>Creates properly formatted and URL-encoded links for viewing different types of laboratory
+     * results and medical documents in the EMR system. The method determines the appropriate display
+     * JSP or servlet based on the result type and constructs URLs with all necessary query parameters.</p>
+     *
+     * <p>Supported result types and their display destinations:</p>
+     * <ul>
+     *   <li><b>MDS</b>: Routed to /SegmentDisplay.jsp for Medical Data Systems results</li>
+     *   <li><b>CML</b>: Routed to /lab/CA/ON/CMLDisplay.jsp for Ontario CML lab results</li>
+     *   <li><b>HL7 TEXT</b>: Routes based on discipline/category:
+     *     <ul>
+     *       <li>REF_I12: Consultation/referral display via /oscarEncounter/ViewRequest.do</li>
+     *       <li>ORU_R01: Observation results via /lab/CA/ALL/viewOruR01.jsp</li>
+     *       <li>Other: Generic HL7 display via /lab/CA/ALL/labDisplay.jsp</li>
+     *     </ul>
+     *   </li>
+     *   <li><b>Document</b>: Routed to /documentManager/showDocument.jsp for medical documents</li>
+     *   <li><b>HRM</b>: Hospital Report Manager display via /hospitalReportManager/Display.do with duplicate handling</li>
+     *   <li><b>Other</b>: Default BC lab display via /lab/CA/BC/labDisplay.jsp</li>
+     * </ul>
+     *
+     * <p>All URLs include properly encoded parameters for segment ID, provider numbers, result status,
+     * patient demographics, and search criteria to maintain context when viewing results.</p>
+     *
+     * @param results ArrayList&lt;LabResultData&gt; the list of laboratory results to generate links for
+     * @param query InboxhubQuery the query object containing search parameters and filters
+     * @param contextPath String the web application context path for URL construction
+     * @param providerNo String the provider number of the currently logged-in user
+     * @return ArrayList&lt;String&gt; list of fully constructed and encoded URLs for each lab result,
+     *         in the same order as the input results
+     */
     public ArrayList<String> getLabLink(ArrayList<LabResultData> results, InboxhubQuery query, String contextPath, String providerNo) {
         ArrayList<String> labLinks = new ArrayList<String>();
         for (int i = 0; i < results.size(); i++) {
@@ -137,7 +228,35 @@ public class LabDataController {
         return labLinks;
     }
 
-    //Gets inbox CategoryData for given query. CategoryData includes document counts for all document types & patient lists.
+    /**
+     * Retrieves category data and document counts for the InboxHub based on query parameters.
+     *
+     * <p>Creates and populates a CategoryData object containing comprehensive statistics about
+     * laboratory results, medical documents, and HRM records matching the query criteria. The
+     * category data includes document counts by type, patient lists, and filtering metadata.</p>
+     *
+     * <p>The method analyzes the query to determine search modes:</p>
+     * <ul>
+     *   <li><b>Provider search disabled</b>: When searchProviderNo is "-1" (all providers)</li>
+     *   <li><b>Patient search disabled</b>: When no demographic number, patient name, or health number provided</li>
+     * </ul>
+     *
+     * <p>The CategoryData object provides counts for:</p>
+     * <ul>
+     *   <li>Total documents (matched and unmatched)</li>
+     *   <li>Total laboratory results (matched and unmatched)</li>
+     *   <li>Total HRM documents (matched and unmatched)</li>
+     *   <li>Patient lists associated with the results</li>
+     * </ul>
+     *
+     * <p>These counts are essential for displaying inbox statistics, pagination controls,
+     * and category filters in the InboxHub user interface.</p>
+     *
+     * @param query InboxhubQuery the query object containing search filters including patient demographics,
+     *              provider number, status filter, abnormal filter, and date range
+     * @return CategoryData the populated category data object containing document counts and patient lists,
+     *         with counts set to zero if SQL errors occur during population
+     */
     public CategoryData getCategoryData(InboxhubQuery query) {
         if (Objects.equals(query.getSearchProviderNo(), "-1")) {
             providerSearch = false;
@@ -155,7 +274,45 @@ public class LabDataController {
         return categoryData;
     }
 
-    //Returns lab data based on the query. If lab, doc, and hrm flags are not set in the query returns all data from all data types.
+    /**
+     * Retrieves laboratory results, medical documents, and HRM data based on query parameters.
+     *
+     * <p>This is the primary data retrieval method for the InboxHub, aggregating results from multiple
+     * data sources (laboratory results, medical documents, Hospital Report Manager records) into a
+     * unified list. The method applies various filters including provider, patient demographics,
+     * status, date range, and abnormal results flags.</p>
+     *
+     * <p>Data source selection logic:</p>
+     * <ul>
+     *   <li>If no type flags are set (lab, doc, hrm all false), retrieves data from all sources</li>
+     *   <li>If specific type flags are set, retrieves only the selected types</li>
+     *   <li>Mixed mode: When both lab and doc flags are set, results are interleaved</li>
+     * </ul>
+     *
+     * <p>Special processing for laboratory results:</p>
+     * <ul>
+     *   <li>Uses increased page size (100) to reduce older lab versions in results</li>
+     *   <li>Applies duplicate lab version filtering based on accession numbers and date proximity</li>
+     *   <li>Filters out labs within 4 months of each other with matching accession numbers</li>
+     * </ul>
+     *
+     * <p>HRM-specific behavior:</p>
+     * <ul>
+     *   <li>HRM results are excluded when abnormal filter is explicitly enabled</li>
+     *   <li>Provider filtering for HRM uses empty string for "ANY_PROVIDER" mode</li>
+     * </ul>
+     *
+     * <p>The method uses pagination (configurable page size, default handling) and supports
+     * both matched and unmatched patient records. All date conversions use the convertDate
+     * method for consistent ISO 8601 formatting.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information for security context
+     * @param query InboxhubQuery the query object containing all search parameters, filters, pagination
+     *              settings, and type flags (lab, doc, hrm)
+     * @return ArrayList&lt;LabResultData&gt; unified list of laboratory results, documents, and HRM records
+     *         matching the query criteria, with duplicate lab versions filtered and results from
+     *         selected data sources combined
+     */
     public ArrayList<LabResultData> getLabData(LoggedInInfo loggedInInfo, InboxhubQuery query) {
         Integer page = query.getPage() - 1;
         Integer pageSize = query.getPageSize();
@@ -192,6 +349,48 @@ public class LabDataController {
         return labDocs;
     }
 
+    /**
+     * Sanitizes and validates InboxHub query parameters from form submission.
+     *
+     * <p>This method processes and normalizes query parameters received from the InboxHub form,
+     * applying business logic and security rules to ensure valid and consistent search criteria.
+     * It handles provider filtering, patient matching, and document type selection based on
+     * user input and session context.</p>
+     *
+     * <p>Provider filtering logic:</p>
+     * <ul>
+     *   <li><b>ANY_PROVIDER</b>: Sets searchProviderNo to "-1" for all providers</li>
+     *   <li><b>NO_PROVIDER</b>: Sets searchProviderNo to "0" for unclaimed results</li>
+     *   <li><b>Invalid values ("0" or "-1")</b>: Resets to logged-in provider for security</li>
+     *   <li>Valid provider number: Preserved as-is</li>
+     * </ul>
+     *
+     * <p>Patient filtering logic:</p>
+     * <ul>
+     *   <li><b>Unmatched flag set</b>: Forces demographicNo to "0" and clears all patient search fields</li>
+     *   <li><b>demographicFilter provided</b>: Overrides query's demographicNo with filter value</li>
+     * </ul>
+     *
+     * <p>Type filtering logic (when typeFilterValue provided):</p>
+     * <ul>
+     *   <li><b>DOC</b>: Sets doc=true, lab=false, hrm=false</li>
+     *   <li><b>LAB</b>: Sets lab=true, doc=false, hrm=false</li>
+     *   <li><b>HRM</b>: Sets hrm=true, doc=false, lab=false</li>
+     *   <li><b>Other/null</b>: No changes to type flags</li>
+     * </ul>
+     *
+     * <p>This method ensures that queries are properly scoped to the logged-in provider's
+     * permissions and that patient privacy is maintained by preventing unauthorized access
+     * to all-provider or unclaimed results without proper authorization.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session containing provider number
+     *                     and session attributes for security context
+     * @param query InboxhubQuery the query object to sanitize and validate, modified in-place
+     * @param demographicFilter String optional demographic number to override query's demographic
+     *                          filter, or null to use query's existing value
+     * @param typeFilterValue String optional document type filter ("doc", "lab", "hrm"),
+     *                        or null to preserve existing type flags
+     */
     public void sanitizeInboxFormQuery(LoggedInInfo loggedInInfo, InboxhubQuery query, String demographicFilter, String typeFilterValue) {
         String loggedInProviderNo = (String) loggedInInfo.getSession().getAttribute("user");
         Provider loggedInProvider = ProviderData.getProvider(loggedInProviderNo);
@@ -233,6 +432,28 @@ public class LabDataController {
         }
     }
 
+    /**
+     * Configures the query to display only unclaimed inbox results.
+     *
+     * <p>When the unclaimed parameter is set to "1", this method resets the query to a specific
+     * configuration designed to show only unclaimed (unassigned) laboratory results and documents.
+     * This is a common use case in healthcare workflows where results need to be triaged and
+     * assigned to providers.</p>
+     *
+     * <p>Unclaimed query configuration:</p>
+     * <ul>
+     *   <li>Resets all existing query parameters to defaults (preserving null session)</li>
+     *   <li>Sets provider filter to NO_PROVIDER mode (searchProviderNo = "0")</li>
+     *   <li>Sets status filter to NEW only (excludes acknowledged and filed results)</li>
+     * </ul>
+     *
+     * <p>If the unclaimed parameter is null or not "1", the method returns immediately without
+     * modifying the query, allowing other filtering criteria to remain active.</p>
+     *
+     * @param query InboxhubQuery the query object to configure for unclaimed results, modified in-place
+     * @param unclaimed String flag indicating whether to show unclaimed results, must be "1" to activate,
+     *                  null or any other value leaves query unchanged
+     */
     public void setInboxFormQueryUnclaimed(InboxhubQuery query, String unclaimed) {
         if (unclaimed == null || !unclaimed.equals("1")) { return; }
         query.reset(null);
@@ -240,6 +461,39 @@ public class LabDataController {
         query.setStatus(StatusFilter.NEW.getValue());
     }
 
+    /**
+     * Calculates total result counts for documents, labs, and HRM records based on query filters.
+     *
+     * <p>This method computes comprehensive statistics about the number of results matching the
+     * query criteria, broken down by document type (documents, laboratory results, HRM records).
+     * The counts are calculated from pre-populated CategoryData and are essential for displaying
+     * pagination controls, result summaries, and category tabs in the InboxHub interface.</p>
+     *
+     * <p>Type selection logic:</p>
+     * <ul>
+     *   <li>If no type flags are set (lab, doc, hrm all false), counts all three types</li>
+     *   <li>If specific type flags are set, counts only the selected types</li>
+     * </ul>
+     *
+     * <p>Special handling for HRM counts:</p>
+     * <ul>
+     *   <li>HRM results are excluded when abnormal filter is explicitly enabled</li>
+     *   <li>This prevents HRM records from appearing in abnormal results views</li>
+     * </ul>
+     *
+     * <p>The method delegates to private helper methods (getDocumentCount, getLabCount, getHRMCount)
+     * which apply patient search and unmatched filtering logic to the CategoryData counts.</p>
+     *
+     * @param query InboxhubQuery the query object containing type flags (doc, lab, hrm) and
+     *              abnormal filter settings
+     * @param categoryData CategoryData pre-populated category data containing total, matched,
+     *                     and unmatched counts for all document types
+     * @return int[] array of four integers containing:
+     *         [0] total documents count (excluding HRMs),
+     *         [1] total laboratory results count,
+     *         [2] total HRM records count,
+     *         [3] combined total of all selected types
+     */
     public int[] getTotalResultsCountBasedOnQuery(InboxhubQuery query, CategoryData categoryData) {
         int totalDocsCount = 0;
         int totalLabsCount = 0;

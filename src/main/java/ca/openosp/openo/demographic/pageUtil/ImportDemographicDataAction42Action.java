@@ -73,6 +73,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
 import org.codehaus.jettison.json.JSONException;
+import org.owasp.encoder.Encode;
 import org.codehaus.jettison.json.JSONObject;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.PMmodule.model.Program;
@@ -361,7 +362,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                                             HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId) throws IOException {
         try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(fileDirectory)) {
             for (Path stream : directoryStream) {
-
                 if (Files.isDirectory(stream)) {
                     // set the current directory globally. Other methods use it to retrieve relative files.
                     currentDirectory = stream.toAbsolutePath().toString();
@@ -385,11 +385,23 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                             }
                         }
                     }
+                } else if (Files.isRegularFile(stream)) {
+                    String filePath = stream.toString();
+                    if (filePath.toLowerCase().endsWith(".xml")) {
+                        // Set the current directory to the XML file's parent for attachment resolution
+                        currentDirectory = stream.getParent().toAbsolutePath().toString();
+                        processXmlFile(loggedInInfo, stream, warnings, logs, request, timeshiftInDays, students, courseId);
+                    } else {
+                        // Skip regular files (like JPG, PDF attachments) - they will be referenced by XML files
+                    }
                 } else {
-                    warnings.add("Directory not found " + stream);
+                    // Log the actual path for debugging, but don't expose it to the user (may contain PHI)
+                    logger.debug("Skipping path that is neither a file nor directory: {}", stream);
+                    warnings.add("Skipped invalid path type (not a file or directory)");
                 }
             }
         } catch (Exception e) {
+            logger.error("Error processing XML files in directory", e);
             throw new RuntimeException(e);
         }
     }
@@ -407,14 +419,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(Paths.get(zipFilePath.toString())))) {
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
-                String entryName = zipEntry.getName();
-
-                // Validate the zip entry path using PathValidationUtils
-                File newFile;
-                try {
-                    newFile = PathValidationUtils.validatePath(entryName, targetDir);
-                } catch (SecurityException e) {
-                    logger.error("Skipping potentially malicious zip entry: " + entryName);
+                File newFile = resolveAndValidateZipEntry(zipEntry, targetDir);
+                if (newFile == null) {
                     zipEntry = zis.getNextEntry();
                     continue;
                 }
@@ -424,20 +430,20 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                         throw new IOException("Failed to create directory " + newFile);
                     }
                 } else {
-                    // fix for Windows-created archives
+                    // Ensure parent directories exist (for Windows-created archives)
                     File parent = newFile.getParentFile();
-                    if (!parent.isDirectory() && !parent.mkdirs()) {
-                        throw new IOException("Failed to create directory " + parent);
+                    if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+                        throw new IOException("Failed to create parent directory " + parent);
                     }
 
-                    // write file content
+                    // Write file content
                     try (FileOutputStream fos = new FileOutputStream(newFile)) {
                         int len;
                         while ((len = zis.read(buffer)) > 0) {
                             fos.write(buffer, 0, len);
                         }
                     } catch (Exception e) {
-                        throw new IOException("Failed to create directory " + e);
+                        throw new IOException("Failed to write file: " + e.getMessage(), e);
                     }
                 }
                 zipEntry = zis.getNextEntry();
@@ -449,6 +455,95 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             Files.deleteIfExists(zipFilePath);
         }
         return directoryPath;
+    }
+
+    /**
+     * Resolves and validates a ZIP entry against the target directory.
+     *
+     * @param zipEntry the ZIP entry to validate
+     * @param targetDir the target directory for extraction
+     * @return the validated File if entry is valid, null otherwise
+     */
+    private File resolveAndValidateZipEntry(ZipEntry zipEntry, File targetDir) {
+        String entryName = zipEntry.getName();
+
+        // Validate ZIP entry name before processing
+        if (entryName == null || entryName.trim().isEmpty()) {
+            logger.error("Skipping ZIP entry with null or empty name");
+            return null;
+        }
+
+        // Normalize path separators to handle cross-platform ZIP files
+        String normalizedEntryName = entryName.replace("\\", "/");
+
+        // Create file by resolving entry name against target directory (preserves directory structure)
+        File newFile = new File(targetDir, normalizedEntryName);
+
+        // CRITICAL SECURITY: Validate the resolved path is within the target directory
+        // This prevents ZIP Slip attacks (e.g., "../../../etc/passwd")
+        // Uses validateExistingPath for containment check without stripping path components
+        try {
+            // First, perform any existing validation logic
+            PathValidationUtils.validateExistingPath(newFile, targetDir);
+
+            // Explicit canonical / normalized path containment check to prevent Zip Slip
+            // and to make the security property obvious to static analysis tools.
+            java.nio.file.Path basePath = targetDir.getCanonicalFile().toPath().normalize();
+            java.nio.file.Path resolvedPath = newFile.getCanonicalFile().toPath().normalize();
+            if (!resolvedPath.startsWith(basePath)) {
+                logger.error("SECURITY: ZIP entry {} resolves outside target directory {}", Encode.forJava(entryName), targetDir);
+                return null;
+            }
+
+            // Also ensure the parent directory (if any) is within the target directory
+            File parent = newFile.getParentFile();
+            if (parent != null) {
+                java.nio.file.Path parentPath = parent.getCanonicalFile().toPath().normalize();
+                if (!parentPath.startsWith(basePath)) {
+                    logger.error("SECURITY: Parent directory of ZIP entry {} resolves outside target directory {}", Encode.forJava(entryName), targetDir);
+                    return null;
+                }
+            }
+
+            // Additional defense-in-depth: keep existing helper-based checks
+            if (!isWithinDirectory(newFile, targetDir)) {
+                logger.error("SECURITY: ZIP entry {} resolves outside target directory according to isWithinDirectory", Encode.forJava(entryName));
+                return null;
+            }
+
+            return newFile;
+        } catch (IOException e) {
+            logger.error("SECURITY: I/O error while validating ZIP entry {}: {}", Encode.forJava(entryName), e.getMessage(), e);
+            return null;
+        } catch (SecurityException e) {
+            logger.error("SECURITY: Rejecting malicious ZIP entry: {}", Encode.forJava(entryName), e);
+            return null;
+        }
+    }
+
+    /**
+     * Canonical path containment check used to prevent Zip Slip.
+     * Ensures that {@code file} is equal to or a descendant of {@code baseDir}.
+     *
+     * @param file File the file to check
+     * @param baseDir File the base directory that should contain the file
+     * @return boolean true if file is within baseDir, false otherwise
+     */
+    private boolean isWithinDirectory(File file, File baseDir) {
+        if (file == null || baseDir == null) {
+            return false;
+        }
+        try {
+            File baseCanonical = baseDir.getCanonicalFile();
+            File fileCanonical = file.getCanonicalFile();
+            String basePath = baseCanonical.getPath();
+            String filePath = fileCanonical.getPath();
+
+            return filePath.equals(basePath) || filePath.startsWith(basePath + File.separator);
+        } catch (IOException e) {
+            logger.error("Error performing canonical containment check for {}", Encode.forJava(file.getPath()), e);
+            return false;
+        }
     }
 
     /**
@@ -469,8 +564,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
         } catch (IOException ex) {
-            warnings.add("Error while locating " + ".xml" + " in " + path.toString());
-            logger.error("Error while locating " + ".xml" + " in " + path, ex);
+            // Don't expose path in user-facing warnings (may contain PHI)
+            warnings.add("Error while searching for XML files in directory");
+            logger.error("Error while locating .xml files in path: {}", path, ex);
         }
         return filteredFileList;
     }
@@ -2213,8 +2309,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                         DrugMonograph dm = rxDrugData.getDrugByDIN(drug.getRegionalIdentifier());
                         if (dm != null) {
                             drug.setAtc(dm.getAtc());
-                            if (dm.drugCode != null) {
-                                drug.setGcnSeqNo(Integer.parseInt(dm.drugCode));
+	                    		if(dm.drugId != null) {
+	                    			drug.setGcnSeqNo(dm.drugId + "");
                             }
                         }
                     } catch (Exception e) {
@@ -2662,19 +2758,35 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                                 f.write(b);
                                 f.close();
                             } else {
-                                String tmpDir = currentDirectory;
-                                //oscarProperties.getProperty("TMP_DIR");
-                                tmpDir = Util.fixDirName(tmpDir);
-                                String path3 = tmpDir + repR[i].getFilePath();
-                                if (!path3.endsWith(contentType)) {
-                                    path3 = path3 + contentType;
-                                }
-                                if (path3.indexOf("\\") != -1) {
-                                    path3 = path3.replace("\\", File.separator);
+                                // filePath is already declared at line 2617
+                                if (filePath == null || filePath.isEmpty()) {
+                                    err_data.add("Error! No file path for Report (" + (i + 1) + ")");
+                                    continue;
                                 }
 
-                                //FileUtils.copyFile(new File(tmpDir + repR[i].getFilePath().substring(repR[i].getFilePath().lastIndexOf("\\")+1)), new File(docDir + docFileName));
-                                FileUtils.copyFile(new File(path3), new File(docDir + docFileName));
+                                // Resolve and validate the source file
+                                // This returns only regular files (not directories) suitable for FileUtils.copyFile
+                                File sourceFile = resolveReportSourceFile(currentDirectory, filePath, contentType);
+                                if (sourceFile == null) {
+                                    err_data.add("Error! Cannot locate file for Report (" + (i + 1) + ")");
+                                    continue;
+                                }
+
+                                // Validate the resolved sourceFile is within the allowed extraction directory
+                                // This prevents path traversal attacks from malicious XML file paths
+                                try {
+                                    File allowedRoot = new File(currentDirectory);
+                                    PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
+                                } catch (SecurityException e) {
+                                    logger.error("SECURITY: Rejecting file copy - resolved path outside allowed directory. FilePath: {}, SourceFile: {}",
+                                        Encode.forJava(new File(filePath).getName()),
+                                        Encode.forJava(sourceFile.getName()),
+                                        e);
+                                    err_data.add("Error! Security violation for Report (" + (i + 1) + "): Invalid file path");
+                                    continue;
+                                }
+
+                                FileUtils.copyFile(sourceFile, new File(docDir + docFileName));
                             }
 
                             if (repR[i].getClass1() != null) {
@@ -3151,6 +3263,137 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             return "application/rtf";
         }
         return contentType;
+    }
+
+    /**
+     * Resolves the source file for a report by trying multiple strategies.
+     *
+     * @param currentDirectory String the current directory to search from
+     * @param filePath String the file path from the report data
+     * @param contentType String the content type/extension for the file
+     * @return File the resolved File if found, null otherwise
+     */
+    private File resolveReportSourceFile(String currentDirectory, String filePath, String contentType) {
+        // Defensive null/blank guard for currentDirectory
+        if (currentDirectory == null || currentDirectory.trim().isEmpty()) {
+            logger.warn("resolveReportSourceFile: currentDirectory is null or empty, cannot resolve file path");
+            return null;
+        }
+
+        // Defensive null/blank guard for filePath
+        if (filePath == null || filePath.trim().isEmpty()) {
+            logger.warn("resolveReportSourceFile: filePath is null or empty, cannot resolve file");
+            return null;
+        }
+
+        String normalizedPath = filePath
+            .replace("\\", File.separator)
+            .replace("/", File.separator);
+
+        if (isAbsoluteReportPath(normalizedPath)) {
+            logger.error("SECURITY: Rejecting absolute file path from XML");
+            return null;
+        }
+
+        String fileName = new File(normalizedPath).getName();
+        File currentDir = new File(currentDirectory);
+
+        List<File> candidates = new ArrayList<>();
+
+        // Strategy 1: path relative to current directory
+        candidates.add(new File(currentDir, normalizedPath));
+
+        // Strategy 2: filename only in current directory
+        candidates.add(new File(currentDir, fileName));
+
+        // Try to resolve and validate each candidate
+        for (File candidate : candidates) {
+            File resolved = tryResolveCandidate(candidate, contentType, currentDir, filePath);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Attempts to resolve and validate a file candidate, optionally with a content type extension.
+     *
+     * @param candidate the base candidate file to try
+     * @param contentType optional extension to append to the candidate path
+     * @param allowedRoot the allowed root directory for path validation
+     * @param originalPath the original file path from XML for logging
+     * @return the validated File if found and valid, null otherwise
+     */
+    private File tryResolveCandidate(File candidate, String contentType, File allowedRoot, String originalPath) {
+        // Try base candidate first
+        File resolved = tryValidateExisting(candidate, allowedRoot, originalPath);
+        if (resolved != null) {
+            return resolved;
+        }
+
+        // Try candidate with extension
+        if (contentType != null && !contentType.isEmpty()) {
+            File withExt = new File(candidate.getPath() + contentType);
+            return tryValidateExisting(withExt, allowedRoot, originalPath);
+        }
+
+        return null;
+    }
+
+    /**
+     * Validates an existing regular file against the allowed root directory.
+     * Only returns files that exist AND are regular files (not directories or special files).
+     * This ensures the returned File can be used with FileUtils.copyFile without errors.
+     *
+     * @param file the file to validate
+     * @param allowedRoot the allowed root directory
+     * @param originalPath the original file path from XML for logging
+     * @return the file if it exists as a regular file and passes validation, null otherwise
+     */
+    private File tryValidateExisting(File file, File allowedRoot, String originalPath) {
+        if (!file.exists()) {
+            return null;
+        }
+
+        // Only accept regular files, reject directories and other file types
+        // This prevents FileUtils.copyFile from failing when given a directory
+        if (!file.isFile()) {
+            return null;
+        }
+
+        // CRITICAL SECURITY: Validate the resolved path is within the allowed directory
+        // This prevents path traversal attacks from malicious XML (e.g., "../../../etc/passwd")
+        try {
+            PathValidationUtils.validateExistingPath(file, allowedRoot);
+            return file;
+        } catch (SecurityException e) {
+            logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",
+                    Encode.forJava(originalPath), Encode.forJava(file.getPath()), e);
+            return null;
+        }
+    }
+
+    /**
+     * Checks if a normalized path is absolute.
+     *
+     * @param normalizedPath the normalized path to check
+     * @return true if the path is absolute, false otherwise
+     */
+    private boolean isAbsoluteReportPath(String normalizedPath) {
+        if (normalizedPath == null) {
+            return false;
+        }
+
+        File f = new File(normalizedPath);
+        // Covers Unix and most Windows absolute cases
+        if (f.isAbsolute()) {
+            return true;
+        }
+
+        // Explicit drive-letter pattern for extra defensive checking
+        return normalizedPath.matches("^[A-Za-z]:[/\\\\].*");
     }
 
     private File makeImportLog(ArrayList<String[]> demo, String dir) throws IOException {
@@ -4314,8 +4557,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), localFileIs, admProviderNo);
 
                     if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        logger.debug("filePath" + filePath);
-                        logger.debug("Type :" + type);
+                        logger.debug("File uploaded successfully");
+                        logger.debug("Type: {}", type);
                         MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
                         if (msgHandler != null) {
                             logger.debug("MESSAGE HANDLER " + msgHandler.getClass().getName());

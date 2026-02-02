@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,16 +53,8 @@ import java.util.List;
 @Rollback
 class DemographicDaoModernTest extends OpenODaoTestBase {
 
+    @Autowired
     private DemographicDao demographicDao;
-
-    @BeforeEach
-    void setUp() {
-        // Get DAO using SpringUtils to ensure compatibility
-        demographicDao = SpringUtils.getBean(DemographicDao.class);
-
-        // Verify SpringUtils integration
-        verifyDaoSpringUtilsIntegration(DemographicDao.class);
-    }
 
     @Test
     @DisplayName("Should create and retrieve demographic")

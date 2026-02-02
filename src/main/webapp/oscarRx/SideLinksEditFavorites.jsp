@@ -47,9 +47,9 @@
 
 <div class="PropSheetMenu">
     <p class="PropSheetLevel1CurrentItem"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgSpecial"/></p>
-    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/SelectPharmacy.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgEditPharmacy"/></a></p>
-    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/EditFavorites.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgEditFavorites"/></a></p>
-    <p class="PropSheetMenuItemLevel1"><a href="oscarRx/CopyFavorites.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgCopyFavorites"/></a></p>
+    <p class="PropSheetMenuItemLevel1"><a href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgEditPharmacy"/></a></p>
+    <p class="PropSheetMenuItemLevel1"><a href="<%= request.getContextPath() %>/oscarRx/EditFavorites.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgEditFavorites"/></a></p>
+    <p class="PropSheetMenuItemLevel1"><a href="<%= request.getContextPath() %>/oscarRx/CopyFavorites.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgCopyFavorites"/></a></p>
 
     <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=false%>">
 
@@ -78,7 +78,7 @@
         for (int j=0; j<favorites.length; j++){%>
 
     <p class="PropSheetMenuItemLevel1"><a
-            href="oscarRx/useFavorite.do?favoriteId=<%= favorites[j].getFavoriteId() %>"
+            href="<%= request.getContextPath() %>/oscarRx/useFavorite.do?favoriteId=<%= favorites[j].getFavoriteId() %>"
             title="<%= favorites[j].getFavoriteName() %>"><%if (favorites[j].getFavoriteName().length() > 13) {%>
         <%= favorites[j].getFavoriteName().substring(0, 10) + "..." %> <%} else {%>
         <%= favorites[j].getFavoriteName() %> <%}%></a></p>

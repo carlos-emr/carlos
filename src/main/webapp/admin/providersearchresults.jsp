@@ -229,19 +229,19 @@
             <td style="text-align:center"><a
                     href='providerupdateprovider.jsp?keyword=<%=provider.getId()%>'><%= provider.getId() %>
             </a></td>
-            <td><%= Encode.forHtmlContent(provider.getLastName() + ", " + provider.getFirstName()) %>
+            <td><%= Encode.forHtmlContent((provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName())) %>
             </td>
-            <td style="text-align:center"><%= Encode.forHtmlContent(provider.getOhipNo())%>
+            <td style="text-align:center"><%= Encode.forHtmlContent(provider.getOhipNo() == null ? "" : provider.getOhipNo())%>
             </td>
-            <td><%= Encode.forHtmlContent(provider.getSpecialty()) %>
+            <td><%= Encode.forHtmlContent(provider.getSpecialty() == null ? "" : provider.getSpecialty()) %>
             </td>
-            <td><%= Encode.forHtmlContent(provider.getTeam()) %>
+            <td><%= Encode.forHtmlContent(provider.getTeam() == null ? "" : provider.getTeam()) %>
             </td>
-            <td style="text-align:center"><%= Encode.forHtmlContent(provider.getSex()) %>
+            <td style="text-align:center"><%= Encode.forHtmlContent(provider.getSex() == null ? "" : provider.getSex()) %>
             </td>
-            <td><%= Encode.forHtmlContent(provider.getPhone()) %>
+            <td><%= Encode.forHtmlContent(provider.getPhone() == null ? "" : provider.getPhone()) %>
             </td>
-            <td><%= (provider.getStatus() != null) ? (provider.getStatus().equals("1") ? "Active" : "Inactive") : "" %>
+            <td><%= (provider.getStatus() != null) ? ("1".equals(provider.getStatus()) ? "Active" : "Inactive") : "" %>
             </td>
         </tr>
         <%

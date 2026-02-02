@@ -2661,8 +2661,7 @@ if (userAgent != null) {
                                                 FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
                                                 List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
                                             %>
-                                            <span id="letterheadFaxSpan">
-										<select name="letterheadFax" id="letterheadFax">
+										<select name="faxAccount" id="faxAccount">
 								<%
                                     for (FaxConfig faxConfig : faxConfigs) {
                                 %>
@@ -2671,7 +2670,6 @@ if (userAgent != null) {
                                     }
                                 %>
 									</select>
-								</span>
 
                                         </td>
                                     </tr>

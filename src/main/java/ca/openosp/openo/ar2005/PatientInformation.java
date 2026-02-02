@@ -21,164 +21,599 @@ import org.apache.xmlbeans.XmlString;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Apache XMLBeans interface representing patient information for AR2005 (British Columbia Antenatal Record) forms.
+ *
+ * <p>This interface provides access to comprehensive patient demographic and clinical information required for
+ * prenatal care documentation in British Columbia. It includes patient identification, contact information,
+ * demographics, health insurance details, and clinical data such as allergies and current medications.</p>
+ *
+ * <p>This is an Apache XMLBeans-generated interface that provides type-safe access to XML data conforming to
+ * the AR2005 schema. All nested interfaces and factory classes are auto-generated to support XML serialization
+ * and deserialization of patient information.</p>
+ *
+ * <p><strong>Healthcare Context:</strong> The AR2005 form (British Columbia Antenatal Record) is used for
+ * comprehensive prenatal care tracking including patient demographics, medical history, pregnancy progression,
+ * and delivery information. This interface supports the electronic management of Protected Health Information
+ * (PHI) and must be used in compliance with PIPEDA and provincial privacy regulations.</p>
+ *
+ * @see ca.openosp.openo.ar2005
+ * @see org.apache.xmlbeans.XmlObject
+ * @since 2026-01-24
+ */
 public interface PatientInformation extends XmlObject
 {
+    /**
+     * SchemaType for the PatientInformation interface.
+     * Used by Apache XMLBeans for type system resolution and XML binding.
+     */
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(PatientInformation.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("patientinformation833etype");
-    
+
+    /**
+     * Gets the patient's last name (surname).
+     *
+     * @return String the patient's last name
+     */
     String getLastName();
-    
+
+    /**
+     * Gets the patient's last name as an XmlString object.
+     *
+     * @return XmlString the patient's last name as an XML typed value
+     */
     XmlString xgetLastName();
-    
+
+    /**
+     * Sets the patient's last name.
+     *
+     * @param p0 String the patient's last name to set
+     */
     void setLastName(final String p0);
-    
+
+    /**
+     * Sets the patient's last name using an XmlString object.
+     *
+     * @param p0 XmlString the patient's last name as an XML typed value
+     */
     void xsetLastName(final XmlString p0);
-    
+
+    /**
+     * Gets the patient's first name (given name).
+     *
+     * @return String the patient's first name
+     */
     String getFirstName();
-    
+
+    /**
+     * Gets the patient's first name as an XmlString object.
+     *
+     * @return XmlString the patient's first name as an XML typed value
+     */
     XmlString xgetFirstName();
-    
+
+    /**
+     * Sets the patient's first name.
+     *
+     * @param p0 String the patient's first name to set
+     */
     void setFirstName(final String p0);
-    
+
+    /**
+     * Sets the patient's first name using an XmlString object.
+     *
+     * @param p0 XmlString the patient's first name as an XML typed value
+     */
     void xsetFirstName(final XmlString p0);
-    
+
+    /**
+     * Gets the patient's street address.
+     *
+     * @return String the patient's street address
+     */
     String getAddress();
-    
+
+    /**
+     * Gets the patient's street address as an XmlString object.
+     *
+     * @return XmlString the patient's street address as an XML typed value
+     */
     XmlString xgetAddress();
-    
+
+    /**
+     * Sets the patient's street address.
+     *
+     * @param p0 String the patient's street address to set
+     */
     void setAddress(final String p0);
-    
+
+    /**
+     * Sets the patient's street address using an XmlString object.
+     *
+     * @param p0 XmlString the patient's street address as an XML typed value
+     */
     void xsetAddress(final XmlString p0);
-    
+
+    /**
+     * Gets the patient's apartment or unit number.
+     *
+     * @return String the patient's apartment/unit number
+     */
     String getApt();
-    
+
+    /**
+     * Gets the patient's apartment or unit number as an XmlString object.
+     *
+     * @return XmlString the patient's apartment/unit number as an XML typed value
+     */
     XmlString xgetApt();
-    
+
+    /**
+     * Sets the patient's apartment or unit number.
+     *
+     * @param p0 String the patient's apartment/unit number to set
+     */
     void setApt(final String p0);
-    
+
+    /**
+     * Sets the patient's apartment or unit number using an XmlString object.
+     *
+     * @param p0 XmlString the patient's apartment/unit number as an XML typed value
+     */
     void xsetApt(final XmlString p0);
-    
+
+    /**
+     * Gets the patient's city of residence.
+     *
+     * @return String the patient's city
+     */
     String getCity();
-    
+
+    /**
+     * Gets the patient's city of residence as an XmlString object.
+     *
+     * @return XmlString the patient's city as an XML typed value
+     */
     XmlString xgetCity();
-    
+
+    /**
+     * Sets the patient's city of residence.
+     *
+     * @param p0 String the patient's city to set
+     */
     void setCity(final String p0);
-    
+
+    /**
+     * Sets the patient's city of residence using an XmlString object.
+     *
+     * @param p0 XmlString the patient's city as an XML typed value
+     */
     void xsetCity(final XmlString p0);
-    
+
+    /**
+     * Gets the patient's province or territory of residence.
+     *
+     * @return Province.Enum the patient's province/territory code (e.g., CA-ON, CA-BC)
+     */
     Province.Enum getProvince();
-    
+
+    /**
+     * Gets the patient's province or territory as a Province object.
+     *
+     * @return Province the patient's province as an XML typed value
+     */
     Province xgetProvince();
-    
+
+    /**
+     * Sets the patient's province or territory of residence.
+     *
+     * @param p0 Province.Enum the patient's province/territory code to set
+     */
     void setProvince(final Province.Enum p0);
-    
+
+    /**
+     * Sets the patient's province or territory using a Province object.
+     *
+     * @param p0 Province the patient's province as an XML typed value
+     */
     void xsetProvince(final Province p0);
-    
+
+    /**
+     * Gets the patient's postal code.
+     *
+     * @return String the patient's postal code (Canadian format: A1A 1A1 or international)
+     */
     String getPostalCode();
-    
+
+    /**
+     * Gets the patient's postal code as a PostalCode object.
+     *
+     * @return PostalCode the patient's postal code as an XML typed value
+     */
     PostalCode xgetPostalCode();
-    
+
+    /**
+     * Sets the patient's postal code.
+     *
+     * @param p0 String the patient's postal code to set
+     */
     void setPostalCode(final String p0);
-    
+
+    /**
+     * Sets the patient's postal code using a PostalCode object.
+     *
+     * @param p0 PostalCode the patient's postal code as an XML typed value
+     */
     void xsetPostalCode(final PostalCode p0);
-    
+
+    /**
+     * Gets the patient's home phone number.
+     *
+     * @return String the patient's home phone number
+     */
     String getHomePhone();
-    
+
+    /**
+     * Gets the patient's home phone number as a HomePhone object.
+     *
+     * @return HomePhone the patient's home phone number as an XML typed value
+     */
     HomePhone xgetHomePhone();
-    
+
+    /**
+     * Sets the patient's home phone number.
+     *
+     * @param p0 String the patient's home phone number to set
+     */
     void setHomePhone(final String p0);
-    
+
+    /**
+     * Sets the patient's home phone number using a HomePhone object.
+     *
+     * @param p0 HomePhone the patient's home phone number as an XML typed value
+     */
     void xsetHomePhone(final HomePhone p0);
-    
+
+    /**
+     * Gets the patient's work phone number.
+     *
+     * @return String the patient's work phone number
+     */
     String getWorkPhone();
-    
+
+    /**
+     * Gets the patient's work phone number as a WorkPhone object.
+     *
+     * @return WorkPhone the patient's work phone number as an XML typed value
+     */
     WorkPhone xgetWorkPhone();
-    
+
+    /**
+     * Sets the patient's work phone number.
+     *
+     * @param p0 String the patient's work phone number to set
+     */
     void setWorkPhone(final String p0);
-    
+
+    /**
+     * Sets the patient's work phone number using a WorkPhone object.
+     *
+     * @param p0 WorkPhone the patient's work phone number as an XML typed value
+     */
     void xsetWorkPhone(final WorkPhone p0);
-    
+
+    /**
+     * Gets the patient's preferred language for communication.
+     *
+     * @return Language.Enum the ISO 639-3 language code (e.g., ENG, FRA, CMN)
+     */
     Language.Enum getLanguage();
-    
+
+    /**
+     * Gets the patient's preferred language as a Language object.
+     *
+     * @return Language the patient's language as an XML typed value
+     */
     Language xgetLanguage();
-    
+
+    /**
+     * Sets the patient's preferred language for communication.
+     *
+     * @param p0 Language.Enum the ISO 639-3 language code to set
+     */
     void setLanguage(final Language.Enum p0);
-    
+
+    /**
+     * Sets the patient's preferred language using a Language object.
+     *
+     * @param p0 Language the patient's language as an XML typed value
+     */
     void xsetLanguage(final Language p0);
-    
+
+    /**
+     * Gets the patient's date of birth.
+     *
+     * @return Calendar the patient's date of birth
+     */
     Calendar getDob();
-    
+
+    /**
+     * Gets the patient's date of birth as an XmlDate object.
+     *
+     * @return XmlDate the patient's date of birth as an XML typed value
+     */
     XmlDate xgetDob();
-    
+
+    /**
+     * Sets the patient's date of birth.
+     *
+     * @param p0 Calendar the patient's date of birth to set
+     */
     void setDob(final Calendar p0);
-    
+
+    /**
+     * Sets the patient's date of birth using an XmlDate object.
+     *
+     * @param p0 XmlDate the patient's date of birth as an XML typed value
+     */
     void xsetDob(final XmlDate p0);
-    
+
+    /**
+     * Gets the patient's age in years.
+     *
+     * @return int the patient's age in years
+     */
     int getAge();
-    
+
+    /**
+     * Gets the patient's age as an Age object.
+     *
+     * @return Age the patient's age as an XML typed value
+     */
     Age xgetAge();
-    
+
+    /**
+     * Sets the patient's age in years.
+     *
+     * @param p0 int the patient's age to set
+     */
     void setAge(final int p0);
-    
+
+    /**
+     * Sets the patient's age using an Age object.
+     *
+     * @param p0 Age the patient's age as an XML typed value
+     */
     void xsetAge(final Age p0);
-    
+
+    /**
+     * Gets the patient's occupation information.
+     *
+     * @return Occupation the patient's occupation details
+     */
     Occupation getOccupation();
-    
+
+    /**
+     * Sets the patient's occupation information.
+     *
+     * @param p0 Occupation the patient's occupation details to set
+     */
     void setOccupation(final Occupation p0);
-    
+
+    /**
+     * Creates and adds a new Occupation object to the patient information.
+     *
+     * @return Occupation the newly created occupation object
+     */
     Occupation addNewOccupation();
-    
+
+    /**
+     * Gets the patient's highest level of education completed.
+     *
+     * @return LevelOfEducation.Enum the patient's education level code
+     */
     LevelOfEducation.Enum getLevelOfEducation();
-    
+
+    /**
+     * Gets the patient's level of education as a LevelOfEducation object.
+     *
+     * @return LevelOfEducation the patient's education level as an XML typed value
+     */
     LevelOfEducation xgetLevelOfEducation();
-    
+
+    /**
+     * Sets the patient's highest level of education completed.
+     *
+     * @param p0 LevelOfEducation.Enum the patient's education level code to set
+     */
     void setLevelOfEducation(final LevelOfEducation.Enum p0);
-    
+
+    /**
+     * Sets the patient's level of education using a LevelOfEducation object.
+     *
+     * @param p0 LevelOfEducation the patient's education level as an XML typed value
+     */
     void xsetLevelOfEducation(final LevelOfEducation p0);
-    
+
+    /**
+     * Gets the patient's Health Insurance Number (HIN) information.
+     *
+     * <p>The HIN is the provincial health insurance identifier used for billing and
+     * eligibility verification. Format varies by province (e.g., Ontario uses 10 digits
+     * plus 2-character version code).</p>
+     *
+     * @return Hin the patient's health insurance number details
+     */
     Hin getHin();
-    
+
+    /**
+     * Sets the patient's Health Insurance Number (HIN) information.
+     *
+     * @param p0 Hin the patient's health insurance number details to set
+     */
     void setHin(final Hin p0);
-    
+
+    /**
+     * Creates and adds a new HIN object to the patient information.
+     *
+     * @return Hin the newly created health insurance number object
+     */
     Hin addNewHin();
-    
+
+    /**
+     * Gets the patient's medical record file number.
+     *
+     * <p>This is the internal EMR chart number used for patient identification
+     * within the healthcare facility.</p>
+     *
+     * @return String the patient's file number
+     */
     String getFileNo();
-    
+
+    /**
+     * Gets the patient's medical record file number as an XmlString object.
+     *
+     * @return XmlString the patient's file number as an XML typed value
+     */
     XmlString xgetFileNo();
-    
+
+    /**
+     * Sets the patient's medical record file number.
+     *
+     * @param p0 String the patient's file number to set
+     */
     void setFileNo(final String p0);
-    
+
+    /**
+     * Sets the patient's medical record file number using an XmlString object.
+     *
+     * @param p0 XmlString the patient's file number as an XML typed value
+     */
     void xsetFileNo(final XmlString p0);
-    
+
+    /**
+     * Gets the patient's ethnic background information.
+     *
+     * <p>Used for cultural competency in healthcare delivery and for tracking
+     * health disparities in specific populations.</p>
+     *
+     * @return EthnicBackground the patient's ethnic background details
+     */
     EthnicBackground getEthnicBackground();
-    
+
+    /**
+     * Sets the patient's ethnic background information.
+     *
+     * @param p0 EthnicBackground the patient's ethnic background details to set
+     */
     void setEthnicBackground(final EthnicBackground p0);
-    
+
+    /**
+     * Creates and adds a new EthnicBackground object to the patient information.
+     *
+     * @return EthnicBackground the newly created ethnic background object
+     */
     EthnicBackground addNewEthnicBackground();
-    
+
+    /**
+     * Gets the patient's marital status.
+     *
+     * @return MaritalStatus.Enum the patient's marital status code (e.g., M=Married, S=Single, D=Divorced)
+     */
     MaritalStatus.Enum getMaritalStatus();
-    
+
+    /**
+     * Gets the patient's marital status as a MaritalStatus object.
+     *
+     * @return MaritalStatus the patient's marital status as an XML typed value
+     */
     MaritalStatus xgetMaritalStatus();
-    
+
+    /**
+     * Sets the patient's marital status.
+     *
+     * @param p0 MaritalStatus.Enum the patient's marital status code to set
+     */
     void setMaritalStatus(final MaritalStatus.Enum p0);
-    
+
+    /**
+     * Sets the patient's marital status using a MaritalStatus object.
+     *
+     * @param p0 MaritalStatus the patient's marital status as an XML typed value
+     */
     void xsetMaritalStatus(final MaritalStatus p0);
-    
+
+    /**
+     * Gets the patient's allergies information.
+     *
+     * <p>Critical clinical information documenting known drug and non-drug allergies,
+     * reactions, and severity. Must be prominently displayed to prevent adverse events.</p>
+     *
+     * @return String the patient's allergies description
+     */
     String getAllergies();
-    
+
+    /**
+     * Gets the patient's allergies information as an XmlString object.
+     *
+     * @return XmlString the patient's allergies as an XML typed value
+     */
     XmlString xgetAllergies();
-    
+
+    /**
+     * Sets the patient's allergies information.
+     *
+     * @param p0 String the patient's allergies description to set
+     */
     void setAllergies(final String p0);
-    
+
+    /**
+     * Sets the patient's allergies information using an XmlString object.
+     *
+     * @param p0 XmlString the patient's allergies as an XML typed value
+     */
     void xsetAllergies(final XmlString p0);
-    
+
+    /**
+     * Gets the patient's current medications list.
+     *
+     * <p>Documents all current prescription and over-the-counter medications,
+     * including dosage, frequency, and route of administration.</p>
+     *
+     * @return Medications the patient's medications details
+     */
     Medications getMedications();
-    
+
+    /**
+     * Sets the patient's current medications list.
+     *
+     * @param p0 Medications the patient's medications details to set
+     */
     void setMedications(final Medications p0);
-    
+
+    /**
+     * Creates and adds a new Medications object to the patient information.
+     *
+     * @return Medications the newly created medications object
+     */
     Medications addNewMedications();
-    
+
+    /**
+     * Province enumeration interface for Canadian provinces/territories and international locations.
+     *
+     * <p>Provides standardized province and territory codes using ISO 3166-2:CA format for Canadian
+     * jurisdictions (e.g., CA-ON for Ontario, CA-BC for British Columbia) plus codes for USA,
+     * out-of-province, and out-of-country patients.</p>
+     *
+     * <p>Used for address information and to determine jurisdiction-specific healthcare rules,
+     * billing codes, and regulatory compliance requirements.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface Province extends XmlString
     {
+        /**
+         * SchemaType for the Province interface.
+         */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Province.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("province34f2elemtype");
         public static final Enum CA_AB = Enum.forString("CA-AB");
         public static final Enum CA_BC = Enum.forString("CA-BC");
@@ -194,7 +629,10 @@ public interface PatientInformation extends XmlObject
         public static final Enum CA_YT = Enum.forString("CA-YT");
         public static final Enum USA = Enum.forString("USA");
         public static final Enum OUTP = Enum.forString("OUTP");
+        /** Out of country location code. */
         public static final Enum OUTC = Enum.forString("OUTC");
+
+        /** Integer value for Alberta (CA-AB). */
         public static final int INT_CA_AB = 1;
         public static final int INT_CA_BC = 2;
         public static final int INT_CA_MB = 3;
@@ -209,12 +647,31 @@ public interface PatientInformation extends XmlObject
         public static final int INT_CA_YT = 12;
         public static final int INT_USA = 13;
         public static final int INT_OUTP = 14;
+        /** Integer value for out of country (OUTC). */
         public static final int INT_OUTC = 15;
-        
+
+        /**
+         * Gets the enum value for this province.
+         *
+         * @return StringEnumAbstractBase the enum value
+         */
         StringEnumAbstractBase enumValue();
-        
+
+        /**
+         * Sets the enum value for this province.
+         *
+         * @param p0 StringEnumAbstractBase the enum value to set
+         */
         void set(final StringEnumAbstractBase p0);
-        
+
+        /**
+         * Enumeration implementation for Province codes.
+         *
+         * <p>Provides type-safe enumeration values for Canadian provinces, territories,
+         * and international locations used in patient addresses.</p>
+         *
+         * @since 2026-01-24
+         */
         public static final class Enum extends StringEnumAbstractBase
         {
             static final int INT_CA_AB = 1;
@@ -255,98 +712,231 @@ public interface PatientInformation extends XmlObject
                 table = new StringEnumAbstractBase.Table((StringEnumAbstractBase[])new Enum[] { new Enum("CA-AB", 1), new Enum("CA-BC", 2), new Enum("CA-MB", 3), new Enum("CA-NB", 4), new Enum("CA-NL", 5), new Enum("CA-NS", 6), new Enum("CA-NU", 7), new Enum("CA-ON", 8), new Enum("CA-PE", 9), new Enum("CA-QC", 10), new Enum("CA-SK", 11), new Enum("CA-YT", 12), new Enum("USA", 13), new Enum("OUTP", 14), new Enum("OUTC", 15) });
             }
         }
-        
+
+        /**
+         * Factory class for creating Province instances.
+         *
+         * <p>Provides static factory methods for creating Province objects from various sources.</p>
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates a Province value from an object.
+             *
+             * @param obj Object the source object
+             * @return Province the created province value
+             */
             public static Province newValue(final Object obj) {
                 return (Province)Province.type.newValue(obj);
             }
-            
+
+            /**
+             * Creates a new Province instance with default options.
+             *
+             * @return Province the new province instance
+             */
             public static Province newInstance() {
                 return (Province)XmlBeans.getContextTypeLoader().newInstance(Province.type, (XmlOptions)null);
             }
-            
+
+            /**
+             * Creates a new Province instance with specified XML options.
+             *
+             * @param options XmlOptions the XML parsing/generation options
+             * @return Province the new province instance
+             */
             public static Province newInstance(final XmlOptions options) {
                 return (Province)XmlBeans.getContextTypeLoader().newInstance(Province.type, options);
             }
-            
+
+            /** Private constructor to prevent instantiation. */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * PostalCode interface for patient postal/zip codes.
+     *
+     * <p>Validates and stores postal codes in Canadian format (A1A 1A1) or international formats.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface PostalCode extends XmlString
     {
+        /** SchemaType for the PostalCode interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(PostalCode.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("postalcode01caelemtype");
-        
+
+        /**
+         * Factory class for creating PostalCode instances.
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates a PostalCode value from an object.
+             *
+             * @param obj Object the source object
+             * @return PostalCode the created postal code value
+             */
             public static PostalCode newValue(final Object obj) {
                 return (PostalCode)PostalCode.type.newValue(obj);
             }
-            
+
+            /**
+             * Creates a new PostalCode instance with default options.
+             *
+             * @return PostalCode the new postal code instance
+             */
             public static PostalCode newInstance() {
                 return (PostalCode)XmlBeans.getContextTypeLoader().newInstance(PostalCode.type, (XmlOptions)null);
             }
-            
+
+            /**
+             * Creates a new PostalCode instance with specified XML options.
+             *
+             * @param options XmlOptions the XML parsing/generation options
+             * @return PostalCode the new postal code instance
+             */
             public static PostalCode newInstance(final XmlOptions options) {
                 return (PostalCode)XmlBeans.getContextTypeLoader().newInstance(PostalCode.type, options);
             }
-            
+
+            /** Private constructor to prevent instantiation. */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * HomePhone interface for patient home phone numbers.
+     *
+     * <p>Stores patient home telephone contact information for appointment reminders and follow-up.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface HomePhone extends XmlString
     {
+        /** SchemaType for the HomePhone interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(HomePhone.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("homephonee963elemtype");
-        
+
+        /**
+         * Factory class for creating HomePhone instances.
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates a HomePhone value from an object.
+             *
+             * @param obj Object the source object
+             * @return HomePhone the created home phone value
+             */
             public static HomePhone newValue(final Object obj) {
                 return (HomePhone)HomePhone.type.newValue(obj);
             }
-            
+
+            /**
+             * Creates a new HomePhone instance with default options.
+             *
+             * @return HomePhone the new home phone instance
+             */
             public static HomePhone newInstance() {
                 return (HomePhone)XmlBeans.getContextTypeLoader().newInstance(HomePhone.type, (XmlOptions)null);
             }
-            
+
+            /**
+             * Creates a new HomePhone instance with specified XML options.
+             *
+             * @param options XmlOptions the XML parsing/generation options
+             * @return HomePhone the new home phone instance
+             */
             public static HomePhone newInstance(final XmlOptions options) {
                 return (HomePhone)XmlBeans.getContextTypeLoader().newInstance(HomePhone.type, options);
             }
-            
+
+            /** Private constructor to prevent instantiation. */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * WorkPhone interface for patient work phone numbers.
+     *
+     * <p>Stores patient work telephone contact information for daytime contact during business hours.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface WorkPhone extends XmlString
     {
+        /** SchemaType for the WorkPhone interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(WorkPhone.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("workphone1015elemtype");
-        
+
+        /**
+         * Factory class for creating WorkPhone instances.
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates a WorkPhone value from an object.
+             *
+             * @param obj Object the source object
+             * @return WorkPhone the created work phone value
+             */
             public static WorkPhone newValue(final Object obj) {
                 return (WorkPhone)WorkPhone.type.newValue(obj);
             }
-            
+
+            /**
+             * Creates a new WorkPhone instance with default options.
+             *
+             * @return WorkPhone the new work phone instance
+             */
             public static WorkPhone newInstance() {
                 return (WorkPhone)XmlBeans.getContextTypeLoader().newInstance(WorkPhone.type, (XmlOptions)null);
             }
-            
+
+            /**
+             * Creates a new WorkPhone instance with specified XML options.
+             *
+             * @param options XmlOptions the XML parsing/generation options
+             * @return WorkPhone the new work phone instance
+             */
             public static WorkPhone newInstance(final XmlOptions options) {
                 return (WorkPhone)XmlBeans.getContextTypeLoader().newInstance(WorkPhone.type, options);
             }
-            
+
+            /** Private constructor to prevent instantiation. */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * Language interface for patient preferred language using ISO 639-3 codes.
+     *
+     * <p>Supports comprehensive language selection for patient communication preferences including
+     * major world languages and sign languages. Uses ISO 639-3 three-letter language codes for
+     * international standardization (e.g., ENG=English, FRA=French, CMN=Mandarin Chinese).</p>
+     *
+     * <p>Critical for culturally competent care and ensuring effective patient-provider communication,
+     * interpreter services, and translated health education materials.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface Language extends XmlString
     {
+        /** SchemaType for the Language interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Language.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("language69caelemtype");
+
+        /** Afar language code (AAR). */
         public static final Enum AAR = Enum.forString("AAR");
         public static final Enum AFR = Enum.forString("AFR");
         public static final Enum AKA = Enum.forString("AKA");
@@ -933,48 +1523,130 @@ public interface PatientInformation extends XmlObject
             }
         }
     }
-    
+
+    /**
+     * Age interface for patient age in years.
+     *
+     * <p>Represents the patient's age as an integer value, typically calculated from date of birth.
+     * Used for age-specific clinical decision support, screening recommendations, and billing rules.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface Age extends XmlInt
     {
+        /** SchemaType for the Age interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Age.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("agec433elemtype");
-        
+
+        /**
+         * Factory class for creating Age instances.
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates an Age value from an object.
+             *
+             * @param obj Object the source object
+             * @return Age the created age value
+             */
             public static Age newValue(final Object obj) {
                 return (Age)Age.type.newValue(obj);
             }
-            
+
+            /**
+             * Creates a new Age instance with default options.
+             *
+             * @return Age the new age instance
+             */
             public static Age newInstance() {
                 return (Age)XmlBeans.getContextTypeLoader().newInstance(Age.type, (XmlOptions)null);
             }
             
+            /**
+             * Creates a new Age instance with specified XML options.
+             *
+             * @param options XmlOptions the XML parsing/generation options
+             * @return Age the new age instance
+             */
             public static Age newInstance(final XmlOptions options) {
                 return (Age)XmlBeans.getContextTypeLoader().newInstance(Age.type, options);
             }
-            
+
+            /** Private constructor to prevent instantiation. */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * Occupation interface for patient occupation information.
+     *
+     * <p>Captures the patient's current occupation using standardized occupation codes or
+     * free-text description. Occupation data is used for occupational health tracking,
+     * workplace injury documentation, and social determinants of health analysis.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface Occupation extends XmlObject
     {
+        /** SchemaType for the Occupation interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Occupation.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("occupation2d37elemtype");
-        
+
+        /**
+         * Gets the occupation value from standardized codes.
+         *
+         * @return Value.Enum the occupation code
+         */
         Value.Enum getValue();
-        
+
+        /**
+         * Gets the occupation value as a Value object.
+         *
+         * @return Value the occupation value as an XML typed value
+         */
         Value xgetValue();
-        
+
+        /**
+         * Sets the occupation using a standardized code.
+         *
+         * @param p0 Value.Enum the occupation code to set
+         */
         void setValue(final Value.Enum p0);
-        
+
+        /**
+         * Sets the occupation using a Value object.
+         *
+         * @param p0 Value the occupation value as an XML typed value
+         */
         void xsetValue(final Value p0);
-        
+
+        /**
+         * Gets the free-text occupation description for non-standard occupations.
+         *
+         * @return String the occupation description text
+         */
         String getOther();
-        
+
+        /**
+         * Gets the free-text occupation description as an XmlString object.
+         *
+         * @return XmlString the occupation description as an XML typed value
+         */
         XmlString xgetOther();
-        
+
+        /**
+         * Sets the free-text occupation description.
+         *
+         * @param p0 String the occupation description to set
+         */
         void setOther(final String p0);
-        
+
+        /**
+         * Sets the free-text occupation description using an XmlString object.
+         *
+         * @param p0 XmlString the occupation description as an XML typed value
+         */
         void xsetOther(final XmlString p0);
         
         public interface Value extends XmlString
@@ -1821,10 +2493,22 @@ public interface PatientInformation extends XmlObject
             }
         }
     }
-    
+
+    /**
+     * LevelOfEducation interface for patient education level classification.
+     *
+     * <p>Standardized education level codes (ED001-ED006) representing the patient's highest
+     * level of completed education. Used for health literacy assessment, patient education material
+     * selection, and social determinants of health tracking.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface LevelOfEducation extends XmlString
     {
+        /** SchemaType for the LevelOfEducation interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(LevelOfEducation.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("levelofeducationad55elemtype");
+
+        /** Education level code ED001. */
         public static final Enum ED_001 = Enum.forString("ED001");
         public static final Enum ED_002 = Enum.forString("ED002");
         public static final Enum ED_003 = Enum.forString("ED003");
@@ -1895,21 +2579,63 @@ public interface PatientInformation extends XmlObject
             }
         }
     }
-    
+
+    /**
+     * Hin (Health Insurance Number) interface for provincial health insurance information.
+     *
+     * <p>Stores the patient's provincial health insurance number and type. The HIN is the primary
+     * identifier for billing and eligibility verification with provincial health insurance plans.
+     * Format and validation rules vary by province (e.g., Ontario: 10 digits + 2-letter version code,
+     * British Columbia: 10 digits).</p>
+     *
+     * <p><strong>Protected Health Information:</strong> HINs are personally identifiable health
+     * information and must be protected according to PIPEDA and provincial privacy legislation.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface Hin extends XmlString
     {
+        /** SchemaType for the Hin interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Hin.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("hinbd65elemtype");
-        
+
+        /**
+         * Gets the HIN type (e.g., provincial plan type).
+         *
+         * @return Type.Enum the HIN type code
+         */
         Type.Enum getType();
-        
+
+        /**
+         * Gets the HIN type as a Type object.
+         *
+         * @return Type the HIN type as an XML typed value
+         */
         Type xgetType();
-        
+
+        /**
+         * Checks if the HIN type is set.
+         *
+         * @return boolean true if type is set, false otherwise
+         */
         boolean isSetType();
-        
+
+        /**
+         * Sets the HIN type.
+         *
+         * @param p0 Type.Enum the HIN type code to set
+         */
         void setType(final Type.Enum p0);
-        
+
+        /**
+         * Sets the HIN type using a Type object.
+         *
+         * @param p0 Type the HIN type as an XML typed value
+         */
         void xsetType(final Type p0);
-        
+
+        /**
+         * Unsets the HIN type (sets to null).
+         */
         void unsetType();
         
         public interface Type extends XmlString
@@ -1988,11 +2714,29 @@ public interface PatientInformation extends XmlObject
             }
         }
     }
-    
+
+    /**
+     * EthnicBackground interface for patient ethnic and cultural background information.
+     *
+     * <p>Captures self-identified ethnic background and cultural heritage information. This data
+     * supports culturally competent care delivery, health equity research, and tracking of health
+     * disparities in specific populations. Multiple values can be selected to reflect mixed heritage.</p>
+     *
+     * <p>Collection and use of this information must respect patient privacy and follow anti-discrimination
+     * policies. Patients should always have the option to decline providing this information.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface EthnicBackground extends XmlObject
     {
+        /** SchemaType for the EthnicBackground interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(EthnicBackground.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("ethnicbackgrounda065elemtype");
-        
+
+        /**
+         * Gets all ethnic background values as an array.
+         *
+         * @return Value[] array of ethnic background values
+         */
         Value[] getValueArray();
         
         Value getValueArray(final int p0);
@@ -2125,10 +2869,22 @@ public interface PatientInformation extends XmlObject
             }
         }
     }
-    
+
+    /**
+     * MaritalStatus interface for patient marital status classification.
+     *
+     * <p>Standardized marital status codes representing the patient's current marital or relationship
+     * status. Used for demographic reporting, social support assessment, and next-of-kin determination.
+     * Codes follow healthcare industry standards (e.g., MS005=Single, MS010=Married, MS015=Common-law).</p>
+     *
+     * @since 2026-01-24
+     */
     public interface MaritalStatus extends XmlString
     {
+        /** SchemaType for the MaritalStatus interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(MaritalStatus.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("maritalstatus2b0celemtype");
+
+        /** Marital status code MS005 (typically Single). */
         public static final Enum MS_005 = Enum.forString("MS005");
         public static final Enum MS_010 = Enum.forString("MS010");
         public static final Enum MS_015 = Enum.forString("MS015");
@@ -2190,11 +2946,29 @@ public interface PatientInformation extends XmlObject
             }
         }
     }
-    
+
+    /**
+     * Medications interface for patient current medications list.
+     *
+     * <p>Comprehensive list of all current prescription medications, over-the-counter drugs, and
+     * supplements. Critical for medication reconciliation, drug interaction checking, and clinical
+     * decision support. Should be reviewed and updated at every patient encounter.</p>
+     *
+     * <p><strong>Clinical Safety:</strong> Accurate medication lists are essential for patient safety
+     * to prevent adverse drug events, duplicate therapy, and drug-drug interactions.</p>
+     *
+     * @since 2026-01-24
+     */
     public interface Medications extends XmlObject
     {
+        /** SchemaType for the Medications interface. */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Medications.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("medications594eelemtype");
-        
+
+        /**
+         * Gets all medication values as an array.
+         *
+         * @return Value.Enum[] array of medication values
+         */
         Value.Enum[] getValueArray();
         
         Value.Enum getValueArray(final int p0);
@@ -2399,93 +3173,265 @@ public interface PatientInformation extends XmlObject
             }
         }
     }
-    
+
+    /**
+     * Factory class for creating and parsing PatientInformation instances.
+     *
+     * <p>Provides static factory methods for creating new PatientInformation objects and parsing
+     * XML data from various sources (strings, files, URLs, streams). Supports XML validation and
+     * custom parsing options through XmlOptions parameter.</p>
+     *
+     * @since 2026-01-24
+     */
     public static final class Factory
     {
+        /**
+         * Creates a new PatientInformation instance with default options.
+         *
+         * @return PatientInformation the new patient information instance
+         */
         public static PatientInformation newInstance() {
             return (PatientInformation)XmlBeans.getContextTypeLoader().newInstance(PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Creates a new PatientInformation instance with specified XML options.
+         *
+         * @param options XmlOptions the XML parsing/generation options
+         * @return PatientInformation the new patient information instance
+         */
         public static PatientInformation newInstance(final XmlOptions options) {
             return (PatientInformation)XmlBeans.getContextTypeLoader().newInstance(PatientInformation.type, options);
         }
-        
+
+        /**
+         * Parses XML string to create a PatientInformation instance.
+         *
+         * @param xmlAsString String the XML string to parse
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         */
         public static PatientInformation parse(final String xmlAsString) throws XmlException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(xmlAsString, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML string to create a PatientInformation instance with specified options.
+         *
+         * @param xmlAsString String the XML string to parse
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         */
         public static PatientInformation parse(final String xmlAsString, final XmlOptions options) throws XmlException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(xmlAsString, PatientInformation.type, options);
         }
-        
+
+        /**
+         * Parses XML file to create a PatientInformation instance.
+         *
+         * @param file File the XML file to parse
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the file cannot be read
+         */
         public static PatientInformation parse(final File file) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(file, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML file to create a PatientInformation instance with specified options.
+         *
+         * @param file File the XML file to parse
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the file cannot be read
+         */
         public static PatientInformation parse(final File file, final XmlOptions options) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(file, PatientInformation.type, options);
         }
-        
+
+        /**
+         * Parses XML from URL to create a PatientInformation instance.
+         *
+         * @param u URL the URL to read XML from
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the URL cannot be accessed
+         */
         public static PatientInformation parse(final URL u) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(u, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML from URL to create a PatientInformation instance with specified options.
+         *
+         * @param u URL the URL to read XML from
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the URL cannot be accessed
+         */
         public static PatientInformation parse(final URL u, final XmlOptions options) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(u, PatientInformation.type, options);
         }
-        
+
+        /**
+         * Parses XML from InputStream to create a PatientInformation instance.
+         *
+         * @param is InputStream the input stream to read XML from
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the stream cannot be read
+         */
         public static PatientInformation parse(final InputStream is) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(is, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML from InputStream to create a PatientInformation instance with specified options.
+         *
+         * @param is InputStream the input stream to read XML from
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the stream cannot be read
+         */
         public static PatientInformation parse(final InputStream is, final XmlOptions options) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(is, PatientInformation.type, options);
         }
-        
+
+        /**
+         * Parses XML from Reader to create a PatientInformation instance.
+         *
+         * @param r Reader the reader to read XML from
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the reader cannot be read
+         */
         public static PatientInformation parse(final Reader r) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(r, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML from Reader to create a PatientInformation instance with specified options.
+         *
+         * @param r Reader the reader to read XML from
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws IOException if the reader cannot be read
+         */
         public static PatientInformation parse(final Reader r, final XmlOptions options) throws XmlException, IOException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(r, PatientInformation.type, options);
         }
         
+        /**
+         * Parses XML from XMLStreamReader to create a PatientInformation instance.
+         *
+         * @param sr XMLStreamReader the stream reader to read XML from
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         */
         public static PatientInformation parse(final XMLStreamReader sr) throws XmlException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(sr, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML from XMLStreamReader to create a PatientInformation instance with specified options.
+         *
+         * @param sr XMLStreamReader the stream reader to read XML from
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         */
         public static PatientInformation parse(final XMLStreamReader sr, final XmlOptions options) throws XmlException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(sr, PatientInformation.type, options);
         }
-        
+
+        /**
+         * Parses XML from DOM Node to create a PatientInformation instance.
+         *
+         * @param node Node the DOM node to parse
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         */
         public static PatientInformation parse(final Node node) throws XmlException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(node, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML from DOM Node to create a PatientInformation instance with specified options.
+         *
+         * @param node Node the DOM node to parse
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         */
         public static PatientInformation parse(final Node node, final XmlOptions options) throws XmlException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(node, PatientInformation.type, options);
         }
-        
+
+        /**
+         * Parses XML from XMLInputStream to create a PatientInformation instance.
+         *
+         * @deprecated Use alternative parsing methods with modern XML APIs
+         * @param xis XMLInputStream the XML input stream to parse
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws XMLStreamException if there is an error in the XML stream
+         */
         @Deprecated
         public static PatientInformation parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(xis, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses XML from XMLInputStream to create a PatientInformation instance with specified options.
+         *
+         * @deprecated Use alternative parsing methods with modern XML APIs
+         * @param xis XMLInputStream the XML input stream to parse
+         * @param options XmlOptions the XML parsing options
+         * @return PatientInformation the parsed patient information
+         * @throws XmlException if the XML is invalid or cannot be parsed
+         * @throws XMLStreamException if there is an error in the XML stream
+         */
         @Deprecated
         public static PatientInformation parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(xis, PatientInformation.type, options);
         }
-        
+
+        /**
+         * Creates a validating XMLInputStream for patient information XML.
+         *
+         * @deprecated Use alternative validation methods with modern XML APIs
+         * @param xis XMLInputStream the XML input stream to validate
+         * @return XMLInputStream the validating XML input stream
+         * @throws XmlException if the XML is invalid
+         * @throws XMLStreamException if there is an error in the XML stream
+         */
         @Deprecated
         public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
             return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PatientInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Creates a validating XMLInputStream for patient information XML with specified options.
+         *
+         * @deprecated Use alternative validation methods with modern XML APIs
+         * @param xis XMLInputStream the XML input stream to validate
+         * @param options XmlOptions the XML validation options
+         * @return XMLInputStream the validating XML input stream
+         * @throws XmlException if the XML is invalid
+         * @throws XMLStreamException if there is an error in the XML stream
+         */
         @Deprecated
         public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
             return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PatientInformation.type, options);
         }
-        
+
+        /** Private constructor to prevent instantiation. */
         private Factory() {
         }
     }

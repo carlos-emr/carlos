@@ -69,6 +69,8 @@ public class RxHideCpp2Action extends ActionSupport {
         }
         drugDao.merge(drug);
         try {
+            response.setContentType("text/plain");
+            response.setCharacterEncoding("UTF-8");
             response.getWriter().println("ok");
         } catch (IOException e) {
             logger.error("error", e);

@@ -27,7 +27,6 @@ package ca.openosp.openo.form.pageUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -41,22 +40,17 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import ca.openosp.Misc;
-import org.apache.commons.text.StringEscapeUtils;
-import org.apache.xmlrpc.XmlRpcClient;
-import org.apache.xmlrpc.XmlRpcException;
+import ca.openosp.openo.commn.dao.BillingDao;
 import ca.openosp.openo.commn.dao.MeasurementDao;
 import ca.openosp.openo.commn.model.Allergy;
+import ca.openosp.openo.commn.model.Billing;
 import ca.openosp.openo.commn.model.Measurement;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.DbConnectionFilter;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
-
-import ca.openosp.OscarProperties;
-import ca.openosp.openo.form.data.FrmVTData;
-import ca.openosp.openo.form.util.FrmToXMLUtil;
-import ca.openosp.openo.form.util.FrmXml2VTData;
+import ca.openosp.openo.util.ConversionUtils;
 import ca.openosp.openo.db.DBHandler;
 import ca.openosp.openo.encounter.data.EctEChartBean;
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
@@ -93,7 +87,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         }
 
         /**
-         * To create a new form which can write to measurement and osdsf, you need to ...
+         * To create a new form which can write to measurement, you need to ...
          * Create a xml file with all the measurement types named <formName>.xml (check form/VTForm.xml as an example)
          * Create a new jsp file named <formName>.jsp (check form/formVT.jsp)
          * Create a new table named form<formName> which include the name of all the input elements in the <formName>.jsp
@@ -125,7 +119,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         
         // Validate formName to prevent path traversal attacks
         if (formName == null || !isValidFormName(formName)) {
-            MiscUtils.getLogger().warn("Invalid form name attempted: " + formName);
+            MiscUtils.getLogger().warn("Invalid form name attempted: {}", formName != null ? formName.replaceAll("[\\r\\n\\t]", "_") : "null");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
             return NONE;
         }
@@ -161,27 +155,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName);
             EctMeasurementTypesBean mt;
 
-            //Get URL from Miles
-            Properties props = new Properties();
-            Properties nameProps = new Properties();
-            props.setProperty("demographic_no", demo);
-            props.setProperty("provider_no", providerNo);
-            //String xmlData = FrmToXMLUtil.convertToXml(measurementTypes, nameProps, props);
-            String decisionSupportURL = getPatientRlt(demo);
-            MiscUtils.getLogger().debug("decisionSupportURL" + decisionSupportURL);
-            request.setAttribute("decisionSupportURL", StringEscapeUtils.escapeHtml4(decisionSupportURL));
-
-            //Get the most updated data from Miles"
-            String xmlStr = getMostRecentRecord(demo);
-            nameProps = convertName(formName);
-            FrmXml2VTData xml2VTData = new FrmXml2VTData();
-            Class vtDataC = null;
-            FrmVTData vtData = null;
-            if (xmlStr != null) {
-                vtData = xml2VTData.getObjectFromXmlStr(xmlStr);
-                vtDataC = FrmVTData.class;
-            }
-
             ResultSet rs;
 
             for (int i = 0; i < measurementTypes.size(); i++) {
@@ -202,57 +175,11 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     request.setAttribute(mt.getType() + "Date", currentRec.getProperty(mt.getType() + "Date", ""));
                     request.setAttribute(mt.getType() + "Comments", currentRec.getProperty(mt.getType() + "Comments", ""));
                 } else {
-                    //prefill data from Miles if its dataentered date is > than the one in measurements
-                    if (mt.getCanPrefill()) {
-                        String value = "";
-                        String date = today;
-
-                        String valueMethodCall = (String) nameProps.get(mt.getType() + "Value");
-                        String dateMethodCall = (String) nameProps.get(mt.getType() + "Date");
-
-                        if (vtData != null && vtDataC != null && valueMethodCall != null) {
-                            Method vtGetMethods = vtDataC.getMethod("get" + valueMethodCall, new Class[]{});
-                            value = (String) vtGetMethods.invoke(vtData, new Object[]{});
-
-                            if (value != null) {
-                                vtGetMethods = vtDataC.getMethod("get" + valueMethodCall + "$signed_when", new Class[]{});
-                                String dMiles = (String) vtGetMethods.invoke(vtData, new Object[]{});
-                                date = dMiles;
-
-                                if (dateMethodCall != null) {
-                                    vtGetMethods = vtDataC.getMethod("get" + dateMethodCall, new Class[]{});
-                                    date = (String) vtGetMethods.invoke(vtData, new Object[]{});
-                                    date = date.equalsIgnoreCase("") ? "0001-01-01" : date;
-
-                                    String dObsMeas = mt.getLastDateObserved() == null ? "0001-01-01" : mt.getLastDateObserved();
-                                    MiscUtils.getLogger().debug(mt.getType() + " Miles: " + date + " Measurements: " + dObsMeas);
-                                    Date milesDate = UtilDateUtilities.StringToDate(date, _dateFormat);
-                                    Date obsMeasDate = UtilDateUtilities.StringToDate(dObsMeas, _dateFormat);
-
-                                    if (mt.getLastData() != null) {
-                                        if (obsMeasDate.compareTo(milesDate) >= 0) {
-                                            String dMeas = mt.getLastDateEntered() == null ? "0001-01-01" : mt.getLastDateEntered();
-
-                                            Date dateMiles = UtilDateUtilities.StringToDate(dMiles, _dateFormat);
-                                            Date dateMeas = UtilDateUtilities.StringToDate(dMeas, _dateFormat);
-
-                                            if (dateMeas.compareTo(dateMiles) > 0) {
-                                                value = mt.getLastData();
-                                                date = dObsMeas;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        this.setValue(mt.getType() + "Value", value);
-                        this.setValue(mt.getType() + "Date", date);
-                        request.setAttribute(mt.getType() + "Comments", "");
-                    } else {
-                        this.setValue(mt.getType() + "Date", today);
-                        request.setAttribute(mt.getType() + "Date", today);
-                        request.setAttribute(mt.getType() + "Comments", "");
-                    }
+                    // Set default values for new form entries
+                    this.setValue(mt.getType() + "Value", "");
+                    this.setValue(mt.getType() + "Date", today);
+                    request.setAttribute(mt.getType() + "Date", today);
+                    request.setAttribute(mt.getType() + "Comments", "");
                 }
 
             }
@@ -305,8 +232,28 @@ public final class FrmSetupForm2Action extends ActionSupport {
         return allergyLst;
     }
 
+    /**
+     * Retrieves the most recent flu shot billing date for a patient.
+     * Searches for billings with codes G590A (influenza vaccine) or G591A.
+     *
+     * @param demoNo the demographic number as a String
+     * @return the billing date formatted as a String if found, null otherwise
+     */
     private String getFluShotBillingDate(String demoNo) {
-        return FrmToXMLUtil.getFluShotBillingDate(demoNo);
+        try {
+            BillingDao dao = SpringUtils.getBean(BillingDao.class);
+            List<Object[]> billings = dao.findBillings(ConversionUtils.fromIntString(demoNo),
+                Arrays.asList(new String[]{"G590A", "G591A"}));
+            if (billings.isEmpty()) {
+                return null;
+            }
+            Object[] container = billings.get(0);
+            Billing billing = (Billing) container[0];
+            return ConversionUtils.toDateString(billing.getBillingDate());
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error retrieving flu shot billing date for demographic " + demoNo, e);
+            return null;
+        }
     }
 
     private Properties getFormRecord(String formName, String formId, String demographicNo) {
@@ -344,87 +291,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
         return props;
-    }
-
-    private String getPatientRlt(String demographicNo) {
-        Vector data2OSDSF = new Vector();
-        data2OSDSF.add("patientCod");
-        data2OSDSF.add(demographicNo);
-        String osdsfRPCURL = OscarProperties.getInstance().getProperty("osdsfRPCURL", null);
-        MiscUtils.getLogger().debug("osdsfRPCURL getPatientRlt(): " + osdsfRPCURL);
-        if (osdsfRPCURL == null) {
-            return null;
-        }
-        //send to osdsf thru XMLRPC
-        try {
-            XmlRpcClient xmlrpc = new XmlRpcClient(osdsfRPCURL);
-            String result = (String) xmlrpc.execute("vt.getAndSaveRlt", data2OSDSF);
-            MiscUtils.getLogger().debug("Reverse result: " + result);
-            return result;
-        } catch (XmlRpcException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return null;
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return null;
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            return null;
-        }
-    }
-
-    private String getMostRecentRecord(String demographicNo) {
-        Vector ret = new Vector();
-        ret.addElement("patientCod");
-        ret.addElement(demographicNo);
-
-        String osdsfRPCURL = OscarProperties.getInstance().getProperty("osdsfRPCURL", null);
-        MiscUtils.getLogger().debug("osdsfRPCURL getMostRecentRecord(): " + osdsfRPCURL);
-        if (osdsfRPCURL == null) {
-            return null;
-        }
-        //send to osdsf thru XMLRPC
-        try {
-            XmlRpcClient xmlrpc = new XmlRpcClient(osdsfRPCURL);
-            String result = (String) xmlrpc.execute("vt.getMostRecentRecord", ret);
-            MiscUtils.getLogger().debug("Reverse result: " + result);
-            return result;
-        } catch (XmlRpcException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return null;
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return null;
-        }
-    }
-
-    private Properties convertName(String formName) {
-        Properties osdsf = new Properties();
-        
-        // Validate formName before using it in file path
-        if (!isValidFormName(formName)) {
-            MiscUtils.getLogger().warn("Invalid form name in convertName: " + formName);
-            return osdsf;
-        }
-        
-        InputStream is = getClass().getResourceAsStream("/../../form/" + formName + "FromOsdsf.properties");
-        try {
-            if (is != null) {
-                osdsf.load(is);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().debug("Error, file " + formName + ".properties not found.");
-        } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                } catch (IOException e) {
-                    MiscUtils.getLogger().debug("IO error.");
-                    MiscUtils.getLogger().error("Error", e);
-                }
-            }
-        }
-        return osdsf;
     }
 
     private void addLastData(EctMeasurementTypesBean mt, String demo) {

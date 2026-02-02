@@ -3871,20 +3871,9 @@ function autoSave(async) {
 
     }
 
-    <%
-	UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
-	UserProperty prop = userPropertyDAO.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), "clinicalConnectDisableCloseWindow");
-	if(prop != null && "true".equals(prop.getValue()) ) {
-
-	} else {
-%>
     window.addEventListener("beforeunload", function () {
         for (var x = 0; x < activeCCWindows.length; x++) {
             activeCCWindows[x].close();
         }
     });
-    <%
-	}
-
-%>
 

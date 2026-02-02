@@ -26,26 +26,33 @@
 
 package ca.openosp.openo.prescript.pageUtil;
 
-import java.io.IOException;
+import ca.openosp.OscarProperties;
+import ca.openosp.openo.PMmodule.caisi_integrator.RemoteDrugAllergyHelper;
+import ca.openosp.openo.commn.dao.AllergyDao;
+import ca.openosp.openo.commn.dao.SystemPreferencesDao;
+import ca.openosp.openo.commn.dao.UserPropertyDAO;
+import ca.openosp.openo.commn.model.Allergy;
+import ca.openosp.openo.commn.model.SystemPreferences;
+import ca.openosp.openo.commn.model.UserProperty;
+import ca.openosp.openo.managers.SecurityInfoManager;
+import ca.openosp.openo.prescript.data.RxDrugData;
+import ca.openosp.openo.prescript.data.RxPatientData;
+import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.SpringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.struts2.ServletActionContext;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import ca.openosp.openo.commn.dao.AllergyDao;
-import ca.openosp.openo.commn.dao.UserPropertyDAO;
-import ca.openosp.openo.commn.model.Allergy;
-import ca.openosp.openo.commn.model.UserProperty;
-import ca.openosp.openo.managers.SecurityInfoManager;
-import ca.openosp.openo.utility.LoggedInInfo;
-import ca.openosp.openo.utility.MiscUtils;
-import ca.openosp.openo.utility.SpringUtils;
-
-import ca.openosp.OscarProperties;
-import ca.openosp.openo.prescript.data.RxPatientData;
-
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * Struts 2 action for displaying and managing patient allergies.
@@ -70,7 +77,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private AllergyDao allergyDao = (AllergyDao) SpringUtils.getBean(AllergyDao.class);
-
+    private SystemPreferencesDao systemPreferencesDao = (SystemPreferencesDao) SpringUtils.getBean(SystemPreferencesDao.class);
 
     /**
      * Handles allergy reordering and redirects to the allergies display page.
@@ -126,13 +133,24 @@ public final class RxShowAllergy2Action extends ActionSupport {
     public String execute()
             throws IOException, ServletException {
 
-        if ("reorder".equals(request.getParameter("method"))) {
-            return reorder();
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
             throw new RuntimeException("missing required sec object (_allergy)");
+        }
+
+        String method = request.getParameter("method");
+
+        String dispatchResult = switch (method != null ? method : "") {
+            case "reorder" -> reorder();
+            case "allergyData" -> {
+                getAllergyData(loggedInInfo);
+                yield null;
+            }
+            default -> null;
+        };
+
+        if (dispatchResult != null || (method != null && !method.isEmpty())) {
+            return dispatchResult;
         }
 
         boolean useRx3 = false;
@@ -193,6 +211,88 @@ public final class RxShowAllergy2Action extends ActionSupport {
             response.sendRedirect("error.html");
         }
         return null;
+    }
+
+    /**
+     * Retrieves and processes allergy data for a patient, including local and remote allergy information,
+     * and calculates allergy warnings based on severity. Outputs the resulting data in JSON format.
+     *
+     * This method checks system preferences and handles merging allergy lists from local and remote
+     * data sources. It determines the highest severity allergy when the system preference for displaying
+     * the highest allergy warnings is enabled.
+     *
+     * @param loggedInInfo LoggedInInfo object containing user session details and security information.
+     */
+    private void getAllergyData(LoggedInInfo loggedInInfo) {
+        boolean rxShowAllAllergyWarnings = systemPreferencesDao.isReadBooleanPreference(SystemPreferences.RX_PREFERENCE_KEYS.rx_show_highest_allergy_warning);
+
+        String atcCode = request.getParameter("atcCode");
+        String id = request.getParameter("id");
+        String disabled = ca.openosp.OscarProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
+        if (disabled.equals("false")) {
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            RxSessionBean rxSessionBean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+            Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, rxSessionBean.getDemographicNo()).getActiveAllergies();
+
+            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
+                try {
+                    ArrayList<Allergy> remoteAllergies = RemoteDrugAllergyHelper.getRemoteAllergiesAsAllergyItems(loggedInInfo, rxSessionBean.getDemographicNo());
+
+                    // now merge the 2 lists
+                    Collections.addAll(remoteAllergies, allergies);
+                    allergies = remoteAllergies.toArray(new Allergy[0]);
+                } catch (Exception e) {
+                    MiscUtils.getLogger().error("error getting remote allergies", e);
+                }
+            }
+
+            Allergy[] allergyWarnings = null;
+            RxDrugData drugData = new RxDrugData();
+
+            try {
+                allergyWarnings = drugData.getAllergyWarnings(atcCode, allergies);
+
+
+                Allergy highestSeverityAllergy = null;
+
+                ObjectNode result = objectMapper.createObjectNode();
+                result.put("id", id);
+                ArrayNode allergyResultArray = objectMapper.createArrayNode();
+                if (allergyWarnings != null && allergyWarnings.length > 0) {
+                    highestSeverityAllergy = allergyWarnings[0];
+                    for (Allergy allergy : allergyWarnings) {
+                        ObjectNode allergyResult = objectMapper.createObjectNode();
+                        allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(allergy.getDescription()));
+                        allergyResult.put("reaction", StringUtils.trimToEmpty(allergy.getReaction()));
+                        allergyResult.put("severity", StringUtils.trimToEmpty(allergy.getSeverityOfReactionDesc()));
+                        if (rxShowAllAllergyWarnings) {
+                            int highestSeverity = Integer.parseInt(highestSeverityAllergy.getSeverityOfReaction());
+                            int thisSeverity = Integer.parseInt(allergy.getSeverityOfReaction());
+                            if (thisSeverity > highestSeverity) {
+                                highestSeverityAllergy = allergy;
+                            }
+                        } else {
+                            allergyResultArray.add(allergyResult);
+                        }
+                    }
+                }
+                if (rxShowAllAllergyWarnings && highestSeverityAllergy != null) {
+                    ObjectNode allergyResult = objectMapper.createObjectNode();
+                    allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(highestSeverityAllergy.getDescription()));
+                    allergyResult.put("reaction", StringUtils.trimToEmpty(highestSeverityAllergy.getReaction()));
+                    allergyResult.put("severity", StringUtils.trimToEmpty(highestSeverityAllergy.getSeverityOfReactionDesc()));
+                    allergyResultArray.add(allergyResult);
+                }
+                result.set("results", allergyResultArray);
+
+                response.setContentType("application/json");
+                response.getOutputStream().write(result.toString().getBytes());
+
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Error in getAllergyData", e);
+            }
+        }
     }
 
     /**

@@ -137,8 +137,6 @@
         EctProgram prgrmMgr = new EctProgram(session);
         session.setAttribute("case_program_id", prgrmMgr.getProgram(bean.providerNo));
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        String strBeanName = "casemgmt_oscar_bean" + bean.getDemographicNo();
-        session.setAttribute(strBeanName, bean);
         session.setAttribute("casemgmt_bean_flag", "true");
         String hrefurl = request.getContextPath() + "/casemgmt/forward.jsp?action=view" +
         "&demographicNo=" + bean.demographicNo +
@@ -175,8 +173,6 @@
 <caisi:isModuleLoad moduleName="caisi">
     <%
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        String strBeanName = "casemgmt_oscar_bean" + bean.getDemographicNo();
-        session.setAttribute(strBeanName, bean);
         session.setAttribute("casemgmt_oscar_bean", bean);
         session.setAttribute("casemgmt_bean_flag", "true");
         String hrefurl = request.getContextPath() + "/casemgmt/forward.jsp?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + bean.userName;

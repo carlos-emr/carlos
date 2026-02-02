@@ -38,15 +38,14 @@
          CXF Bus + SOAP endpoints (unchanged)
          ========================================================= -->
     <import resource="classpath:META-INF/cxf/cxf.xml"/>
-    <import resource="classpath:META-INF/cxf/cxf-servlet.xml"/>
 
     <bean id="abstractLoggingInterceptor" abstract="true">
         <property name="prettyLogging" value="true"/>
     </bean>
-    <bean id="loggingInInterceptor" class="org.apache.cxf.interceptor.LoggingInInterceptor" parent="abstractLoggingInterceptor">
+    <bean id="loggingInInterceptor" class="org.apache.cxf.ext.logging.LoggingInInterceptor" parent="abstractLoggingInterceptor">
         <property name="limit" value="1024000"/>
     </bean>
-    <bean id="loggingOutInterceptor" class="org.apache.cxf.interceptor.LoggingOutInterceptor" parent="abstractLoggingInterceptor"/>
+    <bean id="loggingOutInterceptor" class="org.apache.cxf.ext.logging.LoggingOutInterceptor" parent="abstractLoggingInterceptor"/>
 
     <cxf:bus>
 		<cxf:properties>

@@ -22,6 +22,47 @@ import java.util.Date;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 
+/**
+ * Cached patient demographic data entity for the CAISI (Client Access to Integrated Services and Information) Integrator.
+ *
+ * This JPA entity represents a cached copy of patient demographic information retrieved from remote healthcare
+ * facilities within the CAISI integrator network. The cache enables efficient access to patient data across
+ * multiple EMR installations without requiring real-time queries to remote systems.
+ *
+ * <p>This entity contains Protected Health Information (PHI) including:
+ * <ul>
+ *   <li>Patient identification (name, date of birth, gender)</li>
+ *   <li>Health Insurance Number (HIN) with validity periods</li>
+ *   <li>Social Insurance Number (SIN)</li>
+ *   <li>Contact information (address, phone numbers)</li>
+ *   <li>Geographic location (province, city)</li>
+ * </ul>
+ *
+ * <p>The entity is enhanced by Apache OpenJPA for persistence management, implementing the {@link PersistenceCapable}
+ * interface which provides automatic field-level tracking, lazy loading, and state management. The enhancement
+ * process generates additional methods (prefixed with "pc") that handle low-level persistence operations.
+ *
+ * <p><strong>Security Considerations:</strong>
+ * <ul>
+ *   <li>All access to this entity must be authorized through {@code SecurityInfoManager}</li>
+ *   <li>PHI data must never be logged or exposed in error messages</li>
+ *   <li>HIN and SIN values are stored in lowercase for consistent matching</li>
+ *   <li>Audit trail maintained via {@code lastUpdateUser} and {@code lastUpdateDate}</li>
+ * </ul>
+ *
+ * <p><strong>Data Normalization:</strong>
+ * Several fields are automatically normalized on input:
+ * <ul>
+ *   <li>HIN, SIN, province, city: converted to lowercase and trimmed</li>
+ *   <li>String fields: trimmed with null conversion for empty strings</li>
+ *   <li>Dates: stored as temporal types (DATE or TIMESTAMP)</li>
+ * </ul>
+ *
+ * @see AbstractModel
+ * @see FacilityIdIntegerCompositePk
+ * @see PersistenceCapable
+ * @since 2026-01-24
+ */
 @Entity
 public class CachedDemographic extends AbstractModel<FacilityIdIntegerCompositePk> implements Comparable<CachedDemographic>, PersistenceCapable
 {
@@ -77,7 +118,13 @@ public class CachedDemographic extends AbstractModel<FacilityIdIntegerCompositeP
     static /* synthetic */ Class class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographic;
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
-    
+
+    /**
+     * Creates a new CachedDemographic instance with default null values.
+     *
+     * This default constructor initializes all demographic fields to null. The composite primary key
+     * and state manager are left uninitialized and will be set by the persistence framework.
+     */
     public CachedDemographic() {
         this.firstName = null;
         this.lastName = null;
@@ -94,177 +141,471 @@ public class CachedDemographic extends AbstractModel<FacilityIdIntegerCompositeP
         this.caisiProviderId = null;
         this.idHash = null;
     }
-    
+
+    /**
+     * Retrieves the composite primary key for this cached demographic record.
+     *
+     * The composite key contains both the facility ID (identifying the source healthcare facility)
+     * and the CAISI item ID (the demographic ID at that facility). Together these uniquely identify
+     * a patient record within the integrator cache.
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key, or null if not yet set
+     */
     public FacilityIdIntegerCompositePk getFacilityIdIntegerCompositePk() {
         return pcGetfacilityDemographicPk(this);
     }
-    
+
+    /**
+     * Sets the composite primary key for this cached demographic record.
+     *
+     * @param facilityDemographicPk FacilityIdIntegerCompositePk the composite key containing facility ID and CAISI item ID
+     */
     public void setFacilityIdIntegerCompositePk(final FacilityIdIntegerCompositePk facilityDemographicPk) {
         pcSetfacilityDemographicPk(this, facilityDemographicPk);
     }
-    
+
+    /**
+     * Retrieves the patient's first name.
+     *
+     * @return String the patient's first name, or null if not set
+     */
     public String getFirstName() {
         return pcGetfirstName(this);
     }
-    
+
+    /**
+     * Sets the patient's first name.
+     *
+     * The value is automatically trimmed and converted to null if empty or whitespace-only.
+     *
+     * @param firstName String the patient's first name
+     */
     public void setFirstName(final String firstName) {
         pcSetfirstName(this, StringUtils.trimToNull(firstName));
     }
-    
+
+    /**
+     * Retrieves the patient's last name (surname).
+     *
+     * @return String the patient's last name, or null if not set
+     */
     public String getLastName() {
         return pcGetlastName(this);
     }
-    
+
+    /**
+     * Sets the patient's last name (surname).
+     *
+     * The value is automatically trimmed and converted to null if empty or whitespace-only.
+     *
+     * @param lastName String the patient's last name
+     */
     public void setLastName(final String lastName) {
         pcSetlastName(this, StringUtils.trimToNull(lastName));
     }
-    
+
+    /**
+     * Retrieves the patient's date of birth.
+     *
+     * The date is stored with DATE temporal type (time component not stored).
+     *
+     * @return Date the patient's birth date, or null if not set
+     */
     public Date getBirthDate() {
         return pcGetbirthDate(this);
     }
-    
+
+    /**
+     * Sets the patient's date of birth.
+     *
+     * Only the date component is stored; time information is discarded.
+     *
+     * @param birthDate Date the patient's birth date
+     */
     public void setBirthDate(final Date birthDate) {
         pcSetbirthDate(this, birthDate);
     }
-    
+
+    /**
+     * Retrieves the patient's gender.
+     *
+     * @return Gender the patient's gender (M, F, T, O, or U), or null if not set
+     * @see Gender
+     */
     public Gender getGender() {
         return pcGetgender(this);
     }
-    
+
+    /**
+     * Sets the patient's gender.
+     *
+     * @param gender Gender the patient's gender (M, F, T, O, or U)
+     * @see Gender
+     */
     public void setGender(final Gender gender) {
         pcSetgender(this, gender);
     }
-    
+
+    /**
+     * Retrieves the patient's Health Insurance Number (HIN).
+     *
+     * The HIN is stored in lowercase format for consistent matching across systems.
+     * Maximum length is 32 characters.
+     *
+     * @return String the patient's HIN in lowercase, or null if not set
+     */
     public String getHin() {
         return pcGethin(this);
     }
-    
+
+    /**
+     * Sets the patient's Health Insurance Number (HIN).
+     *
+     * The value is automatically converted to lowercase, trimmed, and set to null if empty.
+     * This normalization ensures consistent matching across different EMR systems.
+     *
+     * @param hin String the patient's HIN (will be normalized to lowercase)
+     */
     public void setHin(final String hin) {
         pcSethin(this, MiscUtils.trimToNullLowerCase(hin));
     }
-    
+
+    /**
+     * Retrieves the HIN version code.
+     *
+     * Some provinces use version codes to track HIN card versions or renewals.
+     * Maximum length is 8 characters.
+     *
+     * @return String the HIN version code, or null if not applicable
+     */
     public String getHinVersion() {
         return pcGethinVersion(this);
     }
-    
+
+    /**
+     * Sets the HIN version code.
+     *
+     * The value is automatically trimmed and converted to null if empty or whitespace-only.
+     *
+     * @param hinVersion String the HIN version code
+     */
     public void setHinVersion(final String hinVersion) {
         pcSethinVersion(this, StringUtils.trimToNull(hinVersion));
     }
-    
+
+    /**
+     * Retrieves the patient's Social Insurance Number (SIN).
+     *
+     * The SIN is stored in lowercase format for consistent matching. Maximum length is 32 characters.
+     * <strong>Note:</strong> SIN collection should be limited to cases where legally required.
+     *
+     * @return String the patient's SIN in lowercase, or null if not set
+     */
     public String getSin() {
         return pcGetsin(this);
     }
-    
+
+    /**
+     * Sets the patient's Social Insurance Number (SIN).
+     *
+     * The value is automatically converted to lowercase, trimmed, and set to null if empty.
+     *
+     * @param sin String the patient's SIN (will be normalized to lowercase)
+     */
     public void setSin(final String sin) {
         pcSetsin(this, MiscUtils.trimToNullLowerCase(sin));
     }
-    
+
+    /**
+     * Retrieves the patient's province or territory code.
+     *
+     * Typically a 2-character provincial code (e.g., "on", "bc", "ab"). Maximum length is 4 characters.
+     * Stored in lowercase for consistent matching.
+     *
+     * @return String the province/territory code in lowercase, or null if not set
+     */
     public String getProvince() {
         return pcGetprovince(this);
     }
-    
+
+    /**
+     * Sets the patient's province or territory code.
+     *
+     * The value is automatically converted to lowercase, trimmed, and set to null if empty.
+     *
+     * @param province String the province/territory code (will be normalized to lowercase)
+     */
     public void setProvince(final String province) {
         pcSetprovince(this, MiscUtils.trimToNullLowerCase(province));
     }
-    
+
+    /**
+     * Retrieves the patient's city of residence.
+     *
+     * Maximum length is 128 characters. Stored in lowercase for consistent matching.
+     *
+     * @return String the city name in lowercase, or null if not set
+     */
     public String getCity() {
         return pcGetcity(this);
     }
-    
+
+    /**
+     * Sets the patient's city of residence.
+     *
+     * The value is automatically converted to lowercase, trimmed, and set to null if empty.
+     *
+     * @param city String the city name (will be normalized to lowercase)
+     */
     public void setCity(final String city) {
         pcSetcity(this, MiscUtils.trimToNullLowerCase(city));
     }
-    
+
+    /**
+     * Retrieves the HIN type indicator.
+     *
+     * Different provinces may use different HIN types or categories. Maximum length is 32 characters.
+     *
+     * @return String the HIN type, or null if not applicable
+     */
     public String getHinType() {
         return pcGethinType(this);
     }
-    
+
+    /**
+     * Sets the HIN type indicator.
+     *
+     * The value is automatically trimmed and converted to null if empty or whitespace-only.
+     *
+     * @param hinType String the HIN type
+     */
     public void setHinType(final String hinType) {
         pcSethinType(this, StringUtils.trimToNull(hinType));
     }
-    
+
+    /**
+     * Retrieves the CAISI provider identifier.
+     *
+     * This is the provider ID from the CAISI system associated with this demographic record.
+     * Maximum length is 16 characters.
+     *
+     * @return String the CAISI provider ID, or null if not set
+     */
     public String getCaisiProviderId() {
         return pcGetcaisiProviderId(this);
     }
-    
+
+    /**
+     * Sets the CAISI provider identifier.
+     *
+     * The value is automatically trimmed and converted to null if empty or whitespace-only.
+     *
+     * @param caisiProviderId String the CAISI provider ID
+     */
     public void setCaisiProviderId(final String caisiProviderId) {
         pcSetcaisiProviderId(this, StringUtils.trimToNull(caisiProviderId));
     }
-    
+
+    /**
+     * Retrieves the identifier hash for privacy-preserving record matching.
+     *
+     * This hash may be used for matching records across facilities without exposing actual identifiers.
+     * Maximum length is 32 characters.
+     *
+     * @return String the ID hash, or null if not set
+     */
     public String getIdHash() {
         return pcGetidHash(this);
     }
-    
+
+    /**
+     * Sets the identifier hash for privacy-preserving record matching.
+     *
+     * The value is automatically trimmed and converted to null if empty or whitespace-only.
+     *
+     * @param idHash String the ID hash value
+     */
     public void setIdHash(final String idHash) {
         pcSetidHash(this, StringUtils.trimToNull(idHash));
     }
-    
+
+    /**
+     * Retrieves the patient's street address.
+     *
+     * Maximum length is 128 characters. This field is not normalized to lowercase.
+     *
+     * @return String the street address, or null if not set
+     */
     public String getStreetAddress() {
         return pcGetstreetAddress(this);
     }
-    
+
+    /**
+     * Sets the patient's street address.
+     *
+     * @param streetAddress String the street address
+     */
     public void setStreetAddress(final String streetAddress) {
         pcSetstreetAddress(this, streetAddress);
     }
-    
+
+    /**
+     * Retrieves the patient's primary phone number.
+     *
+     * Maximum length is 64 characters. No specific format is enforced.
+     *
+     * @return String the primary phone number, or null if not set
+     */
     public String getPhone1() {
         return pcGetphone1(this);
     }
-    
+
+    /**
+     * Sets the patient's primary phone number.
+     *
+     * @param phone1 String the primary phone number
+     */
     public void setPhone1(final String phone1) {
         pcSetphone1(this, phone1);
     }
-    
+
+    /**
+     * Retrieves the patient's secondary phone number.
+     *
+     * Maximum length is 64 characters. No specific format is enforced.
+     *
+     * @return String the secondary phone number, or null if not set
+     */
     public String getPhone2() {
         return pcGetphone2(this);
     }
-    
+
+    /**
+     * Sets the patient's secondary phone number.
+     *
+     * @param phone2 String the secondary phone number
+     */
     public void setPhone2(final String phone2) {
         pcSetphone2(this, phone2);
     }
-    
+
+    /**
+     * Retrieves the HIN validity start date.
+     *
+     * Indicates when the patient's health insurance coverage begins or when the current HIN became valid.
+     *
+     * @return Date the HIN validity start date, or null if not set
+     */
     public Date getHinValidStart() {
         return pcGethinValidStart(this);
     }
-    
+
+    /**
+     * Sets the HIN validity start date.
+     *
+     * @param hinValidStart Date the HIN validity start date
+     */
     public void setHinValidStart(final Date hinValidStart) {
         pcSethinValidStart(this, hinValidStart);
     }
-    
+
+    /**
+     * Retrieves the HIN validity end date.
+     *
+     * Indicates when the patient's health insurance coverage expires or when the current HIN expires.
+     *
+     * @return Date the HIN validity end date, or null if not set
+     */
     public Date getHinValidEnd() {
         return pcGethinValidEnd(this);
     }
-    
+
+    /**
+     * Sets the HIN validity end date.
+     *
+     * @param hinValidEnd Date the HIN validity end date
+     */
     public void setHinValidEnd(final Date hinValidEnd) {
         pcSethinValidEnd(this, hinValidEnd);
     }
-    
+
+    /**
+     * Compares this cached demographic to another based on CAISI item ID.
+     *
+     * The comparison is performed using the numeric CAISI item ID from the composite primary key.
+     * This provides a natural ordering for cached demographic records.
+     *
+     * @param o CachedDemographic the other cached demographic to compare to
+     * @return int negative if this record's ID is less, zero if equal, positive if greater
+     */
     @Override
     public int compareTo(final CachedDemographic o) {
         return pcGetfacilityDemographicPk(this).getCaisiItemId() - pcGetfacilityDemographicPk(o).getCaisiItemId();
     }
-    
+
+    /**
+     * Retrieves the entity's primary key identifier.
+     *
+     * This is an alias for {@link #getFacilityIdIntegerCompositePk()} required by the
+     * AbstractModel base class.
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key
+     */
     @Override
     public FacilityIdIntegerCompositePk getId() {
         return pcGetfacilityDemographicPk(this);
     }
-    
+
+    /**
+     * Retrieves the username of the user who last updated this record.
+     *
+     * This field is part of the audit trail for PHI access and modifications.
+     * Maximum length is 16 characters.
+     *
+     * @return String the username of the last updating user, or null if not set
+     */
     public String getLastUpdateUser() {
         return pcGetlastUpdateUser(this);
     }
-    
+
+    /**
+     * Sets the username of the user who last updated this record.
+     *
+     * @param lastUpdateUser String the username of the updating user
+     */
     public void setLastUpdateUser(final String lastUpdateUser) {
         pcSetlastUpdateUser(this, lastUpdateUser);
     }
-    
+
+    /**
+     * Retrieves the timestamp of the last update to this record.
+     *
+     * This field is part of the audit trail for PHI access and modifications.
+     * Stored with TIMESTAMP temporal type (includes date and time).
+     *
+     * @return Date the last update timestamp, or null if not set
+     */
     public Date getLastUpdateDate() {
         return pcGetlastUpdateDate(this);
     }
-    
+
+    /**
+     * Sets the timestamp of the last update to this record.
+     *
+     * @param lastUpdateDate Date the last update timestamp
+     */
     public void setLastUpdateDate(final Date lastUpdateDate) {
         pcSetlastUpdateDate(this, lastUpdateDate);
     }
-    
+
+    /**
+     * Returns the OpenJPA enhancement contract version.
+     *
+     * This method is part of the PersistenceCapable contract and indicates which version
+     * of the OpenJPA enhancement specification this class implements.
+     *
+     * @return int the enhancement contract version (2)
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }
@@ -1091,13 +1432,39 @@ public class CachedDemographic extends AbstractModel<FacilityIdIntegerCompositeP
         this.pcSetDetachedState(PersistenceCapable.DESERIALIZED);
         objectInputStream.defaultReadObject();
     }
-    
+
+    /**
+     * Enumeration representing patient gender identity options.
+     *
+     * This enum provides standardized gender values for demographic records in compliance
+     * with Canadian healthcare privacy and human rights requirements. The values support
+     * both traditional binary gender categories and inclusive options for diverse gender identities.
+     *
+     * <p><strong>Values:</strong>
+     * <ul>
+     *   <li><strong>M</strong> - Male</li>
+     *   <li><strong>F</strong> - Female</li>
+     *   <li><strong>T</strong> - Transgender/Trans</li>
+     *   <li><strong>O</strong> - Other/Non-binary</li>
+     *   <li><strong>U</strong> - Undisclosed/Unknown/Prefer not to answer</li>
+     * </ul>
+     *
+     * <p>The gender field is stored as a single character in the database and should be handled
+     * with appropriate privacy and respect for patient identity.
+     *
+     * @since 2026-01-24
+     */
     public enum Gender
     {
-        M, 
-        F, 
-        T, 
-        O, 
+        /** Male */
+        M,
+        /** Female */
+        F,
+        /** Transgender/Trans */
+        T,
+        /** Other/Non-binary */
+        O,
+        /** Undisclosed/Unknown/Prefer not to answer */
         U;
     }
 }

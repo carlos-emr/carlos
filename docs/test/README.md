@@ -7,8 +7,11 @@ This directory contains comprehensive documentation for the OpenO EMR modern tes
 ## Current Status
 
 - **Framework**: ✅ Production Ready
-- **Tests**: 23 of 24 passing (96% pass rate)
-  - Unit Tests: 12/12 passing ✅
+- **Tests**: 129 unit tests passing, 12 integration tests (11 passing)
+  - Unit Tests: 129/129 passing ✅
+    - DemographicManagerUnitTest: 117 tests (18 @Nested classes)
+    - TicklerManagerUnitTest: 9 tests
+    - TicklerDaoUnitTest: 3 tests
   - Integration Tests: 11/12 passing (1 fails due to lst_gender table dependency)
 - **Java 21 Support**: ✅ Fully compatible with ByteBuddy experimental flag
 
@@ -43,12 +46,15 @@ src/test-modern/
 ├── java/ca/openosp/openo/
 │   ├── test/
 │   │   ├── base/              # Base test classes
-│   │   ├── unit/              # Unit test infrastructure
+│   │   ├── unit/              # Unit test infrastructure (OpenOUnitTestBase)
 │   │   └── mocks/             # Mock implementations
-│   └── [domain]/              # Domain-specific tests
+│   ├── managers/              # Manager layer unit tests
+│   │   ├── DemographicUnitTestBase.java      # Base class with test data builders
+│   │   └── DemographicManagerUnitTest.java   # 117 tests in 18 @Nested classes
+│   └── tickler/               # Domain-specific tests
 │       ├── dao/               # DAO tests (integration + unit)
 │       │   └── archive/       # Original single-file tests (reference only)
-│       └── manager/           # Service/Manager tests
+│       └── manager/           # Tickler Manager tests
 └── resources/                 # Test configurations
 ```
 
@@ -97,8 +103,10 @@ mvn test -Dtest=TicklerDao*       # Specific test pattern
 
 ### 3. BDD Naming Convention
 ```java
-// Clear, self-documenting test names
-void should_returnActiveTicklers_when_demographicNumberProvided()
+// Clear, self-documenting test names with ONE underscore
+void shouldReturnActiveTicklers_whenDemographicNumberProvided()  // camelCase + underscore
+void shouldReturnNull_whenNotFound()                              // Simple condition
+void shouldThrowException_whenPrivilegeDenied()                   // Exception testing
 ```
 
 ### 4. Comprehensive Tagging
@@ -144,21 +152,48 @@ public class MyComponentIntegrationTest extends OpenOTestBase {
 ### Unit Test Example
 
 ```java
-@DisplayName("My Component Unit Tests")
+@ExtendWith(MockitoExtension.class)
+@DisplayName("My Manager Unit Tests")
 @Tag("unit")
-public class MyComponentUnitTest extends OpenOUnitTestBase {
+@Tag("fast")
+@Tag("manager")
+public class MyManagerUnitTest extends OpenOUnitTestBase {
 
-    @Mock
-    private DependencyDao mockDao;
+    @Mock private SomeDao mockDao;
+    @Mock private AnotherDao mockAnotherDao;
+
+    private MyManagerImpl manager;
+    private MockedStatic<LogAction> logActionMock;
 
     @BeforeEach
     void setUp() {
-        registerMock(DependencyDao.class, mockDao);
+        // Register mocks for SpringUtils BEFORE static class mocking
+        registerMock(SomeDao.class, mockDao);
+        registerMock(OscarLogDao.class, createAndRegisterMock(OscarLogDao.class));
+
+        // Mock static classes
+        logActionMock = mockStatic(LogAction.class);
+
+        // Create manager and inject dependencies via reflection
+        manager = new MyManagerImpl();
+        injectDependency(manager, "someDao", mockDao);
     }
 
-    @Test
-    void should_validateInput_when_processing() {
-        // Test with mocked dependencies
+    @AfterEach
+    void tearDown() {
+        if (logActionMock != null) logActionMock.close();
+    }
+
+    @Nested
+    @DisplayName("Core Operations")
+    class CoreOperationsTests {
+        @Test
+        @DisplayName("should return entity when valid ID provided")
+        void shouldReturnEntity_whenValidIdProvided() {
+            when(mockDao.find(1)).thenReturn(new Entity());
+            Entity result = manager.getEntity(loggedInInfo, 1);
+            assertThat(result).isNotNull();
+        }
     }
 }
 ```
@@ -194,6 +229,6 @@ For questions or issues:
 
 ---
 
-*Last Updated: September 2025*
-*Version: 1.0*
+*Last Updated: January 2026*
+*Version: 1.1*
 *Status: Production Ready*

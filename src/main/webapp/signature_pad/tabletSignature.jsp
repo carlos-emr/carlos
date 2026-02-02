@@ -16,7 +16,13 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page import="ca.openosp.openo.ui.servlet.ImageRenderingServlet" %>
 <%@ page import="ca.openosp.openo.commn.model.enumerator.ModuleType" %>
-
+<%
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+        response.sendRedirect(request.getContextPath() + "/index.jsp");
+        return;
+    }
+%>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,7 +40,6 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 
 </head>
 <%
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String requestIdKey = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
     if (requestIdKey == null) {
         requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());

@@ -8,6 +8,12 @@ OpenO EMR uses a dual test framework approach with JUnit 5 (modern) tests runnin
 
 ## Current Test Results
 
+### Unit Tests
+- **129 of 129 passing** - All unit tests pass
+  - `DemographicManagerUnitTest` - 117 tests ✅ (18 @Nested classes covering 66 methods)
+  - `TicklerManagerUnitTest` - 9 tests ✅ (5 validation + 4 business operations)
+  - `TicklerDaoUnitTest` - 3 tests ✅
+
 ### Integration Tests
 - **11 of 12 passing** - TicklerDao integration tests
 - Tests are split across multiple files by operation type:
@@ -15,11 +21,6 @@ OpenO EMR uses a dual test framework approach with JUnit 5 (modern) tests runnin
   - `TicklerDaoQueryIntegrationTest` - 3 tests ✅
   - `TicklerDaoAggregateIntegrationTest` - 3 tests ✅
   - `TicklerDaoWriteIntegrationTest` - 1 test ❌ (lst_gender table dependency)
-
-### Unit Tests
-- **12 of 12 passing** - All unit tests pass
-  - `TicklerDaoUnitTest` - 3 tests ✅
-  - `TicklerManagerUnitTest` - 9 tests ✅ (5 validation + 4 business operations)
 
 ## Quick Start
 

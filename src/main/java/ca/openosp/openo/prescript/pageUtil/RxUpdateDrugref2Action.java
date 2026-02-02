@@ -31,20 +31,17 @@
 
 package ca.openosp.openo.prescript.pageUtil;
 
-import java.util.HashMap;
+import ca.openosp.openo.prescript.util.RxDrugRef;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import ca.openosp.openo.prescript.util.RxDrugRef;
-
-/**
- * @author jackson
- */
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
+import java.util.HashMap;
+import java.util.Map;
 
 public class RxUpdateDrugref2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -56,6 +53,8 @@ public class RxUpdateDrugref2Action extends ActionSupport {
     public String execute() throws Exception {
         if ("updateDB".equals(request.getParameter("method"))) {
             return updateDB();
+        } else if ("verify".equals(request.getParameter("method"))) {
+            return verify();
         }
         return getLastUpdate();
     }
@@ -73,12 +72,21 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         return null;
     }
 
-    public String getLastUpdate() throws Exception, ServletException {
+    private String verify() throws Exception, ServletException {
+        RxDrugRef drugref = new RxDrugRef();
+        Map<String,String> verify = drugref.verify();
+        response.setContentType("text/x-json;charset=UTF-8");
+        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(verify);
+        response.getWriter().write(jsonArray.toString());
+        return null;
+    }
+
+    private String getLastUpdate() throws Exception, ServletException {
         RxDrugRef drugref = new RxDrugRef();
         String s = drugref.getLastUpdateTime();
         HashMap<String, String> d = new HashMap<String, String>();
         d.put("lastUpdate", s);
-        //response.setContentType("text/x-json;charset=UTF-8");
+        response.setContentType("text/x-json;charset=UTF-8");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
         response.getWriter().write(jsonArray.toString());
         return null;

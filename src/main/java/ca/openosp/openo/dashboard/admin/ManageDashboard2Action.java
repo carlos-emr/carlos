@@ -30,10 +30,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import org.dom4j.Document;
-import org.dom4j.io.SAXReader;
-import org.dom4j.io.SAXValidator;
-import org.dom4j.util.XMLErrorHandler;
+import org.jdom2.Document;
+import org.jdom2.input.SAXBuilder;
+import org.jdom2.input.sax.XMLReaders;
+import org.jdom2.output.DOMOutputter;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.SAXParseException;
 import org.xml.sax.SAXNotRecognizedException;
 import org.xml.sax.SAXNotSupportedException;
 
@@ -44,6 +46,7 @@ import ca.openosp.openo.managers.DashboardManager.ObjectName;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.PathValidationUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
 import javax.servlet.http.HttpServletRequest;
@@ -112,6 +115,9 @@ public class ManageDashboard2Action extends ActionSupport {
 
         if (indicatorTemplateFile != null) {
             try {
+                // Validate uploaded file before any file operations
+                PathValidationUtils.validateUpload(indicatorTemplateFile);
+
                 filebytes = Files.readAllBytes(indicatorTemplateFile.toPath());
             } catch (Exception e) {
                 json = objectMapper.createObjectNode();
@@ -133,48 +139,76 @@ public class ManageDashboard2Action extends ActionSupport {
             URL schemaSource = Thread.currentThread().getContextClassLoader().getResource("indicatorXMLTemplates/IndicatorXMLTemplateSchema.xsd");
 
             try {
-                XMLErrorHandler errorHandler = new XMLErrorHandler();
+                // Custom error handler to collect validation errors
+                final StringBuilder errorMessages = new StringBuilder();
+                ErrorHandler errorHandler = new ErrorHandler() {
+                    @Override
+                    public void warning(SAXParseException e) {
+                        errorMessages.append("Warning: ").append(e.getMessage()).append("\n");
+                    }
+
+                    @Override
+                    public void error(SAXParseException e) {
+                        errorMessages.append("Error: ").append(e.getMessage()).append("\n");
+                    }
+
+                    @Override
+                    public void fatalError(SAXParseException e) {
+                        errorMessages.append("Fatal: ").append(e.getMessage()).append("\n");
+                    }
+                };
+
+                // Configure SAXBuilder with XXE attack prevention
+                SAXBuilder builder = new SAXBuilder(XMLReaders.NONVALIDATING);
+                builder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                builder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                builder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                builder.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+                // Build the JDOM2 document
+                Document xmlDocument = builder.build(indicatorTemplateFile);
+
+                // Setup XSD validation
                 SAXParserFactory factory = SAXParserFactory.newInstance();
                 factory.setValidating(true);
                 factory.setNamespaceAware(true);
-                
+
                 try {
-                    // Disable external entities to prevent XXE attacks
+                    // Disable external entities to prevent XXE attacks in validator
                     factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
                     factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
                     factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
                     factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-                
-                } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
-                    MiscUtils.getLogger().error("Failed to set XML parser features to prevent XXE attacks", e);
-                    throw new RuntimeException(e);
-                }
-                
-                SAXParser parser = factory.newSAXParser();
-                // Configure SAXReader to prevent XXE attacks
-                SAXReader xmlReader = new SAXReader();
-                
-                try {
-                    xmlReader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-                    xmlReader.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                    xmlReader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                    xmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
                 } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
                     MiscUtils.getLogger().error("Failed to set XML parser features to prevent XXE attacks", e);
                     throw new RuntimeException(e);
                 }
 
-                Document xmlDocument = (Document) xmlReader.read(Files.newBufferedReader(indicatorTemplateFile.toPath()));
+                SAXParser parser = factory.newSAXParser();
                 parser.setProperty(
                         "http://java.sun.com/xml/jaxp/properties/schemaLanguage",
                         "http://www.w3.org/2001/XMLSchema");
                 parser.setProperty(
                         "http://java.sun.com/xml/jaxp/properties/schemaSource",
                         "file:" + schemaSource.getPath());
-                SAXValidator validator = new SAXValidator(parser.getXMLReader());
+
+                // Convert JDOM2 Document to DOM Document for validation
+                DOMOutputter domOutputter = new DOMOutputter();
+                org.w3c.dom.Document domDocument = domOutputter.output(xmlDocument);
+
+                // Validate using standard javax.xml.validation
+                javax.xml.validation.SchemaFactory schemaFactory =
+                    javax.xml.validation.SchemaFactory.newInstance(javax.xml.XMLConstants.W3C_XML_SCHEMA_NS_URI);
+                // Enable secure processing to prevent XXE attacks
+                schemaFactory.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true);
+                schemaFactory.setProperty(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "");
+                schemaFactory.setProperty(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+                javax.xml.validation.Schema schema = schemaFactory.newSchema(schemaSource);
+                javax.xml.validation.Validator validator = schema.newValidator();
                 validator.setErrorHandler(errorHandler);
-                validator.validate(xmlDocument);
-                if (!errorHandler.getErrors().hasContent()) {
+                validator.validate(new javax.xml.transform.dom.DOMSource(domDocument));
+
+                if (errorMessages.length() == 0) {
                     isOscarXml = true;
                 }
             } catch (Exception e) {

@@ -26,6 +26,37 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Struts2 action for managing and administering emails in the OpenO EMR system.
+ *
+ * This action handles the email management interface in the Admin section, providing
+ * functionality for viewing, searching, filtering, and resending previously sent patient
+ * emails. It supports comprehensive email log management including status tracking,
+ * sender filtering, date range queries, and patient-specific email history.
+ *
+ * <p>Key healthcare functionalities:</p>
+ * <ul>
+ *   <li>Email log retrieval with multi-criteria filtering (status, sender, date range, patient)</li>
+ *   <li>Email resend capability with full attachment and encryption reconstruction</li>
+ *   <li>Support for various document types (eForms, eDocs, Labs, HRM reports, clinical forms)</li>
+ *   <li>Email status management and resolution tracking</li>
+ *   <li>Patient consent verification and email validation</li>
+ * </ul>
+ *
+ * <p>This is a method-based Struts2 action following the 2Action pattern, routing
+ * requests via the "method" parameter to different handler methods. The main entry
+ * point {@link #execute()} delegates to specialized methods based on the requested operation.</p>
+ *
+ * <p>Security: All operations respect the _email security privilege and maintain
+ * audit trails through the LoggedInInfo context.</p>
+ *
+ * @see EmailManager
+ * @see EmailComposeManager
+ * @see EmailLog
+ * @see EmailAttachment
+ * @see DocumentAttachmentManager
+ * @since 2026-01-24
+ */
 public class ManageEmails2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -38,6 +69,22 @@ public class ManageEmails2Action extends ActionSupport {
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Main entry point for the ManageEmails2Action, routing requests to appropriate handler methods.
+     *
+     * This method examines the "method" parameter from the HTTP request and delegates to
+     * the corresponding method handler. Supported methods include "fetchEmails" for retrieving
+     * email logs based on search criteria, and "resendEmail" for preparing a previously sent
+     * email for resending.
+     *
+     * If no method parameter is provided or the method is not recognized, defaults to displaying
+     * the email management interface via {@link #showEmailManager()}.
+     *
+     * @return String Struts2 result name ("show", "emailstatus", "compose", or null for errors)
+     * @see #fetchEmails()
+     * @see #resendEmail()
+     * @see #showEmailManager()
+     */
     public String execute() {
         String mtd = request.getParameter("method");
         if ("fetchEmails".equals(mtd)) {
@@ -49,16 +96,47 @@ public class ManageEmails2Action extends ActionSupport {
         return showEmailManager();
     }
 
+    /**
+     * Displays the email management interface with available email statuses and sender accounts.
+     *
+     * This method prepares the initial view for the email management page by populating
+     * request attributes with all possible email statuses (SENT, FAILED, PENDING, RESOLVED)
+     * and the list of configured sender email accounts. This data is used to populate
+     * the filter dropdowns on the email management interface.
+     *
+     * The email management interface allows administrators to search and filter sent emails
+     * by various criteria including status, sender, date range, and patient.
+     *
+     * @return String Struts2 result name "show" to display the email management page
+     * @see EmailStatus
+     * @see EmailConfig
+     */
     public String showEmailManager() {
         request.setAttribute("emailStatusList", EmailStatus.values());
         request.setAttribute("senderAccountList", emailComposeManager.getAllSenderAccounts());
         return "show";
     }
 
-    /*
-     * This method is being called from the 'Admin > Emails > Manage Emails' page, when user clicks on the 'Fetch Emails' button
-     * On that page, the sender email address and status are dropdowns.
-     * The '-1' option is the default option, and '-1' means 'All'.
+    /**
+     * Retrieves and filters email logs based on specified search criteria.
+     *
+     * This method is invoked from the 'Admin > Emails > Manage Emails' page when the user
+     * clicks the 'Fetch Emails' button. It supports multi-criteria filtering including
+     * email status, sender email address, date range (begin/end), and specific patient
+     * demographic number.
+     *
+     * Special handling for default values: The value '-1' in dropdown fields (emailStatus
+     * and senderEmailAddress) represents 'All' and is converted to null to retrieve all
+     * records without that filter applied. Empty or "null" string values for demographic_no
+     * are also normalized to null.
+     *
+     * The method delegates to {@link EmailManager#getEmailStatusByDateDemographicSenderStatus}
+     * to retrieve matching email records and populates the request with the results for
+     * display on the email status results page.
+     *
+     * @return String Struts2 result name "emailstatus" to display filtered email results
+     * @see EmailManager#getEmailStatusByDateDemographicSenderStatus
+     * @see EmailStatusResult
      */
     public String fetchEmails() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -84,6 +162,20 @@ public class ManageEmails2Action extends ActionSupport {
         return "emailstatus";
     }
 
+    /**
+     * Marks a specific email log entry as resolved.
+     *
+     * This method updates the status of an email log to RESOLVED, typically used when
+     * an administrator has addressed a failed or problematic email. The method validates
+     * the provided log ID to ensure it is a valid integer before processing.
+     *
+     * If the log ID is invalid (not an integer), the method returns a JSON error response
+     * to the client and does not modify any data. Upon successful validation, the email
+     * status is updated via {@link EmailManager#updateEmailStatus}.
+     *
+     * @see EmailManager#updateEmailStatus
+     * @see EmailStatus#RESOLVED
+     */
     public void setResolved() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailLogId = request.getParameter("logId");
@@ -95,9 +187,35 @@ public class ManageEmails2Action extends ActionSupport {
     }
 
     /**
-     * This method is called from the 'Admin > Emails > Manage Emails' section.
-     * When a user clicks on the 'Resend' email button from any of the sent emails, Oscar will call this method.
-     * Using this method and the emailLog ID (on which the user clicked Resend), it prepares for the email compose page.
+     * Prepares a previously sent email for resending by reconstructing its full state.
+     *
+     * This method is invoked from the 'Admin > Emails > Manage Emails' section when a user
+     * clicks the 'Resend' button on a specific email log entry. It retrieves the original
+     * email details and reconstructs all associated data including attachments, encryption
+     * settings, patient information, and sender configuration.
+     *
+     * The method performs the following operations:
+     * <ul>
+     *   <li>Validates the email log ID parameter</li>
+     *   <li>Retrieves the original email log via {@link EmailComposeManager#prepareEmailForResend}</li>
+     *   <li>Refreshes all email attachments by re-rendering PDF documents</li>
+     *   <li>Retrieves patient consent status and email addresses</li>
+     *   <li>Populates request attributes for the email compose page</li>
+     * </ul>
+     *
+     * If PDF regeneration fails for any attachment, an error message is set and the user
+     * is advised to create a new email instead of resending. The method returns null in
+     * case of validation errors (invalid log ID).
+     *
+     * All email data including encryption settings, password protection, chart display options,
+     * and additional parameters are preserved from the original email for potential modification
+     * before resending.
+     *
+     * @return String Struts2 result name "compose" to display the email composition page, or null if validation fails
+     * @see EmailComposeManager#prepareEmailForResend
+     * @see #refreshEmailAttachments
+     * @see EmailLog
+     * @see TransactionType#DIRECT
      */
     public String resendEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -148,6 +266,41 @@ public class ManageEmails2Action extends ActionSupport {
         return "compose";
     }
 
+    /**
+     * Refreshes email attachments by re-rendering documents to PDF format.
+     *
+     * This private helper method processes all attachments associated with an email log,
+     * regenerating PDF versions of various document types. It is used when resending emails
+     * to ensure that all attachments are current and accessible.
+     *
+     * The method handles the following document types:
+     * <ul>
+     *   <li>EFORM - Electronic forms rendered to PDF</li>
+     *   <li>DOC - Electronic documents rendered to PDF</li>
+     *   <li>LAB - Laboratory results rendered to PDF</li>
+     *   <li>HRM - Hospital Report Manager reports rendered to PDF</li>
+     *   <li>FORM - Clinical forms rendered to PDF</li>
+     * </ul>
+     *
+     * For each attachment, the method:
+     * <ol>
+     *   <li>Renders the document to PDF using the appropriate manager</li>
+     *   <li>Updates the attachment's file path to the newly generated PDF</li>
+     *   <li>Calculates and updates the file size</li>
+     * </ol>
+     *
+     * Security: Verifies the user has READ privilege for _email before processing.
+     *
+     * @param request HttpServletRequest containing the user session with LoggedInInfo
+     * @param response HttpServletResponse for potential error handling
+     * @param emailLog EmailLog containing the list of attachments to refresh
+     * @return List<EmailAttachment> the updated list of email attachments with refreshed PDF paths and sizes
+     * @throws PDFGenerationException if any document cannot be rendered to PDF
+     * @throws RuntimeException if the user lacks required _email security privilege
+     * @see DocumentAttachmentManager#renderDocument
+     * @see FormsManager#renderForm
+     * @see DocumentType
+     */
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {

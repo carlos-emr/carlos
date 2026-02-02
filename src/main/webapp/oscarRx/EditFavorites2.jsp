@@ -52,7 +52,7 @@
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
         %>
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
 
         <%
@@ -191,7 +191,7 @@
                 <table style="width:100%; height:100%">
                     <tr>
                         <td style="width:10%; vertical-align:top">
-                            <div class="DivCCBreadCrumbs"><a href="oscarRx/SearchDrug3.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> > <b><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> > <b><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
                         </td>
                     </tr>
 
@@ -218,7 +218,7 @@
 
                                             for (i = 0; i < favorites.length; i++) {
                                                 f = favorites[i];
-                                                boolean isCustom = f.getGCN_SEQNO() == 0;
+                                                boolean isCustom = "0".equals(f.getGCN_SEQNO());
 
                                                 style = "style='background-color:#F5F5F5'";
                                         %>

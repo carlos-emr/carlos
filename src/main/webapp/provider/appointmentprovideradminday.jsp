@@ -945,14 +945,6 @@
                                     <span>eConsult</span></a>
                             </li>
                             <% } %>
-                            <%if (!OscarProperties.getInstance().getProperty("clinicalConnect.CMS.url", "").isEmpty()) { %>
-                            <li id="clinical_connect">
-                                <a href="#"
-                                   onclick="popupOscarRx(625, 1024, '<%=request.getContextPath()%>/clinicalConnectEHRViewer.do?method=launchNonPatientContext')"
-                                   title="clinical connect EHR viewer">
-                                    <span>ClinicalConnect</span></a>
-                            </li>
-                            <%}%>
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">

@@ -36,6 +36,7 @@
 <%@page import="java.util.ArrayList" %>
 <%@ page import="ca.openosp.openo.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -76,11 +77,11 @@
         %>
 
 
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
-        <script language="javascript">
+        <script type="text/javascript">
             function ShowDrugInfo(gn) {
-                window.open("drugInfo.do?GN=" + escape(gn), "_blank",
+                window.open("<%= request.getContextPath() %>/oscarRx/drugInfo.do?GN=" + encodeURIComponent(gn), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
         </script>
@@ -97,16 +98,16 @@
             String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
         %>
 
-        <script language="javascript">
+        <script type="text/javascript">
             function addFavorite(drugId, brandName) {
                 var favoriteName = window.prompt('Please enter a name for the Favorite:',
                     brandName);
 
-                if (favoriteName.length > 0) {
-                    var s = escape('?regionalIdentifier=<%=regionalIdentifier%>&cn=<%=cn%>');
+                if (favoriteName !== null && favoriteName.length > 0) {
+                    var s = encodeURIComponent('?regionalIdentifier=<%=Encode.forJavaScript(regionalIdentifier != null ? regionalIdentifier : "")%>&cn=<%=Encode.forJavaScript(cn != null ? cn : "")%>');
 
                     window.location.href = '<%=request.getContextPath() %>/oscarRx/addFavoriteStaticScript.do?drugId='
-                        + escape(drugId) + '&favoriteName=' + escape(favoriteName)
+                        + encodeURIComponent(drugId) + '&favoriteName=' + encodeURIComponent(favoriteName)
                         + '&returnParams=' + s;
                 }
             }
@@ -126,7 +127,7 @@
                        width="100%" height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title"/></b>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:setBundle basename="oscarResources"/><fmt:message key="StaticScript.title"/></b>
                             </div>
                         </td>
                     </tr>
@@ -170,7 +171,7 @@
                                     <td>
                                         <%
                                             if (drug.customName == null) {
-                                        %> <a href="javascript:ShowDrugInfo('<%=drug.genericName%>');">Info</a> <%
+                                        %> <a href="javascript:ShowDrugInfo('<%=Encode.forJavaScriptAttribute(drug.genericName)%>');">Info</a> <%
                                         }
                                     %>
                                     </td>

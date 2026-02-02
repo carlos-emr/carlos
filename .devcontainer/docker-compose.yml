@@ -9,7 +9,7 @@ services:
       - "18000:8000"
     volumes:
       - m2-volume:/root/.m2
-      - ..:/workspace:cached 
+      - ..:/workspace:cached
       - ../.devcontainer/db/db_data/:/db-data/
     env_file:
       - ./development/config/shared/local.env
@@ -22,6 +22,34 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      drugref:
+        condition: service_healthy
+
+  drugref:
+    container_name: openo-drugref-dev
+    build:
+      context: ./drugref
+      dockerfile: Dockerfile
+      args:
+        DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/open-osp/Open-Drugref.git}
+        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-main}
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./development/config/shared/volumes/drugref2.properties:/root/drugref2.properties:ro
+    environment:
+      TZ: America/Toronto
+    networks:
+      - open-o-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/drugref2/DrugrefService?wsdl"]
+      timeout: 10s
+      retries: 5
+      interval: 30s
+      start_period: 60s
 
   db:
     container_name: openo-mariadb-dev

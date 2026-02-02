@@ -9,22 +9,64 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-/*
- * Author: Charles Liu <charles.liu@nondfa.com>
- * Company: WELL Health Technologies Corp.
- * Date: December 6, 2018
+/**
+ * Data Access Object for managing private billing records in British Columbia.
+ *
+ * <p>This DAO handles database operations for private billing invoices that are not submitted
+ * to the provincial Medical Services Plan (MSP). Private billing is used for non-insured services,
+ * third-party billing, or services where the patient pays directly.</p>
+ *
+ * <p>The DAO provides functionality to:</p>
+ * <ul>
+ *   <li>Retrieve billing recipient information including name and address details</li>
+ *   <li>List private billing items for a specific patient and recipient</li>
+ *   <li>List all private billing records for a specific healthcare provider</li>
+ * </ul>
+ *
+ * <p><strong>Note:</strong> This class uses direct JDBC connections and manual resource management.
+ * Callers should be aware that database connections are obtained via {@link DbUtil#getConnection()}
+ * and resources are closed in finally blocks.</p>
+ *
+ * @see PrivateBillingModel
+ * @see DbUtil
+ * @since 2026-01-24
  */
 public class PrivateBillingDAO {
     private Connection connection;
     private PreparedStatement statement;
     private ResultSet rs;
 
+    /**
+     * Constructs a new PrivateBillingDAO instance.
+     *
+     * <p>Initializes database connection resources to null. Actual database connections
+     * are created on-demand when methods are invoked.</p>
+     */
     public PrivateBillingDAO() {
         connection = null;
         statement = null;
         rs = null;
     }
 
+    /**
+     * Retrieves billing recipient information by recipient ID.
+     *
+     * <p>Queries the {@code bill_recipients} table to fetch contact information for the
+     * specified recipient. The returned map contains the following keys:</p>
+     * <ul>
+     *   <li>{@code name} - String recipient's full name</li>
+     *   <li>{@code address} - String street address</li>
+     *   <li>{@code city} - String city name</li>
+     *   <li>{@code province} - String province code (e.g., "BC", "ON")</li>
+     *   <li>{@code postal} - String postal code</li>
+     * </ul>
+     *
+     * <p>If the recipient is not found, the map is returned with empty string values for all keys.</p>
+     *
+     * @param recipientId String the unique identifier of the billing recipient
+     * @return HashMap&lt;String, String&gt; map containing recipient contact information with keys:
+     *         name, address, city, province, postal. Returns empty strings for all values if recipient not found.
+     */
     public HashMap<String, String> getRecipientById(String recipientId) {
         HashMap<String, String> recipient = new HashMap<String, String>() {{
             put("name", "");
@@ -65,6 +107,47 @@ public class PrivateBillingDAO {
         return recipient;
     }
 
+    /**
+     * Retrieves a list of private billing items for a specific patient and recipient.
+     *
+     * <p>Performs a complex join across multiple billing tables to retrieve detailed invoice
+     * information for private billing transactions. The query filters by:</p>
+     * <ul>
+     *   <li>Billing type = 'PRI' (private billing)</li>
+     *   <li>Billing status = 'P' (presumably "posted" or "processed")</li>
+     *   <li>Specific demographic number (patient ID)</li>
+     *   <li>Recipient name</li>
+     * </ul>
+     *
+     * <p>Each item in the returned list contains a HashMap with the following keys:</p>
+     * <ul>
+     *   <li>{@code name} - String recipient name</li>
+     *   <li>{@code billing_no} - String billing number (invoice ID)</li>
+     *   <li>{@code demographic_no} - String patient demographic number</li>
+     *   <li>{@code provider_no} - String healthcare provider number</li>
+     *   <li>{@code demographic_name} - String patient name</li>
+     *   <li>{@code billing_date} - String date of billing</li>
+     *   <li>{@code total} - String total invoice amount</li>
+     *   <li>{@code status} - String billing status code</li>
+     *   <li>{@code payee_no} - String payee identifier</li>
+     *   <li>{@code billing_unit} - String billing units (may appear twice)</li>
+     *   <li>{@code bill_amount} - String billed amount</li>
+     *   <li>{@code billingmaster_no} - String billing master record number</li>
+     *   <li>{@code billing_code} - String service billing code</li>
+     *   <li>{@code gst} - String GST amount</li>
+     *   <li>{@code gstNo} - String GST registration number</li>
+     *   <li>{@code amount} - String line item amount</li>
+     *   <li>{@code amount_received} - String total amount received (aggregated from billing history)</li>
+     *   <li>{@code description} - String service description from billing service table</li>
+     * </ul>
+     *
+     * <p>Results are ordered by billing date in descending order (most recent first).</p>
+     *
+     * @param demographicNumber String the patient's demographic number (patient ID)
+     * @param recipientName String the name of the billing recipient to filter by
+     * @return List&lt;HashMap&lt;String, String&gt;&gt; list of invoice items, each represented as a map
+     *         of billing details. Returns an empty list if no matching records are found.
+     */
     public List<HashMap<String, String>> listPrivateBillItems(String demographicNumber, String recipientName) {
         List<HashMap<String, String>> bills = new ArrayList<HashMap<String, String>>();
 
@@ -149,6 +232,36 @@ public class PrivateBillingDAO {
         return bills;
     }
 
+    /**
+     * Retrieves a summarized list of all private billing records for a specific healthcare provider.
+     *
+     * <p>This method aggregates private billing data grouped by patient (demographic number) and
+     * recipient name. The query performs complex joins across billing tables to compile:</p>
+     * <ul>
+     *   <li>Count of billing items per patient/recipient combination</li>
+     *   <li>Total balance (sum of all bill amounts) for each group</li>
+     *   <li>Billing metadata including dates, status, and provider information</li>
+     * </ul>
+     *
+     * <p>The query filters by:</p>
+     * <ul>
+     *   <li>Billing type = 'PRI' (private billing)</li>
+     *   <li>Billing status = 'P' (presumably "posted" or "processed")</li>
+     *   <li>Status NOT LIKE 'A' (excludes archived or cancelled records)</li>
+     *   <li>Specific provider number</li>
+     * </ul>
+     *
+     * <p>Results are grouped by patient demographic number and recipient name, and ordered by
+     * billing date in descending order (most recent first).</p>
+     *
+     * <p>Each {@link PrivateBillingModel} in the returned list contains aggregated billing summary
+     * information for a unique patient/recipient combination.</p>
+     *
+     * @param providerId String the healthcare provider's unique identifier
+     * @return List&lt;PrivateBillingModel&gt; list of billing summary records grouped by patient and recipient.
+     *         Returns an empty list if no matching records are found for the provider.
+     * @see PrivateBillingModel
+     */
     public List<PrivateBillingModel> listPrivateBills(String providerId) {
         List<PrivateBillingModel> bills = new ArrayList<PrivateBillingModel>();
         try {

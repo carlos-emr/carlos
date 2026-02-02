@@ -808,11 +808,6 @@
 
         <tr>
             <td align="center"><a href=#
-                                  onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewClinicalConnectPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewClinicalConnectPrefs"/></a></td>
-        </tr>
-
-        <tr>
-            <td align="center"><a href=#
                                   onClick="popupPage(700,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewLabMacroPrefs"/></a></td>
         </tr>
         <tr>

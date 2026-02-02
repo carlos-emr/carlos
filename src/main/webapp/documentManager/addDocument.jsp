@@ -47,6 +47,7 @@
 <%@ page import="ca.openosp.openo.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="ca.openosp.openo.documentManager.EDocUtil" %>
 <%@ page import="ca.openosp.openo.util.UtilDateUtilities" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%--This is included in documentReport.jsp - wasn't meant to be displayed as a separate page --%>
 <%
@@ -265,12 +266,12 @@
                 </div>
             </c:forEach>
 
-            <input type="hidden" name="function" value="<%=formdata.getFunction()%>">
-            <input type="hidden" name="functionId" value="<%=formdata.getFunctionId()%>">
-            <input type="hidden" name="functionid" value="<%=moduleid%>">
-            <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>">
-            <input type="hidden" name="curUser" value="<%=curUser%>">
-            <input type="hidden" name="appointmentNo" value="<%=formdata.getAppointmentNo()%>"/>
+            <input type="hidden" name="function" value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>">
+            <input type="hidden" name="functionId" value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>">
+            <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>">
+            <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
+            <input type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(curUser)%>">
+            <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
 
             <div class="form-group">
                 <label for="docType">Type</label>
@@ -280,8 +281,8 @@
                         <%
                             for (int i = 0; i < doctypes.size(); i++) {
                                 String doctype = (String) doctypes.get(i); %>
-                        <option value="<%= doctype%>"
-                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%= doctype%>
+                        <option value="<%=Encode.forHtmlAttribute(doctype)%>"
+                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
                         </option>
                         <%}%>
                     </select>
@@ -297,7 +298,7 @@
                 <label for="docDesc">Description</label>
                 <input type="text"
                        class="form-control <c:if test='${ docerrors["descmissing"] != null}' >alert-danger</c:if>"
-                       id="docDesc" name="docDesc" value="<%=formdata.getDocDesc()%>"
+                       id="docDesc" name="docDesc" value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>"
                        onfocus="checkDefaultValue(this)"/>
                 <input type="hidden" name="docCreator" value="<%=formdata.getDocCreator()%>"/>
             </div>
@@ -335,7 +336,7 @@
                     <input type="checkbox" id="restrictToProgram" name="restrictToProgram">
                     Restrict to current program</label>
             </div>
-            <% if (module.equals("providers")) {%>
+            <% if (EDocUtil.isProviderModule(module)) {%>
             <div class="checkbox">
                 <label>
                     <input type="checkbox" id="docPublic" name="docPublic" <%=formdata.getDocPublic() + " "%>
@@ -432,7 +433,7 @@
             <input type="text" name="docSubClass" id="docSubClass2" class="form-control">
             <div class="autocomplete_style" id="docSubClass_list2"></div>
         </div>
-        <% if (module.equals("providers")) {%>
+        <% if (EDocUtil.isProviderModule(module)) {%>
         <div class="checkbox">
             <label>
                 <input type="checkbox" name="docPublic" <%=formdata.getDocPublic() + " "%> value="checked">

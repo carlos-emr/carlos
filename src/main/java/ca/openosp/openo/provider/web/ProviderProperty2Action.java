@@ -24,7 +24,7 @@
 
 package ca.openosp.openo.provider.web;
 
-import org.apache.commons.beanutils.BeanComparator;
+import java.util.Comparator;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -1611,7 +1611,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
         List<Provider> ps = dao.getProviders();
-        Collections.sort(ps, new BeanComparator("lastName"));
+        Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
                 if (!p.getProviderNo().equals("-1")) {
@@ -1774,7 +1774,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
         List<Provider> ps = dao.getProviders();
-        Collections.sort(ps, new BeanComparator("lastName"));
+        Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
                 if (!p.getProviderNo().equals("-1")) {
@@ -2517,90 +2517,6 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genPreventionPrefs";
     }
 
-
-    public String viewClinicalConnectPrefs() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        UserProperty prop = loadProperty(providerNo, "clinicalConnectDisableCloseWindow");
-        UserProperty prop2 = loadProperty(providerNo, "clinicalConnectDisableLogoutWarning");
-
-        if (prop == null) prop = new UserProperty();
-        if (prop2 == null) prop2 = new UserProperty();
-
-        prop.setChecked("yes".equals(prop.getValue()));
-        prop2.setChecked("yes".equals(prop2.getValue()));
-
-        request.setAttribute("clinicalConnectDisableCloseWindow", prop);
-        request.setAttribute("clinicalConnectDisableLogoutWarning", prop2);
-
-        request.setAttribute("providertitle", "provider.clinicalConnectPrefs.title");
-        request.setAttribute("providermsgPrefs", "provider.clinicalConnectPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnSubmit", "provider.clinicalConnectPrefs.btnSubmit"); //=Save
-        request.setAttribute("providerbtnCancel", "provider.clinicalConnectPrefs.btnCancel"); //=Cancel
-        request.setAttribute("method", "saveClinicalConnectPrefs");
-
-        this.setClinicalConnectDisableCloseWindow(prop);
-        this.setClinicalConnectDisableLogoutWarning(prop2);
-
-        return "genClinicalConnectPrefs";
-    }
-
-
-    public String saveClinicalConnectPrefs() {
-        String checkboxValue1 = request.getParameter("clinicalConnectDisableCloseWindow.checked");
-        String checkboxValue2 = request.getParameter("clinicalConnectDisableLogoutWarning.checked");
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        boolean checked1 = checkboxValue1 != null;
-        boolean checked2 = checkboxValue2 != null;
-
-        String value1 = checked1 ? "yes" : "no";
-        String value2 = checked2 ? "yes" : "no";
-
-        // Disable Close Window setting
-        UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.CLINICALCONNECT_DISABLE_CLOSE_WINDOW);
-        if (prop == null) {
-            prop = new UserProperty();
-            prop.setProviderNo(providerNo);
-            prop.setName(UserProperty.CLINICALCONNECT_DISABLE_CLOSE_WINDOW);
-        }
-        prop.setValue(value1);
-        this.userPropertyDAO.saveProp(prop);
-
-        // Disable Logout Warning setting
-        UserProperty prop2 = this.userPropertyDAO.getProp(providerNo, UserProperty.CLINICALCONNECT_DISABLE_LOGOUT_WARNING);
-        if (prop2 == null) {
-            prop2 = new UserProperty();
-            prop2.setProviderNo(providerNo);
-            prop2.setName(UserProperty.CLINICALCONNECT_DISABLE_LOGOUT_WARNING);
-        }
-        prop2.setValue(value2);
-        this.userPropertyDAO.saveProp(prop2);
-
-        LogAction.addLog(loggedInInfo, "ClinicalConnectPreferences", "clinicalConnectDisableCloseWindow", "", null, value1);
-        LogAction.addLog(loggedInInfo, "ClinicalConnectPreferences", "clinicalConnectDisableLogoutWarning", "", null, value2);
-
-        prop.setChecked(checked1);
-        prop2.setChecked(checked2);
-
-        request.setAttribute("status", "success");
-        request.setAttribute("clinicalConnectDisableCloseWindow", prop);
-        request.setAttribute("clinicalConnectDisableLogoutWarning", prop2);
-
-        request.setAttribute("providertitle", "provider.clinicalConnectPrefs.title");
-        request.setAttribute("providermsgPrefs", "provider.clinicalConnectPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.clinicalConnectPrefs.btnClose"); //=Close
-        request.setAttribute("providermsgSuccess", "provider.clinicalConnectPrefs.msgSuccess");
-
-        request.setAttribute("method", "saveClinicalConnectPrefs");
-
-        return "genClinicalConnectPrefs";
-
-    }
-
     public String viewLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2776,8 +2692,6 @@ public class ProviderProperty2Action extends ActionSupport {
         methodMap.put("saveAppointmentCardPrefs", this::saveAppointmentCardPrefs);
         methodMap.put("viewPreventionPrefs", this::viewPreventionPrefs);
         methodMap.put("savePreventionPrefs", this::savePreventionPrefs);
-        methodMap.put("viewClinicalConnectPrefs", this::viewClinicalConnectPrefs);
-        methodMap.put("saveClinicalConnectPrefs", this::saveClinicalConnectPrefs);
         methodMap.put("viewLabMacroPrefs", this::viewLabMacroPrefs);
         methodMap.put("saveLabMacroPrefs", this::saveLabMacroPrefs);
         methodMap.put("viewHl7LabResultPrefs", this::viewHl7LabResultPrefs);
@@ -2819,8 +2733,6 @@ public class ProviderProperty2Action extends ActionSupport {
     private UserProperty preventionSSOWarningProperty;
     private UserProperty preventionISPAWarningProperty;
     private UserProperty preventionNonISPAWarningProperty;
-    private UserProperty clinicalConnectDisableCloseWindow;
-    private UserProperty clinicalConnectDisableLogoutWarning;
     private UserProperty labMacroJSON;
 
     public UserProperty getDateProperty() {
@@ -3096,22 +3008,6 @@ public class ProviderProperty2Action extends ActionSupport {
 
     public void setPreventionNonISPAWarningProperty(UserProperty preventionNonISPAWarningProperty) {
         this.preventionNonISPAWarningProperty = preventionNonISPAWarningProperty;
-    }
-
-    public UserProperty getClinicalConnectDisableCloseWindow() {
-        return clinicalConnectDisableCloseWindow;
-    }
-
-    public void setClinicalConnectDisableCloseWindow(UserProperty clinicalConnectDisableCloseWindow) {
-        this.clinicalConnectDisableCloseWindow = clinicalConnectDisableCloseWindow;
-    }
-
-    public UserProperty getClinicalConnectDisableLogoutWarning() {
-        return clinicalConnectDisableLogoutWarning;
-    }
-
-    public void setClinicalConnectDisableLogoutWarning(UserProperty clinicalConnectDisableLogoutWarning) {
-        this.clinicalConnectDisableLogoutWarning = clinicalConnectDisableLogoutWarning;
     }
 
     public UserProperty getLabMacroJSON() {

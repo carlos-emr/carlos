@@ -73,15 +73,15 @@
     </bean>
 
     <!-- DataSource -->
-    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+    <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="${db_driver}" />
         <property name="url" value="${db_uri}${db_name}" />
         <property name="username" value="${db_username}" />
         <property name="password" value="${db_password}" />
         <property name="defaultAutoCommit" value="true" />
-        <property name="maxActive" value="${db_max_active}" />
+        <property name="maxTotal" value="${db_max_active}" />
         <property name="maxIdle" value="${db_max_idle}" />
-        <property name="maxWait" value="${db_max_wait}" />
+        <property name="maxWaitMillis" value="${db_max_wait}" />
         <property name="testOnBorrow" value="true" />
         <property name="validationQuery" value="${db_validationQuery}" />
         <property name="poolPreparedStatements" value="false" />

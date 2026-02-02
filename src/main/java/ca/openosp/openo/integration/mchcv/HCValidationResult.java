@@ -27,7 +27,7 @@ package ca.openosp.openo.integration.mchcv;
 import ca.ontario.health.ebs.EbsFault;
 import ca.ontario.health.hcv.FeeServiceDetails;
 import ca.ontario.health.hcv.ResponseID;
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanUtils;
 import ca.openosp.openo.utility.MiscUtils;
 
 import javax.xml.datatype.XMLGregorianCalendar;
@@ -265,7 +265,7 @@ public class HCValidationResult {
             if (feeServiceCode.equalsIgnoreCase(feeServiceDetail.getFeeServiceCode())) {
                 selectedFeeServiceDetails = feeServiceDetail;
                 try {
-                    BeanUtils.copyProperties(selectedFeeServiceDetails, feeServiceDetail);
+                    BeanUtils.copyProperties(feeServiceDetail, selectedFeeServiceDetails);
                 } catch (Exception e) {
                     MiscUtils.getLogger().warn("Bean Copy error. Fee Service code: " + feeServiceCode, e);
                 }

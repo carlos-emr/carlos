@@ -73,7 +73,7 @@
         }
     %>
         </c:if>
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
 
@@ -90,7 +90,7 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> > <fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.title"/></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> > <fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.title"/></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->

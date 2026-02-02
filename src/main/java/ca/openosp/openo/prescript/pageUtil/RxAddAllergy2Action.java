@@ -61,7 +61,8 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
         String id = request.getParameter("ID");
-        if (id != null && "null".equals(id)) {
+
+            if(id == null || "null".equals(id)) {
             id = "";
         }
 
@@ -80,13 +81,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
         Allergy allergy = new Allergy();
-        if (type != null && "13".equals(type)) {
             allergy.setDrugrefId(id);
-        }
-
-        if (type != null && "8".equals(type)) {
-            allergy.setAtc(id);
-        }
+			// this can be overwritten with the conditions further down this code block
+			allergy.setRegionalIdentifier(id);
         allergy.setDescription(name);
         allergy.setTypeCode(Integer.parseInt(type));
         allergy.setReaction(description);
@@ -113,11 +110,20 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
 
-        if (type != null && type.equals("13")) {
+            if(nonDrug != null && "on".equals(nonDrug)) {
+            	allergy.setNonDrug(true);
+
+            } else if(nonDrug != null && "off".equals(nonDrug)) {
+            	allergy.setNonDrug(false);
+            }
+
+
+            if (! "0".equals(type) && ! id.isEmpty() && ! "0".equals(id)){
             RxDrugData drugData = new RxDrugData();
             try {
-                RxDrugData.DrugMonograph f = drugData.getDrug("" + id);
+                RxDrugData.DrugMonograph f = drugData.getDrug(id);
                 allergy.setRegionalIdentifier(f.regionalIdentifier);
+	                allergy.setAtc(f.getAtc());
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
             }
@@ -126,11 +132,13 @@ public final class RxAddAllergy2Action extends ActionSupport {
         allergy.setDemographicNo(patient.getDemographicNo());
         allergy.setArchived(false);
 
+        // Add the new allergy (whether new or modified)
         patient.addAllergy(RxUtil.Today(), allergy);
 
         String ip = request.getRemoteAddr();
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
 
+        // Archive old allergy if modifying an existing one
         if (allergyToArchive != null && !allergyToArchive.isEmpty() && !"null".equals(allergyToArchive)) {
             patient.deleteAllergy(Integer.parseInt(allergyToArchive));
             LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ARCHIVE, LogConst.CON_ALLERGY, "" + allergyToArchive, ip, "" + patient.getDemographicNo(), null);

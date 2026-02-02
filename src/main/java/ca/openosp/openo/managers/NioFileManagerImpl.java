@@ -32,7 +32,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -43,9 +42,10 @@ import javax.servlet.ServletContext;
 import ca.openosp.OscarProperties;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
-import org.jpedal.PdfDecoder;
-import org.jpedal.exception.PdfException;
-import org.jpedal.fonts.FontMappings;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.PDFRenderer;
+import org.apache.pdfbox.rendering.ImageType;
+import javax.imageio.ImageIO;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.PathValidationUtils;
@@ -231,22 +231,31 @@ public class NioFileManagerImpl implements NioFileManager {
                 return null;
             }
 
-            PdfDecoder decode_pdf = new PdfDecoder(true);
-            FontMappings.setFontReplacements();
-            decode_pdf.useHiResScreenDisplay(true);
-            decode_pdf.setExtractionMode(0, 96, 96 / 72f);
+            try (PDDocument document = PDDocument.load(sourceFile.toFile())) {
+                int pageIndex = pageNum - 1;
+                int pageCount = document.getNumberOfPages();
 
-            try (InputStream inputStream = Files.newInputStream(sourceFile)) {
-                decode_pdf.openPdfFileFromInputStream(inputStream, false);
-                BufferedImage image_to_save = decode_pdf.getPageAsImage(pageNum);
-                decode_pdf.getObjectStore().saveStoredImage(cacheFilePath.toString(), image_to_save, true, false, "png");
+                // Validate page index is within bounds
+                if (pageIndex < 0 || pageIndex >= pageCount) {
+                    log.error("Requested page " + pageNum + " is out of range for document with " + pageCount + " pages");
+                    return null;
+                }
+
+                PDFRenderer renderer = new PDFRenderer(document);
+                // Render at 96 DPI to match jpedal settings
+                // Note: jpedal uses 1-based page indexing, PDFBox uses 0-based
+                BufferedImage image_to_save = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
+
+                // Check ImageIO.write success (returns false on failure)
+                if (!ImageIO.write(image_to_save, "png", cacheFilePath.toFile())) {
+                    log.error("Failed to write PNG image to cache file: " + cacheFilePath);
+                    return null;
+                }
+
+                image_to_save.flush();
             } catch (IOException e) {
-                log.error("Error", e);
-            } catch (PdfException e) {
-                log.error("Error", e);
-            } finally {
-                decode_pdf.flushObjectValues(true);
-                decode_pdf.closePdfFile();
+                log.error("Error rendering PDF page to cache", e);
+                return null;  // Must return null on error
             }
         }
 

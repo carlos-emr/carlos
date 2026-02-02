@@ -50,6 +50,34 @@ import ca.openosp.openo.log.LogAction;
 import ca.openosp.openo.encounter.data.EctProgram;
 import ca.openosp.openo.util.StringUtils;
 
+/**
+ * Email management service for the OpenO EMR healthcare system.
+ *
+ * This manager provides comprehensive email functionality for healthcare providers,
+ * including secure email transmission, encryption support for PHI (Protected Health Information),
+ * attachment handling, and integration with patient charts through case management notes.
+ *
+ * Key Features:
+ * - Secure email sending with role-based access control (_email privilege)
+ * - Optional PDF encryption for messages and attachments containing PHI
+ * - Email status tracking and audit logging
+ * - Integration with patient demographic records and provider profiles
+ * - Automatic chart note creation with configurable display options
+ * - Email outbox management with status monitoring
+ *
+ * Security Considerations:
+ * - All operations require _email security privilege (READ or WRITE)
+ * - PHI content can be encrypted using password-protected PDFs
+ * - Email activity is logged for audit compliance
+ * - User inputs are sanitized using OWASP encoding
+ *
+ * @see EmailLog
+ * @see EmailConfig
+ * @see EmailData
+ * @see EmailSender
+ * @see CaseManagementNote
+ * @since 2026-01-24
+ */
 @Service
 public class EmailManager {
     private final Logger logger = MiscUtils.getLogger();
@@ -71,6 +99,28 @@ public class EmailManager {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
+    /**
+     * Sends an email with optional encryption and creates a corresponding email log entry.
+     *
+     * This method orchestrates the complete email sending workflow including field sanitization,
+     * outbox preparation, optional encryption, transmission, and status tracking. If configured
+     * to display in the patient chart, it also creates a case management note documenting the
+     * email communication.
+     *
+     * The method performs the following steps:
+     * 1. Validates user has _email WRITE privilege
+     * 2. Sanitizes email data fields
+     * 3. Creates email log entry in FAILED status
+     * 4. Encrypts message and/or attachments if requested
+     * 5. Sends email via configured email server
+     * 6. Updates log status to SUCCESS or FAILED
+     * 7. Creates chart note if configured for WITH_FULL_NOTE display
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information
+     * @param emailData EmailData containing email subject, body, recipients, attachments, and configuration options
+     * @return EmailLog the persisted email log entry with final status and metadata
+     * @throws RuntimeException if user lacks _email WRITE privilege
+     */
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -95,6 +145,25 @@ public class EmailManager {
         return emailLog;
     }
 
+    /**
+     * Prepares an email for sending by creating and persisting an email log entry in the outbox.
+     *
+     * This method creates a comprehensive email log record that captures all email metadata,
+     * configuration, and content. The email log is initially created with FAILED status and
+     * a default error message, which is updated to SUCCESS after successful transmission.
+     *
+     * The method:
+     * 1. Retrieves active email configuration for the sender
+     * 2. Loads demographic and provider information
+     * 3. Creates EmailLog entity with all email data
+     * 4. Persists the email log to database
+     * 5. Creates audit log entry for compliance tracking
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information
+     * @param emailData EmailData containing email content, recipients, and configuration
+     * @return EmailLog the persisted email log entry ready for transmission
+     * @throws RuntimeException if user lacks _email WRITE privilege
+     */
     public EmailLog prepareEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -125,6 +194,19 @@ public class EmailManager {
         return emailLog;
     }
 
+    /**
+     * Updates the status of an email log entry by ID.
+     *
+     * This is a convenience method that loads the email log by ID and delegates to the
+     * main status update method. It is useful when only the email log ID is available.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information
+     * @param emailLogId Integer the unique identifier of the email log entry to update
+     * @param emailStatus EmailStatus the new status to set (SUCCESS, FAILED, RESOLVED, etc.)
+     * @param errorMessage String the error message to store, empty string if no error
+     * @return EmailLog the updated email log entry with new status and timestamp
+     * @throws RuntimeException if user lacks _email WRITE privilege
+     */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -134,6 +216,25 @@ public class EmailManager {
         return updateEmailStatus(loggedInInfo, emailLog, emailStatus, errorMessage);
     }
 
+    /**
+     * Updates the status of an email log entry with new status and error message.
+     *
+     * This method updates the email log status in both the database and the in-memory object.
+     * The timestamp is updated to the current time for status changes, but preserved when
+     * resolving an issue (RESOLVED status) to maintain the original send time.
+     *
+     * Common status values:
+     * - SUCCESS: Email sent successfully
+     * - FAILED: Email transmission failed
+     * - RESOLVED: Issue with email has been resolved by user
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information
+     * @param emailLog EmailLog the email log entry to update
+     * @param emailStatus EmailStatus the new status to set
+     * @param errorMessage String the error message to store, empty string if no error
+     * @return EmailLog the updated email log entry with new status and timestamp
+     * @throws RuntimeException if user lacks _email WRITE privilege
+     */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required security object (_email)");
@@ -151,6 +252,28 @@ public class EmailManager {
         return emailLog;
     }
 
+    /**
+     * Retrieves email status results filtered by date range, demographic, sender, and status.
+     *
+     * This method provides comprehensive email log querying for reporting and monitoring purposes.
+     * All filter parameters are optional (can be null) to allow flexible searching. Results are
+     * converted to EmailStatusResult DTOs for UI display and sorted by timestamp.
+     *
+     * Date parameters are parsed in yyyy-MM-dd format:
+     * - dateBeginStr is set to 00:00:00 on the specified date
+     * - dateEndStr is set to 23:59:59 on the specified date
+     *
+     * If date parsing fails, an empty list is returned.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information
+     * @param dateBeginStr String the start date in yyyy-MM-dd format, or null for no start date
+     * @param dateEndStr String the end date in yyyy-MM-dd format, or null for no end date
+     * @param demographic_no String the patient demographic number to filter by, or null for all patients
+     * @param senderEmailAddress String the sender email address to filter by, or null for all senders
+     * @param emailStatus String the email status to filter by (SUCCESS, FAILED, etc.), or null for all statuses
+     * @return List&lt;EmailStatusResult&gt; list of email status results matching the filter criteria, sorted by timestamp
+     * @throws RuntimeException if user lacks _email READ privilege
+     */
     public List<EmailStatusResult> getEmailStatusByDateDemographicSenderStatus(LoggedInInfo loggedInInfo, String dateBeginStr, String dateEndStr, String demographic_no, String senderEmailAddress, String emailStatus) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -166,6 +289,19 @@ public class EmailManager {
         return retriveEmailStatusResultList(resultList);
     }
 
+    /**
+     * Retrieves the email log associated with a case management note.
+     *
+     * This method enables bidirectional navigation between chart notes and email communications.
+     * When an email is configured to display in the patient chart (WITH_FULL_NOTE option),
+     * a case management note is created and linked to the email log. This method retrieves
+     * the original email log from the note ID.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information
+     * @param noteId Long the unique identifier of the case management note
+     * @return EmailLog the email log associated with the note, or null if no email link exists
+     * @throws RuntimeException if user lacks _email READ privilege
+     */
     public EmailLog getEmailLogByCaseManagementNoteId(LoggedInInfo loggedInInfo, Long noteId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -179,6 +315,23 @@ public class EmailManager {
         return emailLogDao.find(emailLogId.intValue());
     }
 
+    /**
+     * Creates a case management note in the patient chart documenting an email communication.
+     *
+     * This method is called when an email is configured with ChartDisplayOption.WITH_FULL_NOTE.
+     * It creates a formatted chart note containing email metadata (subject, recipients, timestamp)
+     * and links it to the email log for bidirectional navigation.
+     *
+     * The note is automatically:
+     * - Signed by the current provider
+     * - Associated with the current program
+     * - Linked to the email log via CaseManagementNoteLink
+     * - Created with doctor role (or program-specific role if available)
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session information
+     * @param emailLog EmailLog the email log to document in the chart
+     * @throws RuntimeException if user lacks _email READ privilege
+     */
     public void addEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -213,6 +366,16 @@ public class EmailManager {
         caseManagementManager.saveNoteLink(caseManagementNoteLink);
     }
 
+    /**
+     * Creates and associates email attachments with an email log entry.
+     *
+     * This helper method creates new EmailAttachment instances linked to the email log,
+     * copying metadata from the source attachments. Each attachment includes file name,
+     * file path, document type, and optional document ID for referenced documents.
+     *
+     * @param emailLog EmailLog the email log to attach files to
+     * @param emailAttachments List&lt;EmailAttachment&gt; the source attachments to copy
+     */
     private void setEmailAttachments(EmailLog emailLog, List<EmailAttachment> emailAttachments) {
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         for (EmailAttachment emailAttachment : emailAttachments) {
@@ -221,6 +384,22 @@ public class EmailManager {
         emailLog.setEmailAttachments(emailAttachmentList);
     }
 
+    /**
+     * Sanitizes and normalizes email data fields based on encryption settings.
+     *
+     * This method ensures encryption-related fields are consistent with the selected
+     * encryption options. It clears encryption fields when encryption is not needed,
+     * and clears the internal comment when no chart note will be created.
+     *
+     * Sanitization rules:
+     * - If no encrypted message and no attachments: disable encryption entirely
+     * - If no encrypted message and unencrypted attachments: disable encryption
+     * - If no attachments: disable attachment encryption
+     * - If encryption disabled: clear all encryption-related fields
+     * - If no chart note: clear internal comment
+     *
+     * @param emailData EmailData the email data to sanitize
+     */
     private void sanitizeEmailFields(EmailData emailData) {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
             emailData.setIsEncrypted(false);
@@ -246,6 +425,23 @@ public class EmailManager {
         }
     }
 
+    /**
+     * Encrypts the email message and/or attachments as password-protected PDFs.
+     *
+     * This method handles encryption of PHI content for secure transmission. It converts
+     * the encrypted message to a PDF attachment and encrypts selected attachments, then
+     * appends the password clue to the email body.
+     *
+     * Encryption workflow:
+     * 1. Convert encrypted message text to PDF attachment (if present)
+     * 2. Collect attachments to encrypt based on isAttachmentEncrypted flag
+     * 3. Encrypt all selected attachments with the provided password
+     * 4. Update email attachments list with encrypted files
+     * 5. Append password clue to email body
+     *
+     * @param emailData EmailData the email data containing content to encrypt
+     * @throws EmailSendingException if PDF encryption fails
+     */
     private void encryptEmail(EmailData emailData) throws EmailSendingException {
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
@@ -268,6 +464,15 @@ public class EmailManager {
         emailData.setBody(emailData.getBody() + "\n\n*****\n" + emailData.getPasswordClue().trim() + "\n*****\n");
     }
 
+    /**
+     * Creates a PDF attachment from the encrypted message text.
+     *
+     * This method converts plain text message content to an HTML-formatted PDF for encryption.
+     * The text is OWASP-encoded for security and newlines are converted to HTML breaks.
+     *
+     * @param emailData EmailData containing the encrypted message text
+     * @return EmailAttachment a new attachment with the message PDF, or null if message is empty
+     */
     private EmailAttachment createMessageAttachment(EmailData emailData) {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
             return null;
@@ -279,6 +484,17 @@ public class EmailManager {
         return emailAttachment;
     }
 
+    /**
+     * Encrypts a list of PDF attachments with password protection.
+     *
+     * This method iterates through attachments and encrypts each PDF file using the
+     * provided password. The encrypted file replaces the original file path in the
+     * attachment metadata.
+     *
+     * @param encryptableAttachments List&lt;EmailAttachment&gt; the attachments to encrypt
+     * @param password String the password to protect the PDFs with
+     * @throws EmailSendingException if PDF encryption fails for any attachment
+     */
     private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
             try {
@@ -292,7 +508,17 @@ public class EmailManager {
         }
     }
 
-
+    /**
+     * Parses a date string with optional time component into a Date object.
+     *
+     * This utility method handles date parsing with configurable format and time.
+     * If time is not provided or empty, the date is set to start of day (00:00:00).
+     *
+     * @param date String the date string to parse
+     * @param format String the date format pattern (e.g., "yyyy-MM-dd")
+     * @param time String the time string in HH:mm:ss format, or null/empty for start of day
+     * @return Date the parsed date with time in system default timezone, or null if parsing fails
+     */
     private Date parseDate(String date, String format, String time) {
         if (date == null) {
             return null;

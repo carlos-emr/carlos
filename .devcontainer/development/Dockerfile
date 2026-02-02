@@ -17,7 +17,6 @@ LABEL author="OpenOSP" \
       version="0.0.2" \
       description="OpenOSP Docker Image for Development Environment"
 
-ARG DRUGREF_DOWNLOAD_URL=https://bitbucket.org/openoscar/drugref/downloads/drugref2.war
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
@@ -26,21 +25,24 @@ ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
 
 WORKDIR /workspace
 
-# Install required packages and clean up apt lists
+# Install required packages including Playwright browser dependencies and clean up apt lists
+# Note: Ubuntu 24.04 uses t64 packages (time_t 64-bit migration)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dos2unix curl git wget apt-transport-https ca-certificates gnupg lsb-release \
     libjpeg-turbo8 \
     locales iputils-ping gettext fontconfig libc6 libfreetype6 \
-    libpng16-16 libssl-dev libstdc++6 libx11-6 libxcb1 libxext6 libxtst6 \
+    libpng16-16t64 libssl-dev libstdc++6 libx11-6 libxcb1 libxext6 libxtst6 \
     libxrender1 libfontconfig1 libxi6 xfonts-75dpi xfonts-base zlib1g maven mariadb-client \
     nano openssh-client vim-tiny \
     python3 python3-pip \
     inotify-tools \
+    fonts-roboto fonts-liberation fonts-noto-color-emoji \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js (latest LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs
+    && apt-get install -y nodejs \
+    && node --version && npm --version
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -56,14 +58,21 @@ RUN apt-get update && apt-get install -y golang-go
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
 
 # Install Claude Code CLI and Docusaurus
-RUN npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset-classic
+RUN which npm && npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset-classic
 
 # Install Gemini CLI.
 RUN npm install -g @google/gemini-cli
 
-# Install Playwright and Playwright MCP server
-RUN npm install -g @executeautomation/playwright-mcp-server playwright && \
-    npx playwright install chromium firefox --with-deps
+# Install Playwright globally first to ensure it's available
+# Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
+RUN npm install -g playwright@1.56.0 && \
+    echo "✅ Playwright CLI installed: $(npx playwright --version)"
+
+# Install all Playwright browsers (Chromium, Chrome, Firefox) with system dependencies
+# Note: --with-deps installs required system libraries for each browser
+# Version 1.56.0+ correctly uses t64 package names (e.g., libasound2t64) for Ubuntu 24.04
+RUN npx playwright install --with-deps chromium chrome firefox && \
+    echo "✅ Playwright browsers installed (Chromium, Chrome, Firefox)"
 
 # Install pipx and Aider AI coding assistant
 RUN apt-get update && apt-get install -y pipx && \
@@ -99,8 +108,8 @@ RUN rm -rf $TOMCAT_PATH/webapps/ROOT/* \
 # Create ROOT folder
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 
-# Download Dependency DrugRef2.war
-RUN curl -sSL -o $TOMCAT_PATH/webapps/drugref2.war $DRUGREF_DOWNLOAD_URL
+# NOTE: DrugRef2 runs in a separate Java 11 container (see .devcontainer/drugref/)
+# Open-Drugref requires Java 11 while Open-O uses Java 21
 
 # Copy scripts and config files
 COPY ./scripts /scripts

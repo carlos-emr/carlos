@@ -1,9 +1,0 @@
-#NOTE: This is an Aether internal implementation file, its format can be changed without prior notice.
-#Sat Dec 10 12:15:25 EST 2016
-http\://oscarmcmaster.sourceforge.net/m2/.lastUpdated=1481390120581
-http\://te.marc-hi.ca/mvn/.lastUpdated=1481390125630
-file\:///home/marc/workspaces/code_review/oscar/local_repo/.lastUpdated=1481390101473
-@default-hapi-sf-http\://hl7api.sourceforge.net/m2/.lastUpdated=1481390111252
-http\://hl7api.sourceforge.net/m2/.error=Could not transfer artifact org.marc.everest\:everest-formatters-xml-its1\:jar\:1.1.0 from/to hapi-sf (http\://hl7api.sourceforge.net/m2)\: Connection reset
-file\:///home/marc/workspaces/code_review/oscar/local_repo/.error=
-http\://oscarmcmaster.sourceforge.net/m2/.error=

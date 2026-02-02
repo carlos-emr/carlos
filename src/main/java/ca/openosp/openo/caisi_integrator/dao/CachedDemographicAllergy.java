@@ -20,6 +20,32 @@ import javax.persistence.Column;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 
+/**
+ * JPA entity representing a cached demographic allergy record from the CAISI integrator.
+ *
+ * This class stores patient allergy information synchronized from remote healthcare facilities
+ * through the CAISI (Client Access to Integrated Services and Information) integrator system.
+ * It maintains a local cache of allergy data to enable efficient cross-facility patient care
+ * and continuity of care across multiple healthcare organizations.
+ *
+ * The entity is enhanced by Apache OpenJPA for persistence capabilities and implements the
+ * PersistenceCapable interface to support advanced JPA features including detachment,
+ * change tracking, and state management.
+ *
+ * Key healthcare data captured includes:
+ * <ul>
+ *   <li>Allergy description and reaction details</li>
+ *   <li>Severity codes and onset information</li>
+ *   <li>Hierarchical classification codes (HIC, HICL)</li>
+ *   <li>Regional identifiers for cross-jurisdictional care</li>
+ *   <li>Temporal information (entry date, start date, life stage)</li>
+ * </ul>
+ *
+ * @see AbstractModel
+ * @see FacilityIdIntegerCompositePk
+ * @see PersistenceCapable
+ * @since 2026-01-24
+ */
 @Entity
 public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCompositePk> implements PersistenceCapable
 {
@@ -57,152 +83,343 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
     static /* synthetic */ Class class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicAllergy;
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
-    
+
+    /**
+     * Default constructor for the cached demographic allergy entity.
+     * Initializes the CAISI demographic ID to 0.
+     */
     public CachedDemographicAllergy() {
         this.caisiDemographicId = 0;
     }
     
+    /**
+     * Retrieves the composite primary key for this cached allergy record.
+     *
+     * @return FacilityIdIntegerCompositePk the composite key containing facility ID and record ID
+     */
     @Override
     public FacilityIdIntegerCompositePk getId() {
         return pcGetfacilityIdIntegerCompositePk(this);
     }
-    
+
+    /**
+     * Sets the CAISI demographic identifier for the patient associated with this allergy.
+     *
+     * @param caisiDemographicId int the CAISI demographic identifier
+     */
     public void setCaisiDemographicId(final int caisiDemographicId) {
         pcSetcaisiDemographicId(this, caisiDemographicId);
     }
-    
+
+    /**
+     * Retrieves the CAISI demographic identifier for the patient.
+     *
+     * @return int the CAISI demographic identifier
+     */
     public int getCaisiDemographicId() {
         return pcGetcaisiDemographicId(this);
     }
     
+    /**
+     * Sets the date when this allergy record was entered into the system.
+     *
+     * @param entryDate Date the entry timestamp
+     */
     public void setEntryDate(final Date entryDate) {
         pcSetentryDate(this, entryDate);
     }
-    
+
+    /**
+     * Retrieves the date when this allergy record was entered.
+     *
+     * @return Date the entry timestamp
+     */
     public Date getEntryDate() {
         return pcGetentryDate(this);
     }
     
+    /**
+     * Retrieves the composite primary key containing facility and record identifiers.
+     *
+     * @return FacilityIdIntegerCompositePk the composite key
+     */
     public FacilityIdIntegerCompositePk getFacilityIdIntegerCompositePk() {
         return pcGetfacilityIdIntegerCompositePk(this);
     }
-    
+
+    /**
+     * Sets the composite primary key for this record.
+     *
+     * @param facilityIdIntegerCompositePk FacilityIdIntegerCompositePk the composite key to set
+     */
     public void setFacilityIdIntegerCompositePk(final FacilityIdIntegerCompositePk facilityIdIntegerCompositePk) {
         pcSetfacilityIdIntegerCompositePk(this, facilityIdIntegerCompositePk);
     }
     
+    /**
+     * Retrieves the textual description of the allergy.
+     *
+     * @return String the allergy description, or null if not set
+     */
     public String getDescription() {
         return pcGetdescription(this);
     }
-    
+
+    /**
+     * Sets the textual description of the allergy.
+     * The description is automatically trimmed and null values are handled.
+     *
+     * @param description String the allergy description to set
+     */
     public void setDescription(final String description) {
         pcSetdescription(this, StringUtils.trimToNull(description));
     }
-    
+
+    /**
+     * Retrieves the patient's reaction to the allergen.
+     *
+     * @return String the reaction description, or null if not set
+     */
     public String getReaction() {
         return pcGetreaction(this);
     }
-    
+
+    /**
+     * Sets the patient's reaction to the allergen.
+     * The reaction is automatically trimmed and null values are handled.
+     *
+     * @param reaction String the reaction description to set
+     */
     public void setReaction(final String reaction) {
         pcSetreaction(this, StringUtils.trimToNull(reaction));
     }
     
+    /**
+     * Retrieves the pick identifier for this allergy selection.
+     *
+     * @return int the pick identifier
+     */
     public int getPickId() {
         return pcGetpickId(this);
     }
-    
+
+    /**
+     * Sets the pick identifier for this allergy selection.
+     *
+     * @param pickId int the pick identifier to set
+     */
     public void setPickId(final int pickId) {
         pcSetpickId(this, pickId);
     }
-    
+
+    /**
+     * Retrieves the HICL (Health Insurance Classification List) sequence number.
+     *
+     * @return int the HICL sequence number
+     */
     public int getHiclSeqNo() {
         return pcGethiclSeqNo(this);
     }
-    
+
+    /**
+     * Sets the HICL (Health Insurance Classification List) sequence number.
+     *
+     * @param hiclSeqNo int the HICL sequence number to set
+     */
     public void setHiclSeqNo(final int hiclSeqNo) {
         pcSethiclSeqNo(this, hiclSeqNo);
     }
-    
+
+    /**
+     * Retrieves the HIC (Health Insurance Classification) sequence number.
+     *
+     * @return int the HIC sequence number
+     */
     public int getHicSeqNo() {
         return pcGethicSeqNo(this);
     }
-    
+
+    /**
+     * Sets the HIC (Health Insurance Classification) sequence number.
+     *
+     * @param hicSeqNo int the HIC sequence number to set
+     */
     public void setHicSeqNo(final int hicSeqNo) {
         pcSethicSeqNo(this, hicSeqNo);
     }
-    
+
+    /**
+     * Retrieves the AGCSP (Allergen Group Code - Specific) value.
+     *
+     * @return int the AGCSP code
+     */
     public int getAgcsp() {
         return pcGetagcsp(this);
     }
-    
+
+    /**
+     * Sets the AGCSP (Allergen Group Code - Specific) value.
+     *
+     * @param agcsp int the AGCSP code to set
+     */
     public void setAgcsp(final int agcsp) {
         pcSetagcsp(this, agcsp);
     }
-    
+
+    /**
+     * Retrieves the AGCCS (Allergen Group Code - Classification) value.
+     *
+     * @return int the AGCCS code
+     */
     public int getAgccs() {
         return pcGetagccs(this);
     }
-    
+
+    /**
+     * Sets the AGCCS (Allergen Group Code - Classification) value.
+     *
+     * @param agccs int the AGCCS code to set
+     */
     public void setAgccs(final int agccs) {
         pcSetagccs(this, agccs);
     }
-    
+
+    /**
+     * Retrieves the allergy type code.
+     *
+     * @return int the type code
+     */
     public int getTypeCode() {
         return pcGettypeCode(this);
     }
-    
+
+    /**
+     * Sets the allergy type code.
+     *
+     * @param typeCode int the type code to set
+     */
     public void setTypeCode(final int typeCode) {
         pcSettypeCode(this, typeCode);
     }
     
+    /**
+     * Retrieves the date when the allergy first started or was identified.
+     *
+     * @return Date the start date of the allergy
+     */
     public Date getStartDate() {
         return pcGetstartDate(this);
     }
-    
+
+    /**
+     * Sets the date when the allergy first started or was identified.
+     *
+     * @param startDate Date the start date to set
+     */
     public void setStartDate(final Date startDate) {
         pcSetstartDate(this, startDate);
     }
-    
+
+    /**
+     * Retrieves the age of the patient when the allergy first manifested.
+     *
+     * @return String the age of onset, or null if not recorded
+     */
     public String getAgeOfOnset() {
         return pcGetageOfOnset(this);
     }
-    
+
+    /**
+     * Sets the age of the patient when the allergy first manifested.
+     * The value is automatically trimmed and null values are handled.
+     *
+     * @param ageOfOnset String the age of onset to set
+     */
     public void setAgeOfOnset(final String ageOfOnset) {
         pcSetageOfOnset(this, StringUtils.trimToNull(ageOfOnset));
     }
-    
+
+    /**
+     * Retrieves the severity code indicating how severe the allergy reaction is.
+     *
+     * @return String the severity code, or null if not specified
+     */
     public String getSeverityCode() {
         return pcGetseverityCode(this);
     }
-    
+
+    /**
+     * Sets the severity code for the allergy.
+     * The value is automatically trimmed and null values are handled.
+     *
+     * @param severityCode String the severity code to set
+     */
     public void setSeverityCode(final String severityCode) {
         pcSetseverityCode(this, StringUtils.trimToNull(severityCode));
     }
-    
+
+    /**
+     * Retrieves the onset code describing how the allergy began.
+     *
+     * @return String the onset code, or null if not specified
+     */
     public String getOnSetCode() {
         return pcGetonSetCode(this);
     }
-    
+
+    /**
+     * Sets the onset code describing how the allergy began.
+     * The value is automatically trimmed and null values are handled.
+     *
+     * @param onSetCode String the onset code to set
+     */
     public void setOnSetCode(final String onSetCode) {
         pcSetonSetCode(this, StringUtils.trimToNull(onSetCode));
     }
-    
+
+    /**
+     * Retrieves the regional identifier for cross-jurisdictional healthcare coordination.
+     *
+     * @return String the regional identifier, or null if not applicable
+     */
     public String getRegionalIdentifier() {
         return pcGetregionalIdentifier(this);
     }
-    
+
+    /**
+     * Sets the regional identifier for cross-jurisdictional healthcare coordination.
+     * The value is automatically trimmed and null values are handled.
+     *
+     * @param regionalIdentifier String the regional identifier to set
+     */
     public void setRegionalIdentifier(final String regionalIdentifier) {
         pcSetregionalIdentifier(this, StringUtils.trimToNull(regionalIdentifier));
     }
-    
+
+    /**
+     * Retrieves the life stage when this allergy was documented.
+     *
+     * @return String the life stage, or null if not specified
+     */
     public String getLifeStage() {
         return pcGetlifeStage(this);
     }
-    
+
+    /**
+     * Sets the life stage when this allergy was documented.
+     * The value is automatically trimmed and null values are handled.
+     *
+     * @param lifeStage String the life stage to set
+     */
     public void setLifeStage(final String lifeStage) {
         pcSetlifeStage(this, StringUtils.trimToNull(lifeStage));
     }
     
+    /**
+     * Returns the OpenJPA enhancement contract version for this entity.
+     *
+     * @return int the enhancement contract version (2)
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }
@@ -215,6 +432,14 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         PCRegistry.register((CachedDemographicAllergy.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicAllergy != null) ? CachedDemographicAllergy.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicAllergy : (CachedDemographicAllergy.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicAllergy = class$("ca.openosp.openo.caisi_integrator.dao.CachedDemographicAllergy")), CachedDemographicAllergy.pcFieldNames, CachedDemographicAllergy.pcFieldTypes, CachedDemographicAllergy.pcFieldFlags, CachedDemographicAllergy.pcPCSuperclass, "CachedDemographicAllergy", (PersistenceCapable)new CachedDemographicAllergy());
     }
     
+    /**
+     * Internal utility method to load a class by name.
+     * Used by OpenJPA bytecode enhancement for class literal handling.
+     *
+     * @param className String the fully qualified class name
+     * @return Class the loaded class
+     * @throws NoClassDefFoundError if the class cannot be found
+     */
     static /* synthetic */ Class class$(final String className) {
         try {
             return Class.forName(className);
@@ -223,7 +448,11 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
             throw new NoClassDefFoundError(ex.getMessage());
         }
     }
-    
+
+    /**
+     * Clears all fields of this entity, resetting them to their default values.
+     * Used during entity lifecycle management by OpenJPA.
+     */
     protected void pcClearFields() {
         this.agccs = 0;
         this.agcsp = 0;
@@ -244,6 +473,15 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         this.typeCode = 0;
     }
     
+    /**
+     * Creates a new instance of this entity with the given state manager and object ID.
+     * Part of the OpenJPA PersistenceCapable contract.
+     *
+     * @param pcStateManager StateManager the persistence state manager
+     * @param o Object the object ID to copy key fields from
+     * @param b boolean whether to clear all fields after creation
+     * @return PersistenceCapable the new instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final Object o, final boolean b) {
         final CachedDemographicAllergy cachedDemographicAllergy = new CachedDemographicAllergy();
         if (b) {
@@ -253,7 +491,15 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         cachedDemographicAllergy.pcCopyKeyFieldsFromObjectId(o);
         return (PersistenceCapable)cachedDemographicAllergy;
     }
-    
+
+    /**
+     * Creates a new instance of this entity with the given state manager.
+     * Part of the OpenJPA PersistenceCapable contract.
+     *
+     * @param pcStateManager StateManager the persistence state manager
+     * @param b boolean whether to clear all fields after creation
+     * @return PersistenceCapable the new instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final boolean b) {
         final CachedDemographicAllergy cachedDemographicAllergy = new CachedDemographicAllergy();
         if (b) {
@@ -263,10 +509,22 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         return (PersistenceCapable)cachedDemographicAllergy;
     }
     
+    /**
+     * Returns the number of managed fields in this entity.
+     *
+     * @return int the count of managed fields (17)
+     */
     protected static int pcGetManagedFieldCount() {
         return 17;
     }
     
+    /**
+     * Replaces a managed field value using the state manager.
+     * Part of the OpenJPA field management mechanism.
+     *
+     * @param n int the field index to replace
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcReplaceField(final int n) {
         final int n2 = n - CachedDemographicAllergy.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -347,12 +605,24 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         }
     }
     
+    /**
+     * Replaces multiple managed field values using the state manager.
+     *
+     * @param array int[] array of field indices to replace
+     */
     public void pcReplaceFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcReplaceField(array[i]);
         }
     }
-    
+
+    /**
+     * Provides a field value to the state manager.
+     * Part of the OpenJPA field management mechanism.
+     *
+     * @param n int the field index to provide
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcProvideField(final int n) {
         final int n2 = n - CachedDemographicAllergy.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -433,12 +703,25 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         }
     }
     
+    /**
+     * Provides multiple field values to the state manager.
+     *
+     * @param array int[] array of field indices to provide
+     */
     public void pcProvideFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcProvideField(array[i]);
         }
     }
-    
+
+    /**
+     * Copies a field value from another cached demographic allergy instance.
+     * Used by OpenJPA during entity management operations.
+     *
+     * @param cachedDemographicAllergy CachedDemographicAllergy the source instance
+     * @param n int the field index to copy
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     protected void pcCopyField(final CachedDemographicAllergy cachedDemographicAllergy, final int n) {
         final int n2 = n - CachedDemographicAllergy.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -519,6 +802,14 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         }
     }
     
+    /**
+     * Copies multiple field values from another entity instance.
+     *
+     * @param o Object the source entity to copy from
+     * @param array int[] array of field indices to copy
+     * @throws IllegalArgumentException if state managers don't match
+     * @throws IllegalStateException if state manager is null
+     */
     public void pcCopyFields(final Object o, final int[] array) {
         final CachedDemographicAllergy cachedDemographicAllergy = (CachedDemographicAllergy)o;
         if (cachedDemographicAllergy.pcStateManager != this.pcStateManager) {
@@ -531,25 +822,45 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
             this.pcCopyField(cachedDemographicAllergy, array[i]);
         }
     }
-    
+
+    /**
+     * Retrieves the generic context from the state manager.
+     *
+     * @return Object the generic context, or null if no state manager
+     */
     public Object pcGetGenericContext() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.getGenericContext();
     }
-    
+
+    /**
+     * Fetches the object ID from the state manager.
+     *
+     * @return Object the object ID, or null if no state manager
+     */
     public Object pcFetchObjectId() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.fetchObjectId();
     }
-    
+
+    /**
+     * Checks if this entity has been marked for deletion.
+     *
+     * @return boolean true if deleted, false otherwise
+     */
     public boolean pcIsDeleted() {
         return this.pcStateManager != null && this.pcStateManager.isDeleted();
     }
-    
+
+    /**
+     * Checks if this entity has been modified.
+     *
+     * @return boolean true if dirty (modified), false otherwise
+     */
     public boolean pcIsDirty() {
         if (this.pcStateManager == null) {
             return false;
@@ -558,41 +869,82 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         RedefinitionHelper.dirtyCheck(pcStateManager);
         return pcStateManager.isDirty();
     }
-    
+
+    /**
+     * Checks if this is a newly created entity not yet persisted.
+     *
+     * @return boolean true if new, false otherwise
+     */
     public boolean pcIsNew() {
         return this.pcStateManager != null && this.pcStateManager.isNew();
     }
-    
+
+    /**
+     * Checks if this entity is persistent (managed by JPA).
+     *
+     * @return boolean true if persistent, false otherwise
+     */
     public boolean pcIsPersistent() {
         return this.pcStateManager != null && this.pcStateManager.isPersistent();
     }
-    
+
+    /**
+     * Checks if this entity is part of a transaction.
+     *
+     * @return boolean true if transactional, false otherwise
+     */
     public boolean pcIsTransactional() {
         return this.pcStateManager != null && this.pcStateManager.isTransactional();
     }
-    
+
+    /**
+     * Checks if this entity is currently being serialized.
+     *
+     * @return boolean true if serializing, false otherwise
+     */
     public boolean pcSerializing() {
         return this.pcStateManager != null && this.pcStateManager.serializing();
     }
-    
+
+    /**
+     * Marks a field as dirty (modified).
+     *
+     * @param s String the field name to mark as dirty
+     */
     public void pcDirty(final String s) {
         if (this.pcStateManager == null) {
             return;
         }
         this.pcStateManager.dirty(s);
     }
-    
+
+    /**
+     * Retrieves the OpenJPA state manager for this entity.
+     *
+     * @return StateManager the state manager, or null if not managed
+     */
     public StateManager pcGetStateManager() {
         return this.pcStateManager;
     }
-    
+
+    /**
+     * Retrieves the version of this entity for optimistic locking.
+     *
+     * @return Object the version object, or null if no state manager
+     */
     public Object pcGetVersion() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.getVersion();
     }
-    
+
+    /**
+     * Replaces the state manager for this entity.
+     *
+     * @param pcStateManager StateManager the new state manager
+     * @throws SecurityException if security constraints are violated
+     */
     public void pcReplaceStateManager(final StateManager pcStateManager) throws SecurityException {
         if (this.pcStateManager != null) {
             this.pcStateManager = this.pcStateManager.replaceStateManager(pcStateManager);
@@ -600,27 +952,66 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         }
         this.pcStateManager = pcStateManager;
     }
-    
+
+    /**
+     * Copies key fields to an object ID using a field supplier.
+     * This operation is not supported for this entity type.
+     *
+     * @param fieldSupplier FieldSupplier the field supplier
+     * @param o Object the object ID
+     * @throws InternalException always thrown as operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final FieldSupplier fieldSupplier, final Object o) {
         throw new InternalException();
     }
-    
+
+    /**
+     * Copies key fields to an object ID.
+     * This operation is not supported for this entity type.
+     *
+     * @param o Object the object ID
+     * @throws InternalException always thrown as operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final Object o) {
         throw new InternalException();
     }
-    
+
+    /**
+     * Copies key fields from an object ID using a field consumer.
+     *
+     * @param fieldConsumer FieldConsumer the field consumer
+     * @param o Object the object ID to copy from
+     */
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
         fieldConsumer.storeObjectField(6 + CachedDemographicAllergy.pcInheritedFieldCount, ((ObjectId)o).getId());
     }
-    
+
+    /**
+     * Copies key fields from an object ID.
+     *
+     * @param o Object the object ID to copy from
+     */
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
         this.facilityIdIntegerCompositePk = (FacilityIdIntegerCompositePk)((ObjectId)o).getId();
     }
-    
+
+    /**
+     * Creates a new object ID instance from a string representation.
+     * This operation is not supported for this entity type.
+     *
+     * @param o Object the string representation
+     * @return Object never returns
+     * @throws IllegalArgumentException always thrown as this constructor is not available
+     */
     public Object pcNewObjectIdInstance(final Object o) {
         throw new IllegalArgumentException("The id type \"class org.apache.openjpa.util.ObjectId\" specified by persistent type \"class ca.openosp.openo.caisi_integrator.dao.CachedDemographicAllergy\" does not have a public class org.apache.openjpa.util.ObjectId(String) or class org.apache.openjpa.util.ObjectId(Class, String) constructor.");
     }
-    
+
+    /**
+     * Creates a new object ID instance for this entity.
+     *
+     * @return Object the new object ID
+     */
     public Object pcNewObjectIdInstance() {
         return new ObjectId((CachedDemographicAllergy.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicAllergy != null) ? CachedDemographicAllergy.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicAllergy : (CachedDemographicAllergy.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicAllergy = class$("ca.openosp.openo.caisi_integrator.dao.CachedDemographicAllergy")), (Object)this.facilityIdIntegerCompositePk);
     }
@@ -897,6 +1288,12 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
         cachedDemographicAllergy.pcStateManager.settingIntField((PersistenceCapable)cachedDemographicAllergy, CachedDemographicAllergy.pcInheritedFieldCount + 16, cachedDemographicAllergy.typeCode, typeCode, 0);
     }
     
+    /**
+     * Checks if this entity is in a detached state.
+     * A detached entity has been removed from the persistence context but retains its identity.
+     *
+     * @return Boolean TRUE if detached, FALSE if attached, null if state is indeterminate
+     */
     public Boolean pcIsDetached() {
         if (this.pcStateManager != null) {
             if (this.pcStateManager.isDetached()) {
@@ -917,19 +1314,41 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
             return null;
         }
     }
-    
+
+    /**
+     * Indicates whether the detached state is definitive.
+     *
+     * @return boolean false, indicating the detached state may be uncertain
+     */
     private boolean pcisDetachedStateDefinitive() {
         return false;
     }
-    
+
+    /**
+     * Retrieves the detached state object for this entity.
+     *
+     * @return Object the detached state, or null if not detached
+     */
     public Object pcGetDetachedState() {
         return this.pcDetachedState;
     }
-    
+
+    /**
+     * Sets the detached state for this entity.
+     *
+     * @param pcDetachedState Object the detached state to set
+     */
     public void pcSetDetachedState(final Object pcDetachedState) {
         this.pcDetachedState = pcDetachedState;
     }
-    
+
+    /**
+     * Custom serialization method for writing this entity to an output stream.
+     * Clears the detached state if the entity is being serialized by the persistence framework.
+     *
+     * @param objectOutputStream ObjectOutputStream the stream to write to
+     * @throws IOException if an I/O error occurs during serialization
+     */
     private void writeObject(final ObjectOutputStream objectOutputStream) throws IOException {
         final boolean pcSerializing = this.pcSerializing();
         objectOutputStream.defaultWriteObject();
@@ -937,7 +1356,15 @@ public class CachedDemographicAllergy extends AbstractModel<FacilityIdIntegerCom
             this.pcSetDetachedState(null);
         }
     }
-    
+
+    /**
+     * Custom deserialization method for reading this entity from an input stream.
+     * Sets the detached state to DESERIALIZED to indicate the entity was deserialized.
+     *
+     * @param objectInputStream ObjectInputStream the stream to read from
+     * @throws IOException if an I/O error occurs during deserialization
+     * @throws ClassNotFoundException if the class of a serialized object cannot be found
+     */
     private void readObject(final ObjectInputStream objectInputStream) throws IOException, ClassNotFoundException {
         this.pcSetDetachedState(PersistenceCapable.DESERIALIZED);
         objectInputStream.defaultReadObject();

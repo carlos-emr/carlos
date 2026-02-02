@@ -6,18 +6,20 @@
 All test methods follow BDD (Behavior-Driven Development) naming for self-documenting tests:
 
 ```java
-// Pattern 1: should_<expectedBehavior>_when_<condition>
+// Pattern 1: should<ExpectedBehavior>_when<Condition> (PREFERRED - camelCase with ONE underscore)
 @Test
-void should_returnActiveTicklers_when_demographicNumberProvided() { }
+void shouldReturnActiveTicklers_whenDemographicNumberProvided() { }
 
 // Pattern 2: <methodName>_<scenario>_<expectedOutcome>
 @Test
 void findById_validId_returnsTickler() { }
 
-// Pattern 3: should<ExpectedBehavior> (simple cases)
+// Pattern 3: should<ExpectedBehavior> (simple cases without conditions)
 @Test
 void shouldLoadSpringContext() { }
 ```
+
+**IMPORTANT**: Use camelCase with exactly ONE underscore separating action from condition. Do NOT use multiple underscores like `should_return_tickler_when_valid()`.
 
 ### @DisplayName Best Practices
 
@@ -279,6 +281,164 @@ void should_returnCompleteTickler_when_foundById() {
     assertThat(found.getMessage()).isEqualTo(original.getMessage());
     assertThat(found.getStatus()).isEqualTo(original.getStatus());
     assertThat(found.getPriority()).isEqualTo(original.getPriority());
+}
+```
+
+## Manager Unit Testing Patterns
+
+### Overview
+
+Manager (service layer) unit tests verify business logic without database access. They use mocked DAOs and require special handling for:
+- Multiple dependencies (often 10-20 mocks)
+- Static class mocking (LogAction, DemographicContactCreator)
+- Reflection-based dependency injection
+- Security manager mocking
+
+### Complete Manager Unit Test Structure
+
+```java
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@DisplayName("MyManager Unit Tests")
+@Tag("unit")
+@Tag("fast")
+@Tag("manager")
+public class MyManagerUnitTest extends MyDomainUnitTestBase {
+
+    // Mock all dependencies
+    @Mock private SomeDao mockSomeDao;
+    @Mock private AnotherDao mockAnotherDao;
+    // ... more mocks as needed
+
+    private MyManagerImpl manager;
+    private MockedStatic<LogAction> logActionMock;
+    private MockedStatic<SomeStaticHelper> helperMock;
+
+    @BeforeEach
+    void setUp() {
+        // 1. Register SpringUtils mocks FIRST (before static mocking)
+        registerMock(SomeDao.class, mockSomeDao);
+        registerMock(OscarLogDao.class, createAndRegisterMock(OscarLogDao.class));
+
+        // 2. Mock static classes SECOND
+        logActionMock = mockStatic(LogAction.class);
+        helperMock = mockStatic(SomeStaticHelper.class);
+
+        // 3. Configure default security behavior
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+            .thenReturn(true);
+
+        // 4. Create manager and inject dependencies via reflection
+        manager = new MyManagerImpl();
+        injectDependency(manager, "someDao", mockSomeDao);
+        injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
+    }
+
+    @AfterEach
+    void tearDown() {
+        // CRITICAL: Close all static mocks to prevent test pollution
+        if (helperMock != null) helperMock.close();
+        if (logActionMock != null) logActionMock.close();
+    }
+
+    /**
+     * Tests for security and privilege checking.
+     */
+    @Nested
+    @DisplayName("Security Tests")
+    @Tag("security")
+    class SecurityTests {
+        @Test
+        @DisplayName("should throw exception when privilege denied")
+        void shouldThrowException_whenPrivilegeDenied() {
+            reset(mockSecurityInfoManager);
+            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+                .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.doSomething(loggedInInfo, 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("missing required sec object");
+        }
+    }
+}
+```
+
+### Reflection-Based Dependency Injection
+
+When managers don't have setters for dependencies, use reflection:
+
+```java
+protected void injectDependency(Object target, String fieldName, Object dependency) {
+    try {
+        java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, dependency);
+    } catch (Exception e) {
+        throw new RuntimeException("Failed to inject " + fieldName, e);
+    }
+}
+```
+
+### Domain-Specific Base Classes
+
+Create a base class for each domain with test data builders:
+
+```java
+@Tag("unit")
+@Tag("fast")
+@Tag("demographic")
+public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
+
+    protected SecurityInfoManager mockSecurityInfoManager;
+    protected LoggedInInfo mockLoggedInInfo;
+    protected Facility mockFacility;
+
+    protected static final Integer TEST_DEMO_NO = 12345;
+    protected static final String TEST_PROVIDER = "999990";
+
+    @BeforeEach
+    void setUpDemographicMocks() {
+        mockSecurityInfoManager = Mockito.mock(SecurityInfoManager.class);
+        mockLoggedInInfo = Mockito.mock(LoggedInInfo.class);
+        mockFacility = Mockito.mock(Facility.class);
+
+        Mockito.lenient().when(mockLoggedInInfo.getCurrentFacility()).thenReturn(mockFacility);
+        Mockito.lenient().when(mockFacility.isIntegratorEnabled()).thenReturn(false);
+
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+    }
+
+    protected Demographic createTestDemographic() {
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(TEST_DEMO_NO);
+        demographic.setFirstName("John");
+        demographic.setLastName("Doe");
+        // ... set other fields
+        return demographic;
+    }
+}
+```
+
+### @Nested Class Documentation
+
+All @Nested test classes should have comprehensive JavaDoc:
+
+```java
+/**
+ * Tests for demographic search functionality.
+ *
+ * <p>These tests cover various search operations including:</p>
+ * <ul>
+ *   <li>Search by name (partial matching)</li>
+ *   <li>Search by health card number (HIN)</li>
+ *   <li>Search by multiple attributes</li>
+ * </ul>
+ */
+@Nested
+@DisplayName("Search Operations")
+@Tag("search")
+class SearchOperationsTests {
+    // tests...
 }
 ```
 

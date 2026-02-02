@@ -26,11 +26,13 @@
 
 package ca.openosp.openo.utility;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
-import com.google.zxing.qrcode.encoder.Encoder;
-import com.google.zxing.qrcode.encoder.QRCode;
 import org.apache.logging.log4j.Logger;
 
 import javax.imageio.IIOImage;
@@ -43,7 +45,9 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 public class QrCodeUtils {
 
@@ -95,10 +99,16 @@ public class QrCodeUtils {
     }
 
     public static BufferedImage toSingleQrCodeBufferedImage(String s, ErrorCorrectionLevel ec, int scaleFactor) throws WriterException {
-        QRCode qrCode = new QRCode();
-        Encoder.encode(s, ec, qrCode);
+        // Use QRCodeWriter with hints for error correction level
+        Map<EncodeHintType, Object> hints = new HashMap<>();
+        hints.put(EncodeHintType.ERROR_CORRECTION, ec);
 
-        BufferedImage bufferedImage = MatrixToImageWriter.toBufferedImage(qrCode.getMatrix());
+        QRCodeWriter qrCodeWriter = new QRCodeWriter();
+        // Use a base size that will be scaled
+        int baseSize = 100;
+        BitMatrix bitMatrix = qrCodeWriter.encode(s, BarcodeFormat.QR_CODE, baseSize, baseSize, hints);
+
+        BufferedImage bufferedImage = MatrixToImageWriter.toBufferedImage(bitMatrix);
 
         if (scaleFactor != 1) {
             int newWidth = bufferedImage.getWidth() * scaleFactor;

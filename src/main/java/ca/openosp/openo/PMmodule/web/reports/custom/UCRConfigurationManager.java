@@ -25,7 +25,7 @@ package ca.openosp.openo.PMmodule.web.reports.custom;
 
 import java.io.File;
 
-import org.apache.commons.digester.Digester;
+import org.apache.commons.digester3.Digester;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;
 

@@ -247,8 +247,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             String province = OscarProperties.getInstance().getProperty("billregion", "").trim().toUpperCase();
 
-            String strBeanName = "casemgmt_oscar_bean" + demono;
-            EctSessionBean bean = (EctSessionBean) session.getAttribute(strBeanName);
+            EctSessionBean bean = (EctSessionBean) session.getAttribute("EctSessionBean");
 
             if (bean.appointmentNo == null) {
                 bean.appointmentNo = "0";
@@ -327,8 +326,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 note.setEncounter_type("");
             }
 
-            String strBeanName = "casemgmt_oscar_bean" + demono;
-            EctSessionBean bean = (EctSessionBean) session.getAttribute(strBeanName);
+            EctSessionBean bean = (EctSessionBean) session.getAttribute("EctSessionBean");
             String encType = request.getParameter("encType");
 
             if (encType == null || encType.equals("")) {
@@ -536,8 +534,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setNote("");
             note.setEncounter_type("");
         }
-        String strBeanName = "casemgmt_oscar_bean" + demographicNo;
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute(strBeanName);
+        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String encType = request.getParameter("encType");
 
         if (encType == null || encType.equals("")) {
@@ -1406,8 +1403,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         // update appointment and add verify message to note if verified
-        String strBeanName = "casemgmt_oscar_bean" + demo;
-        EctSessionBean sessionBean = (EctSessionBean) session.getAttribute(strBeanName);
+        EctSessionBean sessionBean = (EctSessionBean) session.getAttribute("EctSessionBean");
         String verifyStr = request.getParameter("verify");
         boolean verify = false;
         if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
@@ -2740,10 +2736,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public String cleanup() {
         String demoNo = this.getDemographicNo(request);
         String sessionFrmName = "caseManagementEntryForm" + demoNo;
-        String strBeanName = "casemgmt_oscar_bean" + demoNo;
 
         request.getSession().setAttribute(sessionFrmName, null);
-        request.getSession().setAttribute(strBeanName, null);
+        request.getSession().setAttribute("EctSessionBean", null);
 
         return null;
     }

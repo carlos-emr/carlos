@@ -139,7 +139,7 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
 
             for (Drug p : results) {
                 if (p.getGcnSeqNo() == drug.getGcnSeqNo()) {
-                    if (p.getGcnSeqNo() != 0) // not custom - safe GCN
+                    if (! "0".equals(p.getGcnSeqNo())) // not custom - safe GCN
                         isCustomName = false;
                     else if (p.getCustomName() != null && drug.getCustomName() != null) // custom
                         isCustomName = !p.getCustomName().equals(drug.getCustomName());

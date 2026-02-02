@@ -27,9 +27,9 @@ package ca.openosp.openo.mds.data;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
-import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.utility.MiscUtils;
@@ -81,7 +81,7 @@ public class ProviderData {
             List<Provider> residents = dao.getProvidersByType(ProviderDao.PR_TYPE_RESIDENT);
 
             providers.addAll(residents);
-            Collections.sort(providers, new BeanComparator("formattedName"));
+            Collections.sort(providers, Comparator.comparing(Provider::getFormattedName));
             for (Provider p : providers) {
                 ArrayList<String> provider = new ArrayList<String>();
                 provider.add(p.getProviderNo());
@@ -105,7 +105,7 @@ public class ProviderData {
 
             ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
             List<Provider> providers = dao.getProvidersByTypeWithNonEmptyOhipNo(ProviderDao.PR_TYPE_DOCTOR);
-            Collections.sort(providers, new BeanComparator("formattedName"));
+            Collections.sort(providers, Comparator.comparing(Provider::getFormattedName));
             for (Provider p : providers) {
                 ArrayList<String> provider = new ArrayList<String>();
                 provider.add(p.getProviderNo());

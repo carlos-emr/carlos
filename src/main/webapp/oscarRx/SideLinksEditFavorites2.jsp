@@ -151,3 +151,11 @@
     <%}%>
 
 </div>
+
+<script type="text/javascript">
+    // Pulled from function in SearchDrug3.jsp - function needs to be defined here
+    // for ShowAllergies2.jsp for favorite staging in allergies page
+    function useFav2(favoriteId) {
+        location.href = "<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp?usefav=true&favid=" + encodeURIComponent(favoriteId);
+    }
+</script>

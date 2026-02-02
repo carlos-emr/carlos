@@ -213,12 +213,7 @@ public final class SSOLogin2Action extends ActionSupport {
                     session.setAttribute("delegateOneIdEmail", providerInformation[6]);
                 }
 
-                String operation = request.getParameter("operation");
-                if (operation != null && "launch".equals(operation)) {
-                    actionForward = "/clinicalConnectEHRViewer.do?method=launchNonPatientContext";
-                } else {
-                    actionForward = "/index.jsp";
-                }
+                actionForward = "/index.jsp";
             } else {
                 actionForward = "/logout.jsp?errorMessage=A different OSCAR account is linked to the ONE ID account";
             }

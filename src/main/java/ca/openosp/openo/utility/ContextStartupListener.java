@@ -40,8 +40,6 @@ import ca.openosp.openo.PMmodule.utility.RoleCache;
 import ca.openosp.openo.commn.jobs.OscarJobUtils;
 import ca.openosp.openo.hospitalReportManager.HRMFixMissingReportHelper;
 import ca.openosp.openo.integration.mcedt.mailbox.CidPrefixResourceResolver;
-import org.quartz.SchedulerException;
-import org.quartz.impl.StdSchedulerFactory;
 
 import ca.openosp.openo.daos.security.SecroleDao;
 import ca.openosp.OscarProperties;
@@ -181,11 +179,6 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
 
         CaisiIntegratorUpdateTask.stopTask();
 
-        try {
-            StdSchedulerFactory.getDefaultScheduler().shutdown();
-        } catch (SchedulerException e) {
-            logger.error("Error", e);
-        }
         try {
             MiscUtils.checkShutdownSignaled();
             MiscUtils.deregisterShutdownHook();

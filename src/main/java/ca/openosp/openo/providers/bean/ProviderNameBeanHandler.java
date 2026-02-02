@@ -27,10 +27,10 @@ package ca.openosp.openo.providers.bean;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Vector;
 
-import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.dao.MyGroupDao;
 import ca.openosp.openo.commn.model.MyGroup;
@@ -71,7 +71,7 @@ public class ProviderNameBeanHandler {
     public void setThisGroupProviderVector(String groupNo) {
         MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);
         List<MyGroup> groups = dao.getGroupByGroupNo(groupNo);
-        Collections.sort(groups, new BeanComparator("firstName"));
+        Collections.sort(groups, Comparator.comparing(MyGroup::getFirstName));
         for (MyGroup g : groups) {
             ProviderNameBean pNameBean = new ProviderNameBean(g.getLastName() + ", " + g.getFirstName(), g.getId().getProviderNo());
             thisGroupProviderVector.add(pNameBean);

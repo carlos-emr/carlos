@@ -164,7 +164,7 @@
             }
             String comment = (String) request.getAttribute("comment");
         %>
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css"/>
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css"/>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 
@@ -175,7 +175,7 @@
             }
 
             function setDefaultAddr() {
-                var url = "setDefaultAddr.jsp";
+                var url = "<%= request.getContextPath() %>/oscarRx/setDefaultAddr.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
@@ -186,7 +186,7 @@
             function addNotes() {
 
 
-                var url = "AddRxComment.jsp";
+                var url = "<%= request.getContextPath() %>/oscarRx/AddRxComment.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
@@ -322,9 +322,9 @@
                                             document.forms.RxClearPendingForm.submit();
                                         }
                                     </script>
-                                    <script language=javascript>
+                                    <script type="text/javascript">
                                         function ShowDrugInfo(drug) {
-                                            window.open("drugInfo.do?GN=" + escape(drug), "_blank",
+                                            window.open("<%= request.getContextPath() %>/oscarRx/drugInfo.do?GN=" + encodeURIComponent(drug), "_blank",
                                                 "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                         }
                                     </script>

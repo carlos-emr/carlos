@@ -114,12 +114,12 @@
         demographicNo = moduleid;
     }
 
-//module can be either demographic or providers from what i can tell
+// module can be "demographic", "provider", or "providers" (use EDocUtil.isProviderModule() for provider checks)
 
     String moduleName = "";
-    if (module.equals("demographic")) {
+    if ("demographic".equals(module)) {
         moduleName = EDocUtil.getDemographicName(loggedInInfo, moduleid);
-    } else if (module.equals("providers")) {
+    } else if (EDocUtil.isProviderModule(module)) {
         moduleName = EDocUtil.getProviderName(moduleid);
     }
 
@@ -359,7 +359,7 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager
         </h2>
 
-        <% if (module.equals("demographic")) { %>
+        <% if ("demographic".equals(module)) { %>
         <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(moduleid)%>"/>
         <%} %>
 
@@ -382,7 +382,7 @@
 
                 categories.add(privatedocs);
                 categoryKeys.add(moduleName + "'s Private Documents");
-                if (module.equals("providers")) {
+                if (EDocUtil.isProviderModule(module)) {
                     ArrayList publicdocs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PUBLIC, EDocUtil.EDocSort.OBSERVATIONDATE, viewstatus);
                     categories.add(publicdocs);
                     categoryKeys.add("Public Documents");
@@ -648,7 +648,7 @@
 
                                         <% } %>
 
-                                        <% if (module.equals("demographic")) {%>
+                                        <% if ("demographic".equals(module)) {%>
                                         <a href="javascript:void(0)" title="Annotation"
                                            onclick="window.open('${ pageContext.request.contextPath }/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&demo=<%=Encode.forUriComponent(moduleid)%>','anwin','width=400,height=500');"
                                            class="btn btn-link" style="padding:0">
@@ -659,7 +659,7 @@
                                             </svg>
                                         </a>
                                         <% } %>
-                                        <% if (!(moduleid.equals(session.getAttribute("user")) && module.equals("demographic"))) {
+                                        <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
 
                                             String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler.do?docType=DOC&docId=" + curdoc.getDocId() + "&demographic_no=" + moduleid;
                                         %>

@@ -24,14 +24,18 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- SonarCloud -->
+        <sonar.organization>openo-beta1</sonar.organization>
         <!-- Log4j Version -->
         <log4j2.version>2.25.3</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
-        <hapifhir.version>6.4.0</hapifhir.version>
+        <hapifhir.version>6.10.5</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>3.5.11</cxf.version>
+        <cxf.version>3.6.9</cxf.version>
+        <!-- Netty Version (for transitive dependency security fixes) -->
+        <netty.version>4.1.129.Final</netty.version>
         <struts.devMode>false</struts.devMode>
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
@@ -88,6 +92,12 @@
                 <artifactId>jaxb-core</artifactId>
                 <version>2.3.0.1</version>
             </dependency>
+            <!-- Override transitive xercesImpl to fix CVE-2022-23437 and CVE-2020-14338 -->
+            <dependency>
+                <groupId>xerces</groupId>
+                <artifactId>xercesImpl</artifactId>
+                <version>2.12.2</version>
+            </dependency>
             <!-- https://mvnrepository.com/artifact/org.springframework/spring-framework-bom -->
             <dependency>
                 <groupId>org.springframework</groupId>
@@ -108,6 +118,26 @@
                 <artifactId>mina-core</artifactId>
                 <version>2.1.10</version>
             </dependency>
+            <!-- Force secure versions of ALL Netty modules to fix multiple CVEs:
+                 - HTTP/2 DDoS (MadeYouReset) in netty-codec-http2
+                 - DoS via zip bomb in netty-codec
+                 - CRLF Injection and request smuggling in netty-codec-http
+                 Transitive from apache-cxf and webdrivermanager -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>${netty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+          
+            <!-- Force secure version of MIME4J to fix header injection CVE -->
+            <!-- Transitive from axis2-transport-http (used for OLIS) -->
+            <dependency>
+                <groupId>org.apache.james</groupId>
+                <artifactId>apache-mime4j-core</artifactId>
+                <version>0.8.10</version>
+             </dependency>
 
             <!-- Transitive Hibernate/JPA dependencies -->
             <!-- Hibernate core -->
@@ -159,7 +189,7 @@
         <dependency>
             <groupId>net.bull.javamelody</groupId>
             <artifactId>javamelody-core</artifactId>
-            <version>1.99.3</version>
+            <version>1.99.4</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -244,13 +274,12 @@
             <artifactId>commons-collections</artifactId>
             <version>3.2.2</version>
         </dependency>
-        <!-- Commons Digester Library -->
+        <!-- Commons Digester3 Library -->
         <dependency>
-            <groupId>commons-digester</groupId>
-            <artifactId>commons-digester</artifactId>
-            <version>1.8</version>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-digester3</artifactId>
+            <version>3.2</version>
             <exclusions>
-                <!-- Excluded this low version to avoid triggering security issue -->
                 <exclusion>
                     <groupId>commons-beanutils</groupId>
                     <artifactId>commons-beanutils</artifactId>
@@ -273,13 +302,7 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.18.0</version>
         </dependency>
-        <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
-        <!-- https://mvnrepository.com/artifact/commons-beanutils/commons-beanutils -->
-        <dependency>
-            <groupId>commons-beanutils</groupId>
-            <artifactId>commons-beanutils</artifactId>
-            <version>1.11.0</version>
-        </dependency>
+        <!-- commons-beanutils removed: migrated to Spring BeanUtils (Phase 1 of issue #2202) -->
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
         <!-- https://mvnrepository.com/artifact/commons-net/commons-net -->
         <dependency>
@@ -298,7 +321,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpmime</artifactId>
-            <version>4.5.6</version>
+            <version>4.5.14</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
@@ -418,7 +441,7 @@
         <dependency>
             <groupId>org.springframework.integration</groupId>
             <artifactId>spring-integration-ftp</artifactId>
-            <version>5.3.10.RELEASE</version>
+            <version>5.5.20</version>
             <exclusions>
                 <!-- Excluded this low version to avoid triggering security issue -->
                 <exclusion>
@@ -430,7 +453,14 @@
         <dependency>
             <groupId>org.springframework.integration</groupId>
             <artifactId>spring-integration-sftp</artifactId>
-            <version>5.3.10.RELEASE</version>
+            <version>5.5.20</version>
+            <exclusions>
+                <exclusion>
+                    <!-- Exclude old jcraft JSch in favor of maintained mwiede fork -->
+                    <groupId>com.jcraft</groupId>
+                    <artifactId>jsch</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
@@ -447,6 +477,18 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-aop</artifactId>
             <version>5.3.39</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>cglib</groupId>
+                    <artifactId>cglib</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- cglib-nodep to replace old cglib 2.2.2 and eliminate ASM conflicts -->
+        <dependency>
+            <groupId>cglib</groupId>
+            <artifactId>cglib-nodep</artifactId>
+            <version>3.3.0</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.springframework.security/spring-security-crypto -->
         <dependency>
@@ -487,9 +529,9 @@
 
         <!-- hibernate / sql -->
         <dependency>
-            <groupId>commons-dbcp</groupId>
-            <artifactId>commons-dbcp</artifactId>
-            <version>1.4</version>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-dbcp2</artifactId>
+            <version>2.14.0</version>
         </dependency>
         <!-- throws a 404 error when removed/uncommented -->
         <!-- https://mvnrepository.com/artifact/com.mysql/mysql-connector-j -->
@@ -505,18 +547,11 @@
             <version>5.6.15.Final</version>
         </dependency>
 
-        <!-- pdf / jpedal -->
-        <dependency>
-            <groupId>org</groupId>
-            <artifactId>jpedal</artifactId>
-            <version>lgpl</version>
-        </dependency>
-
         <!--  pdfbox -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>2.0.27</version>
+            <version>2.0.35</version>
         </dependency>
         <dependency>
             <groupId>com.twelvemonkeys.common</groupId>
@@ -524,10 +559,11 @@
             <version>3.12.0</version>
         </dependency>
 
+        <!-- Glassfish JSTL 1.2.5 implementation (javax namespace for Servlet 4.0 compatibility) -->
         <dependency>
-            <groupId>taglibs</groupId>
-            <artifactId>standard</artifactId>
-            <version>1.1.2</version>
+            <groupId>org.glassfish.web</groupId>
+            <artifactId>javax.servlet.jsp.jstl</artifactId>
+            <version>1.2.5</version>
         </dependency>
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
@@ -536,12 +572,12 @@
         <dependency>
             <groupId>com.itextpdf</groupId>
             <artifactId>itextpdf</artifactId>
-            <version>5.5.13.4</version>
+            <version>5.5.13.5</version>
         </dependency>
         <dependency>
             <groupId>com.itextpdf.tool</groupId>
             <artifactId>xmlworker</artifactId>
-            <version>5.5.13.4</version>
+            <version>5.5.13.5</version>
         </dependency>
 
         <dependency>
@@ -576,7 +612,7 @@
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
-            <version>6.17.0</version>
+            <version>6.21.5</version>
             <exclusions>
                 <exclusion>
                     <groupId>bouncycastle</groupId>
@@ -621,14 +657,35 @@
             <version>2.19.2</version>
         </dependency>
 
-
-
-
-
-        <!-- jcharts: can be found in the local_repo folder -->
+        <!-- Jackson Java 8 Date/Time support -->
         <dependency>
-            <groupId>net.sf.jcharts</groupId>
-            <artifactId>krysalis-jCharts</artifactId>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.19.2</version>
+        </dependency>
+
+        <!-- Jackson JAXB annotations support - provides JaxbAnnotationIntrospector used in Spring configs -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-jaxb-annotations</artifactId>
+            <version>2.19.2</version>
+        </dependency>
+
+        <!-- Jackson XML support - explicit version to override older transitive from jasperreports -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+            <version>2.19.2</version>
+        </dependency>
+
+
+
+
+
+        <!-- jcharts: now from Maven Central (same JAR, different coordinates) -->
+        <dependency>
+            <groupId>jcharts</groupId>
+            <artifactId>jcharts</artifactId>
             <version>0.7.5</version>
         </dependency>
 
@@ -680,19 +737,6 @@
             <version>3.1.0</version>
         </dependency>
 
-        <!-- quartz -->
-        <dependency>
-            <groupId>org.quartz-scheduler</groupId>
-            <artifactId>quartz</artifactId>
-            <version>1.8.5</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!-- email -->
         <dependency>
             <groupId>com.sun.mail</groupId>
@@ -704,7 +748,7 @@
         <dependency>
             <groupId>org.jfree</groupId>
             <artifactId>jfreechart</artifactId>
-            <version>1.5.4</version>
+            <version>1.5.6</version>
         </dependency>
 
 
@@ -715,32 +759,12 @@
         <!-- FOR ORN Project - CKD config in XML format -->
         <!-- REMOVED: now included as source code -->
 
-        <!-- patientSiteVisit.jar , suspect this is generated classes and should be removed as a jar in the future -->
-        <!-- can be found in the local_repo folder -->
-        <dependency>
-            <groupId>patientSiteVisit</groupId>
-            <artifactId>patientSiteVisit</artifactId>
-            <version>0.0-SNAPSHOT</version>
-        </dependency>
-
-        <!-- JAXM API - deprecated since 2003, replaced by SAAJ -->
-        <!-- TODO: Migrate the 3 files using javax.xml.messaging.URLEndpoint to use SAAJ instead:
-             - oscar/form/study/HSFO/pageUtil/XMLTransferUtil.java
-             - oscar/form/study/FrmStudyXMLClientSend.java  
-             - org/oscarehr/rx/erx/controller/ERxCommunicator.java
-             Then remove this dependency as we already have SAAJ (saaj-impl:1.3.18)
-             NOTE: Currently using old JAR from local_repo as no Maven Central version exists -->
-        <dependency>
-            <groupId>javax.xml</groupId>
-            <artifactId>jaxm-api</artifactId>
-            <version>UNKNOWN</version>
-        </dependency>
 
         <!-- apache poi -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
-            <version>5.0.0</version>
+            <version>5.5.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -758,61 +782,42 @@
             <version>1.4.3</version>
         </dependency>
 
-        <!-- REMOVE displayTag. It's only used in 1 deprecated feature of this code
-        and is not well maintained. -->
-        <!-- From my current understanding, displayTag is used in a lot of jsp files -->
-        <!-- This should be removed but at a later date -->
+        <!-- UPGRADED displaytag to actively maintained hazendaz fork -->
+        <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
+        <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
         <dependency>
-            <groupId>displaytag</groupId>
+            <groupId>com.github.hazendaz</groupId>
             <artifactId>displaytag</artifactId>
-            <version>1.2</version>
+            <version>2.9.0</version>
             <exclusions>
+                <!-- Exclude SLF4J to use OpenO's managed version -->
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
+                <!-- Exclude to avoid conflicts with OpenO's logging setup -->
                 <exclusion>
                     <groupId>org.slf4j</groupId>
-                    <artifactId>jcl104-over-slf4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>commons-beanutils</groupId>
-                    <artifactId>commons-beanutils</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
+                    <artifactId>jcl-over-slf4j</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
 
         <!-- zxing / 2d bar codes -->
         <dependency>
-            <groupId>zxing</groupId>
-            <artifactId>zxing-core</artifactId>
-            <version>1.5</version>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
         </dependency>
         <dependency>
-            <groupId>zxing</groupId>
-            <artifactId>zxing-j2se</artifactId>
-            <version>1.5</version>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.3</version>
         </dependency>
 
         <!-- chip / ping libararies -->
         <!-- Detected as "Unused dependency" but don't remove it, it's using in jsp -->
         <!-- can be found in the local_repo folder -->
-
-        <!-- https://mvnrepository.com/artifact/com.github.jtidy/jtidy -->
-        <dependency>
-            <groupId>com.github.jtidy</groupId>
-            <artifactId>jtidy</artifactId>
-            <version>1.0.5</version>
-        </dependency>
 
         <dependency>
             <groupId>org.jsoup</groupId>
@@ -820,15 +825,11 @@
             <version>1.17.2</version>
         </dependency>
 
-        <!-- xerces -->
-        <dependency>
-            <groupId>xerces</groupId>
-            <artifactId>xercesImpl</artifactId>
-            <version>2.12.2</version>
-        </dependency>
-
-        <!-- janino -->
-        <!-- Detected as "Unused dependency" but don't remove it, caused 404 error after removing -->
+        <!-- janino - CRITICAL: Must stay on version 2.x -->
+        <!-- Drools 2.0 (used by PreventionDSImpl for prevention rules) requires janino 2.x API -->
+        <!-- Janino 3.x removed Scanner$LocatedException class, breaking Drools rule compilation -->
+        <!-- DO NOT upgrade to janino 3.x without first upgrading Drools to 7.x+ -->
+        <!-- Previous comment: Detected as "Unused dependency" but don't remove it, caused 404 error after removing -->
         <dependency>
             <groupId>janino</groupId>
             <artifactId>janino</artifactId>
@@ -837,9 +838,9 @@
 
 
         <dependency>
-            <groupId>com.jcraft</groupId>
+            <groupId>com.github.mwiede</groupId>
             <artifactId>jsch</artifactId>
-            <version>0.1.54</version>
+            <version>0.2.19</version>
         </dependency>
 
         <!-- OLIS -->
@@ -856,38 +857,23 @@
             <version>1.79</version>
         </dependency>
 
-        <!-- Added for axis2 1.8.0 -->
-        <!-- https://mvnrepository.com/artifact/org.glassfish.jersey.core/jersey-client -->
-        <dependency>
-            <groupId>org.glassfish.jersey.core</groupId>
-            <artifactId>jersey-client</artifactId>
-            <version>2.39.1</version>
-            <!-- Exclude it to avoid conflict with the apache.cxf's jakarta.ws.rs-api -->
-            <exclusions>
-                <exclusion>
-                <groupId>jakarta.ws.rs</groupId>
-                <artifactId>jakarta.ws.rs-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!-- AXIS2 (for OLIS) -->
         <!-- 
-            Updated to 1.8.0 by GitHub Dependabot suggestion,
+            Updated to 1.8.2 for Jakarta EE migration preparation,
             the higher version 2.0.0 will need when we migrate to jakarta 
         -->
         <!-- https://mvnrepository.com/artifact/org.apache.axis2/axis2 -->
         <dependency>
             <groupId>org.apache.axis2</groupId>
             <artifactId>axis2</artifactId>
-            <version>1.8.0</version>
+            <version>1.8.2</version>
             <type>pom</type>
         </dependency>
         <!-- Detected as "Unused dependency" but don't remove it, caused 404 error after removing -->
         <dependency>
             <groupId>org.apache.axis2</groupId>
             <artifactId>axis2-transport-http</artifactId>
-            <version>1.8.0</version>
+            <version>1.8.2</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.ws.commons.schema</groupId>
@@ -913,7 +899,7 @@
         <dependency>
             <groupId>org.apache.axis2</groupId>
             <artifactId>axis2-adb</artifactId>
-            <version>1.8.0</version>
+            <version>1.8.2</version>
         </dependency>
 
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
@@ -925,11 +911,6 @@
         </dependency>
 
         <!-- velocity -->
-        <dependency>
-            <groupId>org.apache.velocity</groupId>
-            <artifactId>velocity</artifactId>
-            <version>1.7</version>
-        </dependency>
         <dependency>
             <groupId>org.apache.velocity</groupId>
             <artifactId>velocity-engine-core</artifactId>
@@ -1083,6 +1064,21 @@
                     <groupId>org.apache.cxf</groupId>
                     <artifactId>cxf-rt-rs-extension-providers</artifactId>
                 </exclusion>
+                <!-- Not used, excluded to fix CVE (RCE via untrusted JMS config) -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-transports-jms</artifactId>
+                </exclusion>
+                <!-- Not used, excluded to fix CVE (DoS via Rhino toFixed) -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-frontend-js</artifactId>
+                </exclusion>
+                <!-- Not used, excluded because Jetty 10 requires jakarta.servlet.* but app uses javax.servlet.* -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-transports-http-jetty</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -1148,16 +1144,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.atlassian.commonmark</groupId>
+            <groupId>org.commonmark</groupId>
             <artifactId>commonmark</artifactId>
-            <version>0.10.0</version>
-        </dependency>
-
-        <!--tagsoup-->
-        <dependency>
-            <groupId>org.ccil.cowan.tagsoup</groupId>
-            <artifactId>tagsoup</artifactId>
-            <version>1.2.1</version>
+            <version>0.23.0</version>
         </dependency>
 
         <!-- can be found in the local_repo folder -->
@@ -1169,7 +1158,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.jaxrs</groupId>
             <artifactId>jackson-jaxrs-json-provider</artifactId>
-            <version>2.15.2</version>
+            <version>2.19.2</version>
         </dependency>
 
         <!-- OWASP Encoder -->
@@ -1206,31 +1195,16 @@
             </exclusions>
         </dependency>
 
-        
-        <dependency>
-            <groupId>com.medseek.clinical.service</groupId>
-            <artifactId>SSOClinicalConnect</artifactId>
-            <version>20171101</version>
-        </dependency>
-
-        <!-- can be found in the local_repo folder -->
-        <dependency>
-            <groupId>com.medseek</groupId>
-            <artifactId>PatientService</artifactId>
-            <version>20161213</version>
-        </dependency>
-
         <dependency>
             <groupId>org.jasypt</groupId>
             <artifactId>jasypt</artifactId>
             <version>1.9.3</version>
         </dependency>
-
         <!-- Apache Commons Exec - used by ExternalEDocConverter -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-exec</artifactId>
-            <version>1.3</version>
+            <version>1.4.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.codehaus.jettison/jettison -->
@@ -1238,14 +1212,6 @@
             <groupId>org.codehaus.jettison</groupId>
             <artifactId>jettison</artifactId>
             <version>1.5.4</version>
-        </dependency>
-
-        <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
-        <!-- https://mvnrepository.com/artifact/org.dom4j/dom4j -->
-        <dependency>
-            <groupId>org.dom4j</groupId>
-            <artifactId>dom4j</artifactId>
-            <version>2.1.4</version>
         </dependency>
 
         <dependency>
@@ -1261,31 +1227,32 @@
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-java</artifactId>
-            <version>3.141.59</version>
+            <version>4.40.0</version>
             <scope>test</scope>
             <exclusions>
-                <!-- Not being used, excluded to avoid triggering security issue -->
+                <!-- Exclude DevTools - not using Chrome DevTools Protocol -->
                 <exclusion>
-                    <groupId>com.squareup.okio</groupId>
-                    <artifactId>okio</artifactId>
+                    <groupId>org.seleniumhq.selenium</groupId>
+                    <artifactId>selenium-devtools-v142</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.seleniumhq.selenium</groupId>
+                    <artifactId>selenium-devtools-v143</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.seleniumhq.selenium</groupId>
+                    <artifactId>selenium-devtools-v144</artifactId>
+                </exclusion>
+                <!-- Exclude OpenTelemetry - not using observability features -->
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
-        <!-- https://mvnrepository.com/artifact/io.github.bonigarcia/webdrivermanager -->
-        <dependency>
-            <groupId>io.github.bonigarcia</groupId>
-            <artifactId>webdrivermanager</artifactId>
-            <version>6.1.0</version> 
-            <scope>test</scope>   
-            <exclusions>
-                <!-- Not being used, excluded to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-common</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!-- webdrivermanager removed - Selenium 4.6+ has built-in Selenium Manager -->
+        <!-- that auto-downloads browser drivers, making webdrivermanager unnecessary -->
+        <!-- Also removes vulnerable OkHttp 3.x transitive dependency -->
         <!-- https://mvnrepository.com/artifact/org.testng/testng -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -1337,6 +1304,14 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <!-- Playwright for UI/smoke testing -->
+        <dependency>
+            <groupId>com.microsoft.playwright</groupId>
+            <artifactId>playwright</artifactId>
+            <version>1.40.0</version>
+            <scope>test</scope>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -1348,7 +1323,7 @@
         <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
-            <version>9.4.1</version>
+            <version>9.13.3</version>
         </dependency>
 
 
@@ -1358,7 +1333,7 @@
         <dependency>
             <groupId>org.apache.openjpa</groupId>
             <artifactId>openjpa</artifactId>
-            <version>3.0.0</version>
+            <version>3.2.2</version>
         </dependency>
 
         <!-- HAPI FHIR -->
@@ -1397,7 +1372,7 @@
         <dependency>
            <groupId>com.sun.xml.ws</groupId>
            <artifactId>jaxws-ri</artifactId>
-           <version>2.3.3</version>
+           <version>2.3.7</version>
            <type>pom</type>
            <exclusions>
                 <!-- Not being used, excluded to avoid triggering security issue -->
@@ -1412,6 +1387,13 @@
             <artifactId>javax.annotation-api</artifactId>
             <version>1.3.2</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/javax.inject/javax.inject -->
+        <!-- Required for @Inject annotation in OAuth resources (was transitive from jersey-client) -->
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+            <version>1</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/javax.servlet.jsp/javax.servlet.jsp-api -->
         <dependency>
             <groupId>javax.servlet.jsp</groupId>
@@ -1419,18 +1401,16 @@
             <version>2.3.3</version>
             <scope>provided</scope>
         </dependency>
-        
-        <!-- Added for Tomcat 9.0.97 -->
+
+        <!-- Removed jaxb-impl duplicate - using org.glassfish.jaxb:jaxb-runtime instead -->
+        <!-- Added for Tomcat 9.0.97 - JAXB runtime implementation (version managed by dependencyManagement) -->
         <dependency>
-            <groupId>com.sun.xml.bind</groupId>
-            <artifactId>jaxb-impl</artifactId>
-            <version>2.3.3</version>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
         </dependency>
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>jstl</artifactId>
-            <version>1.2</version>
-        </dependency>
+
+        <!-- JSTL API is included as transitive dependency of javax.servlet.jsp.jstl -->
+        <!-- Removed standalone javax.servlet:jstl:1.2 to avoid conflicts -->
 
         <dependency>
             <groupId>org.apache.struts</groupId>
@@ -1571,14 +1551,11 @@
                                     <format property="build.dateTime.value" pattern="yyyy-MM-dd hh:mm aa"/>
                                 </tstamp>
                                 <echo level="info" message="build time : ${build.dateTime.value}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.dateTime}"
-                                         value="${build.dateTime.value}"/>
+                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
                                 <property environment="env"/>
                                 <echo level="info" message="JOB_NAME - BUILD_NUMBER : ${env.JOB_NAME}-${env.BUILD_NUMBER}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.JOB_NAME}"
-                                         value="${env.JOB_NAME}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.BUILD_NUMBER}"
-                                         value="${env.BUILD_NUMBER}"/>
+                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
+                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
                             </target>
                         </configuration>
                     </execution>
@@ -1740,7 +1717,12 @@
                                 <include>**/test/**/*Test.java</include>
                                 <include>**/test/**/*Tests.java</include>
                                 <include>**/tickler/**/*Test.java</include>
+                                <include>**/managers/**/*Test.java</include>
                             </includes>
+                            <excludes>
+                                <!-- Exclude archive tests from modern test run -->
+                                <exclude>**/archive/**/*Test.java</exclude>
+                            </excludes>
                             <argLine>
                                 -Xmx2048m
                                 -Dnet.bytebuddy.experimental=true
@@ -1886,6 +1868,10 @@
                     <name>!skipModernTests</name>
                 </property>
             </activation>
+            <properties>
+                <!-- Use modern lock file when modern-tests profile is active -->
+                <dependency.lock.filename>dependencies-lock-modern.json</dependency.lock.filename>
+            </properties>
             <dependencies>
                 <!-- JUnit 5 (Jupiter) -->
                 <dependency>

@@ -23,7 +23,8 @@
     Ontario, Canada
 
 --%>
-<%@ page import="java.util.List" %>
+<%@ page import="java.util.List,
+                 org.owasp.encoder.Encode" %>
 
 <html>
 <head>
@@ -39,7 +40,7 @@ You tried to access a resource with insufficient privileges.
     if (vals != null) {
         for (String val : vals) {
 %>
-<h5>Object:<%=val %>
+<h5>Object:<%= Encode.forHtml(val) %>
 </h5>
 <%
         }
@@ -52,7 +53,7 @@ You tried to access a resource with insufficient privileges.
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>

@@ -21,6 +21,42 @@ import javax.persistence.Column;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 
+/**
+ * JPA entity representing cached electronic form (eForm) data in the CAISI integrator system.
+ *
+ * This entity stores electronic forms associated with patients across multiple facilities within
+ * the CAISI (Client Access to Integrated Services and Information) integrator framework. The
+ * integrator enables healthcare data sharing across different OpenO EMR installations in a
+ * multi-facility healthcare network.
+ *
+ * Electronic forms (eForms) are digital medical forms used for various clinical documentation
+ * purposes including assessments, consults, and patient questionnaires. This cached data enables
+ * efficient retrieval and synchronization of form information across integrated healthcare facilities.
+ *
+ * This class is enhanced by Apache OpenJPA for persistence operations, providing automatic change
+ * tracking, lazy loading, and transaction management capabilities. The OpenJPA enhancement process
+ * adds bytecode instrumentation for field-level persistence management.
+ *
+ * <p><strong>Key Features:</strong></p>
+ * <ul>
+ *   <li>Multi-facility support through composite primary key with facility identifier</li>
+ *   <li>Patient association via CAISI demographic identifier</li>
+ *   <li>Form metadata storage including name, provider, subject, and timestamps</li>
+ *   <li>Large object (LOB) storage for complete form data content</li>
+ *   <li>Active/inactive status tracking for form lifecycle management</li>
+ *   <li>OpenJPA persistence capability for managed entity operations</li>
+ * </ul>
+ *
+ * <p><strong>Database Schema:</strong></p>
+ * The entity maps to a database table with indexed demographic lookups for efficient patient
+ * form queries. The composite primary key ensures unique forms per facility while supporting
+ * distributed healthcare data architecture.
+ *
+ * @see FacilityIdIntegerCompositePk
+ * @see AbstractModel
+ * @see PersistenceCapable
+ * @since 2026-01-24
+ */
 @Entity
 public class CachedEformData extends AbstractModel<FacilityIdIntegerCompositePk> implements Comparable<CachedEformData>, PersistenceCapable
 {
@@ -59,7 +95,15 @@ public class CachedEformData extends AbstractModel<FacilityIdIntegerCompositePk>
     static /* synthetic */ Class class$Lca$openosp$openo$caisi_integrator$dao$CachedEformData;
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
-    
+
+    /**
+     * Default constructor that initializes a new CachedEformData instance.
+     *
+     * All fields are initialized to null, allowing the persistence framework to manage
+     * field values through JPA lifecycle operations. This constructor is required by
+     * JPA specification and is used by the OpenJPA enhancement framework for entity
+     * instantiation during database query results and persistence operations.
+     */
     public CachedEformData() {
         this.formId = null;
         this.caisiDemographicId = null;
@@ -71,97 +115,306 @@ public class CachedEformData extends AbstractModel<FacilityIdIntegerCompositePk>
         this.formTime = null;
         this.formData = null;
     }
-    
+
+    /**
+     * Retrieves the composite primary key containing facility and eForm identifiers.
+     *
+     * The composite key uniquely identifies this cached eForm data across multiple
+     * facilities in the CAISI integrator network. This key combines the facility ID
+     * with the CAISI item ID to support distributed healthcare data architecture.
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key for this entity
+     */
     public FacilityIdIntegerCompositePk getFacilityIdIntegerCompositePk() {
         return pcGetfacilityEformDataPk(this);
     }
-    
+
+    /**
+     * Sets the composite primary key containing facility and eForm identifiers.
+     *
+     * This method assigns the unique identifier for this cached eForm data across
+     * the CAISI integrator network. Should be set during entity creation to establish
+     * the facility-specific eForm reference.
+     *
+     * @param facilityEformDataPk FacilityIdIntegerCompositePk the composite primary key to set
+     */
     public void setFacilityIdIntegerCompositePk(final FacilityIdIntegerCompositePk facilityEformDataPk) {
         pcSetfacilityEformDataPk(this, facilityEformDataPk);
     }
-    
+
+    /**
+     * Retrieves the identifier of the electronic form template.
+     *
+     * The form ID references the eForm template definition in the source OpenO EMR
+     * installation. This identifier links the cached data to the specific form
+     * structure and field definitions.
+     *
+     * @return Integer the unique identifier of the eForm template
+     */
     public Integer getFormId() {
         return pcGetformId(this);
     }
-    
+
+    /**
+     * Sets the identifier of the electronic form template.
+     *
+     * This method assigns the eForm template reference for this cached data instance.
+     * The form ID must correspond to a valid eForm definition in the OpenO EMR system.
+     *
+     * @param formId Integer the unique identifier of the eForm template
+     */
     public void setFormId(final Integer formId) {
         pcSetformId(this, formId);
     }
-    
+
+    /**
+     * Retrieves the CAISI demographic identifier for the patient associated with this eForm.
+     *
+     * This identifier links the cached eForm data to a specific patient record within
+     * the CAISI integrator framework. The demographic ID is indexed for efficient
+     * patient-based form queries across the integrated healthcare network.
+     *
+     * @return Integer the CAISI demographic identifier of the patient
+     */
     public Integer getCaisiDemographicId() {
         return pcGetcaisiDemographicId(this);
     }
-    
+
+    /**
+     * Sets the CAISI demographic identifier for the patient associated with this eForm.
+     *
+     * This method assigns the patient reference for the cached eForm data. The demographic
+     * ID must correspond to a valid patient record in the CAISI integrator system.
+     *
+     * @param caisiDemographicId Integer the CAISI demographic identifier of the patient
+     */
     public void setCaisiDemographicId(final Integer caisiDemographicId) {
         pcSetcaisiDemographicId(this, caisiDemographicId);
     }
-    
+
+    /**
+     * Retrieves the active status of this cached eForm data.
+     *
+     * The status indicates whether this eForm data is currently active and should be
+     * displayed in the integrator interface. Inactive forms may represent archived,
+     * deleted, or superseded form submissions.
+     *
+     * @return Boolean true if the eForm data is active, false if inactive, null if not set
+     */
     public Boolean getStatus() {
         return pcGetstatus(this);
     }
-    
+
+    /**
+     * Sets the active status of this cached eForm data.
+     *
+     * This method controls the visibility and lifecycle state of the eForm data in
+     * the integrator system. Setting to false effectively archives or soft-deletes
+     * the form without removing the data from the database.
+     *
+     * @param status Boolean true to mark active, false to mark inactive
+     */
     public void setStatus(final Boolean status) {
         pcSetstatus(this, status);
     }
-    
+
+    /**
+     * Retrieves the name of the electronic form.
+     *
+     * The form name provides a human-readable identifier for the eForm type or template.
+     * This value is typically displayed in user interfaces to help healthcare providers
+     * identify the form purpose (e.g., "Patient Intake Form", "Consultation Note").
+     *
+     * @return String the name of the eForm, maximum 255 characters, trimmed to null if empty
+     */
     public String getFormName() {
         return pcGetformName(this);
     }
-    
+
+    /**
+     * Sets the name of the electronic form.
+     *
+     * This method assigns a descriptive name to the eForm for display and identification
+     * purposes. The value is automatically trimmed of leading and trailing whitespace,
+     * with empty strings converted to null.
+     *
+     * @param formName String the name of the eForm, maximum 255 characters
+     */
     public void setFormName(final String formName) {
         pcSetformName(this, StringUtils.trimToNull(formName));
     }
-    
+
+    /**
+     * Retrieves the healthcare provider identifier associated with this eForm.
+     *
+     * The form provider represents the healthcare professional who created, submitted,
+     * or is responsible for this eForm submission. This may be a provider ID, name,
+     * or other identifier from the source EMR system.
+     *
+     * @return String the provider identifier, maximum 255 characters, trimmed to null if empty
+     */
     public String getFormProvider() {
         return pcGetformProvider(this);
     }
-    
+
+    /**
+     * Sets the healthcare provider identifier associated with this eForm.
+     *
+     * This method assigns the provider reference for audit trail and responsibility
+     * tracking purposes. The value is automatically trimmed with empty strings converted to null.
+     *
+     * @param formProvider String the provider identifier, maximum 255 characters
+     */
     public void setFormProvider(final String formProvider) {
         pcSetformProvider(this, StringUtils.trimToNull(formProvider));
     }
-    
+
+    /**
+     * Retrieves the subject line or title of this eForm submission.
+     *
+     * The subject provides additional context or description for this specific form
+     * instance, similar to an email subject line. This helps differentiate multiple
+     * submissions of the same form type.
+     *
+     * @return String the subject text, maximum 255 characters, trimmed to null if empty
+     */
     public String getSubject() {
         return pcGetsubject(this);
     }
-    
+
+    /**
+     * Sets the subject line or title of this eForm submission.
+     *
+     * This method assigns a descriptive subject to this form instance for identification
+     * and context. The value is automatically trimmed with empty strings converted to null.
+     *
+     * @param subject String the subject text, maximum 255 characters
+     */
     public void setSubject(final String subject) {
         pcSetsubject(this, StringUtils.trimToNull(subject));
     }
-    
+
+    /**
+     * Retrieves the date when this eForm was submitted or last modified.
+     *
+     * This temporal field stores only the date portion (year, month, day) without time
+     * information. It is used for chronological organization and date-based queries
+     * of eForm submissions.
+     *
+     * @return Date the form date (without time component)
+     */
     public Date getFormDate() {
         return pcGetformDate(this);
     }
-    
+
+    /**
+     * Sets the date when this eForm was submitted or last modified.
+     *
+     * This method assigns the date component for temporal tracking of the eForm.
+     * Only the date portion is stored; time information should be stored separately
+     * in the formTime field.
+     *
+     * @param formDate Date the form date (without time component)
+     */
     public void setFormDate(final Date formDate) {
         pcSetformDate(this, formDate);
     }
-    
+
+    /**
+     * Retrieves the time when this eForm was submitted or last modified.
+     *
+     * This temporal field stores only the time portion (hour, minute, second) without
+     * date information. Combined with formDate, it provides complete timestamp information
+     * for the eForm submission.
+     *
+     * @return Date the form time (without date component)
+     */
     public Date getFormTime() {
         return pcGetformTime(this);
     }
-    
+
+    /**
+     * Sets the time when this eForm was submitted or last modified.
+     *
+     * This method assigns the time component for temporal tracking of the eForm.
+     * Only the time portion is stored; date information should be stored separately
+     * in the formDate field.
+     *
+     * @param formTime Date the form time (without date component)
+     */
     public void setFormTime(final Date formTime) {
         pcSetformTime(this, formTime);
     }
-    
+
+    /**
+     * Retrieves the complete eForm data content.
+     *
+     * This large object (LOB) field contains the full form submission data, typically
+     * stored as XML, JSON, or serialized format. The content includes all field values,
+     * checkboxes, text areas, and other form elements captured during submission.
+     *
+     * <p><strong>Security Note:</strong> This field may contain Protected Health Information (PHI).
+     * Ensure proper access controls and audit logging when retrieving this data.</p>
+     *
+     * @return String the complete eForm data content, trimmed to null if empty
+     */
     public String getFormData() {
         return pcGetformData(this);
     }
-    
+
+    /**
+     * Sets the complete eForm data content.
+     *
+     * This method assigns the full form submission data. The value is automatically
+     * trimmed with empty strings converted to null. Large content is supported through
+     * the LOB (Large Object) database column type.
+     *
+     * <p><strong>Security Note:</strong> This field typically contains Protected Health Information (PHI).
+     * Ensure data is properly sanitized and validated before storage.</p>
+     *
+     * @param formData String the complete eForm data content
+     */
     public void setFormData(final String formData) {
         pcSetformData(this, StringUtils.trimToNull(formData));
     }
-    
+
+    /**
+     * Compares this CachedEformData instance with another for ordering.
+     *
+     * Comparison is based on the CAISI item ID component of the composite primary key.
+     * This provides a natural ordering for eForm data based on their creation sequence
+     * within the integrator system.
+     *
+     * @param o CachedEformData the object to compare against
+     * @return int negative if this comes before o, zero if equal, positive if this comes after o
+     */
     @Override
     public int compareTo(final CachedEformData o) {
         return pcGetfacilityEformDataPk(this).getCaisiItemId() - pcGetfacilityEformDataPk(o).getCaisiItemId();
     }
-    
+
+    /**
+     * Retrieves the unique identifier for this entity.
+     *
+     * This method provides access to the composite primary key as required by the
+     * AbstractModel parent class. It returns the same value as getFacilityIdIntegerCompositePk().
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key uniquely identifying this entity
+     */
     @Override
     public FacilityIdIntegerCompositePk getId() {
         return pcGetfacilityEformDataPk(this);
     }
-    
+
+    /**
+     * Returns the OpenJPA enhancement contract version for this entity class.
+     *
+     * This method is part of the OpenJPA persistence capability contract. The version
+     * number indicates the level of bytecode enhancement applied to this class by the
+     * OpenJPA enhancement tool. Version 2 represents the current OpenJPA enhancement level.
+     *
+     * @return int the enhancement contract version (always 2 for current OpenJPA)
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }

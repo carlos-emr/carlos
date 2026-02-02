@@ -26,10 +26,10 @@
 package ca.openosp.openo.report.oscarMeasurements.pageUtil;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Vector;
 
-import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.commn.dao.MeasurementGroupDao;
 import ca.openosp.openo.commn.dao.MeasurementTypeDao;
 import ca.openosp.openo.commn.model.MeasurementGroup;
@@ -53,12 +53,12 @@ public class RptMeasurementTypesBeanHandler {
             MeasurementGroupDao mgDao = SpringUtils.getBean(MeasurementGroupDao.class);
             MeasurementTypeDao mtDao = SpringUtils.getBean(MeasurementTypeDao.class);
             List<MeasurementGroup> groups = mgDao.findByName(groupName);
-            Collections.sort(groups, new BeanComparator("typeDisplayName"));
+            Collections.sort(groups, Comparator.comparing(MeasurementGroup::getTypeDisplayName));
             for (MeasurementGroup g : groups) {
                 String typeDisplayName = g.getTypeDisplayName();
 
                 List<MeasurementType> mts = mtDao.findByTypeDisplayName(typeDisplayName);
-                Collections.sort(mts, new BeanComparator("typeDescription"));
+                Collections.sort(mts, Comparator.comparing(MeasurementType::getTypeDescription));
                 for (MeasurementType mt : mts) {
                     RptMeasurementTypesBean measurementTypes = new RptMeasurementTypesBean(mt.getId(), mt.getType(), mt.getTypeDisplayName(), mt.getTypeDescription(), mt.getMeasuringInstruction(), mt.getValidation());
                     measurementTypeVector.add(measurementTypes);

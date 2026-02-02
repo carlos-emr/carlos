@@ -26,12 +26,12 @@
 package ca.openosp.openo.messenger.config.data;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
 import javax.servlet.jsp.JspWriter;
 
-import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
 import ca.openosp.openo.commn.dao.GroupMembersDao;
 import ca.openosp.openo.commn.dao.GroupsDao;
@@ -208,7 +208,7 @@ public class MsgMessengerGroupData {
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
         List<Provider> ps = dao.getProviders();
         // Sort providers by last name for display
-        Collections.sort(ps, new BeanComparator("lastName"));
+        Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             // Generate HTML table row for each provider
             for (Provider p : ps) {

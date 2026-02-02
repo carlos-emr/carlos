@@ -26,32 +26,28 @@
 
 package ca.openosp.openo.prescript.pageUtil;
 
+import ca.openosp.OscarProperties;
+import ca.openosp.openo.managers.SecurityInfoManager;
+import ca.openosp.openo.prescript.data.RxDrugData;
+import ca.openosp.openo.prescript.util.RxDrugRef;
+import ca.openosp.openo.utility.LoggedInInfo;
+import ca.openosp.openo.utility.MiscUtils;
+import ca.openosp.openo.utility.SpringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ServletActionContext;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Vector;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.Logger;
-import ca.openosp.openo.managers.SecurityInfoManager;
-import ca.openosp.openo.utility.LoggedInInfo;
-import ca.openosp.openo.utility.MiscUtils;
-import ca.openosp.openo.utility.SpringUtils;
-
-import ca.openosp.OscarProperties;
-import ca.openosp.openo.prescript.data.RxDrugData;
-import ca.openosp.openo.prescript.util.RxDrugRef;
-
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
 
 public final class RxSearchDrug2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -87,6 +83,8 @@ public final class RxSearchDrug2Action extends ActionSupport {
             return searchNaturalRemedy();
         } else if ("jsonSearch".equals(method)) {
             return jsonSearch();
+        } else if ("inactiveDate".equals(method)) {
+            return getInactiveDate();
         }
 
 
@@ -117,7 +115,6 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    @SuppressWarnings({"unused", "rawtypes", "unchecked"})
     public String searchAllCategories() {
         logger.debug("Calling searchAllCategories");
         Parameter.setParameters(request.getParameterMap());
@@ -233,11 +230,33 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return null;
     }
 
+
+    private String getInactiveDate () {
+        String din = request.getParameter("din");
+        String id = request.getParameter("id");
+
+        try {
+            RxDrugRef drugData = new RxDrugRef();
+            Vector vec = drugData.getInactiveDate(din);
+            vec.add(id);
+            jsonify(vec, response);
+
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error", e);
+        }
+//        Hashtable d = new Hashtable();
+//
+//        d.put("id", id);
+//        d.put("vec", vec);
+//        mapper.writeValueAsString(d);
+        return null;
+    }
+
     /**
      * Utilty methods - should be split into a class if they get any bigger.
      */
 
-    private static final boolean wildCardRight(final String wildcard) {
+    private static boolean wildCardRight(final String wildcard) {
         if (!StringUtils.isBlank(wildcard)) {
             return Boolean.valueOf(wildcard);
         }
@@ -276,16 +295,16 @@ public final class RxSearchDrug2Action extends ActionSupport {
         public static void setParameters(Map<String, String[]> parameters) {
             reset();
 
-//    		if(parameters.containsKey("drugStatus")) {
-//    			Parameter.DRUG_STATUS = parameters.get("drugStatus")[0];
-//    		}
+    		if(parameters.containsKey("name")) {
+    			Parameter.SEARCH_STRING = parameters.get("name")[0];
+    		} else if(parameters.containsKey("query")) {
+    			Parameter.SEARCH_STRING = parameters.get("query")[0];
+    		} else if(parameters.containsKey("searchString")) {
+    			Parameter.SEARCH_STRING = parameters.get("searchString")[0];
+    		}
 
             if (parameters.containsKey("wildcard")) {
                 Parameter.WILDCARD = parameters.get("wildcard")[0];
-            }
-
-            if (parameters.containsKey("searchString")) {
-                Parameter.SEARCH_STRING = parameters.get("searchString")[0];
             }
 
         }

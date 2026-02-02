@@ -23,15 +23,14 @@
  */
 package ca.openosp.openo.commn.dao;
 
-import static org.junit.Assert.assertNotNull;
-
-import org.junit.Before;
-import org.junit.Test;
 import ca.openosp.openo.commn.dao.utils.EntityDataGenerator;
 import ca.openosp.openo.commn.dao.utils.SchemaUtils;
 import ca.openosp.openo.commn.model.Favorite;
-import ca.openosp.openo.commn.dao.FavoriteDao;
 import ca.openosp.openo.utility.SpringUtils;
+import org.junit.Before;
+import org.junit.Test;
+
+import static org.junit.Assert.assertNotNull;
 
 public class FavoriteDaoTest extends DaoTestFixtures {
 
@@ -54,7 +53,7 @@ public class FavoriteDaoTest extends DaoTestFixtures {
     @Test
     public void testAll() {
         dao.findByProviderNo("999");
-        dao.findByEverything(null, null, null, 0, null, 0, 0, null, null, null, null, 0, false, false, null, null, null, false);
+        dao.findByEverything(null, null, null, "0", null, 0, 0, null, null, null, null, 0, false, false, null, null, null, false);
     }
 
 

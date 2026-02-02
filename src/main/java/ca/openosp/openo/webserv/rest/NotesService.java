@@ -1187,9 +1187,7 @@ public class NotesService extends AbstractServiceImpl {
 
 
         logger.debug("Get Note for editing");
-        String strBeanName = "casemgmt_oscar_bean" + demographicNo;
-        // Bean may be null for OAuth authentication (no session)
-        EctSessionBean bean = (session != null) ? (EctSessionBean) session.getAttribute(strBeanName) : null;
+        EctSessionBean bean = (session != null) ? (EctSessionBean) session.getAttribute("EctSessionBean") : null;
         String encType = getString(jsonobject, "encType");
 
         logger.debug("Encounter Type : " + encType);

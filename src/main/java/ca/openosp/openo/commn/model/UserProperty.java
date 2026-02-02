@@ -58,8 +58,6 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String OFFICIAL_LAST_NAME = "official_last_name";
     public static final String OFFICIAL_OLIS_IDTYPE = "official_olis_idtype";
     public static final String OSCAR_MSG_RECVD = "oscarMsgRecvd";
-    public static final String CLINICALCONNECT_DISABLE_CLOSE_WINDOW = "clinicalConnectDisableCloseWindow";
-    public static final String CLINICALCONNECT_DISABLE_LOGOUT_WARNING = "clinicalConnectDisableLogoutWarning";
     public static final String LAB_MACRO_JSON = "labMacroJSON";
 
     //added to user properties with new interface
@@ -151,11 +149,6 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String MCEDT_ACCOUNT_PASSWORD = "mcedt_account_password";
     public static final String TICKLER_EMAIL_PROVIDER = "tickler_email_provider";
 
-    public static final String CLINICALCONNECT_ID = "clinicalconnect_username";
-    public static final String CLINICALCONNECT_TYPE = "clinicalconnect_authentication_type";
-    public static final String CLINICALCONNECT_SERVICE_USERNAME = "clinicalconnect_service_username";
-    public static final String CLINICALCONNECT_SERVICE_PASSWORD = "clinicalconnect_service_password";
-    public static final String CLINICALCONNECT_SERVICE_LOCATION = "clinicalconnect_service_location";
     public static final String DASHBOARD_SHARE = "dashboard_share";
 
     public static final String CODE_TO_ADD_PATIENTDX = "code_to_add_patientDx";

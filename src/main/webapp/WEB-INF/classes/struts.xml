@@ -1342,7 +1342,6 @@
             <result name="genAppointmentCardPrefs">/provider/setAppointmentCardPrefs.jsp</result>
             <result name="genDashboardPrefs">/provider/setDashboardPrefs.jsp</result>
             <result name="genPreventionPrefs">/provider/setPreventionPrefs.jsp</result>
-            <result name="genClinicalConnectPrefs">/provider/setClinicalConnectPrefs.jsp</result>
             <result name="genLabMacroPrefs">/provider/setLabMacroPrefs.jsp</result>
         </action>
         <action name="setTicklerPreferences" class="ca.openosp.openo.provider.web.ProviderProperty2Action" method="execute">
@@ -1688,7 +1687,7 @@
             <result name="failed">/documentManager/addedithtmldocument.jsp</result>
         </action>
         <action name="Scratch" class="ca.openosp.openo.scratch.Scratch2Action">
-            <result name="success">/scratch/index.jsp</result>
+            <result name="success">/scratch</result>
             <result name="scratchPadVersion">/scratch/version.jsp</result>
         </action>
         <action name="report/DeleteDemographicReport" class="ca.openosp.openo.report.pageUtil.RptDemographQueryFavouriteDelete2Action">
@@ -2272,9 +2271,6 @@
         <action name="dhir/submit" class="ca.openosp.openo.integration.dhir.SubmitImmunization2Action">
             <result name="success">/oscarPrevention/dhirSubmission.jsp</result>
             <result name="testresult">/oscarPrevention/test_case.jsp</result>
-        </action>
-        <action name="clinicalConnectEHRViewer" class="ca.openosp.openo.integration.clinicalconnect.ClinicalConnectViewer2Action">
-            <result name="error">/cc/launcherError.jsp</result>
         </action>
         <action name="admin/Flowsheet" class="ca.openosp.openo.flowsheet.Flowsheet2Action"/>
 

@@ -43,7 +43,6 @@ import javax.xml.transform.stream.StreamResult;
 
 import ca.openosp.Misc;
 import org.apache.commons.text.StringEscapeUtils;
-import org.apache.xerces.parsers.DOMParser;
 import ca.openosp.openo.utility.MiscUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -108,7 +107,6 @@ public class JDBCUtil {
 
     public static void toDataBase(InputStream inputStream, String fileName) {
         boolean validation = true;
-        DOMParser parser = new DOMParser();
         Document doc;
 
         try {
@@ -136,9 +134,15 @@ public class JDBCUtil {
                 rs = DBHandler.GetSQL(sql, true);
                 rs.moveToInsertRow();
                 //To validate or not
-                parser.setFeature("http://xml.org/sax/features/validation", validation);
-                parser.parse(source);
-                doc = parser.getDocument();
+                DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                factory.setXIncludeAware(false);
+                factory.setExpandEntityReferences(false);
+                factory.setValidating(validation);
+                DocumentBuilder builder = factory.newDocumentBuilder();
+                doc = builder.parse(source);
                 rs = toResultSet(doc, rs);
                 rs.insertRow();
             }

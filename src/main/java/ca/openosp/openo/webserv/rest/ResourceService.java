@@ -44,7 +44,6 @@ import ca.openosp.openo.managers.AppManager;
 import ca.openosp.openo.managers.SecurityInfoManager;
 import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
-import ca.openosp.openo.webserv.rest.util.ClinicalConnectUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import ca.openosp.OscarProperties;
@@ -117,19 +116,5 @@ public class ResourceService extends AbstractServiceImpl {
             }
         }
         return bundle.getString("lucodes.currentrules.default");
-    }
-
-
-
-    @GET
-    @Path("/clinicalconnect")
-    @Produces("text/plain")
-    public String launchClinicalConnect(@Context HttpServletRequest request) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (ClinicalConnectUtil.isReady(loggedInInfo.getLoggedInProviderNo()))
-            return ClinicalConnectUtil.getLaunchURL(loggedInInfo, null);
-        else
-            return null;
     }
 }

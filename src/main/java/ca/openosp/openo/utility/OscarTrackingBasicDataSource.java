@@ -49,7 +49,7 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.Logger;
 
 public class OscarTrackingBasicDataSource extends BasicDataSource {

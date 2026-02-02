@@ -39,6 +39,7 @@ String userlastname = (String) session.getAttribute("userlastname");
 <%@ page import="ca.openosp.openo.lab.ca.on.*"%>
 <%@ page import="ca.openosp.openo.lab.ca.all.Hl7textResultsData"%>
 <%@ page import="org.apache.commons.text.StringEscapeUtils"%>
+<%@ page import="org.owasp.encoder.Encode"%>
 <%@page import="ca.openosp.openo.utility.SessionConstants"%>
 <%@ page import="ca.openosp.openo.utility.SpringUtils" %>
 <%@page import="ca.openosp.openo.hospitalReportManager.dao.HRMDocumentDao"%>
@@ -311,12 +312,13 @@ function toggleSelectAll() {
                                 String dStatus = "";
                                 if ((curDoc.getStatus() + "").compareTo("A") == 0) dStatus = "active";
                                 else if ((curDoc.getStatus() + "").compareTo("H") == 0) dStatus = "html";
+                                String encodedDocId = Encode.forUriComponent(curDoc.getDocId());
                                 url = request.getContextPath() + "/documentManager/"
-                                    + "showDocument.jsp?inWindow=true&segmentID=" + curDoc.getDocId() + "&providerNo=" + providerNo;
+                                    + "showDocument.jsp?inWindow=true&segmentID=" + encodedDocId;
                                 String onClick = "";
 
                                 if (curDoc.isPDF()) {
-                                    onClick = "javascript:previewPDF('" + curDoc.getDocId() + "','" + StringEscapeUtils.escapeEcmaScript(url) + "');";
+                                    onClick = "javascript:previewPDF('" + Encode.forJavaScript(curDoc.getDocId()) + "','" + StringEscapeUtils.escapeEcmaScript(url) + "');";
                                 } else if (curDoc.isImage()) {
                                     onClick = "javascript:previewImage('" + url + "');";
                                 } else {

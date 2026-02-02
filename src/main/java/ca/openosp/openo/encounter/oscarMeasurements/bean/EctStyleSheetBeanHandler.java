@@ -27,10 +27,10 @@ package ca.openosp.openo.encounter.oscarMeasurements.bean;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Vector;
 
-import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.commn.dao.MeasurementCSSLocationDao;
 import ca.openosp.openo.commn.model.MeasurementCSSLocation;
 import ca.openosp.openo.utility.SpringUtils;
@@ -47,7 +47,7 @@ public class EctStyleSheetBeanHandler {
     public boolean init() {
         MeasurementCSSLocationDao dao = SpringUtils.getBean(MeasurementCSSLocationDao.class);
         List<MeasurementCSSLocation> ms = dao.findAll();
-        Collections.sort(ms, new BeanComparator("id"));
+        Collections.sort(ms, Comparator.comparing(MeasurementCSSLocation::getId));
         for (MeasurementCSSLocation l : ms) {
             EctStyleSheetBean location = new EctStyleSheetBean(l.getLocation(), l.getId());
             styleSheetNameVector.add(location);

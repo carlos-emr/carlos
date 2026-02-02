@@ -27,15 +27,15 @@
  */
 package ca.openosp.openo.managers;
 
-import java.security.Security;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.util.encoders.Base64;
-import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
+import org.springframework.security.crypto.encrypt.BytesEncryptor;
+import org.springframework.security.crypto.encrypt.Encryptors;
 import ca.openosp.openo.commn.dao.ClinicDAO;
 import ca.openosp.openo.commn.dao.DashboardDao;
 import ca.openosp.openo.commn.dao.IndicatorTemplateDao;
@@ -701,6 +701,25 @@ public class DashboardManagerImpl implements DashboardManager {
 
     // TODO add duplicate Dashboard name check.
 
+    /**
+     * Generates an encrypted launch URL for the Shared Outcomes Dashboard.
+     * <p>
+     * Encrypts clinic and user information using Spring Security Crypto (AES-256-CBC)
+     * and returns a URL with Base64-encoded encrypted parameters. The encryption uses
+     * a random initialization vector (IV) for each invocation, ensuring that the same
+     * input produces different encrypted output each time for enhanced security.
+     * <p>
+     * The method validates that required configuration properties are present before
+     * attempting encryption. If any required property is missing or encryption fails,
+     * the method returns null to prevent exposing unencrypted or malformed data.
+     *
+     * @param loggedInInfo LoggedInInfo the current logged-in user context containing
+     *                     provider information to be included in the encrypted payload
+     * @return String the complete dashboard URL with encrypted parameters (e.g.,
+     *         "https://dashboard.example.com?encodedParams=BASE64_STRING&version=1.1"),
+     *         or null if the dashboard URL is not configured or encryption fails
+     * @since 2026-01-28
+     */
     @Override
     public String getSharedOutcomesDashboardLaunchURL(LoggedInInfo loggedInInfo) {
 
@@ -745,21 +764,34 @@ public class DashboardManagerImpl implements DashboardManager {
 
         logger.debug(json);
 
-        String encrypted = null;
         String b64 = null;
 
-        // system must have the UnlimitedJCEPolicyJDK7.zip installed for this to work
         try {
-            Security.addProvider(new BouncyCastleProvider());
+            String password = OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_key");
+            String salt = OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_salt");
 
-            StandardPBEStringEncryptor encrypter = new StandardPBEStringEncryptor();
-            encrypter.setAlgorithm("PBEWITHSHA256AND256BITAES-CBC-BC");
-            encrypter.setProviderName("BC");
-            encrypter.setPassword(OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_key"));
-            encrypted = encrypter.encrypt(json);
-            b64 = Base64.toBase64String(encrypted.getBytes());
+            if (password == null || password.isEmpty()) {
+                throw new IllegalArgumentException("shared_outcomes_dashboard_key property is required");
+            }
+            if (salt == null || salt.isEmpty()) {
+                throw new IllegalArgumentException("shared_outcomes_dashboard_salt property is required");
+            }
+            if (!salt.matches("^[0-9a-fA-F]{32}$")) {
+                throw new IllegalArgumentException(
+                    "shared_outcomes_dashboard_salt must be exactly 32 hex characters (16 bytes). " +
+                    "Generate with: openssl rand -hex 16");
+            }
+
+            BytesEncryptor encryptor = Encryptors.stronger(password, salt);
+            byte[] encrypted = encryptor.encrypt(json.getBytes(StandardCharsets.UTF_8));
+            b64 = Base64.getEncoder().encodeToString(encrypted);
         } catch (Exception e) {
-            logger.error("error", e);
+            logger.error("Error encrypting shared dashboard URL parameters", e);
+            return null;
+        }
+
+        if (b64 == null) {
+            return null;
         }
 
         return url + "?" + "encodedParams=" + b64 + "&version=1.1";

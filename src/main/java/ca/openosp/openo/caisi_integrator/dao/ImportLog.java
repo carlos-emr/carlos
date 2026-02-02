@@ -23,6 +23,37 @@ import javax.persistence.Id;
 import org.apache.openjpa.persistence.DataCache;
 import javax.persistence.Entity;
 
+/**
+ * Entity class representing import log records for the CAISI Integrator healthcare data import system.
+ *
+ * <p>This class tracks the import history of healthcare data files processed through the CAISI (Client Access to
+ * Integrated Services and Information) Integrator. It maintains audit information about data imports including
+ * file metadata, processing status, date ranges, and facility associations. This is critical for maintaining
+ * data integrity and compliance in inter-EMR data sharing scenarios.</p>
+ *
+ * <p>The ImportLog entity provides comprehensive tracking of:</p>
+ * <ul>
+ *   <li>File identification through filename and checksum verification</li>
+ *   <li>Temporal data boundaries via date interval start and end timestamps</li>
+ *   <li>Processing status tracking for import lifecycle management</li>
+ *   <li>Facility-level data segregation for multi-facility environments</li>
+ *   <li>Dependency tracking for sequential import processing</li>
+ *   <li>Audit trail through creation and update timestamps</li>
+ * </ul>
+ *
+ * <p>This class is enhanced by Apache OpenJPA for persistence and implements the PersistenceCapable interface
+ * to support advanced JPA features. Data caching is explicitly disabled to ensure real-time import status
+ * visibility across the system.</p>
+ *
+ * <p><strong>Security Note:</strong> Delete operations are prevented via the {@link #jpaPreventDelete()}
+ * callback to maintain permanent audit trail compliance for healthcare data governance requirements.</p>
+ *
+ * @see AbstractModel
+ * @see PersistenceCapable
+ * @see ca.openosp.openo.caisi_integrator.dao.AbstractModel
+ *
+ * @since 2026-01-24
+ */
 @Entity
 @DataCache(enabled = false)
 public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
@@ -65,97 +96,246 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
     static /* synthetic */ Class class$Lca$openosp$openo$caisi_integrator$dao$ImportLog;
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
-    
+
+    /**
+     * Default constructor initializing a new ImportLog entity.
+     *
+     * <p>Creates a new import log record with the ID field initialized to null. The ID will be
+     * automatically assigned by the persistence provider when the entity is persisted to the database.</p>
+     */
     public ImportLog() {
         this.id = null;
     }
     
+    /**
+     * Retrieves the unique identifier for this import log record.
+     *
+     * @return Long the primary key identifier, or null if not yet persisted
+     */
     @Override
     public Long getId() {
         return pcGetid(this);
     }
-    
+
+    /**
+     * Sets the unique identifier for this import log record.
+     *
+     * @param id Long the primary key identifier to set
+     */
     public void setId(final Long id) {
         pcSetid(this, id);
     }
     
+    /**
+     * Retrieves the filename of the imported healthcare data file.
+     *
+     * @return String the filename of the imported file, maximum length 255 characters
+     */
     public String getFilename() {
         return pcGetfilename(this);
     }
-    
+
+    /**
+     * Sets the filename of the imported healthcare data file.
+     *
+     * @param filename String the filename to set, maximum length 255 characters
+     */
     public void setFilename(final String filename) {
         pcSetfilename(this, filename);
     }
     
+    /**
+     * Retrieves the checksum hash of the imported file for integrity verification.
+     *
+     * <p>The checksum is used to detect duplicate imports and verify file integrity. This is critical
+     * for preventing duplicate data processing and ensuring data consistency across the system.</p>
+     *
+     * @return String the checksum hash value, maximum length 255 characters
+     */
     public String getChecksum() {
         return pcGetchecksum(this);
     }
-    
+
+    /**
+     * Sets the checksum hash of the imported file.
+     *
+     * @param checksum String the checksum hash to set, maximum length 255 characters
+     */
     public void setChecksum(final String checksum) {
         pcSetchecksum(this, checksum);
     }
     
+    /**
+     * Retrieves the start date of the data interval covered by this import.
+     *
+     * <p>This represents the earliest date of healthcare data contained in the imported file.
+     * Used for querying and filtering import logs by data coverage period.</p>
+     *
+     * @return Date the start date of the data interval
+     */
     public Date getDateIntervalStart() {
         return pcGetdateIntervalStart(this);
     }
-    
+
+    /**
+     * Sets the start date of the data interval covered by this import.
+     *
+     * @param dateIntervalStart Date the start date to set
+     */
     public void setDateIntervalStart(final Date dateIntervalStart) {
         pcSetdateIntervalStart(this, dateIntervalStart);
     }
     
+    /**
+     * Retrieves the end date of the data interval covered by this import.
+     *
+     * <p>This represents the latest date of healthcare data contained in the imported file.
+     * Together with the start date, defines the temporal coverage of the import.</p>
+     *
+     * @return Date the end date of the data interval
+     */
     public Date getDateIntervalEnd() {
         return pcGetdateIntervalEnd(this);
     }
-    
+
+    /**
+     * Sets the end date of the data interval covered by this import.
+     *
+     * @param dateIntervalEnd Date the end date to set
+     */
     public void setDateIntervalEnd(final Date dateIntervalEnd) {
         pcSetdateIntervalEnd(this, dateIntervalEnd);
     }
     
+    /**
+     * Retrieves the current processing status of this import.
+     *
+     * <p>Status values typically include states such as "pending", "processing", "completed", "failed",
+     * or other application-defined states that track the import lifecycle.</p>
+     *
+     * @return String the current status, maximum length 50 characters
+     */
     public String getStatus() {
         return pcGetstatus(this);
     }
-    
+
+    /**
+     * Sets the processing status of this import.
+     *
+     * @param status String the status to set, maximum length 50 characters
+     */
     public void setStatus(final String status) {
         pcSetstatus(this, status);
     }
     
+    /**
+     * Retrieves the facility identifier associated with this import.
+     *
+     * <p>The facility ID links this import to a specific healthcare facility or clinic within the system.
+     * This supports multi-facility environments where data must be segregated by facility for privacy
+     * and organizational requirements. This field is indexed for efficient facility-based queries.</p>
+     *
+     * @return Integer the facility identifier
+     */
     public Integer getFacilityId() {
         return pcGetfacilityId(this);
     }
-    
+
+    /**
+     * Sets the facility identifier for this import.
+     *
+     * @param facilityId Integer the facility identifier to set
+     */
     public void setFacilityId(final Integer facilityId) {
         pcSetfacilityId(this, facilityId);
     }
     
+    /**
+     * Retrieves the timestamp when this import log record was created.
+     *
+     * <p>This provides an audit trail of when the import was first registered in the system.
+     * This timestamp is part of the mandatory audit trail for healthcare data compliance.</p>
+     *
+     * @return Date the creation timestamp
+     */
     public Date getDateCreated() {
         return pcGetdateCreated(this);
     }
-    
+
+    /**
+     * Sets the creation timestamp for this import log record.
+     *
+     * @param dateCreated Date the creation timestamp to set
+     */
     public void setDateCreated(final Date dateCreated) {
         pcSetdateCreated(this, dateCreated);
     }
     
+    /**
+     * Retrieves the timestamp of the last update to this import log record.
+     *
+     * <p>This tracks when the import record was last modified, supporting audit trail requirements
+     * and enabling monitoring of import processing progress over time.</p>
+     *
+     * @return Date the last update timestamp
+     */
     public Date getLastUpdatedDate() {
         return pcGetlastUpdatedDate(this);
     }
-    
+
+    /**
+     * Retrieves the dependency identifier indicating prerequisite imports.
+     *
+     * <p>This field supports sequential import processing where certain imports must be completed
+     * before others can proceed. It references the identifier of an import that must complete
+     * before this import can be processed.</p>
+     *
+     * @return String the dependency identifier, maximum length 255 characters
+     */
     public String getDependsOn() {
         return pcGetdependsOn(this);
     }
-    
+
+    /**
+     * Sets the dependency identifier for sequential import ordering.
+     *
+     * @param dependsOn String the dependency identifier to set, maximum length 255 characters
+     */
     public void setDependsOn(final String dependsOn) {
         pcSetdependsOn(this, dependsOn);
     }
-    
+
+    /**
+     * Sets the last update timestamp for this import log record.
+     *
+     * @param lastUpdatedDate Date the last update timestamp to set
+     */
     public void setLastUpdatedDate(final Date lastUpdatedDate) {
         pcSetlastUpdatedDate(this, lastUpdatedDate);
     }
     
+    /**
+     * JPA lifecycle callback that prevents deletion of import log records.
+     *
+     * <p>This callback is invoked before entity removal and always throws an exception to prevent
+     * deletion. Import logs serve as a permanent audit trail for healthcare data governance and
+     * regulatory compliance, and therefore must never be deleted from the system.</p>
+     *
+     * @throws UnsupportedOperationException always thrown to prevent deletion
+     */
     @PreRemove
     protected void jpaPreventDelete() {
         throw new UnsupportedOperationException("Remove is not allowed for this type of item.");
     }
     
+    /**
+     * Returns the OpenJPA enhancement contract version for this entity.
+     *
+     * <p>This method is part of the OpenJPA bytecode enhancement infrastructure and indicates
+     * the version of the persistence enhancement contract this class implements.</p>
+     *
+     * @return int the enhancement contract version, always returns 2
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }
@@ -190,6 +370,18 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         this.status = null;
     }
     
+    /**
+     * Creates a new instance of ImportLog for JPA persistence with an object ID.
+     *
+     * <p>This method is part of the PersistenceCapable contract and is used by OpenJPA to create
+     * new entity instances during persistence operations. It initializes the instance with the
+     * provided state manager and copies key fields from the given object ID.</p>
+     *
+     * @param pcStateManager StateManager the state manager to associate with the new instance
+     * @param o Object the object ID containing key field values
+     * @param b boolean if true, fields are cleared after initialization
+     * @return PersistenceCapable the newly created ImportLog instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final Object o, final boolean b) {
         final ImportLog importLog = new ImportLog();
         if (b) {
@@ -199,7 +391,17 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         importLog.pcCopyKeyFieldsFromObjectId(o);
         return (PersistenceCapable)importLog;
     }
-    
+
+    /**
+     * Creates a new instance of ImportLog for JPA persistence without an object ID.
+     *
+     * <p>This method is part of the PersistenceCapable contract and creates a new entity instance
+     * with the provided state manager but without initializing key fields from an object ID.</p>
+     *
+     * @param pcStateManager StateManager the state manager to associate with the new instance
+     * @param b boolean if true, fields are cleared after initialization
+     * @return PersistenceCapable the newly created ImportLog instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final boolean b) {
         final ImportLog importLog = new ImportLog();
         if (b) {
@@ -213,6 +415,15 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         return 10;
     }
     
+    /**
+     * Replaces a single field value during JPA persistence operations.
+     *
+     * <p>This method is part of the PersistenceCapable contract and is called by the state manager
+     * to update individual field values. The field to update is identified by the field index.</p>
+     *
+     * @param n int the field index to replace
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcReplaceField(final int n) {
         final int n2 = n - ImportLog.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -265,12 +476,29 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         }
     }
     
+    /**
+     * Replaces multiple field values during JPA persistence operations.
+     *
+     * <p>This method is part of the PersistenceCapable contract and efficiently updates multiple
+     * fields by delegating to {@link #pcReplaceField(int)} for each field index.</p>
+     *
+     * @param array int[] array of field indices to replace
+     */
     public void pcReplaceFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcReplaceField(array[i]);
         }
     }
     
+    /**
+     * Provides a single field value to the state manager during JPA operations.
+     *
+     * <p>This method is part of the PersistenceCapable contract and is called by the persistence
+     * provider to retrieve individual field values for persistence operations.</p>
+     *
+     * @param n int the field index to provide
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcProvideField(final int n) {
         final int n2 = n - ImportLog.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -323,6 +551,14 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         }
     }
     
+    /**
+     * Provides multiple field values to the state manager during JPA operations.
+     *
+     * <p>This method is part of the PersistenceCapable contract and efficiently provides multiple
+     * field values by delegating to {@link #pcProvideField(int)} for each field index.</p>
+     *
+     * @param array int[] array of field indices to provide
+     */
     public void pcProvideFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcProvideField(array[i]);
@@ -381,6 +617,17 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         }
     }
     
+    /**
+     * Copies specified field values from another ImportLog instance.
+     *
+     * <p>This method is part of the PersistenceCapable contract and copies field values from
+     * the source object to this instance. Both objects must share the same state manager.</p>
+     *
+     * @param o Object the source ImportLog to copy from
+     * @param array int[] array of field indices to copy
+     * @throws IllegalArgumentException if the state managers differ
+     * @throws IllegalStateException if the state manager is null
+     */
     public void pcCopyFields(final Object o, final int[] array) {
         final ImportLog importLog = (ImportLog)o;
         if (importLog.pcStateManager != this.pcStateManager) {
@@ -394,24 +641,46 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         }
     }
     
+    /**
+     * Retrieves the generic context from the associated state manager.
+     *
+     * @return Object the generic context, or null if no state manager is associated
+     */
     public Object pcGetGenericContext() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.getGenericContext();
     }
-    
+
+    /**
+     * Fetches the object ID for this entity instance.
+     *
+     * @return Object the object ID, or null if no state manager is associated
+     */
     public Object pcFetchObjectId() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.fetchObjectId();
     }
-    
+
+    /**
+     * Checks if this entity instance has been marked for deletion.
+     *
+     * @return boolean true if the entity is deleted, false otherwise
+     */
     public boolean pcIsDeleted() {
         return this.pcStateManager != null && this.pcStateManager.isDeleted();
     }
-    
+
+    /**
+     * Checks if this entity instance has been modified since being loaded.
+     *
+     * <p>Triggers a dirty check through the state manager to ensure the dirty state is current.</p>
+     *
+     * @return boolean true if the entity has been modified, false otherwise
+     */
     public boolean pcIsDirty() {
         if (this.pcStateManager == null) {
             return false;
@@ -420,41 +689,90 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         RedefinitionHelper.dirtyCheck(pcStateManager);
         return pcStateManager.isDirty();
     }
-    
+
+    /**
+     * Checks if this entity instance is newly created and not yet persisted.
+     *
+     * @return boolean true if the entity is new, false otherwise
+     */
     public boolean pcIsNew() {
         return this.pcStateManager != null && this.pcStateManager.isNew();
     }
-    
+
+    /**
+     * Checks if this entity instance is managed by a persistence context.
+     *
+     * @return boolean true if the entity is persistent, false otherwise
+     */
     public boolean pcIsPersistent() {
         return this.pcStateManager != null && this.pcStateManager.isPersistent();
     }
-    
+
+    /**
+     * Checks if this entity instance is participating in a transaction.
+     *
+     * @return boolean true if the entity is transactional, false otherwise
+     */
     public boolean pcIsTransactional() {
         return this.pcStateManager != null && this.pcStateManager.isTransactional();
     }
-    
+
+    /**
+     * Checks if this entity instance is currently being serialized.
+     *
+     * @return boolean true if the entity is being serialized, false otherwise
+     */
     public boolean pcSerializing() {
         return this.pcStateManager != null && this.pcStateManager.serializing();
     }
     
+    /**
+     * Marks a specific field as dirty for persistence tracking.
+     *
+     * <p>Notifies the state manager that the named field has been modified and needs to be
+     * persisted when the transaction commits.</p>
+     *
+     * @param s String the name of the field to mark as dirty
+     */
     public void pcDirty(final String s) {
         if (this.pcStateManager == null) {
             return;
         }
         this.pcStateManager.dirty(s);
     }
-    
+
+    /**
+     * Retrieves the state manager associated with this entity instance.
+     *
+     * @return StateManager the associated state manager, or null if not managed
+     */
     public StateManager pcGetStateManager() {
         return this.pcStateManager;
     }
-    
+
+    /**
+     * Retrieves the version identifier for this entity instance.
+     *
+     * <p>The version is used for optimistic locking to detect concurrent modifications.</p>
+     *
+     * @return Object the version identifier, or null if no state manager is associated
+     */
     public Object pcGetVersion() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.getVersion();
     }
-    
+
+    /**
+     * Replaces the state manager for this entity instance.
+     *
+     * <p>If a state manager is already associated, delegates the replacement to the existing
+     * state manager. Otherwise, directly assigns the new state manager.</p>
+     *
+     * @param pcStateManager StateManager the new state manager to associate
+     * @throws SecurityException if the replacement is not permitted
+     */
     public void pcReplaceStateManager(final StateManager pcStateManager) throws SecurityException {
         if (this.pcStateManager != null) {
             this.pcStateManager = this.pcStateManager.replaceStateManager(pcStateManager);
@@ -463,26 +781,69 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         this.pcStateManager = pcStateManager;
     }
     
+    /**
+     * Copies key field values to an object ID using a field supplier.
+     *
+     * <p>This operation is not supported for this entity type.</p>
+     *
+     * @param fieldSupplier FieldSupplier the field supplier to receive key field values
+     * @param o Object the target object ID
+     * @throws InternalException always thrown as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final FieldSupplier fieldSupplier, final Object o) {
         throw new InternalException();
     }
-    
+
+    /**
+     * Copies key field values to an object ID.
+     *
+     * <p>This operation is not supported for this entity type.</p>
+     *
+     * @param o Object the target object ID
+     * @throws InternalException always thrown as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final Object o) {
         throw new InternalException();
     }
-    
+
+    /**
+     * Copies key field values from an object ID using a field consumer.
+     *
+     * <p>Extracts the ID value from the provided LongId object and stores it using the field consumer.</p>
+     *
+     * @param fieldConsumer FieldConsumer the field consumer to store the key field value
+     * @param o Object the source LongId object containing the ID value
+     */
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
         fieldConsumer.storeObjectField(7 + ImportLog.pcInheritedFieldCount, (Object)Long.valueOf(((LongId)o).getId()));
     }
-    
+
+    /**
+     * Copies key field values from an object ID directly to this entity instance.
+     *
+     * <p>Extracts the ID value from the provided LongId object and assigns it to this entity's ID field.</p>
+     *
+     * @param o Object the source LongId object containing the ID value
+     */
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
         this.id = Long.valueOf(((LongId)o).getId());
     }
-    
+
+    /**
+     * Creates a new object ID instance from a string representation.
+     *
+     * @param o Object the string representation of the object ID
+     * @return Object a new LongId instance
+     */
     public Object pcNewObjectIdInstance(final Object o) {
         return new LongId((ImportLog.class$Lca$openosp$openo$caisi_integrator$dao$ImportLog != null) ? ImportLog.class$Lca$openosp$openo$caisi_integrator$dao$ImportLog : (ImportLog.class$Lca$openosp$openo$caisi_integrator$dao$ImportLog = class$("ca.openosp.openo.caisi_integrator.dao.ImportLog")), (String)o);
     }
-    
+
+    /**
+     * Creates a new object ID instance from this entity's current ID value.
+     *
+     * @return Object a new LongId instance initialized with this entity's ID
+     */
     public Object pcNewObjectIdInstance() {
         return new LongId((ImportLog.class$Lca$openosp$openo$caisi_integrator$dao$ImportLog != null) ? ImportLog.class$Lca$openosp$openo$caisi_integrator$dao$ImportLog : (ImportLog.class$Lca$openosp$openo$caisi_integrator$dao$ImportLog = class$("ca.openosp.openo.caisi_integrator.dao.ImportLog")), this.id);
     }
@@ -647,6 +1008,15 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         importLog.pcStateManager.settingStringField((PersistenceCapable)importLog, ImportLog.pcInheritedFieldCount + 9, importLog.status, status, 0);
     }
     
+    /**
+     * Determines if this entity instance is in a detached state.
+     *
+     * <p>An entity is detached if it was previously managed by a persistence context but is
+     * no longer associated with an active session. This method checks various state indicators
+     * to make this determination.</p>
+     *
+     * @return Boolean true if detached, false if attached, or null if state is indeterminate
+     */
     public Boolean pcIsDetached() {
         if (this.pcStateManager != null) {
             if (this.pcStateManager.isDetached()) {
@@ -675,10 +1045,23 @@ public class ImportLog extends AbstractModel<Long> implements PersistenceCapable
         return false;
     }
     
+    /**
+     * Retrieves the detached state object for this entity instance.
+     *
+     * <p>The detached state contains metadata used by the persistence provider to track
+     * the entity's state when it is not actively managed by a persistence context.</p>
+     *
+     * @return Object the detached state object, or null if not detached
+     */
     public Object pcGetDetachedState() {
         return this.pcDetachedState;
     }
-    
+
+    /**
+     * Sets the detached state object for this entity instance.
+     *
+     * @param pcDetachedState Object the detached state to set
+     */
     public void pcSetDetachedState(final Object pcDetachedState) {
         this.pcDetachedState = pcDetachedState;
     }

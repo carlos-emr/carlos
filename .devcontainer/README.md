@@ -388,6 +388,32 @@ HIBERNATE_FORMAT_SQL=true
 * **`.devcontainer/docker-compose.yml`:** Defines the Docker Compose configuration for the development environment,
   including the services to run and their dependencies.
 
+## Playwright Configuration
+
+The devcontainer includes Playwright for browser automation and UI testing. The Playwright MCP server configuration must have the correct Chromium executable path that matches the installed Playwright version.
+
+### Verifying Playwright Setup
+
+To verify the Playwright Chromium path is correctly configured:
+
+```bash
+# Inside the devcontainer
+/workspace/.devcontainer/scripts/verify-playwright-path.sh
+```
+
+This script checks that:
+- Playwright is installed at the expected version
+- Chromium browser is installed in the correct location
+- The `.mcp.json` configuration has the matching executable path
+
+**See [PLAYWRIGHT_SETUP.md](PLAYWRIGHT_SETUP.md) for detailed documentation** on Playwright configuration, version management, and troubleshooting.
+
+### Quick Reference
+
+- **Playwright Version**: Defined in `.devcontainer/development/Dockerfile`
+- **Configuration File**: `.mcp.json` in repository root
+- **Verification Script**: `.devcontainer/scripts/verify-playwright-path.sh`
+
 ## Additional Resources
 
 * **Docker Desktop:** https://www.docker.com/products/docker-desktop

@@ -78,12 +78,12 @@
 
 </div>
 
-<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"/>
+<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 <script type="text/javascript">
 
     function goSD3(favoriteId) {
-        location.href = "oscarRx/SearchDrug3.jsp?usefav=true&favid=" + favoriteId;
+        location.href = "<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp?usefav=true&favid=" + favoriteId;
     }
 
 </script>

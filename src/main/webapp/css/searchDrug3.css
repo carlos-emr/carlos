@@ -1,0 +1,598 @@
+
+:root * {
+	font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+	font-size: 12px;
+	overscroll-behavior: none;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+#medicationsHeadingRow {
+	position: sticky;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 1000;
+	background-color: white;
+}
+
+br {
+	display: none !important;
+}
+
+form {
+	margin: 0 !important;
+	padding: 0 !important;
+	border: none !important;
+}
+
+
+.floatingWindow {
+	position: fixed;
+	top: 70%;
+	right: 2px;
+	border-radius: 10px;
+	padding: 12px 24px;
+	font-size: 16px;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+	z-index: 5000;
+	background-color: #ccf5ff;
+	max-width: 25%;
+	opacity: 0;
+	transform: translateX(50px);
+	visibility: hidden;
+	transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+}
+
+/* Active state for showing */
+.floatingWindow.show {
+	opacity: 0.95;
+	transform: translateX(0);
+	visibility: visible;
+}
+
+
+* table {
+	border-collapse: collapse;
+	margin: 0;
+	padding: 0;
+	width:100%;
+}
+
+
+table#AutoNumber1 table.legend td {
+	margin:0px !important;
+	padding:0px !important;
+	width:0px !important;
+	text-align: center !important;
+	border: thin dotted black !important;
+		font-weight: bold !important;
+}
+
+#searchDrug3Wrapper {
+	margin: auto 10px;
+}
+
+/*table tr td#medicationsColumnOneRowTwo, table#topLink td#topLinkLeftColumn {*/
+/*	width:20% !important;	*/
+/*	margin:0px !important;*/
+/*	padding: 0px !important;*/
+/*		text-align: left !important;*/
+/*	vertical-align: top !important;*/
+/*}*/
+
+/*table tr td#medicationsColumnTwoRowTwo, table#topLink td#topLinkCenterColumn {*/
+/*	width:58% !important;*/
+
+/*}*/
+
+/*table tr td#medicationsColumnThreeRowTwo, table#topLink td#topLinkRightColumn {*/
+/*	width:20% !important;*/
+/*}*/
+
+
+table td,table th {
+	text-align: left !important;
+  vertical-align: top !important;
+}
+
+
+#medicationMainTableFooter td {
+	display: none;
+}
+
+/* workarounds */
+/** html .ui-autocomplete {*/
+/*	width: 1px;*/
+/*} !* without this, the menu expands to 100% in IE6 *!*/
+/*.ui-autocomplete-loading {*/
+/*	background: white url('../images/ui-anim_basic_16x16.gif') right center*/
+/*		no-repeat;*/
+/*}*/
+
+/*.ui-autocomplete {*/
+/*	max-height: 300px;*/
+/*	overflow-y: auto;*/
+/*	overflow-x: hidden;*/
+/*	background-color: whitesmoke;*/
+/*	border: #ccc thin solid;*/
+/*}*/
+
+/*.ui-menu .ui-menu {*/
+/*	background-color: whitesmoke;*/
+/*}*/
+
+/*.ui-menu .ui-menu-item a {*/
+/*	border-bottom: white thin solid;*/
+/*}*/
+
+/*.ui-menu .ui-menu-item a.ui-state-hover,.ui-menu .ui-menu-item a.ui-state-active*/
+/*	{*/
+/*	background-color: yellow;*/
+/*}*/
+
+/*.ui-menu-item a.inactiveDrug.drugitem:hover {*/
+/*	color: blue !important;;*/
+/*}*/
+
+/*.ui-menu-item a.inactiveDrug.drugitem {*/
+/*	color: #AAAAAA !important;*/
+/*}*/
+
+/*.ui-menu-item span.drugKeyword {*/
+/*	font-weight: bold !important;*/
+/*}*/
+
+
+table tr#medicationMainTableFooter td {
+	padding-bottom: 10px;
+}
+
+.highlight {
+	background-color: #99FFCC;
+	border: 1px solid #008000;
+}
+
+.rxStr a:hover {
+	color: blue;
+	text-decoration: underline;
+}
+
+.rxStr a {
+	color: black;
+	text-decoration: none;
+}
+
+.match {
+	font-weight: bold;
+}
+
+.matchInactive {
+	background-color: #C0C0C0;
+}
+
+.currentDrug {
+	font-weight: bold;
+}
+
+.archivedDrug {
+	text-decoration: line-through !important;
+}
+
+.expireInReference {
+	color: orange;
+	font-weight: bold;
+}
+
+.expiredDrug {
+	color: gray;
+}
+
+.longTermMed {
+	font-style: italic;
+}
+
+.discontinued {
+	text-decoration: line-through;
+}
+
+.deleted {
+	text-decoration: line-through;
+}
+
+.external {
+	color: purple;
+}
+
+.sortheader {
+	text-decoration: none;
+	color: black;
+}
+
+input#searchString {
+	width: 100% !important;
+}
+
+#rxText fieldset {
+	border: grey thin solid;
+	margin:10px;
+}
+
+fieldset#advanceSearchParameters fieldset {
+	float: left;
+	border: none !important;
+	border-right: #F5F5F5 thin groove !important;
+	margin: 0px;
+	padding: 0px;
+	padding: 3px 7px 3px 5px !important;
+	vertical-align: middle;
+}
+
+#searchDrugAutocompleteSet {
+	border: none;
+}
+
+fieldset#advanceSearchParameters {
+	background-color: #F5F5F5;
+	border: #F5F5F5 thin groove !important;
+}
+
+fieldset#advanceSearchParameters,#searchDrugAutocompleteSet {
+	padding: 0px;
+}
+
+fieldset#advanceSearchParameters {
+	margin-bottom: 10px;
+}
+
+#searchDrugsButtonSet {
+	padding: 0px;
+	border: none;
+}
+
+/*#rxText div.row span,#rxText div.row label,#rxText div.row input {*/
+/*	display: inline-block;*/
+/*}*/
+
+/*#rxText label.left {*/
+/*	text-align: left;*/
+/*	vertical-align: top;*/
+
+/*	padding: 0px !important;*/
+/*	margin: 0px !important;*/
+/*}*/
+
+/*#rxText div.row {*/
+/*	margin-top: 3px !important;*/
+/*	padding-left: 5px !important;*/
+/*}*/
+
+/*#rxText div.rxStr a.label {*/
+/*	margin-left: 2px;*/
+/*	font-weight: bold;*/
+/*}*/
+
+fieldset.stagedMedication {
+	background-color: aliceblue;
+	border: aliceblue thin groove !important;
+	margin: 5px !important;
+	width: 89% !important;
+}
+
+fieldset.patientComplianceRadioSet {
+	margin: 0px !important;
+	padding: 0px !important;
+	display: inline-block !important;
+}
+
+#rxText div.header,#rxText div.footer,#rxText div.subheader {
+	padding: 0px !important;
+	margin: 0px !important;
+}
+
+#rxText div.header {
+	padding-top: 7px !important;
+	padding-left: 5px !important;
+}
+
+#rxText div.header label.left {
+	font-weight: bold;
+}
+
+
+#rxText div.header input[name^='atcCode'] {
+	width:10% !important;
+}
+
+#rxText div.header input[name^='drugName'] {
+	width:79% !important;
+}
+
+#rxText div.row label.left {
+	width:10% !important;
+}
+
+#rxText div.row input[name^='jsonDxSearch'] {
+	width:30% !important;
+}
+
+#rxText div.row input[name^='reasonComment'] {
+	width:44% !important;
+}
+
+#rxText div.row input[name^='instructions'] {
+	width:80% !important;
+}
+
+#rxText div.rxStr {
+	width:100% !important;
+	padding:0px !important;
+	border:white thin dotted !important;
+}
+
+#rxText div.row input.drugFormBox {
+	width:30% !important;
+}
+
+#rxText div.subheader {
+	padding-bottom: 5px !important;
+	padding-left: 5px !important;
+	margin-bottom: 5px !important;
+	padding-top: 3px !important;
+}
+
+fieldset#savePrescriptionButtonSet {
+	background-color: #F5F5F5 !important;
+}
+
+#rxText div.footer {
+	margin-top: 5px !important;
+	padding-top: 5px !important;
+	padding-left: 7px !important;
+}
+
+div a {
+	text-decoration: none;
+}
+
+span.ingredientLink {
+	display: inline-block;
+	text-align: left;
+}
+
+div#drugProfile table {
+	border: #F5F5F5 thin groove !important;
+}
+
+div#drugProfile table tr th {
+	margin: 0px !important;
+	background-color: #DCDCDC !important;
+	padding: 5px 5px !important;
+	padding-right: 7px !important;
+}
+
+div#drugProfile table tr.highLightDrugRxPink.even td, 
+div#drugProfile table tr.highLightDrugRxPink.odd td {
+	background-color:pink !important;
+}
+
+div#drugProfile table tr.even td {
+	background-color: aliceblue !important;
+	border-top: white thin groove !important;
+	border-bottom: white thin groove !important;
+}
+
+div#drugProfile table tr td {
+	margin: 0px !important;
+	padding: 0px !important;
+	vertical-align: middle !important;
+	padding: 5px 0 !important;
+	padding-left: 5px !important;
+}
+/** popouts **/
+
+
+div#selectNewPrescriber {
+	position: absolute;
+	background-color:white;
+	z-index: 100000;
+	border:grey thin solid;
+	box-shadow: 2px 2px 1px #888888; 
+	overflow: hidden;
+}
+
+div#selectNewPrescriber h3 {
+	margin:0px;
+	padding:0px;
+	padding-top:3px;
+	padding-left:3px;
+	background-color:#DCDCDC;
+	margin-bottom: 5px;
+}
+
+div#selectNewPrescriber a#closeSelectPrescriberPopout {
+	display:block;
+	position:absolute;
+	top:3px;
+	left:-3px;
+	width:100%;
+	text-align: right;
+}
+
+div#selectNewPrescriber div {
+	padding: 5px !important;
+}
+
+div#selectNewPrescriber a#editHCTFromPrescriber {
+	margin-left: 3px;
+	margin-bottom: 3px;
+	display:block;
+}
+
+div#discontinueUI {
+	position:absolute !important;
+	background-color:white;
+	border:grey thin groove;
+	box-shadow: 4px 4px 3px #888888; 
+	width: 400px !important;
+
+}
+div#discontinueUI label {
+	width:100%;
+	font-weight:bold;
+}
+div#discontinueUI label, div#discontinueUI select, div#discontinueUI textarea  {
+	float:left;
+clear:right;
+	margin-left: 5px;
+}
+
+div#discontinueUI textarea  {
+	margin-bottom: 5px;
+}
+
+div#discontinueUI fieldset  {
+	margin-bottom:5px;
+	margin-left:5px;
+	border:none;
+	padding:0px;
+	float:left;
+	width:100%;
+}
+
+div#discontinueUI input {
+	float:left;
+}
+
+div#discontinueUI h3 {
+	margin:0px;
+	padding:5px;
+	margin-bottom:5px;
+	background-color:#DCDCDC !important;
+}
+
+
+td#medicationsColumnOneRowTwo {
+	text-align: left !important;
+	vertical-align: top !important;
+	margin:0px !important;
+	padding:0px !important;
+	width:19.5% !important;
+	overflow: hidden !important;
+	min-width: 240px;
+}
+td#medicationsColumnOneRowTwo div {
+	margin:0px !important;
+	padding:0px !important;
+	width: 100% !important;	
+}
+
+td#medicationsColumnOneRowTwo div p {
+	padding:0px 7px !important;
+	margin:0px !important;
+	text-indent: 0px !important;
+	background-color: #F5F5F5 !important;
+	border-bottom: thin dotted white !important;
+}
+
+td#medicationsColumnOneRowTwo div p.PropSheetLevel1CurrentItem,
+td#medicationsColumnOneRowTwo div p.PropSheetLevel1CurrentItemRed {
+	font-variant: small-caps !important;
+	border-bottom:none !important;
+	background-color: #E0E0E0 !important;
+
+}
+
+/*td#medicationsColumnOneRowTwo div p a {*/
+/*	text-decoration: none !important; */
+/*	display:block !important;*/
+/*}*/
+
+/*td#medicationsColumnOneRowTwo div p.PropSheetLevel1CurrentItem a,*/
+/*td#medicationsColumnOneRowTwo div p.PropSheetLevel1CurrentItemRed a {*/
+/*	display:table !important;*/
+/*	float:right !important;*/
+/*	margin-left: 5px !important;*/
+/*	text-align: center !important;*/
+/*}*/
+
+td#medicationsColumnTwoRowTwo {
+	width:79%;
+}
+
+td#medicationsColumnOneRowTwo div p.PropSheetLevel1CurrentItemRed a {
+	width:10% !important;
+	text-align: center !important;
+}
+
+table.topLink tr td {
+	padding: 1px 5px;
+	background-color: #F3F3F3 !important;
+}
+
+table.topLink a {
+	text-decoration: none !important;
+}
+
+table.topLink td#topLinkLeftColumn {
+	width: 19.5% !important;
+	background-color:black !important;
+	padding-top: 0px !important;
+	padding-left: 0px !important;
+	padding-bottom: 0px !important;
+	border-right:white 1px solid !important;
+	text-align: left !important;
+	vertical-align: top !important;
+	height: 50px !important;
+	min-width: 240px;
+}
+
+table.topLink {
+	font-size: initial !important;
+	margin-bottom: 2px !important;
+}
+
+table.topLink td#topLinkLeftColumn h1 {
+	margin:0px !important;
+	padding-left:7px !important;
+	padding-top:7px !important;
+	display: block !important;
+	font-size: larger !important;
+	color: white !important;
+}
+
+table.topLink td#topLinkRightColumn{
+	vertical-align: top !important;
+	text-align: right !important;
+	padding-top: 3px !important;
+	padding-right: 3px !important;
+	width: 10.5%;
+}
+
+table.topLink td#topLinkCenterColumn {
+	width:69%;
+}
+
+table.topLink tr td div#patient-label span {
+	display: inline-block
+}
+
+table.topLink  span.label {
+	margin: 0 5px !important;
+	padding: 0px !important;
+	font-weight: normal !important;
+	font-size: x-small !important;
+}
+
+
+table.topLink span.HelpAboutLogout a {
+	font-size: x-small !important;
+	color: black !important;
+	float: right !important;
+	padding: 0 3px !important;
+
+}
+
+table.topLink span.HelpAboutLogout a[href*='About.jsp'] {
+	border-right: white thin groove !important;
+}

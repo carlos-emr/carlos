@@ -18,6 +18,26 @@ import javax.persistence.Column;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 
+/**
+ * JPA entity representing a cached program from the CAISI Integrator system.
+ *
+ * This class represents a healthcare program that can be shared across multiple
+ * facilities in the OpenO EMR integrator network. Programs are community-based
+ * services that provide support for various health and social needs including
+ * mental health, physical health, housing assistance, and substance abuse support.
+ *
+ * The entity is enhanced by Apache OpenJPA for persistence capabilities and includes
+ * eligibility criteria such as age ranges, gender restrictions, First Nation status,
+ * and specific service categories (alcohol support, mental health, physical health, housing).
+ *
+ * This cached representation enables efficient cross-facility program lookups without
+ * requiring real-time queries to remote CAISI installations.
+ *
+ * @see AbstractModel
+ * @see FacilityIdIntegerCompositePk
+ * @see CachedDemographic
+ * @since 2026-01-24
+ */
 @Entity
 public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> implements Comparable<CachedProgram>, PersistenceCapable
 {
@@ -68,7 +88,16 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
     static /* synthetic */ Class class$Lca$openosp$openo$caisi_integrator$dao$CachedProgram;
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
-    
+
+    /**
+     * Default constructor that initializes a new CachedProgram instance.
+     *
+     * Initializes all fields to their default values:
+     * - String fields are set to null
+     * - Boolean fields are set to false
+     * - minAge is set to 0
+     * - maxAge is set to 200 (representing no upper age limit)
+     */
     public CachedProgram() {
         this.name = null;
         this.description = null;
@@ -91,185 +120,420 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
         this.email = null;
         this.emergencyNumber = null;
     }
-    
+
+    /**
+     * Gets the composite primary key for this cached program.
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key containing facility ID and CAISI item ID
+     */
     public FacilityIdIntegerCompositePk getFacilityIdIntegerCompositePk() {
         return pcGetfacilityIdIntegerCompositePk(this);
     }
-    
+
+    /**
+     * Sets the composite primary key for this cached program.
+     *
+     * @param facilityIdIntegerCompositePk FacilityIdIntegerCompositePk the composite primary key to set
+     */
     public void setFacilityIdIntegerCompositePk(final FacilityIdIntegerCompositePk facilityIdIntegerCompositePk) {
         pcSetfacilityIdIntegerCompositePk(this, facilityIdIntegerCompositePk);
     }
-    
+
+    /**
+     * Gets the name of the program.
+     *
+     * @return String the program name, may be null
+     */
     public String getName() {
         return pcGetname(this);
     }
-    
+
+    /**
+     * Sets the name of the program.
+     * The input string is trimmed and converted to null if empty.
+     *
+     * @param name String the program name to set
+     */
     public void setName(final String name) {
         pcSetname(this, StringUtils.trimToNull(name));
     }
-    
+
+    /**
+     * Gets the description of the program.
+     *
+     * @return String the program description, may be null
+     */
     public String getDescription() {
         return pcGetdescription(this);
     }
-    
+
+    /**
+     * Sets the description of the program.
+     * The input string is trimmed and converted to null if empty.
+     *
+     * @param description String the program description to set
+     */
     public void setDescription(final String description) {
         pcSetdescription(this, StringUtils.trimToNull(description));
     }
-    
+
+    /**
+     * Gets the type of the program.
+     *
+     * @return String the program type, maximum length 32 characters, may be null
+     */
     public String getType() {
         return pcGettype(this);
     }
-    
+
+    /**
+     * Sets the type of the program.
+     * The input string is trimmed and converted to null if empty.
+     *
+     * @param type String the program type to set, maximum length 32 characters
+     */
     public void setType(final String type) {
         pcSettype(this, StringUtils.trimToNull(type));
     }
-    
+
+    /**
+     * Gets the status of the program.
+     *
+     * @return String the program status, maximum length 32 characters, may be null
+     */
     public String getStatus() {
         return pcGetstatus(this);
     }
-    
+
+    /**
+     * Sets the status of the program.
+     * The input string is trimmed and converted to null if empty.
+     *
+     * @param status String the program status to set, maximum length 32 characters
+     */
     public void setStatus(final String status) {
         pcSetstatus(this, StringUtils.trimToNull(status));
     }
-    
+
+    /**
+     * Checks if the program is affiliated with a bed program.
+     *
+     * @return boolean true if the program is affiliated with a bed program, false otherwise
+     */
     public boolean isBedProgramAffiliated() {
         return pcGetbedProgramAffiliated(this);
     }
-    
+
+    /**
+     * Sets whether the program is affiliated with a bed program.
+     *
+     * @param bedProgramAffiliated boolean true to indicate bed program affiliation, false otherwise
+     */
     public void setBedProgramAffiliated(final boolean bedProgramAffiliated) {
         pcSetbedProgramAffiliated(this, bedProgramAffiliated);
     }
-    
+
+    /**
+     * Checks if the program provides alcohol-related services or support.
+     *
+     * @return boolean true if the program provides alcohol services, false otherwise
+     */
     public boolean isAlcohol() {
         return pcGetalcohol(this);
     }
-    
+
+    /**
+     * Sets whether the program provides alcohol-related services or support.
+     *
+     * @param alcohol boolean true to indicate alcohol services are provided, false otherwise
+     */
     public void setAlcohol(final boolean alcohol) {
         pcSetalcohol(this, alcohol);
     }
-    
+
+    /**
+     * Gets the abstinence support level or type provided by the program.
+     *
+     * @return String the abstinence support level, maximum length 32 characters, may be null
+     */
     public String getAbstinenceSupport() {
         return pcGetabstinenceSupport(this);
     }
-    
+
+    /**
+     * Sets the abstinence support level or type provided by the program.
+     * The input string is trimmed and converted to null if empty.
+     *
+     * @param abstinenceSupport String the abstinence support level to set, maximum length 32 characters
+     */
     public void setAbstinenceSupport(final String abstinenceSupport) {
         pcSetabstinenceSupport(this, StringUtils.trimToNull(abstinenceSupport));
     }
-    
+
+    /**
+     * Checks if the program provides physical health services.
+     *
+     * @return boolean true if the program provides physical health services, false otherwise
+     */
     public boolean isPhysicalHealth() {
         return pcGetphysicalHealth(this);
     }
-    
+
+    /**
+     * Sets whether the program provides physical health services.
+     *
+     * @param physicalHealth boolean true to indicate physical health services are provided, false otherwise
+     */
     public void setPhysicalHealth(final boolean physicalHealth) {
         pcSetphysicalHealth(this, physicalHealth);
     }
-    
+
+    /**
+     * Checks if the program provides mental health services.
+     *
+     * @return boolean true if the program provides mental health services, false otherwise
+     */
     public boolean isMentalHealth() {
         return pcGetmentalHealth(this);
     }
-    
+
+    /**
+     * Sets whether the program provides mental health services.
+     *
+     * @param mentalHealth boolean true to indicate mental health services are provided, false otherwise
+     */
     public void setMentalHealth(final boolean mentalHealth) {
         pcSetmentalHealth(this, mentalHealth);
     }
-    
+
+    /**
+     * Checks if the program provides housing assistance or services.
+     *
+     * @return boolean true if the program provides housing services, false otherwise
+     */
     public boolean isHousing() {
         return pcGethousing(this);
     }
-    
+
+    /**
+     * Sets whether the program provides housing assistance or services.
+     *
+     * @param housing boolean true to indicate housing services are provided, false otherwise
+     */
     public void setHousing(final boolean housing) {
         pcSethousing(this, housing);
     }
-    
+
+    /**
+     * Gets the gender restriction for program eligibility.
+     *
+     * @return Gender the gender restriction (M, F, T, O, or U), may be null if no gender restriction
+     * @see CachedDemographic.Gender
+     */
     public CachedDemographic.Gender getGender() {
         return pcGetgender(this);
     }
-    
+
+    /**
+     * Sets the gender restriction for program eligibility.
+     *
+     * @param gender Gender the gender restriction to set, may be null for no restriction
+     * @see CachedDemographic.Gender
+     */
     public void setGender(final CachedDemographic.Gender gender) {
         pcSetgender(this, gender);
     }
-    
+
+    /**
+     * Checks if the program is restricted to First Nation individuals.
+     *
+     * @return boolean true if the program is restricted to First Nation individuals, false otherwise
+     */
     public boolean isFirstNation() {
         return pcGetfirstNation(this);
     }
-    
+
+    /**
+     * Sets whether the program is restricted to First Nation individuals.
+     *
+     * @param firstNation boolean true to restrict to First Nation individuals, false otherwise
+     */
     public void setFirstNation(final boolean firstNation) {
         pcSetfirstNation(this, firstNation);
     }
-    
+
+    /**
+     * Gets the minimum age for program eligibility.
+     *
+     * @return int the minimum age in years (default is 0)
+     */
     public int getMinAge() {
         return pcGetminAge(this);
     }
-    
+
+    /**
+     * Sets the minimum age for program eligibility.
+     *
+     * @param minAge int the minimum age in years
+     */
     public void setMinAge(final int minAge) {
         pcSetminAge(this, minAge);
     }
-    
+
+    /**
+     * Gets the maximum age for program eligibility.
+     *
+     * @return int the maximum age in years (default is 200, representing no upper limit)
+     */
     public int getMaxAge() {
         return pcGetmaxAge(this);
     }
-    
+
+    /**
+     * Sets the maximum age for program eligibility.
+     *
+     * @param maxAge int the maximum age in years
+     */
     public void setMaxAge(final int maxAge) {
         pcSetmaxAge(this, maxAge);
     }
-    
+
+    /**
+     * Gets the physical address of the program location.
+     *
+     * @return String the program address, may be null
+     */
     public String getAddress() {
         return pcGetaddress(this);
     }
-    
+
+    /**
+     * Sets the physical address of the program location.
+     *
+     * @param address String the program address to set
+     */
     public void setAddress(final String address) {
         pcSetaddress(this, address);
     }
-    
+
+    /**
+     * Gets the phone number for the program.
+     *
+     * @return String the phone number, may be null
+     */
     public String getPhone() {
         return pcGetphone(this);
     }
-    
+
+    /**
+     * Sets the phone number for the program.
+     *
+     * @param phone String the phone number to set
+     */
     public void setPhone(final String phone) {
         pcSetphone(this, phone);
     }
-    
+
+    /**
+     * Gets the fax number for the program.
+     *
+     * @return String the fax number, may be null
+     */
     public String getFax() {
         return pcGetfax(this);
     }
-    
+
+    /**
+     * Sets the fax number for the program.
+     *
+     * @param fax String the fax number to set
+     */
     public void setFax(final String fax) {
         pcSetfax(this, fax);
     }
-    
+
+    /**
+     * Gets the website URL for the program.
+     *
+     * @return String the website URL, may be null
+     */
     public String getUrl() {
         return pcGeturl(this);
     }
-    
+
+    /**
+     * Sets the website URL for the program.
+     *
+     * @param url String the website URL to set
+     */
     public void setUrl(final String url) {
         pcSeturl(this, url);
     }
-    
+
+    /**
+     * Gets the email address for the program.
+     *
+     * @return String the email address, may be null
+     */
     public String getEmail() {
         return pcGetemail(this);
     }
-    
+
+    /**
+     * Sets the email address for the program.
+     *
+     * @param email String the email address to set
+     */
     public void setEmail(final String email) {
         pcSetemail(this, email);
     }
-    
+
+    /**
+     * Gets the emergency contact number for the program.
+     *
+     * @return String the emergency contact number, may be null
+     */
     public String getEmergencyNumber() {
         return pcGetemergencyNumber(this);
     }
-    
+
+    /**
+     * Sets the emergency contact number for the program.
+     *
+     * @param emergencyNumber String the emergency contact number to set
+     */
     public void setEmergencyNumber(final String emergencyNumber) {
         pcSetemergencyNumber(this, emergencyNumber);
     }
-    
+
+    /**
+     * Compares this program with another program based on their CAISI item IDs.
+     * Used for sorting programs in collections.
+     *
+     * @param o CachedProgram the program to compare to
+     * @return int negative if this program's ID is less, zero if equal, positive if greater
+     */
     @Override
     public int compareTo(final CachedProgram o) {
         return pcGetfacilityIdIntegerCompositePk(this).getCaisiItemId() - pcGetfacilityIdIntegerCompositePk(o).getCaisiItemId();
     }
-    
+
+    /**
+     * Gets the identifier for this program (composite primary key).
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key
+     */
     @Override
     public FacilityIdIntegerCompositePk getId() {
         return pcGetfacilityIdIntegerCompositePk(this);
     }
-    
+
+    /**
+     * Returns the OpenJPA enhancement contract version for this entity.
+     * Used by OpenJPA for bytecode enhancement versioning.
+     *
+     * @return int the enhancement contract version (2)
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }
@@ -290,7 +554,11 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
             throw new NoClassDefFoundError(ex.getMessage());
         }
     }
-    
+
+    /**
+     * Clears all fields in this entity to their default values.
+     * Used by OpenJPA for entity lifecycle management.
+     */
     protected void pcClearFields() {
         this.abstinenceSupport = null;
         this.address = null;
@@ -314,7 +582,16 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
         this.type = null;
         this.url = null;
     }
-    
+
+    /**
+     * Creates a new instance of this entity with the specified state manager and object ID.
+     * Used by OpenJPA for creating managed instances during persistence operations.
+     *
+     * @param pcStateManager StateManager the state manager to manage this instance
+     * @param o Object the object ID to copy key fields from
+     * @param b boolean true to clear all fields, false to preserve them
+     * @return PersistenceCapable the newly created instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final Object o, final boolean b) {
         final CachedProgram cachedProgram = new CachedProgram();
         if (b) {
@@ -324,7 +601,15 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
         cachedProgram.pcCopyKeyFieldsFromObjectId(o);
         return (PersistenceCapable)cachedProgram;
     }
-    
+
+    /**
+     * Creates a new instance of this entity with the specified state manager.
+     * Used by OpenJPA for creating managed instances during persistence operations.
+     *
+     * @param pcStateManager StateManager the state manager to manage this instance
+     * @param b boolean true to clear all fields, false to preserve them
+     * @return PersistenceCapable the newly created instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final boolean b) {
         final CachedProgram cachedProgram = new CachedProgram();
         if (b) {
@@ -333,11 +618,24 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
         cachedProgram.pcStateManager = pcStateManager;
         return (PersistenceCapable)cachedProgram;
     }
-    
+
+    /**
+     * Returns the number of managed fields in this entity.
+     * Used by OpenJPA for field tracking and state management.
+     *
+     * @return int the number of managed fields (21)
+     */
     protected static int pcGetManagedFieldCount() {
         return 21;
     }
-    
+
+    /**
+     * Replaces the value of a single field from the state manager.
+     * Used by OpenJPA during entity hydration and state restoration.
+     *
+     * @param n int the field index to replace
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcReplaceField(final int n) {
         final int n2 = n - CachedProgram.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -433,13 +731,26 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
             }
         }
     }
-    
+
+    /**
+     * Replaces the values of multiple fields from the state manager.
+     * Used by OpenJPA during entity hydration and state restoration.
+     *
+     * @param array int[] array of field indices to replace
+     */
     public void pcReplaceFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcReplaceField(array[i]);
         }
     }
-    
+
+    /**
+     * Provides the value of a single field to the state manager.
+     * Used by OpenJPA during entity persistence and state capture.
+     *
+     * @param n int the field index to provide
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcProvideField(final int n) {
         final int n2 = n - CachedProgram.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -535,13 +846,27 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
             }
         }
     }
-    
+
+    /**
+     * Provides the values of multiple fields to the state manager.
+     * Used by OpenJPA during entity persistence and state capture.
+     *
+     * @param array int[] array of field indices to provide
+     */
     public void pcProvideFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcProvideField(array[i]);
         }
     }
-    
+
+    /**
+     * Copies the value of a single field from another CachedProgram instance.
+     * Used by OpenJPA for entity cloning and merging operations.
+     *
+     * @param cachedProgram CachedProgram the source program to copy from
+     * @param n int the field index to copy
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     protected void pcCopyField(final CachedProgram cachedProgram, final int n) {
         final int n2 = n - CachedProgram.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -637,7 +962,16 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
             }
         }
     }
-    
+
+    /**
+     * Copies the values of multiple fields from another CachedProgram instance.
+     * Used by OpenJPA for entity cloning and merging operations.
+     *
+     * @param o Object the source object to copy from (must be a CachedProgram)
+     * @param array int[] array of field indices to copy
+     * @throws IllegalArgumentException if state managers don't match
+     * @throws IllegalStateException if state manager is null
+     */
     public void pcCopyFields(final Object o, final int[] array) {
         final CachedProgram cachedProgram = (CachedProgram)o;
         if (cachedProgram.pcStateManager != this.pcStateManager) {
@@ -650,25 +984,49 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
             this.pcCopyField(cachedProgram, array[i]);
         }
     }
-    
+
+    /**
+     * Gets the generic context from the state manager.
+     * Used by OpenJPA for accessing persistence context information.
+     *
+     * @return Object the generic context, or null if no state manager
+     */
     public Object pcGetGenericContext() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.getGenericContext();
     }
-    
+
+    /**
+     * Fetches the object identifier for this entity.
+     * Used by OpenJPA for identity management.
+     *
+     * @return Object the object identifier, or null if no state manager
+     */
     public Object pcFetchObjectId() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.fetchObjectId();
     }
-    
+
+    /**
+     * Checks if this entity is marked for deletion.
+     * Used by OpenJPA for lifecycle state tracking.
+     *
+     * @return boolean true if the entity is deleted, false otherwise
+     */
     public boolean pcIsDeleted() {
         return this.pcStateManager != null && this.pcStateManager.isDeleted();
     }
-    
+
+    /**
+     * Checks if this entity has been modified since being loaded or last persisted.
+     * Used by OpenJPA for change detection and optimistic locking.
+     *
+     * @return boolean true if the entity is dirty, false otherwise
+     */
     public boolean pcIsDirty() {
         if (this.pcStateManager == null) {
             return false;
@@ -677,41 +1035,90 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
         RedefinitionHelper.dirtyCheck(pcStateManager);
         return pcStateManager.isDirty();
     }
-    
+
+    /**
+     * Checks if this entity is newly created and not yet persisted.
+     * Used by OpenJPA for lifecycle state tracking.
+     *
+     * @return boolean true if the entity is new, false otherwise
+     */
     public boolean pcIsNew() {
         return this.pcStateManager != null && this.pcStateManager.isNew();
     }
-    
+
+    /**
+     * Checks if this entity is persistent (managed by a persistence context).
+     * Used by OpenJPA for lifecycle state tracking.
+     *
+     * @return boolean true if the entity is persistent, false otherwise
+     */
     public boolean pcIsPersistent() {
         return this.pcStateManager != null && this.pcStateManager.isPersistent();
     }
-    
+
+    /**
+     * Checks if this entity is part of an active transaction.
+     * Used by OpenJPA for transaction management.
+     *
+     * @return boolean true if the entity is transactional, false otherwise
+     */
     public boolean pcIsTransactional() {
         return this.pcStateManager != null && this.pcStateManager.isTransactional();
     }
-    
+
+    /**
+     * Checks if this entity is currently being serialized.
+     * Used by OpenJPA for serialization handling.
+     *
+     * @return boolean true if the entity is being serialized, false otherwise
+     */
     public boolean pcSerializing() {
         return this.pcStateManager != null && this.pcStateManager.serializing();
     }
-    
+
+    /**
+     * Marks a field as dirty (modified).
+     * Used by OpenJPA for change tracking.
+     *
+     * @param s String the field name that was modified
+     */
     public void pcDirty(final String s) {
         if (this.pcStateManager == null) {
             return;
         }
         this.pcStateManager.dirty(s);
     }
-    
+
+    /**
+     * Gets the state manager for this entity.
+     * Used by OpenJPA for accessing persistence state management.
+     *
+     * @return StateManager the state manager managing this entity
+     */
     public StateManager pcGetStateManager() {
         return this.pcStateManager;
     }
-    
+
+    /**
+     * Gets the version of this entity for optimistic locking.
+     * Used by OpenJPA for detecting concurrent modifications.
+     *
+     * @return Object the version object, or null if no state manager
+     */
     public Object pcGetVersion() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.getVersion();
     }
-    
+
+    /**
+     * Replaces the state manager for this entity.
+     * Used by OpenJPA during entity attachment and detachment.
+     *
+     * @param pcStateManager StateManager the new state manager
+     * @throws SecurityException if replacement is not allowed
+     */
     public void pcReplaceStateManager(final StateManager pcStateManager) throws SecurityException {
         if (this.pcStateManager != null) {
             this.pcStateManager = this.pcStateManager.replaceStateManager(pcStateManager);
@@ -719,27 +1126,69 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
         }
         this.pcStateManager = pcStateManager;
     }
-    
+
+    /**
+     * Copies key fields to an object ID using a field supplier.
+     * This operation is not supported for this entity type.
+     *
+     * @param fieldSupplier FieldSupplier the field supplier (not used)
+     * @param o Object the object ID (not used)
+     * @throws InternalException always thrown as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final FieldSupplier fieldSupplier, final Object o) {
         throw new InternalException();
     }
-    
+
+    /**
+     * Copies key fields to an object ID.
+     * This operation is not supported for this entity type.
+     *
+     * @param o Object the object ID (not used)
+     * @throws InternalException always thrown as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final Object o) {
         throw new InternalException();
     }
-    
+
+    /**
+     * Copies key fields from an object ID using a field consumer.
+     * Used by OpenJPA for reconstructing entity identity.
+     *
+     * @param fieldConsumer FieldConsumer the field consumer to receive key fields
+     * @param o Object the object ID to copy from
+     */
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
         fieldConsumer.storeObjectField(7 + CachedProgram.pcInheritedFieldCount, ((ObjectId)o).getId());
     }
-    
+
+    /**
+     * Copies key fields from an object ID.
+     * Used by OpenJPA for reconstructing entity identity.
+     *
+     * @param o Object the object ID to copy from
+     */
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
         this.facilityIdIntegerCompositePk = (FacilityIdIntegerCompositePk)((ObjectId)o).getId();
     }
-    
+
+    /**
+     * Creates a new object ID instance from a string representation.
+     * This operation is not supported for this entity type due to composite key structure.
+     *
+     * @param o Object the string representation (not used)
+     * @return Object never returns normally
+     * @throws IllegalArgumentException always thrown with explanatory message
+     */
     public Object pcNewObjectIdInstance(final Object o) {
         throw new IllegalArgumentException("The id type \"class org.apache.openjpa.util.ObjectId\" specified by persistent type \"class ca.openosp.openo.caisi_integrator.dao.CachedProgram\" does not have a public class org.apache.openjpa.util.ObjectId(String) or class org.apache.openjpa.util.ObjectId(Class, String) constructor.");
     }
-    
+
+    /**
+     * Creates a new object ID instance for this entity.
+     * Used by OpenJPA for generating entity identifiers.
+     *
+     * @return Object the new object ID instance containing this entity's composite key
+     */
     public Object pcNewObjectIdInstance() {
         return new ObjectId((CachedProgram.class$Lca$openosp$openo$caisi_integrator$dao$CachedProgram != null) ? CachedProgram.class$Lca$openosp$openo$caisi_integrator$dao$CachedProgram : (CachedProgram.class$Lca$openosp$openo$caisi_integrator$dao$CachedProgram = class$("ca.openosp.openo.caisi_integrator.dao.CachedProgram")), (Object)this.facilityIdIntegerCompositePk);
     }
@@ -1079,7 +1528,14 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
         }
         cachedProgram.pcStateManager.settingStringField((PersistenceCapable)cachedProgram, CachedProgram.pcInheritedFieldCount + 20, cachedProgram.url, url, 0);
     }
-    
+
+    /**
+     * Checks if this entity is in a detached state.
+     * Detached entities have been loaded from the database but are no longer managed by a persistence context.
+     * Used by OpenJPA for lifecycle state tracking and entity merging operations.
+     *
+     * @return Boolean true if detached, false if attached, null if state is indeterminate
+     */
     public Boolean pcIsDetached() {
         if (this.pcStateManager != null) {
             if (this.pcStateManager.isDetached()) {
@@ -1100,19 +1556,44 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
             return null;
         }
     }
-    
+
+    /**
+     * Checks if the detached state is definitive for this entity.
+     * Used internally by OpenJPA to determine if the detached state can be trusted.
+     *
+     * @return boolean always returns false, indicating detached state is not definitive
+     */
     private boolean pcisDetachedStateDefinitive() {
         return false;
     }
-    
+
+    /**
+     * Gets the detached state object for this entity.
+     * The detached state holds information needed to reattach the entity to a persistence context.
+     *
+     * @return Object the detached state object, may be null or DESERIALIZED constant
+     */
     public Object pcGetDetachedState() {
         return this.pcDetachedState;
     }
-    
+
+    /**
+     * Sets the detached state object for this entity.
+     * Used by OpenJPA during detachment and serialization operations.
+     *
+     * @param pcDetachedState Object the detached state to set
+     */
     public void pcSetDetachedState(final Object pcDetachedState) {
         this.pcDetachedState = pcDetachedState;
     }
-    
+
+    /**
+     * Custom serialization method for writing this entity to an output stream.
+     * Handles proper serialization of OpenJPA-enhanced entities.
+     *
+     * @param objectOutputStream ObjectOutputStream the stream to write to
+     * @throws IOException if an I/O error occurs during serialization
+     */
     private void writeObject(final ObjectOutputStream objectOutputStream) throws IOException {
         final boolean pcSerializing = this.pcSerializing();
         objectOutputStream.defaultWriteObject();
@@ -1120,7 +1601,15 @@ public class CachedProgram extends AbstractModel<FacilityIdIntegerCompositePk> i
             this.pcSetDetachedState(null);
         }
     }
-    
+
+    /**
+     * Custom deserialization method for reading this entity from an input stream.
+     * Handles proper deserialization of OpenJPA-enhanced entities and marks the entity as deserialized.
+     *
+     * @param objectInputStream ObjectInputStream the stream to read from
+     * @throws IOException if an I/O error occurs during deserialization
+     * @throws ClassNotFoundException if the class of a serialized object cannot be found
+     */
     private void readObject(final ObjectInputStream objectInputStream) throws IOException, ClassNotFoundException {
         this.pcSetDetachedState(PersistenceCapable.DESERIALIZED);
         objectInputStream.defaultReadObject();

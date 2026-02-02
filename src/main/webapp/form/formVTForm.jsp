@@ -114,9 +114,6 @@
                 pageWindow = popup;
                 popup.focus();
             }
-            /*else{
-                alert("Miles server is not avaiable!");
-            }*/
 
         }
 
@@ -692,8 +689,7 @@
 
     </script>
     <body class="BodyStyle" vlink="#0000FF"
-          onload="window.focus();window.resizeTo(680,760); popupDecisionSupport(); initialize();"
-          onunload="closeDSWindow();">
+          onload="window.focus();window.resizeTo(680,760); initialize();">
     <!--  -->
 
     <form action="${pageContext.request.contextPath}/form/SubmitForm.do" method="post">
@@ -717,9 +713,7 @@
         </table>
         <table width="640px" border=0 cellpadding="0" cellspacing="0">
             <tr>
-                <td class="subject">Vascular Data Entry Template
-                    (draft) <%=request.getAttribute("decisionSupportURL") == null ? "(Miles server is not available)" : ""%>
-                </td>
+                <td class="subject">Vascular Data Entry Template</td>
             </tr>
             <tr>
                 <td>

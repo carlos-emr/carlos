@@ -24,7 +24,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import ca.openosp.openo.commn.dao.FavoritesDao;
@@ -109,7 +109,7 @@ public class CopyFavorites2Action extends ActionSupport {
         	Favorites f = favoritesDao.find(id);
         	Favorites copy = new Favorites();
         	try {
-	        	BeanUtils.copyProperties(copy, f);
+	        	BeanUtils.copyProperties(f, copy);
 	        	copy.setProviderNo(providerNo);
 	        	copy.setId(null);
 	        	favoritesDao.persist(copy);

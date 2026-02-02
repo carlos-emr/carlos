@@ -27,9 +27,7 @@ package ca.openosp.openo.dashboard.handler;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Criteria;
-import org.hibernate.SQLQuery;
-import org.hibernate.Session;
+import org.hibernate.*;
 import ca.openosp.openo.dashboard.handler.IndicatorTemplateXML.RangeType;
 import ca.openosp.openo.dashboard.query.Column;
 import ca.openosp.openo.dashboard.query.DrillDownAction;
@@ -41,13 +39,11 @@ import ca.openosp.openo.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 
 @Service
 public abstract class AbstractQueryHandler extends HibernateDaoSupport {
 
     private static Logger logger = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
 
     @Autowired
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
@@ -66,7 +62,7 @@ public abstract class AbstractQueryHandler extends HibernateDaoSupport {
     private LoggedInInfo loggedInInfo;
 
     public AbstractQueryHandler() {
-        // default
+
     }
 
     protected List<?> execute() {
@@ -81,22 +77,30 @@ public abstract class AbstractQueryHandler extends HibernateDaoSupport {
 
         setResultList(null);
 
-        //Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
-        SQLQuery sqlQuery = session.createSQLQuery(query);
-        List<?> results = sqlQuery.setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP).list();
+        Transaction tx = null;
+        try (Session session = getSessionFactory().openSession()) {
+            tx = session.beginTransaction();
+            SQLQuery sqlQuery = session.createSQLQuery(query);
+            List<?> results = sqlQuery.setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP).list();
 
-        logger.info("Thread " + Thread.currentThread().getName() + "[" + Thread.currentThread().getId()
-                + "] Query results " + results);
+            //TODO work on method to detect and exclude demographic files that are
+            // defined in the securityInfoManager object.
 
-        //TODO work on method to detect and exclude demographic files that are
-        // defined in the securityInfoManager object.
+            setResultList(results);
+            tx.commit();
 
-        setResultList(results);
-        //releaseSession( session );
-        session.close();
-
-        return results;
+            return results;
+        } catch (Exception e) {
+            if (tx != null) {
+                try {
+                    tx.rollback();
+                } catch (Exception rollbackEx) {
+                    e.addSuppressed(rollbackEx);
+                }
+            }
+            logger.error("Query execution failed");
+            throw new RuntimeException("Error executing query", e);
+        }
     }
 
 

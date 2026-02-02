@@ -27,7 +27,7 @@
 package ca.openosp.openo.eform;
 
 import ca.openosp.OscarProperties;
-import org.apache.commons.digester.Digester;
+import org.apache.commons.digester3.Digester;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.utility.MiscUtils;

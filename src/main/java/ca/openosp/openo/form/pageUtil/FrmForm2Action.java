@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -38,8 +39,6 @@ import javax.servlet.http.HttpSession;
 import ca.openosp.openo.commn.model.Demographic;
 import org.apache.commons.validator.GenericValidator;
 import org.apache.logging.log4j.Logger;
-import org.apache.xmlrpc.XmlRpcClient;
-import org.apache.xmlrpc.XmlRpcException;
 import ca.openosp.openo.commn.dao.EncounterFormDao;
 import ca.openosp.openo.commn.dao.MeasurementDao;
 import ca.openosp.openo.commn.dao.MeasurementDaoImpl.SearchCriteria;
@@ -50,10 +49,8 @@ import ca.openosp.openo.utility.LoggedInInfo;
 import ca.openosp.openo.utility.MiscUtils;
 import ca.openosp.openo.utility.SpringUtils;
 
-import ca.openosp.OscarProperties;
 import ca.openosp.openo.form.FrmRecordHelp;
 import ca.openosp.openo.form.data.FrmData;
-import ca.openosp.openo.form.util.FrmToXMLUtil;
 import ca.openosp.openo.demographic.data.DemographicData;
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import ca.openosp.openo.encounter.oscarMeasurements.bean.EctValidationsBean;
@@ -78,9 +75,11 @@ public class FrmForm2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // Pattern to validate form names - only alphanumeric characters and underscores allowed
+    private static final Pattern VALID_FORM_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
+
     /**
-     * To create a new form which can write to measurement and osdsf, you need to
-     * ...
+     * To create a new form which can write to measurement, you need to ...
      * Create a xml file with all the measurement types named <formName>.xml (check
      * form/VTForm.xml as an example)
      * Create a new jsp file named <formName>.jsp (check form/formVT.jsp)
@@ -111,6 +110,13 @@ public class FrmForm2Action extends ActionSupport {
 
         String formName = (String) this.getValue("formName");
         logger.debug("formNme Top " + formName);
+
+        // Validate formName to prevent SQL injection and path traversal attacks
+        if (formName == null || !isValidFormName(formName)) {
+            logger.warn("Invalid form name attempted: {}", formName != null ? formName.replaceAll("[\\r\\n\\t]", "_") : "null");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
+            return NONE;
+        }
 
         String dateEntered = UtilDateUtilities.DateToString(new Date(), _dateFormat);
         // String visitCod = UtilDateUtilities.DateToString(new Date(),"yyyyMMdd");
@@ -268,12 +274,6 @@ public class FrmForm2Action extends ActionSupport {
             }
 
             logger.debug("current mem 9 " + currentMem());
-            // Send to Mils thru xml-rpc
-            Properties nameProps = convertName(formName);
-            String xmlData = FrmToXMLUtil.convertToXml(loggedInInfo, measurementTypes, nameProps, props);
-            String decisionSupportURL = connect2OSDSF(xmlData);
-            request.setAttribute("decisionSupportURL", decisionSupportURL);
-            logger.debug("current mem 9 " + currentMem());
         } else {
             // return to the orignal form
             return "/form/SetupForm.do?formName=" + formName + "&formId=0";
@@ -390,53 +390,6 @@ public class FrmForm2Action extends ActionSupport {
         return newDataAdded;
     }
 
-    private String connect2OSDSF(String xmlResult) {
-        Vector data2OSDSF = new Vector();
-        data2OSDSF.add("xml");
-        data2OSDSF.add(xmlResult);
-        String osdsfRPCURL = OscarProperties.getInstance().getProperty("osdsfRPCURL", null);
-        if (osdsfRPCURL == null) {
-            return null;
-        }
-        // data2OSDSF.add("dummy");
-        // send to osdsf thru XMLRPC
-        try {
-            XmlRpcClient xmlrpc = new XmlRpcClient(osdsfRPCURL);
-            String result = (String) xmlrpc.execute("vt.getAndSaveRlt", data2OSDSF);
-            logger.debug("Reverse result: " + result);
-            return result;
-        } catch (XmlRpcException e) {
-            logger.error("Error", e);
-            return null;
-        } catch (IOException e) {
-            logger.error("Error", e);
-            return null;
-        }
-        /*
-         * catch(MalformedURLException e){
-         * logger.error("Error", e);
-         * }
-         */
-    }
-
-    private Properties convertName(String formName) {
-        Properties osdsf = new Properties();
-        InputStream is = getClass().getResourceAsStream("/../../form/" + formName + "2Osdsf.properties");
-        try {
-            osdsf.load(is);
-        } catch (Exception e) {
-            logger.debug("Error, file " + formName + ".properties not found.");
-        }
-
-        try {
-            is.close();
-        } catch (IOException e) {
-            logger.debug("IO error.");
-            logger.error("Error", e);
-        }
-        return osdsf;
-    }
-
     private String parseCheckBoxValue(String inputValue, String validationName) {
 
         if (validationName.equalsIgnoreCase("Yes/No")) {
@@ -470,6 +423,27 @@ public class FrmForm2Action extends ActionSupport {
 
     public Object getValue(String key) {
         return values.get(key);
+    }
+
+    /**
+     * Validates that a form name contains only safe characters to prevent path traversal attacks.
+     * Only allows alphanumeric characters and underscores.
+     *
+     * @param formName The form name to validate
+     * @return true if the form name is valid, false otherwise
+     */
+    private boolean isValidFormName(String formName) {
+        if (formName == null || formName.isEmpty()) {
+            return false;
+        }
+
+        // Check for path traversal attempts
+        if (formName.contains("..") || formName.contains("/") || formName.contains("\\")) {
+            return false;
+        }
+
+        // Only allow alphanumeric characters and underscores
+        return VALID_FORM_NAME_PATTERN.matcher(formName).matches();
     }
 
 }

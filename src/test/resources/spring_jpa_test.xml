@@ -11,7 +11,7 @@
 
 	<!-- DataSource -->
 	<!--
-	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
 	 -->
 	<bean id="dataSource" class="ca.openosp.openo.utility.OscarTrackingBasicDataSource" destroy-method="close">
 		<!-- <property name="driverClassName" value="${db_driver}" />
@@ -21,9 +21,9 @@
 		<property name="username" value="${db_username}" />
 		<property name="password" value="${db_password}" />
 
-		<property name="maxActive" value="${db_max_active}" />
+		<property name="maxTotal" value="${db_max_active}" />
 		<property name="maxIdle" value="${db_max_idle}" />
-		<property name="maxWait" value="${db_max_wait}" /> -->
+		<property name="maxWaitMillis" value="${db_max_wait}" /> -->
 		
 		<property name="driverClassName" value="com.mysql.cj.jdbc.Driver" />
 		<property name="url" value="jdbc:mysql://db:3306/oscar?zeroDateTimeBehavior=round&amp;useOldAliasMetadataBehavior=true&amp;jdbcCompliantTruncation=false" />		
@@ -32,9 +32,9 @@
 		<property name="username" value="root" />
 		<property name="password" value="password" />
 
-		<property name="maxActive" value="32" />
+		<property name="maxTotal" value="32" />
 		<property name="maxIdle" value="8" />
-		<property name="maxWait" value="20000" />
+		<property name="maxWaitMillis" value="20000" />
 
 		<property name="testOnBorrow" value="true" />
 		<property name="validationQuery" value="${db_validationQuery}" />
@@ -42,13 +42,8 @@
 		<property name="maxOpenPreparedStatements" value="320" />
 		<!-- bug in the connector 3.11 driver which prevents this from being used, we need to upgrade drivers before re-enabling -->
 		<property name="poolPreparedStatements" value="false" />
-		<!-- abandoned features are deprecated and have no effect, don't expect the below to do anything -->
-		
-		<!-- <property name="removeAbandoned" value="${db_remove_abandoned}" />
-		<property name="removeAbandonedTimeout" value="${db_remove_abandoned_timeout}" />
-		<property name="logAbandoned" value="${db_log_abandoned}" /> -->
-		
-		<property name="removeAbandoned" value="true" />
+		<property name="removeAbandonedOnBorrow" value="true" />
+		<property name="removeAbandonedOnMaintenance" value="true" />
 		<property name="removeAbandonedTimeout" value="15" />
 		<property name="logAbandoned" value="true" />
 		 

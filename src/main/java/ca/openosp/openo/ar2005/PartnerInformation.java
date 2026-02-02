@@ -18,70 +18,298 @@ import org.apache.xmlbeans.XmlString;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Partner demographic information interface for the British Columbia Antenatal Record (BCAR) AR2005 form.
+ *
+ * <p>This interface provides comprehensive demographic and socioeconomic data collection for the patient's
+ * partner during prenatal care. Partner information is critical for complete family health assessment,
+ * genetic risk evaluation, and social determinants of health documentation in maternal care.</p>
+ *
+ * <p>The interface is generated from XML schema using Apache XMLBeans and provides type-safe access to
+ * partner demographic elements including personal identification, occupation classification, educational
+ * attainment, and age data. This information supports comprehensive prenatal risk assessment and care planning.</p>
+ *
+ * <p>Key demographic categories captured:</p>
+ * <ul>
+ *   <li>Personal identification (first name, last name)</li>
+ *   <li>Occupation classification (standardized occupation codes OCC0005-OCC1290)</li>
+ *   <li>Educational level (ED001-ED006 classification)</li>
+ *   <li>Age (integer value)</li>
+ * </ul>
+ *
+ * <p>This interface is part of the British Columbia provincial healthcare data standards for antenatal
+ * record documentation and integrates with the broader BCAR forms system for comprehensive maternal health tracking.</p>
+ *
+ * @see org.apache.xmlbeans.XmlObject
+ * @see ca.openosp.openo.ar2005
+ * @since 2026-01-24
+ */
 public interface PartnerInformation extends XmlObject
 {
+    /**
+     * XMLBeans schema type for partner information.
+     * Used internally by Apache XMLBeans for type resolution and validation.
+     */
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(PartnerInformation.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("partnerinformationbf1btype");
-    
+
+    /**
+     * Gets the partner's last name (surname/family name).
+     *
+     * @return String the partner's last name
+     */
     String getLastName();
-    
+
+    /**
+     * Gets the partner's last name as an XMLBeans XmlString object.
+     * Provides access to the underlying XML type with schema validation capabilities.
+     *
+     * @return XmlString the partner's last name with XML type information
+     */
     XmlString xgetLastName();
-    
+
+    /**
+     * Sets the partner's last name (surname/family name).
+     *
+     * @param p0 String the last name to set
+     */
     void setLastName(final String p0);
-    
+
+    /**
+     * Sets the partner's last name using an XMLBeans XmlString object.
+     * Allows setting with full XML type validation.
+     *
+     * @param p0 XmlString the last name to set with XML type information
+     */
     void xsetLastName(final XmlString p0);
-    
+
+    /**
+     * Gets the partner's first name (given name).
+     *
+     * @return String the partner's first name
+     */
     String getFirstName();
-    
+
+    /**
+     * Gets the partner's first name as an XMLBeans XmlString object.
+     * Provides access to the underlying XML type with schema validation capabilities.
+     *
+     * @return XmlString the partner's first name with XML type information
+     */
     XmlString xgetFirstName();
-    
+
+    /**
+     * Sets the partner's first name (given name).
+     *
+     * @param p0 String the first name to set
+     */
     void setFirstName(final String p0);
-    
+
+    /**
+     * Sets the partner's first name using an XMLBeans XmlString object.
+     * Allows setting with full XML type validation.
+     *
+     * @param p0 XmlString the first name to set with XML type information
+     */
     void xsetFirstName(final XmlString p0);
-    
+
+    /**
+     * Gets the partner's occupation classification information.
+     * Includes standardized occupation code and optional free-text "other" field.
+     *
+     * @return Occupation the occupation data structure containing code and description
+     */
     Occupation getOccupation();
-    
+
+    /**
+     * Sets the partner's occupation classification information.
+     *
+     * @param p0 Occupation the occupation data to set (includes code and optional other field)
+     */
     void setOccupation(final Occupation p0);
-    
+
+    /**
+     * Creates and adds a new Occupation object to this partner information.
+     * Factory method for building occupation data structures.
+     *
+     * @return Occupation a new occupation instance ready for population
+     */
     Occupation addNewOccupation();
-    
+
+    /**
+     * Gets the partner's education level classification enumeration value.
+     * Returns one of the standardized education level codes (ED001-ED006 or UN for unknown).
+     *
+     * @return EducationLevel.Enum the education level classification
+     */
     EducationLevel.Enum getEducationLevel();
-    
+
+    /**
+     * Gets the partner's education level as an XMLBeans EducationLevel object.
+     * Provides access to the underlying XML type with schema validation capabilities.
+     *
+     * @return EducationLevel the education level with XML type information
+     */
     EducationLevel xgetEducationLevel();
-    
+
+    /**
+     * Sets the partner's education level classification.
+     *
+     * @param p0 EducationLevel.Enum the education level code to set (ED001-ED006 or UN)
+     */
     void setEducationLevel(final EducationLevel.Enum p0);
-    
+
+    /**
+     * Sets the partner's education level using an XMLBeans EducationLevel object.
+     * Allows setting with full XML type validation.
+     *
+     * @param p0 EducationLevel the education level to set with XML type information
+     */
     void xsetEducationLevel(final EducationLevel p0);
-    
+
+    /**
+     * Gets the partner's age in years.
+     *
+     * @return int the partner's age
+     */
     int getAge();
-    
+
+    /**
+     * Gets the partner's age as an XMLBeans Age object.
+     * Provides access to the underlying XML type with schema validation capabilities.
+     *
+     * @return Age the partner's age with XML type information
+     */
     Age xgetAge();
-    
+
+    /**
+     * Sets the partner's age in years.
+     *
+     * @param p0 int the age to set
+     */
     void setAge(final int p0);
-    
+
+    /**
+     * Sets the partner's age using an XMLBeans Age object.
+     * Allows setting with full XML type validation.
+     *
+     * @param p0 Age the age to set with XML type information
+     */
     void xsetAge(final Age p0);
-    
+
+    /**
+     * Occupation classification interface for partner demographic information.
+     *
+     * <p>Provides standardized occupation coding for the patient's partner using a comprehensive
+     * classification system with 259 defined occupation categories (OCC0005-OCC1290) plus an "OTHER"
+     * option for occupations not covered by the standard codes.</p>
+     *
+     * <p>Occupation data is important for:</p>
+     * <ul>
+     *   <li>Socioeconomic status assessment in prenatal care</li>
+     *   <li>Environmental and occupational exposure risk evaluation</li>
+     *   <li>Social determinants of health documentation</li>
+     *   <li>Family support and resource planning</li>
+     * </ul>
+     *
+     * <p>When the partner's occupation does not match any of the 259 predefined codes, the "OTHER"
+     * enumeration value should be selected and the specific occupation described in the "other" free-text field.</p>
+     *
+     * @see PartnerInformation
+     * @since 2026-01-24
+     */
     public interface Occupation extends XmlObject
     {
+        /**
+         * XMLBeans schema type for occupation classification.
+         * Used internally by Apache XMLBeans for type resolution and validation.
+         */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Occupation.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("occupation6914elemtype");
-        
+
+        /**
+         * Gets the standardized occupation classification code enumeration value.
+         * Returns one of 259 occupation codes (OCC0005-OCC1290) or OTHER.
+         *
+         * @return Value.Enum the occupation classification code
+         */
         Value.Enum getValue();
-        
+
+        /**
+         * Gets the occupation classification code as an XMLBeans Value object.
+         * Provides access to the underlying XML type with schema validation capabilities.
+         *
+         * @return Value the occupation code with XML type information
+         */
         Value xgetValue();
-        
+
+        /**
+         * Sets the standardized occupation classification code.
+         *
+         * @param p0 Value.Enum the occupation code to set (OCC0005-OCC1290 or OTHER)
+         */
         void setValue(final Value.Enum p0);
-        
+
+        /**
+         * Sets the occupation classification code using an XMLBeans Value object.
+         * Allows setting with full XML type validation.
+         *
+         * @param p0 Value the occupation code to set with XML type information
+         */
         void xsetValue(final Value p0);
-        
+
+        /**
+         * Gets the free-text occupation description for non-standard occupations.
+         * Used when the occupation value is set to OTHER to provide specific occupation details.
+         *
+         * @return String the free-text occupation description, or null if not applicable
+         */
         String getOther();
-        
+
+        /**
+         * Gets the free-text occupation description as an XMLBeans XmlString object.
+         * Provides access to the underlying XML type with schema validation capabilities.
+         *
+         * @return XmlString the occupation description with XML type information
+         */
         XmlString xgetOther();
-        
+
+        /**
+         * Sets the free-text occupation description for non-standard occupations.
+         * Should be populated when the occupation value is set to OTHER.
+         *
+         * @param p0 String the occupation description to set
+         */
         void setOther(final String p0);
-        
+
+        /**
+         * Sets the free-text occupation description using an XMLBeans XmlString object.
+         * Allows setting with full XML type validation.
+         *
+         * @param p0 XmlString the occupation description to set with XML type information
+         */
         void xsetOther(final XmlString p0);
-        
+
+        /**
+         * Standardized occupation classification code enumeration for partner demographics.
+         *
+         * <p>Defines 259 distinct occupation categories using codes OCC0005 through OCC1290 (incremented by 5),
+         * plus an "OTHER" category for occupations not covered by the standard classification system.</p>
+         *
+         * <p>Each occupation code maps to both an enumeration constant and an integer value for database
+         * storage and data interchange. The occupation classification system provides granular categorization
+         * of employment types for socioeconomic and occupational health risk assessment in maternal care.</p>
+         *
+         * <p>The enumeration provides type-safe occupation code handling with built-in validation through
+         * the XMLBeans framework, ensuring data integrity in BCAR form submissions.</p>
+         *
+         * @see Occupation
+         * @since 2026-01-24
+         */
         public interface Value extends XmlString
         {
+            /**
+             * XMLBeans schema type for occupation value enumeration.
+             * Used internally by Apache XMLBeans for type resolution and validation.
+             */
             public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Value.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("value0f31elemtype");
             public static final Enum OCC_0005 = Enum.forString("OCC0005");
             public static final Enum OCC_0010 = Enum.forString("OCC0010");
@@ -600,12 +828,36 @@ public interface PartnerInformation extends XmlObject
             public static final int INT_OCC_1280 = 256;
             public static final int INT_OCC_1285 = 257;
             public static final int INT_OCC_1290 = 258;
+            /** Integer constant for OTHER occupation category (259). */
             public static final int INT_OTHER = 259;
-            
+
+            /**
+             * Gets the enumeration value as a StringEnumAbstractBase.
+             * Provides access to the underlying enumeration base for advanced type operations.
+             *
+             * @return StringEnumAbstractBase the enumeration value base object
+             */
             StringEnumAbstractBase enumValue();
-            
+
+            /**
+             * Sets the occupation value using a StringEnumAbstractBase enumeration.
+             * Allows setting with base enumeration type for framework interoperability.
+             *
+             * @param p0 StringEnumAbstractBase the enumeration value to set
+             */
             void set(final StringEnumAbstractBase p0);
-            
+
+            /**
+             * Enumeration implementation for occupation classification values.
+             *
+             * <p>Provides concrete enumeration instances for all 259 occupation codes, extending
+             * StringEnumAbstractBase to integrate with the Apache XMLBeans type system.</p>
+             *
+             * <p>Each enum instance maps to both a string representation (e.g., "OCC0005") and an
+             * integer value (1-259) for efficient storage and comparison operations.</p>
+             *
+             * @since 2026-01-24
+             */
             public static final class Enum extends StringEnumAbstractBase
             {
                 static final int INT_OCC_0005 = 1;
@@ -866,22 +1118,50 @@ public interface PartnerInformation extends XmlObject
                 static final int INT_OCC_1280 = 256;
                 static final int INT_OCC_1285 = 257;
                 static final int INT_OCC_1290 = 258;
+                /** Integer constant for OTHER occupation category (259). */
                 static final int INT_OTHER = 259;
+                /** Lookup table mapping string and integer values to enumeration instances. */
                 public static final StringEnumAbstractBase.Table table;
+                /** Serialization version identifier. */
                 private static final long serialVersionUID = 1L;
-                
+
+                /**
+                 * Looks up an enumeration instance by its string representation.
+                 *
+                 * @param s String the occupation code string (e.g., "OCC0005", "OTHER")
+                 * @return Enum the corresponding enumeration instance, or null if not found
+                 */
                 public static Enum forString(final String s) {
                     return (Enum)Enum.table.forString(s);
                 }
-                
+
+                /**
+                 * Looks up an enumeration instance by its integer value.
+                 *
+                 * @param i int the occupation code integer (1-259)
+                 * @return Enum the corresponding enumeration instance, or null if not found
+                 */
                 public static Enum forInt(final int i) {
                     return (Enum)Enum.table.forInt(i);
                 }
-                
+
+                /**
+                 * Private constructor for enumeration instances.
+                 * Called during static initialization to create all 259 occupation code instances.
+                 *
+                 * @param s String the occupation code string representation
+                 * @param i int the occupation code integer value
+                 */
                 private Enum(final String s, final int i) {
                     super(s, i);
                 }
-                
+
+                /**
+                 * Resolves the enumeration instance during deserialization.
+                 * Ensures singleton semantics by returning the canonical instance from the lookup table.
+                 *
+                 * @return Object the canonical enumeration instance for this integer value
+                 */
                 private Object readResolve() {
                     return forInt(this.intValue());
                 }
@@ -890,87 +1170,235 @@ public interface PartnerInformation extends XmlObject
                     table = new StringEnumAbstractBase.Table((StringEnumAbstractBase[])new Enum[] { new Enum("OCC0005", 1), new Enum("OCC0010", 2), new Enum("OCC0015", 3), new Enum("OCC0020", 4), new Enum("OCC0025", 5), new Enum("OCC0030", 6), new Enum("OCC0035", 7), new Enum("OCC0040", 8), new Enum("OCC0045", 9), new Enum("OCC0050", 10), new Enum("OCC0055", 11), new Enum("OCC0060", 12), new Enum("OCC0065", 13), new Enum("OCC0070", 14), new Enum("OCC0075", 15), new Enum("OCC0080", 16), new Enum("OCC0085", 17), new Enum("OCC0090", 18), new Enum("OCC0095", 19), new Enum("OCC0100", 20), new Enum("OCC0105", 21), new Enum("OCC0110", 22), new Enum("OCC0115", 23), new Enum("OCC0120", 24), new Enum("OCC0125", 25), new Enum("OCC0130", 26), new Enum("OCC0135", 27), new Enum("OCC0140", 28), new Enum("OCC0145", 29), new Enum("OCC0150", 30), new Enum("OCC0155", 31), new Enum("OCC0160", 32), new Enum("OCC0165", 33), new Enum("OCC0170", 34), new Enum("OCC0175", 35), new Enum("OCC0180", 36), new Enum("OCC0185", 37), new Enum("OCC0190", 38), new Enum("OCC0195", 39), new Enum("OCC0200", 40), new Enum("OCC0205", 41), new Enum("OCC0210", 42), new Enum("OCC0215", 43), new Enum("OCC0220", 44), new Enum("OCC0225", 45), new Enum("OCC0230", 46), new Enum("OCC0235", 47), new Enum("OCC0240", 48), new Enum("OCC0245", 49), new Enum("OCC0250", 50), new Enum("OCC0255", 51), new Enum("OCC0260", 52), new Enum("OCC0265", 53), new Enum("OCC0270", 54), new Enum("OCC0275", 55), new Enum("OCC0280", 56), new Enum("OCC0285", 57), new Enum("OCC0290", 58), new Enum("OCC0295", 59), new Enum("OCC0300", 60), new Enum("OCC0305", 61), new Enum("OCC0310", 62), new Enum("OCC0315", 63), new Enum("OCC0320", 64), new Enum("OCC0325", 65), new Enum("OCC0330", 66), new Enum("OCC0335", 67), new Enum("OCC0340", 68), new Enum("OCC0345", 69), new Enum("OCC0350", 70), new Enum("OCC0355", 71), new Enum("OCC0360", 72), new Enum("OCC0365", 73), new Enum("OCC0370", 74), new Enum("OCC0375", 75), new Enum("OCC0380", 76), new Enum("OCC0385", 77), new Enum("OCC0390", 78), new Enum("OCC0395", 79), new Enum("OCC0400", 80), new Enum("OCC0405", 81), new Enum("OCC0410", 82), new Enum("OCC0415", 83), new Enum("OCC0420", 84), new Enum("OCC0425", 85), new Enum("OCC0430", 86), new Enum("OCC0435", 87), new Enum("OCC0440", 88), new Enum("OCC0445", 89), new Enum("OCC0450", 90), new Enum("OCC0455", 91), new Enum("OCC0460", 92), new Enum("OCC0465", 93), new Enum("OCC0470", 94), new Enum("OCC0475", 95), new Enum("OCC0480", 96), new Enum("OCC0485", 97), new Enum("OCC0490", 98), new Enum("OCC0495", 99), new Enum("OCC0500", 100), new Enum("OCC0505", 101), new Enum("OCC0510", 102), new Enum("OCC0515", 103), new Enum("OCC0520", 104), new Enum("OCC0525", 105), new Enum("OCC0530", 106), new Enum("OCC0535", 107), new Enum("OCC0540", 108), new Enum("OCC0545", 109), new Enum("OCC0550", 110), new Enum("OCC0555", 111), new Enum("OCC0560", 112), new Enum("OCC0565", 113), new Enum("OCC0570", 114), new Enum("OCC0575", 115), new Enum("OCC0580", 116), new Enum("OCC0585", 117), new Enum("OCC0590", 118), new Enum("OCC0595", 119), new Enum("OCC0600", 120), new Enum("OCC0605", 121), new Enum("OCC0610", 122), new Enum("OCC0615", 123), new Enum("OCC0620", 124), new Enum("OCC0625", 125), new Enum("OCC0630", 126), new Enum("OCC0635", 127), new Enum("OCC0640", 128), new Enum("OCC0645", 129), new Enum("OCC0650", 130), new Enum("OCC0655", 131), new Enum("OCC0660", 132), new Enum("OCC0665", 133), new Enum("OCC0670", 134), new Enum("OCC0675", 135), new Enum("OCC0680", 136), new Enum("OCC0685", 137), new Enum("OCC0690", 138), new Enum("OCC0695", 139), new Enum("OCC0700", 140), new Enum("OCC0705", 141), new Enum("OCC0710", 142), new Enum("OCC0715", 143), new Enum("OCC0720", 144), new Enum("OCC0725", 145), new Enum("OCC0730", 146), new Enum("OCC0735", 147), new Enum("OCC0740", 148), new Enum("OCC0745", 149), new Enum("OCC0750", 150), new Enum("OCC0755", 151), new Enum("OCC0760", 152), new Enum("OCC0765", 153), new Enum("OCC0770", 154), new Enum("OCC0775", 155), new Enum("OCC0780", 156), new Enum("OCC0785", 157), new Enum("OCC0790", 158), new Enum("OCC0795", 159), new Enum("OCC0800", 160), new Enum("OCC0805", 161), new Enum("OCC0810", 162), new Enum("OCC0815", 163), new Enum("OCC0820", 164), new Enum("OCC0825", 165), new Enum("OCC0830", 166), new Enum("OCC0835", 167), new Enum("OCC0840", 168), new Enum("OCC0845", 169), new Enum("OCC0850", 170), new Enum("OCC0855", 171), new Enum("OCC0860", 172), new Enum("OCC0865", 173), new Enum("OCC0870", 174), new Enum("OCC0875", 175), new Enum("OCC0880", 176), new Enum("OCC0885", 177), new Enum("OCC0890", 178), new Enum("OCC0895", 179), new Enum("OCC0900", 180), new Enum("OCC0905", 181), new Enum("OCC0910", 182), new Enum("OCC0915", 183), new Enum("OCC0920", 184), new Enum("OCC0925", 185), new Enum("OCC0930", 186), new Enum("OCC0935", 187), new Enum("OCC0940", 188), new Enum("OCC0945", 189), new Enum("OCC0950", 190), new Enum("OCC0955", 191), new Enum("OCC0960", 192), new Enum("OCC0965", 193), new Enum("OCC0970", 194), new Enum("OCC0975", 195), new Enum("OCC0980", 196), new Enum("OCC0985", 197), new Enum("OCC0990", 198), new Enum("OCC0995", 199), new Enum("OCC1000", 200), new Enum("OCC1005", 201), new Enum("OCC1010", 202), new Enum("OCC1015", 203), new Enum("OCC1020", 204), new Enum("OCC1025", 205), new Enum("OCC1030", 206), new Enum("OCC1035", 207), new Enum("OCC1040", 208), new Enum("OCC1045", 209), new Enum("OCC1050", 210), new Enum("OCC1055", 211), new Enum("OCC1060", 212), new Enum("OCC1065", 213), new Enum("OCC1070", 214), new Enum("OCC1075", 215), new Enum("OCC1080", 216), new Enum("OCC1085", 217), new Enum("OCC1090", 218), new Enum("OCC1095", 219), new Enum("OCC1100", 220), new Enum("OCC1105", 221), new Enum("OCC1110", 222), new Enum("OCC1115", 223), new Enum("OCC1120", 224), new Enum("OCC1125", 225), new Enum("OCC1130", 226), new Enum("OCC1135", 227), new Enum("OCC1140", 228), new Enum("OCC1145", 229), new Enum("OCC1150", 230), new Enum("OCC1155", 231), new Enum("OCC1160", 232), new Enum("OCC1165", 233), new Enum("OCC1170", 234), new Enum("OCC1175", 235), new Enum("OCC1180", 236), new Enum("OCC1185", 237), new Enum("OCC1190", 238), new Enum("OCC1195", 239), new Enum("OCC1200", 240), new Enum("OCC1205", 241), new Enum("OCC1210", 242), new Enum("OCC1215", 243), new Enum("OCC1220", 244), new Enum("OCC1225", 245), new Enum("OCC1230", 246), new Enum("OCC1235", 247), new Enum("OCC1240", 248), new Enum("OCC1245", 249), new Enum("OCC1250", 250), new Enum("OCC1255", 251), new Enum("OCC1260", 252), new Enum("OCC1265", 253), new Enum("OCC1270", 254), new Enum("OCC1275", 255), new Enum("OCC1280", 256), new Enum("OCC1285", 257), new Enum("OCC1290", 258), new Enum("OTHER", 259) });
                 }
             }
-            
+
+            /**
+             * Factory class for creating occupation Value instances.
+             *
+             * <p>Provides static factory methods for creating new Value objects with proper
+             * XMLBeans type initialization and schema validation.</p>
+             *
+             * @since 2026-01-24
+             */
             public static final class Factory
             {
+                /**
+                 * Creates a new Value instance from an object.
+                 * Converts the object to the appropriate occupation code value.
+                 *
+                 * @param obj Object the source object to convert to a Value
+                 * @return Value a new occupation value instance
+                 */
                 public static Value newValue(final Object obj) {
                     return (Value)Value.type.newValue(obj);
                 }
-                
+
+                /**
+                 * Creates a new empty Value instance with default options.
+                 *
+                 * @return Value a new occupation value instance
+                 */
                 public static Value newInstance() {
                     return (Value)XmlBeans.getContextTypeLoader().newInstance(Value.type, (XmlOptions)null);
                 }
-                
+
+                /**
+                 * Creates a new empty Value instance with specified XMLBeans options.
+                 *
+                 * @param options XmlOptions the XML options for instance creation
+                 * @return Value a new occupation value instance
+                 */
                 public static Value newInstance(final XmlOptions options) {
                     return (Value)XmlBeans.getContextTypeLoader().newInstance(Value.type, options);
                 }
-                
+
+                /**
+                 * Private constructor to prevent instantiation.
+                 * Factory methods are static.
+                 */
                 private Factory() {
                 }
             }
         }
-        
+
+        /**
+         * Factory class for creating Occupation instances.
+         *
+         * <p>Provides static factory methods for creating new Occupation objects with proper
+         * XMLBeans type initialization and schema validation.</p>
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates a new empty Occupation instance with default options.
+             *
+             * @return Occupation a new occupation instance
+             */
             public static Occupation newInstance() {
                 return (Occupation)XmlBeans.getContextTypeLoader().newInstance(Occupation.type, (XmlOptions)null);
             }
-            
+
+            /**
+             * Creates a new empty Occupation instance with specified XMLBeans options.
+             *
+             * @param options XmlOptions the XML options for instance creation
+             * @return Occupation a new occupation instance
+             */
             public static Occupation newInstance(final XmlOptions options) {
                 return (Occupation)XmlBeans.getContextTypeLoader().newInstance(Occupation.type, options);
             }
-            
+
+            /**
+             * Private constructor to prevent instantiation.
+             * Factory methods are static.
+             */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * Education level classification interface for partner demographic information.
+     *
+     * <p>Provides standardized education attainment coding for the patient's partner using a classification
+     * system with 6 defined education levels (ED001-ED006) plus a UN (unknown) option.</p>
+     *
+     * <p>Education level data is important for:</p>
+     * <ul>
+     *   <li>Socioeconomic status assessment in prenatal care</li>
+     *   <li>Health literacy and education needs evaluation</li>
+     *   <li>Social determinants of health documentation</li>
+     *   <li>Patient education and communication strategy planning</li>
+     * </ul>
+     *
+     * <p>The education level classification supports comprehensive family assessment and helps healthcare
+     * providers tailor education materials and communication approaches appropriately.</p>
+     *
+     * @see PartnerInformation
+     * @since 2026-01-24
+     */
     public interface EducationLevel extends XmlString
     {
+        /**
+         * XMLBeans schema type for education level classification.
+         * Used internally by Apache XMLBeans for type resolution and validation.
+         */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(EducationLevel.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("educationlevel26c3elemtype");
+        /** Education level code ED001 enumeration constant. */
         public static final Enum ED_001 = Enum.forString("ED001");
+        /** Education level code ED002 enumeration constant. */
         public static final Enum ED_002 = Enum.forString("ED002");
+        /** Education level code ED003 enumeration constant. */
         public static final Enum ED_003 = Enum.forString("ED003");
+        /** Education level code ED004 enumeration constant. */
         public static final Enum ED_004 = Enum.forString("ED004");
+        /** Education level code ED005 enumeration constant. */
         public static final Enum ED_005 = Enum.forString("ED005");
+        /** Education level code ED006 enumeration constant. */
         public static final Enum ED_006 = Enum.forString("ED006");
+        /** Unknown education level (UN) enumeration constant. */
         public static final Enum UN = Enum.forString("UN");
+        /** Integer constant for ED001 education level (1). */
         public static final int INT_ED_001 = 1;
+        /** Integer constant for ED002 education level (2). */
         public static final int INT_ED_002 = 2;
+        /** Integer constant for ED003 education level (3). */
         public static final int INT_ED_003 = 3;
+        /** Integer constant for ED004 education level (4). */
         public static final int INT_ED_004 = 4;
+        /** Integer constant for ED005 education level (5). */
         public static final int INT_ED_005 = 5;
+        /** Integer constant for ED006 education level (6). */
         public static final int INT_ED_006 = 6;
+        /** Integer constant for UN (unknown) education level (7). */
         public static final int INT_UN = 7;
-        
+
+        /**
+         * Gets the enumeration value as a StringEnumAbstractBase.
+         * Provides access to the underlying enumeration base for advanced type operations.
+         *
+         * @return StringEnumAbstractBase the enumeration value base object
+         */
         StringEnumAbstractBase enumValue();
-        
+
+        /**
+         * Sets the education level value using a StringEnumAbstractBase enumeration.
+         * Allows setting with base enumeration type for framework interoperability.
+         *
+         * @param p0 StringEnumAbstractBase the enumeration value to set
+         */
         void set(final StringEnumAbstractBase p0);
-        
+
+        /**
+         * Enumeration implementation for education level classification values.
+         *
+         * <p>Provides concrete enumeration instances for all 7 education level codes (ED001-ED006 and UN),
+         * extending StringEnumAbstractBase to integrate with the Apache XMLBeans type system.</p>
+         *
+         * <p>Each enum instance maps to both a string representation (e.g., "ED001") and an
+         * integer value (1-7) for efficient storage and comparison operations.</p>
+         *
+         * @since 2026-01-24
+         */
         public static final class Enum extends StringEnumAbstractBase
         {
+            /** Integer constant for ED001 education level (1). */
             static final int INT_ED_001 = 1;
+            /** Integer constant for ED002 education level (2). */
             static final int INT_ED_002 = 2;
+            /** Integer constant for ED003 education level (3). */
             static final int INT_ED_003 = 3;
+            /** Integer constant for ED004 education level (4). */
             static final int INT_ED_004 = 4;
+            /** Integer constant for ED005 education level (5). */
             static final int INT_ED_005 = 5;
+            /** Integer constant for ED006 education level (6). */
             static final int INT_ED_006 = 6;
+            /** Integer constant for UN (unknown) education level (7). */
             static final int INT_UN = 7;
+            /** Lookup table mapping string and integer values to enumeration instances. */
             public static final StringEnumAbstractBase.Table table;
+            /** Serialization version identifier. */
             private static final long serialVersionUID = 1L;
-            
+
+            /**
+             * Looks up an enumeration instance by its string representation.
+             *
+             * @param s String the education level code string (e.g., "ED001", "UN")
+             * @return Enum the corresponding enumeration instance, or null if not found
+             */
             public static Enum forString(final String s) {
                 return (Enum)Enum.table.forString(s);
             }
-            
+
+            /**
+             * Looks up an enumeration instance by its integer value.
+             *
+             * @param i int the education level code integer (1-7)
+             * @return Enum the corresponding enumeration instance, or null if not found
+             */
             public static Enum forInt(final int i) {
                 return (Enum)Enum.table.forInt(i);
             }
-            
+
+            /**
+             * Private constructor for enumeration instances.
+             * Called during static initialization to create all 7 education level code instances.
+             *
+             * @param s String the education level code string representation
+             * @param i int the education level code integer value
+             */
             private Enum(final String s, final int i) {
                 super(s, i);
             }
-            
+
+            /**
+             * Resolves the enumeration instance during deserialization.
+             * Ensures singleton semantics by returning the canonical instance from the lookup table.
+             *
+             * @return Object the canonical enumeration instance for this integer value
+             */
             private Object readResolve() {
                 return forInt(this.intValue());
             }
@@ -979,135 +1407,391 @@ public interface PartnerInformation extends XmlObject
                 table = new StringEnumAbstractBase.Table((StringEnumAbstractBase[])new Enum[] { new Enum("ED001", 1), new Enum("ED002", 2), new Enum("ED003", 3), new Enum("ED004", 4), new Enum("ED005", 5), new Enum("ED006", 6), new Enum("UN", 7) });
             }
         }
-        
+
+        /**
+         * Factory class for creating EducationLevel instances.
+         *
+         * <p>Provides static factory methods for creating new EducationLevel objects with proper
+         * XMLBeans type initialization and schema validation.</p>
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates a new EducationLevel instance from an object.
+             * Converts the object to the appropriate education level code value.
+             *
+             * @param obj Object the source object to convert to an EducationLevel
+             * @return EducationLevel a new education level instance
+             */
             public static EducationLevel newValue(final Object obj) {
                 return (EducationLevel)EducationLevel.type.newValue(obj);
             }
-            
+
+            /**
+             * Creates a new empty EducationLevel instance with default options.
+             *
+             * @return EducationLevel a new education level instance
+             */
             public static EducationLevel newInstance() {
                 return (EducationLevel)XmlBeans.getContextTypeLoader().newInstance(EducationLevel.type, (XmlOptions)null);
             }
-            
+
+            /**
+             * Creates a new empty EducationLevel instance with specified XMLBeans options.
+             *
+             * @param options XmlOptions the XML options for instance creation
+             * @return EducationLevel a new education level instance
+             */
             public static EducationLevel newInstance(final XmlOptions options) {
                 return (EducationLevel)XmlBeans.getContextTypeLoader().newInstance(EducationLevel.type, options);
             }
-            
+
+            /**
+             * Private constructor to prevent instantiation.
+             * Factory methods are static.
+             */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * Age interface for partner demographic information.
+     *
+     * <p>Provides type-safe integer representation of the partner's age in years. Age data is important
+     * for comprehensive family assessment, genetic risk evaluation, and social determinants of health
+     * documentation in maternal care.</p>
+     *
+     * <p>The Age interface extends XmlInt to provide XMLBeans type validation and ensures proper
+     * schema compliance for age data in BCAR form submissions.</p>
+     *
+     * @see PartnerInformation
+     * @since 2026-01-24
+     */
     public interface Age extends XmlInt
     {
+        /**
+         * XMLBeans schema type for age data.
+         * Used internally by Apache XMLBeans for type resolution and validation.
+         */
         public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(Age.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("age0010elemtype");
-        
+
+        /**
+         * Factory class for creating Age instances.
+         *
+         * <p>Provides static factory methods for creating new Age objects with proper
+         * XMLBeans type initialization and schema validation.</p>
+         *
+         * @since 2026-01-24
+         */
         public static final class Factory
         {
+            /**
+             * Creates a new Age instance from an object.
+             * Converts the object to an integer age value.
+             *
+             * @param obj Object the source object to convert to an Age
+             * @return Age a new age instance
+             */
             public static Age newValue(final Object obj) {
                 return (Age)Age.type.newValue(obj);
             }
-            
+
+            /**
+             * Creates a new empty Age instance with default options.
+             *
+             * @return Age a new age instance
+             */
             public static Age newInstance() {
                 return (Age)XmlBeans.getContextTypeLoader().newInstance(Age.type, (XmlOptions)null);
             }
-            
+
+            /**
+             * Creates a new empty Age instance with specified XMLBeans options.
+             *
+             * @param options XmlOptions the XML options for instance creation
+             * @return Age a new age instance
+             */
             public static Age newInstance(final XmlOptions options) {
                 return (Age)XmlBeans.getContextTypeLoader().newInstance(Age.type, options);
             }
-            
+
+            /**
+             * Private constructor to prevent instantiation.
+             * Factory methods are static.
+             */
             private Factory() {
             }
         }
     }
-    
+
+    /**
+     * Factory class for creating PartnerInformation instances.
+     *
+     * <p>Provides comprehensive static factory methods for creating new PartnerInformation objects
+     * with proper XMLBeans type initialization and schema validation. Includes methods for parsing
+     * partner information data from various sources including strings, files, URLs, streams, readers,
+     * and DOM nodes.</p>
+     *
+     * <p>The factory supports both default and custom XmlOptions for fine-grained control over
+     * parsing behavior, validation, and error handling during partner information deserialization.</p>
+     *
+     * @since 2026-01-24
+     */
     public static final class Factory
     {
+        /**
+         * Creates a new empty PartnerInformation instance with default options.
+         *
+         * @return PartnerInformation a new partner information instance
+         */
         public static PartnerInformation newInstance() {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().newInstance(PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Creates a new empty PartnerInformation instance with specified XMLBeans options.
+         *
+         * @param options XmlOptions the XML options for instance creation
+         * @return PartnerInformation a new partner information instance
+         */
         public static PartnerInformation newInstance(final XmlOptions options) {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().newInstance(PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from an XML string with default options.
+         *
+         * @param xmlAsString String the XML document to parse
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         */
         public static PartnerInformation parse(final String xmlAsString) throws XmlException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(xmlAsString, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from an XML string with specified options.
+         *
+         * @param xmlAsString String the XML document to parse
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         */
         public static PartnerInformation parse(final String xmlAsString, final XmlOptions options) throws XmlException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(xmlAsString, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from a File with default options.
+         *
+         * @param file File the file containing the XML document
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs reading the file
+         */
         public static PartnerInformation parse(final File file) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(file, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from a File with specified options.
+         *
+         * @param file File the file containing the XML document
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs reading the file
+         */
         public static PartnerInformation parse(final File file, final XmlOptions options) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(file, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from a URL with default options.
+         *
+         * @param u URL the URL pointing to the XML document
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs accessing the URL
+         */
         public static PartnerInformation parse(final URL u) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(u, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from a URL with specified options.
+         *
+         * @param u URL the URL pointing to the XML document
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs accessing the URL
+         */
         public static PartnerInformation parse(final URL u, final XmlOptions options) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(u, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from an InputStream with default options.
+         *
+         * @param is InputStream the input stream containing the XML document
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs reading the stream
+         */
         public static PartnerInformation parse(final InputStream is) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(is, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from an InputStream with specified options.
+         *
+         * @param is InputStream the input stream containing the XML document
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs reading the stream
+         */
         public static PartnerInformation parse(final InputStream is, final XmlOptions options) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(is, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from a Reader with default options.
+         *
+         * @param r Reader the reader providing the XML document
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs reading from the reader
+         */
         public static PartnerInformation parse(final Reader r) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(r, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from a Reader with specified options.
+         *
+         * @param r Reader the reader providing the XML document
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws IOException if an I/O error occurs reading from the reader
+         */
         public static PartnerInformation parse(final Reader r, final XmlOptions options) throws XmlException, IOException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(r, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from an XMLStreamReader with default options.
+         *
+         * @param sr XMLStreamReader the stream reader positioned at the XML document
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         */
         public static PartnerInformation parse(final XMLStreamReader sr) throws XmlException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(sr, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from an XMLStreamReader with specified options.
+         *
+         * @param sr XMLStreamReader the stream reader positioned at the XML document
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         */
         public static PartnerInformation parse(final XMLStreamReader sr, final XmlOptions options) throws XmlException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(sr, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from a DOM Node with default options.
+         *
+         * @param node Node the DOM node representing the XML element
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         */
         public static PartnerInformation parse(final Node node) throws XmlException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(node, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from a DOM Node with specified options.
+         *
+         * @param node Node the DOM node representing the XML element
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         */
         public static PartnerInformation parse(final Node node, final XmlOptions options) throws XmlException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(node, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Parses partner information from an XMLInputStream with default options.
+         *
+         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader instead.
+         * @param xis XMLInputStream the input stream containing the XML document
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws XMLStreamException if an error occurs processing the XML stream
+         */
         @Deprecated
         public static PartnerInformation parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(xis, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Parses partner information from an XMLInputStream with specified options.
+         *
+         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader instead.
+         * @param xis XMLInputStream the input stream containing the XML document
+         * @param options XmlOptions the parsing options
+         * @return PartnerInformation the parsed partner information instance
+         * @throws XmlException if the XML is malformed or does not conform to the schema
+         * @throws XMLStreamException if an error occurs processing the XML stream
+         */
         @Deprecated
         public static PartnerInformation parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(xis, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Creates a validating XMLInputStream wrapper with default options.
+         *
+         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader with validation instead.
+         * @param xis XMLInputStream the input stream to wrap with validation
+         * @return XMLInputStream a validating wrapper around the input stream
+         * @throws XmlException if validation setup fails
+         * @throws XMLStreamException if an error occurs setting up the validation stream
+         */
         @Deprecated
         public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
             return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PartnerInformation.type, (XmlOptions)null);
         }
-        
+
+        /**
+         * Creates a validating XMLInputStream wrapper with specified options.
+         *
+         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader with validation instead.
+         * @param xis XMLInputStream the input stream to wrap with validation
+         * @param options XmlOptions the validation options
+         * @return XMLInputStream a validating wrapper around the input stream
+         * @throws XmlException if validation setup fails
+         * @throws XMLStreamException if an error occurs setting up the validation stream
+         */
         @Deprecated
         public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
             return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PartnerInformation.type, options);
         }
-        
+
+        /**
+         * Private constructor to prevent instantiation.
+         * Factory methods are static.
+         */
         private Factory() {
         }
     }

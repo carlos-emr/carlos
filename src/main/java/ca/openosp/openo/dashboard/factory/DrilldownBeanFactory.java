@@ -26,7 +26,7 @@ package ca.openosp.openo.dashboard.factory;
 
 import java.util.List;
 
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.commn.model.IndicatorTemplate;
 import ca.openosp.openo.dashboard.display.beans.DrilldownBean;
@@ -106,7 +106,7 @@ public class DrilldownBeanFactory {
     private void setDrilldownBean(DrilldownBean drilldownBean) {
         // copy what is available in the entity bean
         try {
-            BeanUtils.copyProperties(drilldownBean, getIndicatorTemplate());
+            BeanUtils.copyProperties(getIndicatorTemplate(), drilldownBean);
         } catch (Exception e) {
             logger.error("Error while copying IndicatorTemplate entity id " + getIndicatorTemplate().getId(), e);
         }

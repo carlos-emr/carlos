@@ -24,9 +24,9 @@
 package ca.openosp.openo.appt.status.service.impl;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
-import org.apache.commons.beanutils.BeanComparator;
 import ca.openosp.openo.commn.dao.AppointmentStatusDao;
 import ca.openosp.openo.commn.model.AppointmentStatus;
 import ca.openosp.openo.utility.SpringUtils;
@@ -53,7 +53,7 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     @SuppressWarnings("unchecked")
     public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
-        Collections.sort(cachedActiveStatuses, new BeanComparator("id"));
+        Collections.sort(cachedActiveStatuses, Comparator.comparing(AppointmentStatus::getId));
         AppointmentStatusMgrImpl.cachedActiveStatuses = cachedActiveStatuses;
     }
 

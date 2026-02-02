@@ -71,7 +71,6 @@ import ca.openosp.openo.webserv.rest.to.model.MenuTo1;
 import ca.openosp.openo.webserv.rest.to.model.NavBarMenuTo1;
 import ca.openosp.openo.webserv.rest.to.model.PatientListConfigTo1;
 import ca.openosp.openo.webserv.rest.to.model.ProgramProviderTo1;
-import ca.openosp.openo.webserv.rest.util.ClinicalConnectUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -250,11 +249,6 @@ public class PersonaService extends AbstractServiceImpl {
         MenuTo1 moreMenuList = new MenuTo1()
                 .addWithState(idCounter++, bundle.getString("navbar.menu.reports"), null, "reports")
                 .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/documentReport.jsp?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
-
-
-        if (ClinicalConnectUtil.isReady(provider.getProviderNo())) {
-            moreMenuList.add(idCounter++, bundle.getString("navbar.menu.clinicalconnect"), null, "../commons/ClinicalConnectRedirect.jsp", "clinicalconnect");
-        }
 
 
         List<Dashboard> dashboards = dashboardManager.getDashboards(getLoggedInInfo());

@@ -42,8 +42,6 @@ import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
-import org.jpedal.PdfDecoder;
-import org.jpedal.fonts.FontMappings;
 import ca.openosp.openo.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import ca.openosp.openo.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import ca.openosp.openo.PMmodule.model.ProgramProvider;
@@ -554,9 +552,24 @@ public class ManageDocument2Action extends ActionSupport {
             parser.parse();
             PDDocument pdf = parser.getPDDocument();
 
+            // Validate page number is within bounds
+            if (pageNum == null) {
+                log.error("Page number is null for document " + d.getDocfilename());
+                pdf.close();
+                return null;
+            }
+
+            int pageIndex = pageNum - 1;
+            int totalPages = pdf.getNumberOfPages();
+            if (pageIndex < 0 || pageIndex >= totalPages) {
+                log.error("Invalid page number " + pageNum + " for document " + d.getDocfilename() + " with " + totalPages + " pages");
+                pdf.close();
+                return null;
+            }
+
             PDFRenderer rend = new PDFRenderer(pdf);
             //Page index starts at 0, subtracts 1 to account for that
-            BufferedImage image = rend.renderImageWithDPI(pageNum - 1, 90, ImageType.RGB);
+            BufferedImage image = rend.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
 
             // write cache file
             ImageIO.write(image, "png", pngFile.toFile());
@@ -1217,7 +1230,7 @@ public class ManageDocument2Action extends ActionSupport {
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
 
         if (pageNum == null) {
-            pageNum = "0";
+            pageNum = "1";
         }
 
         int pageNumber = Integer.parseInt(pageNum);
@@ -1227,8 +1240,21 @@ public class ManageDocument2Action extends ActionSupport {
 
         try {
             PDDocument reader = PDDocument.load(file);
+
+            // Validate page number is within bounds
+            int pageIndex = pageNumber - 1;
+            int totalPages = reader.getNumberOfPages();
+            if (pageIndex < 0 || pageIndex >= totalPages) {
+                log.error("Invalid page number " + pageNumber + " for PDF " + sanitizedPdfName + " with " + totalPages + " pages");
+                reader.close();
+                response.setContentType("text/html");
+                response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
+                response.getWriter().print("<br>Invalid page number");
+                return;
+            }
+
             PDDocument extractedPage = new PDDocument();
-            extractedPage.addPage(reader.getDocumentCatalog().getPages().get(pageNumber - 1));
+            extractedPage.addPage(reader.getDocumentCatalog().getPages().get(pageIndex));
             extractedPage.save(response.getOutputStream());
             extractedPage.close();
             reader.close();
@@ -1359,7 +1385,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         if (pageNum == null) {
-            pageNum = "0";
+            pageNum = "1";
         }
 
         BufferedInputStream bfis = null;
@@ -1433,38 +1459,41 @@ public class ManageDocument2Action extends ActionSupport {
         File file = new File(documentDir, sanitizedPdfName);
         PathValidationUtils.validateExistingPath(file, baseDir);
 
-        PdfDecoder decode_pdf = new PdfDecoder(true);
-
         // Re-validate file path at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
-        try (FileInputStream is = new FileInputStream(validatedFile)) {
 
-            FontMappings.setFontReplacements();
+        try (PDDocument document = PDDocument.load(validatedFile)) {
+            PDFRenderer renderer = new PDFRenderer(document);
 
-            decode_pdf.useHiResScreenDisplay(true);
+            // Validate page number is within bounds
+            if (pageNum == null) {
+                log.error("Page number is null for PDF " + pdfDir + File.separator + sanitizedPdfName);
+                return null;
+            }
 
-            decode_pdf.setExtractionMode(0, 96, 96 / 72f);
+            int pageIndex = pageNum - 1;
+            int totalPages = document.getNumberOfPages();
+            if (pageIndex < 0 || pageIndex >= totalPages) {
+                log.error("Invalid page number " + pageNum + " for PDF " + pdfDir + File.separator + sanitizedPdfName + " with " + totalPages + " pages");
+                return null;
+            }
 
-            decode_pdf.openPdfFileFromInputStream(is, false);
-
-            BufferedImage image_to_save = decode_pdf.getPageAsImage(pageNum);
+            // Render at 96 DPI to match jpedal settings (96 DPI / 72 DPI = 1.33 scale)
+            // Note: PDFBox uses 0-based page indexing, jpedal uses 1-based
+            BufferedImage image_to_save = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
 
             // Use sanitized filename for cache file and validate path
             String cacheFileName = sanitizedPdfName.substring(0, sanitizedPdfName.lastIndexOf('.')) + "_" + pageNum + ".png";
             File cacheFile = PathValidationUtils.validatePath(cacheFileName, documentCacheDir);
 
-            decode_pdf.getObjectStore().saveStoredImage(cacheFile.getCanonicalPath(), image_to_save, true, false, "png");
-
-            decode_pdf.flushObjectValues(true);
+            // Write PNG using standard ImageIO
+            ImageIO.write(image_to_save, "png", cacheFile);
+            image_to_save.flush();
 
             return cacheFile;
         } catch (Exception e) {
-            log.error("Error decoding pdf file " + pdfDir + sanitizedPdfName);
+            log.error("Error decoding pdf file " + pdfDir + File.separator + sanitizedPdfName, e);
             return null;
-        } finally {
-            if (decode_pdf != null) {
-                decode_pdf.closePdfFile();
-            }
         }
     }
 

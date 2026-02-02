@@ -23,7 +23,7 @@
 
 package ca.openosp.openo.commn.model;
 
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import ca.openosp.openo.PMmodule.utility.DateTimeFormatUtils;
@@ -32,7 +32,6 @@ import ca.openosp.openo.utility.MiscUtils;
 import org.owasp.encoder.Encode;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -195,10 +194,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     public Demographic(Demographic d) {
         try {
-            BeanUtils.copyProperties(this, d);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        } catch (InvocationTargetException e) {
+            BeanUtils.copyProperties(d, this);
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

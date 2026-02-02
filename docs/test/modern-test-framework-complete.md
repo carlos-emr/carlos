@@ -4,7 +4,7 @@
 
 A comprehensive modern test framework has been successfully implemented for OpenO EMR using JUnit 5 (Jupiter). The framework runs alongside existing JUnit 4 tests with zero impact on legacy code, allowing gradual migration while immediately enabling modern testing practices for new development.
 
-**Key Achievement**: Successfully implemented 23 comprehensive tests (12 unit + 11 integration), achieving 96% pass rate (23/24 tests passing).
+**Key Achievement**: Successfully implemented 141 comprehensive tests (129 unit + 12 integration), achieving 99% pass rate (140/141 tests passing).
 
 ## Table of Contents
 1. [Architecture Overview](#architecture-overview)
@@ -50,15 +50,21 @@ workspace/
 │       │       │   │   ├── OpenOTestBase.java
 │       │       │   │   ├── OpenODaoTestBase.java
 │       │       │   │   └── OpenOWebTestBase.java
+│       │       │   ├── unit/        # Unit test base classes
+│       │       │   │   └── OpenOUnitTestBase.java
 │       │       │   ├── examples/    # Example tests
 │       │       │   ├── mocks/       # Mock implementations
 │       │       │   │   └── MockSecurityInfoManager.java
-│       │       │   └── simple/       # Framework validation tests
-│       │       └── tickler/          # Domain-specific tests
+│       │       │   └── simple/      # Framework validation tests
+│       │       ├── managers/        # Manager layer unit tests
+│       │       │   ├── DemographicUnitTestBase.java    # Base with test data builders
+│       │       │   └── DemographicManagerUnitTest.java # 117 tests, 18 @Nested classes
+│       │       └── tickler/         # Domain-specific tests
 │       │           ├── dao/
 │       │           │   └── Multiple test files (11 integration + 3 unit tests)
-│       │           └── manager/
-│       │               └── SimpleTicklerManagerTest.java
+│       │           ├── manager/
+│       │           │   └── TicklerManagerUnitTest.java
+│       │           └── TicklerUnitTestBase.java
 │       └── resources/
 │           ├── META-INF/
 │           │   └── persistence.xml   # JPA configuration
@@ -168,7 +174,7 @@ public abstract class OpenOTestBase {
 
 ```xml
 <!-- H2 Database Configuration -->
-<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource">
     <property name="driverClassName" value="org.h2.Driver" />
     <property name="url" value="jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1" />
     <property name="username" value="sa" />
@@ -329,7 +335,7 @@ make install --run-tests
 
 ### Successfully Demonstrated Features
 
-Based on the 23 implemented tests:
+Based on the 141 implemented tests (129 unit + 12 integration):
 
 #### ✅ Database Operations
 - CRUD operations (Create, Read, Update, Delete)
@@ -363,17 +369,19 @@ Based on the 23 implemented tests:
 From actual test execution:
 - **Setup Time**: ~2 seconds for Spring context
 - **Test Execution**: < 300ms per test average
-- **Total Time**: < 4 seconds for all tests
+- **Total Time**: < 30 seconds for all 141 tests
 - **Memory Usage**: < 512MB heap
-- **Success Rate**: 96% (23/24 passing)
+- **Success Rate**: 99% (140/141 passing)
 
 ## Current Implementation Status
 
 - ✅ Modern framework operational with JUnit 5
 - ✅ Both test suites (modern JUnit 5 and legacy JUnit 4) run independently
 - ✅ No impact on existing tests
-- ✅ 23 of 24 tests passing (96% pass rate)
+- ✅ 140 of 141 tests passing (99% pass rate)
 - ✅ Full Java 21 compatibility with ByteBuddy experimental flag
+- ✅ Manager unit test patterns proven with 117-test DemographicManagerUnitTest
+- ✅ Domain-specific base classes demonstrated (DemographicUnitTestBase, TicklerUnitTestBase)
 
 ## Required Configurations for OpenO
 
@@ -561,6 +569,6 @@ New tests should be written in `src/test-modern/` using JUnit 5 and the establis
 
 ---
 
-*Last Updated: September 2025*
-*Version: 1.0*
+*Last Updated: January 2026*
+*Version: 1.1*
 *Status: Production Ready*

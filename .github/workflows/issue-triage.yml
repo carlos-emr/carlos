@@ -1,0 +1,184 @@
+# .github/workflows/issue-triage.yml
+name: Auto-triage Issues
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  add-to-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add to Project and Set Fields
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const projectId = 'PVT_kwDOCaYIIc4AoYdb';
+            const statusFieldId = 'PVTSSF_lADOCaYIIc4AoYdbzgf9plc';
+            const kindFieldId = 'PVTSSF_lADOCaYIIc4AoYdbzg8c-5E';
+            const needsTriageId = '3ae30e07';
+            const taskId = 'af86fb80';
+
+            async function run() {
+              try {
+                const issueNodeId = context.payload.issue.node_id;
+                const issueNumber = context.payload.issue.number;
+
+                // Check if issue already exists in the project
+                console.log(`Checking if issue #${issueNumber} already exists in project...`);
+                const existingItems = await github.graphql(`
+                  query($issueId: ID!) {
+                    node(id: $issueId) {
+                      ... on Issue {
+                        projectItems(first: 20) {
+                          nodes {
+                            id
+                            project {
+                              id
+                            }
+                            fieldValues(first: 20) {
+                              nodes {
+                                ... on ProjectV2ItemFieldSingleSelectValue {
+                                  field {
+                                    ... on ProjectV2SingleSelectField {
+                                      id
+                                      name
+                                    }
+                                  }
+                                  optionId
+                                  name
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `, {
+                  issueId: issueNodeId
+                });
+
+                // Find if issue is already in this specific project
+                let itemId = null;
+                let currentStatusOptionId = null;
+                let currentKindOptionId = null;
+
+                const projectItems = existingItems?.node?.projectItems?.nodes || [];
+                for (const item of projectItems) {
+                  if (item.project && item.project.id === projectId) {
+                    itemId = item.id;
+                    console.log(`Issue #${issueNumber} already exists in project, item ID: ${itemId}`);
+
+                    // Check current field values
+                    const fieldValues = item.fieldValues?.nodes || [];
+                    for (const fieldValue of fieldValues) {
+                      if (fieldValue.field) {
+                        if (fieldValue.field.id === statusFieldId) {
+                          currentStatusOptionId = fieldValue.optionId;
+                          console.log(`Current Status: ${fieldValue.name} (${currentStatusOptionId})`);
+                        } else if (fieldValue.field.id === kindFieldId) {
+                          currentKindOptionId = fieldValue.optionId;
+                          console.log(`Current Kind: ${fieldValue.name} (${currentKindOptionId})`);
+                        }
+                      }
+                    }
+                    break;
+                  }
+                }
+
+                // Add issue to project if not already present
+                if (!itemId) {
+                  console.log(`Adding issue #${issueNumber} to project...`);
+                  try {
+                    const addResult = await github.graphql(`
+                      mutation($projectId: ID!, $contentId: ID!) {
+                        addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+                          item { id }
+                        }
+                      }
+                    `, {
+                      projectId: projectId,
+                      contentId: issueNodeId
+                    });
+
+                    itemId = addResult.addProjectV2ItemById.item.id;
+                    console.log(`Added issue #${issueNumber} to project, item ID: ${itemId}`);
+                  } catch (error) {
+                    console.error(`Failed to add issue #${issueNumber} to project:`, error);
+                    throw error;
+                  }
+                }
+
+                // Set Status to "Needs Triage" only if not already set
+                if (!currentStatusOptionId) {
+                  console.log('Status field is not set, setting to "Needs Triage"...');
+                  try {
+                    await github.graphql(`
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: { singleSelectOptionId: $optionId }
+                        }) {
+                          projectV2Item { id }
+                        }
+                      }
+                    `, {
+                      projectId: projectId,
+                      itemId: itemId,
+                      fieldId: statusFieldId,
+                      optionId: needsTriageId
+                    });
+                    console.log('Set Status to "Needs Triage"');
+                  } catch (error) {
+                    console.error(`Failed to set Status field for project item ${itemId}:`, error);
+                    throw error;
+                  }
+                } else {
+                  console.log('Status field already set, skipping update');
+                }
+
+                // Set Kind to "Task" only if not already set
+                if (!currentKindOptionId) {
+                  console.log('Kind field is not set, setting to "Task"...');
+                  try {
+                    await github.graphql(`
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: { singleSelectOptionId: $optionId }
+                        }) {
+                          projectV2Item { id }
+                        }
+                      }
+                    `, {
+                      projectId: projectId,
+                      itemId: itemId,
+                      fieldId: kindFieldId,
+                      optionId: taskId
+                    });
+                    console.log('Set Kind to "Task"');
+                  } catch (error) {
+                    console.error(`Failed to set Kind field for project item ${itemId}:`, error);
+                    throw error;
+                  }
+                } else {
+                  console.log('Kind field already set, skipping update');
+                }
+
+                console.log(`Issue #${issueNumber} triage completed successfully`);
+              } catch (error) {
+                console.error('Issue triage workflow failed:', error);
+                throw error;
+              }
+            }
+
+            await run();

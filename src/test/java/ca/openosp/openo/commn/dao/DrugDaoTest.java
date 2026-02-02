@@ -74,7 +74,7 @@ public class DrugDaoTest extends DaoTestFixtures {
         drugs = dao.findByDemographicIdAndDrugId(999, 0);
         assertNotNull(drugs);
 
-        dao.findByEverything(null, 0, null, null, null, null, 0, null, 0, 0, null, null, null, null, null, 0, null, false, false, null, null, null, false, false, false, false, null, null, null, false);
+        dao.findByEverything(null, 0, null, null, null, null, "0", null, 0, 0, null, null, null, null, null, 0, null, false, false, null, null, null, false, false, false, false, null, null, null, false);
         dao.getMaxPosition(999);
     }
 

@@ -16,6 +16,26 @@ import javax.persistence.Column;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 
+/**
+ * Cached laboratory result entity for the CAISI Integrator system.
+ *
+ * This entity represents cached laboratory results associated with patients (demographics) in the
+ * OpenO EMR CAISI Integrator module. The CAISI Integrator enables data sharing across multiple
+ * healthcare facilities, and this cache improves performance by storing frequently accessed lab
+ * results locally instead of repeatedly querying remote facilities.
+ *
+ * The cache stores lab result data along with metadata including the patient's local demographic ID,
+ * the facility identifier, the lab result identifier, and the result type. The actual lab result
+ * data is stored as a medium blob to accommodate various lab result formats (HL7 messages, XML, etc.).
+ *
+ * This class is enhanced by Apache OpenJPA for persistence management, implementing the
+ * PersistenceCapable interface which provides field-level access tracking, state management,
+ * and detachment capabilities for distributed healthcare environments.
+ *
+ * @see FacilityIdLabResultCompositePk
+ * @see AbstractModel
+ * @since 2026-01-24
+ */
 @Entity
 public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResultCompositePk> implements PersistenceCapable
 {
@@ -40,47 +60,106 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
     
+    /**
+     * Default constructor for CachedDemographicLabResult.
+     *
+     * Initializes a new instance with default values. The caisiDemographicId is set to 0.
+     * This constructor is required by JPA for entity instantiation.
+     */
     public CachedDemographicLabResult() {
         this.caisiDemographicId = 0;
     }
     
+    /**
+     * Gets the composite primary key for this cached lab result.
+     *
+     * @return FacilityIdLabResultCompositePk the composite primary key containing facility ID and lab result ID
+     */
     @Override
     public FacilityIdLabResultCompositePk getId() {
         return pcGetfacilityIdLabResultCompositePk(this);
     }
     
+    /**
+     * Gets the composite primary key identifying this cached lab result across facilities.
+     *
+     * @return FacilityIdLabResultCompositePk the composite key containing the integrator facility ID and lab result ID
+     */
     public FacilityIdLabResultCompositePk getFacilityIdLabResultCompositePk() {
         return pcGetfacilityIdLabResultCompositePk(this);
     }
     
+    /**
+     * Sets the composite primary key for this cached lab result.
+     *
+     * @param facilityIdLabResultCompositePk FacilityIdLabResultCompositePk the composite key to set
+     */
     public void setFacilityIdLabResultCompositePk(final FacilityIdLabResultCompositePk facilityIdLabResultCompositePk) {
         pcSetfacilityIdLabResultCompositePk(this, facilityIdLabResultCompositePk);
     }
     
+    /**
+     * Gets the CAISI demographic identifier for the patient associated with this lab result.
+     *
+     * @return int the local CAISI demographic ID
+     */
     public int getCaisiDemographicId() {
         return pcGetcaisiDemographicId(this);
     }
     
+    /**
+     * Sets the CAISI demographic identifier for the patient associated with this lab result.
+     *
+     * @param caisiDemographicId int the local CAISI demographic ID to set
+     */
     public void setCaisiDemographicId(final int caisiDemographicId) {
         pcSetcaisiDemographicId(this, caisiDemographicId);
     }
     
+    /**
+     * Gets the type classification of this lab result.
+     *
+     * @return String the lab result type (e.g., "HL7", "XML", specific test type), maximum 64 characters
+     */
     public String getType() {
         return pcGettype(this);
     }
     
+    /**
+     * Sets the type classification of this lab result.
+     *
+     * @param type String the lab result type to set, maximum 64 characters
+     */
     public void setType(final String type) {
         pcSettype(this, type);
     }
     
+    /**
+     * Gets the actual lab result data content.
+     *
+     * @return String the lab result data stored as a string (may contain HL7 messages, XML, JSON, or other formats)
+     */
     public String getData() {
         return pcGetdata(this);
     }
     
+    /**
+     * Sets the actual lab result data content.
+     *
+     * @param data String the lab result data to store (may contain HL7 messages, XML, JSON, or other formats)
+     */
     public void setData(final String data) {
         pcSetdata(this, data);
     }
     
+    /**
+     * Gets the OpenJPA enhancement contract version.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and indicates which version
+     * of the enhancement contract this class implements.
+     *
+     * @return int the enhancement contract version (currently 2)
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }
@@ -102,6 +181,12 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         }
     }
     
+    /**
+     * Clears all managed fields to their default values.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used during
+     * entity lifecycle management to reset field values.
+     */
     protected void pcClearFields() {
         this.caisiDemographicId = 0;
         this.data = null;
@@ -109,6 +194,17 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         this.type = null;
     }
     
+    /**
+     * Creates a new instance of this entity with the specified state manager and object ID.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used by the
+     * persistence framework to create new managed instances.
+     *
+     * @param pcStateManager StateManager the state manager to associate with the new instance
+     * @param o Object the object ID to copy key fields from
+     * @param b boolean if true, clear all fields to default values
+     * @return PersistenceCapable the newly created instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final Object o, final boolean b) {
         final CachedDemographicLabResult cachedDemographicLabResult = new CachedDemographicLabResult();
         if (b) {
@@ -119,6 +215,16 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         return (PersistenceCapable)cachedDemographicLabResult;
     }
     
+    /**
+     * Creates a new instance of this entity with the specified state manager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used by the
+     * persistence framework to create new managed instances.
+     *
+     * @param pcStateManager StateManager the state manager to associate with the new instance
+     * @param b boolean if true, clear all fields to default values
+     * @return PersistenceCapable the newly created instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final boolean b) {
         final CachedDemographicLabResult cachedDemographicLabResult = new CachedDemographicLabResult();
         if (b) {
@@ -128,10 +234,28 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         return (PersistenceCapable)cachedDemographicLabResult;
     }
     
+    /**
+     * Gets the count of managed fields in this entity.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and returns the total
+     * number of fields managed by the persistence framework (4 fields: caisiDemographicId,
+     * data, facilityIdLabResultCompositePk, type).
+     *
+     * @return int the number of managed fields (4)
+     */
     protected static int pcGetManagedFieldCount() {
         return 4;
     }
     
+    /**
+     * Replaces a single field value using the state manager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used during
+     * entity state transitions to replace field values.
+     *
+     * @param n int the field index to replace
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcReplaceField(final int n) {
         final int n2 = n - CachedDemographicLabResult.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -160,12 +284,29 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         }
     }
     
+    /**
+     * Replaces multiple field values using the state manager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used during
+     * entity state transitions to replace multiple field values efficiently.
+     *
+     * @param array int[] the array of field indices to replace
+     */
     public void pcReplaceFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcReplaceField(array[i]);
         }
     }
     
+    /**
+     * Provides a single field value to the state manager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to provide
+     * field values to the persistence framework during state management operations.
+     *
+     * @param n int the field index to provide
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcProvideField(final int n) {
         final int n2 = n - CachedDemographicLabResult.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -194,12 +335,30 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         }
     }
     
+    /**
+     * Provides multiple field values to the state manager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to provide
+     * multiple field values to the persistence framework efficiently during state management operations.
+     *
+     * @param array int[] the array of field indices to provide
+     */
     public void pcProvideFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcProvideField(array[i]);
         }
     }
     
+    /**
+     * Copies a single field value from another instance.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to copy
+     * field values between entity instances during persistence operations.
+     *
+     * @param cachedDemographicLabResult CachedDemographicLabResult the source instance to copy from
+     * @param n int the field index to copy
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     protected void pcCopyField(final CachedDemographicLabResult cachedDemographicLabResult, final int n) {
         final int n2 = n - CachedDemographicLabResult.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -228,6 +387,17 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         }
     }
     
+    /**
+     * Copies multiple field values from another instance.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to copy
+     * multiple field values between entity instances efficiently during persistence operations.
+     *
+     * @param o Object the source instance to copy from
+     * @param array int[] the array of field indices to copy
+     * @throws IllegalArgumentException if the source object has a different state manager
+     * @throws IllegalStateException if this instance has no state manager
+     */
     public void pcCopyFields(final Object o, final int[] array) {
         final CachedDemographicLabResult cachedDemographicLabResult = (CachedDemographicLabResult)o;
         if (cachedDemographicLabResult.pcStateManager != this.pcStateManager) {
@@ -241,6 +411,14 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         }
     }
     
+    /**
+     * Gets the generic context from the state manager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and provides access to
+     * the generic context maintained by the state manager.
+     *
+     * @return Object the generic context, or null if no state manager is attached
+     */
     public Object pcGetGenericContext() {
         if (this.pcStateManager == null) {
             return null;
@@ -248,6 +426,14 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         return this.pcStateManager.getGenericContext();
     }
     
+    /**
+     * Fetches the object ID from the state manager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and retrieves the object
+     * ID for this persistent instance.
+     *
+     * @return Object the object ID, or null if no state manager is attached
+     */
     public Object pcFetchObjectId() {
         if (this.pcStateManager == null) {
             return null;
@@ -255,10 +441,26 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         return this.pcStateManager.fetchObjectId();
     }
     
+    /**
+     * Checks if this entity is in a deleted state.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and indicates whether
+     * this instance has been marked for deletion in the current transaction.
+     *
+     * @return boolean true if the entity is deleted, false otherwise
+     */
     public boolean pcIsDeleted() {
         return this.pcStateManager != null && this.pcStateManager.isDeleted();
     }
     
+    /**
+     * Checks if this entity has been modified.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and indicates whether
+     * this instance has uncommitted changes.
+     *
+     * @return boolean true if the entity has been modified, false otherwise
+     */
     public boolean pcIsDirty() {
         if (this.pcStateManager == null) {
             return false;
@@ -268,22 +470,62 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         return pcStateManager.isDirty();
     }
     
+    /**
+     * Checks if this entity is newly created and not yet persisted.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and indicates whether
+     * this instance is new to the persistence context.
+     *
+     * @return boolean true if the entity is new, false otherwise
+     */
     public boolean pcIsNew() {
         return this.pcStateManager != null && this.pcStateManager.isNew();
     }
     
+    /**
+     * Checks if this entity is managed by the persistence context.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and indicates whether
+     * this instance is currently being managed by a persistence context.
+     *
+     * @return boolean true if the entity is persistent, false otherwise
+     */
     public boolean pcIsPersistent() {
         return this.pcStateManager != null && this.pcStateManager.isPersistent();
     }
     
+    /**
+     * Checks if this entity is enrolled in a transaction.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and indicates whether
+     * this instance is participating in a current transaction.
+     *
+     * @return boolean true if the entity is transactional, false otherwise
+     */
     public boolean pcIsTransactional() {
         return this.pcStateManager != null && this.pcStateManager.isTransactional();
     }
     
+    /**
+     * Checks if this entity is currently being serialized.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and indicates whether
+     * this instance is in the process of serialization.
+     *
+     * @return boolean true if the entity is being serialized, false otherwise
+     */
     public boolean pcSerializing() {
         return this.pcStateManager != null && this.pcStateManager.serializing();
     }
     
+    /**
+     * Marks a field as dirty.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and notifies the state
+     * manager that a specific field has been modified.
+     *
+     * @param s String the name of the field that has been modified
+     */
     public void pcDirty(final String s) {
         if (this.pcStateManager == null) {
             return;
@@ -291,10 +533,26 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         this.pcStateManager.dirty(s);
     }
     
+    /**
+     * Gets the state manager associated with this entity.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and provides access to
+     * the state manager responsible for tracking this instance.
+     *
+     * @return StateManager the state manager, or null if not managed
+     */
     public StateManager pcGetStateManager() {
         return this.pcStateManager;
     }
     
+    /**
+     * Gets the version information for this entity.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and retrieves version
+     * information used for optimistic locking.
+     *
+     * @return Object the version information, or null if no state manager is attached
+     */
     public Object pcGetVersion() {
         if (this.pcStateManager == null) {
             return null;
@@ -302,6 +560,15 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         return this.pcStateManager.getVersion();
     }
     
+    /**
+     * Replaces the state manager for this entity.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to replace
+     * the state manager during entity lifecycle transitions.
+     *
+     * @param pcStateManager StateManager the new state manager to associate with this instance
+     * @throws SecurityException if the replacement is not allowed
+     */
     public void pcReplaceStateManager(final StateManager pcStateManager) throws SecurityException {
         if (this.pcStateManager != null) {
             this.pcStateManager = this.pcStateManager.replaceStateManager(pcStateManager);
@@ -310,26 +577,80 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         this.pcStateManager = pcStateManager;
     }
     
+    /**
+     * Copies key fields to an object ID using a field supplier.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract but is not supported
+     * for this entity type due to the embedded ID structure.
+     *
+     * @param fieldSupplier FieldSupplier the field supplier to use
+     * @param o Object the target object ID
+     * @throws InternalException always, as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final FieldSupplier fieldSupplier, final Object o) {
         throw new InternalException();
     }
     
+    /**
+     * Copies key fields to an object ID.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract but is not supported
+     * for this entity type due to the embedded ID structure.
+     *
+     * @param o Object the target object ID
+     * @throws InternalException always, as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final Object o) {
         throw new InternalException();
     }
     
+    /**
+     * Copies key fields from an object ID using a field consumer.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to populate
+     * key fields from an object ID during entity restoration.
+     *
+     * @param fieldConsumer FieldConsumer the field consumer to use for storing the field value
+     * @param o Object the source object ID containing the key fields
+     */
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
         fieldConsumer.storeObjectField(2 + CachedDemographicLabResult.pcInheritedFieldCount, ((ObjectId)o).getId());
     }
     
+    /**
+     * Copies key fields from an object ID.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to populate
+     * the composite primary key from an object ID during entity restoration.
+     *
+     * @param o Object the source object ID containing the composite primary key
+     */
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
         this.facilityIdLabResultCompositePk = (FacilityIdLabResultCompositePk)((ObjectId)o).getId();
     }
     
+    /**
+     * Creates a new object ID instance from a string representation.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract but is not supported
+     * for this entity type due to its custom composite primary key structure.
+     *
+     * @param o Object the source object for creating the new object ID
+     * @return Object the newly created object ID instance
+     * @throws IllegalArgumentException always, as string-based object ID construction is not supported
+     */
     public Object pcNewObjectIdInstance(final Object o) {
         throw new IllegalArgumentException("The id type \"class org.apache.openjpa.util.ObjectId\" specified by persistent type \"class ca.openosp.openo.caisi_integrator.dao.CachedDemographicLabResult\" does not have a public class org.apache.openjpa.util.ObjectId(String) or class org.apache.openjpa.util.ObjectId(Class, String) constructor.");
     }
     
+    /**
+     * Creates a new object ID instance for this entity.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and creates an object ID
+     * based on the current composite primary key value.
+     *
+     * @return Object the newly created object ID wrapping the composite primary key
+     */
     public Object pcNewObjectIdInstance() {
         return new ObjectId((CachedDemographicLabResult.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicLabResult != null) ? CachedDemographicLabResult.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicLabResult : (CachedDemographicLabResult.class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicLabResult = class$("ca.openosp.openo.caisi_integrator.dao.CachedDemographicLabResult")), (Object)this.facilityIdLabResultCompositePk);
     }
@@ -398,6 +719,15 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         cachedDemographicLabResult.pcStateManager.settingStringField((PersistenceCapable)cachedDemographicLabResult, CachedDemographicLabResult.pcInheritedFieldCount + 3, cachedDemographicLabResult.type, type, 0);
     }
     
+    /**
+     * Checks if this entity is in a detached state.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and determines whether
+     * this instance has been detached from its persistence context. This is important for
+     * distributed healthcare systems where entities may be transferred between facilities.
+     *
+     * @return Boolean true if detached, false if attached, null if the detached state is indeterminate
+     */
     public Boolean pcIsDetached() {
         if (this.pcStateManager != null) {
             if (this.pcStateManager.isDetached()) {
@@ -423,10 +753,26 @@ public class CachedDemographicLabResult extends AbstractModel<FacilityIdLabResul
         return false;
     }
     
+    /**
+     * Gets the detached state information for this entity.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and retrieves the
+     * detached state marker used to track whether the entity is detached from its persistence context.
+     *
+     * @return Object the detached state marker
+     */
     public Object pcGetDetachedState() {
         return this.pcDetachedState;
     }
     
+    /**
+     * Sets the detached state information for this entity.
+     *
+     * This method is part of the OpenJPA PersistenceCapable contract and is used to set the
+     * detached state marker when the entity is detached from or reattached to a persistence context.
+     *
+     * @param pcDetachedState Object the detached state marker to set
+     */
     public void pcSetDetachedState(final Object pcDetachedState) {
         this.pcDetachedState = pcDetachedState;
     }

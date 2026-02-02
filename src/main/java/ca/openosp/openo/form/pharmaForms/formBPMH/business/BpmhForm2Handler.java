@@ -27,7 +27,7 @@ package ca.openosp.openo.form.pharmaForms.formBPMH.business;
 import ca.openosp.openo.commn.dao.*;
 import ca.openosp.openo.commn.model.*;
 import ca.openosp.openo.utility.MiscUtils;
-import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import ca.openosp.openo.PMmodule.dao.ProviderDao;
@@ -39,7 +39,6 @@ import ca.openosp.openo.form.pharmaForms.formBPMH.util.JsonUtil;
 import ca.openosp.openo.form.pharmaForms.formBPMH.util.SortDrugList;
 import ca.openosp.openo.prescript.data.RxDrugData;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -485,10 +484,8 @@ public class BpmhForm2Handler {
                     }
 
                     try {
-                        BeanUtils.copyProperties(bpmhDrug, drug);
-                    } catch (IllegalAccessException e) {
-                        logger.fatal("Failed to copy bean properties", e);
-                    } catch (InvocationTargetException e) {
+                        BeanUtils.copyProperties(drug, bpmhDrug);
+                    } catch (Exception e) {
                         logger.fatal("Failed to copy bean properties", e);
                     }
 

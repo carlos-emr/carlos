@@ -27,7 +27,7 @@ package ca.openosp.openo.encounter.oscarMeasurements.util;
 import java.io.InputStream;
 import java.util.Vector;
 
-import org.apache.commons.digester.Digester;
+import org.apache.commons.digester3.Digester;
 import ca.openosp.openo.commn.dao.MeasurementTypeDao;
 import ca.openosp.openo.commn.model.MeasurementType;
 import ca.openosp.openo.utility.MiscUtils;

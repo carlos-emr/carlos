@@ -862,13 +862,9 @@ String curProvider_no = (String)session.getAttribute("user");
 <%-- K2A config link removed --%>
 <%--					<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/integratorPushStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.integratorPush"/></a></li>--%>
 
-					<caisi:isModuleLoad moduleName="BORN">	
+					<caisi:isModuleLoad moduleName="BORN">
 						<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/born.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.born"/></a></li>
 					</caisi:isModuleLoad>
-					
-					 <oscar:oscarPropertiesCheck property="billregion" value="ON">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/clinicalconnect.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ClinicalConnectConfig"/></a></li>
-					</oscar:oscarPropertiesCheck>
 				</ul>
 				</div>
 				</div>

@@ -26,13 +26,12 @@ package ca.openosp.openo.report.reportByTemplate;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.commons.beanutils.BeanComparator;
-import org.apache.commons.collections.comparators.ReverseComparator;
 import ca.openosp.openo.commn.dao.OscarAppointmentDao;
 import ca.openosp.openo.commn.dao.ScheduleTemplateDao;
 import ca.openosp.openo.commn.model.Appointment;
@@ -129,7 +128,7 @@ public class ThirdApptTimeReporter implements Reporter {
                 duration = dayMins / timecodes.length();
 
                 List<Appointment> appts = apptDao.findByProviderAndDayandNotStatus(st.getId().getProviderNo(), sd.getDate(), "C");
-                Collections.sort(appts, new ReverseComparator(new BeanComparator("startTime")));
+                Collections.sort(appts, Comparator.comparing(Appointment::getStartTime).reversed());
 
                 codePos = 0;
                 latestApptHour = latestApptMin = 0;

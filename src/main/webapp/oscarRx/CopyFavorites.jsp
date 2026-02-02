@@ -55,7 +55,7 @@
                 }
             %>
         </c:if>
-        <link rel="stylesheet" type="text/css" href="oscarRx/styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
     </head>
 
 
@@ -108,7 +108,7 @@
                            width="100%" height="100%">
                         <tr>
                             <td width="0%" valign="top">
-                                <div class="DivCCBreadCrumbs"><a href="oscarRx/CopyFavorites.jsp"> Copy Favorites</a> > <b>Select
+                                <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/oscarRx/CopyFavorites.jsp"> Copy Favorites</a> > <b>Select
                                     Provider Copy From</b></div>
                             </td>
                         </tr>

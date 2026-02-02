@@ -19,6 +19,45 @@ import javax.persistence.Column;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 
+/**
+ * Cached demographic drug entity for storing patient medication records in the CAISI integrator system.
+ *
+ * This JPA entity represents a cached copy of a patient's prescribed medication (drug) record, designed for
+ * use within the CAISI (Client Access to Integrated Services and Information) integrator framework. The class
+ * stores comprehensive prescription details including medication names, dosages, administration instructions,
+ * dispensing information, and prescription metadata.
+ *
+ * The entity is enhanced by Apache OpenJPA for transparent persistence and supports integration across multiple
+ * healthcare facilities through the {@link FacilityIdIntegerCompositePk} composite primary key. This allows
+ * the same medication data to be synchronized and accessed across different healthcare sites while maintaining
+ * data integrity and traceability.
+ *
+ * Key features:
+ * <ul>
+ * <li>Comprehensive medication tracking including brand name, generic name, and ATC (Anatomical Therapeutic Chemical) codes</li>
+ * <li>Detailed dosing information with min/max dosage ranges and administration frequencies</li>
+ * <li>Prescription metadata including prescriber ID, prescription date, duration, and refill tracking</li>
+ * <li>Support for custom instructions, special notes, and PRN (pro re nata - as needed) medications</li>
+ * <li>Archival capabilities with reason tracking and timestamps</li>
+ * <li>Regional identifier support for provincial/jurisdictional medication tracking</li>
+ * <li>Patient compliance and medication history indicators</li>
+ * </ul>
+ *
+ * This class is automatically enhanced by OpenJPA's bytecode enhancement process, which adds the extensive
+ * persistence capability methods (pcGet*, pcSet*, pcProvide*, pcReplace*, etc.) visible in this file. These
+ * methods should not be called directly by application code; instead, use the standard getter and setter methods.
+ *
+ * Healthcare Context:
+ * This entity supports Canadian healthcare workflows including medication reconciliation, prescription history
+ * tracking, and cross-facility drug profile synchronization. The ATC code field enables standardized medication
+ * classification following WHO guidelines, while regional identifiers support province-specific drug identification
+ * numbers (DINs) used in Canadian formularies.
+ *
+ * @see AbstractModel
+ * @see FacilityIdIntegerCompositePk
+ * @see PersistenceCapable
+ * @since 2026-01-24
+ */
 @Entity
 public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompositePk> implements PersistenceCapable
 {
@@ -105,7 +144,14 @@ public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompos
     static /* synthetic */ Class class$Lca$openosp$openo$caisi_integrator$dao$CachedDemographicDrug;
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
-    
+
+    /**
+     * Default constructor that initializes a new CachedDemographicDrug instance with default values.
+     *
+     * All object-type fields are initialized to null, numeric fields to 0, and float fields to 0.0f.
+     * This constructor is required by JPA and is called during entity instantiation by the persistence framework.
+     * The OpenJPA StateManager will populate field values when loading entities from the database.
+     */
     public CachedDemographicDrug() {
         this.caisiProviderId = null;
         this.caisiDemographicId = null;
@@ -134,300 +180,682 @@ public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompos
         this.dosage = null;
         this.unitName = null;
     }
-    
+
+    /**
+     * Retrieves the composite primary key identifier for this cached demographic drug entity.
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key containing facility ID and integer ID
+     */
     @Override
     public FacilityIdIntegerCompositePk getId() {
         return pcGetfacilityIdIntegerCompositePk(this);
     }
-    
+
+    /**
+     * Gets the embedded composite primary key for this entity.
+     *
+     * @return FacilityIdIntegerCompositePk the composite primary key containing facility ID and drug record ID
+     */
     public FacilityIdIntegerCompositePk getFacilityIdIntegerCompositePk() {
         return pcGetfacilityIdIntegerCompositePk(this);
     }
-    
+
+    /**
+     * Sets the composite primary key for this entity.
+     *
+     * @param facilityIdIntegerCompositePk FacilityIdIntegerCompositePk the composite primary key to assign
+     */
     public void setFacilityIdIntegerCompositePk(final FacilityIdIntegerCompositePk facilityIdIntegerCompositePk) {
         pcSetfacilityIdIntegerCompositePk(this, facilityIdIntegerCompositePk);
     }
-    
+
+    /**
+     * Gets the CAISI provider identifier for the healthcare provider who prescribed this medication.
+     *
+     * @return String the provider ID who created the prescription, maximum 16 characters, or null if not set
+     */
     public String getCaisiProviderId() {
         return pcGetcaisiProviderId(this);
     }
-    
+
+    /**
+     * Sets the CAISI provider identifier for the prescribing healthcare provider.
+     *
+     * @param caisiProviderId String the provider ID, maximum 16 characters, cannot be null in database
+     */
     public void setCaisiProviderId(final String caisiProviderId) {
         pcSetcaisiProviderId(this, caisiProviderId);
     }
-    
+
+    /**
+     * Gets the CAISI demographic identifier for the patient this medication is prescribed to.
+     *
+     * @return Integer the patient's demographic ID, indexed for performance, or null if not set
+     */
     public Integer getCaisiDemographicId() {
         return pcGetcaisiDemographicId(this);
     }
-    
+
+    /**
+     * Sets the CAISI demographic identifier for the patient.
+     *
+     * @param caisiDemographicId Integer the patient's demographic ID, cannot be null in database
+     */
     public void setCaisiDemographicId(final Integer caisiDemographicId) {
         pcSetcaisiDemographicId(this, caisiDemographicId);
     }
-    
+
+    /**
+     * Gets the prescription date when this medication was prescribed.
+     *
+     * @return Date the prescription date (date only, no time component), or null if not set
+     */
     public Date getRxDate() {
         return pcGetrxDate(this);
     }
-    
+
+    /**
+     * Sets the prescription date for this medication.
+     *
+     * @param rxDate Date the prescription date (stored as DATE type in database)
+     */
     public void setRxDate(final Date rxDate) {
         pcSetrxDate(this, rxDate);
     }
-    
+
+    /**
+     * Gets the end date when this medication prescription expires or should be discontinued.
+     *
+     * @return Date the end date (date only, no time component), or null if not set
+     */
     public Date getEndDate() {
         return pcGetendDate(this);
     }
-    
+
+    /**
+     * Sets the end date for this medication prescription.
+     *
+     * @param endDate Date the end date (stored as DATE type in database)
+     */
     public void setEndDate(final Date endDate) {
         pcSetendDate(this, endDate);
     }
-    
+
+    /**
+     * Gets the brand name (trade name) of the medication.
+     *
+     * @return String the medication's brand name, maximum 255 characters, or null if not set
+     */
     public String getBrandName() {
         return pcGetbrandName(this);
     }
-    
+
+    /**
+     * Sets the brand name (trade name) of the medication.
+     *
+     * @param brandName String the medication's brand name, maximum 255 characters
+     */
     public void setBrandName(final String brandName) {
         pcSetbrandName(this, brandName);
     }
-    
+
+    /**
+     * Gets the custom medication name entered by the prescriber.
+     *
+     * @return String the custom medication name, maximum 255 characters, or null if not set
+     */
     public String getCustomName() {
         return pcGetcustomName(this);
     }
-    
+
+    /**
+     * Sets the custom medication name.
+     *
+     * @param customName String the custom medication name, maximum 255 characters
+     */
     public void setCustomName(final String customName) {
         pcSetcustomName(this, customName);
     }
-    
+
+    /**
+     * Gets the minimum dosage amount to take per administration.
+     *
+     * @return float the minimum dosage quantity, or 0.0f if not set
+     */
     public float getTakeMin() {
         return pcGettakeMin(this);
     }
-    
+
+    /**
+     * Sets the minimum dosage amount to take per administration.
+     *
+     * @param takeMin float the minimum dosage quantity
+     */
     public void setTakeMin(final float takeMin) {
         pcSettakeMin(this, takeMin);
     }
-    
+
+    /**
+     * Gets the maximum dosage amount to take per administration.
+     *
+     * @return float the maximum dosage quantity, or 0.0f if not set
+     */
     public float getTakeMax() {
         return pcGettakeMax(this);
     }
-    
+
+    /**
+     * Sets the maximum dosage amount to take per administration.
+     *
+     * @param takeMax float the maximum dosage quantity
+     */
     public void setTakeMax(final float takeMax) {
         pcSettakeMax(this, takeMax);
     }
-    
+
+    /**
+     * Gets the frequency code indicating how often the medication should be taken.
+     *
+     * @return String the frequency code (e.g., "BID", "TID", "QID"), maximum 64 characters, or null if not set
+     */
     public String getFreqCode() {
         return pcGetfreqCode(this);
     }
-    
+
+    /**
+     * Sets the frequency code for medication administration.
+     *
+     * @param freqCode String the frequency code, maximum 64 characters
+     */
     public void setFreqCode(final String freqCode) {
         pcSetfreqCode(this, freqCode);
     }
-    
+
+    /**
+     * Gets the prescription duration value.
+     *
+     * @return String the duration value (numeric component), maximum 64 characters, or null if not set
+     */
     public String getDuration() {
         return pcGetduration(this);
     }
-    
+
+    /**
+     * Sets the prescription duration value.
+     *
+     * @param duration String the duration value, maximum 64 characters
+     */
     public void setDuration(final String duration) {
         pcSetduration(this, duration);
     }
-    
+
+    /**
+     * Gets the duration unit for the prescription (e.g., "days", "weeks", "months").
+     *
+     * @return String the duration unit, maximum 64 characters, or null if not set
+     */
     public String getDurUnit() {
         return pcGetdurUnit(this);
     }
-    
+
+    /**
+     * Sets the duration unit for the prescription.
+     *
+     * @param durUnit String the duration unit, maximum 64 characters
+     */
     public void setDurUnit(final String durUnit) {
         pcSetdurUnit(this, durUnit);
     }
-    
+
+    /**
+     * Gets the quantity of medication prescribed or dispensed.
+     *
+     * @return String the quantity (may include units), maximum 64 characters, or null if not set
+     */
     public String getQuantity() {
         return pcGetquantity(this);
     }
-    
+
+    /**
+     * Sets the quantity of medication prescribed or dispensed.
+     *
+     * @param quantity String the quantity, maximum 64 characters
+     */
     public void setQuantity(final String quantity) {
         pcSetquantity(this, quantity);
     }
-    
+
+    /**
+     * Gets the number of prescription repeats (refills) allowed.
+     *
+     * @return int the number of allowed repeats, or 0 if not set
+     */
     public int getRepeats() {
         return pcGetrepeats(this);
     }
-    
+
+    /**
+     * Sets the number of prescription repeats (refills) allowed.
+     *
+     * @param repeats int the number of allowed repeats
+     */
     public void setRepeats(final int repeats) {
         pcSetrepeats(this, repeats);
     }
-    
+
+    /**
+     * Gets the date of the last prescription refill.
+     *
+     * @return Date the last refill date (date only, no time component), or null if never refilled
+     */
     public Date getLastRefillDate() {
         return pcGetlastRefillDate(this);
     }
-    
+
+    /**
+     * Sets the date of the last prescription refill.
+     *
+     * @param lastRefillDate Date the last refill date (stored as DATE type in database)
+     */
     public void setLastRefillDate(final Date lastRefillDate) {
         pcSetlastRefillDate(this, lastRefillDate);
     }
-    
+
+    /**
+     * Checks if substitutions are not allowed for this medication.
+     *
+     * @return boolean true if medication substitutions are prohibited (no generics allowed), false otherwise
+     */
     public boolean isNoSubs() {
         return pcGetnoSubs(this);
     }
-    
+
+    /**
+     * Sets whether substitutions are allowed for this medication.
+     *
+     * @param noSubs boolean true to prohibit substitutions, false to allow them
+     */
     public void setNoSubs(final boolean noSubs) {
         pcSetnoSubs(this, noSubs);
     }
-    
+
+    /**
+     * Checks if this medication is to be taken PRN (pro re nata - as needed).
+     *
+     * @return boolean true if medication is taken as needed rather than on a regular schedule, false otherwise
+     */
     public boolean isPrn() {
         return pcGetprn(this);
     }
-    
+
+    /**
+     * Sets whether this medication is to be taken PRN (as needed).
+     *
+     * @param prn boolean true if medication should be taken as needed, false for scheduled dosing
+     */
     public void setPrn(final boolean prn) {
         pcSetprn(this, prn);
     }
-    
+
+    /**
+     * Gets special instructions or notes for this medication.
+     *
+     * @return String special instructions (stored as TEXT in database), or null if not set
+     */
     public String getSpecial() {
         return pcGetspecial(this);
     }
-    
+
+    /**
+     * Sets special instructions or notes for this medication.
+     *
+     * @param special String special instructions (unlimited length as TEXT type)
+     */
     public void setSpecial(final String special) {
         pcSetspecial(this, special);
     }
-    
+
+    /**
+     * Checks if this medication record has been archived.
+     *
+     * @return boolean true if the medication record is archived (discontinued or inactive), false if active
+     */
     public boolean isArchived() {
         return pcGetarchived(this);
     }
-    
+
+    /**
+     * Sets whether this medication record is archived.
+     *
+     * @param archived boolean true to archive the medication record, false to keep it active
+     */
     public void setArchived(final boolean archived) {
         pcSetarchived(this, archived);
     }
-    
+
+    /**
+     * Gets the reason why this medication was archived.
+     *
+     * @return String the archival reason (e.g., "Discontinued by patient", "Drug interaction"), maximum 100 characters, or null if not archived or reason not specified
+     */
     public String getArchivedReason() {
         return pcGetarchivedReason(this);
     }
-    
+
+    /**
+     * Sets the reason why this medication is being archived.
+     *
+     * @param archivedReason String the archival reason, maximum 100 characters
+     */
     public void setArchivedReason(final String archivedReason) {
         pcSetarchivedReason(this, archivedReason);
     }
-    
+
+    /**
+     * Gets the date and time when this medication was archived.
+     *
+     * @return Date the archival timestamp (includes date and time), or null if not archived
+     */
     public Date getArchivedDate() {
         return pcGetarchivedDate(this);
     }
-    
+
+    /**
+     * Sets the date and time when this medication is being archived.
+     *
+     * @param archivedDate Date the archival timestamp (stored as TIMESTAMP type in database)
+     */
     public void setArchivedDate(final Date archivedDate) {
         pcSetarchivedDate(this, archivedDate);
     }
-    
+
+    /**
+     * Gets the generic (non-proprietary) name of the medication.
+     *
+     * @return String the medication's generic name, maximum 255 characters, or null if not set
+     */
     public String getGenericName() {
         return pcGetgenericName(this);
     }
-    
+
+    /**
+     * Sets the generic (non-proprietary) name of the medication.
+     *
+     * @param genericName String the medication's generic name, maximum 255 characters
+     */
     public void setGenericName(final String genericName) {
         pcSetgenericName(this, genericName);
     }
-    
+
+    /**
+     * Gets the ATC (Anatomical Therapeutic Chemical) classification code for this medication.
+     *
+     * The ATC code is a WHO standard for classifying medications based on the organ or system
+     * they act upon and their therapeutic, pharmacological, and chemical properties.
+     *
+     * @return String the ATC code, maximum 64 characters, or null if not set
+     */
     public String getAtc() {
         return pcGetatc(this);
     }
-    
+
+    /**
+     * Sets the ATC (Anatomical Therapeutic Chemical) classification code.
+     *
+     * @param atc String the ATC code following WHO classification standards, maximum 64 characters
+     */
     public void setAtc(final String atc) {
         pcSetatc(this, atc);
     }
-    
+
+    /**
+     * Gets the prescription script number for this medication.
+     *
+     * @return int the script number (prescription identifier), or 0 if not set
+     */
     public int getScriptNo() {
         return pcGetscriptNo(this);
     }
-    
+
+    /**
+     * Sets the prescription script number.
+     *
+     * @param scriptNo int the script number (prescription identifier)
+     */
     public void setScriptNo(final int scriptNo) {
         pcSetscriptNo(this, scriptNo);
     }
-    
+
+    /**
+     * Gets the regional identifier for this medication.
+     *
+     * In Canadian context, this typically stores the Drug Identification Number (DIN) or
+     * other provincial/jurisdictional medication identifiers.
+     *
+     * @return String the regional medication identifier, maximum 64 characters, or null if not set
+     */
     public String getRegionalIdentifier() {
         return pcGetregionalIdentifier(this);
     }
-    
+
+    /**
+     * Sets the regional identifier for this medication.
+     *
+     * @param regionalIdentifier String the regional medication identifier (e.g., DIN), maximum 64 characters
+     */
     public void setRegionalIdentifier(final String regionalIdentifier) {
         pcSetregionalIdentifier(this, regionalIdentifier);
     }
-    
+
+    /**
+     * Gets the unit of measurement for the medication dosage.
+     *
+     * @return String the dosage unit (e.g., "mg", "mL", "tablets"), maximum 64 characters, or null if not set
+     */
     public String getUnit() {
         return pcGetunit(this);
     }
-    
+
+    /**
+     * Sets the unit of measurement for the medication dosage.
+     *
+     * @param unit String the dosage unit, maximum 64 characters
+     */
     public void setUnit(final String unit) {
         pcSetunit(this, unit);
     }
-    
+
+    /**
+     * Gets the administration method for the medication.
+     *
+     * @return String the administration method, maximum 64 characters, or null if not set
+     */
     public String getMethod() {
         return pcGetmethod(this);
     }
-    
+
+    /**
+     * Sets the administration method for the medication.
+     *
+     * @param method String the administration method, maximum 64 characters
+     */
     public void setMethod(final String method) {
         pcSetmethod(this, method);
     }
-    
+
+    /**
+     * Gets the route of administration for the medication.
+     *
+     * @return String the administration route (e.g., "PO" for oral, "IV" for intravenous, "IM" for intramuscular), maximum 64 characters, or null if not set
+     */
     public String getRoute() {
         return pcGetroute(this);
     }
-    
+
+    /**
+     * Sets the route of administration for the medication.
+     *
+     * @param route String the administration route, maximum 64 characters
+     */
     public void setRoute(final String route) {
         pcSetroute(this, route);
     }
-    
+
+    /**
+     * Gets the pharmaceutical form of the medication.
+     *
+     * @return String the drug form (e.g., "tablet", "capsule", "solution", "cream"), maximum 64 characters, or null if not set
+     */
     public String getDrugForm() {
         return pcGetdrugForm(this);
     }
-    
+
+    /**
+     * Sets the pharmaceutical form of the medication.
+     *
+     * @param drugForm String the drug form, maximum 64 characters
+     */
     public void setDrugForm(final String drugForm) {
         pcSetdrugForm(this, drugForm);
     }
-    
+
+    /**
+     * Gets the date and time when this medication record was created in the system.
+     *
+     * @return Date the creation timestamp (includes date and time), or null if not set
+     */
     public Date getCreateDate() {
         return pcGetcreateDate(this);
     }
-    
+
+    /**
+     * Sets the date and time when this medication record was created.
+     *
+     * @param createDate Date the creation timestamp (stored as TIMESTAMP type in database)
+     */
     public void setCreateDate(final Date createDate) {
         pcSetcreateDate(this, createDate);
     }
-    
+
+    /**
+     * Gets the dosage instructions as text.
+     *
+     * @return String the dosage instructions (stored as TEXT in database), or null if not set
+     */
     public String getDosage() {
         return pcGetdosage(this);
     }
-    
+
+    /**
+     * Sets the dosage instructions as text.
+     *
+     * @param dosage String the dosage instructions (unlimited length as TEXT type)
+     */
     public void setDosage(final String dosage) {
         pcSetdosage(this, dosage);
     }
-    
+
+    /**
+     * Checks if this prescription uses custom (free-text) instructions.
+     *
+     * @return boolean true if custom instructions are used instead of structured dosing, false otherwise
+     */
     public boolean isCustomInstructions() {
         return pcGetcustomInstructions(this);
     }
-    
+
+    /**
+     * Sets whether this prescription uses custom instructions.
+     *
+     * @param customInstructions boolean true to indicate custom instructions are used, false for structured dosing
+     */
     public void setCustomInstructions(final boolean customInstructions) {
         pcSetcustomInstructions(this, customInstructions);
     }
-    
+
+    /**
+     * Gets the descriptive name for the dosage unit.
+     *
+     * @return String the unit name (e.g., "milligrams", "milliliters"), maximum 50 characters, or null if not set
+     */
     public String getUnitName() {
         return pcGetunitName(this);
     }
-    
+
+    /**
+     * Sets the descriptive name for the dosage unit.
+     *
+     * @param unitName String the unit name, maximum 50 characters
+     */
     public void setUnitName(final String unitName) {
         pcSetunitName(this, unitName);
     }
-    
+
+    /**
+     * Checks if this medication is intended for long-term use.
+     *
+     * @return Boolean true if medication is for long-term use, false for short-term, null if not specified
+     */
     public Boolean getLongTerm() {
         return pcGetlongTerm(this);
     }
-    
+
+    /**
+     * Sets whether this medication is for long-term use.
+     *
+     * @param longTerm Boolean true for long-term medication, false for short-term, null if not applicable
+     */
     public void setLongTerm(final Boolean longTerm) {
         pcSetlongTerm(this, longTerm);
     }
-    
+
+    /**
+     * Checks if this is a past medication no longer being taken.
+     *
+     * @return Boolean true if this is a discontinued past medication, false if current, null if not specified
+     */
     public Boolean getPastMed() {
         return pcGetpastMed(this);
     }
-    
+
+    /**
+     * Sets whether this is a past medication.
+     *
+     * @param pastMed Boolean true if medication is discontinued, false if current, null if not applicable
+     */
     public void setPastMed(final Boolean pastMed) {
         pcSetpastMed(this, pastMed);
     }
-    
+
+    /**
+     * Gets the patient compliance indicator for this medication.
+     *
+     * Tracks whether the patient is adhering to the prescribed medication regimen.
+     *
+     * @return Boolean true if patient is compliant, false if non-compliant, null if not assessed
+     */
     public Boolean getPatientCompliance() {
         return pcGetpatientCompliance(this);
     }
-    
+
+    /**
+     * Sets the patient compliance indicator.
+     *
+     * @param patientCompliance Boolean true if patient is compliant with medication, false if non-compliant, null if not assessed
+     */
     public void setPatientCompliance(final Boolean patientCompliance) {
         pcSetpatientCompliance(this, patientCompliance);
     }
-    
+
+    /**
+     * Gets the OpenJPA enhancement contract version for this persistence-capable class.
+     *
+     * This method is part of the OpenJPA bytecode enhancement infrastructure and should not be called
+     * directly by application code. It indicates the version of the enhancement contract implemented
+     * by this enhanced class.
+     *
+     * @return int the enhancement contract version (2 for this implementation)
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }
@@ -487,7 +915,19 @@ public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompos
         this.unit = null;
         this.unitName = null;
     }
-    
+
+    /**
+     * Creates a new instance of CachedDemographicDrug with the specified StateManager and object ID.
+     *
+     * This method is part of the OpenJPA PersistenceCapable interface and is used internally by the
+     * persistence framework to create new entity instances during object loading and relationship resolution.
+     * Application code should not call this method directly.
+     *
+     * @param pcStateManager StateManager the OpenJPA state manager for the new instance
+     * @param o Object the object ID to copy key fields from
+     * @param b boolean if true, clears all non-key fields to default values
+     * @return PersistenceCapable a new CachedDemographicDrug instance with the specified state manager
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final Object o, final boolean b) {
         final CachedDemographicDrug cachedDemographicDrug = new CachedDemographicDrug();
         if (b) {
@@ -497,7 +937,17 @@ public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompos
         cachedDemographicDrug.pcCopyKeyFieldsFromObjectId(o);
         return (PersistenceCapable)cachedDemographicDrug;
     }
-    
+
+    /**
+     * Creates a new instance of CachedDemographicDrug with the specified StateManager.
+     *
+     * This method is part of the OpenJPA PersistenceCapable interface and is used internally by the
+     * persistence framework to create new entity instances. Application code should not call this method directly.
+     *
+     * @param pcStateManager StateManager the OpenJPA state manager for the new instance
+     * @param b boolean if true, clears all fields to default values
+     * @return PersistenceCapable a new CachedDemographicDrug instance with the specified state manager
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final boolean b) {
         final CachedDemographicDrug cachedDemographicDrug = new CachedDemographicDrug();
         if (b) {
@@ -1010,18 +1460,39 @@ public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompos
         }
         return this.pcStateManager.getGenericContext();
     }
-    
+
+    /**
+     * Fetches the object ID for this entity instance.
+     *
+     * This method is part of the OpenJPA PersistenceCapable interface and retrieves the unique
+     * identifier for this persistent object from the state manager.
+     *
+     * @return Object the object ID if this instance is managed by a state manager, null otherwise
+     */
     public Object pcFetchObjectId() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.fetchObjectId();
     }
-    
+
+    /**
+     * Checks if this entity instance has been deleted.
+     *
+     * @return boolean true if the entity is in deleted state within the current transaction, false otherwise
+     */
     public boolean pcIsDeleted() {
         return this.pcStateManager != null && this.pcStateManager.isDeleted();
     }
-    
+
+    /**
+     * Checks if this entity instance has been modified (dirty).
+     *
+     * This method determines whether any fields have been changed since the entity was loaded
+     * or last synchronized with the database.
+     *
+     * @return boolean true if the entity has unsaved modifications, false otherwise
+     */
     public boolean pcIsDirty() {
         if (this.pcStateManager == null) {
             return false;
@@ -1030,19 +1501,39 @@ public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompos
         RedefinitionHelper.dirtyCheck(pcStateManager);
         return pcStateManager.isDirty();
     }
-    
+
+    /**
+     * Checks if this entity instance is newly created and not yet persisted.
+     *
+     * @return boolean true if the entity is new and has not been saved to the database, false otherwise
+     */
     public boolean pcIsNew() {
         return this.pcStateManager != null && this.pcStateManager.isNew();
     }
-    
+
+    /**
+     * Checks if this entity instance is persistent (managed by the persistence context).
+     *
+     * @return boolean true if the entity is being managed by the persistence framework, false otherwise
+     */
     public boolean pcIsPersistent() {
         return this.pcStateManager != null && this.pcStateManager.isPersistent();
     }
-    
+
+    /**
+     * Checks if this entity instance is transactional.
+     *
+     * @return boolean true if the entity is part of an active transaction, false otherwise
+     */
     public boolean pcIsTransactional() {
         return this.pcStateManager != null && this.pcStateManager.isTransactional();
     }
-    
+
+    /**
+     * Checks if this entity instance is currently being serialized.
+     *
+     * @return boolean true if the entity is in the process of serialization, false otherwise
+     */
     public boolean pcSerializing() {
         return this.pcStateManager != null && this.pcStateManager.serializing();
     }
@@ -1053,18 +1544,39 @@ public class CachedDemographicDrug extends AbstractModel<FacilityIdIntegerCompos
         }
         this.pcStateManager.dirty(s);
     }
-    
+
+    /**
+     * Gets the OpenJPA state manager for this entity instance.
+     *
+     * @return StateManager the state manager managing this entity, or null if not managed
+     */
     public StateManager pcGetStateManager() {
         return this.pcStateManager;
     }
-    
+
+    /**
+     * Gets the version object for this entity instance.
+     *
+     * The version is used for optimistic locking to detect concurrent modifications.
+     *
+     * @return Object the version object if managed, null otherwise
+     */
     public Object pcGetVersion() {
         if (this.pcStateManager == null) {
             return null;
         }
         return this.pcStateManager.getVersion();
     }
-    
+
+    /**
+     * Replaces the state manager for this entity instance.
+     *
+     * This method is part of the OpenJPA PersistenceCapable interface and is used internally
+     * by the persistence framework to manage entity state. Application code should not call this method.
+     *
+     * @param pcStateManager StateManager the new state manager to assign
+     * @throws SecurityException if the state manager replacement is not permitted
+     */
     public void pcReplaceStateManager(final StateManager pcStateManager) throws SecurityException {
         if (this.pcStateManager != null) {
             this.pcStateManager = this.pcStateManager.replaceStateManager(pcStateManager);

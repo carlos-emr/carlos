@@ -21,6 +21,26 @@ import ca.openosp.openo.webserv.rest.to.model.NoteTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+/**
+ * Manager service for clinical notes and case management in the OpenO EMR system.
+ *
+ * This service provides business logic for retrieving, converting, and managing clinical notes
+ * associated with patient demographics and CPP (Cumulative Patient Profile) codes. It handles
+ * the integration between case management notes, clinical issues, and extended note attributes
+ * to support comprehensive patient record management in healthcare workflows.
+ *
+ * The NoteManager coordinates operations between the case management data access layer and
+ * REST API transfer objects, ensuring proper conversion and filtering of clinical notes based
+ * on issue codes, CPP classification, and active status. It supports both general note retrieval
+ * and CPP-specific note queries for integration with patient charts and clinical documentation.
+ *
+ * @see CaseManagementNote
+ * @see CaseManagementNoteDAO
+ * @see CaseManagementManager
+ * @see NoteTo1
+ * @see CppCode
+ * @since 2026-01-24
+ */
 @Service
 public class NoteManager {
 
@@ -35,6 +55,19 @@ public class NoteManager {
     @Autowired
     private IssueDAO issueDAO;
 
+    /**
+     * Retrieves all CPP (Cumulative Patient Profile) notes for a specific patient demographic.
+     *
+     * This method queries all case management notes associated with the specified patient that
+     * are classified under CPP issue codes. CPP notes represent cumulative patient profile
+     * information including medical history, ongoing problems, medications, allergies, and
+     * other persistent clinical data. The returned notes are converted to transfer objects
+     * suitable for REST API responses and client consumption.
+     *
+     * @param loggedInInfo LoggedInInfo object containing the current user's session and security context
+     * @param demographicNo Integer unique identifier for the patient demographic record
+     * @return List&lt;NoteTo1&gt; collection of CPP notes converted to transfer objects, or empty list if none found
+     */
     public List<NoteTo1> getCppNotes(LoggedInInfo loggedInInfo, Integer demographicNo) {
         List<CaseManagementNote> notes = new ArrayList<>(caseManagementNoteDAO.findNotesByDemographicAndIssueCode(demographicNo, CppCode.toArray()));
         List<NoteTo1> noteTo1s = new ArrayList<>();
@@ -44,6 +77,19 @@ public class NoteManager {
         return noteTo1s;
     }
 
+    /**
+     * Retrieves active CPP (Cumulative Patient Profile) notes for a specific patient demographic.
+     *
+     * This method filters case management notes to return only those with active status
+     * and associated with CPP issue codes. Active notes represent current, ongoing clinical
+     * information that is relevant to the patient's care. This is commonly used for displaying
+     * up-to-date patient profile information in encounter screens and clinical workflows.
+     * Inactive or archived notes are excluded from the results.
+     *
+     * @param loggedInInfo LoggedInInfo object containing the current user's session and security context
+     * @param demographicNo Integer unique identifier for the patient demographic record
+     * @return List&lt;NoteTo1&gt; collection of active CPP notes converted to transfer objects, or empty list if none found
+     */
     public List<NoteTo1> getActiveCppNotes(LoggedInInfo loggedInInfo, Integer demographicNo) {
         String[] issueIds = getIssueIds(null);
         List<CaseManagementNote> notes = new ArrayList<>(caseManagementNoteDAO.getActiveNotesByDemographic(String.valueOf(demographicNo), issueIds));
@@ -54,6 +100,20 @@ public class NoteManager {
         return noteTo1s;
     }
 
+    /**
+     * Retrieves active CPP (Cumulative Patient Profile) notes for a specific patient demographic
+     * filtered by custom CPP codes.
+     *
+     * This method provides the same functionality as {@link #getActiveCppNotes(LoggedInInfo, Integer)}
+     * but allows for custom filtering using a specific set of CPP codes rather than the default
+     * comprehensive CPP code list. This is useful for retrieving notes related to specific clinical
+     * categories or when a subset of CPP information is required for targeted clinical views or reports.
+     *
+     * @param loggedInInfo LoggedInInfo object containing the current user's session and security context
+     * @param demographicNo Integer unique identifier for the patient demographic record
+     * @param newCppCodes String[] array of CPP code strings to filter notes by
+     * @return List&lt;NoteTo1&gt; collection of active CPP notes matching the specified codes, or empty list if none found
+     */
     public List<NoteTo1> getActiveCppNotes(LoggedInInfo loggedInInfo, Integer demographicNo, String[] newCppCodes) {
         String[] issueIds = getIssueIds(newCppCodes);
         List<CaseManagementNote> notes = new ArrayList<>(caseManagementNoteDAO.getActiveNotesByDemographic(String.valueOf(demographicNo), issueIds));
@@ -64,6 +124,25 @@ public class NoteManager {
         return noteTo1s;
     }
 
+    /**
+     * Converts a CaseManagementNote entity to a NoteTo1 transfer object for API consumption.
+     *
+     * This method performs comprehensive conversion of a case management note entity into
+     * a REST API transfer object, including all core note properties, extended attributes,
+     * and associated clinical issues. The conversion process includes:
+     * - Core note metadata (revision, dates, provider information, status)
+     * - Extended note attributes (start date, resolution date, problem status, treatment, etc.)
+     * - Associated clinical issues with CPP classification
+     * - Summary code generation from all associated issues
+     *
+     * The method handles the complex mapping of note extensions (date values, problem details,
+     * relationships, life stage, etc.) and determines CPP classification based on associated
+     * issue codes. This is a central conversion utility used throughout the note retrieval workflow.
+     *
+     * @param loggedInInfo LoggedInInfo object containing the current user's session and security context
+     * @param caseManagementNote CaseManagementNote entity object to convert
+     * @return NoteTo1 transfer object containing all converted note data and associations
+     */
     public NoteTo1 convertNote(LoggedInInfo loggedInInfo, CaseManagementNote caseManagementNote) {
         NoteTo1 note = new NoteTo1();
         note.setNoteId(caseManagementNote.getId().intValue());
@@ -139,10 +218,34 @@ public class NoteManager {
         return note;
     }
 
+    /**
+     * Determines whether a case management issue is classified as a CPP (Cumulative Patient Profile) code.
+     *
+     * This method checks if the issue code associated with a CaseManagementIssue matches any
+     * of the predefined CPP codes defined in the CppCode enumeration. CPP codes represent
+     * categories of persistent patient information such as medical history, ongoing problems,
+     * medications, allergies, and family history. This classification is used to filter and
+     * categorize clinical notes for display in the patient's cumulative profile.
+     *
+     * @param cmeIssue CaseManagementIssue object to evaluate for CPP classification
+     * @return boolean true if the issue's code is a CPP code, false otherwise
+     */
     public boolean isCppCode(CaseManagementIssue cmeIssue) {
         return (CppCode.toStringList()).contains(cmeIssue.getIssue().getCode());
     }
 
+    /**
+     * Retrieves issue IDs corresponding to specified CPP codes or default CPP codes.
+     *
+     * This method queries the issue database to find all issue entities that match the provided
+     * CPP codes, or defaults to the comprehensive CPP code list if no custom codes are specified.
+     * The returned issue IDs are used for filtering case management notes by specific clinical
+     * issue categories. This supports dynamic note filtering based on CPP classification and
+     * enables flexible retrieval of notes associated with specific clinical domains.
+     *
+     * @param newCppCodes String[] array of custom CPP code strings to query, or null to use default CPP codes
+     * @return String[] array of issue ID strings corresponding to the queried CPP codes
+     */
     public String[] getIssueIds(String[] newCppCodes) {
         List<Issue> issues = new ArrayList<>();
         if (newCppCodes != null && newCppCodes.length > 0) {

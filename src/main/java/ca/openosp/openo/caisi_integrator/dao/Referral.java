@@ -22,6 +22,32 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.Entity;
 
+/**
+ * JPA entity representing a healthcare referral between CAISI facilities within the OpenO EMR Integrator system.
+ *
+ * <p>This class manages the complete lifecycle of patient referrals from a source healthcare facility/provider
+ * to a destination facility/program. Referrals are a critical component of coordinated care in community
+ * healthcare settings, enabling seamless patient transitions between different care programs and facilities.</p>
+ *
+ * <p>The referral entity tracks:</p>
+ * <ul>
+ *   <li>Source information: facility, patient demographic, and referring provider</li>
+ *   <li>Destination information: facility and specific care program</li>
+ *   <li>Clinical details: referral date, reason for referral, and presenting problem</li>
+ * </ul>
+ *
+ * <p>This entity is enhanced by Apache OpenJPA for persistence management, implementing the
+ * {@link PersistenceCapable} interface to support advanced ORM features including lazy loading,
+ * dirty tracking, and detached entity management.</p>
+ *
+ * <p><strong>Healthcare Context:</strong> In the CAISI (Client Access to Integrated Services and Information)
+ * system, referrals facilitate care coordination across multiple healthcare facilities and programs, supporting
+ * integrated service delivery for patients with complex care needs.</p>
+ *
+ * @see AbstractModel
+ * @see PersistenceCapable
+ * @since 2026-01-24
+ */
 @Entity
 public class Referral extends AbstractModel<Integer> implements PersistenceCapable
 {
@@ -62,6 +88,12 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
     private transient Object pcDetachedState;
     private static final long serialVersionUID;
     
+    /**
+     * Default constructor initializing all fields to null.
+     *
+     * <p>Creates a new Referral instance with all properties unset. This constructor is primarily
+     * used by the JPA persistence framework when instantiating entities from database records.</p>
+     */
     public Referral() {
         this.id = null;
         this.sourceIntegratorFacilityId = null;
@@ -74,83 +106,190 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         this.presentingProblem = null;
     }
     
+    /**
+     * Gets the unique identifier for this referral.
+     *
+     * @return Integer the referral ID, or null if not yet persisted
+     */
     @Override
     public Integer getId() {
         return pcGetid(this);
     }
     
+    /**
+     * Gets the unique identifier for this referral (alias for getId).
+     *
+     * @return Integer the referral ID, or null if not yet persisted
+     */
     public Integer getReferralId() {
         return pcGetid(this);
     }
     
+    /**
+     * Sets the referral ID (not supported - IDs are auto-generated).
+     *
+     * @param id Integer the proposed ID value
+     * @throws UnsupportedOperationException always, as IDs are managed by the persistence framework
+     */
     public void setReferralId(final Integer id) {
         throw new UnsupportedOperationException();
     }
     
+    /**
+     * Gets the integrator facility ID of the referring healthcare facility.
+     *
+     * @return Integer the source facility ID in the integrator system
+     */
     public Integer getSourceIntegratorFacilityId() {
         return pcGetsourceIntegratorFacilityId(this);
     }
     
+    /**
+     * Sets the integrator facility ID of the referring healthcare facility.
+     *
+     * @param sourceIntegratorFacilityId Integer the source facility ID in the integrator system
+     */
     public void setSourceIntegratorFacilityId(final Integer sourceIntegratorFacilityId) {
         pcSetsourceIntegratorFacilityId(this, sourceIntegratorFacilityId);
     }
     
+    /**
+     * Gets the CAISI demographic ID of the patient being referred.
+     *
+     * @return Integer the patient's demographic ID in the source CAISI system
+     */
     public Integer getSourceCaisiDemographicId() {
         return pcGetsourceCaisiDemographicId(this);
     }
     
+    /**
+     * Sets the CAISI demographic ID of the patient being referred.
+     *
+     * @param sourceCaisiDemographicId Integer the patient's demographic ID in the source CAISI system
+     */
     public void setSourceCaisiDemographicId(final Integer sourceCaisiDemographicId) {
         pcSetsourceCaisiDemographicId(this, sourceCaisiDemographicId);
     }
     
+    /**
+     * Gets the CAISI provider ID of the healthcare provider making the referral.
+     *
+     * @return String the referring provider's ID in the source CAISI system
+     */
     public String getSourceCaisiProviderId() {
         return pcGetsourceCaisiProviderId(this);
     }
     
+    /**
+     * Sets the CAISI provider ID of the healthcare provider making the referral.
+     *
+     * <p>The value is automatically trimmed and converted to null if blank.</p>
+     *
+     * @param sourceCaisiProviderId String the referring provider's ID in the source CAISI system
+     */
     public void setSourceCaisiProviderId(final String sourceCaisiProviderId) {
         pcSetsourceCaisiProviderId(this, StringUtils.trimToNull(sourceCaisiProviderId));
     }
     
+    /**
+     * Gets the integrator facility ID of the destination healthcare facility.
+     *
+     * @return Integer the destination facility ID in the integrator system
+     */
     public Integer getDestinationIntegratorFacilityId() {
         return pcGetdestinationIntegratorFacilityId(this);
     }
     
+    /**
+     * Sets the integrator facility ID of the destination healthcare facility.
+     *
+     * @param destinationIntegratorFacilityId Integer the destination facility ID in the integrator system
+     */
     public void setDestinationIntegratorFacilityId(final Integer destinationIntegratorFacilityId) {
         pcSetdestinationIntegratorFacilityId(this, destinationIntegratorFacilityId);
     }
     
+    /**
+     * Gets the CAISI program ID at the destination facility where the patient is being referred.
+     *
+     * @return Integer the destination program ID in the CAISI system
+     */
     public Integer getDestinationCaisiProgramId() {
         return pcGetdestinationCaisiProgramId(this);
     }
     
+    /**
+     * Sets the CAISI program ID at the destination facility where the patient is being referred.
+     *
+     * @param destinationCaisiProgramId Integer the destination program ID in the CAISI system
+     */
     public void setDestinationCaisiProgramId(final Integer destinationCaisiProgramId) {
         pcSetdestinationCaisiProgramId(this, destinationCaisiProgramId);
     }
     
+    /**
+     * Gets the date when this referral was made.
+     *
+     * @return Date the referral date and time
+     */
     public Date getReferralDate() {
         return pcGetreferralDate(this);
     }
     
+    /**
+     * Sets the date when this referral was made.
+     *
+     * @param referralDate Date the referral date and time
+     */
     public void setReferralDate(final Date referralDate) {
         pcSetreferralDate(this, referralDate);
     }
     
+    /**
+     * Gets the clinical reason for this referral.
+     *
+     * @return String the reason for referral, or null if not specified
+     */
     public String getReasonForReferral() {
         return pcGetreasonForReferral(this);
     }
     
+    /**
+     * Sets the clinical reason for this referral.
+     *
+     * <p>The value is automatically trimmed and converted to null if blank.</p>
+     *
+     * @param reasonForReferral String the reason for referral
+     */
     public void setReasonForReferral(final String reasonForReferral) {
         pcSetreasonForReferral(this, StringUtils.trimToNull(reasonForReferral));
     }
     
+    /**
+     * Gets the patient's presenting problem that prompted this referral.
+     *
+     * @return String the presenting problem description, or null if not specified
+     */
     public String getPresentingProblem() {
         return pcGetpresentingProblem(this);
     }
     
+    /**
+     * Sets the patient's presenting problem that prompted this referral.
+     *
+     * <p>The value is automatically trimmed and converted to null if blank.</p>
+     *
+     * @param presentingProblem String the presenting problem description
+     */
     public void setPresentingProblem(final String presentingProblem) {
         pcSetpresentingProblem(this, StringUtils.trimToNull(presentingProblem));
     }
     
+    /**
+     * Gets the OpenJPA enhancement contract version for this entity.
+     *
+     * @return int the enhancement contract version (always 2)
+     */
     public int pcGetEnhancementContractVersion() {
         return 2;
     }
@@ -172,6 +311,9 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         }
     }
     
+    /**
+     * Clears all fields to null, used by OpenJPA for entity lifecycle management.
+     */
     protected void pcClearFields() {
         this.destinationCaisiProgramId = null;
         this.destinationIntegratorFacilityId = null;
@@ -184,6 +326,16 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         this.sourceIntegratorFacilityId = null;
     }
     
+    /**
+     * Creates a new instance of this entity with the specified state manager and object ID.
+     *
+     * <p>This method is used by OpenJPA to create instances during database loading operations.</p>
+     *
+     * @param pcStateManager StateManager the persistence state manager for this instance
+     * @param o Object the object ID to copy key fields from
+     * @param b boolean whether to clear all fields after initialization
+     * @return PersistenceCapable the newly created instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final Object o, final boolean b) {
         final Referral referral = new Referral();
         if (b) {
@@ -194,6 +346,15 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         return (PersistenceCapable)referral;
     }
     
+    /**
+     * Creates a new instance of this entity with the specified state manager.
+     *
+     * <p>This method is used by OpenJPA to create instances during database loading operations.</p>
+     *
+     * @param pcStateManager StateManager the persistence state manager for this instance
+     * @param b boolean whether to clear all fields after initialization
+     * @return PersistenceCapable the newly created instance
+     */
     public PersistenceCapable pcNewInstance(final StateManager pcStateManager, final boolean b) {
         final Referral referral = new Referral();
         if (b) {
@@ -203,10 +364,23 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         return (PersistenceCapable)referral;
     }
     
+    /**
+     * Gets the number of managed fields in this entity.
+     *
+     * @return int the count of managed fields (9)
+     */
     protected static int pcGetManagedFieldCount() {
         return 9;
     }
     
+    /**
+     * Replaces a single field value from the persistence state manager.
+     *
+     * <p>This method is called by OpenJPA during entity loading and refresh operations.</p>
+     *
+     * @param n int the field index to replace
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcReplaceField(final int n) {
         final int n2 = n - Referral.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -255,12 +429,27 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         }
     }
     
+    /**
+     * Replaces multiple field values from the persistence state manager.
+     *
+     * <p>This method is called by OpenJPA during entity loading and refresh operations.</p>
+     *
+     * @param array int[] the array of field indices to replace
+     */
     public void pcReplaceFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcReplaceField(array[i]);
         }
     }
     
+    /**
+     * Provides a single field value to the persistence state manager.
+     *
+     * <p>This method is called by OpenJPA during entity flushing and detachment operations.</p>
+     *
+     * @param n int the field index to provide
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     public void pcProvideField(final int n) {
         final int n2 = n - Referral.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -309,12 +498,28 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         }
     }
     
+    /**
+     * Provides multiple field values to the persistence state manager.
+     *
+     * <p>This method is called by OpenJPA during entity flushing and detachment operations.</p>
+     *
+     * @param array int[] the array of field indices to provide
+     */
     public void pcProvideFields(final int[] array) {
         for (int i = 0; i < array.length; ++i) {
             this.pcProvideField(array[i]);
         }
     }
     
+    /**
+     * Copies a single field value from another Referral instance.
+     *
+     * <p>This method is used by OpenJPA for entity cloning and merge operations.</p>
+     *
+     * @param referral Referral the source instance to copy from
+     * @param n int the field index to copy
+     * @throws IllegalArgumentException if the field index is invalid
+     */
     protected void pcCopyField(final Referral referral, final int n) {
         final int n2 = n - Referral.pcInheritedFieldCount;
         if (n2 < 0) {
@@ -363,6 +568,16 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         }
     }
     
+    /**
+     * Copies multiple field values from another Referral instance.
+     *
+     * <p>This method is used by OpenJPA for entity cloning and merge operations.</p>
+     *
+     * @param o Object the source instance to copy from (must be a Referral)
+     * @param array int[] the array of field indices to copy
+     * @throws IllegalArgumentException if the source object has a different state manager
+     * @throws IllegalStateException if the state manager is null
+     */
     public void pcCopyFields(final Object o, final int[] array) {
         final Referral referral = (Referral)o;
         if (referral.pcStateManager != this.pcStateManager) {
@@ -376,6 +591,11 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         }
     }
     
+    /**
+     * Gets the generic context from the persistence state manager.
+     *
+     * @return Object the generic context, or null if no state manager is attached
+     */
     public Object pcGetGenericContext() {
         if (this.pcStateManager == null) {
             return null;
@@ -383,6 +603,11 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         return this.pcStateManager.getGenericContext();
     }
     
+    /**
+     * Fetches the object ID for this entity from the persistence state manager.
+     *
+     * @return Object the object ID, or null if no state manager is attached
+     */
     public Object pcFetchObjectId() {
         if (this.pcStateManager == null) {
             return null;
@@ -390,10 +615,20 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         return this.pcStateManager.fetchObjectId();
     }
     
+    /**
+     * Checks if this entity is marked as deleted.
+     *
+     * @return boolean true if the entity is deleted, false otherwise
+     */
     public boolean pcIsDeleted() {
         return this.pcStateManager != null && this.pcStateManager.isDeleted();
     }
     
+    /**
+     * Checks if this entity has been modified since it was loaded.
+     *
+     * @return boolean true if the entity has unsaved changes, false otherwise
+     */
     public boolean pcIsDirty() {
         if (this.pcStateManager == null) {
             return false;
@@ -403,22 +638,47 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         return pcStateManager.isDirty();
     }
     
+    /**
+     * Checks if this entity is newly created and not yet persisted.
+     *
+     * @return boolean true if the entity is new, false otherwise
+     */
     public boolean pcIsNew() {
         return this.pcStateManager != null && this.pcStateManager.isNew();
     }
     
+    /**
+     * Checks if this entity is managed by the persistence context.
+     *
+     * @return boolean true if the entity is persistent, false otherwise
+     */
     public boolean pcIsPersistent() {
         return this.pcStateManager != null && this.pcStateManager.isPersistent();
     }
     
+    /**
+     * Checks if this entity is participating in a transaction.
+     *
+     * @return boolean true if the entity is transactional, false otherwise
+     */
     public boolean pcIsTransactional() {
         return this.pcStateManager != null && this.pcStateManager.isTransactional();
     }
     
+    /**
+     * Checks if this entity is currently being serialized.
+     *
+     * @return boolean true if the entity is being serialized, false otherwise
+     */
     public boolean pcSerializing() {
         return this.pcStateManager != null && this.pcStateManager.serializing();
     }
     
+    /**
+     * Marks the specified field as dirty (modified).
+     *
+     * @param s String the field name to mark as dirty
+     */
     public void pcDirty(final String s) {
         if (this.pcStateManager == null) {
             return;
@@ -426,10 +686,20 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         this.pcStateManager.dirty(s);
     }
     
+    /**
+     * Gets the persistence state manager for this entity.
+     *
+     * @return StateManager the state manager, or null if none is attached
+     */
     public StateManager pcGetStateManager() {
         return this.pcStateManager;
     }
     
+    /**
+     * Gets the version identifier for optimistic locking.
+     *
+     * @return Object the version object, or null if no state manager is attached
+     */
     public Object pcGetVersion() {
         if (this.pcStateManager == null) {
             return null;
@@ -437,6 +707,12 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         return this.pcStateManager.getVersion();
     }
     
+    /**
+     * Replaces the current state manager with a new one.
+     *
+     * @param pcStateManager StateManager the new state manager to use
+     * @throws SecurityException if state manager replacement is not allowed
+     */
     public void pcReplaceStateManager(final StateManager pcStateManager) throws SecurityException {
         if (this.pcStateManager != null) {
             this.pcStateManager = this.pcStateManager.replaceStateManager(pcStateManager);
@@ -445,26 +721,61 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         this.pcStateManager = pcStateManager;
     }
     
+    /**
+     * Copies key fields to an object ID using a field supplier (not supported for this entity).
+     *
+     * @param fieldSupplier FieldSupplier the field supplier
+     * @param o Object the target object ID
+     * @throws InternalException always, as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final FieldSupplier fieldSupplier, final Object o) {
         throw new InternalException();
     }
     
+    /**
+     * Copies key fields to an object ID (not supported for this entity).
+     *
+     * @param o Object the target object ID
+     * @throws InternalException always, as this operation is not supported
+     */
     public void pcCopyKeyFieldsToObjectId(final Object o) {
         throw new InternalException();
     }
     
+    /**
+     * Copies key fields from an object ID using a field consumer.
+     *
+     * @param fieldConsumer FieldConsumer the field consumer to receive the key fields
+     * @param o Object the source object ID (must be an IntId)
+     */
     public void pcCopyKeyFieldsFromObjectId(final FieldConsumer fieldConsumer, final Object o) {
         fieldConsumer.storeObjectField(2 + Referral.pcInheritedFieldCount, (Object)Integer.valueOf(((IntId)o).getId()));
     }
     
+    /**
+     * Copies key fields from an object ID.
+     *
+     * @param o Object the source object ID (must be an IntId)
+     */
     public void pcCopyKeyFieldsFromObjectId(final Object o) {
         this.id = Integer.valueOf(((IntId)o).getId());
     }
     
+    /**
+     * Creates a new object ID instance from a string representation.
+     *
+     * @param o Object the string representation of the ID
+     * @return Object a new IntId instance
+     */
     public Object pcNewObjectIdInstance(final Object o) {
         return new IntId((Referral.class$Lca$openosp$openo$caisi_integrator$dao$Referral != null) ? Referral.class$Lca$openosp$openo$caisi_integrator$dao$Referral : (Referral.class$Lca$openosp$openo$caisi_integrator$dao$Referral = class$("ca.openosp.openo.caisi_integrator.dao.Referral")), (String)o);
     }
     
+    /**
+     * Creates a new object ID instance from this entity's current ID value.
+     *
+     * @return Object a new IntId instance
+     */
     public Object pcNewObjectIdInstance() {
         return new IntId((Referral.class$Lca$openosp$openo$caisi_integrator$dao$Referral != null) ? Referral.class$Lca$openosp$openo$caisi_integrator$dao$Referral : (Referral.class$Lca$openosp$openo$caisi_integrator$dao$Referral = class$("ca.openosp.openo.caisi_integrator.dao.Referral")), this.id);
     }
@@ -613,6 +924,14 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         referral.pcStateManager.settingObjectField((PersistenceCapable)referral, Referral.pcInheritedFieldCount + 8, (Object)referral.sourceIntegratorFacilityId, (Object)sourceIntegratorFacilityId, 0);
     }
     
+    /**
+     * Checks if this entity is in a detached state.
+     *
+     * <p>A detached entity is one that was previously managed by a persistence context
+     * but is no longer associated with it.</p>
+     *
+     * @return Boolean true if detached, false if attached, null if unknown
+     */
     public Boolean pcIsDetached() {
         if (this.pcStateManager != null) {
             if (this.pcStateManager.isDetached()) {
@@ -641,10 +960,20 @@ public class Referral extends AbstractModel<Integer> implements PersistenceCapab
         return false;
     }
     
+    /**
+     * Gets the detached state object for this entity.
+     *
+     * @return Object the detached state, or null if not detached
+     */
     public Object pcGetDetachedState() {
         return this.pcDetachedState;
     }
     
+    /**
+     * Sets the detached state object for this entity.
+     *
+     * @param pcDetachedState Object the detached state to set
+     */
     public void pcSetDetachedState(final Object pcDetachedState) {
         this.pcDetachedState = pcDetachedState;
     }

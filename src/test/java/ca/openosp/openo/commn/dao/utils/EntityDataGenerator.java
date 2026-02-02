@@ -33,6 +33,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javassist.Modifier;
 
@@ -44,6 +45,9 @@ import ca.openosp.openo.commn.model.Provider;
 import ca.openosp.openo.utility.MiscUtils;
 
 public class EntityDataGenerator {
+
+    // Thread-safe counter to ensure uniqueness for composite unique constraints
+    private static final AtomicInteger uniqueCounter = new AtomicInteger(0);
 
     public static Object generateTestDataForModelClass(Object model) throws Exception {
 
@@ -88,8 +92,9 @@ public class EntityDataGenerator {
                 } else if ("patient_status".equalsIgnoreCase(fieldName) || "patientStatus".equalsIgnoreCase(fieldName)) {
                     value = "AC";
                 } else {
-                    // For other string fields, generate a shorter value to avoid constraint violations
-                    value = fieldName.substring(0, Math.min(3, fieldName.length())) + ((int) (Math.random() * 100));
+                    // For other string fields, generate a unique value using timestamp + counter to avoid constraint violations
+                    // Counter ensures uniqueness even for composite keys created in the same millisecond
+                    value = fieldName.substring(0, Math.min(3, fieldName.length())) + System.currentTimeMillis() + "_" + uniqueCounter.incrementAndGet();
                 }
                 f[i].set(model, value);
             } else if (f[i].getType() == int.class || f[i].getType() == Integer.class) {

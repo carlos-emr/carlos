@@ -27,9 +27,8 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="java.util.*,ca.openosp.openo.rx.data.*,ca.openosp.openo.rx.pageUtil.*,ca.openosp.openo.rx.util.*" %>
+<%@ page import="ca.openosp.openo.rx.util.*" %>
 <%@page import="ca.openosp.openo.utility.MiscUtils" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="ca.openosp.openo.utility.LoggedInInfo" %>
 <%@ page import="ca.openosp.openo.prescript.util.LimitedUseCode" %>
 <%@ page import="ca.openosp.openo.prescript.util.RxUtil" %>
@@ -39,6 +38,8 @@
 <%@ page import="ca.openosp.openo.prescript.util.LimitedUseLookup" %>
 <%@ page import="ca.openosp.openo.prescript.pageUtil.RxWriteScriptForm" %>
 <%@ page import="ca.openosp.openo.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%long start = System.currentTimeMillis();%>
 
@@ -863,7 +864,7 @@
                 } else {
                     thisForm.setGenericName("");
                     thisForm.setBrandName("");
-                    thisForm.setGCN_SEQNO(0);
+                    thisForm.setGCN_SEQNO("0");
                     thisForm.setCustomName(rx.getCustomName());
                 }
 
@@ -903,8 +904,8 @@
                 atcCode = rx.getAtcCode();
             }
 
-            isCustom = thisForm.getGCN_SEQNO() == 0;
-            int drugId = thisForm.getGCN_SEQNO();
+            isCustom = Objects.equals(thisForm.getGCN_SEQNO(), "0");
+            String drugId = thisForm.getGCN_SEQNO();
         }
     %>
     <input type="hidden" name="annotation_attrib" value="<%=annotation_attrib%>"/>
@@ -1006,7 +1007,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> >
+                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp"> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></a> >
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title"/> >
                                 <b><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.title"/></b>
                             </div>
@@ -1135,7 +1136,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <option value="9">9</option>
                                         <option value="Other">Other</option>
                                     </select> <input type=text name="takeOther" style="display: none" size="5"
-                                                     onChange="javascript:takeChg();"/> <select
+                                                     onChange="takeChg();"/> <select
                                             name="unit" style="width:80px" onchange="calcQty();">
                                         <option value="tab">Tabs</option>
                                         <option value="mL">mL</option>
@@ -1291,7 +1292,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <%}%>
                                         <option value="Other"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgOther"/></option>
                                     </select> <input type=text name="txtRepeat" size="5"
-                                                     onchange="javascript:calcQty();" style="display: none"/>
+                                                     onchange="calcQty();" style="display: none"/>
                                         <input type="hidden" name="repeat" id="repeat"/>
                                         <script language=javascript>
                                             frm.txtRepeat.value = frm.repeat.value;
@@ -1369,8 +1370,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                             <%for (LimitedUseCode limitedUseCode : luList) {%>
                                                             <tr>
                                                                 <td valign="top"><a
-                                                                        onclick="javascript:addLuCode('<%=limitedUseCode.getUseId()%>')"
-                                                                        href="javascript: return void();"><%=limitedUseCode.getUseId()%>
+                                                                        onclick="addLuCode('<%=limitedUseCode.getUseId()%>')"
+                                                                        href="javascript: return void(0);"><%=limitedUseCode.getUseId()%>
                                                                 </a>&nbsp;
                                                                 </td>
                                                                 <td><%=limitedUseCode.getTxt()%>
@@ -1382,7 +1383,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </oscar:oscarPropertiesCheck></td>
                                                 <td valign=center><input type=button name="cmdSpecial"
                                                                          value="<<"
-                                                                         onclick=" javascript:cmdSpecial_click();"/>
+                                                                         onclick="cmdSpecial_click();"/>
                                                 </td>
 
                                             </tr>
@@ -1394,7 +1395,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     <td colspan="5">
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
                                         <input type="checkbox" id="ocheck"
-                                               onclick="javascript:showHideOutsideProvider();"/> &nbsp;
+                                               onclick="showHideOutsideProvider();"/> &nbsp;
                                         <span id="otext">
 							    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgName"/>:</b>
                                             <input type="text" name="outsideProviderName"/> &nbsp;
@@ -1404,26 +1405,28 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td colspan="5"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxWrittenDate"/>:
+                                    <td colspan="5">
+                                      <label for="writtenDate"> <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxWrittenDate"/>: </label>
                                             <input type="text" name="writtenDate" id="writtenDate" />
+                                    </td>
+                                </tr>
                             </table>
                         </td>
                     </tr>
 
                     <tr>
                         <td><!--3a-->
-                            </form>
                             <table width="100%">
                                 <tr>
                                     <td>
                                         <input type=button class="ControlPushButton" style="width: 55px"
-                                               onclick="javascript:submitForm('update');"
+                                               onclick="submitForm('update');"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUpdate"/>"/>
                                         <input type=button class="ControlPushButton" style="width: 200px"
-                                               onclick="javascript:submitForm('updateAddAnother');"
+                                               onclick="submitForm('updateAddAnother');"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUpdateAndGetNewDrug"/>"/>
                                         <input type=button class="ControlPushButton" style="width: 200px"
-                                               onclick="javascript:submitForm('updateAndPrint');"
+                                               onclick="submitForm('updateAndPrint');"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUpdatePrintAndSave"/>"/>
                                     </td>
                                     <td align="right">
@@ -1437,15 +1440,14 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                             <!-- input type=button class="ControlPushButton" style="width:200px" onclick="javascript:replaceScriptDisplay();" value="REPLACE" />
                                         <input type=button class="ControlPushButton" style="width:200px" onclick="javascript:fillWarnings();" value="RunWarning" /
                                         <input type=button class="ControlPushButton" style="width:200px" onclick="javascript:addWarning();" value="FillWarning" /-->
-                            <br>
+
                             <!-- peice Went Here --> <%
                                 //RxPatientData.Patient.Allergy[] allerg = (RxPatientData.Patient.Allergy[]) request.getAttribute("ALLERGIES");
                                 Allergy[] allerg = bean.getAllergyWarnings(loggedInInfo, atcCode);
                                 if (allerg != null && allerg.length > 0) {
                                     for (int allergIndex = 0; allergIndex < allerg.length; allergIndex++) {
                             %>
-                            <div
-                                    style="background-color:<%=severityOfReactionColor(allerg[allergIndex].getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
+                            <div style="background-color:<%=severityOfReactionColor(allerg[allergIndex].getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
                                 <b>Allergy:</b> <%= allerg[allergIndex].getDescription() %> <b>Reaction:</b>
                                 <%= allerg[allergIndex].getReaction() %>
                                 <b>Severity:</b> <%=severityOfReaction(allerg[allergIndex].getSeverityOfReaction())%>
@@ -1477,7 +1479,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                             <form action="${pageContext.request.contextPath}/oscarRx/stash.do" method="post">
                                 <input type="hidden" name="action" value="">
                                 <input type="hidden" name="stashId"/>
-                            </form></td>
+                            </form>
+                      </td>
                     </tr>
 
                     <tr>
@@ -1489,20 +1492,19 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                     <tr>
                         <td>
-                            <script language=javascript>
+                            <script type="text/javascript">
                                 function ShowDrugInfo(GN) {
-                                    window.open("<%= request.getContextPath() %>/oscarRx/drugInfo.do?GN=" + escape(GN), "_blank",
+                                    window.open("<%= request.getContextPath() %>/oscarRx/drugInfo.do?GN=" + encodeURIComponent(GN), "_blank",
                                         "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                 }
-                            </script>
-                            <script language=javascript>
+
                                 function addFavorite(stashId, brandName) {
                                     var favoriteName = window.prompt('Please enter a name for the Favorite:',
                                         brandName);
 
-                                    if (favoriteName.length > 0) {
+                                    if (favoriteName !== null && favoriteName.length > 0) {
                                         window.location.href = '<%= request.getContextPath() %>/oscarRx/addFavoriteWriteScript.do?stashId='
-                                            + escape(stashId) + '&favoriteName=' + escape(favoriteName);
+                                            + encodeURIComponent(stashId) + '&favoriteName=' + encodeURIComponent(favoriteName);
                                     }
                                 }
                             </script>
@@ -1522,17 +1524,17 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </c:otherwise>
                                                 </c:choose>
                                                 <td>
-                                                    <a href="javascript:submitPending(${loopStatus.index}, 'edit');">
+                                                    <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
                                                         <fmt:message key="WriteScript.msgEdit"/>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending(${loopStatus.index}, 'delete');">
+                                                    <a href="javascript:submitPending('${loopStatus.index}', 'delete');">
                                                         <fmt:message key="WriteScript.msgDelete"/>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending(${loopStatus.index}, 'edit');">
+                                                    <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
                                                         <c:out value="${rx.rxDisplay}"/>
                                                     </a>
                                                 </td>
@@ -1542,7 +1544,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:addFavorite(${loopStatus.index}, '${rx2.custom ? fn:escapeXml(rx2.customName) : fn:escapeXml(rx2.brandName)}');">
+                                                    <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
+                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<%=Encode.forJavaScript((String)pageContext.getAttribute("drugNameForFavorite"))%>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>
@@ -1560,17 +1563,11 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </tr>
                             </table>
                         </td>
-            </td>
-        </tr>
 
-
-        <!----End new rows here-->
-        <tr height="100%">
-            <td></td>
         </tr>
     </table>
-    </td>
-    </tr>
+            </td>
+        </tr>
 
     <tr>
         <td height="0%"
@@ -1610,7 +1607,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                 function getRenalDosingInformation(origRequest) {
                     var dummie = "";
-                    var url = "RenalDosing.jsp";
+                    var url = "<%= request.getContextPath() %>/oscarRx/RenalDosing.jsp";
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
                     //alert(params);
