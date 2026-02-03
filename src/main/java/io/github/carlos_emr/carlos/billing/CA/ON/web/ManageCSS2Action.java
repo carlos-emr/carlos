@@ -109,7 +109,6 @@ public class ManageCSS2Action extends ActionSupport {
         }
 
         List<CssStyle> styles = cssStylesDao.findAll();
-       ;
         int idx = 0;
         for (CssStyle cssStylecurrent : styles) {
             if (cssStylecurrent.getStyle().equalsIgnoreCase(this.getEditStyle())) {

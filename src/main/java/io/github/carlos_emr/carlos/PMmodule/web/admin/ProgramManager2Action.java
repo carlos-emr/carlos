@@ -1457,7 +1457,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String edit_status() {
         Program program = this.getProgram();
-        ProgramClientStatus status = this.getClient_status();;
+        ProgramClientStatus status = this.getClient_status();
 
         ProgramClientStatus pt = programManager.getProgramClientStatus(String.valueOf(status.getId()));
 
@@ -1474,7 +1474,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String save_status() {
         Program program = this.getProgram();
-        ProgramClientStatus status = this.getClient_status();;
+        ProgramClientStatus status = this.getClient_status();
 
         status.setProgramId(program.getId());
 

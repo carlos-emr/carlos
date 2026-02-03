@@ -75,7 +75,6 @@ public class OLISPoller {
         List<Provider> allProvidersList = providerDao.getActiveProviders();
 
         OLISSystemPreferencesDao olisSystemPreferencesDao = (OLISSystemPreferencesDao) SpringUtils.getBean(OLISSystemPreferencesDao.class);
-       ;
         OLISSystemPreferences olisSystemPreferences = olisSystemPreferencesDao.getPreferences();
 
         OLISProviderPreferencesDao olisProviderPreferencesDao = (OLISProviderPreferencesDao) SpringUtils.getBean(OLISProviderPreferencesDao.class);

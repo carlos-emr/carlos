@@ -324,7 +324,6 @@ public class StringUtils {
      */
     public static String getCSV(List l) {
         StringBuilder ret = new StringBuilder();
-       ;
         if (l != null) {
             for (int i = 0; i < l.size(); i++) {
                 ret.append((String) l.get(i));

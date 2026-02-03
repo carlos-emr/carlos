@@ -73,7 +73,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("saving ALL Secuserrole instances");
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             for (int i = 0; i < list.size(); i++) {
                 Secuserrole obj = (Secuserrole) list.get(i);
@@ -101,7 +100,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("saving Secuserrole instance");
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             transientInstance.setLastUpdateDate(new Date());
             session.saveOrUpdate(transientInstance);
@@ -130,7 +128,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("deleting Secuserrole instance");
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             session.delete(persistentInstance);
             logger.debug("delete successful");
@@ -188,7 +185,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("Update Secuserrole instance");
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             String queryString = "update Secuserrole as model set model.activeyn ='" + instance.getActiveyn()
                     + "', lastUpdateDate=now() "
@@ -211,7 +207,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("getting Secuserrole instance with id: " + id);
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             Secuserrole instance = (Secuserrole) session.get(
                     Secuserrole.class, id);
@@ -229,7 +224,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
     public List findByExample(Secuserrole instance) {
         // Session session = getSession();
         Session session = currentSession();
-       ;
         logger.debug("finding Secuserrole instance by example");
         try {
             List results = session.createCriteria(
@@ -254,7 +248,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
                 + ", value: " + value);
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             String queryString = "from Secuserrole as model where model."
                     + propertyName + "= ?1";
@@ -357,7 +350,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
     public List findAll() {
         // Session session = getSession();
         Session session = currentSession();
-       ;
         logger.debug("finding all Secuserrole instances");
         try {
             String queryString = "from Secuserrole";
@@ -377,7 +369,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("merging Secuserrole instance");
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             detachedInstance.setLastUpdateDate(new Date());
             Secuserrole result = (Secuserrole) session.merge(
@@ -398,7 +389,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("attaching dirty Secuserrole instance");
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             instance.setLastUpdateDate(new Date());
             session.saveOrUpdate(instance);
@@ -417,7 +407,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("attaching clean Secuserrole instance");
         // Session session = getSession();
         Session session = currentSession();
-       ;
         try {
             session.lock(instance, LockMode.NONE);
             logger.debug("attach successful");
