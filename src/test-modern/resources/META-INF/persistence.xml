@@ -34,6 +34,18 @@
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</mapping-file>
+        <!-- PMmodule additional mappings for integration tests -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</mapping-file>
+        <!-- CaseManagement mappings for integration tests -->
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/issue.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</mapping-file>
+        <!-- Security model mappings -->
+        <mapping-file>com/quatro/model/security/Secrole.hbm.xml</mapping-file>
+        <mapping-file>com/quatro/model/security/Secuserrole.hbm.xml</mapping-file>
     </persistence-unit>
 
 </persistence>
