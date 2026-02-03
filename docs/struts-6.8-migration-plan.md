@@ -2,76 +2,104 @@
 
 ## Executive Summary
 
-This document outlines the migration plan for upgrading CARLOS EMR from Apache Struts 2.5.33 to Struts 6.8.0. The experimental branch contains a prior migration attempt (pre-namespace migration) that provides valuable guidance but cannot be directly merged due to the OpenO → CARLOS namespace migration that occurred afterward.
+This document outlines the migration plan for upgrading CARLOS EMR from Apache Struts 2.5.33 to Struts 6.8.0.
+
+**CRITICAL UPDATE (v2.0)**: Research into official Struts documentation and bug reports reveals that the `com.opensymphony.xwork2.*` packages are **deprecated but fully functional** in Struts 6.x. Furthermore, there is a **known bug (WW-5494)** where using `org.apache.struts2.ActionSupport` instead of `com.opensymphony.xwork2.ActionSupport` can cause interceptor stack corruption. The official recommendation is to **continue using the xwork2 packages** in Struts 6.x.
+
+The full package migration from `com.opensymphony.xwork2.*` to `org.apache.struts2.*` is planned for **Struts 7.x**, not 6.x.
+
+**This dramatically simplifies the migration.**
 
 **Key Statistics:**
 - **Current Version**: Struts 2.5.33
 - **Target Version**: Struts 6.8.0
-- **2Action Classes**: 458 files requiring ActionSupport import changes
-- **ModelDriven Classes**: 2 files requiring ModelDriven import changes
-- **Action Mappings**: 500 mappings in struts.xml
-- **Test Files**: 3 files require ActionContext API migration
-- **Estimated Scope**: ~465 files total
+- **Files Requiring Code Changes**: ~3-5 files (configuration only)
+- **Import Changes Required**: **NONE** (keep using xwork2 packages)
+- **Action Mappings**: No changes needed
 
 ---
 
 ## Table of Contents
 
-1. [Migration Overview](#1-migration-overview)
-2. [Pre-Migration Checklist](#2-pre-migration-checklist)
+1. [Critical: Import Changes NOT Required](#critical-import-changes-not-required)
+2. [Migration Overview](#1-migration-overview)
 3. [Phase 1: Dependency Updates](#phase-1-dependency-updates)
-4. [Phase 2: ActionSupport Import Migration](#phase-2-actionsupport-import-migration)
-5. [Phase 3: Struts Configuration Migration](#phase-3-struts-configuration-migration)
-6. [Phase 4: ActionContext API Migration](#phase-4-actioncontext-api-migration)
-7. [Phase 5: Deprecated Features Removal](#phase-5-deprecated-features-removal)
-8. [Phase 6: File Upload Compatibility](#phase-6-file-upload-compatibility)
-9. [Phase 7: DAO and Model Compatibility Fixes](#phase-7-dao-and-model-compatibility-fixes)
-10. [Phase 8: Testing and Validation](#phase-8-testing-and-validation)
-11. [Rollback Plan](#rollback-plan)
-12. [Reference: Experimental Branch Changes](#reference-experimental-branch-changes)
+4. [Phase 2: Struts Configuration Updates](#phase-2-struts-configuration-updates)
+5. [Phase 3: Fix Pre-Existing Bugs](#phase-3-fix-pre-existing-bugs)
+6. [Phase 4: Testing and Validation](#phase-4-testing-and-validation)
+7. [Future: Struts 7.x Migration](#future-struts-7x-migration)
+8. [Rollback Plan](#rollback-plan)
+9. [References](#references)
+
+---
+
+## Critical: Import Changes NOT Required
+
+### The WW-5494 Bug
+
+**Bug**: [WW-5494](https://issues.apache.org/jira/browse/WW-5494) - "Using struts2.ActionSupport instead of xwork2.ActionSupport causes interceptors stack corrupted"
+
+**Status**: Closed as **"Won't Fix"** - The bug was acknowledged but NOT fixed. The resolution means Struts team decided it wasn't worth fixing since there's a workaround.
+
+**Impact**: If you change action classes to extend `org.apache.struts2.ActionSupport` instead of `com.opensymphony.xwork2.ActionSupport`, custom interceptor stacks may behave unexpectedly.
+
+**Official Workaround**: From the Struts team (Kusal Kithul-Godage, Jan 2025): *"Given there is a straightforward workaround of simply continuing to use 'com.opensymphony.xwork2.ActionSupport', I think this bug (if it genuinely is one) is not urgent and is fine to be postponed."*
+
+**Note**: This bug may or may not still exist in Struts 7.x where xwork2 packages are removed entirely. Testing would be required if migrating to 7.x.
+
+### What This Means for CARLOS EMR
+
+**DO NOT change these imports for Struts 6.8:**
+
+```java
+// KEEP THESE - They work fine in Struts 6.8
+import com.opensymphony.xwork2.ActionSupport;
+import com.opensymphony.xwork2.ActionContext;
+import com.opensymphony.xwork2.ModelDriven;
+import com.opensymphony.xwork2.validator.annotations.Validation;
+```
+
+The `com.opensymphony.xwork2.*` packages are:
+- **Deprecated** in Struts 6.x (compiler warnings only)
+- **Fully functional** in Struts 6.8.0
+- **Safer** than the new packages due to WW-5494
+- **Scheduled for removal** in Struts 7.x (requires Java 17+)
+
+### Correction to Experimental Branch Approach
+
+The experimental branch migrated all 458 2Action files to use `org.apache.struts2.ActionSupport`. This was **premature** and potentially introduces the WW-5494 bug. For Struts 6.8, this migration is unnecessary.
 
 ---
 
 ## 1. Migration Overview
 
-### What Changed Between Struts 2.5.x and 6.x
+### What Actually Changes Between Struts 2.5.33 and 6.8.0
 
-| Component | Struts 2.5.x | Struts 6.x | Impact |
-|-----------|--------------|------------|--------|
-| ActionSupport Package | `com.opensymphony.xwork2.ActionSupport` | `org.apache.struts2.ActionSupport` | All 458 2Action classes |
-| ModelDriven Interface | `com.opensymphony.xwork2.ModelDriven` | `org.apache.struts2.ModelDriven` | 2 action classes |
-| ActionContext API | `ActionContext.getContext()` | `ActionContext.of()` builder pattern | 3 test files |
-| DTD Version | struts-2.3.dtd | struts-6.0.dtd | struts.xml |
-| @Validation Annotation | Supported | Deprecated/Removed | 1 action class |
-| OGNL Version | 3.1.29 | 3.3.5 | Expression language (transitive) |
-| Caching | Built-in | Requires Caffeine 3.x | New dependency |
+| Component | Change Required | Notes |
+|-----------|-----------------|-------|
+| **pom.xml** | YES | Update Struts version, add Caffeine |
+| **struts.xml DTD** | YES | Update to 6.0 DTD |
+| **struts.xml exclude pattern** | YES | Fix pre-existing namespace bug |
+| **ActionSupport imports** | NO | Keep using xwork2 (WW-5494) |
+| **ActionContext imports** | NO | Keep using xwork2 |
+| **Action code** | NO | No changes needed |
+| **Test code** | NO | No changes needed |
 
-### Risk Assessment
+### Requirements
+
+From the [official migration guide](https://cwiki.apache.org/confluence/display/WW/Struts+2.5+to+6.0.0+migration):
+
+- **Java**: 8+ (CARLOS uses Java 21 ✓)
+- **Servlet API**: 3.1+ (CARLOS uses Servlet 4.0 via Tomcat 9 ✓)
+
+### Risk Assessment (Revised)
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Import change breaks compilation | Low | High | Automated bulk replacement |
-| ActionContext test failures | Medium | Medium | Reference experimental branch patterns |
-| File upload compatibility | Medium | High | Exclude servlet patterns from Struts |
-| Runtime action routing errors | Low | High | Comprehensive testing |
-
----
-
-## 2. Pre-Migration Checklist
-
-Before starting the migration:
-
-- [ ] **Create feature branch** from `develop`
-- [ ] **Verify build passes** on current develop: `make install --run-tests`
-- [ ] **Document current test pass rate** for comparison
-- [ ] **Review experimental branch** commits for guidance:
-  - `e267c1286` - Main migration commit
-  - `f0b881925` - ActionSupport import replacement
-  - `b1a11c681` - File upload fixes
-  - `31473feb4` - Switch statement fixes
-  - `3e174d6dc` - Security and DAO fixes
-- [ ] **Backup database** (if testing against real data)
-- [ ] **Notify team** of migration in progress
+| Dependency conflicts | Low | Medium | Test dependency tree |
+| DTD validation errors | Low | Low | Copy exact DTD from docs |
+| OGNL expression issues | Low | Medium | Test all forms |
+| Date formatting changes | Medium | Low | Java 8 DateTimeFormatter used |
 
 ---
 
@@ -79,7 +107,7 @@ Before starting the migration:
 
 ### 1.1 Update pom.xml Struts Dependencies
 
-**File**: `pom.xml`
+**File**: `pom.xml` (around line 1416)
 
 ```xml
 <!-- BEFORE -->
@@ -107,10 +135,12 @@ Before starting the migration:
 </dependency>
 ```
 
-### 1.2 Add Required New Dependencies
+### 1.2 Add Caffeine Caching Dependency
+
+Struts 6.x requires Caffeine for caching:
 
 ```xml
-<!-- Caffeine caching - Required for Struts 6.x -->
+<!-- Add this new dependency -->
 <dependency>
     <groupId>com.github.ben-manes.caffeine</groupId>
     <artifactId>caffeine</artifactId>
@@ -118,146 +148,27 @@ Before starting the migration:
 </dependency>
 ```
 
-### 1.3 Update Related Dependencies
-
-```xml
-<!-- OGNL - Expression Language -->
-<dependency>
-    <groupId>ognl</groupId>
-    <artifactId>ognl</artifactId>
-    <version>3.3.5</version>  <!-- Was 3.1.29 -->
-</dependency>
-
-<!-- FreeMarker - Template Engine -->
-<dependency>
-    <groupId>org.freemarker</groupId>
-    <artifactId>freemarker</artifactId>
-    <version>2.3.33</version>  <!-- Was 2.3.31 -->
-</dependency>
-
-<!-- Javassist - Bytecode manipulation -->
-<dependency>
-    <groupId>org.javassist</groupId>
-    <artifactId>javassist</artifactId>
-    <version>3.29.0-GA</version>  <!-- Was 3.20.0-GA -->
-</dependency>
-
-<!-- Checker Framework annotations -->
-<dependency>
-    <groupId>org.checkerframework</groupId>
-    <artifactId>checker-qual</artifactId>
-    <version>3.37.0</version>
-</dependency>
-```
-
-### 1.4 Verification Step
+### 1.3 Verify Dependencies
 
 ```bash
-# Verify dependencies resolve correctly (won't compile yet)
-mvn dependency:resolve
+# Check for conflicts
 mvn dependency:tree | grep -i struts
+mvn dependency:tree | grep -i caffeine
+
+# Verify OGNL version (should be 3.3.x transitive)
+mvn dependency:tree | grep -i ognl
 ```
 
 ---
 
-## Phase 2: ActionSupport Import Migration
+## Phase 2: Struts Configuration Updates
 
-### 2.1 Overview
-
-All 458 2Action classes need import statement updates:
-
-```java
-// BEFORE
-import com.opensymphony.xwork2.ActionSupport;
-
-// AFTER
-import org.apache.struts2.ActionSupport;
-```
-
-### 2.2 Automated Migration Script
-
-Create and run this script:
-
-```bash
-#!/bin/bash
-# File: scripts/migrate-struts-imports.sh
-
-echo "Migrating ActionSupport imports from XWork2 to Struts2..."
-
-# Find all Java files with the old import
-find src/main/java -name "*.java" -type f | while read file; do
-    if grep -q "com.opensymphony.xwork2.ActionSupport" "$file"; then
-        echo "Updating: $file"
-        sed -i 's/import com\.opensymphony\.xwork2\.ActionSupport;/import org.apache.struts2.ActionSupport;/g' "$file"
-    fi
-done
-
-# Also check test-modern directory
-find src/test-modern/java -name "*.java" -type f | while read file; do
-    if grep -q "com.opensymphony.xwork2.ActionSupport" "$file"; then
-        echo "Updating test: $file"
-        sed -i 's/import com\.opensymphony\.xwork2\.ActionSupport;/import org.apache.struts2.ActionSupport;/g' "$file"
-    fi
-done
-
-echo "Migration complete. Files updated:"
-grep -r "org.apache.struts2.ActionSupport" src/main/java --include="*.java" | wc -l
-```
-
-### 2.3 Migrate ModelDriven Interface
-
-Two files use `ModelDriven` interface that also needs migration:
-
-```java
-// BEFORE
-import com.opensymphony.xwork2.ModelDriven;
-
-// AFTER
-import org.apache.struts2.ModelDriven;
-```
-
-**Files requiring ModelDriven migration:**
-- `src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMDisplayReport2Action.java`
-- `src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDemographicReport2Action.java`
-
-### 2.4 Manual Verification
-
-```bash
-# Verify no old imports remain
-grep -r "com.opensymphony.xwork2.ActionSupport" src/main/java --include="*.java"
-# Should return 0 results
-
-grep -r "com.opensymphony.xwork2.ModelDriven" src/main/java --include="*.java"
-# Should return 0 results
-
-# Verify new imports are present
-grep -r "org.apache.struts2.ActionSupport" src/main/java --include="*.java" | wc -l
-# Should return ~458
-```
-
-### 2.4 Files Affected
-
-Key modules with 2Action classes:
-- `io.github.carlos_emr.carlos.PMmodule.web.*` - Program Management
-- `io.github.carlos_emr.carlos.billing.CA.BC.*` - BC Billing
-- `io.github.carlos_emr.carlos.billing.CA.ON.*` - ON Billing
-- `io.github.carlos_emr.carlos.encounter.pageUtil.*` - Encounters
-- `io.github.carlos_emr.carlos.casemgmt.web.*` - Case Management
-- `io.github.carlos_emr.carlos.login.*` - Authentication
-- `io.github.carlos_emr.carlos.messenger.*` - Messaging
-- `io.github.carlos_emr.carlos.tickler.*` - Tickler
-- Plus ~30 more packages
-
----
-
-## Phase 3: Struts Configuration Migration
-
-### 3.1 Update struts.xml DTD
+### 2.1 Update struts.xml DTD
 
 **File**: `src/main/webapp/WEB-INF/classes/struts.xml`
 
 ```xml
-<!-- BEFORE -->
+<!-- BEFORE (line 2) -->
 <!DOCTYPE struts PUBLIC
     "-//Apache Software Foundation//DTD Struts Configuration 2.3//EN"
     "http://struts.apache.org/dtds/struts-2.3.dtd">
@@ -268,482 +179,192 @@ Key modules with 2Action classes:
     "https://struts.apache.org/dtds/struts-6.0.dtd">
 ```
 
-### 3.2 Update Exclude Pattern (CRITICAL - Pre-existing Bug)
+**Note**: The URL changed from `http://` to `https://`.
 
-**WARNING**: The current exclude pattern is broken and doesn't match the current servlet namespaces!
+### 2.2 Review Struts Constants
 
-**Current servlet URL patterns in web.xml:**
-- `/servlet/io.github.carlos_emr.DocumentMgtUploadServlet`
-- `/servlet/io.github.carlos_emr.DocumentUploadServlet`
-- `/servlet/oscar.DocumentTeleplanReportUploadServlet` (still old namespace)
+The following XWork constants were removed in Struts 6.0 (already using Struts equivalents in CARLOS):
 
-**Current struts.xml exclude pattern** (references OLD namespaces):
+| Removed Constant | Struts Equivalent |
+|------------------|-------------------|
+| `devMode` | `struts.devMode` |
+| `logMissingProperties` | `struts.ognl.logMissingProperties` |
+
+Verify `struts.xml` uses `struts.*` prefixed constants (it should already).
+
+### 2.3 OGNL Expression Length Limit
+
+Struts 6.0 limits OGNL expressions to 256 characters by default. If you have long expressions, you may need to increase this:
+
 ```xml
-<constant name="struts.action.excludePattern"
-    value=".*\.(css|js|png|jpg|gif)$|^/ws/.*|^/servlet/(ca\.openosp\.DocumentUploadServlet|oscar\.DocumentTeleplanReportUploadServlet)$" />
+<!-- Only add if needed -->
+<constant name="struts.ognl.expressionMaxLength" value="512" />
 ```
 
-**Fix**: Simplify to exclude ALL servlet paths (recommended by experimental branch):
+---
+
+## Phase 3: Fix Pre-Existing Bugs
+
+### 3.1 Update struts.action.excludePattern (CRITICAL)
+
+The current exclude pattern references old namespaces that don't match current servlet URLs.
+
+**File**: `src/main/webapp/WEB-INF/classes/struts.xml`
 
 ```xml
-<!-- AFTER - Exclude all servlet paths -->
+<!-- BEFORE (broken - doesn't match current namespaces) -->
+<constant name="struts.action.excludePattern"
+    value=".*\.(css|js|png|jpg|gif)$|^/ws/.*|^/servlet/(ca\.openosp\.DocumentUploadServlet|oscar\.DocumentTeleplanReportUploadServlet)$" />
+
+<!-- AFTER (works with all servlet paths) -->
 <constant name="struts.action.excludePattern"
     value=".*\.(css|js|png|jpg|gif)$|^/ws/.*|^/servlet/.*" />
 ```
 
-This is a safer pattern that:
-1. Fixes the pre-existing namespace mismatch bug
-2. Protects against future servlet additions
-3. Matches the experimental branch solution
+This fix:
+1. Resolves the pre-existing namespace mismatch
+2. Prevents Struts 6.x file upload interceptor from consuming multipart requests meant for servlets
+3. Is simpler and more maintainable
 
-### 3.3 Verify Action Mappings
-
-No changes required to individual action mappings - they use class FQN which already uses the new namespace.
-
----
-
-## Phase 4: ActionContext API Migration
-
-### 4.1 Overview
-
-Struts 6.x introduces a builder pattern for ActionContext. This affects test code that mocks Struts context.
-
-**Files requiring ActionContext migration:**
-1. `src/test-modern/java/io/github/carlos_emr/carlos/test/base/OpenOWebTestBase.java`
-2. `src/test-modern/java/io/github/carlos_emr/carlos/test/examples/Struts2ActionModernTest.java`
-3. `src/test-modern/java/io/github/carlos_emr/carlos/tickler/web/AddTickler2ActionTest.java`
-
-### 4.2 OpenOWebTestBase Migration (Primary)
-
-**File**: `src/test-modern/java/io/github/carlos_emr/carlos/test/base/OpenOWebTestBase.java`
-
-**Import changes required:**
-```java
-// BEFORE
-import com.opensymphony.xwork2.ActionContext;
-import com.opensymphony.xwork2.ActionSupport;
-
-// AFTER
-import org.apache.struts2.ActionContext;
-import org.apache.struts2.ActionSupport;
-```
-
-```java
-// BEFORE (Struts 2.5.x)
-ActionContext context = ActionContext.getContext();
-if (context == null) {
-    context = new ActionContext(new HashMap<>());
-    ActionContext.setContext(context);
-}
-Map<String, Object> contextMap = context.getContextMap();
-contextMap.put(ServletActionContext.HTTP_REQUEST, mockRequest);
-context.setParameters(httpParameters);
-// ... later ...
-ActionContext.setContext(null);  // cleanup
-
-// AFTER (Struts 6.x)
-HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
-Map<String, Object> sessionMap = new HashMap<>();
-// ... populate sessionMap with session attributes ...
-
-ActionContext context = ActionContext.of()
-    .withServletRequest(mockRequest)
-    .withServletResponse(mockResponse)
-    .withSession(sessionMap)
-    .withParameters(httpParameters);
-
-ActionContext.bind(context);  // bind to current thread
-// ... test execution ...
-ActionContext.clear();  // cleanup (in @AfterEach)
-```
-
-### 4.3 Key API Changes
-
-| Struts 2.5.x | Struts 6.x |
-|--------------|------------|
-| `ActionContext.getContext()` | `ActionContext.of()` |
-| `new ActionContext(Map)` | Builder pattern with `of()` |
-| `context.setParameters(params)` | `.withParameters(params)` |
-| `ActionContext.setContext(context)` | `ActionContext.bind(context)` |
-| `ActionContext.setContext(null)` | `ActionContext.clear()` |
-| Direct map manipulation | `.withServletRequest()`, `.withSession()`, etc. |
-
-### 4.4 Search for Affected Files
-
-```bash
-# Find files using ActionContext
-grep -r "ActionContext" src/test-modern/java --include="*.java" -l
-grep -r "ActionContext" src/main/java --include="*.java" -l
-```
-
----
-
-## Phase 5: Deprecated Features Removal
-
-### 5.1 Remove @Validation Annotations
-
-The `@Validation` annotation is deprecated in Struts 6.x. Search and remove:
-
-```bash
-# Find files with @Validation
-grep -r "@Validation" src/main/java --include="*.java" -l
-```
-
-**Example fix:**
-```java
-// BEFORE
-@Validation
-public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
-
-// AFTER
-public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
-```
-
-### 5.2 Verify No Deprecated XWork2 Imports
-
-```bash
-# Check for any remaining XWork2 imports
-grep -r "com.opensymphony.xwork2" src/main/java --include="*.java"
-```
-
-Common XWork2 classes that may need migration:
-- `com.opensymphony.xwork2.ActionSupport` → `org.apache.struts2.ActionSupport`
-- `com.opensymphony.xwork2.ActionContext` → `org.apache.struts2.ActionContext`
-
----
-
-## Phase 6: File Upload Compatibility
-
-### 6.1 Problem Description
-
-Struts 6.x file upload interceptor may consume multipart requests before legacy servlets can process them.
-
-**Primary mitigation**: The exclude pattern fix in Phase 3.2 (`^/servlet/.*`) handles this by excluding all servlet paths from Struts processing.
-
-### 6.2 DocumentUploadServlet Status
-
-**GOOD NEWS**: The main upload servlets already use modern Commons FileUpload API:
-
-**Files already using modern API (no changes needed):**
-- `src/main/java/io/github/carlos_emr/DocumentUploadServlet.java` ✓
-- `src/main/java/io/github/carlos_emr/DocumentMgtUploadServlet.java` ✓
-
-These already use:
-```java
-DiskFileItemFactory factory = new DiskFileItemFactory();
-ServletFileUpload upload = new ServletFileUpload(factory);
-```
-
-### 6.3 DocumentTeleplanReportUploadServlet - NEEDS UPDATE
+### 3.2 Optional: Update Deprecated FileUpload API
 
 **File**: `src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/DocumentTeleplanReportUploadServlet.java`
 
-This servlet still uses **deprecated** Commons FileUpload API:
+This servlet uses deprecated Commons FileUpload API. While it will work, consider updating:
 
 ```java
-// CURRENT (deprecated)
+// CURRENT (deprecated but functional)
 import org.apache.commons.fileupload.DiskFileUpload;
-// ...
 DiskFileUpload upload = new DiskFileUpload();
 
-// SHOULD BE (modern)
+// RECOMMENDED (modern API)
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
-// ...
 DiskFileItemFactory factory = new DiskFileItemFactory();
 ServletFileUpload upload = new ServletFileUpload(factory);
 ```
 
-### 6.4 Other Servlets to Verify
-
-Review these for deprecated API usage:
-- `src/main/java/io/github/carlos_emr/carlos/olis/OLISUploadSimulationData2Action.java`
-- `src/main/java/io/github/carlos_emr/carlos/eform/upload/UploadImage.java`
-
 ---
 
-## Phase 7: DAO and Model Compatibility Fixes
+## Phase 4: Testing and Validation
 
-Based on experimental branch findings, these DAO/model changes may be required. However, **verification shows some fixes are already applied** in the current codebase.
-
-### 7.1 TeleplanS25Dao - JPA Parameter Indexing
-
-**STATUS: Already Fixed** ✓
-
-Current code already uses 1-based indexing:
-```java
-q.setParameter(1, s21Id);
-q.setParameter(2, type);
-q.setParameter(3, practitionerNo);
-```
-
-No changes needed.
-
-### 7.2 DrugDaoImpl - Boolean Literal Fixes (Verify Needed)
-
-Check if queries use integer literals for boolean fields:
-
-```java
-// If found (needs fix)
-query = "... d.archived = 0 ..."
-
-// Should be
-query = "... d.archived = false ..."
-```
-
-### 7.3 Drug Model - Type Changes (Verify Needed)
-
-Check if `gcnSeqNo` field needs type change:
-
-```java
-// If currently int (needs fix)
-private int gcnSeqNo;
-
-// Should be String with default
-private String gcnSeqNo = "0";
-```
-
-### 7.4 AllergyDaoImpl - Remove Invalid ORDER BY (Verify Needed)
-
-Review ORDER BY clauses for non-existent fields like `x.position`.
-
-### 7.5 Verification Commands
+### 4.1 Build Verification
 
 ```bash
-# Check DrugDaoImpl for boolean literals
-grep -n "archived = 0\|archived = 1" src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java
+# Clean build
+make clean
 
-# Check Drug model gcnSeqNo type
-grep -A2 "gcnSeqNo" src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java | head -10
-
-# Check AllergyDaoImpl ORDER BY
-grep -n "ORDER BY" src/main/java/io/github/carlos_emr/carlos/commn/dao/AllergyDaoImpl.java
-```
-
----
-
-## Phase 8: Testing and Validation
-
-### 8.1 Compilation Verification
-
-```bash
-# First verify compilation
+# Build without tests first
 mvn compile -DskipTests
 
-# Check for compilation errors
-# Fix any remaining import or API issues
-```
-
-### 8.2 Unit Test Execution
-
-```bash
-# Run unit tests (no database)
-make install --run-unit-tests
-```
-
-### 8.3 Integration Test Execution
-
-```bash
-# Run integration tests
-make install --run-integration-tests
-```
-
-### 8.4 Full Test Suite
-
-```bash
-# Run all tests
+# If compilation succeeds, run tests
 make install --run-tests
 ```
 
-### 8.5 Manual Testing Checklist
+### 4.2 Expected Deprecation Warnings
 
-Critical paths to manually verify:
+You will see deprecation warnings for `com.opensymphony.xwork2.*` classes. **This is expected and acceptable for Struts 6.8.**
 
-- [ ] **Login/Logout** - Login2Action, Logout2Action
-- [ ] **Dashboard** - Home2Action, AdminHome2Action
-- [ ] **Patient Search** - Demographic search functionality
-- [ ] **Appointments** - Schedule viewing and booking
-- [ ] **Encounter** - EctDisplay*2Action components in left navbar
-- [ ] **Billing** - BC and ON billing flows
+```
+[WARNING] ... com.opensymphony.xwork2.ActionSupport is deprecated
+```
+
+These warnings indicate the classes will be removed in Struts 7.x but are fully functional in 6.x.
+
+### 4.3 Manual Testing Checklist
+
+Test these critical paths:
+
+- [ ] **Login/Logout** - Authentication flow
+- [ ] **Dashboard** - Home page loads
+- [ ] **Patient Search** - Form submission works
+- [ ] **Appointments** - Date/time formatting correct
 - [ ] **File Uploads** - Document upload, Teleplan file upload
-- [ ] **Tickler** - AddTickler2Action, EditTickler2Action
-- [ ] **Case Management** - CaseloadContent2Action
+- [ ] **Billing** - BC and ON billing forms
+- [ ] **Tickler** - Create and edit ticklers
 
-### 8.6 Regression Testing
+### 4.4 Known Struts 6.x Behavioral Changes
 
-Compare test pass rates:
-- Document pre-migration pass rate
-- Document post-migration pass rate
-- Investigate any new failures
+1. **Date Formatting**: Uses `DateTimeFormatter` instead of `SimpleDateFormat`. Patterns may differ slightly.
+
+2. **FreeMarker Auto-Escaping**: If using FreeMarker templates, remove manual `?html` escaping.
+
+3. **Checkbox Default**: `submitUnchecked` now defaults to `false`. Watch for NPE with unchecked boxes.
 
 ---
 
-## Pre-Existing Issues Discovered
+## Future: Struts 7.x Migration (NOT Recommended Currently)
 
-During migration planning, the following issues were discovered in the current codebase:
+Struts 7.x would require significant infrastructure changes beyond just code:
 
-### Issue 1: struts.action.excludePattern Namespace Mismatch
+### Struts 7.x Requirements
 
-**Severity**: Medium (potential file upload failures)
+| Requirement | CARLOS Current | Struts 7.x Requires |
+|-------------|----------------|---------------------|
+| Java | 21 ✓ | 17+ ✓ |
+| Servlet API | javax.servlet (Servlet 4.0) | **Jakarta Servlet API 6** |
+| Tomcat | 9.0.97 | **Tomcat 10+** |
 
-**Current State**: The `struts.action.excludePattern` in struts.xml references old namespaces that don't match current servlet URL patterns.
+**The Jakarta Servlet API migration is a breaking change** - all `javax.servlet.*` imports would need to change to `jakarta.servlet.*` across the entire codebase. This is a separate, major undertaking.
 
-```xml
-<!-- Current pattern references old namespaces -->
-value="...^/servlet/(ca\.openosp\.DocumentUploadServlet|oscar\.DocumentTeleplanReportUploadServlet)$"
+### Recommendation
 
-<!-- But actual URL patterns use new namespaces -->
-/servlet/io.github.carlos_emr.DocumentUploadServlet
-/servlet/io.github.carlos_emr.DocumentMgtUploadServlet
-```
+**Stay on Struts 6.8.x** until there's a compelling reason to migrate to Jakarta EE. The xwork2 packages work fine in 6.x, and avoiding the Jakarta migration keeps the scope manageable.
 
-**Recommendation**: Fix this in Phase 3.2 by using `^/servlet/.*` pattern.
+### If Struts 7.x Migration Is Ever Needed
 
-### Issue 2: Teleplan Servlet URL Still Uses Old Namespace
+The full package migration would include:
 
-**Severity**: Low (works but inconsistent)
+| Struts 6.x (current) | Struts 7.x (future) |
+|----------------------|---------------------|
+| `com.opensymphony.xwork2.ActionSupport` | `org.apache.struts2.ActionSupport` |
+| `com.opensymphony.xwork2.ActionContext` | `org.apache.struts2.ActionContext` |
+| `com.opensymphony.xwork2.ModelDriven` | `org.apache.struts2.ModelDriven` |
+| `javax.servlet.*` | `jakarta.servlet.*` |
 
-**Location**: `web.xml` line 403
+Plus the `@StrutsParameter` annotation requirement for all setter methods in Action classes.
 
-```xml
-<url-pattern>/servlet/oscar.DocumentTeleplanReportUploadServlet</url-pattern>
-```
-
-This should ideally be updated to match the new namespace, but may require coordinating with any external systems that call this URL.
+The experimental branch commits can serve as partial reference, but would need Jakarta namespace updates too.
 
 ---
 
 ## Rollback Plan
 
-If critical issues are discovered:
-
 ### Immediate Rollback
 
 ```bash
-# Revert all changes (before commit)
-git checkout .
-git clean -fd
+# Revert pom.xml and struts.xml
+git checkout pom.xml src/main/webapp/WEB-INF/classes/struts.xml
 
-# Or if committed, revert to develop
-git checkout develop
+# Clean and rebuild
+make clean && make install
 ```
 
 ### Partial Rollback
 
-If only specific components fail:
-1. Identify failing component
-2. Check experimental branch for additional fixes
-3. Apply targeted fixes
-4. Re-test affected functionality
-
-### Version Pinning
-
-If Struts 6.8.0 has issues, try:
-- Struts 6.7.0
-- Struts 6.6.0
-- etc.
+If only Struts version causes issues:
+1. Revert pom.xml Struts version to 2.5.33
+2. Revert struts.xml DTD to 2.3
+3. Keep the exclude pattern fix (it's beneficial regardless)
 
 ---
 
-## Reference: Experimental Branch Changes
+## References
 
-### Key Commits to Reference
+### Official Documentation
 
-| Commit | Date | Description |
-|--------|------|-------------|
-| `e267c1286` | Dec 22, 2025 | Main migration: 2.5.33 → 6.8.0, pom.xml, struts.xml, test base |
-| `f0b881925` | Dec 22, 2025 | Bulk ActionSupport import replacement (440+ files) |
-| `b1a11c681` | Jan 2, 2026 | File upload servlet conflict resolution |
-| `4acb38d61` | Dec 29, 2025 | Missing method mappings in actions |
-| `31473feb4` | Jan 15, 2026 | Switch statement logic fixes (RxWriteScript2Action) |
-| `3e174d6dc` | Jan 24, 2026 | Security fixes and DAO compatibility |
+- [Struts 2.5 to 6.0.0 Migration Guide](https://cwiki.apache.org/confluence/display/WW/Struts+2.5+to+6.0.0+migration)
+- [Version Notes 6.8.0](https://cwiki.apache.org/confluence/display/WW/Version+Notes+6.8.0)
+- [Struts 6.x.x to 7.x.x Migration](https://cwiki.apache.org/confluence/display/WW/Struts+6.x.x+to+7.x.x+migration)
 
-### Viewing Experimental Changes
+### Bug Reports
 
-```bash
-# Fetch experimental branch
-git fetch origin experimental
+- [WW-5494: ActionSupport Interceptor Stack Issue](https://issues.apache.org/jira/browse/WW-5494) - Reason to keep using xwork2 packages
 
-# View specific commit
-git show e267c1286
+### Third-Party Guides
 
-# Compare files between branches
-git diff develop..origin/experimental -- pom.xml
-git diff develop..origin/experimental -- src/main/webapp/WEB-INF/classes/struts.xml
-```
-
-### Namespace Mapping
-
-The experimental branch used old namespaces. Map as follows:
-
-| Experimental Branch | Current Develop |
-|---------------------|-----------------|
-| `org.oscarehr.*` | `io.github.carlos_emr.carlos.*` |
-| `ca.openosp.openo.*` | `io.github.carlos_emr.carlos.*` |
-| `oscar.*` | `io.github.carlos_emr.carlos.*` |
-
----
-
-## Migration Execution Order
-
-### Recommended Sequence
-
-1. **Create feature branch**: `git checkout -b struts-6.8-migration`
-2. **Phase 1**: Update pom.xml dependencies
-3. **Phase 2**: Run import migration script
-4. **Phase 3**: Update struts.xml
-5. **Phase 5**: Remove @Validation annotations
-6. **Compile**: `mvn compile -DskipTests`
-7. **Phase 4**: Migrate ActionContext in tests
-8. **Phase 6**: Update file upload servlets
-9. **Phase 7**: Apply DAO/model fixes as needed
-10. **Phase 8**: Full testing cycle
-11. **PR**: Create pull request for review
-
-### Estimated Task Breakdown
-
-| Phase | Task Count | Complexity |
-|-------|------------|------------|
-| Phase 1 | 1 file (pom.xml) | Low |
-| Phase 2 | ~458 files (automated) | Low |
-| Phase 3 | 1 file (struts.xml) | Low |
-| Phase 4 | 1-3 files | Medium |
-| Phase 5 | ~5 files | Low |
-| Phase 6 | 2-3 files | Medium |
-| Phase 7 | 3-5 files | Medium |
-| Phase 8 | N/A | Testing effort |
-
----
-
-## Appendix A: Helpful Commands
-
-```bash
-# Count 2Action files
-find src/main/java -name "*2Action.java" | wc -l
-
-# Find all ActionSupport imports
-grep -r "ActionSupport" src/main/java --include="*.java" | grep "import" | sort -u
-
-# Find ActionContext usage
-grep -r "ActionContext" src --include="*.java" -l
-
-# Find @Validation usage
-grep -r "@Validation" src/main/java --include="*.java" -l
-
-# Verify struts.xml DTD
-head -5 src/main/webapp/WEB-INF/classes/struts.xml
-
-# Check Struts version in pom.xml
-grep -A2 "struts2-core" pom.xml
-```
-
----
-
-## Appendix B: Struts 6.x Documentation
-
-- [Struts 6.x Migration Guide](https://struts.apache.org/announce-2023.html)
-- [Struts 6.x Release Notes](https://struts.apache.org/releases.html)
-- [ActionContext API Changes](https://struts.apache.org/core-developers/action-context.html)
+- [End Point Dev: Migration from Struts 2 to Struts 6](https://www.endpointdev.com/blog/2025/04/migration-from-struts2-to-struts6/)
+- [OpenRewrite: Migrate to Struts 6.0](https://docs.openrewrite.org/recipes/java/struts/migrate6/migratestruts6)
 
 ---
 
@@ -752,18 +373,32 @@ grep -A2 "struts2-core" pom.xml
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-02-03 | Initial plan based on experimental branch analysis |
-| 1.1 | 2026-02-03 | Corrections after codebase verification: |
-| | | - Added ModelDriven interface migration (2 files) |
-| | | - Fixed Caffeine version (3.1.8 → 3.2.3) |
-| | | - Documented pre-existing struts.action.excludePattern bug |
-| | | - Confirmed DocumentUploadServlet already uses modern API |
-| | | - Confirmed TeleplanS25Dao already uses 1-based indexing |
-| | | - Added all 3 test files requiring ActionContext migration |
-| | | - Added "Pre-Existing Issues Discovered" section |
+| 1.1 | 2026-02-03 | Corrections after codebase verification |
+| 2.0 | 2026-02-03 | **MAJOR REVISION** after official documentation research: |
+| | | - Discovered WW-5494 bug with org.apache.struts2.ActionSupport |
+| | | - Import changes NOT required for Struts 6.8 (keep xwork2) |
+| | | - Dramatically simplified migration scope |
+| | | - Added official documentation references |
+| | | - Removed unnecessary Phase 2, 4, 5 from plan |
 
 ---
 
-**Document Version**: 1.1
+## Summary: Migration Checklist
+
+For Struts 2.5.33 → 6.8.0, you only need to:
+
+- [ ] Update `pom.xml`: Struts 2.5.33 → 6.8.0
+- [ ] Update `pom.xml`: Add Caffeine 3.2.3 dependency
+- [ ] Update `struts.xml`: DTD 2.3 → 6.0
+- [ ] Update `struts.xml`: Fix exclude pattern to `^/servlet/.*`
+- [ ] Run tests and verify functionality
+- [ ] (Optional) Update deprecated FileUpload API in DocumentTeleplanReportUploadServlet
+
+**Total files to modify: 2** (pom.xml, struts.xml)
+
+---
+
+**Document Version**: 2.0
 **Created**: 2026-02-03
 **Last Updated**: 2026-02-03
 **Author**: Generated with Claude Code
