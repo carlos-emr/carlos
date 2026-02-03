@@ -102,8 +102,10 @@
         </property>
     </bean>
 
-    <!-- SessionFactory extracted from EntityManagerFactory for compatibility -->
-    <bean id="sessionFactory" factory-bean="&amp;entityManagerFactory" factory-method="getNativeEntityManagerFactory" />
+    <!-- SessionFactory extracted from JPA EntityManagerFactory for HibernateDaoSupport compatibility -->
+    <bean id="sessionFactory" factory-bean="entityManagerFactory" factory-method="unwrap">
+        <constructor-arg value="org.hibernate.SessionFactory" />
+    </bean>
 
     <!-- Configure HibernateTemplate with AUTO flush mode for tests -->
     <bean id="hibernateTemplate" class="org.springframework.orm.hibernate5.HibernateTemplate">
