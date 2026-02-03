@@ -65,6 +65,11 @@ import io.github.carlos_emr.carlos.mds.data.CategoryData;
  * @see io.github.carlos_emr.carlos.lab.ca.on.LabResultData
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
  * @since 2026-01-24
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 public class ManageInboxhub2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

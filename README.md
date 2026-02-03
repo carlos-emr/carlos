@@ -30,5 +30,7 @@ CARLOS is forked from the OpenO EMR project, which itself was forked from OSCAR 
 - The OSCAR name and related trademarks remain the property of McMaster University and are used in this project solely for descriptive and historical purposes
 - OSCAR is a registered trademark of McMaster University
 
+For detailed copyright attribution and project heritage information, see [NOTICE.md](NOTICE.md).
+
 ## Licensing
 CARLOS is licensed under the **GNU General Public License (GPL) v2**, providing transparency and freedom for users to modify and improve the software. See the LICENSE file for full details.

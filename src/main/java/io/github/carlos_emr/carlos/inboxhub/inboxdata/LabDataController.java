@@ -89,6 +89,11 @@ import java.util.Objects;
  * @see CommonLabResultData
  * @see HRMResultsData
  * @since 2026-01-24
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 public class LabDataController {
 

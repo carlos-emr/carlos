@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 //The main report object, data fields filled in from XML, managed by the ReportManager.java
