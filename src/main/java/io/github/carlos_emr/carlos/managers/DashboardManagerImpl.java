@@ -108,6 +108,8 @@ public class DashboardManagerImpl implements DashboardManager {
             case Dashboard:
                 toggleDashboardActive(loggedInInfo, objectId, state);
                 break;
+            default:
+                break;
         }
     }
 

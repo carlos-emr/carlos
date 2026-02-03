@@ -447,6 +447,8 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
                 case 17:
                     fdv.setVal(codeValue.getCodecsv());
                     break;
+                default:
+                    break;
             }
         }
         if (isNew) {

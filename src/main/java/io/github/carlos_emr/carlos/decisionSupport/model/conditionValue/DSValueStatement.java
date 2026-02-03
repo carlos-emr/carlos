@@ -164,6 +164,8 @@ public class DSValueStatement extends DSValue {
                     return testValueInt >= valueInt;
                 case equal:
                     return testValueInt == valueInt;
+                default:
+                    break;
             }
         } catch (NumberFormatException nfe) {
             throw new DecisionSupportException("cannot parse value '" + testValue + "' or '" + this.getValue() + "' to int to evaluate a compare statement)", nfe);

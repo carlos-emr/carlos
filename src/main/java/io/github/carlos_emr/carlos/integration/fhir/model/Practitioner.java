@@ -140,6 +140,8 @@ public class Practitioner extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.m
             case DEFAULT:
                 fhirResource.addIdentifier().setSystem("").setValue(practitionerNumber);
                 break;
+            default:
+                break;
         }
 
     }

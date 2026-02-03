@@ -727,6 +727,8 @@ public class ReportBuilder {
                     }
                     theFirstFlag = false;
                     break;
+                default:
+                    break;
             }
         }
         logger.info("where after age " + theWhereFlag);
@@ -775,6 +777,8 @@ public class ReportBuilder {
                     theFirstFlag = firstClause(stringBuffer, theFirstFlag);
                     stringBuffer.append(" ( d.sex = 'M' )");
                     theFirstFlag = false;
+                    break;
+                default:
                     break;
             }
         }

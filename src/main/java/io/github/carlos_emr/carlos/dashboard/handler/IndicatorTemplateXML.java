@@ -639,6 +639,8 @@ public class IndicatorTemplateXML {
                     case none:
                         parameterValue = "(-1)";
                         break;
+                    default:
+                        break;
                 }
             }
             return parameterValue;
@@ -667,7 +669,8 @@ public class IndicatorTemplateXML {
             case all:
                 parameterValue = "%";
                 break;
-
+            default:
+                break;
         }
 
         return parameterValue;

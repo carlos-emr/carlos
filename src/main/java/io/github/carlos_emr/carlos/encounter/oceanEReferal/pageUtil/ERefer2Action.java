@@ -235,6 +235,8 @@ public class ERefer2Action extends ActionSupport {
                 case "H":
                     hrms.add(document.substring(type.length()));
                     break;
+                default:
+                    break;
             }
         }
 

@@ -692,6 +692,8 @@ public class RxWebService extends AbstractServiceImpl {
                     case "@@DEMO.DOB.YEAR":
                         point.setText(demographic.getYearOfBirth());
                         break;
+                    default:
+                        break;
                 }
 
 

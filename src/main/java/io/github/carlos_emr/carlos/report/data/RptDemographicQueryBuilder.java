@@ -269,6 +269,8 @@ public class RptDemographicQueryBuilder {
                 }
                 theFirstFlag = 1;
                 break;
+            default:
+                break;
         }
 
         // Only add asofDate param if it's actually used in the SQL (i.e., an age filter case was executed)
@@ -364,7 +366,8 @@ public class RptDemographicQueryBuilder {
                 stringBuffer.append(" ( d.sex = 'M' )");
                 theFirstFlag = 1;
                 break;
-
+            default:
+                break;
         }
 
         //removed roster_status condition in place more complex check below

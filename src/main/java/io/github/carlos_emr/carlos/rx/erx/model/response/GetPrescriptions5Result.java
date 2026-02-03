@@ -95,6 +95,8 @@ public class GetPrescriptions5Result {
                     case ERROR_NONSECUREACCESS:
                         throw new SecurityException(
                                 "The transport method used to request the prescription list was not secure, so the request was rejected.");
+                    default:
+                        break;
                 }
             }
         }
