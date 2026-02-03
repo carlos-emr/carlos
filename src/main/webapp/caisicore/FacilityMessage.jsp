@@ -18,6 +18,11 @@
     This software was written for
     Centre for Research on Inner City Health, St. Michael's Hospital,
     Toronto, Ontario, Canada
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 

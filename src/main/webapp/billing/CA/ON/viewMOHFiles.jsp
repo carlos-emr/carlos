@@ -8,6 +8,11 @@
     License details are available via "indivica.ca/gplv2"
     and "gnu.org/licenses/gpl-2.0.html".
     
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils"%>

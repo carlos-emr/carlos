@@ -23,6 +23,11 @@
     Ontario, Canada
 
     Migrated from Apache CXF to ScribeJava OAuth1 implementation.
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
 --%>
 
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
