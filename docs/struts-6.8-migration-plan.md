@@ -293,23 +293,39 @@ Test these critical paths:
 
 ---
 
-## Future: Struts 7.x Migration (NOT Recommended Currently)
+## Future: Struts 7.x Migration (NOT POSSIBLE Without Jakarta)
 
-Struts 7.x would require significant infrastructure changes beyond just code:
+**Struts 7.x is NOT compatible with Tomcat 9 / javax.servlet.**
 
-### Struts 7.x Requirements
+From the [official migration docs](https://cwiki.apache.org/confluence/display/WW/Struts+6.x.x+to+7.x.x+migration):
+> "Struts 7.x.x requires a servlet container which supports Jakarta Servlet API 6 at least, **it won't work with older versions**."
 
-| Requirement | CARLOS Current | Struts 7.x Requires |
-|-------------|----------------|---------------------|
-| Java | 21 ✓ | 17+ ✓ |
-| Servlet API | javax.servlet (Servlet 4.0) | **Jakarta Servlet API 6** |
-| Tomcat | 9.0.97 | **Tomcat 10+** |
+### Struts 7.x Hard Requirements
 
-**The Jakarta Servlet API migration is a breaking change** - all `javax.servlet.*` imports would need to change to `jakarta.servlet.*` across the entire codebase. This is a separate, major undertaking.
+| Requirement | CARLOS Current | Struts 7.x Requires | Compatible? |
+|-------------|----------------|---------------------|-------------|
+| Java | 21 | 17+ | ✅ Yes |
+| Servlet API | javax.servlet | **Jakarta Servlet API 6** | ❌ No |
+| Tomcat | 9.0.97 | **Tomcat 10+** | ❌ No |
+
+### Why Jakarta Migration is a Major Undertaking
+
+The `javax.*` → `jakarta.*` namespace change affects:
+- All servlet imports (`javax.servlet.*` → `jakarta.servlet.*`)
+- JSP/JSTL libraries
+- Many third-party libraries
+- Potentially hundreds of files across the codebase
+
+This is NOT just a Struts migration - it's a full Jakarta EE 9+ migration.
 
 ### Recommendation
 
-**Stay on Struts 6.8.x** until there's a compelling reason to migrate to Jakarta EE. The xwork2 packages work fine in 6.x, and avoiding the Jakarta migration keeps the scope manageable.
+**CARLOS should stay on Struts 6.8.x** - the latest version compatible with:
+- Tomcat 9.x
+- javax.servlet API
+- Current infrastructure
+
+The xwork2 deprecation warnings are acceptable - the packages are fully functional.
 
 ### If Struts 7.x Migration Is Ever Needed
 
