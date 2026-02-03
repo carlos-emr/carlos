@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.commn.dao.DashboardDao;
 import io.github.carlos_emr.carlos.commn.dao.IndicatorTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +39,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -72,7 +72,7 @@ import static org.mockito.Mockito.when;
 @Tag("manager")
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Dashboard Manager Encryption Unit Tests")
-class DashboardManagerEncryptionUnitTest extends OpenOUnitTestBase {
+class DashboardManagerEncryptionUnitTest {
 
     @Mock
     private SecurityInfoManager securityInfoManager;
@@ -86,6 +86,7 @@ class DashboardManagerEncryptionUnitTest extends OpenOUnitTestBase {
     @Mock
     private ClinicDAO clinicDAO;
 
+    @InjectMocks
     private DashboardManagerImpl dashboardManager;
 
     private LoggedInInfo loggedInInfo;
@@ -95,18 +96,9 @@ class DashboardManagerEncryptionUnitTest extends OpenOUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        // Register mocks for SpringUtils BEFORE creating DashboardManagerImpl
-        registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(IndicatorTemplateDao.class, indicatorTemplateDao);
-        registerMock(DashboardDao.class, dashboardDao);
-        registerMock(ClinicDAO.class, clinicDAO);
-
         // Configure SecurityInfoManager to allow all operations in tests
         lenient().when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
             .thenReturn(true);
-
-        // Create DashboardManagerImpl - it will get mocks from SpringUtils
-        dashboardManager = new DashboardManagerImpl();
 
         // Set up test clinic
         testClinic = new Clinic();
@@ -120,7 +112,7 @@ class DashboardManagerEncryptionUnitTest extends OpenOUnitTestBase {
 
         // Set up LoggedInInfo
         loggedInInfo = mock(LoggedInInfo.class);
-        when(loggedInInfo.getLoggedInProvider()).thenReturn(testProvider);
+        lenient().when(loggedInInfo.getLoggedInProvider()).thenReturn(testProvider);
     }
 
     @AfterEach
@@ -232,6 +224,8 @@ class DashboardManagerEncryptionUnitTest extends OpenOUnitTestBase {
                 .thenReturn(null);  // Missing password
         when(properties.getProperty("shared_outcomes_dashboard_salt"))
                 .thenReturn("8f3c21ab56789def1234567890abcdef");
+        when(properties.getProperty("shared_outcomes_dashboard_clinic_id"))
+                .thenReturn("TEST_CLINIC");
 
         when(clinicDAO.getClinic()).thenReturn(testClinic);
 
@@ -254,6 +248,8 @@ class DashboardManagerEncryptionUnitTest extends OpenOUnitTestBase {
                 .thenReturn("test-password");
         when(properties.getProperty("shared_outcomes_dashboard_salt"))
                 .thenReturn(null);  // Missing salt
+        when(properties.getProperty("shared_outcomes_dashboard_clinic_id"))
+                .thenReturn("TEST_CLINIC");
 
         when(clinicDAO.getClinic()).thenReturn(testClinic);
 

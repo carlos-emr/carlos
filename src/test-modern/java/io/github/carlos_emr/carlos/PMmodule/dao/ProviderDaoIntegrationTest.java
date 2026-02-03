@@ -28,10 +28,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -56,29 +55,31 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
     @Autowired
     private ProviderDao providerDao;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
+    @Autowired
+    private HibernateTemplate hibernateTemplate;
 
     @BeforeEach
     void setUp() {
-        // Create test providers
-        createProvider("T001", "John", "Smith", "1", "doctor");
-        createProvider("T002", "John", "Doe", "1", "doctor");
-        createProvider("T003", "Jane", "Smith", "1", "nurse");
-        createProvider("T004", "Bob", "Johnson", "0", "doctor");  // Inactive
-        entityManager.flush();
+        // Create test providers using HibernateTemplate
+        persistProvider("T001", "John", "Smith", "1", "doctor");
+        persistProvider("T002", "John", "Doe", "1", "doctor");
+        persistProvider("T003", "Jane", "Smith", "1", "nurse");
+        persistProvider("T004", "Bob", "Johnson", "0", "doctor");  // Inactive
+
+        hibernateTemplate.flush();
     }
 
-    private Provider createProvider(String providerNo, String firstName, String lastName,
-                                   String status, String providerType) {
+    private Provider persistProvider(String providerNo, String firstName,
+                                     String lastName, String status, String providerType) {
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);
         provider.setFirstName(firstName);
         provider.setLastName(lastName);
         provider.setStatus(status);
         provider.setProviderType(providerType);
-        provider.setSex("M");  // Required field
-        entityManager.persist(provider);
+        provider.setSex("M");
+        provider.setSpecialty("");
+        hibernateTemplate.save(provider);
         return provider;
     }
 

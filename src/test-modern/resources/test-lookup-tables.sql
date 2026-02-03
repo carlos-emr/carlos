@@ -33,3 +33,19 @@ CREATE TABLE IF NOT EXISTS health_safety (
     description text,
     created_date datetime DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Service restriction lookup table (for ProgramClientRestriction formula)
+CREATE TABLE IF NOT EXISTS lst_service_restriction (
+    id varchar(36) NOT NULL PRIMARY KEY,
+    description varchar(255),
+    isactive tinyint(1) DEFAULT 1
+);
+
+-- Joint admissions table (for ProgramQueue formula)
+CREATE TABLE IF NOT EXISTS joint_admissions (
+    id int AUTO_INCREMENT PRIMARY KEY,
+    client_id int NOT NULL,
+    head_client_id int,
+    archived tinyint(1) DEFAULT 0,
+    created_date datetime DEFAULT CURRENT_TIMESTAMP
+);

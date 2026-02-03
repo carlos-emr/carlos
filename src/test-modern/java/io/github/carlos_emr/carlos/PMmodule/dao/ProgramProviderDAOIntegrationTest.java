@@ -21,7 +21,10 @@
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.model.security.Secrole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,20 +32,15 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
  * Integration tests for ProgramProviderDAO multi-parameter query methods.
- *
- * <p>These tests validate that HQL queries with multiple positional parameters
- * bind parameters correctly. Tests are designed to catch parameter index errors
- * during Hibernate migration.</p>
  *
  * @since 2026-02-03
  * @see ProgramProviderDAO
@@ -58,14 +56,77 @@ public class ProgramProviderDAOIntegrationTest extends OpenOTestBase {
     @Qualifier("programProviderDAO")
     private ProgramProviderDAO programProviderDAO;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
+    @Autowired
+    private HibernateTemplate hibernateTemplate;
+
+    private Long testProgramId1;
+    private Long testProgramId2;
+    private Long testRoleId1;
+    private Long testRoleId2;
+    private String testProviderNo1;
+    private String testProviderNo2;
+
+    @BeforeEach
+    void setUp() {
+        // Use short prefix to fit provider_no VARCHAR(6) constraint
+        String uniquePrefix = String.valueOf(System.nanoTime() % 10000);
+
+        // Create parent Provider records (provider_no is VARCHAR(6))
+        testProviderNo1 = uniquePrefix + "1";
+        testProviderNo2 = uniquePrefix + "2";
+        createProvider(testProviderNo1, "Test", "Provider1");
+        createProvider(testProviderNo2, "Test", "Provider2");
+
+        // Create parent Program records
+        Program program1 = createProgram("Test Program 1");
+        Program program2 = createProgram("Test Program 2");
+        testProgramId1 = (long) program1.getId();
+        testProgramId2 = (long) program2.getId();
+
+        // Create parent Secrole records
+        Secrole role1 = createSecrole("Doctor");
+        Secrole role2 = createSecrole("Nurse");
+        testRoleId1 = role1.getId();
+        testRoleId2 = role2.getId();
+
+        hibernateTemplate.flush();
+    }
+
+    private Provider createProvider(String providerNo, String firstName, String lastName) {
+        Provider provider = new Provider();
+        provider.setProviderNo(providerNo);
+        provider.setFirstName(firstName);
+        provider.setLastName(lastName);
+        provider.setStatus("1");
+        provider.setProviderType("doctor");
+        provider.setSex("M");
+        provider.setSpecialty("");
+        hibernateTemplate.save(provider);
+        return provider;
+    }
+
+    private Program createProgram(String name) {
+        Program program = new Program();
+        program.setName(name);
+        program.setType("community");
+        program.setProgramStatus("active");
+        hibernateTemplate.save(program);
+        return program;
+    }
+
+    private Secrole createSecrole(String roleName) {
+        Secrole role = new Secrole();
+        role.setRoleName(roleName);
+        role.setDescription("Test role: " + roleName);
+        hibernateTemplate.save(role);
+        return role;
+    }
 
     private ProgramProvider createProgramProvider(String providerNo, Long programId) {
         ProgramProvider pp = new ProgramProvider();
         pp.setProviderNo(providerNo);
         pp.setProgramId(programId);
-        programProviderDAO.saveProgramProvider(pp);
+        hibernateTemplate.save(pp);
         return pp;
     }
 
@@ -74,7 +135,7 @@ public class ProgramProviderDAOIntegrationTest extends OpenOTestBase {
         pp.setProviderNo(providerNo);
         pp.setProgramId(programId);
         pp.setRoleId(roleId);
-        programProviderDAO.saveProgramProvider(pp);
+        hibernateTemplate.save(pp);
         return pp;
     }
 
@@ -84,19 +145,16 @@ public class ProgramProviderDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should find program provider when both providerNo and programId match")
+        @DisplayName("should find program provider when both params match")
         void shouldFind_whenBothParamsMatch() {
-            // Given
-            ProgramProvider match = createProgramProvider("P001", 100L);
-            ProgramProvider wrongProvider = createProgramProvider("P002", 100L);  // Different provider
-            ProgramProvider wrongProgram = createProgramProvider("P001", 200L);    // Different program
-            entityManager.flush();
+            ProgramProvider match = createProgramProvider(testProviderNo1, testProgramId1);
+            createProgramProvider(testProviderNo2, testProgramId1);
+            createProgramProvider(testProviderNo1, testProgramId2);
+            hibernateTemplate.flush();
 
-            // When
             List<ProgramProvider> results = programProviderDAO
-                .getProgramProviderByProviderProgramId("P001", 100L);
+                .getProgramProviderByProviderProgramId(testProviderNo1, testProgramId1);
 
-            // Then - Only match should be returned
             assertThat(results)
                 .hasSize(1)
                 .extracting(ProgramProvider::getId)
@@ -107,74 +165,62 @@ public class ProgramProviderDAOIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should return empty when provider doesn't match")
         void shouldReturnEmpty_whenProviderDoesntMatch() {
-            // Given
-            createProgramProvider("P001", 100L);
-            entityManager.flush();
+            createProgramProvider(testProviderNo1, testProgramId1);
+            hibernateTemplate.flush();
 
-            // When
             List<ProgramProvider> results = programProviderDAO
-                .getProgramProviderByProviderProgramId("NONEXISTENT", 100L);
+                .getProgramProviderByProviderProgramId("NONEXISTENT", testProgramId1);
 
-            // Then
             assertThat(results).isEmpty();
         }
     }
 
     @Nested
-    @DisplayName("getProgramProvider (2 params: providerNo, programId)")
+    @DisplayName("getProgramProvider (2 params)")
     class GetProgramProviderTwoParams {
 
         @Test
         @Tag("query")
         @DisplayName("should return single program provider when both params match")
         void shouldReturnSingle_whenBothParamsMatch() {
-            // Given
-            ProgramProvider pp = createProgramProvider("P001", 100L);
-            entityManager.flush();
+            createProgramProvider(testProviderNo1, testProgramId1);
+            hibernateTemplate.flush();
 
-            // When
-            ProgramProvider found = programProviderDAO.getProgramProvider("P001", 100L);
+            ProgramProvider found = programProviderDAO.getProgramProvider(testProviderNo1, testProgramId1);
 
-            // Then
             assertThat(found).isNotNull();
-            assertThat(found.getProviderNo()).isEqualTo("P001");
-            assertThat(found.getProgramId()).isEqualTo(100L);
+            assertThat(found.getProviderNo()).isEqualTo(testProviderNo1);
+            assertThat(found.getProgramId()).isEqualTo(testProgramId1);
         }
 
         @Test
         @Tag("query")
         @DisplayName("should return null when no match")
         void shouldReturnNull_whenNoMatch() {
-            // Given
-            createProgramProvider("P001", 100L);
-            entityManager.flush();
+            createProgramProvider(testProviderNo1, testProgramId1);
+            hibernateTemplate.flush();
 
-            // When
-            ProgramProvider found = programProviderDAO.getProgramProvider("P001", 999L);
+            ProgramProvider found = programProviderDAO.getProgramProvider(testProviderNo1, 999999L);
 
-            // Then
             assertThat(found).isNull();
         }
     }
 
     @Nested
-    @DisplayName("getProgramProvider (3 params: providerNo, programId, roleId)")
+    @DisplayName("getProgramProvider (3 params)")
     class GetProgramProviderThreeParams {
 
         @Test
         @Tag("query")
         @DisplayName("should find when all three parameters match")
         void shouldFind_whenAllThreeParamsMatch() {
-            // Given
-            ProgramProvider match = createProgramProvider("P001", 100L, 10L);
-            ProgramProvider wrongRole = createProgramProvider("P001", 100L, 20L);  // Different role
-            ProgramProvider wrongProgram = createProgramProvider("P001", 200L, 10L);  // Different program
-            entityManager.flush();
+            ProgramProvider match = createProgramProvider(testProviderNo1, testProgramId1, testRoleId1);
+            createProgramProvider(testProviderNo1, testProgramId1, testRoleId2);
+            createProgramProvider(testProviderNo1, testProgramId2, testRoleId1);
+            hibernateTemplate.flush();
 
-            // When
-            ProgramProvider found = programProviderDAO.getProgramProvider("P001", 100L, 10L);
+            ProgramProvider found = programProviderDAO.getProgramProvider(testProviderNo1, testProgramId1, testRoleId1);
 
-            // Then
             assertThat(found).isNotNull();
             assertThat(found.getId()).isEqualTo(match.getId());
         }
@@ -183,14 +229,11 @@ public class ProgramProviderDAOIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should return null when role doesn't match")
         void shouldReturnNull_whenRoleDoesntMatch() {
-            // Given
-            createProgramProvider("P001", 100L, 10L);
-            entityManager.flush();
+            createProgramProvider(testProviderNo1, testProgramId1, testRoleId1);
+            hibernateTemplate.flush();
 
-            // When
-            ProgramProvider found = programProviderDAO.getProgramProvider("P001", 100L, 999L);
+            ProgramProvider found = programProviderDAO.getProgramProvider(testProviderNo1, testProgramId1, 999999L);
 
-            // Then
             assertThat(found).isNull();
         }
     }
@@ -203,38 +246,32 @@ public class ProgramProviderDAOIntegrationTest extends OpenOTestBase {
         @Tag("read")
         @DisplayName("should get program providers by provider number")
         void shouldGetByProviderNo() {
-            // Given
-            createProgramProvider("P777", 100L);
-            createProgramProvider("P777", 200L);
-            createProgramProvider("P888", 100L);  // Different provider
-            entityManager.flush();
+            createProgramProvider(testProviderNo1, testProgramId1);
+            createProgramProvider(testProviderNo1, testProgramId2);
+            createProgramProvider(testProviderNo2, testProgramId1);
+            hibernateTemplate.flush();
 
-            // When
-            List<ProgramProvider> results = programProviderDAO.getProgramProviderByProviderNo("P777");
+            List<ProgramProvider> results = programProviderDAO.getProgramProviderByProviderNo(testProviderNo1);
 
-            // Then
             assertThat(results)
                 .hasSize(2)
-                .allMatch(pp -> pp.getProviderNo().equals("P777"));
+                .allMatch(pp -> pp.getProviderNo().equals(testProviderNo1));
         }
 
         @Test
         @Tag("read")
         @DisplayName("should get program providers by program ID")
         void shouldGetByProgramId() {
-            // Given
-            createProgramProvider("P001", 555L);
-            createProgramProvider("P002", 555L);
-            createProgramProvider("P003", 666L);  // Different program
-            entityManager.flush();
+            createProgramProvider(testProviderNo1, testProgramId1);
+            createProgramProvider(testProviderNo2, testProgramId1);
+            createProgramProvider(testProviderNo1, testProgramId2);
+            hibernateTemplate.flush();
 
-            // When
-            List<ProgramProvider> results = programProviderDAO.getProgramProviders(555L);
+            List<ProgramProvider> results = programProviderDAO.getProgramProviders(testProgramId1);
 
-            // Then
             assertThat(results)
                 .hasSize(2)
-                .allMatch(pp -> pp.getProgramId().equals(555L));
+                .allMatch(pp -> pp.getProgramId().equals(testProgramId1));
         }
     }
 }

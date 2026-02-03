@@ -70,9 +70,11 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
             tickler.setMessage("Persist test");
             tickler.setCreator("999998");
             tickler.setTaskAssignedTo("999998");
+            tickler.setStatus(Tickler.STATUS.A);
+            tickler.setServiceDate(new java.util.Date());
 
-            // When - persist
-            ticklerDao.persist(tickler);
+            // When - save
+            entityManager.persist(tickler);
             entityManager.flush();
             Integer id = tickler.getId();
             assertThat(id).isNotNull();
@@ -80,7 +82,7 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
             // When - merge (update)
             tickler.setMessage("Updated message");
             tickler.setPriority(Tickler.PRIORITY.High);
-            ticklerDao.merge(tickler);
+            entityManager.merge(tickler);
             entityManager.flush();
             entityManager.clear();
 
