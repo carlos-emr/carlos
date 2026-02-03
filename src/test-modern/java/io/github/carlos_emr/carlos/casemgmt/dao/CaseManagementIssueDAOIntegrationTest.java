@@ -136,7 +136,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should find issue when both demographic and issue ID match")
         void shouldFindIssue_whenBothDemoAndIdMatch() {
             // Given
-            CaseManagementIssue issue1 = createCaseManagementIssue("111", testIssue1);
+            createCaseManagementIssue("111", testIssue1);
             CaseManagementIssue issue2 = createCaseManagementIssue("222", testIssue1);  // Same issue, different demo
             CaseManagementIssue issue3 = createCaseManagementIssue("111", testIssue2);  // Same demo, different issue
             entityManager.flush();
