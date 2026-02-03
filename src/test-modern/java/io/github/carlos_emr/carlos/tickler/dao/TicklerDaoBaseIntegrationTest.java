@@ -92,7 +92,7 @@ public abstract class TicklerDaoBaseIntegrationTest extends OpenOTestBase {
             tickler.setCreator("999998");
             tickler.setTaskAssignedTo(i % 2 == 0 ? "999999" : "999998");
             tickler.setServiceDate(new Date());
-            ticklerDao.persist(tickler);
+            entityManager.persist(tickler);
         }
         entityManager.flush();
     }
@@ -114,7 +114,7 @@ public abstract class TicklerDaoBaseIntegrationTest extends OpenOTestBase {
         tickler.setCreator("999998");
         tickler.setTaskAssignedTo("999998");
         tickler.setServiceDate(new Date());
-        ticklerDao.persist(tickler);
+        entityManager.persist(tickler);
         return tickler;
     }
 
@@ -134,7 +134,7 @@ public abstract class TicklerDaoBaseIntegrationTest extends OpenOTestBase {
             tickler.setCreator("999998");
             tickler.setTaskAssignedTo(i % 2 == 0 ? "999999" : "999998");
             tickler.setServiceDate(new Date());
-            ticklerDao.persist(tickler);
+            entityManager.persist(tickler);
         }
         entityManager.flush();
     }
