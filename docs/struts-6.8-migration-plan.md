@@ -273,6 +273,42 @@ You will see deprecation warnings for `com.opensymphony.xwork2.*` classes. **Thi
 
 These warnings indicate the classes will be removed in Struts 7.x but are fully functional in 6.x.
 
+#### What's Deprecated
+
+The following classes are marked `@Deprecated` in Struts 6.x (via [WW-3714](https://issues.apache.org/jira/browse/WW-3714)):
+- `com.opensymphony.xwork2.ActionSupport` (458 files)
+- `com.opensymphony.xwork2.ActionContext`
+- `com.opensymphony.xwork2.ModelDriven` (2 files)
+- `com.opensymphony.xwork2.validator.annotations.Validation` (1 file)
+
+#### How to Suppress Deprecation Warnings
+
+**Recommended: Maven compiler configuration** (suppresses globally)
+
+Add to `pom.xml` in the `maven-compiler-plugin` configuration:
+
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <configuration>
+        <!-- Existing configuration... -->
+        <showDeprecation>false</showDeprecation>
+    </configuration>
+</plugin>
+```
+
+**Alternative: Per-class annotation** (if you prefer targeted suppression)
+
+```java
+@SuppressWarnings("deprecation")
+public class MyAction extends ActionSupport {
+    // ...
+}
+```
+
+This would require adding the annotation to 458+ files, so the Maven approach is recommended.
+
 ### 4.3 Manual Testing Checklist
 
 Test these critical paths:
