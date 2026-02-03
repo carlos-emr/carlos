@@ -1287,8 +1287,7 @@ public class RxUtil {
                             retList.add(key);
                             elementCount.remove(key);
                             break;
-                        } else
-                           ;
+                        }
                     }
                 }
             } catch (Exception e) {

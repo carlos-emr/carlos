@@ -63,7 +63,6 @@ public class OLISPreferences2Action extends ActionSupport {
         Integer pollFrequency = Misc.getInt(request.getParameter("pollFrequency"), 30);
         String filterPatients = request.getParameter("filter_patients");
         OLISSystemPreferencesDao olisPrefDao = (OLISSystemPreferencesDao) SpringUtils.getBean(OLISSystemPreferencesDao.class);
-       ;
         OLISSystemPreferences olisPrefs = olisPrefDao.getPreferences();
 
         try {

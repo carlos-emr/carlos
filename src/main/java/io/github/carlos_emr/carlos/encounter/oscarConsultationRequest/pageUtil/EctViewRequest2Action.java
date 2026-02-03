@@ -140,7 +140,7 @@ public class EctViewRequest2Action extends ActionSupport {
         List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(requestId);
         Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
 
-        ConsultationRequestDao consultDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);;
+        ConsultationRequestDao consultDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
         ConsultationRequest consult = consultDao.find(requestId);
 
         thisForm.setAllergies(consult.getAllergies());

@@ -602,7 +602,6 @@ public class FormeCARESManager {
                 if (!contains(preventionType, Constants.Cares.Prevention.values())) {
                     continue;
                 }
-               ;
 
                 if (prevention.isComplete()) {
                     switch (Constants.Cares.Prevention.valueOf(preventionType)) {

@@ -75,7 +75,7 @@ public class FrmSetupSelect2Action extends ActionSupport {
                 if (caisiProperty != null && (caisiProperty.equalsIgnoreCase("yes")
                         || caisiProperty.equalsIgnoreCase("true")
                         || caisiProperty.equalsIgnoreCase("on"))) {
-                   ; // form in
+                    // form in - keep it
                 } else {
                     continue; //form out
                 }

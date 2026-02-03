@@ -583,7 +583,6 @@ public class ScheduleService extends AbstractServiceImpl {
             return response;
         } catch (Exception e) {
             logger.error("ScheduleService.listProviderApptsForPeriod error", e);
-           ;
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
         }
     }

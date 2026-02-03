@@ -64,7 +64,6 @@ public class OntarioMD {
     }
 
     public boolean showOntarioMDLink() {
-        if (hasIncomingRequestor() && true);
         return true;
     }
 
