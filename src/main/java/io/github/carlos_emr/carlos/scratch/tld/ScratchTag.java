@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -50,7 +49,7 @@ public class ScratchTag extends TagSupport {
 
         if (providerNo != null) {
             //isScratchFilled is inefficient, removed until a more efficient method is available. by default show the filled graphic
-            scratchFilled = true;//spm.isScratchFilled(providerNo);
+            scratchFilled = true; //spm.isScratchFilled(providerNo);
         }
 
         try {

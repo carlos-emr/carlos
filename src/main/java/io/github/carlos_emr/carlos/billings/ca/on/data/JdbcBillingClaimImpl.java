@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -388,7 +387,7 @@ public class JdbcBillingClaimImpl {
         if (paymentSumParam != null) {
             BillingONPaymentDao billingONPaymentDao = (BillingONPaymentDao) SpringUtils.getBean(BillingONPaymentDao.class);
             BillingPaymentTypeDao billingPaymentTypeDao = (BillingPaymentTypeDao) SpringUtils.getBean(BillingPaymentTypeDao.class);
-            ;
+           ;
             BillingONCHeader1 ch1 = cheaderDao.find(id);
             Date paymentDate = null;
             try {

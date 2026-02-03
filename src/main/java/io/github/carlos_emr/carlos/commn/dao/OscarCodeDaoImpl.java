@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
@@ -78,7 +77,7 @@ public class OscarCodeDaoImpl extends AbstractCodeSystemDaoImpl<OscarCode> imple
     @Override
     public List<OscarCode> searchCode(String code) {
         List<OscarCode> results =  getOscarCode(code);
-        if(results.isEmpty())
+        if (results.isEmpty())
             return null;
         return results;
     }

@@ -63,8 +63,8 @@ public class CopyFavorites2Action extends ActionSupport {
         logger.debug("copyFavorites-update");
         
         //LazyValidatorForm lazyForm = (LazyValidatorForm) form;
-        String providerNo = request.getParameter("userProviderNo");//lazyForm.get("userProviderNo").toString();
-        int share = Integer.parseInt(request.getParameter("rb_share"));//Integer.parseInt(lazyForm.get("rb_share").toString());
+        String providerNo = request.getParameter("userProviderNo"); //lazyForm.get("userProviderNo").toString();
+        int share = Integer.parseInt(request.getParameter("rb_share")); //Integer.parseInt(lazyForm.get("rb_share").toString());
         favoritesPrivilegeDao.setFavoritesPrivilege(providerNo, share==0?false:true, false);
 
         return SUCCESS;
@@ -88,14 +88,14 @@ public class CopyFavorites2Action extends ActionSupport {
         //String providerNo = lazyForm.get("userProviderNo").toString();
         
         String providerNo = request.getParameter("providerNo");
-        //if( lazyForm.get("ddl_provider") == null || lazyForm.get("ddl_provider").toString()=="")
+        //if ( lazyForm.get("ddl_provider") == null || lazyForm.get("ddl_provider").toString()=="")
         if (request.getParameter("ddl_provider") == null || request.getParameter("ddl_provider").equals(""))
             return SUCCESS;
 
         //int count = Integer.parseInt(lazyForm.get("countFavorites").toString());
         int count = Integer.parseInt(request.getParameter("countFavorites"));
         List<Integer> favIDs = new ArrayList<Integer>();
-        for (int i=0;i<count;i++){
+        for (int i = 0; i < count; i++) {
             String search = "selected"+i;
             //if (lazyForm.get(search)!=null){
             if (request.getParameter(search) != null) {
@@ -105,7 +105,7 @@ public class CopyFavorites2Action extends ActionSupport {
             }
         }
        
-        for(Integer id:favIDs) {
+        for (Integer id:favIDs) {
         	Favorites f = favoritesDao.find(id);
         	Favorites copy = new Favorites();
         	try {
@@ -113,8 +113,8 @@ public class CopyFavorites2Action extends ActionSupport {
 	        	copy.setProviderNo(providerNo);
 	        	copy.setId(null);
 	        	favoritesDao.persist(copy);
-        	}catch(Exception e) {
-        		logger.error("error",e);
+        	}catch (Exception e) {
+        		logger.error("error", e);
         	}
         }
          

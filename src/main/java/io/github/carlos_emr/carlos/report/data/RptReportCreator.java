@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -174,7 +173,7 @@ public final class RptReportCreator {
         return ret;
     }
 
-    // get result of a SubQuery in ,,,,,,
+    // get result of a SubQuery in,,,,,,
     public String getRltSubQuery(String sql) throws SQLException {
         String ret = "0";
 

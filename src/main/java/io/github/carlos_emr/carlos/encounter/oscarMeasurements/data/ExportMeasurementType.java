@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -95,7 +94,7 @@ public class ExportMeasurementType {
         Element measurement = createXMLMeasurement(mtb.getType(), mtb.getTypeDesc(), mtb.getTypeDisplayName(), mtb.getMeasuringInstrc());
 
         EctValidationsBeanHandler valBeanHandler = new EctValidationsBeanHandler();
-        EctValidationsBean v = valBeanHandler.getValidation(mtb.getValidationName());//(EctValidationsBean) validationRules.get(i);
+        EctValidationsBean v = valBeanHandler.getValidation(mtb.getValidationName()); //(EctValidationsBean) validationRules.get(i);
         measurement.addContent(createXMLValidation(v.getName(), v.getMaxValue(), v.getMinValue(), v.getIsDate(), v.getIsNumeric(), v.getRegularExp(), v.getMaxLength(), v.getMinLength()));
 
         return measurement;
@@ -105,7 +104,7 @@ public class ExportMeasurementType {
         Element measurement = createXMLMeasurement(mtb.getType(), mtb.getTypeDesc(), mtb.getTypeDisplayName(), mtb.getMeasuringInstrc());
 
         EctValidationsBeanHandler valBeanHandler = new EctValidationsBeanHandler();
-        EctValidationsBean v = valBeanHandler.getValidation(mtb.getValidationName());//(EctValidationsBean) validationRules.get(i);
+        EctValidationsBean v = valBeanHandler.getValidation(mtb.getValidationName()); //(EctValidationsBean) validationRules.get(i);
         measurement.addContent(createXMLValidation(v.getName(), v.getMaxValue(), v.getMinValue(), v.getIsDate(), v.getIsNumeric(), v.getRegularExp(), v.getMaxLength(), v.getMinLength()));
 
         XMLOutputter outp = new XMLOutputter();

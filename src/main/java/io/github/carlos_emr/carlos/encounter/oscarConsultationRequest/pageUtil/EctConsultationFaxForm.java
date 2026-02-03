@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -32,7 +31,6 @@ import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -77,7 +75,7 @@ public final class EctConsultationFaxForm {
 		this.from = from;
 	}
 	public String getRecipientFaxNumber() {
-		if(recipientFaxNumber != null) {
+		if (recipientFaxNumber != null) {
 			recipientFaxNumber = recipientFaxNumber.trim().replaceAll("\\D", "");
 		}
 		return recipientFaxNumber;
@@ -131,7 +129,7 @@ public final class EctConsultationFaxForm {
 		this.demographicNo = demographicNo;
 	}
 	public String[] getFaxRecipients() {
-		if(faxRecipients ==  null) {
+		if (faxRecipients ==  null) {
 			return new String[]{};
 		}
 		return faxRecipients;
@@ -146,9 +144,9 @@ public final class EctConsultationFaxForm {
 		this.coverpage = coverpage;
 	}
 	public Set<FaxRecipient> getAllFaxRecipients() {
-		if(allFaxRecipients == null) {
+		if (allFaxRecipients == null) {
 			allFaxRecipients = new HashSet<FaxRecipient>();
-			allFaxRecipients.add( new FaxRecipient( getRecipient() , getRecipientFaxNumber() ) );
+			allFaxRecipients.add( new FaxRecipient( getRecipient(), getRecipientFaxNumber() ) );
 			allFaxRecipients.addAll(getCopiedTo());
 		}
 

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -549,7 +548,7 @@ public class QuickBillingBCHandler {
         bill.setAfterHour(AFTERHOUR_CODE);
 
         bill.setNewProgram(NEW_PROGRAM);
-        bill.setBillingCode(serviceCode);//billItem.getServiceCode());
+        bill.setBillingCode(serviceCode); //billItem.getServiceCode());
         bill.setBillAmount(billedAmount);
 
         bill.setPaymentMode(paymentMode);

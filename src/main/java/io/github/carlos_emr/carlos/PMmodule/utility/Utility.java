@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -513,7 +512,7 @@ public class Utility {
         int pos = rtnStr.length() - rtnStr.indexOf(".");
 
         if (pos == 3)
-            ;
+           ;
         else if (pos == 2)
             rtnStr += "0";
         else if (pos == 1)
@@ -540,7 +539,7 @@ public class Utility {
         int pos = rtnStr.length() - index;
 
         if (pos == 3)
-            ; // in xxx.xx format already
+           ; // in xxx.xx format already
         else if (pos == 2)
             rtnStr += "0";
         else if (pos == 1)
@@ -580,7 +579,7 @@ public class Utility {
         int pos = rtnStr.length() - index;
 
         if (pos == 4)
-            ; // in xxx.xx format already
+           ; // in xxx.xx format already
         else if (pos == 3)
             rtnStr += "00";
         else if (pos == 2)
@@ -621,7 +620,7 @@ public class Utility {
         int pos = rtnStr.length() - index;
 
         if (pos == 5)
-            ; // in xxx.xx format already
+           ; // in xxx.xx format already
         else if (pos == 4)
             rtnStr += "0";
         else if (pos == 3)

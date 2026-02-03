@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -33,7 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 
 public interface AbstractCodeSystemDao<T extends AbstractCodeSystemModel<?>> extends AbstractDao<T> {
 
-    //public static enum codingSystem {icd9,icd10,ichppccode,msp,SnomedCore}
+    //public static enum codingSystem {icd9, icd10, ichppccode, msp, SnomedCore}
 
     // public static String getDaoName(codingSystem codeSystem);
 
@@ -47,7 +46,7 @@ public interface AbstractCodeSystemDao<T extends AbstractCodeSystemModel<?>> ext
 
     public static Class<?> getDaoName(codingSystem codeSystem) {
         Class<?> object;
-        switch(codeSystem) {
+        switch (codeSystem) {
             case SnomedCore:
                 object = SnomedCoreDao.class;
                 break;

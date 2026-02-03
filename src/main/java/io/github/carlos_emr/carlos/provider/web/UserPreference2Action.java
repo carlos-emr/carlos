@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -47,7 +46,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
-import java.security.MessageDigest;
 import java.util.*;
 
 public class UserPreference2Action extends ActionSupport {

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -105,7 +104,7 @@ public class InboxResponse {
             resultData.accessionNumber = inboxItem.getAccessionNumber();
             resultData.patientName = inboxItem.getLastName() + ", " + inboxItem.getFirstName();
             resultData.sex = StringUtils.trimToEmpty(inboxItem.getSex());
-            ;
+           ;
             resultData.healthNumber = StringUtils.trimToEmpty(inboxItem.getHealthNumber());
             if (StringUtils.isEmpty(inboxItem.getFirstName()) || StringUtils.isEmpty(inboxItem.getLastName())) {
                 resultData.patientName = "Not, Assigned";

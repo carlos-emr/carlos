@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2008-2012 Indivica Inc.
  * <p>
@@ -837,7 +836,7 @@ public class TDISHandler implements MessageHandler {
     }
 
 	/*public String getReportStatus() {
-		String status  = getString(obrSegKeySet.get(0).getObr25_ResultStatus().getValue()) ;
+		String status  = getString(obrSegKeySet.get(0).getObr25_ResultStatus().getValue());
 		return status;
 	}*/
 

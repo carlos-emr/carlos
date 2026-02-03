@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -356,7 +355,7 @@ public class DocumentPreview2Action extends ActionSupport {
      *
      * Request attributes set:
      * - allDocuments: List&lt;EDoc&gt; all electronic documents for the patient
-     * - allHRMDocuments: ArrayList&lt;HashMap&lt;String,? extends Object&gt;&gt; all HRM documents
+     * - allHRMDocuments: ArrayList&lt;HashMap&lt;String, ? extends Object&gt;&gt; all HRM documents
      * - allLabsSortedByVersions: List&lt;AttachmentLabResultData&gt; lab results sorted by versions
      * - allForms: List&lt;EctFormData.PatientForm&gt; all encounter forms
      * - allEForms: List&lt;EFormData&gt; all current electronic forms
@@ -389,7 +388,7 @@ public class DocumentPreview2Action extends ActionSupport {
      *
      * Request attributes set:
      * - allDocuments: List&lt;EDoc&gt; all electronic documents for the patient
-     * - allHRMDocuments: ArrayList&lt;HashMap&lt;String,? extends Object&gt;&gt; all HRM documents
+     * - allHRMDocuments: ArrayList&lt;HashMap&lt;String, ? extends Object&gt;&gt; all HRM documents
      * - allLabsSortedByVersions: List&lt;AttachmentLabResultData&gt; lab results sorted by versions
      * - allForms: List&lt;EctFormData.PatientForm&gt; all encounter forms
      * - allEForms: List&lt;EFormData&gt; all electronic forms excluding the specified fdid
@@ -460,7 +459,7 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo) {
         List<EDoc> allDocuments = EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE);
-        ArrayList<HashMap<String,? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo,false);
+        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false);
         List<AttachmentLabResultData> allLabsSortedByVersions = documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo);
         List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicNo), false, true);
 

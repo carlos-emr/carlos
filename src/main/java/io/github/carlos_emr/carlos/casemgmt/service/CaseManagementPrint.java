@@ -30,7 +30,6 @@
  * @see NoteService
  * @since 2026-01-24
  */
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.OscarProperties;
@@ -277,7 +276,7 @@ public class CaseManagementPrint {
             demoNo = demono;
             if (cpp == null) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, "OMeds");
-                String[] issueIds = getIssueIds(issues);// new String[issues.size()];
+                String[] issueIds = getIssueIds(issues); // new String[issues.size()];
                 othermeds = caseManagementMgr.getNotes(demono, issueIds);
             } else {
                 othermeds = cpp.get("OMeds");

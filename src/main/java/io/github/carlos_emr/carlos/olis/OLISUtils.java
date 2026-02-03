@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.olis;
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -63,10 +62,10 @@ public class OLISUtils {
 
     static Hl7TextInfoDao hl7TextInfoDao = SpringUtils.getBean(Hl7TextInfoDao.class);
 
-    static final public String CMLIndentifier = "2.16.840.1.113883.3.59.1:5407";// Canadian Medical Laboratories
-    static final public String GammaDyancareIndentifier = "2.16.840.1.113883.3.59.1:5552";// Gamma Dynacare
-    static final public String LifeLabsIndentifier = "2.16.840.1.113883.3.59.1:5687";// LifeLabs
-    static final public String AlphaLabsIndetifier = "2.16.840.1.113883.3.59.1:5254";// Alpha Laboratories"
+    static final public String CMLIndentifier = "2.16.840.1.113883.3.59.1:5407"; // Canadian Medical Laboratories
+    static final public String GammaDyancareIndentifier = "2.16.840.1.113883.3.59.1:5552"; // Gamma Dynacare
+    static final public String LifeLabsIndentifier = "2.16.840.1.113883.3.59.1:5687"; // LifeLabs
+    static final public String AlphaLabsIndetifier = "2.16.840.1.113883.3.59.1:5254"; // Alpha Laboratories"
 
     public static String getOLISResponseContent(String response) throws Exception {
         response = response.replaceAll("<Content", "<Content xmlns=\"\" ");
@@ -114,7 +113,7 @@ public class OLISUtils {
 
     public static boolean isDuplicate(LoggedInInfo loggedInInfo, OLISHL7Handler h, String msg) {
 
-        String sendingFacility = h.getPlacerGroupNumber();//getPerformingFacilityNameOnly();
+        String sendingFacility = h.getPlacerGroupNumber(); //getPerformingFacilityNameOnly();
         logger.debug("SENDING FACILITY: " + sendingFacility);
         String accessionNumber = h.getAccessionNum();
         String hin = h.getHealthNum();

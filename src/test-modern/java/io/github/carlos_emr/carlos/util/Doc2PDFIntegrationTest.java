@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import io.github.carlos_emr.carlos.test.integration.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

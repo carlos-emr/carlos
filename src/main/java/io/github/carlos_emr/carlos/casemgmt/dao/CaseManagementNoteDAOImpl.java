@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -28,10 +27,6 @@
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import java.math.BigInteger;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -53,13 +48,11 @@ import org.hibernate.criterion.Expression;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.NativeQuery;
-import org.hibernate.query.Query;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
@@ -68,7 +61,6 @@ import org.hibernate.SessionFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.util.SqlUtils;
 
 @Transactional
 public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements CaseManagementNoteDAO {
@@ -322,7 +314,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
      * public List getNotesByDemographic(String demographic_no) { return
      * this.getHibernateTemplate().
      * find("from CaseManagementNote cmn where cmn.demographic_no = ? ORDER BY cmn.update_date DESC"
-     * , new Object[] {demographic_no}); }
+     *, new Object[] {demographic_no}); }
      */
 
     @SuppressWarnings("unchecked")

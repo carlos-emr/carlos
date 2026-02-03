@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -63,7 +62,7 @@ public class WCBTeleplanSubmission {
                         "<td class='bodytext'>" +
                         "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=" +
                         Misc.forwardZero(billingMasterNo, 7) +
-                        "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" +
+                        "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">" +
                         invNo +
                         "</a>" +
                         "</td>" +
@@ -131,7 +130,7 @@ public class WCBTeleplanSubmission {
         String ret = "<tr bgcolor='red'><td colspan='11'>"
                 + "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no="
                 + Misc.forwardZero("" + bm.getBillingmasterNo(), 7)
-                + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">"
+                + "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">"
                 + m.toString() + "</a>" + "</td></tr>";
         if ("".equals(m.toString())) {
             return "";
@@ -295,9 +294,9 @@ public class WCBTeleplanSubmission {
         dLine.append(this.ClaimNote1Head(logNo, bm.getPayeeNo(), bm.getPractitionerNo()));
         dLine.append(Misc.forwardZero("", 10));
         //+ Misc.zero(10)      //phn
-        dLine.append("0");//Misc.backwardSpace("", 1).toUpperCase()
-        dLine.append("0");//Misc.space(1)
-        dLine.append("00");//Misc.backwardSpace("", 2).toUpperCase()
+        dLine.append("0"); //Misc.backwardSpace("", 1).toUpperCase()
+        dLine.append("0"); //Misc.space(1)
+        dLine.append("00"); //Misc.backwardSpace("", 2).toUpperCase()
         dLine.append(Misc.zero(2));
         dLine.append(Misc.forwardZero(billingUnit, 3)); // SR#: 7153 v1.9 Section 6.1.1 SEQ P20
         dLine.append(Misc.zero(2 + 2 + 1 + 2)); //clarification
@@ -306,11 +305,11 @@ public class WCBTeleplanSubmission {
         dLine.append(Misc.zero(1));
         dLine.append(dateFormat(bm.getServiceDate()));
         dLine.append(Misc.zero(2));
-        dLine.append("W");//Misc.zero(1) //Submission Code
+        dLine.append("W"); //Misc.zero(1) //Submission Code
         dLine.append(Misc.space(1));
         dLine.append(Misc.backwardSpace(bm.getDxCode1(), 5));
         dLine.append(Misc.space(5 + 5 + 15));
-        dLine.append(Misc.backwardSpace(bm.getServiceLocation(), 1));// wcb.getW_servicelocation(), 1)
+        dLine.append(Misc.backwardSpace(bm.getServiceLocation(), 1)); // wcb.getW_servicelocation(), 1)
 
         dLine.append(Misc.forwardZero(bm.getReferralFlag1(), 1));                   //p41   1
         dLine.append(Misc.forwardZero(bm.getReferralNo1(), 5));                      //p42   5
@@ -327,7 +326,7 @@ public class WCBTeleplanSubmission {
         dLine.append(Misc.space(20));
         dLine.append("N");
         dLine.append(Misc.zero(8 + 20 + 5 + 5));
-        dLine.append(Misc.space(58));//Part II of Claim 1
+        dLine.append(Misc.space(58)); //Part II of Claim 1
         dLine.append("WC");
         //+ Misc.backwardZero(wcb.getW_phn(), 12)
         dLine.append(Misc.backwardZero(d.getHin(), 12));

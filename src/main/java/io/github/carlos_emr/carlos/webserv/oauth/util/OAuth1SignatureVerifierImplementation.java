@@ -224,7 +224,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
             if (c == '%' && i + 2 < n) {
                 int hi = Character.digit(s.charAt(i + 1), 16);
                 int lo = Character.digit(s.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) { out.append((char)((hi << 4) + lo)); i += 2; continue; }
+                if (hi >= 0 && lo >= 0) { out.append((char) ((hi << 4) + lo)); i += 2; continue; }
             }
             out.append(c);
         }

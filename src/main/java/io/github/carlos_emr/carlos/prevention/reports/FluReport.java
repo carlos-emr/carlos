@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -321,7 +320,7 @@ public class FluReport implements PreventionReport {
     //Less than a month?
     //Do nothing but display a message of when letter was sent.
 
-    //Measurement Type will be 1 per Prevention report, with the dataField holding method ie L1, L2, P1 (letter 1 , letter 2, phone call 1)
+    //Measurement Type will be 1 per Prevention report, with the dataField holding method ie L1, L2, P1 (letter 1, letter 2, phone call 1)
     private static final String LETTER1 = "L1";
     private static final String PHONE1 = "P1";
 

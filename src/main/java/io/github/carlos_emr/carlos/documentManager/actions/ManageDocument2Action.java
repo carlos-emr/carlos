@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -177,10 +176,10 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     public void documentUpdateAjax() {
-        String observationDate = request.getParameter("observationDate");// :2008-08-22<
-        String documentDescription = request.getParameter("documentDescription");// :test2<
-        String documentId = request.getParameter("documentId");// :29<
-        String docType = request.getParameter("docType");// :consult<
+        String observationDate = request.getParameter("observationDate"); // :2008-08-22<
+        String documentDescription = request.getParameter("documentDescription"); // :test2<
+        String documentId = request.getParameter("documentId"); // :29<
+        String docType = request.getParameter("docType"); // :consult<
         String demog = request.getParameter("demog");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
@@ -335,14 +334,14 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     public String documentUpdate() {
-        String observationDate = request.getParameter("observationDate");// :2008-08-22<
-        String documentDescription = request.getParameter("documentDescription");// :test2<
-        String documentId = request.getParameter("documentId");// :29<
+        String observationDate = request.getParameter("observationDate"); // :2008-08-22<
+        String documentDescription = request.getParameter("documentDescription"); // :test2<
+        String documentId = request.getParameter("documentId"); // :29<
         // Also check for doc_no parameter (used by display method URLs)
         if (documentId == null || documentId.trim().isEmpty()) {
             documentId = request.getParameter("doc_no");
         }
-        String docType = request.getParameter("docType");// :consult<
+        String docType = request.getParameter("docType"); // :consult<
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -454,7 +453,7 @@ public class ManageDocument2Action extends ActionSupport {
         String prog_no = new EctProgram(se).getProgram(user_no);
         WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
         CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-        cmn.setProviderNo("-1");// set the providers no to be -1 so the editor appear as 'System'.
+        cmn.setProviderNo("-1"); // set the providers no to be -1 so the editor appear as 'System'.
         Provider provider = EDocUtil.getProvider(user_no);
         String provFirstName = "";
         String provLastName = "";
@@ -493,7 +492,7 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /*
-     * private void savePatientLabRouting(String demog,String docId,String docType){ CommonLabResultData.updatePatientLabRouting(docId, demog, docType); }
+     * private void savePatientLabRouting(String demog, String docId, String docType){ CommonLabResultData.updatePatientLabRouting(docId, demog, docType); }
      */
 
     private static String getDocumentCacheDir() {

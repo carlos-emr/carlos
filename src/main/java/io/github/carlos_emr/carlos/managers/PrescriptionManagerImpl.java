@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -173,7 +172,7 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
                 }
 
                 for (CachedDemographicDrug remoteDrug : remoteDrugs) {
-                    Drug drug = new Drug();// new Prescription(, remoteDrug.getCaisiProviderId(), demographicNo)) ;
+                    Drug drug = new Drug(); // new Prescription(, remoteDrug.getCaisiProviderId(), demographicNo));
                     drug.setId(remoteDrug.getFacilityIdIntegerCompositePk().getIntegratorFacilityId());
                     drug.setProviderNo(remoteDrug.getCaisiProviderId());
                     drug.setDemographicId(remoteDrug.getCaisiDemographicId());

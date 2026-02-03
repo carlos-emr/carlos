@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -110,14 +109,14 @@ public class Recommendation {
         String consequence = "";
         if (strength != null) {
             if ("hidden".equals(strength)) {
-                consequence = "m.addHidden(\"" + measurement + "\",true);";
+                consequence = "m.addHidden(\"" + measurement + "\", true);";
             } else {
                 String consequenceType = "Recommendation";
                 if ("warning".equals(strength)) {
                     consequenceType = "Warning";
                 }
                 if (text == null || text.trim().equals("")) {
-                    consequence = "m.add" + consequenceType + "(\"" + measurement + "\",\"" + measurement + "  \"+m.getLastDateRecordedInMonthsMsg(\"" + measurement + "\")+\" \");";
+                    consequence = "m.add" + consequenceType + "(\"" + measurement + "\", \"" + measurement + "  \"+m.getLastDateRecordedInMonthsMsg(\"" + measurement + "\")+\" \");";
                 } else if (text != null) {
                     String txt = text;
                     String NUMMONTHS = "\"+m.getLastDateRecordedInMonths(\"" + measurement + "\")+\"";
@@ -125,7 +124,7 @@ public class Recommendation {
 
                     txt = txt.replaceAll("\\$NUMMONTHS", NUMMONTHS);
                     log.debug("TEXT " + txt);
-                    consequence = "m.add" + consequenceType + "(\"" + measurement + "\",\"" + txt + "\");";
+                    consequence = "m.add" + consequenceType + "(\"" + measurement + "\", \"" + txt + "\");";
                 }
             }
         }
@@ -164,7 +163,7 @@ public class Recommendation {
 
     public Element getFlowsheetXML() {
         Element e = new Element("recommendation");
-        //    e.setAttribute("monthrange",monthrange);
+        //    e.setAttribute("monthrange", monthrange);
         if (strength != null) {
             e.setAttribute("strength", strength);
         }
@@ -174,7 +173,7 @@ public class Recommendation {
 
         log.debug("Number of Conditions " + getRecommendationCondition().size());
         for (RecommendationCondition cond : getRecommendationCondition()) {
-            e.addContent(cond.getFlowsheetXML());//a cond.getFlowsheetXML();
+            e.addContent(cond.getFlowsheetXML()); //a cond.getFlowsheetXML();
         }
 
         return e;

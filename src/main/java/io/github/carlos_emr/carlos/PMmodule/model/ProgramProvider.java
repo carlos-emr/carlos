@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -36,13 +35,13 @@ import io.github.carlos_emr.carlos.model.security.Secrole;
  */
 public class ProgramProvider implements Serializable {
 
-    private int hashCode = Integer.MIN_VALUE;// primary key
-    private Long _id;// fields
+    private int hashCode = Integer.MIN_VALUE; // primary key
+    private Long _id; // fields
     private Long _programId;
     private String _providerNo;
-    private Long _roleId;// many to one
+    private Long _roleId; // many to one
     private Secrole _role;
-    private Provider _provider;// collections
+    private Provider _provider; // collections
     private java.util.Set<ProgramTeam> _teams;
     private String programName;
     private Program program;

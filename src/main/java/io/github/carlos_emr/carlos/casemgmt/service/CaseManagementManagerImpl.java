@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -1327,7 +1326,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         logger.debug("Get tmp note. Provider: {}, demographic: {}, program: {}", providerNo, demographicNo, programId);
         CaseManagementTmpSave obj = null;
 
-        if(demographicNo != null && ! demographicNo.isEmpty() && StringUtils.isNumeric(demographicNo)
+        if (demographicNo != null && ! demographicNo.isEmpty() && StringUtils.isNumeric(demographicNo)
                 && programId != null && ! programId.isEmpty() && StringUtils.isNumeric(programId)) {
             obj = caseManagementTmpSaveDao.find(providerNo, Integer.valueOf(demographicNo), Integer.valueOf(programId));
         }
@@ -2011,9 +2010,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
          * String[] issueIdList = new String[1]; issueIdList[0] =
          * String.valueOf(newIssueId); List<CaseManagementNote> notes =
          * this.caseManagementNoteDAO.getNotesByDemographic(demographicNo);
-         * for(CaseManagementNote note:notes) { Set<CaseManagementIssue>
-         * issues = note.getIssues(); for(CaseManagementIssue issue:issues) {
-         * if(issue.getIssue().getId().equals(originalIssueId)) { //update this
+         * for (CaseManagementNote note:notes) { Set<CaseManagementIssue>
+         * issues = note.getIssues(); for (CaseManagementIssue issue:issues) {
+         * if (issue.getIssue().getId().equals(originalIssueId)) { //update this
          * CaseManagementIssue issue.setIssue(null);
          * issue.setIssue_id(newIssueId.longValue()); } }
          * this.caseManagementNoteDAO.saveNote(note); }
@@ -2480,7 +2479,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             role = "0";
         }
         /*
-         * if(session.getAttribute("archiveView")!="true")
+         * if (session.getAttribute("archiveView")!="true")
          * note.setReporter_caisi_role(role); else note.setReporter_caisi_role("1");
          */
         note.setReporter_caisi_role(role);
@@ -2570,7 +2569,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // PLACEHOLDER FOR DX CHECK
         /*
-         * If an issue is checked, new , and certain - we want to check dx associations.
+         * If an issue is checked, new, and certain - we want to check dx associations.
          * if found in dx associations. we want to make an entry into dx.
          */
         if (note.isSigned()) {
@@ -2589,7 +2588,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         /*
-         * if providers is a doctor or nurse,get all major and resolved medical issue for
+         * if providers is a doctor or nurse, get all major and resolved medical issue for
          * demograhhic and append them to CPP medical history
          */
         if (inCaisi) {

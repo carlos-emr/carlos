@@ -55,7 +55,7 @@ public class Program extends AbstractModel<Integer> {
     private final Integer MIN_AGE = 1;
     private final Integer MAX_AGE = 200;
 
-    private int hashCode = Integer.MIN_VALUE;// primary key
+    private int hashCode = Integer.MIN_VALUE; // primary key
 
     @Id
     @Column(name = "id")

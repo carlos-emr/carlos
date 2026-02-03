@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -76,12 +75,12 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
             //set link for lefthand module title
             String winName = "ViewBillingHistory" + bean.demographicNo;  //&last_name=TEST&first_name=PATIENT&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=10
 
-            String url = "popupPage(600,900,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "')";
+            String url = "popupPage(600, 900,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "')";
             Dao.setLeftURL(url);
 
             //set the right hand heading link
             winName = "NewBilling" + bean.demographicNo;
-            url = "popupPage(700,960,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
+            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
@@ -94,7 +93,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                 SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm");
                 Provider p = loggedInInfo.getLoggedInProvider();
                 if (appt != null) {
-                    url = "popupPage(755,1200,'" + winName + "','" + request.getContextPath() + "/billing.do?billRegion=ON&billForm=" + billform + "&hotclick=&appointment_no=" + appointmentNo + "&demographic_name=" + d.getFormattedName() + "&status=" + appt.getStatus() + "&demographic_no=" + bean.demographicNo + "&providerview=" + p.getProviderNo() + "&user_no=" + p.getProviderNo() + "&apptProvider_no=" + appt.getProviderNo() + "&appointment_date=" + dateFormatter.format(appt.getAppointmentDate()) + "&start_time=" + timeFormatter.format(appt.getStartTime()) + "&bNewForm=1');return false;";
+                    url = "popupPage(755, 1200,'" + winName + "','" + request.getContextPath() + "/billing.do?billRegion=ON&billForm=" + billform + "&hotclick=&appointment_no=" + appointmentNo + "&demographic_name=" + d.getFormattedName() + "&status=" + appt.getStatus() + "&demographic_no=" + bean.demographicNo + "&providerview=" + p.getProviderNo() + "&user_no=" + p.getProviderNo() + "&apptProvider_no=" + appt.getProviderNo() + "&appointment_date=" + dateFormatter.format(appt.getAppointmentDate()) + "&start_time=" + timeFormatter.format(appt.getStartTime()) + "&bNewForm=1');return false;";
                     Dao.setRightURL(url);
                 }
             }
@@ -129,7 +128,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                 item.setDate(date);
                 int hash = winName.hashCode();
                 hash = hash < 0 ? hash * -1 : hash;
-                url = "popupPage(600,900,'" + hash + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
+                url = "popupPage(600, 900,'" + hash + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
                 item.setURL(url);
                 item.setTitle(itObj.getService_code() + " (" + itObj.getDx() + ")");
                 item.setLinkTitle(itObj.getService_code() + " (" + itObj.getDx() + ") - " + obj.getBilling_date());
@@ -142,18 +141,18 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
             //set link for lefthand module title
             String winName = "ViewBillingHistory" + bean.demographicNo;  //&last_name=TEST&first_name=PATIENT&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=10
 
-            String url = "popupPage(600,900,'" + winName + "','" + request.getContextPath() + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + bean.demographicNo + "&lastName=" + bean.patientLastName + "&firstName=" + bean.patientFirstName + "')";
+            String url = "popupPage(600, 900,'" + winName + "','" + request.getContextPath() + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + bean.demographicNo + "&lastName=" + bean.patientLastName + "&firstName=" + bean.patientFirstName + "')";
             Dao.setLeftURL(url);
 
             //set the right hand heading link
             winName = "NewBilling" + bean.demographicNo;
-            url = "popupPage(700,960,'" + winName + "','" + request.getContextPath() + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + bean.demographicNo + "&lastName=" + bean.patientLastName + "&firstName=" + bean.patientFirstName + "'); return false;";
+            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + bean.demographicNo + "&lastName=" + bean.patientLastName + "&firstName=" + bean.patientFirstName + "'); return false;";
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
             ////
-            MSPReconcile msp = new MSPReconcile();              //"ALL", "1999-01-01" ,"9999-99-99"
-            MSPReconcile.BillSearch bSearch = msp.getBills("%", null, null, null, bean.demographicNo);//,true,true,true,true);
+            MSPReconcile msp = new MSPReconcile();              //"ALL", "1999-01-01","9999-99-99"
+            MSPReconcile.BillSearch bSearch = msp.getBills("%", null, null, null, bean.demographicNo); //, true, true, true, true);
             // ArrayList<MSPReconcile.Bill> list = bSearch.list;
 
             MiscUtils.getLogger().debug("list size for bills is " + bSearch.list.size());
@@ -162,7 +161,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
 //                List aL = null;
 //                try{
 //                     aL   = dbObj.getBillingHist(bean.demographicNo, 10, 0, null);
-//                }catch(Exception e){
+//                }catch (Exception e){
 //
 //                    MiscUtils.getLogger().error("Error", e);
 //                }
@@ -189,7 +188,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                     item.setDate(date);
                     int hash = winName.hashCode();
                     hash = hash < 0 ? hash * -1 : hash;
-                    url = "popupPage(600,900,'" + hash + "','" + request.getContextPath() + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + bean.demographicNo + "&lastName=" + bean.patientLastName + "&firstName=" + bean.patientFirstName + "'); return false;";
+                    url = "popupPage(600, 900,'" + hash + "','" + request.getContextPath() + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + bean.demographicNo + "&lastName=" + bean.patientLastName + "&firstName=" + bean.patientFirstName + "'); return false;";
                     item.setURL(url);
                     item.setTitle(b.reason + "# " + b.getCode() + " (" + b.getDx1() + ")");
                     item.setLinkTitle(msp.getStatusDesc(b.reason) + "# " + b.getCode() + " (" + b.getDx1() + ") - " + b.getApptDate());

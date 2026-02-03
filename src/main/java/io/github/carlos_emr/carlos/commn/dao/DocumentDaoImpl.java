@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -246,7 +245,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     @Override
     public int getNumberOfDocumentsAttachedToAProviderDemographics(String providerNo, Date startDate, Date endDate) {
         Query query = entityManager.createNativeQuery(
-                "select count(*) from ctl_document c, demographic d,document doc where c.module_id = d.demographic_no and c.document_no = doc.document_no   and d.provider_no = ?1 and doc.observationdate >= ?2 and doc.observationdate <= ?3 ");
+                "select count(*) from ctl_document c, demographic d, document doc where c.module_id = d.demographic_no and c.document_no = doc.document_no   and d.provider_no = ?1 and doc.observationdate >= ?2 and doc.observationdate <= ?3 ");
         query.setParameter(1, providerNo);
         query.setParameter(2, new Timestamp(startDate.getTime()));
         query.setParameter(3, new Timestamp(endDate.getTime()));
@@ -348,7 +347,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
             } else {
                 buf.append(" AND c.id.moduleId = :moduleId AND d.public1 = 0 AND d.doctype = :doctype");
                 params.put("doctype", docType);
-                params.put("moduleId",moduleIdInt);
+                params.put("moduleId", moduleIdInt);
             }
         }
 

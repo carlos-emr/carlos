@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -154,8 +153,8 @@ public class Hl7Obr {
                   String transportationMode, String reasonForStudy,
                   String principalResultInterpreter,
                   String assistantResultInterpreter, String technician,
-                  String transcriptionist, String scheduledDateTime
-            , String transportArranged, String numberOfSampleContainers,
+                  String transcriptionist, String scheduledDateTime,
+ String transportArranged, String numberOfSampleContainers,
                   String transportLogisticsOfCollectedSample,
                   String collectorComment,
                   String transportArrangementResponsibility,

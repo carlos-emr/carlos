@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -132,7 +131,7 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         String orderByClause = order == 1 ? "desc" : "";
         Query query = entityManager
                 .createQuery("select bs  from BillingService bs where bs.region = (?1) and bs.serviceCode like (?2) and bs.billingserviceDate = (select max(b2.billingserviceDate) from BillingService b2 where b2.serviceCode = bs.serviceCode and b2.billingserviceDate <= (?3))  order by bs.serviceCode "
-                        + orderByClause);// (:order) ");
+                        + orderByClause); // (:order) ");
         query.setParameter(1, region);
         query.setParameter(2, code + "%");
         query.setParameter(3, billingDate);

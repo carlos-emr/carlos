@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -88,7 +87,7 @@ public class GenTa2Action extends ActionSupport {
 
         int recFlag = 0;
         String raNo = "";
-        String filename = (String) request.getAttribute("filename");// documentBean.getFilename();
+        String filename = (String) request.getAttribute("filename"); // documentBean.getFilename();
 
         String forwardPage = "S21";
 
@@ -719,7 +718,7 @@ class S01 {
 
 
 class S02 {//{") == 0 || header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
-    //if(header.equals("S02")){ //header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
+    //if (header.equals("S02")){ //header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
     //}else if (header.equals("S03")){
     //}else if (header.equals("S00")){
 
@@ -889,7 +888,7 @@ class S02 {//{") == 0 || header.compareTo("S00") == 0 || header.compareTo("S03")
         param02[44] = t_aja6; //(7),
         param02[45] = t_ajc7; //(2),
         param02[46] = t_aja7; //(7),
-        param02[47] = "";//t_paidrate ; //(2),
+        param02[47] = ""; //t_paidrate; //(2),
         param02[48] = t_planrefno; //(10),
         param02[49] = t_claimsource; //(10),
         param02[50] = t_previouspaiddate; //(8),
@@ -1311,17 +1310,17 @@ class C12 {
         param[0] = filename;
         param[1] = t_datacenter;
         param[2] = t_dataseq;
-        param[3] = "";//t_payment;
-        param[4] = "";//t_linecode;
+        param[3] = ""; //t_payment;
+        param[4] = ""; //t_linecode;
         param[5] = t_payeeno;
-        param[6] = "";//t_mspctlno;
-        param[7] = "";//t_payeename;
-        param[8] = "";//t_amtbilled;
-        param[9] = "";//t_amtpaid;
-        param[10] = "";// t_balancefwd;
-        param[11] = "";// t_cheque;
-        param[12] = "";// t_newbalance;
-        param[13] = "";// t_filler;
+        param[6] = ""; //t_mspctlno;
+        param[7] = ""; //t_payeename;
+        param[8] = ""; //t_amtbilled;
+        param[9] = ""; //t_amtpaid;
+        param[10] = ""; // t_balancefwd;
+        param[11] = ""; // t_cheque;
+        param[12] = ""; // t_newbalance;
+        param[13] = ""; // t_filler;
         param[14] = "D";
         return param;
     }

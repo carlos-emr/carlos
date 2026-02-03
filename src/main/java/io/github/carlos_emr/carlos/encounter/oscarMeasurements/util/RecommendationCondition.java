@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -86,8 +85,8 @@ public class RecommendationCondition {
                 }
 
             }else if (toParse.indexOf("&gt;") != -1 ||  toParse.indexOf(">") != -1 ){ // greater than style
-                toParse = toParse.replaceFirst("&gt;","");
-                toParse = toParse.replaceFirst(">","");
+                toParse = toParse.replaceFirst("&gt;", "");
+                toParse = toParse.replaceFirst(">", "");
                 double gt = Double.parseDouble(toParse.trim());
                 list.add(new DSCondition("getLastDateRecordedInMonths", param, ">", ""+gt));
 
@@ -111,8 +110,8 @@ public class RecommendationCondition {
                 }
 
             }else if (toParse.indexOf("&gt;") != -1 ||  toParse.indexOf(">") != -1 ){ // greater than style
-                toParse = toParse.replaceFirst("&gt;","");
-                toParse = toParse.replaceFirst(">","");
+                toParse = toParse.replaceFirst("&gt;", "");
+                toParse = toParse.replaceFirst(">", "");
                 double gt = Double.parseDouble(toParse);
                 list.add(new DSCondition("getLastValueAsInt", param, ">", ""+gt));
 
@@ -123,7 +122,7 @@ public class RecommendationCondition {
                 double lt = Double.parseDouble(toParse);
                 list.add(new DSCondition("getLastValueAsInt", param, "<=", ""+lt));
             }else if (toParse.indexOf("!=") != -1 ){ // not equal style
-                toParse = toParse.replaceFirst("!=","");
+                toParse = toParse.replaceFirst("!=", "");
                 double eq = Double.parseDouble(toParse);
                 list.add(new DSCondition("getLastValueAsInt", param, "!=", ""+eq));
             }else if (!toParse.equals("")){ // equal style
@@ -185,8 +184,8 @@ public class RecommendationCondition {
                 }
 //TODO: how to handle = sign in greater than or equal too.
             }else if (toParse.indexOf("&gt;") != -1 ||  toParse.indexOf(">") != -1 ){ // greater than style
-                toParse = toParse.replaceFirst("&gt;","");
-                toParse = toParse.replaceFirst(">","");
+                toParse = toParse.replaceFirst("&gt;", "");
+                toParse = toParse.replaceFirst(">", "");
                 double gt = Double.parseDouble(toParse.trim());
                 list.add(new DSCondition("getDataAsDouble", "", ">", ""+gt));
             }else if (toParse.indexOf("&lt;") != -1  ||  toParse.indexOf("<") != -1 ){ // less than style
@@ -230,7 +229,7 @@ public class RecommendationCondition {
             }
 
             if (bps.length <3){
-                for(int i =0; i < bps.length; i++){
+                for (int i =0; i < bps.length; i++){
                     toParse = bps[i];
                     if (toParse.indexOf("-") != -1 && toParse.indexOf("-") != 0 ){ //between style
                         String[] betweenVals = toParse.split("-");
@@ -242,8 +241,8 @@ public class RecommendationCondition {
                         }
 
                     }else if (toParse.indexOf("&gt;") != -1 ||  toParse.indexOf(">") != -1 ){ // greater than style
-                        toParse = toParse.replaceFirst("&gt;","");
-                        toParse = toParse.replaceFirst(">","");
+                        toParse = toParse.replaceFirst("&gt;", "");
+                        toParse = toParse.replaceFirst(">", "");
                         int gt = Integer.parseInt(toParse);
                         list.add(new DSCondition("getNumberFromSplit(\"/\","+i+")", param, ">", ""+gt));
                     }else if (toParse.indexOf("&lt;") != -1  ||  toParse.indexOf("<") != -1 ){ // less than style
@@ -261,7 +260,7 @@ public class RecommendationCondition {
 
 
         }else if ("isDataEqualTo".equals(type)){
-            list.add(new DSCondition("isDataEqualTo",value,"",""));
+            list.add(new DSCondition("isDataEqualTo", value,"",""));
         }
          */
 

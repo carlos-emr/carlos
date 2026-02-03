@@ -1,17 +1,13 @@
 package io.github.carlos_emr.carlos.caisi_integrator.util;
 
 import java.awt.Graphics2D;
-import java.awt.image.ImageObserver;
 import java.util.Iterator;
 import java.io.IOException;
 import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import java.awt.Image;
-import javax.imageio.metadata.IIOMetadata;
 import java.awt.image.BufferedImage;
-import java.util.List;
-import java.awt.image.RenderedImage;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import java.io.OutputStream;
@@ -32,7 +28,7 @@ public class ImageIoUtils
             return baos.toByteArray();
         }
         catch (final Exception e) {
-            ImageIoUtils.logger.error((Object)"Error scaling image.", (Throwable)e);
+            ImageIoUtils.logger.error((Object) "Error scaling image.", (Throwable) e);
             return null;
         }
     }
@@ -42,9 +38,9 @@ public class ImageIoUtils
         final int imageWidth = image.getWidth();
         final int imageHeight = image.getHeight();
         if (maxWidth < imageWidth || maxHeight < imageHeight) {
-            final float shrinkRatio = Math.min(maxHeight / (float)imageHeight, maxWidth / (float)imageWidth);
-            final int newWidth = (int)(imageWidth * shrinkRatio);
-            final int newHeight = (int)(imageHeight * shrinkRatio);
+            final float shrinkRatio = Math.min(maxHeight / (float) imageHeight, maxWidth / (float) imageWidth);
+            final int newWidth = (int) (imageWidth * shrinkRatio);
+            final int newHeight = (int) (imageHeight * shrinkRatio);
             final Image scaledImage = image.getScaledInstance(newWidth, newHeight, 4);
             image = toBufferedImage(scaledImage);
         }

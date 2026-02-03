@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -365,7 +364,7 @@ public class MsgAddressBook {
 
             } else {
 
-                //int binSearch = java.util.Arrays.binarySearch(thePros,element.getAttribute("id")) ;
+                //int binSearch = java.util.Arrays.binarySearch(thePros,element.getAttribute("id"));
 
                 //if ( ( binSearch > 0 ) && ( ( (String) locationVector.elementAt(binSearch) ).equals( (String) remoteLocationId.elementAt(remoId)  ) )){
 

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -267,7 +266,7 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     }
 
     public String getRegionalIdentifier() {
-		if(regionalIdentifier == null) {
+		if (regionalIdentifier == null) {
 			return "";
 		}
         return regionalIdentifier;
@@ -278,7 +277,7 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     }
 
     public String getAtc() {
-		if(atc == null) {
+		if (atc == null) {
 			return "";
 		}
         return atc;

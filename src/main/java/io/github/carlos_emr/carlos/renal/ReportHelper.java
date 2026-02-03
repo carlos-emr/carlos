@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -517,7 +516,7 @@ public class ReportHelper {
 		
 		/*
 		
-		//hba1c < 7% ,fasting gluc 4-7 
+		//hba1c < 7%,fasting gluc 4-7 
 		idents = new ArrayList<String>();
 		for(MeasurementMap mp:measurementMapDao.getMapsByLoinc("4548-4")) {
 			idents.add(mp.getIdentCode());

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -83,7 +82,7 @@ public class DemographicNameAgeString {
      * @param demoNo Demoraphic Number
      */
     public static void resetDemographic(String demoNo) {
-      if(demoNo != null) {
+      if (demoNo != null) {
             hashtable.remove(demoNo);
         }
     }

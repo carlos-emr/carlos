@@ -1,6 +1,5 @@
 package io.github.carlos_emr.carlos.caisi_integrator.util;
 
-import java.util.Iterator;
 import java.util.ArrayList;
 import org.apache.commons.lang3.StringUtils;
 import java.io.IOException;
@@ -24,7 +23,7 @@ public final class ConfigXmlUtils
         try {
             final HashMap<String, HashMap<String, Object>> results = new HashMap<String, HashMap<String, Object>>();
             readFileIntoMap("/config.xml", results);
-            final String overrideFilenameSystemPropertiesKey = ((Node)getProperty(results, "misc", "override_config_sytem_property_key")).getTextContent();
+            final String overrideFilenameSystemPropertiesKey = ((Node) getProperty(results, "misc", "override_config_sytem_property_key")).getTextContent();
             if (overrideFilenameSystemPropertiesKey != null && !overrideFilenameSystemPropertiesKey.isEmpty()) {
                 final String overrideFilename = System.getProperty(overrideFilenameSystemPropertiesKey);
                 if (overrideFilename != null) {
@@ -34,13 +33,13 @@ public final class ConfigXmlUtils
             return results;
         }
         catch (final Exception e) {
-            ConfigXmlUtils.logger.error((Object)"Error initialising ConfigXmlUtils", (Throwable)e);
+            ConfigXmlUtils.logger.error((Object) "Error initialising ConfigXmlUtils", (Throwable) e);
             throw new RuntimeException(e);
         }
     }
     
     private static void readFileIntoMap(final String fileName, final HashMap<String, HashMap<String, Object>> map) throws ParserConfigurationException, SAXException, IOException {
-        ConfigXmlUtils.logger.info((Object)("Reading config file into map : " + fileName));
+        ConfigXmlUtils.logger.info((Object) ("Reading config file into map : " + fileName));
         InputStream is = ConfigXmlUtils.class.getResourceAsStream(fileName);
         if (is == null) {
             is = new FileInputStream(fileName);
@@ -87,7 +86,7 @@ public final class ConfigXmlUtils
             categoryMap.remove(propertyName);
         }
         if (isList) {
-            ArrayList<Node> list = (ArrayList<Node>)categoryMap.get(propertyName);
+            ArrayList<Node> list = (ArrayList<Node>) categoryMap.get(propertyName);
             if (list == null) {
                 list = new ArrayList<Node>();
                 categoryMap.put(propertyName, list);
@@ -112,7 +111,7 @@ public final class ConfigXmlUtils
     }
     
     public static String getPropertyString(final String category, final String property) {
-        final Node node = (Node)getProperty(ConfigXmlUtils.config, category, property);
+        final Node node = (Node) getProperty(ConfigXmlUtils.config, category, property);
         if (node != null) {
             return StringUtils.trimToNull(node.getTextContent());
         }
@@ -120,7 +119,7 @@ public final class ConfigXmlUtils
     }
     
     public static ArrayList<String> getPropertyStringList(final String category, final String property) {
-        final ArrayList<Node> nodeList = (ArrayList<Node>)getProperty(ConfigXmlUtils.config, category, property);
+        final ArrayList<Node> nodeList = (ArrayList<Node>) getProperty(ConfigXmlUtils.config, category, property);
         if (nodeList != null) {
             final ArrayList<String> stringList = new ArrayList<String>();
             for (final Node n : nodeList) {
@@ -132,11 +131,11 @@ public final class ConfigXmlUtils
     }
     
     public static Node getPropertyNode(final String category, final String property) {
-        return (Node)getProperty(ConfigXmlUtils.config, category, property);
+        return (Node) getProperty(ConfigXmlUtils.config, category, property);
     }
     
     public static ArrayList<Node> getPropertyNodeList(final String category, final String property) {
-        return (ArrayList)getProperty(ConfigXmlUtils.config, category, property);
+        return (ArrayList) getProperty(ConfigXmlUtils.config, category, property);
     }
     
     public static HashMap<String, HashMap<String, Object>> getConfig() {

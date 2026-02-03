@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -320,7 +319,7 @@ public class StringUtils {
      */
     public static String getCSV(List l) {
         StringBuilder ret = new StringBuilder();
-        ;
+       ;
         if (l != null) {
             for (int i = 0; i < l.size(); i++) {
                 ret.append((String) l.get(i));

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2005, 2009 IBM Corporation and others.
@@ -61,7 +60,6 @@ public interface LookupDao {
 
     public void SaveAsOrgCode(Facility facility) throws SQLException;
 
-    ;
 
     public void SaveAsOrgCode(LookupCodeValue orgVal, String tableId) throws SQLException;
 

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.

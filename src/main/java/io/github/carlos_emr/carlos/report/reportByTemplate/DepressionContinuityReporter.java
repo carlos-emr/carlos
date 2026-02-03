@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -157,7 +156,7 @@ public class DepressionContinuityReporter implements Reporter {
     }
 
     private String csvCodeEntry(String demographic_no, String service_date, String dx) {
-        String csvCode = demographic_no + "," + service_date + "," + dx + ", , , , , , \n";
+        String csvCode = demographic_no + "," + service_date + "," + dx + ",,,,,, \n";
         return csvCode;
     }
 
@@ -222,7 +221,7 @@ public class DepressionContinuityReporter implements Reporter {
             rsHtml.append("<td>" + p4 + "</td><td>" + rxName + "</td><td>" + rxPrescriber + "</td>");
             rsHtml.append("</tr>");
 
-            csv.append(curDemo + ", , ");
+            csv.append(curDemo + ",, ");
             csv.append("," + p1 + "," + p2 + "," + p3);
             csv.append("," + p4 + "," + rxName + "," + rxPrescriber + "\n");
 

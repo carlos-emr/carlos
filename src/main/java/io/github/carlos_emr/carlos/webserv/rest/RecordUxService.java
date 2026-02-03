@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -93,19 +92,19 @@ public class RecordUxService extends AbstractServiceImpl {
 
     /**
      * $scope.recordtabs2 = [
-     * {id : 0,name : 'Master',url : 'partials/master.html'},
-     * {id : 1,name : 'Summary',url : 'partials/summary.html'},
-     * {id : 2,name : 'Rx',url : 'partials/prescript.jsp'},
-     * {id : 3,name : 'Msg',url : 'partials/summary.html'},
-     * {id : 4,name : 'Trackers',url : 'partials/tracker.jsp'},
-     * {id : 5,name : 'Consults',url : 'partials/summary.html'},
-     * {id : 6,name : 'Forms',url : 'partials/formview.html'},
-     * {id : 7,name : 'Prevs/Measurements',url : 'partials/summary.html'},
-     * {id : 8,name : 'Ticklers',url : 'partials/summary.html'},
-     * {id : 10,name : 'Allergies',url : 'partials/summary.html'},
-     * {id : 11,name : 'CPP',url : 'partials/cpp.html'},
-     * {id : 12,name : 'Labs/Docs',url : 'partials/labview.html'},
-     * {id : 13,name : 'Billing',url : 'partials/billing.jsp'}
+     * {id : 0, name : 'Master', url : 'partials/master.html'},
+     * {id : 1, name : 'Summary', url : 'partials/summary.html'},
+     * {id : 2, name : 'Rx', url : 'partials/prescript.jsp'},
+     * {id : 3, name : 'Msg', url : 'partials/summary.html'},
+     * {id : 4, name : 'Trackers', url : 'partials/tracker.jsp'},
+     * {id : 5, name : 'Consults', url : 'partials/summary.html'},
+     * {id : 6, name : 'Forms', url : 'partials/formview.html'},
+     * {id : 7, name : 'Prevs/Measurements', url : 'partials/summary.html'},
+     * {id : 8, name : 'Ticklers', url : 'partials/summary.html'},
+     * {id : 10, name : 'Allergies', url : 'partials/summary.html'},
+     * {id : 11, name : 'CPP', url : 'partials/cpp.html'},
+     * {id : 12, name : 'Labs/Docs', url : 'partials/labview.html'},
+     * {id : 13, name : 'Billing', url : 'partials/billing.jsp'}
      * ];
      * ...
      **/
@@ -137,7 +136,7 @@ public class RecordUxService extends AbstractServiceImpl {
         }
 
         //Remove until available
-        //if(securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.labResult", "r", null) ) {
+        //if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.labResult", "r", null) ) {
         //	menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Labs/Docs", "record.labsdocs"));
         //}
 
@@ -175,12 +174,12 @@ public class RecordUxService extends AbstractServiceImpl {
 
         List<MenuItemTo1> morelist = new ArrayList<MenuItemTo1>();
 		
-		/*if(securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.preventions", "r", null)) {
+		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.preventions", "r", null)) {
 			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../oscarPrevention/index.jsp?demographic_no="+demographicNo));
 		}*/
 		
-		/*if(securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
-			if( org.oscarehr.commons.IsPropertiesOn.isTicklerPlusEnable()) {
+		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
+			if ( org.oscarehr.commons.IsPropertiesOn.isTicklerPlusEnable()) {
 				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler.do?filter.demographicNo="+demographicNo));
 			}else {
 				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ticklerDemoMain.jsp?demoview="+demographicNo));
@@ -199,7 +198,7 @@ public class RecordUxService extends AbstractServiceImpl {
             morelist.add(new MenuItemTo1(idCounter++, "Create Message", "../messenger/SendDemoMessage.do?demographic_no=" + demographicNo));
         }
         // Requires EctSession bean to open the window.  I think it's best to just redo measurements in a better interface in the record with angular
-        //if(checkPermissions("_newCasemgmt.measurements", roleName)){
+        //if (checkPermissions("_newCasemgmt.measurements", roleName)){
         //	morelist.add(new MenuItemTo1(2, "Measurements", "../oscarEncounter/oscarMeasurements/SetupHistoryIndex.do?demographic_no="+demographicNo));
         //}
 
@@ -211,9 +210,9 @@ public class RecordUxService extends AbstractServiceImpl {
             morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../oscarEncounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
         }
 
-		/*measurements,<a onclick="popupPage(600,1000,'measurements69','/oscar/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
-		 <a onclick="popupPage(500,900,'episode69','/oscar/Episode.do?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
-		 <a onclick="popupPage(500,900,'pregnancy69','/oscar/Pregnancy.do?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
+		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
+		 <a onclick="popupPage(500, 900,'episode69','/oscar/Episode.do?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
+		 <a onclick="popupPage(500, 900,'pregnancy69','/oscar/Pregnancy.do?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
 		 */
         if (!morelist.isEmpty()) {  // If the more list is empty no sense in displaying it.
             moreMenu.setDropdownItems(morelist);
@@ -237,7 +236,7 @@ public class RecordUxService extends AbstractServiceImpl {
     @Path("/{demographicNo}/summary/{summaryName}") //@Path("/leftsideSummary")
     @Produces("application/json")
     public List<SummaryTo1> getSummary(@PathParam("demographicNo") Integer demographicNo, @PathParam("summaryName") String summaryName) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();// LoggedInInfo.loggedInInfo.get();
+        LoggedInInfo loggedInInfo = getLoggedInInfo(); // LoggedInInfo.loggedInInfo.get();
         logger.debug("getting summary:" + summaryName + " for demo " + demographicNo + "  loggedInInfo " + loggedInInfo);
         List<SummaryTo1> summaryList = null;
         int count = 0;
@@ -274,7 +273,7 @@ public class RecordUxService extends AbstractServiceImpl {
             }
 
             if (preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.SOC_HX_POS)) {
-                //summaryList[2] = new SummaryTo1("Social/Family History",2,"socfamhx");
+                //summaryList[2] = new SummaryTo1("Social/Family History", 2,"socfamhx");
                 summaryList.add(new SummaryTo1("Social History", count++, SummaryTo1.SOCIALHISTORY_CODE));
             }
 
@@ -297,7 +296,7 @@ public class RecordUxService extends AbstractServiceImpl {
             if ((securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.forms", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.eforms", "r", null)) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.ASSESSMENTS_POS)) {
                 summaryList.add(new SummaryTo1("Assessments", count++, SummaryTo1.ASSESSMENTS_CODE));
             }
-            //summaryList[9] = new SummaryTo1("Outgoing",7,"outgoing");
+            //summaryList[9] = new SummaryTo1("Outgoing", 7,"outgoing");
         } else if ("rxLeft".equals(summaryName)) {
             summaryList = new ArrayList<SummaryTo1>();
 

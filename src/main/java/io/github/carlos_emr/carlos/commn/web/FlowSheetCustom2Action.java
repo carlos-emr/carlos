@@ -276,7 +276,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust.setAction(FlowSheetCustomization.ADD);
                 cust.setPayload(outp.outputString(va));
                 cust.setFlowsheet(flowsheet);
-                cust.setMeasurement(prevItem);//THIS THE MEASUREMENT TO SET THIS AFTER!
+                cust.setMeasurement(prevItem); //THIS THE MEASUREMENT TO SET THIS AFTER!
                 cust.setProviderNo(providerNo);
                 cust.setDemographicNo(demographicNo);
                 cust.setCreateDate(new Date());
@@ -406,7 +406,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             if (demographicNo != null) {
                 cust.setDemographicNo(demographicNo);
             }
-            cust.setMeasurement(item.getItemName());//THIS THE MEASUREMENT TO SET THIS AFTER!
+            cust.setMeasurement(item.getItemName()); //THIS THE MEASUREMENT TO SET THIS AFTER!
             cust.setProviderNo(providerNo);
 
             logger.debug("UPDATE " + cust);

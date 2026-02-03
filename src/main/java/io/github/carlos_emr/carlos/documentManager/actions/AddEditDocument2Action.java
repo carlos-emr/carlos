@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -34,7 +33,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.ResourceBundle;
@@ -117,7 +115,7 @@ public class AddEditDocument2Action extends ActionSupport {
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
             return null;
         }
-        File file = writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);// write file to local dir
+        File file = writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName); // write file to local dir
 
         if (!file.exists() || file.length() < this.getDocFile().length()) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
@@ -302,7 +300,7 @@ public class AddEditDocument2Action extends ActionSupport {
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
-            if (module.equals("demographic")) {// doc is uploaded under a patient,moduleId become demo no.
+            if (module.equals("demographic")) {// doc is uploaded under a patient, moduleId become demo no.
 
                 Date now = EDocUtil.getDmsDateTimeAsDate();
 
@@ -318,7 +316,7 @@ public class AddEditDocument2Action extends ActionSupport {
                 String prog_no = new EctProgram(se).getProgram(user_no);
                 WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
                 CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-                cmn.setProviderNo("-1");// set the providers no to be -1 so the editor appear as 'System'.
+                cmn.setProviderNo("-1"); // set the providers no to be -1 so the editor appear as 'System'.
 
                 Provider provider = EDocUtil.getProvider(this.getDocCreator());
                 String provFirstName = "";

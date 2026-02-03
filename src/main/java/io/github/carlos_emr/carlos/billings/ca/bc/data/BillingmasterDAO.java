@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -255,7 +254,7 @@ public class BillingmasterDAO {
                 "w.w_emparea, w.w_empphone, w.w_wcbno, w.w_opaddress, w.w_opcity, w.w_rphysician, w.w_duration, w.w_ftreatment, w.w_problem, w.w_servicedate," +
                 "w.w_diagnosis, w.w_icd9 AS w_icd9_2, w.w_bp, w.w_side, w.w_noi, w.w_work, w.w_workdate, w.w_clinicinfo, w.w_capability, w.w_capreason, w.w_estimate, w.w_rehab," +
                 "w.w_rehabtype, w.w_estimatedate, w.w_tofollow, w.w_wcbadvisor, w.w_feeitem, w.w_extrafeeitem, b.billingstatus, w.formNeeded, w.provider_no, w.w_payeeno, w.w_pracno " +
-                " FROM billingmaster b LEFT JOIN teleplanC12  t ON t.t_officefolioclaimno=b.billingmaster_no, demographic d , wcb w " +
+                " FROM billingmaster b LEFT JOIN teleplanC12  t ON t.t_officefolioclaimno=b.billingmaster_no, demographic d, wcb w " +
                 "WHERE b.demographic_no=d.demographic_no AND b.billing_no=w.billing_no AND b.billingmaster_no=?");
 
         q.setParameter(1, billingMasterNo);

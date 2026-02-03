@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -579,7 +578,7 @@ public class ScheduleService extends AbstractServiceImpl {
             return response;
         } catch (Exception e) {
             logger.error("ScheduleService.listProviderApptsForPeriod error", e);
-            ;
+           ;
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
         }
     }

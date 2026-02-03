@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
@@ -59,7 +58,7 @@ public class BillingBCDaoImpl extends BillingDaoImpl implements BillingBCDao {
     @SuppressWarnings("unchecked")
     public List<Object[]> findBillingServices(String billRegion, String serviceGroup, String serviceType, String billReferenceDate) {
         Query query = entityManager.createNativeQuery(
-            "SELECT DISTINCT b.service_code, b.description , b.value, b.percentage " +
+            "SELECT DISTINCT b.service_code, b.description, b.value, b.percentage " +
                 "FROM ctl_billingservice c left outer join billingservice b on b.service_code="
                 + "c.service_code where b.region = ? and c.service_group = ? and c.servicetype = ?" +
                 " and b.billingservice_date in (select max(b2.billingservice_date) from billingservice b2 where b2.billingservice_date <= ? and b2.service_code = b.service_code) order by c.service_order");

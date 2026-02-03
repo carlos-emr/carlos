@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -48,7 +47,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.JsonUtil;
-import io.github.carlos_emr.carlos.prescript.data.RxAllergyData;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 
 import com.opensymphony.xwork2.ActionSupport;

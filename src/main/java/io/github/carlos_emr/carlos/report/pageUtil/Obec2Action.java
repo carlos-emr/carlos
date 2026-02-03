@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -56,7 +55,7 @@ public class Obec2Action extends ActionSupport {
    public String execute()
    throws ServletException, IOException {
 	   
-	   if(!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
+	   if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
 	  		  throw new SecurityException("missing required sec object (_report)");
 	  	  	}
 	   
@@ -67,7 +66,7 @@ public class Obec2Action extends ActionSupport {
       EctValidation validation = new EctValidation();
 
       String startDate = this.getXml_vdate()==null?"":this.getXml_vdate();
-      if(!validation.isDate(startDate)){
+      if (!validation.isDate(startDate)){
          MiscUtils.getLogger().debug("Invalid date format!");
          addActionError("errors.invalid");
          response.sendRedirect(request.getContextPath() + "/oscarReport/obec.jsp");
@@ -80,8 +79,8 @@ public class Obec2Action extends ActionSupport {
       int startDay = 0;
       
       int slashIndex1 = startDate.indexOf("-");
-      if(slashIndex1>=0){
-         startYear = Integer.parseInt(startDate.substring(0,slashIndex1));
+      if (slashIndex1>=0){
+         startYear = Integer.parseInt(startDate.substring(0, slashIndex1));
          int slashIndex2 = startDate.indexOf("-", slashIndex1+1);
          if (slashIndex2>slashIndex1){
             startMonth = Integer.parseInt(startDate.substring(slashIndex1+1, slashIndex2));

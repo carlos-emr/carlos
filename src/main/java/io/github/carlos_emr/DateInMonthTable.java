@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -116,7 +115,7 @@ public class DateInMonthTable {
                     monthDateGrid[row][col] = 0;
 
                 } else {
-                    firstDayOfWeek = 0;//don't need this first week data anymore
+                    firstDayOfWeek = 0; //don't need this first week data anymore
                     if (day <= lastDay) {
                         monthDateGrid[row][col] = day;
                         day++;

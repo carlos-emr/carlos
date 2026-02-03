@@ -87,7 +87,7 @@ public class Upload2Action extends ActionSupport {
              * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
              * See ObecData.writeFile() for details on the updated process.
              */
-            // ActionUtils.moveObecToOutBox(startDate,endDate);	
+            // ActionUtils.moveObecToOutBox(startDate, endDate);	
 
             ActionUtils.setOutboxTimestamp(endDate);
         }
@@ -160,7 +160,7 @@ public class Upload2Action extends ActionSupport {
                 } else {
                     ActionUtils.setUploadResourceId(request, new BigInteger("-2"));
                     result.getResponse().get(0).setDescription(this.getFileName()); //this is done because error response has null description
-                    ActionUtils.setSubmitResponseResults(request, result.getResponse().get(0));// if upload fails, submission is also assumed failed
+                    ActionUtils.setSubmitResponseResults(request, result.getResponse().get(0)); // if upload fails, submission is also assumed failed
 
                 }
                 ActionUtils.setUploadedFileName(request, this.getFileName());

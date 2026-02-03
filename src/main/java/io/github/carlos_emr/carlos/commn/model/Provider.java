@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -36,7 +35,7 @@ import java.util.Date;
 public class Provider extends AbstractModel<String> implements Comparable<Provider> {
 
     public static final String SYSTEM_PROVIDER_NO = "-1";
-    private int hashCode = Integer.MIN_VALUE;// primary key
+    private int hashCode = Integer.MIN_VALUE; // primary key
     private String providerNo;
     private String comments;
     private String phone;

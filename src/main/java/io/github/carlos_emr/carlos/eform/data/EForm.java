@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -1000,7 +999,7 @@ public class EForm extends EFormBase {
 	private void addHeadElement(Element element) {
 		Element headElement = getDocument().head();
 		Iterator<Element> iterator = headElement.children().iterator();
-        if(iterator.hasNext()) {
+        if (iterator.hasNext()) {
             Element beforeElement;
 
             while (iterator.hasNext()) {

@@ -1,4 +1,4 @@
-package io.github.carlos_emr.carlos.utility;/*
+package io.github.carlos_emr.carlos.utility; /*
  * Password Hashing With PBKDF2 (http://crackstation.net/hashing-security.htm).
  * Copyright (c) 2013, Taylor Hornby
  * All rights reserved.
@@ -42,7 +42,7 @@ import java.util.Base64;
  * password storage by using:</p>
  * <ul>
  * <li>Cryptographic salting with SecureRandom to prevent rainbow table attacks</li>
- * <li>Configurable iteration count (default 64,000) to slow down brute force attacks</li>
+ * <li>Configurable iteration count (default 64, 000) to slow down brute force attacks</li>
  * <li>Constant-time comparison to prevent timing attacks</li>
  * <li>Base64 encoding for safe storage in databases</li>
  * </ul>
@@ -156,7 +156,7 @@ public class PasswordHash
 	public static final int HASH_BYTE_SIZE = 18;
 
 	/**
-	 * Number of PBKDF2 iterations (64,000).
+	 * Number of PBKDF2 iterations (64, 000).
 	 * Higher iteration counts increase security but also increase computation time.
 	 * This constant may be changed without breaking existing hashes.
 	 */
@@ -404,7 +404,7 @@ public class PasswordHash
 	private static boolean slowEquals(byte[] a, byte[] b)
 	{
 		int diff = a.length ^ b.length;
-		for(int i = 0; i < a.length && i < b.length; i++)
+		for (int i = 0; i < a.length && i < b.length; i++)
 			diff |= a[i] ^ b[i];
 		return diff == 0;
 	}
@@ -432,7 +432,7 @@ public class PasswordHash
 			);
 		} catch (InvalidKeySpecException ex) {
 			throw new CannotPerformOperationException(
-					"Invalid key spec.",ex
+					"Invalid key spec.", ex
 			);
 		}
 	}

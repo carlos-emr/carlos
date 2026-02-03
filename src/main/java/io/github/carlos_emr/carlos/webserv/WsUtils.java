@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -84,7 +83,7 @@ public final class WsUtils {
 		SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 		boolean isValid = securityManager.validatePassword(password, security);
 
-		if(!isValid) {
+		if (!isValid) {
 			// sleep to throttle anyone trying to brute force hack passwords
             try {
                 Thread.sleep(250);

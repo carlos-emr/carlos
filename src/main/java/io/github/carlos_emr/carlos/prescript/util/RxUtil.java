@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -311,7 +310,7 @@ public class RxUtil {
     public static String getDurationFromQuantityText(String qStr) {
         String retStr = "";
         String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$",};
+                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
         for (String s : durationUnits) {
             Pattern p = Pattern.compile(s);
             Matcher m = p.matcher(qStr);
@@ -332,7 +331,7 @@ public class RxUtil {
     public static String getDurationUnitFromQuantityText(String qStr) {
         String retStr = "";
         String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$",};
+                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
         for (String s : durationUnits) {
             Pattern p = Pattern.compile(s);
             Matcher m = p.matcher(qStr);
@@ -354,10 +353,10 @@ public class RxUtil {
         return retStr;
     }
 
-    public static String findDuration(RxPrescriptionData.Prescription rx) {//calculate duration based on quantity, takemax,takemin,frequency,durationUnit.
-        //get frequency,takemax,takemin,durationUnit by parsing special.
+    public static String findDuration(RxPrescriptionData.Prescription rx) {//calculate duration based on quantity, takemax, takemin, frequency, durationUnit.
+        //get frequency, takemax, takemin, durationUnit by parsing special.
         instrucParser(rx);
-        MiscUtils.getLogger().debug("after  instrucParser,quantity=" + rx.getQuantity());
+        MiscUtils.getLogger().debug("after  instrucParser, quantity=" + rx.getQuantity());
         String qStr = rx.getQuantity();
         if (rx.getUnitName() == null) {
             qStr = qStr.trim();
@@ -523,11 +522,11 @@ public class RxUtil {
         String[] routes = {"\\s(?i)PO$", "\\s(?i)SL$", "\\s(?i)IM$", "\\s(?i)SC$", "\\s(?i)PATCH$", "\\s(?i)TOP\\.$", "\\s(?i)INH$", "\\s(?i)SUPP$", "\\s(?i)O.D.$", "\\s(?i)O.S.$", "\\s(?i)O.U.$", "\\s(?i)OD$", "\\s(?i)OS$", "\\s(?i)OU$", "\\s(?i)PO\\s", "\\s(?i)SL\\s", "\\s(?i)IM\\s", "\\s(?i)SC\\s", "\\s(?i)PATCH\\s", "\\s(?i)TOP\\.\\s", "\\s(?i)INH\\s", "\\s(?i)SUPP\\s", "\\s(?i)O.D.\\s", "\\s(?i)O.S.\\s", "\\s(?i)O.U.\\s", "\\s(?i)OD\\s", "\\s(?i)OS\\s", "\\s(?i)OU\\s"};
         String[] frequences = {"\\s(?i)OD\\s", "\\s(?i)BID\\s", "\\s(?i)TID\\s", "\\s(?i)QID\\s", "\\s(?i)Q1H\\s", "\\s(?i)Q2H\\s", "\\s(?i)Q1-2H\\s", "\\s(?i)Q3-4H\\s", "\\s(?i)Q4H\\s", "\\s(?i)Q4-6H\\s", "\\s(?i)Q6H\\s", "\\s(?i)Q8H\\s", "\\s(?i)Q12H\\s", "\\s(?i)QAM\\s", "\\s(?i)QPM\\s", "\\s(?i)QHS\\s", "\\s(?i)Q1Week\\s", "\\s(?i)weekly\\s", "\\s(?i)Q2Week\\s", "\\s(?i)Q1Month\\s", "\\s(?i)Q3Month\\s", "\\s(?i)monthly\\s", "\\s(?i)once daily\\s", "\\s(?i)twice daily\\s", "\\s(?i)3x day\\s",
                 "\\s(?i)4x day\\s", "\\s(?i)3x daily\\s", "\\s(?i)4x daily\\s", "\\s(?i)OD$", "\\s(?i)BID$", "\\s(?i)TID$", "\\s(?i)QID$", "\\s(?i)Q1H$", "\\s(?i)Q2H$", "\\s(?i)Q1-2H$", "\\s(?i)Q3-4H$", "\\s(?i)Q4H$", "\\s(?i)Q4-6H$", "\\s(?i)Q6H$", "\\s(?i)Q8H$", "\\s(?i)Q12H$", "\\s(?i)QAM$", "\\s(?i)QPM$", "\\s(?i)QHS$", "\\s(?i)Q1Week$", "\\s(?i)weekly$", "\\s(?i)Q2Week$", "\\s(?i)Q1Month$", "\\s(?i)Q3Month$", "\\s(?i)monthly$", "\\s(?i)once daily$", "\\s(?i)twice daily$", "\\s(?i)3x day$",
-                "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$", "\\s(?i)daily\\s", "\\s(?i)daily$",// put at last because if frequency is 'twice daily', it will first be detected as 'daily'
+                "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$", "\\s(?i)daily\\s", "\\s(?i)daily$", // put at last because if frequency is 'twice daily', it will first be detected as 'daily'
         };
         String[] methods = {"(?i)Take", "(?i)Apply", "(?i)Rub well in"};
         String[] durationUnits = {"\\s+(?i)days\\s", "\\s+(?i)weeks\\s", "\\s+(?i)months\\s", "\\s+(?i)day\\s", "\\s+(?i)week\\s", "\\s+(?i)month\\s", "\\s+(?i)d\\s", "\\s+(?i)w\\s", "\\s+(?i)m\\s", "\\s+(?i)mo\\s", "\\s+(?i)days$", "\\s+(?i)weeks$", "\\s+(?i)months$", "\\s+(?i)day$", "\\s+(?i)week$", "\\s+(?i)month$", "\\s+(?i)d$", "\\s+(?i)w$", "\\s+(?i)m$", "\\s+(?i)mo$"};
-        String[] durUnits2 = {"\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$",};
+        String[] durUnits2 = {"\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
 
         for (String s : routes) {
             Pattern p = Pattern.compile(s);
@@ -539,8 +538,8 @@ public class RxUtil {
 
                     //remove OD from instructions
                     String part = instructions.substring(0, matcher.start()) + " " + instructions.substring(matcher.end());
-                    //if route =od,check if there is a valid frequency, there is one, then route is od.
-                    //if not , set the route="",keep looping. then set frequency to be od;
+                    //if route =od, check if there is a valid frequency, there is one, then route is od.
+                    //if not, set the route="", keep looping. then set frequency to be od;
                     p("part is " + part);
                     Pattern fPattern = Pattern.compile("\\s(?i)OD\\s*");
                     Matcher fMatcher = fPattern.matcher(part);
@@ -607,7 +606,7 @@ public class RxUtil {
                     p("word amount");
                     for (String word : zeroToTen) {
                         String r1 = "\\s" + word + "\\s*" + frequency;
-                        String r2 = "^" + word + "\\s*" + frequency;//start at the begin of instructions
+                        String r2 = "^" + word + "\\s*" + frequency; //start at the begin of instructions
                         Pattern p5 = Pattern.compile(r1);
                         Matcher m5 = p5.matcher(instructions);
                         p("pattern word =" + r1);
@@ -632,13 +631,13 @@ public class RxUtil {
                     }
                 }
                 //the string before frequency maybe the amount of drug
-                //check if the string is a number,if it is, get the number
+                //check if the string is a number, if it is, get the number
                 //if not a number, check if it has "min-max" pattern, if yes, get min and max, if not, ignore
 
                 break;
             }
         }
-        //check if method is specified, if yes, check the number after method ,which maybe the number to take for a frequency.
+        //check if method is specified, if yes, check the number after method, which maybe the number to take for a frequency.
 		//if no, check if a number is specified at beginning.
 		if (!instructions.isEmpty()) {
 			InstructionSegment instructionSegment = scanInstruction(instructions, methods);
@@ -691,7 +690,7 @@ public class RxUtil {
 
         //calculate the number of pills to have per frequency which is used to calculate the duration later on.
         //from frequency code we can deduce a duration unit.
-        //check if a durationunit is already specified, if not, use that, if yes,check if they are equal,if not output an warning and use specified.
+        //check if a durationunit is already specified, if not, use that, if yes, check if they are equal, if not output an warning and use specified.
         for (String s : durationUnits) {
             // p(instructions);
             // p(s);
@@ -750,7 +749,7 @@ public class RxUtil {
         if (durationUnitSpec.equals("")) {
             //    p("here?? if");
             String[] freq1 = {"\\s*(?i)OD\\s*", "\\s*(?i)BID\\s*", "\\s*(?i)TID\\s*", "\\s*(?i)QID\\s*", "\\s*(?i)Q1H\\s*", "\\s*(?i)Q2H\\s*", "\\s*(?i)Q1-2H\\s*", "\\s*(?i)Q3-4H\\s*", "\\s*(?i)Q4H\\s*", "\\s*(?i)Q4-6H\\s*", "\\s*(?i)Q6H\\s*", "\\s*(?i)Q8H\\s*", "\\s*(?i)Q12H\\s*", "\\s*(?i)QAM\\s*", "\\s*(?i)QPM\\s*", "\\s*(?i)QHS\\s*", "\\s*(?i)once daily\\s*", "\\s*(?i)twice daily\\s*", "\\s*(?i)3x day\\s*", "\\s*(?i)4x day\\s*", "\\s*(?i)3x daily\\s*", "\\s*(?i)4x daily\\s*", "\\s*(?i)daily\\s*"// put at last because if frequency is 'twice daily', it will first be detected as 'daily'
-            };//QPM is once a day in the evening, qhs once a day at night.
+            }; //QPM is once a day in the evening, qhs once a day at night.
             String[] freq2 = {"\\s*(?i)Q1Week\\s*", "\\s*(?i)Q2Week\\s*"};
             String[] freq3 = {"\\s*(?i)Q1Month\\s*", "\\s*(?i)Q3Month\\s*"};
             boolean found = false;
@@ -789,7 +788,7 @@ public class RxUtil {
             }
         } else {
 
-            //D, W,M
+            //D, W, M
             if (durationUnitSpec.equalsIgnoreCase("week") || durationUnitSpec.equalsIgnoreCase("weeks") || durationUnitSpec.equalsIgnoreCase("w")) {
 
                 durationUnit = "W";
@@ -810,21 +809,21 @@ public class RxUtil {
             takeMax = swap;
         }
 
-        double nPerDay = 0d;//number of drugs per day
-        double nDays = 0d;//number of days per duration unit
+        double nPerDay = 0d; //number of drugs per day
+        double nDays = 0d; //number of days per duration unit
 
-        MiscUtils.getLogger().debug("in instrucParser,unitName=" + rx.getUnitName());
+        MiscUtils.getLogger().debug("in instrucParser, unitName=" + rx.getUnitName());
         boolean isUnitNameUsed = true;
         if (rx.getUnitName() == null || rx.getUnitName().trim().length() == 0) isUnitNameUsed = false;
         else if (rx.getUnitName().equalsIgnoreCase("null")) isUnitNameUsed = false;
         else isUnitNameUsed = true;
         MiscUtils.getLogger().debug("isUnitNameUsed=" + isUnitNameUsed);
-        //if duration is 0 or null or length==0,it means duration is not specified by user
-        //if quantity,frequency, durationUnit are valid values,isUnitNameUsed==false
-        //yes,calculate duration based on quantity because duration is not specified
-        //no,leave duration an invalid value
+        //if duration is 0 or null or length==0, it means duration is not specified by user
+        //if quantity, frequency, durationUnit are valid values, isUnitNameUsed==false
+        //yes, calculate duration based on quantity because duration is not specified
+        //no, leave duration an invalid value
         //else if duration is a valid value
-        //if frequency, durationUnit,takeMax are valid too
+        //if frequency, durationUnit, takeMax are valid too
         //yes, calculate quantity
         //no, leave quantity intact.
         //--start new code
@@ -851,7 +850,7 @@ public class RxUtil {
                 //quantity=takeMax * nDays * duration * nPerDay
                 double quantityD = (Double.parseDouble(takeMax)) * nPerDay * nDays * (Double.parseDouble(duration));
                 quantity = (int) quantityD;
-                MiscUtils.getLogger().debug("in instrucParser,else=" + quantity + "-- " + takeMax + " --" + nPerDay + "-- " + nDays + "-- " + duration);
+                MiscUtils.getLogger().debug("in instrucParser, else=" + quantity + "-- " + takeMax + " --" + nPerDay + "-- " + nDays + "-- " + duration);
             }
 
         }
@@ -867,7 +866,7 @@ public class RxUtil {
         rx.setFrequencyCode(frequency);
         rx.setDurationUnit(durationUnit);
         rx.setPrn(prn);
-        MiscUtils.getLogger().debug("in instrucParser,quantity=" + quantity + " ; unitName=" + rx.getUnitName());
+        MiscUtils.getLogger().debug("in instrucParser, quantity=" + quantity + "; unitName=" + rx.getUnitName());
         if (!isUnitNameUsed && quantity != 0) {
             rx.setQuantity(Integer.toString(quantity));
         }
@@ -1122,7 +1121,7 @@ public class RxUtil {
     }
 
     public static void printStashContent(RxSessionBean bean) {
-        p("***drugs in present stash,stash size", "" + bean.getStashSize());
+        p("***drugs in present stash, stash size", "" + bean.getStashSize());
         for (int j = 0; j < bean.getStashSize(); j++) {
             try {
                 RxPrescriptionData.Prescription rxTemp = bean.getStashItem(j);
@@ -1188,7 +1187,7 @@ public class RxUtil {
             retList.add(hm);
         }
 
-        MiscUtils.getLogger().debug("in drugsTableQuery,retList=" + retList);
+        MiscUtils.getLogger().debug("in drugsTableQuery, retList=" + retList);
         return retList;
     }
 
@@ -1215,7 +1214,7 @@ public class RxUtil {
                 retList = getDinPrevInstructions(din);
                 if (retList.size() == 0) {
                     retList = getBNPrevInstructions(rx.getBrandName());
-                    //if(retList.size()==0)
+                    //if (retList.size()==0)
                     //retList=getGNPrevInstructions(prescript.getGenericName());
                 }
             } else {
@@ -1271,7 +1270,7 @@ public class RxUtil {
                 else elementCount.put(hm, elementCount.get(hm) + 1);
             }
             List<Integer> count = new ArrayList(elementCount.values());
-            Collections.sort(count);//ascending order
+            Collections.sort(count); //ascending order
             try {
                 for (int i = count.size() - 1; i >= 0; i--) {
                     Set set = elementCount.keySet();
@@ -1284,7 +1283,7 @@ public class RxUtil {
                             elementCount.remove(key);
                             break;
                         } else
-                            ;
+                           ;
                     }
                 }
             } catch (Exception e) {
@@ -1400,7 +1399,7 @@ public class RxUtil {
 
         //check if this drug was discontinued before
         //String sql="SELECT * FROM drugs WHERE archived=1 AND (archived_reason>'' OR archived_reason<'' ) AND ATC='" + this.atcCode + "' AND regional_identifier='" + this.regionalIdentifier + "' AND demographic_no=" + this.demographicNo+" order by written_date desc";
-        //the query will fail to check if a drug A is prescribed, and drug A is prescribed again, and then the first drug A is discontinued,when the second drug A is represcribed
+        //the query will fail to check if a drug A is prescribed, and drug A is prescribed again, and then the first drug A is discontinued, when the second drug A is represcribed
         //or a third drug A is added, no warning will be given.
         boolean discontinuedLatest = false;
 
@@ -1411,7 +1410,7 @@ public class RxUtil {
 
             int drugId = drug.getId();
 
-            boolean isLastPrescribed = checkLastPrescribed(rx, drugId);//check if this drug was saved after discontinued.
+            boolean isLastPrescribed = checkLastPrescribed(rx, drugId); //check if this drug was saved after discontinued.
             if (isLastPrescribed) {
 
                 //get date discontinued
@@ -1491,7 +1490,7 @@ public class RxUtil {
         DrugDao dao = SpringUtils.getBean(DrugDao.class);
         List<String> resultSpecInst = dao.findSpecialInstructions();
         resultSpecInst.addAll(specList);
-        Set<String> specIntSet = new HashSet<String>(resultSpecInst);//remove duplicates
+        Set<String> specIntSet = new HashSet<String>(resultSpecInst); //remove duplicates
         specArr = specIntSet.toArray(specArr);
         for (int i = 0; i < specArr.length; i++) {
             retStr += specArr[i];

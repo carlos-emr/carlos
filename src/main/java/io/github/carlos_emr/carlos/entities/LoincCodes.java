@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -25,7 +24,6 @@
 
 package io.github.carlos_emr.carlos.entities;
 
-;
 
 /**
  * Encapsulates data from table loincCodes
@@ -183,8 +181,8 @@ public class LoincCodes {
                       String codeTable, String setRoot, String panelElements,
                       String relatedNames2, String surveyQuestText,
                       String surveyQuestSrc, String unitsRequired,
-                      String shortname
-            , String commonTests, String usEuProperty, String orderObs) {
+                      String shortname,
+ String commonTests, String usEuProperty, String orderObs) {
         this.loincNum = loincNum;
         this.component = component;
         this.property = property;

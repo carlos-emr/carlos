@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -146,7 +145,7 @@ public class RemoteIntegratedDataCopyDaoImpl extends AbstractDaoImpl<RemoteInteg
             rid.setProviderNo(providerNo);
             rid.setFacilityId(facilityId);
             this.persist(rid);
-            archiveDataCopyExceptThisOne(rid);//Set all other notes besides this one to archived.
+            archiveDataCopyExceptThisOne(rid); //Set all other notes besides this one to archived.
             return rid;
         }
         return null;

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -182,7 +181,7 @@ public class SearchConfigTo1 {
 
     public void setAppointmentLocation(String appointmentLocation) {
         if (appointmentLocation != null) {
-            this.appointmentLocation = appointmentLocation;//Jsoup.clean(appointmentLocation, Whitelist.none());
+            this.appointmentLocation = appointmentLocation; //Jsoup.clean(appointmentLocation, Whitelist.none());
         }
     }
 

@@ -1,10 +1,7 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.email.core;
 
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-import javax.net.ssl.SSLContext;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;

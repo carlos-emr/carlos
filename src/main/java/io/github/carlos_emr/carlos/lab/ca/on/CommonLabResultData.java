@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -659,7 +658,7 @@ public class CommonLabResultData {
             MDSResultsData data = new MDSResultsData();
             labs = data.getMatchingCMLLabs(lab_no);
         } else if (lab_type.equals(LabResultData.DOCUMENT)) {
-            labs = lab_no;// one document is only linked to one patient.
+            labs = lab_no; // one document is only linked to one patient.
         } else if (lab_type.equals(LabResultData.HRM)) {
             labs = lab_no;
         }

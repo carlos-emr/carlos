@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -27,15 +26,8 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.math.BigInteger;
-import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 import io.github.carlos_emr.carlos.PMmodule.wlmatch.CriteriasBO;
 import io.github.carlos_emr.carlos.PMmodule.wlmatch.MatchBO;

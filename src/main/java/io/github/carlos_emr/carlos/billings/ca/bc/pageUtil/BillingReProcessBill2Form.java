@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -123,13 +122,13 @@ public final class BillingReProcessBill2Form {
         String dxExpansion;//f
         String serviceLocation;//f
    
-        String timeCall ;//f
+        String timeCall;//f
         String serviceStartTime;//f
-        String serviceEndTime ;//f
-        String birthDate ;//f
+        String serviceEndTime;//f
+        String birthDate;//f
         String office_number;
-        String correspondenceCode ;//f
-        String claimComment ;//f
+        String correspondenceCode;//f
+        String claimComment;//f
    
         String billingStatus;//f
    

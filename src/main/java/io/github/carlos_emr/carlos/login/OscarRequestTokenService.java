@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -151,7 +150,7 @@ public class OscarRequestTokenService {
                 int hi = Character.digit(s.charAt(i + 1), 16);
                 int lo = Character.digit(s.charAt(i + 2), 16);
                 if (hi >= 0 && lo >= 0) {
-                    out.append((char)((hi << 4) + lo));
+                    out.append((char) ((hi << 4) + lo));
                     i += 2;
                     continue;
                 }

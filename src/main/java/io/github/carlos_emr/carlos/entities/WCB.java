@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -50,7 +49,7 @@ public class WCB {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;//  | int(1)           ||
+    private int id; //  | int(1)           ||
     private //      | int(10)          ||
     int billing_no;
     private //      | int(10) unsigned ||
@@ -825,35 +824,35 @@ public class WCB {
     public List verifyEverythingOnForm() {
         List errors = new ArrayList();
 
-        checkNullOrBlankValue(w_empname, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_empname");//DR03   1 of 4 N01  P22   WCB-Employer-Name              Yes    Yes 
-        checkNullOrBlankValue(w_opaddress, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_opaddress");//DR04   1 of 4 N01  P22   WCB-Work-Location              Yes    Yes
+        checkNullOrBlankValue(w_empname, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_empname"); //DR03   1 of 4 N01  P22   WCB-Employer-Name              Yes    Yes 
+        checkNullOrBlankValue(w_opaddress, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_opaddress"); //DR04   1 of 4 N01  P22   WCB-Work-Location              Yes    Yes
         checkNullOrBlankValue(w_address, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_address");        //DR14   1 of 4 N01  P22   WCB-Workers-Address1           Yes    Yes w_address
-        checkNullOrBlankValue(w_city, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_opcity");//DR15   1 of 4 N01  P22   WCB-Worker-City                Yes    Yes w_city
+        checkNullOrBlankValue(w_city, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_opcity"); //DR15   1 of 4 N01  P22   WCB-Worker-City                Yes    Yes w_city
 
         if ("Y".equals(w_rphysician)) {
-            checkNullOrBlankValue(w_duration, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_patientDuration");//DR23   1 of 4 N01  P22   WCB-Patient-Duration           Yes if DR22 w_duration 
+            checkNullOrBlankValue(w_duration, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_patientDuration"); //DR23   1 of 4 N01  P22   WCB-Patient-Duration           Yes if DR22 w_duration 
         } else if (w_rphysician == null) {
-            errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_rphysician");//DR22   1 of 4 N01  P22   WCB-Regular-Practitioner       Yes    Yes w_rphysician
+            errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_rphysician"); //DR22   1 of 4 N01  P22   WCB-Regular-Practitioner       Yes    Yes w_rphysician
 
         }
 
-        checkNullOrBlankValue(w_problem, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_priorProblem");//DR26   2 of 4 N01  P22   WCB-Prior-Problems             Yes    Yes w_problem
-        checkNullOrBlankValue(w_diagnosis, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_diagnosis");//DR28   1 of 4 N01  P22   WCB-Alpha-Injury-Description   Yes    Yes w_diagnosis
+        checkNullOrBlankValue(w_problem, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_priorProblem"); //DR26   2 of 4 N01  P22   WCB-Prior-Problems             Yes    Yes w_problem
+        checkNullOrBlankValue(w_diagnosis, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_diagnosis"); //DR28   1 of 4 N01  P22   WCB-Alpha-Injury-Description   Yes    Yes w_diagnosis
 
-        checkNullOrBlankValue(w_work, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_disabledFromWork");//DR36   1 of 4 N01  P22   WCB-Disabled-From-Work         Yes    Yes w_work
-        checkNullOrBlankValue(w_clinicinfo, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_ClinicalInfo");//DR38a  3 of 4 N01  P22   WCB-Clinical-info-part-1       Yes    Yes w_clinicinfo
+        checkNullOrBlankValue(w_work, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_disabledFromWork"); //DR36   1 of 4 N01  P22   WCB-Disabled-From-Work         Yes    Yes w_work
+        checkNullOrBlankValue(w_clinicinfo, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_ClinicalInfo"); //DR38a  3 of 4 N01  P22   WCB-Clinical-info-part-1       Yes    Yes w_clinicinfo
 
         if ("N".equals(w_capability)) {
-            checkNullOrBlankValue(w_capreason, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_capreason");//DR41   2 of 4 N01  P22   WCB-Restrictions               Yes if DR40 = N Yes  w_capreason
-            checkNullOrBlankValue(w_estimate, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_estimate");//DR42   1 of 4 N01  P22   WCB-Estimated-time-off         Yes if DR40 = N Yes  w_estimate
+            checkNullOrBlankValue(w_capreason, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_capreason"); //DR41   2 of 4 N01  P22   WCB-Restrictions               Yes if DR40 = N Yes  w_capreason
+            checkNullOrBlankValue(w_estimate, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_estimate"); //DR42   1 of 4 N01  P22   WCB-Estimated-time-off         Yes if DR40 = N Yes  w_estimate
         } else if (w_capability == null) {
-            errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_capability");//DR40   1 of 4 N01  P22   WCB-Full-Duties                Yes    Yes w_capability
+            errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_capability"); //DR40   1 of 4 N01  P22   WCB-Full-Duties                Yes    Yes w_capability
         }
 
         if ("Y".equals(w_rehab)) {
-            checkNullOrBlankValue(w_rehabtype, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_rehabtype");//DR44   1 of 4 N01  P22   WCB-Rehab-Program              Yes if DR43 = Y Yes  w_rehabtype
+            checkNullOrBlankValue(w_rehabtype, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_rehabtype"); //DR44   1 of 4 N01  P22   WCB-Rehab-Program              Yes if DR43 = Y Yes  w_rehabtype
         } else if (w_rehab == null) {
-            errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_rehab");//DR43   1 of 4 N01  P22   WCB-Rehab-Ready                Yes                   w_rehab
+            errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_rehab"); //DR43   1 of 4 N01  P22   WCB-Rehab-Ready                Yes                   w_rehab
         }
         return errors;
     }

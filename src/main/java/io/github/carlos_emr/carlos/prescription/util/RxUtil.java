@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -151,7 +150,7 @@ public class RxUtil {
 
         fm = g.getFontMetrics();
 
-        int y = 10;//; ((height - fm.getHeight()) / 2) + fm.getDescent();
+        int y = 10; //; ((height - fm.getHeight()) / 2) + fm.getDescent();
         //g.setTransform(AffineTransform.getRotateInstance(Math.toRadians(-45), 150, y));
         //g.drawString(text, x, y);
         for (String line : text.split("\n")) {

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -76,7 +75,7 @@ public class ABCDParser {
         for (int i = 0; i < atypes.size(); i++) {// for each report
             Atype report = atypes.get(i);
             logger.info("Saving Report for " + report.locationId + " printed on " + report.printDate + " " + report.printTime + " # B " + report.totalBType + " #C " + report.totalCType + " #D " + report.totalDType);
-            String id = report.save(conn, report.locationId, report.printDate, report.printTime, report.totalBType, report.totalCType, report.totalDType);//save AType to Database and return ID
+            String id = report.save(conn, report.locationId, report.printDate, report.printTime, report.totalBType, report.totalCType, report.totalDType); //save AType to Database and return ID
             logger.info("Report save to the database ID =" + id);
             if (null != id) {
                 for (int j = 0; j < report.btypes.size(); j++) {

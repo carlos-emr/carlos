@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -106,7 +105,6 @@ public class BillingOnTransaction extends AbstractModel<Integer> implements Seri
 
     @Column(name = "service_code_discount", precision = 10, scale = 2)
     private BigDecimal serviceCodeDiscount = new BigDecimal("0.00");
-    ;
 
     @Column(name = "service_code_invoiced", length = 64)
     private String serviceCodeInvoiced;
@@ -116,7 +114,6 @@ public class BillingOnTransaction extends AbstractModel<Integer> implements Seri
 
     @Column(name = "service_code_paid", precision = 10, scale = 2)
     private BigDecimal serviceCodePaid = new BigDecimal("0.00");
-    ;
 
     @Column(name = "service_code_refund", precision = 10, scale = 2)
     private BigDecimal serviceCodeRefund = new BigDecimal("0.00");

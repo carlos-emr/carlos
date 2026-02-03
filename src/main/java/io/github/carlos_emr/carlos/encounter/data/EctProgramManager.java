@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2025. Magenta Health. All Rights Reserved.
  * <p>
@@ -26,10 +25,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.data;
 
-import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
-import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.Date;
