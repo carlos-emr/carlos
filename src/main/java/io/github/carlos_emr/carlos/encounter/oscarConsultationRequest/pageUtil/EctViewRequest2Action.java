@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -135,7 +140,7 @@ public class EctViewRequest2Action extends ActionSupport {
         List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(requestId);
         Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
 
-        ConsultationRequestDao consultDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);;
+        ConsultationRequestDao consultDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
         ConsultationRequest consult = consultDao.find(requestId);
 
         thisForm.setAllergies(consult.getAllergies());

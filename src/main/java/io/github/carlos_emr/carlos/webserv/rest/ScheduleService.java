@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -578,7 +583,6 @@ public class ScheduleService extends AbstractServiceImpl {
             return response;
         } catch (Exception e) {
             logger.error("ScheduleService.listProviderApptsForPeriod error", e);
-           ;
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
         }
     }

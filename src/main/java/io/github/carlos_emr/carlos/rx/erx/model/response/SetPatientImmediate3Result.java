@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -94,6 +99,8 @@ public class SetPatientImmediate3Result {
                     case ERROR_NONSECUREACCESS:
                         throw new SecurityException(
                                 "The transport method used to send the patient data was not secure, so the request was rejected.");
+                    default:
+                        break;
                 }
             }
         }

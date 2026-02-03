@@ -23,6 +23,11 @@
  * Ontario, Canada
  * <p>
  * Modifications made by Magenta Health in 2024.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.dao;

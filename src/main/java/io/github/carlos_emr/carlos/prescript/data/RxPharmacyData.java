@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -215,8 +220,12 @@ public class RxPharmacyData {
             switch (terms.length) {
                 case 2:
                     city = terms[1];
+                    // fall through
                 case 1:
                     name = terms[0];
+                    break;
+                default:
+                    break;
             }
         } else {
             name = searchTerm;

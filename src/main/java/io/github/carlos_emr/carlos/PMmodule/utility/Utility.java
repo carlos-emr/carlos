@@ -18,6 +18,11 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.utility;
@@ -511,14 +516,15 @@ public class Utility {
 
         int pos = rtnStr.length() - rtnStr.indexOf(".");
 
-        if (pos == 3)
-           ;
-        else if (pos == 2)
+        if (pos == 3) {
+            // in xxx.xx format already
+        } else if (pos == 2) {
             rtnStr += "0";
-        else if (pos == 1)
+        } else if (pos == 1) {
             rtnStr += "00";
-        else
+        } else {
             rtnStr += ".00";
+        }
 
         return rtnStr;
     }
@@ -538,13 +544,13 @@ public class Utility {
 
         int pos = rtnStr.length() - index;
 
-        if (pos == 3)
-           ; // in xxx.xx format already
-        else if (pos == 2)
+        if (pos == 3) {
+            // in xxx.xx format already
+        } else if (pos == 2) {
             rtnStr += "0";
-        else if (pos == 1)
+        } else if (pos == 1) {
             rtnStr += "00";
-        else if (pos <= 0) {
+        } else if (pos <= 0) {
             rtnStr += ".00";
         } else if (pos > 3) {
             rtnStr = rtnStr.substring(0, index + 3);
@@ -578,15 +584,15 @@ public class Utility {
 
         int pos = rtnStr.length() - index;
 
-        if (pos == 4)
-           ; // in xxx.xx format already
-        else if (pos == 3)
+        if (pos == 4) {
+            // in xxx.xxx format already
+        } else if (pos == 3) {
             rtnStr += "00";
-        else if (pos == 2)
+        } else if (pos == 2) {
             rtnStr += "000";
-        else if (pos == 1)
+        } else if (pos == 1) {
             rtnStr += "000";
-        else if (pos <= 0) {
+        } else if (pos <= 0) {
             rtnStr += ".000";
         } else if (pos > 5) {
             rtnStr = rtnStr.substring(0, index + 4);
@@ -619,17 +625,17 @@ public class Utility {
 
         int pos = rtnStr.length() - index;
 
-        if (pos == 5)
-           ; // in xxx.xx format already
-        else if (pos == 4)
+        if (pos == 5) {
+            // in xxx.xxxx format already
+        } else if (pos == 4) {
             rtnStr += "0";
-        else if (pos == 3)
+        } else if (pos == 3) {
             rtnStr += "00";
-        else if (pos == 2)
+        } else if (pos == 2) {
             rtnStr += "000";
-        else if (pos == 1)
+        } else if (pos == 1) {
             rtnStr += "0000";
-        else if (pos <= 0) {
+        } else if (pos <= 0) {
             rtnStr += ".0000";
         } else if (pos > 5) {
             rtnStr = rtnStr.substring(0, index + 5);

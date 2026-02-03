@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -70,7 +75,7 @@ public class FrmSetupSelect2Action extends ActionSupport {
                 if (caisiProperty != null && (caisiProperty.equalsIgnoreCase("yes")
                         || caisiProperty.equalsIgnoreCase("true")
                         || caisiProperty.equalsIgnoreCase("on"))) {
-                   ; // form in
+                    // form in - keep it
                 } else {
                     continue; //form out
                 }

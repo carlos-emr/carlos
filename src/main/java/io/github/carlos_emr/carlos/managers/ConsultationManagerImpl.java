@@ -23,6 +23,11 @@
  * Ontario, Canada
  * <p>
  * Modifications made by Magenta Health in 2024.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.managers;
 
@@ -547,6 +552,8 @@ public class ConsultationManagerImpl implements ConsultationManager {
                     // 	String formName = String.format("Form_%03d.pdf", eReferAttachmentData.getLabId());
                     // 	consultationAttachment = new ConsultationAttachment(eReferAttachmentData.getLabId(), DocumentType.FORM.getType(), formName, Files.readAllBytes(formPDFPath));
                     // 	break;
+                    default:
+                        break;
                 }
                 if (consultationAttachment != null) {
                     consultationAttachments.add(consultationAttachment);

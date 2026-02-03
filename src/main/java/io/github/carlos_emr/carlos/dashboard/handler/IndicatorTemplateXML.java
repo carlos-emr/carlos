@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.dashboard.handler;
 
@@ -634,6 +639,8 @@ public class IndicatorTemplateXML {
                     case none:
                         parameterValue = "(-1)";
                         break;
+                    default:
+                        break;
                 }
             }
             return parameterValue;
@@ -662,7 +669,8 @@ public class IndicatorTemplateXML {
             case all:
                 parameterValue = "%";
                 break;
-
+            default:
+                break;
         }
 
         return parameterValue;

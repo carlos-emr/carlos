@@ -18,6 +18,11 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
@@ -1452,7 +1457,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String edit_status() {
         Program program = this.getProgram();
-        ProgramClientStatus status = this.getClient_status();;
+        ProgramClientStatus status = this.getClient_status();
 
         ProgramClientStatus pt = programManager.getProgramClientStatus(String.valueOf(status.getId()));
 
@@ -1469,7 +1474,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String save_status() {
         Program program = this.getProgram();
-        ProgramClientStatus status = this.getClient_status();;
+        ProgramClientStatus status = this.getClient_status();
 
         status.setProgramId(program.getId());
 

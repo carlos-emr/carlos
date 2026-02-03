@@ -244,6 +244,13 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **JSP Documentation**: Add comprehensive JSP comment blocks after copyright headers with purpose, features, parameters, and @since
 - **Inline Comments**: Add comments for complex logic on separate lines (not same line as code)
 
+**Copyright Header Standards**:
+- **New Files**: Use CARLOS project header (see `docs/copyright-header-carlos.md`)
+- **Modified Files**: Preserve all existing headers; optionally add modification notice for functional changes
+- **Never Remove**: Existing copyright notices - this violates GPL
+- **Never Change GPL Version**: Preserve GPL2, GPL2+, GPL3, etc. exactly as-is in each file
+- **Attribution**: See `NOTICE.md` for full project attribution and heritage documentation
+
 ## Healthcare Integration Standards
 
 **Standards & Protocols**:

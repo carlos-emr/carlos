@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -228,6 +233,9 @@ public class NavBarDisplayDAO {
                 break;
             case ALPHASORT:
                 Collections.sort(Items);
+                break;
+            default:
+                break;
         }
 
     }
@@ -242,6 +250,9 @@ public class NavBarDisplayDAO {
                 break;
             case ALPHASORT:
                 Collections.sort(list);
+                break;
+            default:
+                break;
         }
 
     }

@@ -21,6 +21,11 @@ package io.github.carlos_emr.carlos.integration.fhir.model;
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -134,6 +139,8 @@ public class Practitioner extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.m
                 break;
             case DEFAULT:
                 fhirResource.addIdentifier().setSystem("").setValue(practitionerNumber);
+                break;
+            default:
                 break;
         }
 

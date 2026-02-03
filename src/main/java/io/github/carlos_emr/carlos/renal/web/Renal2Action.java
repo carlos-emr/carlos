@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.renal.web;
 
@@ -41,7 +46,6 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.renal.CkdScreener;
 import io.github.carlos_emr.carlos.renal.ORNCkdScreeningReportThread;
 import io.github.carlos_emr.carlos.renal.ORNPreImplementationReportThread;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.form.FrmLabReq07Record;
 import io.github.carlos_emr.carlos.form.FrmLabReq10Record;
 

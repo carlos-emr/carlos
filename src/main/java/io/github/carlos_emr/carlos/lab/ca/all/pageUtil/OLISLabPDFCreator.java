@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
@@ -985,7 +990,6 @@ public class OLISLabPDFCreator extends PdfPageEventHelper {
                 fullAddress = getFullAddress(address);
                 cell.setPhrase(new Phrase(fullAddress, font));
                 rInfoTable.addCell(cell);
-               ;
             }
         }
 

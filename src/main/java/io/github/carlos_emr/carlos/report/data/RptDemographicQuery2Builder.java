@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.report.data;
@@ -236,6 +241,8 @@ public class RptDemographicQuery2Builder {
                 }
                 theFirstFlag = 1;
                 break;
+            default:
+                break;
         }
 
         // Only add asofDate param if it's actually used in the SQL (i.e., an age filter case was executed)
@@ -331,7 +338,8 @@ public class RptDemographicQuery2Builder {
                 stringBuffer.append(" ( d.sex = 'M' )");
                 theFirstFlag = 1;
                 break;
-
+            default:
+                break;
         }
 
         //removed roster_status condition in place more complex check below

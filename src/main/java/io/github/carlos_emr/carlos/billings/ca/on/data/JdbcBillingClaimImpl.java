@@ -14,6 +14,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.billings.ca.on.data;
@@ -387,7 +392,6 @@ public class JdbcBillingClaimImpl {
         if (paymentSumParam != null) {
             BillingONPaymentDao billingONPaymentDao = (BillingONPaymentDao) SpringUtils.getBean(BillingONPaymentDao.class);
             BillingPaymentTypeDao billingPaymentTypeDao = (BillingPaymentTypeDao) SpringUtils.getBean(BillingPaymentTypeDao.class);
-           ;
             BillingONCHeader1 ch1 = cheaderDao.find(id);
             Date paymentDate = null;
             try {

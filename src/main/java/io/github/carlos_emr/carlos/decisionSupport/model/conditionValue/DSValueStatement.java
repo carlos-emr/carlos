@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -159,6 +164,8 @@ public class DSValueStatement extends DSValue {
                     return testValueInt >= valueInt;
                 case equal:
                     return testValueInt == valueInt;
+                default:
+                    break;
             }
         } catch (NumberFormatException nfe) {
             throw new DecisionSupportException("cannot parse value '" + testValue + "' or '" + this.getValue() + "' to int to evaluate a compare statement)", nfe);

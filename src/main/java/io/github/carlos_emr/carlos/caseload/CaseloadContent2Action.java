@@ -5,6 +5,11 @@
  * GNU General Public License, Version 2, 1991 (GPLv2).
  * License details are available via "indivica.ca/gplv2"
  * and "gnu.org/licenses/gpl-2.0.html".
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.caseload;
@@ -135,6 +140,8 @@ public class CaseloadContent2Action extends ActionSupport {
             case EGFR:
             case EYEE:
                 clSortParams = new String[]{caseloadCategory.getLabel()};
+                break;
+            default:
                 break;
         }
 
@@ -411,6 +418,8 @@ public class CaseloadContent2Action extends ActionSupport {
                 break;
             case Access1AdmissionDate:
                 clSortParams = new String[]{"ACCESS 1 WAITLIST PROGRAM"};
+                break;
+            default:
                 break;
         }
 

@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -319,7 +324,6 @@ public class StringUtils {
      */
     public static String getCSV(List l) {
         StringBuilder ret = new StringBuilder();
-       ;
         if (l != null) {
             for (int i = 0; i < l.size(); i++) {
                 ret.append((String) l.get(i));

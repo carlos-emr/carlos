@@ -20,6 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 
@@ -104,7 +109,6 @@ public class ManageCSS2Action extends ActionSupport {
         }
 
         List<CssStyle> styles = cssStylesDao.findAll();
-       ;
         int idx = 0;
         for (CssStyle cssStylecurrent : styles) {
             if (cssStylecurrent.getStyle().equalsIgnoreCase(this.getEditStyle())) {
