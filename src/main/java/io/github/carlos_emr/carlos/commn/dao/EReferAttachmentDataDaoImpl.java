@@ -2,6 +2,11 @@
  * Copyright (c) 2021 WELL EMR Group Inc. This software is made available under the terms of the GNU
  * General Public License, Version 2, 1991 (GPLv2). License details are available via
  * "gnu.org/licenses/gpl-2.0.html".
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 

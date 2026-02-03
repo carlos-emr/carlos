@@ -15,6 +15,11 @@
  * <p>
  * Created on November 27, 2007, 9:42 AM
  * Author: Adam Balanga
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 /**

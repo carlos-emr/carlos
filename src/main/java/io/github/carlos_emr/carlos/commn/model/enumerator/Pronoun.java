@@ -21,6 +21,11 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
