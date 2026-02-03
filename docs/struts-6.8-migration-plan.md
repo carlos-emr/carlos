@@ -144,7 +144,7 @@ Struts 6.x requires Caffeine for caching:
 <dependency>
     <groupId>com.github.ben-manes.caffeine</groupId>
     <artifactId>caffeine</artifactId>
-    <version>3.2.3</version>
+    <version>3.1.8</version>
 </dependency>
 ```
 
