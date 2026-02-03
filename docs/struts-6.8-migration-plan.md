@@ -192,6 +192,8 @@ The following XWork constants were removed in Struts 6.0 (already using Struts e
 
 Verify `struts.xml` uses `struts.*` prefixed constants (it should already).
 
+**Note**: Lines 12-13 have a duplicate `struts.custom.i18n.resources` definition. The second one (with MessageResources_mcedt) overrides the first. This is a pre-existing minor issue, not migration-related.
+
 ### 2.3 OGNL Expression Length Limit
 
 Struts 6.0 limits OGNL expressions to 256 characters by default. If you have long expressions, you may need to increase this:
@@ -285,11 +287,33 @@ Test these critical paths:
 
 ### 4.4 Known Struts 6.x Behavioral Changes
 
-1. **Date Formatting**: Uses `DateTimeFormatter` instead of `SimpleDateFormat`. Patterns may differ slightly.
+These changes are documented in Struts 6.x but **CARLOS is NOT affected** based on codebase verification:
 
-2. **FreeMarker Auto-Escaping**: If using FreeMarker templates, remove manual `?html` escaping.
+| Change | CARLOS Impact | Reason |
+|--------|---------------|--------|
+| Date tag uses `DateTimeFormatter` | ✅ Not affected | No `<s:date>` tags used |
+| FreeMarker auto-escaping | ✅ Not affected | No `.ftl` templates |
+| Checkbox `submitUnchecked` default | ✅ Not affected | No `<s:checkbox>` tags used |
+| OGNL expression 256 char limit | ✅ Not affected | No long OGNL expressions |
+| Velocity moved to plugin | ✅ Not affected | No `.vm` templates |
+| XWork constants removed | ✅ Already correct | Uses `struts.*` prefix |
 
-3. **Checkbox Default**: `submitUnchecked` now defaults to `false`. Watch for NPE with unchecked boxes.
+### 4.5 Codebase Verification Summary
+
+**Struts Tag Usage** (only 2 files):
+- `src/main/webapp/mcedt/messages.jsp` - Basic tags: `<s:if>`, `<s:iterator>`, `<s:property>`
+- `src/main/webapp/eform/partials/upload_image.jsp` - Basic tags: `<s:actionerror>`, `<s:actionmessage>`
+
+**xwork2 Imports** (all deprecated but functional):
+- 458 files: `com.opensymphony.xwork2.ActionSupport`
+- 2 files: `com.opensymphony.xwork2.ModelDriven`
+- 1 file: `com.opensymphony.xwork2.validator.annotations.Validation`
+
+**Configuration**:
+- 511 action mappings in struts.xml
+- Standard interceptors only (`defaultStack`, `fileUpload`)
+- No custom interceptors
+- All constants use `struts.*` prefix (not old XWork constants)
 
 ---
 
