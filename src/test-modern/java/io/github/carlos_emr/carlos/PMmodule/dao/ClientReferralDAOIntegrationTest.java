@@ -69,11 +69,13 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
 
     @BeforeEach
     void setUp() {
-        String uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 6);
+        long nanoTime = System.nanoTime();
+        long positiveNanoTime = Math.abs(nanoTime);
+        long baseId = positiveNanoTime % 10000L;
 
-        // Use unique client IDs
-        testClientId1 = Long.valueOf(uniquePrefix.substring(0, 4) + "01");
-        testClientId2 = Long.valueOf(uniquePrefix.substring(0, 4) + "02");
+        // Use unique client IDs derived arithmetically to avoid parsing errors
+        testClientId1 = baseId * 100 + 1;
+        testClientId2 = baseId * 100 + 2;
 
         // Create programs for referrals
         Program program1 = createProgram("Test Program 1");
