@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# Script to manage building and deploying the openosp emr www application to Tomcat
+# Script to manage building and deploying the CARLOS EMR application to Tomcat
 # This script supports the following operations:
 # - clean: Cleans the project and removes the deployed www app from Tomcat.
 # - install: Builds the project and deploys it to Tomcat. Optionally, you can run tests by passing --run-tests.
@@ -67,7 +67,7 @@ build_and_deploy() {
     echo ""
     echo ">>> Cleaning up between test phases..."
     # Remove the deployed WAR to avoid any state pollution
-    rm -rf /usr/local/tomcat/webapps/oscar
+    rm -rf /usr/local/tomcat/webapps/carlos
     # Clean target directory to ensure fresh state
     mvn clean -q
 
@@ -120,10 +120,10 @@ build_and_deploy() {
   pom_file="pom.xml"
   version=$(grep -oPm 1 '<version>\K[^<]+' "$pom_file")
   snapshot_src_dir="carlos-$version"
-  snapshot_dest_dir="oscar"
+  snapshot_dest_dir="carlos"
 
   # Create a symlink from the exploded WAR directory to the Tomcat webapps directory.
-  # This ensures the app is deployed with the context path `/oscar` for backward compatibility.
+  # This ensures the app is deployed with the context path `/carlos`.
   if [ -d "target/$snapshot_src_dir" ] && [ ! -L "target/$snapshot_src_dir" ]; then
     mv "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
     ln -s "/usr/local/tomcat/webapps/$snapshot_dest_dir" "target/$snapshot_src_dir"
@@ -298,7 +298,7 @@ for arg in "$@"; do
       # Clean the project using Maven and remove the deployed app from Tomcat.
       # Skip modern tests to use default lock file
       mvn clean -DskipModernTests=true
-      rm -rf /usr/local/tomcat/webapps/oscar
+      rm -rf /usr/local/tomcat/webapps/carlos
       ;;
     install)
       # Shift the arguments so that we can check for optional arguments.
