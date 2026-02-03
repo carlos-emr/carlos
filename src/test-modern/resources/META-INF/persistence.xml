@@ -27,6 +27,7 @@
         <class>io.github.carlos_emr.carlos.commn.model.Facility</class>
         <class>io.github.carlos_emr.carlos.commn.model.DemographicMerged</class>
         <class>io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue</class>
+        <class>io.github.carlos_emr.carlos.form.model.FormRourke2009</class>
         <!-- HBM.XML mapped entities -->
         <mapping-file>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</mapping-file>
@@ -45,7 +46,17 @@
         <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</mapping-file>
         <!-- Security model mappings -->
         <mapping-file>com/quatro/model/security/Secrole.hbm.xml</mapping-file>
-        <mapping-file>com/quatro/model/security/Secuserrole.hbm.xml</mapping-file>
+        <!-- Exclude Secuserrole.hbm.xml - conflicts with PMmodule SecUserRole.hbm.xml -->
+        <!-- Both map to secUserRole table: one with composite key, one with auto-generated id -->
+        <mapping-file>com/quatro/model/security/SecProvider.hbm.xml</mapping-file>
+        <!-- PMmodule functional user mappings -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</mapping-file>
+        <!-- PMmodule additional mappings for HQL parameter binding tests -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientRestriction.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</mapping-file>
     </persistence-unit>
 
 </persistence>

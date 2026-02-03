@@ -63,7 +63,9 @@ public class TicklerDaoFindIntegrationTest extends TicklerDaoBaseIntegrationTest
             newTickler.setMessage("Find by ID test");
             newTickler.setCreator("999998");
             newTickler.setTaskAssignedTo("999998");
-            ticklerDao.persist(newTickler);
+            newTickler.setStatus(Tickler.STATUS.A);
+            newTickler.setServiceDate(new java.util.Date());
+            entityManager.persist(newTickler);
             entityManager.flush();
             Integer id = newTickler.getId();
 

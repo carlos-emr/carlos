@@ -115,7 +115,7 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from Admission a where a.ProgramId = ?0 and a.TeamId = ?1 and a.AdmissionStatus='current'";
+        String sSQL = "from Admission a where a.programId = ?0 and a.teamId = ?1 and a.admissionStatus='current'";
         List<Admission> results = (List<Admission>) this.getHibernateTemplate().find(sSQL, new Object[]{programId, statusId});
 
         if (log.isDebugEnabled()) {
