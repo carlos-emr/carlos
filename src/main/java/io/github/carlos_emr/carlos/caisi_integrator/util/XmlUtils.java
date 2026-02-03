@@ -3,7 +3,6 @@ package io.github.carlos_emr.carlos.caisi_integrator.util;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.NodeList;
 import javax.xml.transform.TransformerConfigurationException;
-import java.io.Writer;
 import java.io.StringWriter;
 import org.w3c.dom.Element;
 import org.apache.commons.codec.binary.Base64;
@@ -92,10 +91,10 @@ public class XmlUtils
             transformer.transform(domSource, streamResult);
         }
         catch (final TransformerConfigurationException e) {
-            MiscUtils.getLogger().error((Object)e);
+            MiscUtils.getLogger().error((Object) e);
         }
         catch (final TransformerException e2) {
-            MiscUtils.getLogger().error((Object)e2);
+            MiscUtils.getLogger().error((Object) e2);
         }
         finally {
             if (stringWriter != null) {
@@ -103,7 +102,7 @@ public class XmlUtils
                 stringWriter.close();
             }
         }
-        MiscUtils.getLogger().info((Object)("Serializing XML file " + formattedString));
+        MiscUtils.getLogger().info((Object) ("Serializing XML file " + formattedString));
         return formattedString;
     }
     
@@ -144,6 +143,6 @@ public class XmlUtils
         final Document doc = newDocument("testRoot");
         appendChildToRoot(doc, "testChild1", "test child< bla< > contents");
         appendChildToRoot(doc, "testChild2", "test child contents 2");
-        MiscUtils.getLogger().info((Object)toString(doc));
+        MiscUtils.getLogger().info((Object) toString(doc));
     }
 }

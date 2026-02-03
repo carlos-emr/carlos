@@ -93,7 +93,7 @@
         <!-- Checks for imports                              -->
         <!-- See https://checkstyle.org/checks/imports/index.html -->
         <!-- <module name="RedundantImport"/> -->
-        <!-- <module name="UnusedImports"/> -->
+        <module name="UnusedImports"/>
 
         <!-- Checks for Size Violations.                        -->
         <!-- See https://checkstyle.org/checks/sizes/index.html -->
@@ -107,10 +107,10 @@
 
         <!-- Checks for whitespace                                   -->
         <!-- See https://checkstyle.org/checks/whitespace/index.html -->
-        <!-- <module name="GenericWhitespace"/> -->
+        <module name="GenericWhitespace"/>
         <!-- <module name="NoWhitespaceAfter"/> -->
-        <!-- <module name="NoWhitespaceBefore"/> -->
-        <!-- <module name="WhitespaceAfter"/> -->
+        <module name="NoWhitespaceBefore"/>
+        <module name="WhitespaceAfter"/>
         <!-- <module name="WhitespaceAround"/> -->
         <!-- <module name="OperatorWrap"/> -->
         <!-- <module name="TypecastParenPad"/> -->

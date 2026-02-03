@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -30,10 +29,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.appointment.search.TimeSlot;

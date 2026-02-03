@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -119,7 +118,7 @@ public class ClientImage extends BaseObject {
         InputStream is = null;
         try {
             is = image_contents.getBinaryStream();
-            for (; ; ) {
+            for (;; ) {
                 int dataSize = is.read(buf);
                 if (dataSize == -1)
                     break;

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -103,7 +102,7 @@ public class INRReporter implements Reporter {
                     } else {
                         while (curHeader++ < numHeaders) {
                             body.append("<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
-                            csvBody.append(", , ,");
+                            csvBody.append(",,,");
                         }
                         body.append("</tr>");
                         csvBody.append("\n");
@@ -124,7 +123,7 @@ public class INRReporter implements Reporter {
                 while (curHeader++ < numHeaders) {
                     MiscUtils.getLogger().debug("Adding " + curHeader + " header");
                     body.append("<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
-                    csvBody.append(", , ,");
+                    csvBody.append(",,,");
                 }
                 rsHtml.append(header);
                 rsHtml.append(body);

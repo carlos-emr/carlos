@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -64,7 +63,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String update = request.getParameter("update");
-        String remove = request.getParameter("remove");//actually not used for now, may in future?
+        String remove = request.getParameter("remove"); //actually not used for now, may in future?
 
         String waitingListId = "";
         String demographicNo = "";
@@ -126,7 +125,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             if (waitingListId != null && waitingListId.length() > 0) {
                 WLWaitingListUtil.rePositionWaitingList(waitingListId);
             }
-        }//end of if( !update.equalsIgnoreCase("Y") ) -- could be remove also ???
+        }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???
 
         HttpSession session = request.getSession();
 

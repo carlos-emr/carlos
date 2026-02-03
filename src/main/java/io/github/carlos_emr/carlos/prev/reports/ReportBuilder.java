@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.prev.reports;
 
 /**
@@ -370,7 +369,7 @@ public class ReportBuilder {
 
            if (refused && noFutureItems.size() > 1){
                log.debug("REFUSED AND PREV IS greater than one for demo "+demo);
-               for (int pr = (noFutureItems.size() -2) ; pr > -1; pr--){
+               for (int pr = (noFutureItems.size() -2); pr > -1; pr--){
                    log.debug("pr #"+pr);
                    Map<String,Object> h2 = noFutureItems.get(pr);
                    log.debug("pr #"+pr+ "  "+((String) h2.get("refused")));
@@ -578,7 +577,7 @@ public class ReportBuilder {
                     item.setLastFollupProcedure(measurementData.getDataField());
                 }
                 item.setNextSuggestedProcedure("----");
-                //prd.numMonths ;
+                //prd.numMonths;
             } else if (item.getState().equals("Ineligible")) {
                 // Do nothing
                 item.setNextSuggestedProcedure("----");
@@ -609,7 +608,7 @@ public class ReportBuilder {
         // Initialize parameters map for parameterized query
         Map<String, Object> params = new HashMap<>();
 
-        StringBuilder stringBuffer = new StringBuilder("select demographic_no from demographic d "); // had , provider p / but i don't think i meed that
+        StringBuilder stringBuffer = new StringBuilder("select demographic_no from demographic d "); // had, provider p / but i don't think i meed that
 
         Integer ageStyle = null;
         try {

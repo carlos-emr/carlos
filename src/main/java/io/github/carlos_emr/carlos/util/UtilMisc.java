@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -99,9 +98,9 @@ public class UtilMisc {
                     i += 5;
                     continue;
                 } else if (temp.equals("#")) {//&#
-                    if (i + 2 < N) temp += S.charAt(i + 2);//&#?
-                    if (i + 3 < N) temp += S.charAt(i + 3);//&#??
-                    if (i + 4 < N) temp += S.charAt(i + 4);//&#???
+                    if (i + 2 < N) temp += S.charAt(i + 2); //&#?
+                    if (i + 3 < N) temp += S.charAt(i + 3); //&#??
+                    if (i + 4 < N) temp += S.charAt(i + 4); //&#???
                     if (temp.equals("&#39;")) {//'
                         sb.append("\'");
                         i += 5;

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -141,7 +140,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
                 billedAmount = bItem.getDispLineTotal();
             }
 
-            Billingmaster billingmaster = saveBill(billingid, "" + billingAccountStatus, dataCenterId, billedAmount, "" + paymentMode, bean, bItem);//billItem.get(i));
+            Billingmaster billingmaster = saveBill(billingid, "" + billingAccountStatus, dataCenterId, billedAmount, "" + paymentMode, bean, bItem); //billItem.get(i));
 
             String WCBid = request.getParameter("WCBid");
             MiscUtils.getLogger().debug("WCB:" + WCBid);
@@ -352,7 +351,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         bill.setAfterHour(bean.getAfterHours());
         String newProgram = "00";
         bill.setNewProgram(newProgram);
-        bill.setBillingCode(serviceCode);//billItem.getServiceCode());
+        bill.setBillingCode(serviceCode); //billItem.getServiceCode());
         bill.setBillAmount(billedAmount);
         bill.setPaymentMode(paymentMode);
         bill.setServiceDate(convertDate8Char(bean.getServiceDate())); //aka: xml_appointment_date

@@ -49,7 +49,7 @@ public class ScratchData {
 	public ScratchData() {
 	}
 	
-	public List<ScratchPad>getAllDates(String providerNo) {
+	public List<ScratchPad> getAllDates(String providerNo) {
 		ScratchPadDao dao = SpringUtils.getBean(ScratchPadDao.class);
 		return dao.findAllDatesByProviderNo(providerNo);
 	}

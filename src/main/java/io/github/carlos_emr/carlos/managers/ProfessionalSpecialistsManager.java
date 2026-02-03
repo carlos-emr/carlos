@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;

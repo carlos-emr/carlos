@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 
 /*
  *
@@ -31,8 +30,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.OscarProperties;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.printing.FontSettings;
-import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;

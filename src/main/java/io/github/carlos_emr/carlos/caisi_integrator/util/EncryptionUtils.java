@@ -25,12 +25,12 @@ public final class EncryptionUtils
 	{
 		try
 		{
-			return(MessageDigest.getInstance("SHA-1"));
+			return (MessageDigest.getInstance("SHA-1"));
 		}
 		catch (NoSuchAlgorithmException e)
 		{
 			logger.error("Error", e);
-			return(null);
+			return (null);
 		}
 	}
 
@@ -44,19 +44,19 @@ public final class EncryptionUtils
 		// as a result, it was decided that caching was not 
 		// that effective here.
 		
-		if (s==null) return(null);
+		if (s==null) return (null);
 		
         try
 		{        	
     		synchronized (messageDigest)
 			{					
-    			return(messageDigest.digest(s.getBytes()));
+    			return (messageDigest.digest(s.getBytes()));
 			}
 		}
 		catch (Exception e)
 		{
-			logger.error("Unexpected error.",e);
-			return(null);
+			logger.error("Unexpected error.", e);
+			return (null);
 		}
 	}
 	
@@ -66,27 +66,27 @@ public final class EncryptionUtils
 		keyGenerator.init(128);
 
 		SecretKey secretKey = keyGenerator.generateKey();
-		return(secretKey.getEncoded());
+		return (secretKey.getEncoded());
 	}
 	
 	public static byte[] encrypt(SecretKeySpec secretKeySpec, byte[] plainData) throws IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException
 	{
-		if (secretKeySpec==null) return(plainData);
+		if (secretKeySpec==null) return (plainData);
 		
 		Cipher cipher = Cipher.getInstance("AES");
 		cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
 		byte[] results=cipher.doFinal(plainData);
-		return(results);
+		return (results);
 	}
 	
 	public static byte[] decrypt(SecretKeySpec secretKeySpec, byte[] encryptedData) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException
 	{
-		if (secretKeySpec==null) return(encryptedData);
+		if (secretKeySpec==null) return (encryptedData);
 		
 		Cipher cipher = Cipher.getInstance("AES");
 		cipher.init(Cipher.DECRYPT_MODE, secretKeySpec);
 		byte[] results=cipher.doFinal(encryptedData);
-		return(results);
+		return (results);
 	}
 	
 	public static void main(String... argv)

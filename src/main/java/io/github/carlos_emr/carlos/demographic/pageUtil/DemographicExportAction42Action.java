@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -699,9 +698,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                             PharmacyInfo pi = pharmacyInfoDao.find(dp.getPharmacyId());
                             if (pi != null) {
                                 PreferredPharmacy preferredPharmacy = demo.addNewPreferredPharmacy();
-                                if(!StringUtils.isNullOrEmpty(pi.getPhone1())) {
+                                if (!StringUtils.isNullOrEmpty(pi.getPhone1())) {
                                     PhoneNumber pn =  preferredPharmacy.addNewPhoneNumber();
-                                    addPhone(pi.getPhone1(), "", cdsDt.PhoneNumberType.W,pn);
+                                    addPhone(pi.getPhone1(), "", cdsDt.PhoneNumberType.W, pn);
                                 }
 
                                 if (StringUtils.filled(pi.getFax())) {
@@ -1582,7 +1581,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
                                 if (arr[p].getRxDate() != null) {
                                     //medi.addNewStartDate().setFullDate(Util.calDate(arr[p].getRxDate()));
-                                    //mSummary = Util.addSummary(mSummary,"Start Date",UtilDateUtilities.DateToString(arr[p].getRxDate(),"yyyy-MM-dd"));
+                                    //mSummary = Util.addSummary(mSummary,"Start Date", UtilDateUtilities.DateToString(arr[p].getRxDate(),"yyyy-MM-dd"));
                                     String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
                                     Util.putPartialDate(medi.addNewStartDate(), arr[p].getRxDate(), dateFormat);
                                     mSummary = Util.addSummary("Start Date", partialDateDao.getDatePartial(arr[p].getRxDate(), dateFormat));
@@ -1813,7 +1812,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
                                 }
 
-                                // TODO: Can this be null for Y,N,unknown?
+                                // TODO: Can this be null for Y, N, unknown?
                                 String data = arr[p].isNonAuthoritative() ? "Y" : "N";
                                 medi.setNonAuthoritativeIndicator(data);
                                 mSummary = Util.addSummary(mSummary, "Non-Authoritative", data);
@@ -1919,7 +1918,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 								}
 
 								if (StringUtils.filled(commentAsResult)) {
-									HashMap<String,String> labMeaValues = new HashMap<String,String>();
+									HashMap<String, String> labMeaValues = new HashMap<String, String>();
 
 									labMeaValues.put("identifier", h.getOBXIdentifier(i, j));
 									labMeaValues.put("name", h.getOBXName(i, j));
@@ -2648,7 +2647,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 //
 //					// Populate Clinical Document
 //					ClinicalDocument clinicalDocument = E2ECreator.createEmrConversionDocument(Integer.parseInt(demoNo));
-//					if(clinicalDocument == null) {
+//					if (clinicalDocument == null) {
 //						String msg = "[Demo ".concat(demoNo).concat("] Not active or failed to populate");
 //						logger.info(msg);
 //						exportLog.append(msg);
@@ -2661,14 +2660,14 @@ public class DemographicExportAction42Action extends ActionSupport {
 //					//export file to temp directory
 //					try {
 //						File directory = new File(tmpDir);
-//						if(!directory.exists()){
+//						if (!directory.exists()){
 //							throw new Exception("Temporary Export Directory does not exist!");
 //						}
 //
 //						//Standard format for xml exported file : Demographic_PatientUniqueID
 //						String expFile = "Demographic_".concat(demoNo);
 //						files.add(new File(directory, expFile+".xml"));
-//					} catch(Exception e) {
+//					} catch (Exception e) {
 //						logger.error("Error", e);
 //					}
 ////					BufferedWriter out = null;
@@ -2689,7 +2688,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 //
 //					out.write(pidRange.concat(System.getProperty("line.separator")));
 //					out.write(System.getProperty("line.separator"));
-//					if(exportLog.toString().length() == 0) {
+//					if (exportLog.toString().length() == 0) {
 //						out.write("Export contains no errors".concat(System.getProperty("line.separator")));
 //					} else {
 //						out.write(exportLog.toString());
@@ -2902,7 +2901,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
     private boolean sameEnrolment(Demographic demographic, Enrolment en) {
         if (en != null && en.date != null && demographic.getRosterDate() != null) {
-            //if(demographic.getRosterStatus().equals(en.status)) {
+            //if (demographic.getRosterStatus().equals(en.status)) {
             if (DateUtils.isSameDay(demographic.getRosterDate(), en.date)) {
                 if (demographic.getRosterEnrolledTo() != null && demographic.getRosterEnrolledTo().equals(en.enrolledTo)) {
                     return true;
@@ -2915,7 +2914,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
     private boolean sameEnrolment(DemographicArchive demographic, Enrolment en) {
         if (en != null && en.date != null && demographic.getRosterDate() != null) {
-            //if(demographic.getRosterStatus().equals(en.status)) {
+            //if (demographic.getRosterStatus().equals(en.status)) {
             if (DateUtils.isSameDay(demographic.getRosterDate(), en.date)) {
                 if (demographic.getRosterEnrolledTo() != null && demographic.getRosterEnrolledTo().equals(en.enrolledTo)) {
                     return true;
@@ -3298,7 +3297,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 	/*
 	private void exportLabResult(LabMeasurements labMea, LaboratoryResults labResults, String demoNo) {
-		HashMap<String,String> labMeaValues = new HashMap<String,String>();
+		HashMap<String, String> labMeaValues = new HashMap<String, String>();
 
 		labMeaValues.put("identifier", labMea.getExtVal("identifier"));
 		labMeaValues.put("name_internal", labMea.getExtVal("name_internal"));
@@ -3323,7 +3322,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 	*/
 
     private void exportLabResult(PatientRecord patientRec, Hl7TextMessage hl7TextMessage, Hl7TextInfo hl7TxtInfo, MessageHandler h, String name, String result, String comments, String demoNo, int i, int j) {
-		HashMap<String,String> labMeaValues = new HashMap<String,String>();
+		HashMap<String, String> labMeaValues = new HashMap<String, String>();
 		labMeaValues.put("labType", hl7TextMessage.getType());
 		labMeaValues.put("identifier", h.getOBXIdentifier(i, j));
 		labMeaValues.put("name", name);
@@ -3349,9 +3348,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 		}
 		
 		String range = labMeaValues.get("range");
-		if( StringUtils.filled(range)) {
+		if ( StringUtils.filled(range)) {
 			String rangeLimits[] = range.split("-");
-			if( rangeLimits.length == 2 ) {
+			if ( rangeLimits.length == 2 ) {
 				labMeaValues.put("minimum", rangeLimits[0]);
 				labMeaValues.put("maximum", rangeLimits[1]);
 			}
@@ -3829,6 +3828,6 @@ class Enrolment {
     public String terminationReason;
 
     public String toString() {
-        return "Enrolment: status=" + status + ",date=" + date + ",enroledTo=" + enrolledTo + ",terminationDate=" + terminationDate + ",terminationReason=" + terminationReason;
+        return "Enrolment: status=" + status + ", date=" + date + ", enroledTo=" + enrolledTo + ", terminationDate=" + terminationDate + ", terminationReason=" + terminationReason;
     }
 }

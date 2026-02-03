@@ -63,23 +63,23 @@ public class EctViewConsultationRequestsUtil {
    public List<Provider> consultProvider;
    public List<Boolean> eReferral; 
    
-   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo,String team) {   
-      return estConsultationVecByTeam(loggedInInfo,team,false,null,null);
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team) {   
+      return estConsultationVecByTeam(loggedInInfo, team, false, null, null);
    }
-   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo,String team,boolean showCompleted) {   
-      return estConsultationVecByTeam(loggedInInfo,team,showCompleted,null,null);
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team, boolean showCompleted) {   
+      return estConsultationVecByTeam(loggedInInfo, team, showCompleted, null, null);
    }   
-   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team,boolean showCompleted,Date startDate, Date endDate) {
-      return estConsultationVecByTeam(loggedInInfo,team,showCompleted,null,null,null);
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team, boolean showCompleted, Date startDate, Date endDate) {
+      return estConsultationVecByTeam(loggedInInfo, team, showCompleted, null, null, null);
    }   
-   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team,boolean showCompleted,Date startDate, Date endDate,String orderby) {   
-      return estConsultationVecByTeam(loggedInInfo,team,showCompleted,null,null,null,null);
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team, boolean showCompleted, Date startDate, Date endDate, String orderby) {   
+      return estConsultationVecByTeam(loggedInInfo, team, showCompleted, null, null, null, null);
    }   
-   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team,boolean showCompleted,Date startDate, Date endDate,String orderby,String desc) { 
-      return estConsultationVecByTeam(loggedInInfo,team,showCompleted,null,null,null,null,null,null,null);
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc) { 
+      return estConsultationVecByTeam(loggedInInfo, team, showCompleted, null, null, null, null, null, null, null);
    }  
             
-   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team,boolean showCompleted,Date startDate, Date endDate,String orderby,String desc,String searchDate, Integer offset, Integer limit) {       
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {       
       ids = new ArrayList<>();
       status = new ArrayList<>();
       patient = new ArrayList<>();
@@ -116,8 +116,8 @@ public class EctViewConsultationRequestsUtil {
           String providerId, providerName, specialistName;
           List<ConsultationRequest> consultList = consultReqDao.getConsults(team, showCompleted, startDate, endDate, orderby, desc, searchDate, offset, limit);
 
-          for( int idx = 0; idx < consultList.size(); ++idx ) {
-              consult = (ConsultationRequest)consultList.get(idx);
+          for ( int idx = 0; idx < consultList.size(); ++idx ) {
+              consult = (ConsultationRequest) consultList.get(idx);
               demo = demographicManager.getDemographic(loggedInInfo, consult.getDemographicId());
 
               List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(consult.getId());
@@ -135,7 +135,7 @@ public class EctViewConsultationRequestsUtil {
               }
 
               providerId = demo.getProviderNo();
-              if( providerId != null && !providerId.equals("")) {
+              if ( providerId != null && !providerId.equals("")) {
                   prov = providerDao.getProvider(demo.getProviderNo());
                   providerName = prov.getFormattedName();
                   providerNo.add(prov.getProviderNo());
@@ -145,7 +145,7 @@ public class EctViewConsultationRequestsUtil {
                   providerNo.add("-1");
               }
 
-              if( consult.getProfessionalSpecialist() == null ) {
+              if ( consult.getProfessionalSpecialist() == null ) {
                   specialistName = "N/A";
                   if (consult.getServiceId() == 0) {
                      specialistName = extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), "N/A");
@@ -175,9 +175,9 @@ public class EctViewConsultationRequestsUtil {
               date2 = consult.getAppointmentTime();
               
               String apptDateStr = "";
-              if( date1 == null ) {
+              if ( date1 == null ) {
             	  apptDateStr = "N/A";
-              } else if( date1 != null && date2 == null ) {
+              } else if ( date1 != null && date2 == null ) {
             	  apptDateStr = DateFormatUtils.ISO_DATE_FORMAT.format(date1) + " T00:00:00";
               } else {
             	  apptDateStr = DateFormatUtils.ISO_DATE_FORMAT.format(date1) + " " +  DateFormatUtils.ISO_TIME_FORMAT.format(date2);
@@ -187,7 +187,7 @@ public class EctViewConsultationRequestsUtil {
               patientWillBook.add(""+consult.isPatientWillBook());
               
               date1 = consult.getFollowUpDate();
-              if( date1 == null ) {
+              if ( date1 == null ) {
                   followUpDate.add("N/A");
               }
               else {
@@ -197,7 +197,7 @@ public class EctViewConsultationRequestsUtil {
               Provider cProv = providerDao.getProvider(consult.getProviderNo());
               consultProvider.add(cProv);
           }
-      } catch(Exception e) {            
+      } catch (Exception e) {            
          MiscUtils.getLogger().error("Error", e);            
          verdict = false;            
       }                     
@@ -230,8 +230,8 @@ public class EctViewConsultationRequestsUtil {
           ProfessionalSpecialist specialist;
           String specialistName = "";
 
-          List <ConsultationRequest> consultList = consultReqDao.getConsults(Integer.parseInt(demoNo));
-          for( ConsultationRequest consult : consultList ) {
+          List<ConsultationRequest> consultList = consultReqDao.getConsults(Integer.parseInt(demoNo));
+          for ( ConsultationRequest consult : consultList ) {
               String serviceDescription = "unknown";
               // If service id is 0, check the extensions table
               if (consult.getServiceId() == 0) {
@@ -243,7 +243,7 @@ public class EctViewConsultationRequestsUtil {
                  }
               }
 
-               if(consult.getProfessionalSpecialist() == null) {
+               if (consult.getProfessionalSpecialist() == null) {
                   specialistName = "N/A";
                   if (consult.getServiceId() == 0) {
                      specialistName = consultationRequestExtDao.getConsultationRequestExtsByKey(consult.getId(), ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey());
@@ -271,7 +271,7 @@ public class EctViewConsultationRequestsUtil {
               Provider cProv = providerDao.getProvider(consult.getProviderNo());
               consultProvider.add(cProv);
           }
-      } catch(Exception e) {         
+      } catch (Exception e) {         
          MiscUtils.getLogger().error("Error", e);         
          verdict = false;         
       }      

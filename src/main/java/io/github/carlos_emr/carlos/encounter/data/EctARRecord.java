@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -134,7 +133,7 @@ public class EctARRecord {
                 } else if (value == null)
                     resultset1.updateNull(name);
                 else
-                    resultset1.updateString(name, value);// col does not begin with c_ or p#_
+                    resultset1.updateString(name, value); // col does not begin with c_ or p#_
             } else if (!formId.equalsIgnoreCase("0")) {
                 String value = resultset.getString(name);
                 if (value != null)

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -298,7 +297,7 @@ public String saveDigitalSignature() throws IOException {
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
             // create copy of Prescription
-            RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate ,enddate=null.
+            RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
             Long rand = Math.round(Math.random() * 1000000);
             rx.setRandomId(rand);
 
@@ -358,7 +357,7 @@ public String saveDigitalSignature() throws IOException {
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
             // create copy of Prescription
-            RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx); // set writtendate, rxdate ,enddate=null.
+            RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
 
             Long rand;
             try {

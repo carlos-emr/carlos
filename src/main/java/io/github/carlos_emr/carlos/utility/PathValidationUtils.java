@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.utility;
 
 import org.apache.commons.io.FilenameUtils;

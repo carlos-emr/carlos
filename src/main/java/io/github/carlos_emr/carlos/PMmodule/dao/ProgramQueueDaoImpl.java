@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -47,7 +46,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         ProgramQueue result = getHibernateTemplate().get(ProgramQueue.class, queueId);
 
         if (log.isDebugEnabled()) {
-            log.debug("getProgramQueue: queueId=" + queueId + ",found=" + (result != null));
+            log.debug("getProgramQueue: queueId=" + queueId + ", found=" + (result != null));
         }
 
         return result;
@@ -63,7 +62,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         List results = getHibernateTemplate().find(queryStr, programId);
 
         if (log.isDebugEnabled()) {
-            log.debug("getProgramQueue: programId=" + programId + ",# of results=" + results.size());
+            log.debug("getProgramQueue: programId=" + programId + ", # of results=" + results.size());
         }
 
         return results;
@@ -80,7 +79,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
                 Long.valueOf(programId));
 
         if (log.isDebugEnabled()) {
-            log.debug("getActiveProgramQueuesByProgramId: programId=" + programId + ",# of results=" + results.size());
+            log.debug("getActiveProgramQueuesByProgramId: programId=" + programId + ", # of results=" + results.size());
         }
 
         return results;
@@ -112,14 +111,14 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         ProgramQueue result = null;
         String sSQL = "from ProgramQueue pq where pq.ProgramId = ?0 and pq.ClientId = ?1";
         Object[] params = new Object[]{Long.valueOf(programId), Long.valueOf(clientId)};
-        List results = this.getHibernateTemplate().find(sSQL,params);
+        List results = this.getHibernateTemplate().find(sSQL, params);
 
         if (!results.isEmpty()) {
             result = (ProgramQueue) results.get(0);
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("getQueue: programId=" + programId + ",clientId=" + clientId + ",found=" + (result != null));
+            log.debug("getQueue: programId=" + programId + ", clientId=" + clientId + ", found=" + (result != null));
         }
 
         return result;
@@ -144,7 +143,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("getActiveProgramQueue: programId=" + programId + ",demogaphicNo=" + demographicNo + ",found="
+            log.debug("getActiveProgramQueue: programId=" + programId + ", demogaphicNo=" + demographicNo + ", found="
                     + (result != null));
         }
 

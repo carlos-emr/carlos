@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -28,7 +27,6 @@ package io.github.carlos_emr.carlos.service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 import io.github.carlos_emr.carlos.dao.OscarSuperDao;
 

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -29,8 +28,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 
 import javax.persistence.Query;
 
@@ -264,7 +261,7 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
 
         Query query = entityManager.createQuery(buf.toString());
         for (int i = 0; i < params.size(); i++) {
-            query.setParameter(i + 1 , params.get(i));
+            query.setParameter(i + 1, params.get(i));
         }
 
         return query.getResultList();

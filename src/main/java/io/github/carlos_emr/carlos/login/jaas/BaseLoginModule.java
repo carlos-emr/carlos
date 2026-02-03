@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -136,7 +135,7 @@ public class BaseLoginModule implements LoginModule {
             if (principal == null) throw new LoginException("Invalid login name or password");
 
             loginDuration = System.currentTimeMillis() - loginDuration;
-            Arrays.fill(password, ' ');// clear password
+            Arrays.fill(password, ' '); // clear password
             setPrincipal(principal);
 
             if (logger.isInfoEnabled()) {

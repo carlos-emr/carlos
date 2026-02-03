@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -155,7 +154,7 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
         defaultSite.setName("Main Clinic");
         defaultSite.setShortName("MAIN");
         defaultSite.setBgColor("white");
-        defaultSite.setStatus((byte)1);
+        defaultSite.setStatus((byte) 1);
         siteDao.persist(defaultSite);
         
         // Link default providers (999998) to the site (if not already linked)

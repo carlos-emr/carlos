@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -136,7 +135,7 @@ public class EctViewRequest2Action extends ActionSupport {
         List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(requestId);
         Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
 
-        ConsultationRequestDao consultDao = (ConsultationRequestDao)SpringUtils.getBean(ConsultationRequestDao.class);;
+        ConsultationRequestDao consultDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);;
         ConsultationRequest consult = consultDao.find(requestId);
 
         thisForm.setAllergies(consult.getAllergies());

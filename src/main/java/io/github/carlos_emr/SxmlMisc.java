@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -68,7 +67,7 @@ public class SxmlMisc extends Properties {
      * @return XML string containing the filtered parameters, with HTML content escaped
      */
     public static String createXmlDataString(HttpServletRequest req, String strPrefix) {
-        String temp = null, content = "";//default is not null
+        String temp = null, content = ""; //default is not null
         StringBuilder sbContent = new StringBuilder("");
         for (Enumeration e = req.getParameterNames(); e.hasMoreElements(); ) {
             temp = e.nextElement().toString();
@@ -98,7 +97,7 @@ public class SxmlMisc extends Properties {
      * @return a string constructed from the indexed parameter values
      */
     public static String createDataString(HttpServletRequest req, String strPrefix, String defaultValue, int maxsize) {
-        String temp = null;//default is not null
+        String temp = null; //default is not null
         //StringBuilder sbContent=new StringBuilder("");
         byte[] abyte = new byte[maxsize];
         int i = 0, n = 0;
@@ -111,7 +110,7 @@ public class SxmlMisc extends Properties {
                 //sbContent = sbContent.append(req.getParameter(temp).equals("")?defaultValue:req.getParameter(temp));
             }
         }
-        //String content=new String(abyte,0,n);
+        //String content=new String(abyte, 0, n);
         //content=sbContent.toString();
         return new String(abyte, 0, n);
     }

@@ -131,7 +131,7 @@ public class HnrWsService extends Service
      */
     @WebEndpoint(name = "HnrWsPort")
     public HnrWs getHnrWsPort() {
-        return (HnrWs)super.getPort(HnrWsService.HnrWsPort, (Class)HnrWs.class);
+        return (HnrWs) super.getPort(HnrWsService.HnrWsPort, (Class) HnrWs.class);
     }
 
     /**
@@ -146,7 +146,7 @@ public class HnrWsService extends Service
      */
     @WebEndpoint(name = "HnrWsPort")
     public HnrWs getHnrWsPort(final WebServiceFeature... array) {
-        return (HnrWs)super.getPort(HnrWsService.HnrWsPort, (Class)HnrWs.class, array);
+        return (HnrWs) super.getPort(HnrWsService.HnrWsPort, (Class) HnrWs.class, array);
     }
     
     static {

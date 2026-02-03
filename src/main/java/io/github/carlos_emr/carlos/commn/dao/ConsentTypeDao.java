@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -30,7 +29,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 
 import java.util.List;
-import java.util.Collections;
 
 public interface ConsentTypeDao extends AbstractDao<ConsentType> {
 

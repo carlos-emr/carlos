@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -26,7 +25,6 @@ package io.github.carlos_emr.carlos.db;
 import java.util.Properties;
 
 import io.github.carlos_emr.OscarProperties;
-;
 
 public class OscarHibernateProperties extends Properties {
     public OscarHibernateProperties() {

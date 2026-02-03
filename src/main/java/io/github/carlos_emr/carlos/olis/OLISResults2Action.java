@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2008-2012 Indivica Inc.
  * <p>
@@ -145,7 +144,7 @@ public class OLISResults2Action extends ActionSupport {
                             olisResultsDao.persist(result);
                         } else {
                             //duplicate from community lab already in OSCAR
-                            //	LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), "OLIS","DUPLICATE (Community Lab)", uuid.toString() , null);
+                            //	LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), "OLIS","DUPLICATE (Community Lab)", uuid.toString(), null);
                             logOLISDuplicate(LoggedInInfo.getLoggedInInfoFromSession(request), query, message, uuid.toString());
                         }
                     } else {

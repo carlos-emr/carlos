@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2007 Peter Hutten-Czapski based on OSCAR general requirements
  * This software is published under the GPL GNU General Public License.

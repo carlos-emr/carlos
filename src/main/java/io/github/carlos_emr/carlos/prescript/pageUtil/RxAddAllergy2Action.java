@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -62,7 +61,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String id = request.getParameter("ID");
 
-            if(id == null || "null".equals(id)) {
+            if (id == null || "null".equals(id)) {
             id = "";
         }
 
@@ -110,10 +109,10 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
 
-            if(nonDrug != null && "on".equals(nonDrug)) {
+            if (nonDrug != null && "on".equals(nonDrug)) {
             	allergy.setNonDrug(true);
 
-            } else if(nonDrug != null && "off".equals(nonDrug)) {
+            } else if (nonDrug != null && "off".equals(nonDrug)) {
             	allergy.setNonDrug(false);
             }
 

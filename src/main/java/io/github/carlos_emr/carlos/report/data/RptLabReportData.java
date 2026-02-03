@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -94,7 +93,7 @@ public class RptLabReportData {
             }
 
             // Build parameterized SQL query
-            String sql = "select distinct l.demographic_no from formLabReq07 l , demographic d where "
+            String sql = "select distinct l.demographic_no from formLabReq07 l, demographic d where "
                     + " ( to_days( now() ) - to_days(formCreated) ) <= " + " ( to_days( now() ) - to_days( date_sub(now(),interval " + days + " month) ) )"
                     + " and l.demographic_no = d.demographic_no ";
 
@@ -274,7 +273,6 @@ public class RptLabReportData {
             public String proNo;
         }
 
-        ;
 
         public final class ConLetter {
             public String document_no;
@@ -284,11 +282,9 @@ public class RptLabReportData {
             public java.sql.Date docDate;
         }
 
-        ;
 
     }
 
-    ;
 
     /**
      * Validates that a string can be parsed as an integer.

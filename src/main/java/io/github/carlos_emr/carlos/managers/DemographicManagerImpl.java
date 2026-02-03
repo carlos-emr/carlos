@@ -127,7 +127,7 @@ public class DemographicManagerImpl implements DemographicManager {
      public Demographic getDemographic(LoggedInInfo loggedInInfo, Integer demographicId) throws PatientDirectiveException {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ, (demographicId != null) ? demographicId : null); 
         Demographic demographic = demographicDao.getDemographicById(demographicId); 
-        if(demographic != null) {
+        if (demographic != null) {
 			this.getMRP(loggedInInfo, demographic);
 			this.getNextAppointmentDate(loggedInInfo, demographic);
 		}
@@ -831,7 +831,7 @@ public class DemographicManagerImpl implements DemographicManager {
         List<Demographic> demographics = demographicDao.getActiveDemosByHealthCardNo(hcn, hcnType);
 
         LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getActiveDemosByHealthCardNo",
-                "hcn=" + hcn + ",hcnType=" + hcnType);
+                "hcn=" + hcn + ", hcnType=" + hcnType);
 
         return (demographics);
     }
@@ -1107,8 +1107,8 @@ public class DemographicManagerImpl implements DemographicManager {
                 String providerNo = loggedInInfo.getLoggedInProviderNo();
 
                 MiscUtils.getLogger()
-                        .info("LINK DEMOGRAPHIC #### ProviderNo :" + providerNo + " ,demo No :" + remoteDemographicNo
-                                + " , remoteFacilityId :" + remoteFacilityId + " ,remoteDemographicId "
+                        .info("LINK DEMOGRAPHIC #### ProviderNo :" + providerNo + ", demo No :" + remoteDemographicNo
+                                + ", remoteFacilityId :" + remoteFacilityId + ", remoteDemographicId "
                                 + remoteDemographicNo + " orig demo " + demographicNo);
 
                 LogAction.addLog(loggedInInfo, "DemographicManager.linkDemographicToRemoteDemographic", null, null,

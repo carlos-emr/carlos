@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil;
 
 import org.apache.logging.log4j.Logger;

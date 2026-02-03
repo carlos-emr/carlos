@@ -75,7 +75,7 @@ public class Scratch2Action extends JSONAction {
         String providerNo =  (String) request.getSession().getAttribute("user");
         String pNo = request.getParameter("providerNo");
                 
-        if(providerNo.equals(pNo)){
+        if (providerNo.equals(pNo)){
         String id = request.getParameter("id");
         String scratchPad = request.getParameter("scratchpad");
         String windowId = request.getParameter("windowId");
@@ -85,10 +85,10 @@ public class Scratch2Action extends JSONAction {
         Map<String, String> h = scratch.getLatest(providerNo);
 
         if (h == null){  //FIRST TIME USE
-           returnId = scratch.insert(providerNo,scratchPad);
+           returnId = scratch.insert(providerNo, scratchPad);
            returnText = scratchPad;
 
-        }else{
+        }else {
 
            String textValue = h.get("text");
            if (textValue == null) {
@@ -137,7 +137,7 @@ public class Scratch2Action extends JSONAction {
               MiscUtils.getLogger().debug(" Database id greater than id");
 
 		   }else if (isTextDifferent(scratchPad, returnText)){
-	           returnId = scratch.insert(providerNo,scratchPad);   //save new record and return new id.
+	           returnId = scratch.insert(providerNo, scratchPad);   //save new record and return new id.
                returnText = scratchPad;
                MiscUtils.getLogger().debug("dirty field set");
            }
@@ -148,7 +148,7 @@ public class Scratch2Action extends JSONAction {
 			jsonObject.put("windowId", Encode.forHtmlContent(windowId));
 			jsonResponse(jsonObject);
 
-        }else{
+        }else {
         	MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
         		Encode.forJava(pNo), Encode.forJava(providerNo));
         	response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

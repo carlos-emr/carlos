@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2015-2019. The Pharmacists Clinic, Faculty of Pharmaceutical Sciences, University of British Columbia. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -310,7 +309,7 @@ public final class ConvertToEdoc {
 
         try {
             converter.convert(document, os);
-        } catch(Exception e) {
+        } catch (Exception e) {
             logger.warn("Primary PDF conversion failed, attempting fallback: " + e.getMessage());
 
             try {
@@ -396,7 +395,7 @@ public final class ConvertToEdoc {
         }
 
         // DOCTYPE declarations are mandatory. HTML5 if none is declared.
-        if(!documentString.trim().toLowerCase().startsWith("<!doctype")) {
+        if (!documentString.trim().toLowerCase().startsWith("<!doctype")) {
             documentString = "<!DOCTYPE html>\n" + documentString;
         }
 

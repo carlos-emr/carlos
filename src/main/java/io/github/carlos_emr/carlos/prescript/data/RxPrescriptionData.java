@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -643,7 +642,7 @@ public class RxPrescriptionData {
         String outsideProviderOhip = null;
         boolean custom = false;
         private final String docType = "Rx";
-        private boolean discontinued = false;//indicate if the prescript has isDisontinued before.
+        private boolean discontinued = false; //indicate if the prescript has isDisontinued before.
         private String lastArchDate = null;
         private String lastArchReason = null;
         private Date archivedDate;
@@ -1077,14 +1076,14 @@ public class RxPrescriptionData {
                 GregorianCalendar cal = new GregorianCalendar(Locale.CANADA);
                 int days = 0;
 
-                //          p("this.getRxDate()",this.getRxDate().toString());
+                //          p("this.getRxDate()", this.getRxDate().toString());
                 cal.setTime(this.getRxDate());
 
                 if (this.getDuration() != null && this.getDuration().length() > 0) {
                     if (Integer.parseInt(this.getDuration()) > 0) {
                         int i = Integer.parseInt(this.getDuration());
-                        //      p("i",Integer.toString(i));
-                        //      p("this.getDurationUnit()",this.getDurationUnit());
+                        //      p("i", Integer.toString(i));
+                        //      p("this.getDurationUnit()", this.getDurationUnit());
                         if (this.getDurationUnit() != null && this.getDurationUnit().equalsIgnoreCase("D")) {
                             days = i;
                         }
@@ -1102,7 +1101,7 @@ public class RxPrescriptionData {
 
                             days = days * r;
                         }
-                        //    p("days",Integer.toString(days));
+                        //    p("days", Integer.toString(days));
                         if (days > 0) {
                             cal.add(GregorianCalendar.DATE, days);
                         }
@@ -1113,7 +1112,7 @@ public class RxPrescriptionData {
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
             }
-            //     p("endDate",RxUtil.DateToString(this.endDate));
+            //     p("endDate", RxUtil.DateToString(this.endDate));
         }
 
         public String getBrandName() {

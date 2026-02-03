@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -307,7 +306,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         va.setAutoRange(true);
         XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
         XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator);//setLabelGenerator(generator);
+        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
 
         renderer.setDefaultItemLabelsVisible(true);
 
@@ -391,7 +390,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         va.setAutoRange(true);
         XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
         XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator);//setLabelGenerator(generator);
+        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
 
         renderer.setDefaultItemLabelsVisible(true);
 
@@ -522,7 +521,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         renderer.setDefaultItemLabelFont(font);
 
         XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator);//setLabelGenerator(generator);
+        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
 
         renderer.setDefaultItemLabelsVisible(true);
 
@@ -640,7 +639,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 break;
         }
 
-        renderer.setSeriesItemLabelGenerator(0, generator);//setLabelGenerator(generator);
+        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
 
         if (renderer instanceof XYLineAndShapeRenderer) {
             XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
@@ -785,7 +784,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 renderer.setDefaultItemLabelsVisible(false);
                 break;
         }
-        renderer.setSeriesItemLabelGenerator(0, generator);//setLabelGenerator(generator);
+        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
         if (renderer instanceof XYLineAndShapeRenderer) {
             XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
             rend.setDefaultShapesVisible(true);
@@ -913,7 +912,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         va.setAutoRange(true);
         XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
         XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator);//setLabelGenerator(generator);
+        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
 
         renderer.setDefaultItemLabelsVisible(true);
         plot.setBackgroundPaint(Color.WHITE);

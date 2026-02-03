@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -74,7 +73,7 @@ public class RxUpdateDrugref2Action extends ActionSupport {
 
     private String verify() throws Exception, ServletException {
         RxDrugRef drugref = new RxDrugRef();
-        Map<String,String> verify = drugref.verify();
+        Map<String, String> verify = drugref.verify();
         response.setContentType("text/x-json;charset=UTF-8");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(verify);
         response.getWriter().write(jsonArray.toString());

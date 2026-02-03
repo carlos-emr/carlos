@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -95,7 +94,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String DEFAULT_QUANTITY = "30";
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
-    private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class) ;
+    private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private final RxManager rxManager = SpringUtils.getBean(RxManager.class);
 
     String removeExtraChars(String s) {
@@ -352,7 +351,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setDuration(duration);
             rx.setDurationUnit(durationUnit);
             rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-            rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));// this is actually an indicator for Mitte prescript
+            rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity)); // this is actually an indicator for Mitte prescript
         } else rx.setDuration(RxUtil.findDuration(rx));
 
         return rx;
@@ -479,7 +478,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 			rx.setGCN_SEQNO("0");
             rx.setRegionalIdentifier("");
             rx.setAtcCode("");
-            RxUtil.setDefaultSpecialQuantityRepeat(rx);// 1 OD, 20, 0;
+            RxUtil.setDefaultSpecialQuantityRepeat(rx); // 1 OD, 20, 0;
             rx = setCustomRxDurationQuantity(rx);
             bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
@@ -523,7 +522,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         logger.debug("radomId=" + randomId);
         if (randomId != null && customDrugName != null) {
             RxPrescriptionData.Prescription normalRx = bean.getStashItem2(Integer.parseInt(randomId));
-            if (normalRx != null) {// set other fields same as normal drug, set some fields null like custom drug, remove normal drugfrom stash,add customdrug to stash,
+            if (normalRx != null) {// set other fields same as normal drug, set some fields null like custom drug, remove normal drugfrom stash, add customdrug to stash,
                 // forward to prescribe.jsp
                 RxPrescriptionData rxData = new RxPrescriptionData();
                 RxPrescriptionData.Prescription customRx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo());
@@ -580,7 +579,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             String ra = request.getParameter("randomId");
 			int randomId = 0;
-			if(ra != null && !ra.isEmpty()) {
+			if (ra != null && !ra.isEmpty()) {
 				randomId = Integer.parseInt(ra);
 			}
 
@@ -588,11 +587,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             String drugId = request.getParameter("drugId");
             String text = request.getParameter("text");
 
-			if(text != null) {
+			if (text != null) {
 				text = Encode.forJava(text);
 			}
 
-			if(drugId != null) {
+			if (drugId != null) {
 				drugId = Encode.forJava(drugId);
 			}
 
@@ -614,11 +613,11 @@ public final class RxWriteScript2Action extends ActionSupport {
 					String drugName = drugComponent.getName();
 					String drugForm = dmono.drugForm;
 
-					if(strength == null) {
+					if (strength == null) {
 						strength = "";
 					}
 
-					if(unit == null) {
+					if (unit == null) {
 						unit = "";
 					}
 
@@ -626,22 +625,22 @@ public final class RxWriteScript2Action extends ActionSupport {
 						drugName = "";
 					}
 
-					if(drugForm == null) {
+					if (drugForm == null) {
 						drugForm = "";
 					}
 
-					if(! strength.contains("/")) {
+					if (! strength.contains("/")) {
 						strength = strength.toLowerCase().replaceAll(unit.toLowerCase(), "");
 						strength += unit.toLowerCase();
 					}
 
 					stringBuilder.append(drugName.trim());
 
-					if( ! stringBuilder.toString().toLowerCase().contains(strength.toLowerCase())) {
+					if ( ! stringBuilder.toString().toLowerCase().contains(strength.toLowerCase())) {
 						stringBuilder.append( " " + strength.toLowerCase() );
 					}
 
-					if(! stringBuilder.toString().toLowerCase().endsWith(drugForm.toLowerCase())) {
+					if (! stringBuilder.toString().toLowerCase().endsWith(drugForm.toLowerCase())) {
 						stringBuilder.append(" " + drugForm.toLowerCase());
 					}
 
@@ -656,7 +655,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 rx.setGenericName(dmono.name);
             }
 
-			if(dmono.getProduct() != null && ! dmono.getProduct().isEmpty()) {
+			if (dmono.getProduct() != null && ! dmono.getProduct().isEmpty()) {
 				rx.setBrandName(dmono.getProduct());
 			} else {
 				rx.setBrandName(text);
@@ -698,16 +697,16 @@ public final class RxWriteScript2Action extends ActionSupport {
                 String strength = drugComp.strength;
                 unit = drugComp.unit;
 
-				if(strength == null) {
+				if (strength == null) {
 					strength = "";
 				}
 
-				if(unit == null) {
+				if (unit == null) {
 					unit = "";
 				}
 
 				// covers all cases when unit is missing -or- included with the strength.
-				if(! strength.contains("/")) {
+				if (! strength.contains("/")) {
 					strength = strength.toLowerCase().trim().replaceAll(unit.toLowerCase().trim(), "");
 					strength += unit.toLowerCase().trim();
 				}
@@ -740,7 +739,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             Date tod = RxUtil.StringToDate(today, "yyyy-MM-dd");
             rx.setRxDate(tod);
             rx.setWrittenDate(tod);
-			rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));// check and set if rx was discontinued before.
+			rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx)); // check and set if rx was discontinued before.
             request.setAttribute("listRxDrugs", listRxDrugs);
         } catch (Exception e) {
             logger.error("Error", e);
@@ -828,7 +827,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                         rx.setDuration(duration);
                         rx.setDurationUnit(durationUnit);
                         rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));// this is actually an indicator for Mitte prescript
+                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity)); // this is actually an indicator for Mitte prescript
                     } else {
                         rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
                         rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));
@@ -967,7 +966,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-        request.getSession().setAttribute("rePrint", null);// set to print.
+        request.getSession().setAttribute("rePrint", null); // set to print.
         List<String> paramList = new ArrayList<String>();
         Enumeration em = request.getParameterNames();
         List<String> randNum = new ArrayList<String>();
@@ -1331,7 +1330,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         for (int i = 0; i < bean.getStashSize(); i++) {
             try {
                 rx = bean.getStashItem(i);
-                rx.Save(scriptId);// new drug id available after this line
+                rx.Save(scriptId); // new drug id available after this line
                 rx.setScript_no(scriptId);
                 bean.addRandomIdDrugIdPair(rx.getRandomId(), rx.getDrugId());
                 auditStr.append(rx.getAuditString());

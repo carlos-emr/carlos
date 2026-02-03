@@ -1,6 +1,5 @@
 package io.github.carlos_emr.carlos.caisi_integrator.ws;
 
-import java.util.List;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.io.File;

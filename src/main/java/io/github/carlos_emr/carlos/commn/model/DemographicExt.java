@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -47,10 +46,10 @@ import javax.persistence.Transient;
 public class DemographicExt extends AbstractModel<Integer> implements Serializable {
 
     @Transient
-    private int hashCode = Integer.MIN_VALUE;// primary key
+    private int hashCode = Integer.MIN_VALUE; // primary key
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;// fields
+    private Integer id; // fields
     @Column(name = "demographic_no")
     private Integer demographicNo;
     @Column(name = "provider_no")

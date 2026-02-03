@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -84,10 +83,10 @@ public class ForwardDemographicTickler2Action extends ActionSupport {
             String docType = request.getParameter("docType");
             String docId = request.getParameter("docId");
 
-	  if(docType != null) {
+	  if (docType != null) {
 		  docType = Encode.forHtmlContent(docType);
 	  }
-	  if(docId != null) {
+	  if (docId != null) {
 		  docId = Encode.forHtmlContent(docId);
 	  }
           request.setAttribute("docType", docType);

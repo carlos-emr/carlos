@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -57,7 +56,7 @@ public interface PreventionDS {
     //
     //      Prevention[] p = new Prevention[4];
     //
-    //      p[0] = new Prevention("BOB","M",new GregorianCalendar(1998, Calendar.DECEMBER, 12).getTime()); //name , num imm, sex , age in months
+    //      p[0] = new Prevention("BOB","M",new GregorianCalendar(1998, Calendar.DECEMBER, 12).getTime()); //name, num imm, sex, age in months
     //      p[1] = new Prevention("RITA","F",new GregorianCalendar(2005, Calendar.JANUARY, 1).getTime());
     //      p[2] = new Prevention("GEORGE","M",new GregorianCalendar(2004, Calendar.APRIL, 25).getTime());
     //      p[3] = new Prevention("Tyler","M",new GregorianCalendar(2005, Calendar.MARCH, 23).getTime());

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -33,7 +32,6 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
@@ -267,7 +265,7 @@ public class FOBTReport implements PreventionReport {
     //Phone call
     //Reached limit no contact suggested
 
-    //Measurement Type will be 1 per Prevention report, with the dataField holding method ie L1, L2, P1 (letter 1 , letter 2, phone call 1)
+    //Measurement Type will be 1 per Prevention report, with the dataField holding method ie L1, L2, P1 (letter 1, letter 2, phone call 1)
     private static final String LETTER1 = "L1";
     private static final String LETTER2 = "L2";
     private static final String PHONE1 = "P1";

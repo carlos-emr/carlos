@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -79,7 +78,7 @@ public class RxDsMessageTo1 implements Serializable {
     private String copyright;
     private boolean hidden = false;
 
-    //	RETURNED [{drugs=[], atc=C09AA01, , updated_by=7, trusted=true, atc2=M04AA01, created_by=7, reference=Holbrook Interactions, comments=[], drug2=ALLOPURINOL, agree=false, effect=A, id=2458, evidence=P, name=CAPTOPRIL, }, {drugs=[], atc=M04AA01, created_at=Fri Jun 19 18:01:15 EDT 2009, significance=2, type=Interaction, author=David Chan, updated_by=7, trusted=true, atc2=B01AA03, created_by=7, reference=Holbrook Interactions, comments=[], drug2=WARFARIN, body=, agree=false, effect=A, id=1693, evidence=P, name=ALLOPURINOL, updated_at=Wed Jun 24 21:02:42 EDT 2009}, {drugs=[], atc=M04AA01, created_at=Fri Oct 26 16:41:29 EDT 2007, significance=2, type=Interaction, author=David Chan, updated_by=1, trusted=true, atc2=B01AA03, created_by=7, reference=Holbrook Drug Interactions, comments=[], drug2=WARFARIN, body=., agree=false, effect=A, id=1469, evidence=P, name=ALLOPURINOL, updated_at=Wed Jun 24 21:03:05 EDT 2009}]
+    //	RETURNED [{drugs=[], atc=C09AA01,, updated_by=7, trusted=true, atc2=M04AA01, created_by=7, reference=Holbrook Interactions, comments=[], drug2=ALLOPURINOL, agree=false, effect=A, id=2458, evidence=P, name=CAPTOPRIL, }, {drugs=[], atc=M04AA01, created_at=Fri Jun 19 18:01:15 EDT 2009, significance=2, type=Interaction, author=David Chan, updated_by=7, trusted=true, atc2=B01AA03, created_by=7, reference=Holbrook Interactions, comments=[], drug2=WARFARIN, body=, agree=false, effect=A, id=1693, evidence=P, name=ALLOPURINOL, updated_at=Wed Jun 24 21:02:42 EDT 2009}, {drugs=[], atc=M04AA01, created_at=Fri Oct 26 16:41:29 EDT 2007, significance=2, type=Interaction, author=David Chan, updated_by=1, trusted=true, atc2=B01AA03, created_by=7, reference=Holbrook Drug Interactions, comments=[], drug2=WARFARIN, body=., agree=false, effect=A, id=1469, evidence=P, name=ALLOPURINOL, updated_at=Wed Jun 24 21:03:05 EDT 2009}]
 
 
     public RxDsMessageTo1() {

@@ -1,5 +1,4 @@
 // src/main/java/org/oscarehr/app/OAuth1Utils.java
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.

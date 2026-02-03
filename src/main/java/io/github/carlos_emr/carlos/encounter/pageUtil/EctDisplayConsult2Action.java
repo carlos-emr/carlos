@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -61,13 +60,13 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
         } else {
             //set lefthand module heading and link
             String winName = "Consultation" + bean.demographicNo;
-            String url = "popupPage(700,960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=" + bean.demographicNo + "')";
+            String url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=" + bean.demographicNo + "')";
             Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Consult"));
             Dao.setLeftURL(url);
 
             //set the right hand heading link\
             winName = "newConsult" + bean.demographicNo;
-            url = "popupPage(700,960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + bean.demographicNo + "&teamVar=&appNo=" + appointmentNo + "'); return false;";
+            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + bean.demographicNo + "&teamVar=&appNo=" + appointmentNo + "'); return false;";
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action 
 
@@ -110,10 +109,10 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
                 if (theRequests.service != null && !theRequests.service.isEmpty()) {
                     service = theRequests.service.get(idx);
                 }
-                if(theRequests.vSpecialist != null && !theRequests.vSpecialist.isEmpty()) {
+                if (theRequests.vSpecialist != null && !theRequests.vSpecialist.isEmpty()) {
                     specialist =  theRequests.vSpecialist.get(idx);
                 }
-                if(theRequests.date != null && !theRequests.date.isEmpty()) {
+                if (theRequests.date != null && !theRequests.date.isEmpty()) {
                     dateStr = theRequests.date.get(idx);
                 }
                 if (theRequests.status != null && !theRequests.status.isEmpty()) {
@@ -133,7 +132,7 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
                     serviceDateStr = "Error";
                     date = null;
                 }
-                url = "popupPage(700,960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/ViewRequest.do?de=" + bean.demographicNo + "&requestId=" + theRequests.ids.get(idx) + "'); return false;";
+                url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/ViewRequest.do?de=" + bean.demographicNo + "&requestId=" + theRequests.ids.get(idx) + "'); return false;";
                 
                 item.setLinkTitle(service + "(" + specialist + ") " + serviceDateStr);
                 service = StringUtils.maxLenString(service, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -338,7 +337,7 @@ public class UtilXML {
     }
 
     //escapes all xml inside and including a certain tag (Good to use before parsing with jdom)
-    //'tag' parameter must be in the form <mytag> ; no attributes;
+    //'tag' parameter must be in the form <mytag>; no attributes;
     //must be a complete tag
     //Example:  <param><attr>hello</attr></param>  -->   &lt;param>&lt;attr>hello&lt;/attr>&lt;/param>
     //-Paul A

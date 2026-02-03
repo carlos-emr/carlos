@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -282,7 +281,7 @@ public class NotesService extends AbstractServiceImpl {
     public NoteTo1 tmpSaveNote(@PathParam("demographicNo") Integer demographicNo, NoteTo1 note) {
         logger.debug("autosave " + note);
 
-        LoggedInInfo loggedInInfo = getLoggedInInfo();//  LoggedInInfo.loggedInInfo.get();
+        LoggedInInfo loggedInInfo = getLoggedInInfo(); //  LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
 
 
@@ -302,12 +301,12 @@ public class NotesService extends AbstractServiceImpl {
 		try {
 			//if other window has acquired lock don't save
 			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
-			if( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
+			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
 				response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 				return null;
 			}
 		}
-		catch(Exception e ) {
+		catch (Exception e ) {
 			//Exception thrown if other window has saved and exited so lock is gone
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 			return null;
@@ -563,7 +562,7 @@ public class NotesService extends AbstractServiceImpl {
 
         // Save annotation
 
-        CaseManagementNote annotationNote = null;// (CaseManagementNote) session.getAttribute(attrib_name);
+        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
 
         //String ongoing = null; // figure out this
         String lastSavedNoteString = null;
@@ -600,18 +599,18 @@ public class NotesService extends AbstractServiceImpl {
 		
 		try {
 			
-			if(casemgmtNoteLockSession == null) {
+			if (casemgmtNoteLockSession == null) {
 				throw new Exception("SESSION CASEMANAGEMENT NOTE LOCK OBJECT IS NULL");
 			}
 			
 			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
 			//if other window has acquired lock we reject save									
-			if( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
+			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
 				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getRequestedSessionId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
 				return -1L;
 			}
 		}
-		catch(Exception e ) {
+		catch (Exception e ) {
 			//Exception thrown if other window has saved and exited so lock is gone
 			logger.error("Lock not found for " + demo + " providers " + providerNo + " IP " + request.getRemoteAddr(), e);
 			return -1L;
@@ -779,7 +778,7 @@ public class NotesService extends AbstractServiceImpl {
 
         //this is actually just the issue for the main note
         //translate summary codes
-        String issueCode = note.getSummaryCode();//set temp
+        String issueCode = note.getSummaryCode(); //set temp
         if ("ongoingconcerns".equals(issueCode)) {
             issueCode = "Concerns";
         } else if ("medhx".equals(issueCode)) {
@@ -858,7 +857,7 @@ public class NotesService extends AbstractServiceImpl {
         //update positions
         /*
          * There's a few cases to handle, but basically when user is adding, editing, or archiving,
-         * we go and set the positions so it's always 1,2,..,n across the group note. Archived notes,
+         * we go and set the positions so it's always 1, 2, .., n across the group note. Archived notes,
          * and older notes (not the latest based on uuid/id) have positions set to 0
          */
         String[] strIssueId = {String.valueOf(cppIssue.getId())};
@@ -867,7 +866,7 @@ public class NotesService extends AbstractServiceImpl {
 
 
         if (note.isArchived()) {
-            //this one will basically assign 1,2,3,..,n to the group and ignore the one to be archived..setting it's position to 0
+            //this one will basically assign 1, 2, 3, .., n to the group and ignore the one to be archived..setting it's position to 0
             int positionToAssign = 1;
             for (int x = 0; x < curCPPNotes.size(); x++) {
                 if (curCPPNotes.get(x).getUuid().equals(note.getUuid())) {
@@ -891,7 +890,7 @@ public class NotesService extends AbstractServiceImpl {
                 }
             }
             //we make a fake CaseManagementNoteEntry into curCPPNotes, and insert it into desired location.
-            //we then just set the positions to 1,2,...,n ignoring the fake one, but still incrementing the positionToAssign variable
+            //we then just set the positions to 1, 2, ..., n ignoring the fake one, but still incrementing the positionToAssign variable
             //when the new note is saved.it will have the missing position.
             int positionToAssign = 1;
             CaseManagementNote xn = new CaseManagementNote();
@@ -926,7 +925,7 @@ public class NotesService extends AbstractServiceImpl {
          */
 
         // Save annotation
-        CaseManagementNote annotationNote = null;// (CaseManagementNote) session.getAttribute(attrib_name);
+        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
         //logger.error(noteIssue.getAnnotation_attrib());
 
         //String ongoing = null; // figure out this
@@ -934,7 +933,7 @@ public class NotesService extends AbstractServiceImpl {
         String user = loggedInInfo.getLoggedInProvider().getProviderNo();
         String remoteAddr = ""; // Not sure how to get this
 
-        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote,issuelist, cpp, ongoing,verify, loggedInInfo.getLocale(),now,annotationNote,userName,user,remoteAddr, lastSavedNoteString) ;
+        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, annotationNote, userName, user, remoteAddr, lastSavedNoteString);
 
         String savedStr = caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
         caseManagementMgr.saveCPP(cpp, providerNo);
@@ -1177,8 +1176,8 @@ public class NotesService extends AbstractServiceImpl {
 
         CaseManagementNote note = null;
 
-        String nId = getString(jsonobject, "noteId");// request.getParameter("noteId");
-        String forceNote = getString(jsonobject, "forceNote");//request.getParameter("forceNote");
+        String nId = getString(jsonobject, "noteId"); // request.getParameter("noteId");
+        String forceNote = getString(jsonobject, "forceNote"); //request.getParameter("forceNote");
         if (forceNote == null) forceNote = "false";
 
         logger.debug("NoteId " + nId);
@@ -1280,14 +1279,14 @@ public class NotesService extends AbstractServiceImpl {
                 String reason = getString(jsonobject, "reason");
                 String appointmentNo = getString(jsonobject, "appointmentNo");
                 note = caseManagementMgr.makeNewNote(providerNo, "" + demographicNo, encType, appointmentNo, loggedInInfo.getLocale());
-                //note = caseManagementMgr.makeNewNote(providerNo, ""+demographicNo, bean, encType, apptDate, reason,loggedInInfo.locale);
+                //note = caseManagementMgr.makeNewNote(providerNo, ""+demographicNo, bean, encType, apptDate, reason, loggedInInfo.locale);
 //				note = this.makeNewNote(providerNo, demono, request);				
             }
         }
 
 
         /*
-         * do the restore if(restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo,demono,programId); if(tmpsavenote != null) { note.setNote(tmpsavenote); } }
+         * do the restore if (restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo, demono, programId); if (tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
         logger.debug("note ?" + note);
         logger.debug("Set Encounter Type: " + note.getEncounter_type());
@@ -1319,7 +1318,7 @@ public class NotesService extends AbstractServiceImpl {
 //		Long note_id = note.getId() != null && note.getId() >= 0 ? note.getId() : 0L;
 //		casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getRequestedSessionId());
 
-//		if( casemgmtNoteLock.isLocked() ) {
+//		if ( casemgmtNoteLock.isLocked() ) {
 //			note = makeNewNote(providerNo, demono, request);
 //			cform.setCaseNote(note);
 //		}
@@ -1402,7 +1401,7 @@ public class NotesService extends AbstractServiceImpl {
     public NoteIssueTo1 getIssueNote(@PathParam("noteId") Integer noteId) {
 
 
-        //get all note values NoteDisplay nd = new NoteDisplayLocal(loggedInInfo,note);
+        //get all note values NoteDisplay nd = new NoteDisplayLocal(loggedInInfo, note);
         CaseManagementNote casemgmtNote = null;
         casemgmtNote = caseManagementMgr.getNote(String.valueOf(noteId));
 
@@ -1684,7 +1683,7 @@ public class NotesService extends AbstractServiceImpl {
 
         }
 
-        //weird place for it , but for now.
+        //weird place for it, but for now.
         determineNoteRole(cmn, loggedInProvider.getProviderNo(), String.valueOf(demographicNo));
 
         caseManagementMgr.saveNoteSimple(cmn);
@@ -1829,7 +1828,7 @@ public class NotesService extends AbstractServiceImpl {
     public AbstractSearchResponse<IssueTo1> search(ObjectNode json, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
         AbstractSearchResponse<IssueTo1> response = new AbstractSearchResponse<IssueTo1>();
 
-        //if(!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+        //if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
         //	throw new RuntimeException("Access Denied");
         //}
 

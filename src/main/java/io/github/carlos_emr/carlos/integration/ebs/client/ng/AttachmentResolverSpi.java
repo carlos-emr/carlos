@@ -141,7 +141,7 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 			return null;
 		}
 		
-		for(Attachment a : attachments) {
+		for (Attachment a : attachments) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Comparing " + a.getId() + " with " + resourceId);
 			}

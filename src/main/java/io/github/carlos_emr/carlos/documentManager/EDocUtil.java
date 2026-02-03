@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -1201,7 +1200,7 @@ public final class EDocUtil {
             p_cmn = caseManagementNoteDao.getMostRecentNote(p_cmn.getUuid());
         }
 
-        //if get providers no is -1 , it's a document note.
+        //if get providers no is -1, it's a document note.
         if (p_cmn != null && p_cmn.getProviderNo().equals("-1")) {
             p_cmn = null;
         }  //don't use document note as annotation.

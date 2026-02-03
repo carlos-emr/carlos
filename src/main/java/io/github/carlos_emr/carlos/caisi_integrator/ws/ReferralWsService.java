@@ -156,7 +156,7 @@ public class ReferralWsService extends Service
      */
     @WebEndpoint(name = "ReferralWsPort")
     public ReferralWs getReferralWsPort() {
-        return (ReferralWs)super.getPort(ReferralWsService.ReferralWsPort, (Class)ReferralWs.class);
+        return (ReferralWs) super.getPort(ReferralWsService.ReferralWsPort, (Class) ReferralWs.class);
     }
 
     /**
@@ -182,7 +182,7 @@ public class ReferralWsService extends Service
      */
     @WebEndpoint(name = "ReferralWsPort")
     public ReferralWs getReferralWsPort(final WebServiceFeature... array) {
-        return (ReferralWs)super.getPort(ReferralWsService.ReferralWsPort, (Class)ReferralWs.class, array);
+        return (ReferralWs) super.getPort(ReferralWsService.ReferralWsPort, (Class) ReferralWs.class, array);
     }
     
     static {

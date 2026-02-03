@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Andromedia. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -83,7 +82,7 @@ public class Message {
     // node
     // If the line starts with anything else the pid.parse is called which. The PID
     // object handles parsing
-    // any other line ie( ORC,OBR, OBX ) and returns and instance of them selves to
+    // any other line ie( ORC, OBR, OBX ) and returns and instance of them selves to
     // (Current)
     // This is how NTE objects get attached to OBX and OBR... because the NTE will
     // follow the OBR or OBX that it was intended for.
@@ -162,7 +161,7 @@ public class Message {
                         conDoctors = obr.getResultCopiesTo().split("~");
                         for (int i = 1; i <= conDoctors.length; i++) {
                             subStrings = conDoctors[i - 1].split("\\^");
-                            providerMinistryNo = subStrings[0];// StringUtils.returnStringToFirst(subStrings[0].substring(1,
+                            providerMinistryNo = subStrings[0]; // StringUtils.returnStringToFirst(subStrings[0].substring(1,
                             // subStrings[0].length())," ");
                             // check that this is a legal providers
                             MiscUtils.getLogger().debug("looking for 2 " + providerMinistryNo);

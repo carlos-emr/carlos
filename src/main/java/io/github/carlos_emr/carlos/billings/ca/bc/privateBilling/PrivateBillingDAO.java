@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.billings.ca.bc.privateBilling;
 
 import java.sql.Connection;

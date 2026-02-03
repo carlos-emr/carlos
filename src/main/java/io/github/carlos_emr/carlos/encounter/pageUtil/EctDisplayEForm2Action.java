@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -60,19 +59,19 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
 
                 //set lefthand module heading and link
                 String winName = "eForm" + bean.demographicNo;
-                String url = "popupPage(500,950,'" + winName + "', '" + request.getContextPath() + "/eform/efmpatientformlist.jsp?demographic_no=" + bean.demographicNo + "&apptProvider=" + bean.getCurProviderNo() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "')";
+                String url = "popupPage(500, 950,'" + winName + "', '" + request.getContextPath() + "/eform/efmpatientformlist.jsp?demographic_no=" + bean.demographicNo + "&apptProvider=" + bean.getCurProviderNo() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "')";
                 Dao.setLeftHeading(getText("global.eForms"));
                 Dao.setLeftURL(url);
 
                 //set the right hand heading link
                 winName = "AddeForm" + bean.demographicNo;
-                url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/eform/efmformslistadd.jsp?demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "'); return false;";
+                url = "popupPage(500, 950,'" + winName + "','" + request.getContextPath() + "/eform/efmformslistadd.jsp?demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "'); return false;";
                 Dao.setRightURL(url);
                 Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
                 StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
                 String js = "";
-                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.CURRENT, roleName);//EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.NAME, EFormUtil.CURRENT, roleName);
+                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.CURRENT, roleName); //EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.NAME, EFormUtil.CURRENT, roleName);
                 String key;
                 int hash;
                 String BGCOLOUR = request.getParameter("hC");
@@ -80,7 +79,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     HashMap<String, ? extends Object> curform = eForms.get(i);
                     winName = (String) curform.get("formName") + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + curform.get("fid") + "&demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "','" + curform.get("fid") + "_" + bean.demographicNo + "');";
+                    url = "popupPage(700, 800,'" + hash + "','" + request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + curform.get("fid") + "&demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "','" + curform.get("fid") + "_" + bean.demographicNo + "');";
                     logger.debug("SETTING EFORM URL " + url);
                     key = StringUtils.maxLenString((String) curform.get("formName"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
                     key = StringEscapeUtils.escapeEcmaScript(key);
@@ -151,8 +150,8 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
 
         for (EFormData eFormData : eFormDatas) {
             if (eFormData.getRoleType() != null && !eFormData.getRoleType().equals("")) {
-                // ojectName: "_admin,_admin.eform"
-                // roleName: "doctor,admin"
+                // ojectName: "_admin, _admin.eform"
+                // roleName: "doctor, admin"
                 String objectName = "_eform." + eFormData.getRoleType();
                 Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
                 if (!OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1))) {

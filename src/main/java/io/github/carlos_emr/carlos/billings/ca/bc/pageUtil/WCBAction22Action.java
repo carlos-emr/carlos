@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -688,18 +687,18 @@ public class WCBAction22Action extends ActionSupport {
         wcb.setW_bp(w_bp);
         wcb.setW_side(w_side);
         wcb.setW_noi(w_noi);
-        wcb.setW_work(w_work);//="Y"
+        wcb.setW_work(w_work); //="Y"
         wcb.setW_workdate(UtilDateUtilities.StringToDate(ddate(w_workdate)));
         wcb.setW_clinicinfo(w_clinicinfo);
-        wcb.setW_capability(w_capability);//="Y"
+        wcb.setW_capability(w_capability); //="Y"
         wcb.setW_capreason(w_capreason);
-        wcb.setW_estimate(w_estimate);//="0"
-        wcb.setW_rehab(w_rehab);//="N"
+        wcb.setW_estimate(w_estimate); //="0"
+        wcb.setW_rehab(w_rehab); //="N"
         wcb.setW_rehabtype(w_rehabtype);
 
         MiscUtils.getLogger().debug("ESTMATE DATE =" + w_estimatedate + "--" + UtilDateUtilities.StringToDate(ddate(w_estimatedate)));
         wcb.setW_estimatedate(UtilDateUtilities.StringToDate(ddate(w_estimatedate)));
-        wcb.setW_tofollow(w_tofollow);//="N"
+        wcb.setW_tofollow(w_tofollow); //="N"
         wcb.setW_payeeno(w_payeeno);
         wcb.setW_pracno(w_pracno);
         ////wcb.setW_pracname( w_pracname);

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -58,7 +57,7 @@ public class TeleplanService {
 
 
     public TeleplanAPI getTeleplanAPI(String username, String password) throws Exception {
-        TeleplanAPI tAPI = new TeleplanAPI();//
+        TeleplanAPI tAPI = new TeleplanAPI(); //
 
         TeleplanResponse tr = tAPI.login(username, password);
 
@@ -111,7 +110,7 @@ public class TeleplanService {
     //////
 //    public String getSequenceNumber(){
 //    
-//        TeleplanAPI tAPI = new TeleplanAPI();//
+//        TeleplanAPI tAPI = new TeleplanAPI(); //
 //        TeleplanResponse tr = tAPI.login("ttuv6242","jgprk07");
 //        
 //        String e = "VS1V62429999999V6242OSCAR_MCMASTER           V1.1      20030930OSCAR MCMASTER                          (905) 575-1300                                                                                   ";
@@ -148,7 +147,7 @@ public class TeleplanService {
         tr = tAPI.getAsciiFile("9");
         log.debug(tr.toString());
         
-        tr = tAPI.checkElig("9151210456","1959","09","17","","","",true,true,true);
+        tr = tAPI.checkElig("9151210456","1959","09","17","","","", true, true, true);
         log.debug("CHECKELIG"+tr.toString());
         
         File f = new File("/Users/jay/sandbox/teleplanCommunication/sendMe.txt");

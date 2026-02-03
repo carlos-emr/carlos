@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -36,9 +35,9 @@ public class ClientReferral implements Serializable {
     public static String STATUS_UNKNOWN = "unknown";
     public static String STATUS_PENDING = "pending";
 
-    private int hashCode = Integer.MIN_VALUE;// primary key
+    private int hashCode = Integer.MIN_VALUE; // primary key
 
-    private Long _id;// fields
+    private Long _id; // fields
     private Long _clientId;
     private java.util.Date _referralDate;
     private String _providerNo;

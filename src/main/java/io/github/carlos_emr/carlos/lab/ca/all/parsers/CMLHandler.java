@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2025. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -184,7 +183,7 @@ public class CMLHandler implements MessageHandler {
     public String getOBXIdentifier(int i, int j){
         try{
     		Segment obxSeg = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX();
-    		String subIdent = Terser.get(obxSeg, 3, 0, 1, 2) ;
+    		String subIdent = Terser.get(obxSeg, 3, 0, 1, 2);
     		if(subIdent != null){ //HACK: for gdml labs generated with SubmitLabByFormAction
     			return getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX().getObservationIdentifier().getIdentifier().getValue())+"&"+subIdent;
     		}

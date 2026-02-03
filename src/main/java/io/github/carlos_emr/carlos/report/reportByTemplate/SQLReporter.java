@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -70,7 +69,7 @@ public class SQLReporter implements Reporter {
 
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
-        try( StringWriter swr = new StringWriter();
+        try (StringWriter swr = new StringWriter();
              ResultSet rs = DBHandler.GetSQL(sql) ) {
             if (!rs.isBeforeFirst()) {
                 rsHtml = "The query returned no results.";
@@ -113,7 +112,7 @@ public class SQLReporter implements Reporter {
 
             String rsHtml = "An SQL query error has occured ";
             String csv = "";
-            try( StringWriter swr = new StringWriter();
+            try (StringWriter swr = new StringWriter();
                 ResultSet rs = DBHandler.GetSQL(sql) ) {
                 if (!rs.isBeforeFirst()) {
                     rsHtml = sql + "<br/>The query returned no results.";

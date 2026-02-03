@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2013-2015. Department of Computer Science, University of Victoria. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -121,7 +120,7 @@ public class RxWebService extends AbstractServiceImpl {
      * Gets drugs for the demographic and filter based on their status.
      *
      * @param demographicNo the demographic identifier to look up drugs for.
-     * @param status        the status to use to filter the results on {"", current, archived,}
+     * @param status        the status to use to filter the results on {"", current, archived, }
      * @return a response containing a list of drugs that meet the status criteria.
      * @throws AccessDeniedException          if the current user does not have permission to access this data.
      * @throws OperationNotSupportedException if the requested status is unknown.
@@ -712,7 +711,7 @@ public class RxWebService extends AbstractServiceImpl {
                     }
 
                     PDRectangle rect = new PDRectangle(rxToPrint.getWidth(), rxToPrint.getHeight());
-                    PDPage page = new PDPage(rect);// PDPage.PAGE_SIZE_A5);
+                    PDPage page = new PDPage(rect); // PDPage.PAGE_SIZE_A5);
                     document.addPage(page);
 
                     // Create a new font object selecting one of the PDF base fonts

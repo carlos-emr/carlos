@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (C) 2011-2012  PeaceWorks Technology Solutions
  * This software is published under the GPL GNU General Public License.
@@ -37,7 +36,7 @@ import io.github.carlos_emr.OscarProperties;
  * clinic/facility. These are usually used during batch operations.
  * <p>
  * FUTURE: io.github.carlos_emr.carlos.rx.erx should, in the future, support more than one
- * external prescription service , which may not necessarily need the same
+ * external prescription service, which may not necessarily need the same
  * facility preference object as the External Prescriber. When this support is added, this class
  * should be renamed to
  * io.github.carlos_emr.carlos.rx.erx.model.FacilityPreferences; which should

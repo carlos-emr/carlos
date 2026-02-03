@@ -150,7 +150,7 @@ public class ProviderWsService extends Service
      */
     @WebEndpoint(name = "ProviderWsPort")
     public ProviderWs getProviderWsPort() {
-        return (ProviderWs)super.getPort(ProviderWsService.ProviderWsPort, (Class)ProviderWs.class);
+        return (ProviderWs) super.getPort(ProviderWsService.ProviderWsPort, (Class) ProviderWs.class);
     }
 
     /**
@@ -170,7 +170,7 @@ public class ProviderWsService extends Service
      */
     @WebEndpoint(name = "ProviderWsPort")
     public ProviderWs getProviderWsPort(final WebServiceFeature... array) {
-        return (ProviderWs)super.getPort(ProviderWsService.ProviderWsPort, (Class)ProviderWs.class, array);
+        return (ProviderWs) super.getPort(ProviderWsService.ProviderWsPort, (Class) ProviderWs.class, array);
     }
     
     static {

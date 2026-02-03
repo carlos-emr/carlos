@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -76,7 +75,7 @@ public class EctAddShortMeasurement2Action extends ActionSupport {
         }
 
         //MARK IN MEASUREMENTS????
-        String followUpType = request.getParameter("followupType");//"FLUF";
+        String followUpType = request.getParameter("followupType"); //"FLUF";
         String followUpValue = request.getParameter("followupValue"); //"L1";
         String[] demos = request.getParameterValues("demos");
         String id = request.getParameter("id");
