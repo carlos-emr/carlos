@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2008-2012 Indivica Inc.
@@ -12,12 +11,6 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 
 public interface InboxResultsRepository {

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.contactRegistry;
 
 import com.opensymphony.xwork2.ActionSupport;

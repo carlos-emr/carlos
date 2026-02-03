@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -28,8 +27,6 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;

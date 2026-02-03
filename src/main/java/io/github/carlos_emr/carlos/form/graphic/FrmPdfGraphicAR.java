@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 
 /*
  * java io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicAR

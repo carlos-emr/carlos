@@ -253,8 +253,8 @@ public class EdtClientBuilder {
     /**
      * Builds the property map for the inbound WS-Security interceptor.
      */
-    protected Map<String,Object> newWSSInInterceptorConfiguration() {
-        Map<String,Object> props = new HashMap<>();
+    protected Map<String, Object> newWSSInInterceptorConfiguration() {
+        Map<String, Object> props = new HashMap<>();
         props.put(WSHandlerConstants.ACTION, getCxfInHandlerDirectives());
         props.put(WSHandlerConstants.PW_CALLBACK_REF, newCallback());
         
@@ -282,7 +282,7 @@ public class EdtClientBuilder {
         if (getConfig().isLoggingRequired()) {
             client.getEndpoint().getOutInterceptors().add(new org.apache.cxf.ext.logging.LoggingOutInterceptor());
         }
-        Map<String,Object> outProps = newWSSOutInterceptorConfiguration();
+        Map<String, Object> outProps = newWSSOutInterceptorConfiguration();
         WSS4JOutInterceptor wssOut = new WSS4JOutInterceptor(outProps);
         // MTOM is enabled on the SOAPBinding, so remove deprecated setAllowMTOM
         client.getEndpoint().getOutInterceptors().add(wssOut);
@@ -291,8 +291,8 @@ public class EdtClientBuilder {
     /**
      * Builds the property map for the outbound WS-Security interceptor.
      */
-    protected Map<String,Object> newWSSOutInterceptorConfiguration() {
-        Map<String,Object> props = new HashMap<>();
+    protected Map<String, Object> newWSSOutInterceptorConfiguration() {
+        Map<String, Object> props = new HashMap<>();
         props.put(WSHandlerConstants.MUST_UNDERSTAND, "1");
         props.put(WSHandlerConstants.ACTION, getCxfOutHandlerDirectives());
         props.put(WSHandlerConstants.USER, getConfig().getKeystoreUser());

@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
  @Table(name = "program_access")
  public class ProgramAccess extends AbstractModel<Long> {
 
-     private int hashCode = Integer.MIN_VALUE;// primary key
+     private int hashCode = Integer.MIN_VALUE; // primary key
 
      @Id
      @Column(name = "id")

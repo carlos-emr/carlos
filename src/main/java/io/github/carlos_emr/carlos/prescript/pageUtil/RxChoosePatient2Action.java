@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -69,8 +68,8 @@ public final class RxChoosePatient2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_demographic)");
         }
 
-        // p("locale",locale.toString());
-        // p("messages",messages.toString());
+        // p("locale", locale.toString());
+        // p("messages", messages.toString());
         // Setup variables
 
         if (request.getSession().getAttribute("user") == null) {
@@ -80,8 +79,8 @@ public final class RxChoosePatient2Action extends ActionSupport {
         String redirect = "error.html";
         String user_no;
         user_no = (String) request.getSession().getAttribute("user");
-        // p("user_no",user_no);
-        // p("frm",frm.toString());
+        // p("user_no", user_no);
+        // p("frm", frm.toString());
         // Setup bean
         RxSessionBean bean = new RxSessionBean();
 
@@ -111,7 +110,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
                 redirect = "successRX3";
             }
             // place holder.
-//			else if( OscarProperties.getInstance().getBooleanProperty("ENABLE_RX4", "yes") ) {
+//			else if ( OscarProperties.getInstance().getBooleanProperty("ENABLE_RX4", "yes") ) {
 //				redirect = "successRX4";
 //			} 
             else {
@@ -126,7 +125,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
 
                     HashMap hm = new HashMap();
                     // the order of strings in this array is important, because of removing string from propValue if it contains the string.
-                    String[] va = {"show_current", "show_all", "longterm_acute_inactive_external", "inactive", "active", "all", "longterm_acute",};
+                    String[] va = {"show_current", "show_all", "longterm_acute_inactive_external", "inactive", "active", "all", "longterm_acute", };
                     for (int i = 0; i < va.length; i++) {
                         if (propValue.contains(va[i])) {
                             propValue = propValue.replace(va[i], "");

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -111,7 +110,7 @@ public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefau
 
     @Override
     public List<Program> findProgramsByFacilityId(Integer facilityId) {
-        String sql = "from Program p where p.id in (select distinct pg.id from Program pg ,ProgramProvider pp where pp.ProgramId=pg.id and pg.facilityId=?1)";
+        String sql = "from Program p where p.id in (select distinct pg.id from Program pg,ProgramProvider pp where pp.ProgramId=pg.id and pg.facilityId=?1)";
         Query query;
         try {
             query = entityManager.createQuery(sql);

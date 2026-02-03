@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -35,7 +34,6 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import java.awt.Color;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;

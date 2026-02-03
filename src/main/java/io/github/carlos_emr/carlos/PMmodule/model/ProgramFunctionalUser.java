@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -32,12 +31,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
  */
 public class ProgramFunctionalUser implements Serializable {
 
-    private int hashCode = Integer.MIN_VALUE;// primary key
+    private int hashCode = Integer.MIN_VALUE; // primary key
 
-    private Long _id;// fields
+    private Long _id; // fields
     private Long _programId;
     private long _userTypeId;
-    private Long _providerNo;// many to one
+    private Long _providerNo; // many to one
     private FunctionalUserType _userType;
     private Provider _provider;
 

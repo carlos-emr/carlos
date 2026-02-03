@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2008-2012 Indivica Inc.

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2008-2012 Indivica Inc.
  * <p>
@@ -15,7 +14,6 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 public class NotePermission {
     public enum AccessType {ALL_ROLES, ROLE, ROLE_GLOBAL, NO_ACCESS}
 
-    ;
 
     private String providerLastName;
     private String providerFirstName;

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -49,7 +48,7 @@ public class ClinicalReportManager {
     static ClinicalReportManager clinicalReportManager = new ClinicalReportManager();
 
     List<Numerator> numeratorList = null; //new ArrayList();
-    List<Denominator> denominatorList = null;// new ArrayList();
+    List<Denominator> denominatorList = null; // new ArrayList();
 
     Hashtable<String, Object> numeratorHash = null; // new Hashtable();
     Hashtable<String, Object> denominatorHash = null; //new Hashtable();
@@ -75,14 +74,14 @@ public class ClinicalReportManager {
         if (!numeratorList.contains(n)) {
             numeratorList.add(n);
         }
-        //if(!numeratorHash.contains(n)){
-        //    numeratorHash.put(n.getId(),n);
+        //if (!numeratorHash.contains(n)){
+        //    numeratorHash.put(n.getId(), n);
         //}
     }
 
     public void addNumerator(Hashtable n, String id) {
 
-        //if(!numeratorList.contains(n)){
+        //if (!numeratorList.contains(n)){
         //    numeratorList.add(n);
         //}
         if (!numeratorHash.contains(n)) {
@@ -269,7 +268,7 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file",e.getAttributeValue("file"));
+                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);
@@ -286,7 +285,7 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file",e.getAttributeValue("file"));
+                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);
@@ -303,7 +302,7 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file",e.getAttributeValue("file"));
+                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);
@@ -320,7 +319,7 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file",e.getAttributeValue("file"));
+                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);

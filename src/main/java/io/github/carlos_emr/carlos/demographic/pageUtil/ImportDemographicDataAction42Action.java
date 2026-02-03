@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -571,7 +570,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return filteredFileList;
     }
 
-//    private void saveParts(String tmpDir,String ifile) throws Exception {
+//    private void saveParts(String tmpDir, String ifile) throws Exception {
 //    	int len = 0;
 //    	byte[] buf = new byte[1024];
 //
@@ -586,7 +585,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 //            if (entryName.startsWith(entryDir))
 //            	entryName = entryName.substring(entryDir.length());
 //
-//            if(entryName.isEmpty()) {
+//            if (entryName.isEmpty()) {
 //            	entry = in.getNextEntry();
 //            	continue;
 //            }
@@ -597,10 +596,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 //            if (!matchFileExt(ofile, "xml")) {
 //                OutputStream out = null;
 //                try {
-//                	String path = ofile.substring(0,ofile.lastIndexOf(File.separator));
+//                	String path = ofile.substring(0, ofile.lastIndexOf(File.separator));
 //                	new File(path).mkdirs();
 //                    out = new FileOutputStream(ofile);
-//                    while ((len=in.read(buf)) > 0) out.write(buf,0,len);
+//                    while ((len=in.read(buf)) > 0) out.write(buf, 0, len);
 //                    out.close();
 //                } finally {
 //                	IOUtils.closeQuietly(out);
@@ -1267,7 +1266,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             try {
             	dDate = formatter.parse(rosterDate);
             }
-            catch( Exception e ) {
+            catch ( Exception e ) {
             	dDate = null;
             }
 
@@ -1277,7 +1276,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             try {
             	dDate = formatter.parse(termDate);
             }
-            catch( Exception e ) {
+            catch ( Exception e ) {
             	dDate = null;
             }
 
@@ -1288,7 +1287,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             try {
             	dDate = formatter.parse(psDate);
             }
-            catch( Exception e ) {
+            catch ( Exception e ) {
             	dDate = null;
             }
 
@@ -1303,7 +1302,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             try {
             	dDate = formatter.parse(hc_renew_date);
             }
-            catch( Exception e ) {
+            catch ( Exception e ) {
             	dDate = null;
             }
 
@@ -1449,7 +1448,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 /*
             Demographics.Contact[] contt = demo.getContactArray();
             for (int i=0; i<contt.length; i++) {
-                HashMap<String,String> contactName = getPersonName(contt[i].getName());
+                HashMap<String, String> contactName = getPersonName(contt[i].getName());
                 String cFirstName = StringUtils.noNull(contactName.get("firstname"));
                 String cLastName  = StringUtils.noNull(contactName.get("lastname"));
                 String cEmail = StringUtils.noNull(contt[i].getEmailAddress());
@@ -1485,8 +1484,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 String cPatient = cLastName+","+cFirstName;
                 if (StringUtils.empty(cDemoNo)) {   //add new demographic as contact
                     psDate = UtilDateUtilities.DateToString(new Date(),"yyyy-MM-dd");
-                    demoRes = dd.addDemographic(loggedInInfo, "", cLastName, cFirstName,"" , "", "", "", "","","","","",
-                    			homePhone, workPhone, "", "", "", "", "", "", "", "", "",null,
+                    demoRes = dd.addDemographic(loggedInInfo, "", cLastName, cFirstName,"", "", "", "", "","","","","",
+                    			homePhone, workPhone, "", "", "", "", "", "", "", "", "", null,
                     			"Contact-only", psDate, "", "", "", "", "",
                     			"F", "", "", "", "", "", "",
                     			cEmail, "", "", "", "", "", "", "");
@@ -2023,9 +2022,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 if (aaReactArray[i].getCode() != null)
                     regionalId = StringUtils.noNull(aaReactArray[i].getCode().getCodeValue());
-                //  alg_extra = Util.addLine(alg_extra,"Offending Agent Description: ",aaReactArray[i].getOffendingAgentDescription());
+                //  alg_extra = Util.addLine(alg_extra,"Offending Agent Description: ", aaReactArray[i].getOffendingAgentDescription());
                 if (aaReactArray[i].getReactionType() != null) {
-                    //alg_extra = Util.addLine(alg_extra,"Reaction Type: ",aaReactArray[i].getReactionType().toString());
+                    //alg_extra = Util.addLine(alg_extra,"Reaction Type: ", aaReactArray[i].getReactionType().toString());
                     if (aaReactArray[i].getReactionType() == AdverseReactionType.AR) {
                         intolerant = true;
                     }
@@ -2309,7 +2308,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                         DrugMonograph dm = rxDrugData.getDrugByDIN(drug.getRegionalIdentifier());
                         if (dm != null) {
                             drug.setAtc(dm.getAtc());
-	                    		if(dm.drugId != null) {
+	                    		if (dm.drugId != null) {
 	                    			drug.setGcnSeqNo(dm.drugId + "");
                             }
                         }
@@ -3118,7 +3117,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 //create date
                     /*
                     if (cNotes[i].getEnteredDateTime()!=null) {
-                    	createDate = dateTimeFPtoDate(cNotes[i].getEnteredDateTime(),timeShiftInDays);
+                    	createDate = dateTimeFPtoDate(cNotes[i].getEnteredDateTime(), timeShiftInDays);
                     	observeDate = createDate;
                     }
                     */
@@ -4496,7 +4495,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     String[] _title	    = new String[labResultArr.length]; //same as _testName
     String[] _testName  = new String[labResultArr.length]; //testName + "/" + getTestNameReportedByLab
     String[] _abn	    = new String[labResultArr.length]; // A or N
-    String[] _minimum   = new String[labResultArr.length]; //if(getReferenceRangeText)getReferenceRangeText , getReferenceRange.getLowLimit
+    String[] _minimum   = new String[labResultArr.length]; //if (getReferenceRangeText)getReferenceRangeText, getReferenceRange.getLowLimit
     String[] _maximum   = new String[labResultArr.length]; //getReferenceRange.getHighLimit
     String[] _result    = new String[labResultArr.length]; //result.getValue
     String[] _unit	    = new String[labResultArr.length]; //result.getUnitOfMeasure
@@ -4723,7 +4722,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             return as.getStatus();
         }
 /*
-		if("Confirmed".equals(status) && "Here".equals(as.getDescription())) {
+		if ("Confirmed".equals(status) && "Here".equals(as.getDescription())) {
 			return as.getStatus();
 		}
 */
@@ -4792,20 +4791,20 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 //		//create if necessary
 //		 AppointmentStatusDao appointmentStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
 //		 AppointmentStatus importedStatus = null;
-//		 for(AppointmentStatus as : appointmentStatusDao.findAll()) {
-//			 if(as.getDescription().equals("Imported")) {
+//		 for (AppointmentStatus as : appointmentStatusDao.findAll()) {
+//			 if (as.getDescription().equals("Imported")) {
 //				 importedStatus = as;
 //				 break;
 //			 }
 //		 }
-//		 if(importedStatus == null) {
+//		 if (importedStatus == null) {
 //			 importedStatus = new AppointmentStatus();
 //			 importedStatus.setActive(1);
 //			 importedStatus.setColor("#DDDDDD");
 //			 importedStatus.setDescription("Imported");
 //			 importedStatus.setEditable(1);
 //			 importedStatus.setIcon("5.gif");
-//			 if(appointmentStatusDao.findByStatus("i") == null) {
+//			 if (appointmentStatusDao.findByStatus("i") == null) {
 //				 importedStatus.setStatus("i");
 //			 } else {
 //				 importedStatus.setStatus("I");

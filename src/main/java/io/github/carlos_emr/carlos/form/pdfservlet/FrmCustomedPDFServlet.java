@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -30,7 +29,6 @@ import java.io.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
 
@@ -481,7 +479,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                  * Add the "signature" label and draw a line to display under
                  * the Signature ____________________________
                  */
-                writeDirectContent(cb, bf, 10, PdfContentByte.ALIGN_LEFT, geti18nTagValue(locale, "RxPreview.msgSignature"), 20f, endPara - 30f, 0);// Render line for Signature 75, 55, 280, 55, 0.5
+                writeDirectContent(cb, bf, 10, PdfContentByte.ALIGN_LEFT, geti18nTagValue(locale, "RxPreview.msgSignature"), 20f, endPara - 30f, 0); // Render line for Signature 75, 55, 280, 55, 0.5
                 cb.setRGBColorStrokeF(0f, 0f, 0f);
                 cb.setLineWidth(0.5f);
                 cb.moveTo(75f, endPara - 30f);
@@ -672,8 +670,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         document.setPageSize(pageSize);
 
         // 285=left margin+width of box, 5f is space for looking nice
-        // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60);// left, right, top , bottom
-        document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60);// left, right, top , bottom
+        // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
+        document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
         //writer = PdfWriter.getInstance(document, baosPDF);
         writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));

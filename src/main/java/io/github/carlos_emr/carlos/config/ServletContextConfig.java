@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.config;
 
 import org.springframework.context.annotation.Bean;

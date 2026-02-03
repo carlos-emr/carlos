@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -51,7 +50,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;

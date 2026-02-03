@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -70,7 +69,7 @@ public class SecurityTag implements Tag {
         }
         else
         {
-            if(OscarProperties.getInstance().isPropertyActive("ENABLE_SECURITY_OBJECT_DEBUG")) {
+            if (OscarProperties.getInstance().isPropertyActive("ENABLE_SECURITY_OBJECT_DEBUG")) {
                 try {
                     JspWriter out = pageContext.getOut();
                     out.println(

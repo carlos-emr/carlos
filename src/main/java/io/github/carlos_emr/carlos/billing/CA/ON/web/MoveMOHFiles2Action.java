@@ -6,8 +6,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
@@ -86,7 +84,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
      * @throws SecurityException if the user lacks required administrative privileges (_admin with write access)
      */
     public String execute() throws Exception {
-        if(!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 

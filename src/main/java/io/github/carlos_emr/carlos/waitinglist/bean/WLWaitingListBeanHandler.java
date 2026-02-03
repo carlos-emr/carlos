@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -62,7 +61,7 @@ public class WLWaitingListBeanHandler {
             WLPatientWaitingListBean wLBean = new WLPatientWaitingListBean(String.valueOf(waitingList.getDemographicNo()), // oscar.Misc.getString(rs, "demographic_no"),
                     String.valueOf(waitingList.getListId()), // oscar.Misc.getString(rs, "listID"),
                     String.valueOf(waitingList.getPosition()), // oscar.Misc.getString(rs, "position"),
-                    demographic.getFullName(),//  oscar.Misc.getString(rs, "patientName"),
+                    demographic.getFullName(), //  oscar.Misc.getString(rs, "patientName"),
                     demographic.getPhone(), //  oscar.Misc.getString(rs, "phone"),
                     waitingList.getNote(), // o oscar.Misc.getString(rs, "note"),
                     onListSinceDateOnly);

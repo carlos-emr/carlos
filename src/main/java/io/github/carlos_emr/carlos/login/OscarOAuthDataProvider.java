@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -24,14 +23,11 @@
  */
 package io.github.carlos_emr.carlos.login;
 
-import java.io.IOException;
 
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;

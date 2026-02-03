@@ -1,9 +1,7 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 
-import java.util.Collections;
 import java.util.List;
 
 /**

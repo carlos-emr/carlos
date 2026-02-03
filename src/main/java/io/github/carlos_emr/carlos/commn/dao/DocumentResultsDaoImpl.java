@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -144,7 +143,7 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                 }
 
                 lbData.healthNumber = "";
-                lbData.patientName = "Not, Assigned";//change to use internationalization
+                lbData.patientName = "Not, Assigned"; //change to use internationalization
                 lbData.sex = "";
 
 
@@ -257,7 +256,7 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                     lbData.acknowledgedStatus = "U";
                 }
 
-                lbData.patientName = "Not, Assigned";//change to use internationalization
+                lbData.patientName = "Not, Assigned"; //change to use internationalization
 
                 DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
                 Demographic demo = documentDao.getDemoFromDocNo(lbData.segmentID);
@@ -371,7 +370,7 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                 }
 
                 lbData.healthNumber = "";
-                lbData.patientName = "Not, Assigned";//change to use internationalization
+                lbData.patientName = "Not, Assigned"; //change to use internationalization
                 lbData.sex = "";
 
 

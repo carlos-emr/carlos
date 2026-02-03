@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -113,7 +112,7 @@ public class ClinicData {
 
 	public String getClinicName() {
 		fillClinicData();
-		if(clinic_name == null) {
+		if (clinic_name == null) {
 			return "";
 		}
 		return clinic_name;

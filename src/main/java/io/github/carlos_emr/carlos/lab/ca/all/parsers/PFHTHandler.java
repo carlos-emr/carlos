@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2008-2012 Indivica Inc.
  * <p>
@@ -459,7 +458,7 @@ public class PFHTHandler implements MessageHandler {
 
             ret = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE().getComment(0).toString();
             if (ret == null) ret = "";
-            logger.info("NTE for OBR=" + i + " ,OBX=" + j + " is " + ret);
+            logger.info("NTE for OBR=" + i + ",OBX=" + j + " is " + ret);
 
         } catch (Exception e) {
             logger.error("Error accessing the NTE segment for OBX" + j + " " + e);

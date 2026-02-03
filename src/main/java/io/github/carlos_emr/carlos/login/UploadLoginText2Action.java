@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -62,8 +61,8 @@ public class UploadLoginText2Action extends ActionSupport {
         FileOutputStream fos = null;
         boolean error = false;
 
-        String validDurationNumber = request.getParameter("validDurationNumber");// verify it's a number
-        String validDurationPeriod = request.getParameter("validDurationPeriod");//verify it's one of these year month weeks days
+        String validDurationNumber = request.getParameter("validDurationNumber"); // verify it's a number
+        String validDurationPeriod = request.getParameter("validDurationPeriod"); //verify it's one of these year month weeks days
         String validForever = request.getParameter("validForever");
         String foreverFrom = request.getParameter("foreverFrom");
 

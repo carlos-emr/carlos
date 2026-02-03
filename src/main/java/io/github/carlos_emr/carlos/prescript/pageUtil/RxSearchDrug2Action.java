@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -295,11 +294,11 @@ public final class RxSearchDrug2Action extends ActionSupport {
         public static void setParameters(Map<String, String[]> parameters) {
             reset();
 
-    		if(parameters.containsKey("name")) {
+    		if (parameters.containsKey("name")) {
     			Parameter.SEARCH_STRING = parameters.get("name")[0];
-    		} else if(parameters.containsKey("query")) {
+    		} else if (parameters.containsKey("query")) {
     			Parameter.SEARCH_STRING = parameters.get("query")[0];
-    		} else if(parameters.containsKey("searchString")) {
+    		} else if (parameters.containsKey("searchString")) {
     			Parameter.SEARCH_STRING = parameters.get("searchString")[0];
     		}
 

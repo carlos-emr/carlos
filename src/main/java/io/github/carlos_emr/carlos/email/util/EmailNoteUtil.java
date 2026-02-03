@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.email.util;
 
 import java.text.ParseException;

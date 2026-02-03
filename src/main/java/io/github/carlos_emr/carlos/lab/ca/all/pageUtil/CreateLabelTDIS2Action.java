@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2008-2012 Indivica Inc.
  * <p>
@@ -37,9 +36,9 @@ public class CreateLabelTDIS2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        String label = this.getLabel();//request.getParameter("label");
+        String label = this.getLabel(); //request.getParameter("label");
         logger.info("Label before db insert =" + label);
-        String lab_no = this.getLab_no();//request.getParameter("lab_no");
+        String lab_no = this.getLab_no(); //request.getParameter("lab_no");
 
         String ajaxcall = request.getParameter("ajaxcall");
 

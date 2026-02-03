@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -268,8 +267,8 @@ public final class MessageUploader {
             demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, connection);
         }
 
-		if("OLIS_HL7".equals(type) && "0".equals(demProviderNo)) {
-			OLISSystemPreferencesDao olisPrefDao = (OLISSystemPreferencesDao)SpringUtils.getBean("OLISSystemPreferencesDao");
+		if ("OLIS_HL7".equals(type) && "0".equals(demProviderNo)) {
+			OLISSystemPreferencesDao olisPrefDao = (OLISSystemPreferencesDao) SpringUtils.getBean("OLISSystemPreferencesDao");
             OLISSystemPreferences olisPreferences = olisPrefDao.getPreferences();
 
             try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
@@ -290,7 +289,7 @@ public final class MessageUploader {
                 search = "provider_no";
             }
 
-			if( "MEDITECH".equals(type) || "ExcellerisON".equals(type) ) {
+			if ( "MEDITECH".equals(type) || "ExcellerisON".equals(type) ) {
 				search = "practitionerNo"; // ie the college number <oscarDB>.Provider.practitionerNo
             }
 
@@ -610,7 +609,7 @@ public final class MessageUploader {
             }
 
             if (result != null) {
-                sql = "insert into patientLabRouting (demographic_no, lab_no,lab_type,dateModified,created) values ('" + ((result != null && result.getDemographicNo() != null) ? result.getDemographicNo().toString() : "0") + "', '" + labId + "','HL7',now(),now())";
+                sql = "insert into patientLabRouting (demographic_no, lab_no, lab_type, dateModified, created) values ('" + ((result != null && result.getDemographicNo() != null) ? result.getDemographicNo().toString() : "0") + "', '" + labId + "','HL7', now(), now())";
                 Connection c = null;
                 PreparedStatement pstmt = null;
                 try {
@@ -677,7 +676,7 @@ public final class MessageUploader {
 
 
 				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
-				if(hinMod != null && !hinMod.trim().isEmpty()) {
+				if (hinMod != null && !hinMod.trim().isEmpty()) {
 					if (OscarProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
 						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
 					} else {
@@ -685,7 +684,7 @@ public final class MessageUploader {
 					}
 				}
 
-				if( sql != null ) {
+				if ( sql != null ) {
 					logger.debug(sql);
 					PreparedStatement pstmt = conn.prepareStatement(sql);
 					ResultSet rs = pstmt.executeQuery();
@@ -701,7 +700,7 @@ public final class MessageUploader {
 					}
 					rs.close();
 					pstmt.close();
-					if(count > 1) {
+					if (count > 1) {
 						result = null;
 					}
 				}

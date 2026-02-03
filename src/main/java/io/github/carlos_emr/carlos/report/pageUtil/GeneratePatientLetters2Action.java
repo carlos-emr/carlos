@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -105,7 +104,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             log.trace("Getting xml configuration stream ");
         }
         ManageLetters manageLetters = new ManageLetters();
-        JasperReport jasperReport = manageLetters.getReport(id);//osc.getJasperReport(ins);
+        JasperReport jasperReport = manageLetters.getReport(id); //osc.getJasperReport(ins);
 
         Hashtable letterData = manageLetters.getReportData(id);
 
@@ -186,7 +185,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         if (request.getParameter("addFollowUp") != null && request.getParameter("addFollowUp").equals("ON")) {
             //MARK IN MEASUREMENTS????
             MiscUtils.getLogger().debug("IN MARK MEASUREMENTS");
-            String followUpType = request.getParameter("followupType");//"FLUF";
+            String followUpType = request.getParameter("followupType"); //"FLUF";
             String followUpValue = request.getParameter("followupValue"); //"L1";
             String comment = request.getParameter("message");
             MiscUtils.getLogger().debug("Follow up type " + followUpType + " follow up value " + followUpValue);

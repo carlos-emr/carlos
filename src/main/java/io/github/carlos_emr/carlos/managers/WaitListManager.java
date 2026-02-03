@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -27,7 +26,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.Properties;
 
 import org.apache.logging.log4j.Logger;

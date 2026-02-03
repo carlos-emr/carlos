@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -325,17 +324,17 @@ public class LabPDFCreator extends PdfPageEventHelper {
 			
 		} else {
 		
-			if(isUnstructuredDoc){
-				if(handler.getMsgType().equals("CLS"))
+			if (isUnstructuredDoc){
+				if (handler.getMsgType().equals("CLS"))
 				{
 					mainTableWidths = new float[] { 5f, 10f, 3f, 2f};
 				} else
 				{
 					mainTableWidths = new float[] { 5f, 12f, 3f};
 				}
-			}else{
-				if(handler.getMsgType().equals("ExcellerisON")) {
-					mainTableWidths = new float[] {5f, 3f, 1f, 3f, 2f, 4f, 2f,2f };
+			}else {
+				if (handler.getMsgType().equals("ExcellerisON")) {
+					mainTableWidths = new float[] {5f, 3f, 1f, 3f, 2f, 4f, 2f, 2f };
 				} else {
 					mainTableWidths = new float[] {5f, 3f, 1f, 3f, 2f, 4f, 2f };
 				}
@@ -344,23 +343,23 @@ public class LabPDFCreator extends PdfPageEventHelper {
 			table = new PdfPTable(mainTableWidths);
 			table.setWidthPercentage(100);
 			
-			if(isUnstructuredDoc){
+			if (isUnstructuredDoc){
 				// The table will only render in the PDF if more than 1 row is added to the table
 				table.setHeaderRows(1);
 			}
-			else{
+			else {
 				// The table will only render in the PDF if more than 3 rows is added to the table
 				table.setHeaderRows(3);
 			}
 	
 			// category name
-			if(!isUnstructuredDoc){
+			if (!isUnstructuredDoc){
 				
 				// blank filler
 				cell.setPadding(3);
 				cell.setPhrase(new Phrase("  "));				
 				cell.setBorder(0);				
-				if(handler.getMsgType().equals("ExcellerisON")) {
+				if (handler.getMsgType().equals("ExcellerisON")) {
 					cell.setColspan(8);
 				} else { 
 					cell.setColspan(7);
@@ -378,7 +377,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 				// place holder after lab title
 				cell.setPhrase(new Phrase("  "));
 				cell.setBorder(0);
-				if(handler.getMsgType().equals("ExcellerisON")) {
+				if (handler.getMsgType().equals("ExcellerisON")) {
 					cell.setColspan(6);
 				} else {
 					cell.setColspan(5);
@@ -505,11 +504,11 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
 				for (int k = 0; k < obxCount; k++) {
 					
-					if(handler.getMsgType().equals("ExcellerisON")) {
+					if (handler.getMsgType().equals("ExcellerisON")) {
 						lastLicenseNo = currentLicenseNo;
-						currentLicenseNo = ((ExcellerisOntarioHandler)handler).getLabLicenseNo(j, k);
-						String licenseName = ((ExcellerisOntarioHandler)handler).getLabLicenseName(j, k);
-						if(!allLicenseNames.contains(licenseName)) {
+						currentLicenseNo = ((ExcellerisOntarioHandler) handler).getLabLicenseNo(j, k);
+						String licenseName = ((ExcellerisOntarioHandler) handler).getLabLicenseName(j, k);
+						if (!allLicenseNames.contains(licenseName)) {
 							allLicenseNames.add(licenseName);
 						}
 					}
@@ -525,9 +524,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
 					String obxName = handler.getOBXName(j, k);
 					
 					boolean isAllowedDuplicate = false;
-					if(handler.getMsgType().equals("PATHL7")){
+					if (handler.getMsgType().equals("PATHL7")){
 						//if the obxidentifier and result name are any of the following, they must be displayed (they are the Excepetion to Excelleris TX/FT duplicate result name display rules)
-						if((handler.getOBXName(j, k).equals("Culture") && handler.getOBXIdentifier(j, k).equals("6463-4")) || 
+						if ((handler.getOBXName(j, k).equals("Culture") && handler.getOBXIdentifier(j, k).equals("6463-4")) || 
 								(handler.getOBXName(j, k).equals("Organism") && (handler.getOBXIdentifier(j, k).equals("X433") || handler.getOBXIdentifier(j, k).equals("X30011")))){
 		   					isAllowedDuplicate = true;
 		   				}
@@ -536,8 +535,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
 						// ensure that the result is a real result
 						if ((!handler.getOBXResultStatus(j, k).equals("DNS") && !obxName.equals("") && header.equals(handler.getObservationHeader(j, k))) 
-								|| (handler.getMsgType().equals("EPSILON") && header.equals(handler.getOBXIdentifier(j,k)) && !obxName.equals("")) 
-								|| (handler.getMsgType().equals("PFHT") && !obxName.equals("") && header.equals(handler.getObservationHeader(j,k)))) { // <<-- DNS only needed for
+								|| (handler.getMsgType().equals("EPSILON") && header.equals(handler.getOBXIdentifier(j, k)) && !obxName.equals("")) 
+								|| (handler.getMsgType().equals("PFHT") && !obxName.equals("") && header.equals(handler.getObservationHeader(j, k)))) { // <<-- DNS only needed for
 													// MDS messages
 							String obrName = handler.getOBRName(j);
 							// add the obrname if necessary
@@ -549,7 +548,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 							}
 							if ( !obrFlag && !obrName.equals("") && showOBRTestName) {
 								cell.setPhrase(new Phrase(obrName, boldFont));
-								if(handler.getMsgType().equals("ExcellerisON")) {
+								if (handler.getMsgType().equals("ExcellerisON")) {
 									cell.setColspan(1);
 								} else {
 									cell.setColspan(7);
@@ -714,13 +713,13 @@ public class LabPDFCreator extends PdfPageEventHelper {
                                         if ((handler.getOBXResult(j, k).length() > 100) && (handler.getPatientLocation().equals("SG") || handler.getPatientLocation().equals("CDC"))) {
 
 											//if the Abn, Reference Range and Units are empty or equal to null, give the long result the use of those columns
-											if(( handler.getOBXAbnormalFlag(j, k) == null ||handler.getOBXAbnormalFlag(j, k).isEmpty()) &&
+											if (( handler.getOBXAbnormalFlag(j, k) == null ||handler.getOBXAbnormalFlag(j, k).isEmpty()) &&
 											( handler.getOBXReferenceRange(j, k) == null || handler.getOBXReferenceRange(j, k).isEmpty()) &&
 											(handler.getOBXUnits(j, k) == null || handler.getOBXUnits(j, k).isEmpty())){
 												isLongText = true;
 												cell.setColspan(4);
 												table.addCell(cell);
-											}else{
+											}else {
 												//else use the 6 remaining columns, and add a new empty cell that takes the first two columns(Test & Results). 
 												//This will allow the corresponding Abn, RR and Units to be printed beneath the long result in the appropriate columns
 												cell.setColspan(6);
@@ -729,8 +728,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
 												cell.setColspan(2);
 												table.addCell(cell);
 											}
-										}else{
-											if(isLongText) {
+										}else {
+											if (isLongText) {
 												cell.setColspan(4);
 											}
 											// cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
@@ -743,10 +742,10 @@ public class LabPDFCreator extends PdfPageEventHelper {
 									
 								} else { // end PATHHL7 labs
 									
-									if(isLongText) {
+									if (isLongText) {
 										cell.setColspan(4);
 									}
-									if(handler instanceof ExcellerisOntarioHandler &&  handler.getOBXValueType(j,k).equals("ED")) {
+									if (handler instanceof ExcellerisOntarioHandler &&  handler.getOBXValueType(j, k).equals("ED")) {
 										embeddedDocumentsToAppend.add(handler.getOBXResult(j, k));
 										cell.setPhrase(new Phrase("PDF Report (Appended to end of Laboratory Report)", lineFont));
 										table.addCell(cell);
@@ -913,7 +912,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 			if (!handler.getMsgType().equals("PFHT")) {
 				// add obr comments
 				if (handler.getObservationHeader(j, 0).equals(header)) {
-					if(handler.getMsgType().equals("ExcellerisON")) { 
+					if (handler.getMsgType().equals("ExcellerisON")) { 
 						cell.setColspan(8);
 					} else {
 						cell.setColspan(7);

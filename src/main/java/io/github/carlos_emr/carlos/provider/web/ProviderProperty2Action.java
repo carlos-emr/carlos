@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -48,7 +47,6 @@ import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import java.io.PrintWriter;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -704,7 +702,7 @@ public class ProviderProperty2Action extends ActionSupport {
             quantity = new UserProperty();
         }
 
-        //request.setAttribute("propert",propertyToSet);
+        //request.setAttribute("propert", propertyToSet);
         request.setAttribute("quantity", quantity);
         request.setAttribute("providertitle", "provider.setRxDefaultQuantity.title"); //=Set Rx Default Quantity
         request.setAttribute("providermsgPrefs", "provider.setRxDefaultQuantity.msgPrefs"); //=Preferences"); //
@@ -766,7 +764,7 @@ public class ProviderProperty2Action extends ActionSupport {
             prop2 = new UserProperty();
         }
 
-        //request.setAttribute("propert",propertyToSet);
+        //request.setAttribute("propert", propertyToSet);
         request.setAttribute("dateProperty", prop);
         request.setAttribute("dateProperty2", prop2);
 
@@ -1003,7 +1001,7 @@ public class ProviderProperty2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        UserProperty UdrugrefId = this.userPropertyDAO.getProp(providerNo,"dateProperty");
+        UserProperty UdrugrefId = this.userPropertyDAO.getProp(providerNo, "dateProperty");
 
         if (UdrugrefId == null)
             UdrugrefId = new UserProperty();
@@ -1607,7 +1605,7 @@ public class ProviderProperty2Action extends ActionSupport {
         ticklerAssignee.setChecked("yes".equalsIgnoreCase(ticklerAssignee.getValue()));
 
         ArrayList<LabelValueBean> providerList = new ArrayList<LabelValueBean>();
-        providerList.add(new LabelValueBean("Select", "")); //key , value
+        providerList.add(new LabelValueBean("Select", "")); //key, value
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
         List<Provider> ps = dao.getProviders();
@@ -1624,7 +1622,7 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providerSelect", providerList);
 
         ArrayList<LabelValueBean> priorityList = new ArrayList<LabelValueBean>();
-        priorityList.add(new LabelValueBean("Select", "")); //key , value
+        priorityList.add(new LabelValueBean("Select", "")); //key, value
         priorityList.add(new LabelValueBean("High", "High"));
         priorityList.add(new LabelValueBean("Normal", "Normal"));
         priorityList.add(new LabelValueBean("Low", "Low"));
@@ -2110,7 +2108,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
         String length = s != null ? s.getValue() : "";
 
-        UserProperty wProperty = this.userPropertyDAO.getProp(providerNo,"patientNameLength");
+        UserProperty wProperty = this.userPropertyDAO.getProp(providerNo, "patientNameLength");
         if (wProperty == null) {
             wProperty = new UserProperty();
             wProperty.setProviderNo(providerNo);

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -76,8 +75,8 @@ public class RxDrugData {
         public String[] common_adverse_effects; //: array of strings
         public String[] rare_adverse_effects;   //: array of strings
         public Vector dosage; //array of Dosage
-        public String drugForm;//drug form
-        public Vector route = new Vector();//route for taking drug
+        public String drugForm; //drug form
+        public Vector route = new Vector(); //route for taking drug
 
         public ArrayList<DrugComponent> drugComponentList = new ArrayList<DrugComponent>();
         public PregnancyUse pregnancyUse;
@@ -138,7 +137,7 @@ public class RxDrugData {
 
         class Indications {
             int code;         // : integer. Drugref condition code primary key
-            boolean firstline;// : boolean. True if for this indication this drug is considered a first line treatment.
+            boolean firstline; // : boolean. True if for this indication this drug is considered a first line treatment.
             String comment;   // : string
         }
 
@@ -163,17 +162,17 @@ public class RxDrugData {
         }
 
         class Dosage {
-            String text;//: string. If this key is available, only free text dosage information is available, as described in this string.
+            String text; //: string. If this key is available, only free text dosage information is available, as described in this string.
             int indication; // : integer. Drugref condition code primary key. 0 is wild card, indicating general dosage recommendation.
             String units;   //: string. SI unit for this dosage
-            int calculation_base_units;//: integer. 0=not applicable, 1=age in months, 2=age in years, 3=kg body weight, 4=cm2 body surface
+            int calculation_base_units; //: integer. 0=not applicable, 1=age in months, 2=age in years, 3=kg body weight, 4=cm2 body surface
             double calculation_base; // : real. Meaning depends on calculation_base_units
             double starting_range;  // : real. Usual mimimal recommended dosage
             double upper_range; // : real. Usual maximal recommended dosage
             int frequency_units; //: integer. 0=not applicable, 1=seconds, 2=minutes, 3=hours, 4=days, 5=weeks, 6=months, 7=years
             int frequency;       //: integer. How often this drug should be administered
             int duration_units; //: integer. Same as frequency_units, additional value 8='times'
-            int duration_minimum; // ; integer. How long a usual course of this drug should be given. -1 is permanent, -2=p.r.n.
+            int duration_minimum; //; integer. How long a usual course of this drug should be given. -1 is permanent, -2=p.r.n.
             int duration_maximum; // : integer. -1 is permanent, -2=p.r.n.
             boolean constrained;  //: boolean. If true, no automazied dosage suggestion must be generated, prescriber must read comment. (e.g. dosage per body surface etc.)
             String comment;
@@ -455,16 +454,16 @@ public class RxDrugData {
         }
 
         public Tag(Hashtable h) {
-            source = getInt(h.get("source"));//,new Integer(0));
-            sources = getInt(h.get("sources"));//,new Integer(sources));
-            language = (String) h.get("language");//, "");
-            languages = getInt(h.get("languages"));//, new Integer(languages));
-            country = (String) h.get("country");//,"");
-            countries = getInt(h.get("countries"));//;,new Integer(countries));
-            author = getInt(h.get("author"));//, new Integer(0));
-            authors = getInt(h.get("authors"));//, new Integer(authors));
-            modified_after = (String) h.get("modified_after");//, new SimpleDateFormat("yyyy-MM-dd").parse(modified_after));
-            //return_tags      =h.get("return_tags");//,Boolean.toString(return_tags));
+            source = getInt(h.get("source")); //, new Integer(0));
+            sources = getInt(h.get("sources")); //, new Integer(sources));
+            language = (String) h.get("language"); //, "");
+            languages = getInt(h.get("languages")); //, new Integer(languages));
+            country = (String) h.get("country"); //,"");
+            countries = getInt(h.get("countries")); //;, new Integer(countries));
+            author = getInt(h.get("author")); //, new Integer(0));
+            authors = getInt(h.get("authors")); //, new Integer(authors));
+            modified_after = (String) h.get("modified_after"); //, new SimpleDateFormat("yyyy-MM-dd").parse(modified_after));
+            //return_tags      =h.get("return_tags"); //, Boolean.toString(return_tags));
 
         }
 
@@ -534,7 +533,7 @@ public class RxDrugData {
         DrugSearch drugSearch = new DrugSearch();
         RxDrugRef drugRef = new RxDrugRef();
         Vector vec = new Vector();
-        //Vector vec = drugRef.list_drugs(searchStr,hashtable);
+        //Vector vec = drugRef.list_drugs(searchStr, hashtable);
         try {
             vec = drugRef.list_drug_element(searchStr);
         } catch (Exception connEx) {
@@ -558,7 +557,7 @@ public class RxDrugData {
         DrugSearch drugSearch = new DrugSearch();
         RxDrugRef drugRef = new RxDrugRef();
         Vector vec = new Vector();
-        //Vector vec = drugRef.list_drugs(searchStr,hashtable);
+        //Vector vec = drugRef.list_drugs(searchStr, hashtable);
         try {
             vec = drugRef.list_drug_element2(searchStr);
         } catch (Exception connEx) {
@@ -582,7 +581,7 @@ public class RxDrugData {
         DrugSearch drugSearch = new DrugSearch();
         RxDrugRef drugRef = new RxDrugRef();
         Vector vec = new Vector();
-        //Vector vec = drugRef.list_drugs(searchStr,hashtable);
+        //Vector vec = drugRef.list_drugs(searchStr, hashtable);
         try {
             vec = drugRef.list_drug_element_route(searchStr, searchRoute);
         } catch (Exception connEx) {
@@ -639,7 +638,7 @@ public class RxDrugData {
      */
     public DrugMonograph getDrug2(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
-		return new DrugMonograph(d.getDrug2(pKey,Boolean.TRUE));
+		return new DrugMonograph(d.getDrug2(pKey, Boolean.TRUE));
     }
 
     /**

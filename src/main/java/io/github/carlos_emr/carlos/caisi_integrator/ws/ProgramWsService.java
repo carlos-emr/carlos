@@ -105,7 +105,7 @@ public class ProgramWsService extends Service
      */
     @WebEndpoint(name = "ProgramWsPort")
     public ProgramWs getProgramWsPort() {
-        return (ProgramWs)super.getPort(ProgramWsService.ProgramWsPort, (Class)ProgramWs.class);
+        return (ProgramWs) super.getPort(ProgramWsService.ProgramWsPort, (Class) ProgramWs.class);
     }
 
     /**
@@ -120,7 +120,7 @@ public class ProgramWsService extends Service
      */
     @WebEndpoint(name = "ProgramWsPort")
     public ProgramWs getProgramWsPort(final WebServiceFeature... array) {
-        return (ProgramWs)super.getPort(ProgramWsService.ProgramWsPort, (Class)ProgramWs.class, array);
+        return (ProgramWs) super.getPort(ProgramWsService.ProgramWsPort, (Class) ProgramWs.class, array);
     }
     
     static {

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2021 WELL EMR Group Inc. This software is made available under the terms of the GNU
  * General Public License, Version 2, 1991 (GPLv2). License details are available via

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -43,7 +42,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.prevention.Prevention;
 import io.github.carlos_emr.carlos.prevention.PreventionDS;

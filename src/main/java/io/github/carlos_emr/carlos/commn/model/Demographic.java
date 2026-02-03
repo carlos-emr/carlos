@@ -53,14 +53,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final String ANONYMOUS = "ANONYMOUS";
     public static final String UNIQUE_ANONYMOUS = "UNIQUE_ANONYMOUS";
 
-    private final static Pattern FD_LAST_NAME = Pattern.compile(".*<([fr])d>([^,]*),.*</([fr])d>.*");
-    private final static Pattern FD_FIRST_NAME = Pattern.compile(".*<([fr])d>[^,]*,(.*)</([fr])d>.*");
+    private final static Pattern FD_LAST_NAME = Pattern.compile(".*<([fr])d>([^, ]*), .*</([fr])d>.*");
+    private final static Pattern FD_FIRST_NAME = Pattern.compile(".*<([fr])d>[^, ]*, (.*)</([fr])d>.*");
     private final static Pattern FD_FULL_NAME = Pattern.compile(".*<([fr])d>(.*)</([fr])d>.*");
     private final static Pattern FD_OHIP = Pattern.compile("<([fr])dohip>(.*)</[fr]dohip>.*");
 
 
-    private int hashCode = Integer.MIN_VALUE;// primary key
-    private Integer demographicNo;// fields
+    private int hashCode = Integer.MIN_VALUE; // primary key
+    private Integer demographicNo; // fields
     private String phone;
     private String patientStatus;
     private Date patientStatusDate;

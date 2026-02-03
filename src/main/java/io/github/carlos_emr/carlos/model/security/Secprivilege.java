@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005, 2009 IBM Corporation and others.
  * This software is published under the GPL GNU General Public License.

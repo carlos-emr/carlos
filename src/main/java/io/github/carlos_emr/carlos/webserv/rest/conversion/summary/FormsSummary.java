@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -42,7 +41,7 @@ public class FormsSummary implements Summary {
     //private static Logger logger = MiscUtils.getLogger();
 
     @Autowired
-    private FormsManager formsManager;// = SpringUtils.getBean(FormsManager.class);
+    private FormsManager formsManager; // = SpringUtils.getBean(FormsManager.class);
 
     public SummaryTo1 getSummary(LoggedInInfo loggedInInfo, Integer demographicNo, String summaryCode) {
 

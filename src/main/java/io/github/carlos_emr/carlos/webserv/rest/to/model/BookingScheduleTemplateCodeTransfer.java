@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -115,7 +114,7 @@ public class BookingScheduleTemplateCodeTransfer {
     public static BookingScheduleTemplateCodeTransfer getFromTransfer(BookingScheduleTemplateCodeTransfer appointmentCodeTransfer, SearchConfig clinic) {
         BookingScheduleTemplateCodeTransfer retval = new BookingScheduleTemplateCodeTransfer();
 
-        retval.code = (char) appointmentCodeTransfer.getCode();//.intValue();
+        retval.code = (char) appointmentCodeTransfer.getCode(); //.intValue();
         retval.description = appointmentCodeTransfer.getDescription();
         retval.duration = appointmentCodeTransfer.getDuration();
         retval.color = appointmentCodeTransfer.getColor();

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -27,8 +26,6 @@
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import java.util.Date;
-import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 

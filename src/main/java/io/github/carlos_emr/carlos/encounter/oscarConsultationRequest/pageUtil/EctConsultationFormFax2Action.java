@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2008-2012 Indivica Inc.
  * <p>
@@ -92,7 +91,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 		String consultResponsePage = request.getParameter("consultResponsePage");
 		boolean doCoverPage = this.isCoverpage();
 		String note = "";
-		if( doCoverPage ) {
+		if ( doCoverPage ) {
 			note = request.getParameter("note") == null ? "" : request.getParameter("note");
 			// dont ask!
 			if (note.isEmpty()) {
@@ -266,7 +265,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         this.from = from;
     }
     public String getRecipientFaxNumber() {
-        if(recipientFaxNumber != null) {
+        if (recipientFaxNumber != null) {
             recipientFaxNumber = recipientFaxNumber.trim().replaceAll("\\D", "");
         }
         return recipientFaxNumber;
@@ -320,7 +319,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         this.demographicNo = demographicNo;
     }
     public String[] getFaxRecipients() {
-        if(faxRecipients ==  null) {
+        if (faxRecipients ==  null) {
             return new String[]{};
         }
         return faxRecipients;
@@ -335,9 +334,9 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         this.coverpage = coverpage;
     }
     public Set<FaxRecipient> getAllFaxRecipients() {
-        if(allFaxRecipients == null) {
+        if (allFaxRecipients == null) {
             allFaxRecipients = new HashSet<FaxRecipient>();
-            allFaxRecipients.add( new FaxRecipient( getRecipient() , getRecipientFaxNumber() ) );
+            allFaxRecipients.add( new FaxRecipient( getRecipient(), getRecipientFaxNumber() ) );
             allFaxRecipients.addAll(getCopiedTo());
         }
 

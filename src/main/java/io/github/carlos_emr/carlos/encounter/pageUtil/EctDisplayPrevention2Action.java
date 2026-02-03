@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -51,7 +50,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             //set lefthand module heading and link
             String winName = "prevention" + bean.demographicNo;
             int demographicNumber = Integer.valueOf(bean.demographicNo);
-            String url = "popupPage(700,960,'" + winName + "', '" + request.getContextPath() + "/oscarPrevention/index.jsp?demographic_no=" + bean.demographicNo + "')";
+            String url = "popupPage(700, 960,'" + winName + "', '" + request.getContextPath() + "/oscarPrevention/index.jsp?demographic_no=" + bean.demographicNo + "')";
             Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Prevent"));
             Dao.setLeftURL(url);
 
@@ -62,7 +61,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
             //list warnings first as module items
             Prevention p = PreventionData.getPrevention(loggedInInfo, Integer.valueOf(bean.demographicNo));
-            PreventionDS pf = SpringUtils.getBean(PreventionDS.class);//PreventionDS.getInstance();
+            PreventionDS pf = SpringUtils.getBean(PreventionDS.class); //PreventionDS.getInstance();
 
             try {
                 pf.getMessages(p);

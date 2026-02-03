@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.email.admin;
 
 import io.github.carlos_emr.carlos.managers.*;

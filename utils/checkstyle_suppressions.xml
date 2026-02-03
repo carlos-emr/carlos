@@ -7,4 +7,21 @@
 <suppressions>
     <!-- Supresses all files in the resource folder -->
     <suppress files="[\\/]src[\\/]main[\\/]resources[\\/]*" checks="[a-zA-Z0-9]*"/>
+
+    <!-- Auto-generated code: JAXB/XSD generated classes -->
+    <suppress files="[\\/]ar2005[\\/]" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]caisi_integrator[\\/]dao[\\/]" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]hospitalReportManager[\\/]xsd[\\/]" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]ca[\\/]ontario[\\/]health[\\/]edt[\\/]" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]ca[\\/]ontario[\\/]health[\\/]ebs[\\/]" checks="[a-zA-Z0-9]*"/>
+
+    <!-- Complex generated/parsing code -->
+    <suppress files="[\\/]flowsheets[\\/]impl[\\/]" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]flowsheets[\\/]FlowsheetDocument.java" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]lab[\\/]ca[\\/]all[\\/]parsers[\\/]" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]ckd[\\/]" checks="[a-zA-Z0-9]*"/>
+
+    <!-- JAXB generated ObjectFactory files -->
+    <suppress files="ObjectFactory.java" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[\\/]ca[\\/]ontario[\\/]health[\\/]hcv[\\/]" checks="[a-zA-Z0-9]*"/>
 </suppressions>

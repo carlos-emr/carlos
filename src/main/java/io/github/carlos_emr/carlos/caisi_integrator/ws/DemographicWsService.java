@@ -150,7 +150,7 @@ public class DemographicWsService extends Service
      */
     @WebEndpoint(name = "DemographicWsPort")
     public DemographicWs getDemographicWsPort() {
-        return (DemographicWs)super.getPort(DemographicWsService.DemographicWsPort, (Class)DemographicWs.class);
+        return (DemographicWs) super.getPort(DemographicWsService.DemographicWsPort, (Class) DemographicWs.class);
     }
 
     /**
@@ -173,7 +173,7 @@ public class DemographicWsService extends Service
      */
     @WebEndpoint(name = "DemographicWsPort")
     public DemographicWs getDemographicWsPort(final WebServiceFeature... array) {
-        return (DemographicWs)super.getPort(DemographicWsService.DemographicWsPort, (Class)DemographicWs.class, array);
+        return (DemographicWs) super.getPort(DemographicWsService.DemographicWsPort, (Class) DemographicWs.class, array);
     }
     
     static {

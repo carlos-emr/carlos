@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -29,7 +28,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.nio.file.Path;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
@@ -565,14 +563,14 @@ public class ManageTeleplan2Action extends ActionSupport {
                 sb.append(line);
                 sb.append("<br>");
             }
-            request.setAttribute("Msgs", sb.toString());//tr.getMsgs());
+            request.setAttribute("Msgs", sb.toString()); //tr.getMsgs());
 
         } else {
             request.setAttribute("Msgs", tr.getMsgs());
 
         }
 
-        //request.setAttribute("message",tr.toString());
+        //request.setAttribute("message", tr.toString());
         return "checkElig";
     }
 

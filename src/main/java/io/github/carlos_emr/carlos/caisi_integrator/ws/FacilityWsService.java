@@ -167,7 +167,7 @@ public class FacilityWsService extends Service
      */
     @WebEndpoint(name = "FacilityWsPort")
     public FacilityWs getFacilityWsPort() {
-        return (FacilityWs)super.getPort(FacilityWsService.FacilityWsPort, (Class)FacilityWs.class);
+        return (FacilityWs) super.getPort(FacilityWsService.FacilityWsPort, (Class) FacilityWs.class);
     }
 
     /**
@@ -188,7 +188,7 @@ public class FacilityWsService extends Service
      */
     @WebEndpoint(name = "FacilityWsPort")
     public FacilityWs getFacilityWsPort(final WebServiceFeature... array) {
-        return (FacilityWs)super.getPort(FacilityWsService.FacilityWsPort, (Class)FacilityWs.class, array);
+        return (FacilityWs) super.getPort(FacilityWsService.FacilityWsPort, (Class) FacilityWs.class, array);
     }
     
     static {

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -110,7 +109,7 @@ public class LabsDocsSummary implements Summary {
                 url = "../lab/CA/BC/labDisplay.jsp?segmentID=" + result.segmentID + "&providerNo=" + loggedInInfo.getLoggedInProvider().getProviderNo();
             }
 
-            SummaryItemTo1 summaryItem = new SummaryItemTo1(Integer.parseInt(result.segmentID), labDisplayName, "action", "lab");//+result.labType);
+            SummaryItemTo1 summaryItem = new SummaryItemTo1(Integer.parseInt(result.segmentID), labDisplayName, "action", "lab"); //+result.labType);
             summaryItem.setDate(date);
             summaryItem.setAction(url);
             if (result.isAbnormal()) {
@@ -169,9 +168,9 @@ public class LabsDocsSummary implements Summary {
 
 
             if (curDoc.getRemoteFacilityId() == null && curDoc.isPDF()) {
-                url = "../documentManager/MultiPageDocDisplay.jsp?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName=";//'); return false;";
+                url = "../documentManager/MultiPageDocDisplay.jsp?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName="; //'); return false;";
             } else {
-                url = "";// "../documentManager/ManageDocument.do?method=display&doc_no=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + (curDoc.getRemoteFacilityId()!=null?"&remoteFacilityId="+curDoc.getRemoteFacilityId();
+                url = ""; // "../documentManager/ManageDocument.do?method=display&doc_no=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + (curDoc.getRemoteFacilityId()!=null?"&remoteFacilityId="+curDoc.getRemoteFacilityId();
             }
             summaryItem.setAction(url);
             if (summaryItem.getDisplayName().trim().equals("")) {

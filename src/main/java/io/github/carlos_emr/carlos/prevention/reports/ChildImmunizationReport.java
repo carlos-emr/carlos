@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -303,7 +302,7 @@ public class ChildImmunizationReport implements PreventionReport {
     //Was is L2
     //P1
 
-    //Measurement Type will be 1 per Prevention report, with the dataField holding method ie L1, L2, P1 (letter 1 , letter 2, phone call 1)
+    //Measurement Type will be 1 per Prevention report, with the dataField holding method ie L1, L2, P1 (letter 1, letter 2, phone call 1)
     String LETTER1 = "L1";
     String LETTER2 = "L2";
     String PHONE1 = "P1";
@@ -419,7 +418,7 @@ public class ChildImmunizationReport implements PreventionReport {
                 }
 
                 prd.nextSuggestedProcedure = "----";
-                //prd.numMonths ;
+                //prd.numMonths;
             } else if (prd.state.equals("Ineligible")) {
                 // Do nothing
                 prd.nextSuggestedProcedure = "----";

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.eform;
 
 
@@ -69,7 +68,7 @@ public class EformLogError2Action extends ActionSupport {
          * silent update to the eform error log.
          */
 
-         if(formId != null && !formId.isEmpty() && StringUtil.isNumeric(formId)) {
+         if (formId != null && !formId.isEmpty() && StringUtil.isNumeric(formId)) {
 		String sanitizedError = StringEscapeUtils.escapeHtml4(error);
 		EFormUtil.logError(Integer.parseInt(formId), sanitizedError);
 	 }

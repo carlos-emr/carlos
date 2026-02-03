@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -476,7 +475,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
-        String sql = "select special ,special_instruction from drugs where " + parameter + " = '" + value
+        String sql = "select special,special_instruction from drugs where " + parameter + " = '" + value
                 + "' order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);
         return query.getResultList();

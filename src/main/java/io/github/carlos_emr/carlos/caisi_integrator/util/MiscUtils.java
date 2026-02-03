@@ -1,9 +1,7 @@
 package io.github.carlos_emr.carlos.caisi_integrator.util;
 
-import java.io.InputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
@@ -37,7 +35,7 @@ public class MiscUtils
                 }
             }
             final String resolvedLocation = configLocation.replace("${contextName}", contextPath);
-            getLogger().info((Object)("loading additional override logging configuration from : " + resolvedLocation));
+            getLogger().info((Object) ("loading additional override logging configuration from : " + resolvedLocation));
             DOMConfigurator.configureAndWatch(resolvedLocation);
         }
     }

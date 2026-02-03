@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -28,12 +27,9 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.io.UnsupportedEncodingException;
 
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.text.SimpleDateFormat;
 
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo;

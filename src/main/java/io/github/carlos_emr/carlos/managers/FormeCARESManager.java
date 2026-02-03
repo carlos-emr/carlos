@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -598,7 +597,7 @@ public class FormeCARESManager {
                 if (!contains(preventionType, Constants.Cares.Prevention.values())) {
                     continue;
                 }
-                ;
+               ;
 
                 if (prevention.isComplete()) {
                     switch (Constants.Cares.Prevention.valueOf(preventionType)) {

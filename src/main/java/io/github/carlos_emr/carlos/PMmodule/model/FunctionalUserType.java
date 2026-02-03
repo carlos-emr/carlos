@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -30,8 +29,8 @@ import java.io.Serializable;
  */
 public class FunctionalUserType implements Serializable {
 
-    private int hashCode = Integer.MIN_VALUE;// primary key
-    private Long _id;// fields
+    private int hashCode = Integer.MIN_VALUE; // primary key
+    private Long _id; // fields
     private String _name;
 
     // constructors

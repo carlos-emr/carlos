@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -28,7 +27,6 @@ import org.apache.http.client.utils.URIBuilder;
 import io.github.carlos_emr.OscarProperties;
 
 import java.net.URISyntaxException;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 

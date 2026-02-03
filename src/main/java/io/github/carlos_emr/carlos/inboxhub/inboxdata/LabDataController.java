@@ -194,10 +194,10 @@ public class LabDataController {
                     url.append("&showLatest=true");
                 }
             }
-            else if(labResult.isDocument()) {
+            else if (labResult.isDocument()) {
                 url.append("/documentManager/showDocument.jsp?inWindow=true");
             }
-            else if(labResult.isHRM()) {
+            else if (labResult.isHRM()) {
                 url.append("/hospitalReportManager/Display.do?");
                 StringBuilder duplicateLabIds=new StringBuilder();
                 for (Integer duplicateLabId : labResult.getDuplicateLabIds())
@@ -333,10 +333,10 @@ public class LabDataController {
         mixLabsAndDocs = query.getDoc() && query.getLab();
         if (query.getDoc() || all) {
             labDocs.addAll(inboxResultsDao.populateDocumentResultsData(query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
-                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, pageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate , endDate));
+                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, pageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate));
         }
         if (query.getLab() || all) {
-            List<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo,query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
+            List<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
                                                 query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, labPageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate);
             labDocs.addAll(filterOldLabVersions(labs));
         }

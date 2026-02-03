@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -24,12 +23,7 @@
  */
 package io.github.carlos_emr.carlos.fax.admin;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -37,7 +31,6 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -68,7 +61,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.form.JSONUtil;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 
 public class ManageFaxes2Action extends Fax2Action {

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -89,7 +88,7 @@ public class CriteriaDaoImpl extends AbstractDaoImpl<Criteria> implements Criter
 
     public List<Criteria> getRefinedCriteriasByVacancyId(Integer vacancyId) {
         Query q = entityManager.createQuery("select c from Criteria c where c.canBeAdhoc!=?1 and c.vacancyId=?2");
-        q.setParameter(1, 0);//canBeAdhoc=0 means don't appear in vacancy.
+        q.setParameter(1, 0); //canBeAdhoc=0 means don't appear in vacancy.
         q.setParameter(2, vacancyId);
 
         @SuppressWarnings("unchecked")

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import org.apache.xml.security.signature.XMLSignatureInput;

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Improved version of EctProgram that defaults to OSCAR program ID
  * instead of always returning "0"

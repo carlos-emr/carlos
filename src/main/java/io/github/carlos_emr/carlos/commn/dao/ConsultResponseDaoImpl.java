@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -36,7 +35,6 @@ import javax.persistence.Query;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
-import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
@@ -77,8 +75,8 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
 
     private String getSearchQuery(ConsultationResponseSearchFilter filter, boolean selectCountOnly) {
         StringBuilder sql = new StringBuilder(
-                "select " + (selectCountOnly ? "count(*)" : "cr,sp,d,p") +
-                        " from ConsultationResponse cr , ProfessionalSpecialist sp, Demographic d left outer join d.provider p" +
+                "select " + (selectCountOnly ? "count(*)" : "cr, sp, d, p") +
+                        " from ConsultationResponse cr, ProfessionalSpecialist sp, Demographic d left outer join d.provider p" +
                         " where sp.id = cr.referringDocId and d.DemographicNo = cr.demographicNo ");
 
         if (filter.getAppointmentStartDate() != null) {
@@ -134,13 +132,13 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
             query.setParameter("appointmentEndDate", setCalender(filter.getAppointmentEndDate()).getTime());
         }
         if (filter.getReferralStartDate() != null) {
-            query.setParameter("referralStartDate",filter.getReferralStartDate());
+            query.setParameter("referralStartDate", filter.getReferralStartDate());
         }
         if (filter.getReferralEndDate() != null) {
             query.setParameter("referralEndDate", setCalender(filter.getReferralEndDate()).getTime());
         }
         if (filter.getResponseStartDate() != null) {
-            query.setParameter("responseStartDate",filter.getResponseStartDate());
+            query.setParameter("responseStartDate", filter.getResponseStartDate());
         }
         if (filter.getResponseEndDate() != null) {
             query.setParameter("responseEndDate", setCalender(filter.getResponseEndDate()).getTime());
@@ -189,17 +187,17 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         
         switch (filter.getSortMode()) {
             case AppointmentDate:
-                return "cr.appointmentDate " + orderDir + ",cr.appointmentTime " + orderDir;
+                return "cr.appointmentDate " + orderDir + ", cr.appointmentTime " + orderDir;
             case Demographic:
-                return "d.LastName " + orderDir + ",d.FirstName " + orderDir;
+                return "d.LastName " + orderDir + ", d.FirstName " + orderDir;
             case ReferringDoctor:
-                return "sp.lastName " + orderDir + ",sp.firstName " + orderDir;
+                return "sp.lastName " + orderDir + ", sp.firstName " + orderDir;
             case Team:
                 return "cr.sendTo " + orderDir;
             case Status:
                 return "cr.status " + orderDir;
             case Provider:
-                return "p.LastName " + orderDir + ",p.FirstName " + orderDir;
+                return "p.LastName " + orderDir + ", p.FirstName " + orderDir;
             case FollowUpDate:
                 return "cr.followUpDate " + orderDir;
             case ReferralDate:

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
 import io.github.carlos_emr.carlos.commn.model.Measurement;

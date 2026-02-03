@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -57,7 +56,7 @@ public class TargetColour {
 
 
     public String toString() {
-        return "indicationColor " + getIndicationColor();//+" strength "+strength+" text "+text+" ruleName "+ruleName+" measurement "+measurement;
+        return "indicationColor " + getIndicationColor(); //+" strength "+strength+" text "+text+" ruleName "+ruleName+" measurement "+measurement;
     }
 
     public TargetColour() {
@@ -74,7 +73,7 @@ public class TargetColour {
     }
 
 
-    public Element getRuleBaseElement(String ruleName) {//,String measurement){
+    public Element getRuleBaseElement(String ruleName) {//, String measurement){
 
         ArrayList<DSCondition> list = new ArrayList<DSCondition>();
 
@@ -110,7 +109,7 @@ public class TargetColour {
             e.setAttribute("indicationColor", getIndicationColor());
         }
         for (TargetCondition cond : getTargetConditions()) {
-            e.addContent(cond.getFlowsheetXML());//a cond.getFlowsheetXML();
+            e.addContent(cond.getFlowsheetXML()); //a cond.getFlowsheetXML();
         }
         return e;
     }

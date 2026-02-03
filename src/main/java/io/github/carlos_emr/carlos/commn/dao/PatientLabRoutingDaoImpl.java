@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -317,7 +316,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
 
     @Override
     public List<Object[]> findRoutingAndPhysicianInfoByTypeAndDemoNo(String labType, Integer demographicNo) {
-        String sql = "FROM PatientLabRouting p , LabPatientPhysicianInfo l " +
+        String sql = "FROM PatientLabRouting p, LabPatientPhysicianInfo l " +
                 "WHERE p.labType = ?1 " +
                 "AND p.labNo = l.id " +
                 "AND p.demographicNo = ?2";

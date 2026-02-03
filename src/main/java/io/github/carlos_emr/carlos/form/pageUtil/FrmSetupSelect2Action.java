@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -71,7 +70,7 @@ public class FrmSetupSelect2Action extends ActionSupport {
                 if (caisiProperty != null && (caisiProperty.equalsIgnoreCase("yes")
                         || caisiProperty.equalsIgnoreCase("true")
                         || caisiProperty.equalsIgnoreCase("on"))) {
-                    ; // form in
+                   ; // form in
                 } else {
                     continue; //form out
                 }

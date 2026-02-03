@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -81,7 +80,7 @@ public class InboxManagerImpl implements InboxManager {
         String scannedDocStatus = query.getScannedDocStatus();
         Integer page = 0;
         page = query.getPage();
-        //why it does this , I have no idea.
+        //why it does this, I have no idea.
         if (page > 0) {
             page--;
         }
@@ -182,7 +181,7 @@ public class InboxManagerImpl implements InboxManager {
                     else if (queueIdInt != Queue.DEFAULT_QUEUE_ID && documentResultsDao.isSentToValidProvider(docid)) {
                         Vector<Object> vec = OscarRoleObjectPrivilege.getPrivilegeProp("_queue." + queueid);
                         if (OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) vec.get(0), (Vector) vec.get(1)) || documentResultsDao.isSentToProvider(docid, searchProviderNo)) {
-                            // labs is in providers's queue,do nothing
+                            // labs is in providers's queue, do nothing
                             if (isSegmentIDUnique(validlabdocs, data)) {
                                 validlabdocs.add(data);
                             }
@@ -192,7 +191,7 @@ public class InboxManagerImpl implements InboxManager {
                     else if (!queueid.equals(Queue.DEFAULT_QUEUE_ID) && !documentResultsDao.isSentToValidProvider(docid)) {
                         Vector<Object> vec = OscarRoleObjectPrivilege.getPrivilegeProp("_queue." + queueid);
                         if (OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) vec.get(0), (Vector) vec.get(1))) {
-                            // labs is in providers's queue,do nothing
+                            // labs is in providers's queue, do nothing
                             if (isSegmentIDUnique(validlabdocs, data)) {
                                 validlabdocs.add(data);
                             }
@@ -365,7 +364,7 @@ public class InboxManagerImpl implements InboxManager {
             if (valType.equalsIgnoreCase("DOC")) {
                 if (typeDocLab.containsKey("DOC")) {
                     List<String> docids = typeDocLab.get("DOC");
-                    docids.add(keyDocLabId);// add doc id to list
+                    docids.add(keyDocLabId); // add doc id to list
                     typeDocLab.put("DOC", docids);
                 } else {
                     List<String> docids = new ArrayList<String>();

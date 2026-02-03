@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -170,7 +169,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         request.setAttribute("ackStatus", ackStatus);
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         Demographic demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
-        String demoName = "Not,Assigned";
+        String demoName = "Not, Assigned";
         if (demographic != null) demoName = demographic.getFirstName() + "," + demographic.getLastName();
         request.setAttribute("demoName", demoName);
         return "doclabPreview";
@@ -537,7 +536,7 @@ public class DmsInboxManage2Action extends ActionSupport {
             if (valType.equalsIgnoreCase("DOC")) {
                 if (typeDocLab.containsKey("DOC")) {
                     List<String> docids = typeDocLab.get("DOC");
-                    docids.add(keyDocLabId);// add doc id to list
+                    docids.add(keyDocLabId); // add doc id to list
                     typeDocLab.put("DOC", docids);
                 } else {
                     List<String> docids = new ArrayList<String>();
@@ -748,7 +747,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
         Demographic demo = new Demographic();
         List<Integer> docsWithPatient = new ArrayList<Integer>();
-        HashMap<Integer, String> patientIdNames = new HashMap<Integer, String>();// lbData.patientName = demo.getLastName()+ ", "+demo.getFirstName();
+        HashMap<Integer, String> patientIdNames = new HashMap<Integer, String>(); // lbData.patientName = demo.getLastName()+ ", "+demo.getFirstName();
         List<Integer> patientIds = new ArrayList<Integer>();
         Integer demoNo;
         HashMap<Integer, String> docStatus = new HashMap<Integer, String>();
@@ -759,7 +758,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         for (QueueDocumentLink q : qs) {
             int qid = q.getQueueId();
             List<Object> vec = OscarRoleObjectPrivilege.getPrivilegeProp("_queue." + qid);
-            // if queue is not default and providers doesn't have access to it,continue
+            // if queue is not default and providers doesn't have access to it, continue
             if (qid != Queue.DEFAULT_QUEUE_ID && !OscarRoleObjectPrivilege.checkPrivilege(roleName.toString(), (Properties) vec.get(0), (List) vec.get(1))) {
                 continue;
             }
@@ -814,7 +813,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         patientIdStr = patientIdBud.toString();
         typeDocLab.put("DOC", ListDocIds);
-        List<Integer> normals = ListDocIds;// assume all documents are normal
+        List<Integer> normals = ListDocIds; // assume all documents are normal
         List<Integer> abnormals = new ArrayList<Integer>();
         request.setAttribute("typeDocLab", typeDocLab);
         request.setAttribute("docStatus", docStatus);

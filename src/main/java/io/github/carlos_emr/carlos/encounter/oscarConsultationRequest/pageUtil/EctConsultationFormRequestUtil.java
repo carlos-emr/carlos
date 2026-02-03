@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -292,7 +291,7 @@ public class EctConsultationFormRequestUtil {
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
-			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id),"letterheadTitle");
+			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), "letterheadTitle");
 			letterheadAddress = cr.getLetterheadAddress();
 			letterheadPhone = cr.getLetterheadPhone();
 			letterheadFax = cr.getLetterheadFax();
@@ -346,7 +345,7 @@ public class EctConsultationFormRequestUtil {
                 }
             }
 
-			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id),ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
         }
 
         getFaxLogs(id);

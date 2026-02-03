@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2008-2012 Indivica Inc.
  * <p>
@@ -9,7 +8,6 @@
  */
 package io.github.carlos_emr.carlos.olis;
 
-import java.util.TimerTask;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -60,7 +58,7 @@ public class OLISPreferences2Action extends ActionSupport {
         Integer pollFrequency = Misc.getInt(request.getParameter("pollFrequency"), 30);
         String filterPatients = request.getParameter("filter_patients");
         OLISSystemPreferencesDao olisPrefDao = (OLISSystemPreferencesDao) SpringUtils.getBean(OLISSystemPreferencesDao.class);
-        ;
+       ;
         OLISSystemPreferences olisPrefs = olisPrefDao.getPreferences();
 
         try {

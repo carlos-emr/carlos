@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -43,7 +42,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
 public class EcaresForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -52,7 +50,6 @@ public class EcaresForm2Action extends ActionSupport {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final FormeCARESManager formeCARESManager = SpringUtils.getBean(FormeCARESManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    ;
 
     public String execute() {
         String method = request.getParameter("method");

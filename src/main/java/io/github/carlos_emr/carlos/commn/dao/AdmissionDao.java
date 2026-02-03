@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -27,11 +26,8 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.ListIterator;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.model.AdmissionSearchBean;

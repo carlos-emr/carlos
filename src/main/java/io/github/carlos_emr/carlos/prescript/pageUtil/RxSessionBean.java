@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -52,7 +51,7 @@ public class RxSessionBean implements java.io.Serializable {
     private Hashtable missingAllergyWarnings = new Hashtable();
     private Hashtable workingAllergyWarnings = new Hashtable();
     private ArrayList attributeNames = new ArrayList();
-    private String interactingDrugList = "";//contains hash tables, each hashtable has the a
+    private String interactingDrugList = ""; //contains hash tables, each hashtable has the a
     private CopyOnWriteArrayList reRxDrugIdList = new CopyOnWriteArrayList<>();
     private HashMap randomIdDrugIdPair = new HashMap();
     private List<HashMap<String, String>> listMedHistory = new ArrayList();

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -90,7 +89,7 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
      * roleName=providerNo.
      * find the privileges using the roles list.
      * <p>
-     * Loop through all the rights, if we find one that can evaluate to true , we
+     * Loop through all the rights, if we find one that can evaluate to true, we
      * exit..else we keep checking
      * <p>
      * if r then an entry with r | u |w | x is required

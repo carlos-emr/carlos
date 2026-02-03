@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -333,7 +332,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
     @Override
     public List<VacancyDisplayBO> listNoOfVacanciesForWaitListProgram() {
         final List<VacancyDisplayBO> bos = new ArrayList<VacancyDisplayBO>();
-        String queryStr = "SELECT p.id , COUNT(*) vacncyCnt,v.vacancyName,v.dateCreated,v.id FROM vacancy v JOIN program p ON "
+        String queryStr = "SELECT p.id, COUNT(*) vacncyCnt,v.vacancyName,v.dateCreated,v.id FROM vacancy v JOIN program p ON "
                 + "v.wlProgramId=p.id where v.status=?1 GROUP by v.wlProgramId";
         Query query = entityManager.createNativeQuery(queryStr);
         query.setParameter(1, "active");

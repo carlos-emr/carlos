@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -363,19 +362,19 @@ public final class RxDeleteRx2Action extends ActionSupport {
 
         drugDao.merge(drug);
       /*  Enumeration em=request.getParameterNames();
-        while(em.hasMoreElements()){
+        while (em.hasMoreElements()){
             String s=em.nextElement().toString();
             MiscUtils.getLogger().debug("request.parameterName="+s);
             MiscUtils.getLogger().debug("value="+request.getParameter(s));
         }
         em=request.getAttributeNames();
-        while(em.hasMoreElements()){
+        while (em.hasMoreElements()){
             String s=em.nextElement().toString();
             MiscUtils.getLogger().debug("request.attributeName="+s);
             MiscUtils.getLogger().debug("value="+request.getAttribute(s));
         }
         em=request.getSession().getAttributeNames();
-        while(em.hasMoreElements()){
+        while (em.hasMoreElements()){
             String s=em.nextElement().toString();
             MiscUtils.getLogger().debug("request.attributeName in session="+s);
             MiscUtils.getLogger().debug("value="+request.getSession().getAttribute(s));
@@ -425,8 +424,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     private void createDiscontinueNote(HttpServletRequest request) {
         //create a note and store this info in casemanagement_note table
-        //note_id,update_date,observation_date,demographic_no,provider_no,note: ,signed,include_issue_innote,archived,position, uuid
-        //signing_provider_no,encounter_type:  billing_code:  program_no,reporter_caisi_role,reporter_program_team,history, password, locked
+        //note_id, update_date, observation_date, demographic_no, provider_no, note:, signed, include_issue_innote, archived, position, uuid
+        //signing_provider_no, encounter_type:  billing_code:  program_no, reporter_caisi_role, reporter_program_team, history, password, locked
         CaseManagementNote cmn = new CaseManagementNote();
         //get parameter values
         Date now = EDocUtil.getDmsDateTimeAsDate();
@@ -467,7 +466,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         //create an entry in casemgmt note link
         CaseManagementNoteLink cmnl = new CaseManagementNoteLink();
         cmnl.setTableName(CaseManagementNoteLink.DRUGS);
-        cmnl.setTableId(Long.parseLong(idStr));//drug id
+        cmnl.setTableId(Long.parseLong(idStr)); //drug id
         cmnl.setNoteId(note_id);
 
 

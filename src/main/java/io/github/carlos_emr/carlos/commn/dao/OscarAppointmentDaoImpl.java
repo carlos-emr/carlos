@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
@@ -40,7 +39,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import javax.persistence.Query;
 import java.util.*;
-import java.util.Map.Entry;
 
 @Repository
 @SuppressWarnings("unchecked")

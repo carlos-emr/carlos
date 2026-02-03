@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -26,12 +25,10 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.ResourceBundle;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.logging.log4j.Logger;
@@ -42,7 +39,6 @@ import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.managers.AppManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 

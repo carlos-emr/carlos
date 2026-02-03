@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -34,9 +33,9 @@ public class Agency implements Serializable {
     private static Agency localAgency;
     private static Map<?, ?> agencyMap;
 
-    private int hashCode = Integer.MIN_VALUE;// primary key
+    private int hashCode = Integer.MIN_VALUE; // primary key
 
-    private Long id;// fields
+    private Long id; // fields
     private Integer intakeQuick;
     private String intakeQuickState = "HSC";
     private Integer intakeIndepth;

@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -72,8 +71,8 @@ public final class RptDemographicReport2Form {
         this.studyId = drf.studyId;
         this.demoIds = drf.demoIds;
 
-        ///            this.queryName      = ;
-        //            this.savedQuery     = ;
+        ///            this.queryName      =;
+        //            this.savedQuery     =;
     }
 
     //=---------------------------------------------------------------------

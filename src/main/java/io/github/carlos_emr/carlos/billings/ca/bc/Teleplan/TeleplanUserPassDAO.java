@@ -1,4 +1,3 @@
-//CHECKSTYLE:OFF
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -118,7 +117,7 @@ public class TeleplanUserPassDAO {
 
         }
 
-        if(hasPassword()) {
+        if (hasPassword()) {
             log.debug("has password" + password);
             updatePassword(password);
         } else {
@@ -134,7 +133,7 @@ public class TeleplanUserPassDAO {
             str[0] = p.getValue();
         }
         ps = propertyDao.findByName("teleplan_password");
-        for(Property p:ps) {
+        for (Property p:ps) {
             try {
                 if (EncryptionUtils.isEncrypted(p.getValue())) {
                     str[1] = EncryptionUtils.decrypt(p.getValue());
