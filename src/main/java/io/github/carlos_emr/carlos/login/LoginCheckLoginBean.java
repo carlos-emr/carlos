@@ -49,7 +49,6 @@ import io.github.carlos_emr.carlos.utility.SSOUtility;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import org.owasp.encoder.Encode;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 

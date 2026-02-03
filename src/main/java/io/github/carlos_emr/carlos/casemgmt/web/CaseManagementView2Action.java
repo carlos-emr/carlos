@@ -66,7 +66,6 @@ import io.github.carlos_emr.carlos.utility.CppUtils;
 import io.github.carlos_emr.carlos.utility.JsDateSerializer;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
