@@ -94,7 +94,7 @@ public class EFormBase {
     }
 
     public void setImagePath() {
-        setImagePath("/oscar");
+        setImagePath(MiscUtils.getContextPath());
     }
 
     public void setImagePath(String contextPath) {

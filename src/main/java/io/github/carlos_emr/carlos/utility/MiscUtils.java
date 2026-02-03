@@ -85,8 +85,28 @@ public final class MiscUtils {
     public static final String DEFAULT_UTF8_ENCODING = "UTF-8";
     private static boolean shutdownSignaled = false;
     private static Thread shutdownHookThread = null;
+    private static String applicationContextPath = "";
 
     public MiscUtils() {
+    }
+
+    /**
+     * Gets the application's servlet context path (e.g., "/oscar" or "/carlos").
+     * This is set at application startup by ContextStartupListener.
+     *
+     * @return the context path, or empty string if not yet initialized
+     */
+    public static String getContextPath() {
+        return applicationContextPath;
+    }
+
+    /**
+     * Sets the application's servlet context path. Called by ContextStartupListener at startup.
+     *
+     * @param contextPath the servlet context path
+     */
+    public static void setContextPath(String contextPath) {
+        applicationContextPath = contextPath != null ? contextPath : "";
     }
 
     public static void addLoggingOverrideConfiguration(String contextPath) {

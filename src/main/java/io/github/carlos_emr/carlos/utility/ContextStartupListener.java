@@ -69,6 +69,7 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
 
         try {
             String contextPath = sce.getServletContext().getContextPath();
+            MiscUtils.setContextPath(contextPath);
 
             logger.info("Starting OSCAR context. context=" + contextPath);
 
