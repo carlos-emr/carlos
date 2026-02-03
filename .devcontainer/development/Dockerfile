@@ -4,7 +4,7 @@ FROM tomcat:9.0.97-jdk21-temurin
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
-ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true"
+ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Doscar_override_properties=/root/oscar.properties"
 ENV JPDA_OPTS="-agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
@@ -13,9 +13,9 @@ ENV JPDA_TRANSPORT=dt_socket
 COPY --from=tomcat:9.0.97 /usr/local/tomcat $CATALINA_HOME
 
 # Labels
-LABEL author="OpenOSP" \
-      version="0.0.2" \
-      description="OpenOSP Docker Image for Development Environment"
+LABEL author="CARLOS EMR Project" \
+      version="1.0.0" \
+      description="CARLOS EMR Docker Image for Development Environment"
 
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
