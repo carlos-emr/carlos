@@ -21,6 +21,11 @@
     part of the OSCAR McMaster
     EMR System
 
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
 --%>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

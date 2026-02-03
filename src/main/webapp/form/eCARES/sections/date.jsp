@@ -22,6 +22,11 @@
     Hamilton
     Ontario, Canada
 
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
 --%>
 <label class="tt pl-2 highlight" data-toggle="tooltip" data-field-name="date" title="Date of data entry">Date
     (YYYY/MM/DD):</label>

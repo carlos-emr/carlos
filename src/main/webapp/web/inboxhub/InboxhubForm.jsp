@@ -319,7 +319,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                     <c:forEach items="${requestScope.categoryData.patientList}" var="patient">
                     <c:set var="patientId" value="${patient.id}" />
                     <c:set var="patientName" value="${ patient.lastName }, ${patient.firstName}" />
-                    <%-- Subtracting hrm count from document count because document count include both documents and HRMs --%>
+                    <%-- Subtracting hrm count from document count because document count include both documents and HRMs 
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
                     <c:set var="docCount" value="${ patient.docCount - patient.hrmCount }" />
                     <c:set var="labCount" value="${ patient.labCount }" />
                     <c:set var="hrmCount" value="${ patient.hrmCount }" />

@@ -21,6 +21,11 @@
     Centre for Research on Inner City Health, St. Michael's Hospital,
     Toronto, Ontario, Canada
 
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
 --%>
 <%-- This code makes new business logic facade OscarSuperManager bean accessible from jsp layer --%>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>

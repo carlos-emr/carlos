@@ -22,6 +22,11 @@
     Hamilton
     Ontario, Canada
 
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
 --%>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-1.12.0.min.js" type="text/javascript"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/moment.js"></script>
