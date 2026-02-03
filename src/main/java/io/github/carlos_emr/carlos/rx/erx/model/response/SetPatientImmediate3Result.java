@@ -99,6 +99,8 @@ public class SetPatientImmediate3Result {
                     case ERROR_NONSECUREACCESS:
                         throw new SecurityException(
                                 "The transport method used to send the patient data was not secure, so the request was rejected.");
+                    default:
+                        break;
                 }
             }
         }

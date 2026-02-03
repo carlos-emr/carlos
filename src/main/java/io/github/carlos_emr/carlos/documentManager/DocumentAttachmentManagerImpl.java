@@ -591,6 +591,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 EctFormData.PatientForm patientForm = null;
                 path = formsManager.renderForm(request, response, patientForm);
                 break;
+            default:
+                break;
         }
         return path;
     }

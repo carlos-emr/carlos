@@ -183,6 +183,8 @@ public class EmailNoteUtil {
                         formList.add(form);
                     }
                     break;
+                default:
+                    break;
             }
         }
 

@@ -552,6 +552,8 @@ public class ConsultationManagerImpl implements ConsultationManager {
                     // 	String formName = String.format("Form_%03d.pdf", eReferAttachmentData.getLabId());
                     // 	consultationAttachment = new ConsultationAttachment(eReferAttachmentData.getLabId(), DocumentType.FORM.getType(), formName, Files.readAllBytes(formPDFPath));
                     // 	break;
+                    default:
+                        break;
                 }
                 if (consultationAttachment != null) {
                     consultationAttachments.add(consultationAttachment);

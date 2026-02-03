@@ -220,8 +220,12 @@ public class RxPharmacyData {
             switch (terms.length) {
                 case 2:
                     city = terms[1];
+                    // fall through
                 case 1:
                     name = terms[0];
+                    break;
+                default:
+                    break;
             }
         } else {
             name = searchTerm;

@@ -85,6 +85,8 @@ public class OscarInboxQueryParameters extends InboxQueryParameters {
             case "abnormalOnly":
                 abnormalStatus = "A";
                 break;
+            default:
+                break;
         }
         super.setAbnormalStatus(abnormalStatus);
     }

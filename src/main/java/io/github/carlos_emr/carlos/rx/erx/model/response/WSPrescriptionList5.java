@@ -112,6 +112,8 @@ public class WSPrescriptionList5 {
                     case ERROR_NONSECUREACCESS:
                         throw new SecurityException(
                                 "The transport method used to request the prescription list was not secure, so the request was rejected.");
+                    default:
+                        break;
                 }
 
                 // Remove the WSResult5 node from the list

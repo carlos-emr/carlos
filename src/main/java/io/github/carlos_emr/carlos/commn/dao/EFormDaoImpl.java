@@ -191,6 +191,8 @@ public class EFormDaoImpl extends AbstractDaoImpl<EForm> implements EFormDao {
                 return " ORDER BY ef.fileName";
             case SUBJECT:
                 return " ORDER BY ef.subject";
+            default:
+                break;
         }
 
         return "";

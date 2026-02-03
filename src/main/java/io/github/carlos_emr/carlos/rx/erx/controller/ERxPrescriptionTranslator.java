@@ -400,6 +400,9 @@ public class ERxPrescriptionTranslator {
                 out.setRefillDuration(in.getRefillsDuration() * 30);
             case YEAR:
                 out.setRefillDuration(in.getRefillsDuration() * 365);
+                break;
+            default:
+                break;
         }
         out.setRefillDuration(in.getRefillsDuration()); // !!
 

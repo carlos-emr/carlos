@@ -334,6 +334,8 @@ public class ManageEmails2Action extends ActionSupport {
                     emailAttachment.setFilePath(formPDFPath.toString());
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(formPDFPath));
                     break;
+                default:
+                    break;
             }
         }
         return emailAttachmentList;

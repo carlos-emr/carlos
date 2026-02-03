@@ -233,6 +233,9 @@ public class NavBarDisplayDAO {
                 break;
             case ALPHASORT:
                 Collections.sort(Items);
+                break;
+            default:
+                break;
         }
 
     }
@@ -247,6 +250,9 @@ public class NavBarDisplayDAO {
                 break;
             case ALPHASORT:
                 Collections.sort(list);
+                break;
+            default:
+                break;
         }
 
     }

@@ -141,6 +141,8 @@ public class CaseloadContent2Action extends ActionSupport {
             case EYEE:
                 clSortParams = new String[]{caseloadCategory.getLabel()};
                 break;
+            default:
+                break;
         }
 
         CaseloadDao caseloadDao = (CaseloadDao) SpringUtils.getBean(CaseloadDao.class);
@@ -416,6 +418,8 @@ public class CaseloadContent2Action extends ActionSupport {
                 break;
             case Access1AdmissionDate:
                 clSortParams = new String[]{"ACCESS 1 WAITLIST PROGRAM"};
+                break;
+            default:
                 break;
         }
 
