@@ -464,7 +464,7 @@ If only Struts version causes issues:
 For Struts 2.5.33 → 6.8.0, you only need to:
 
 - [ ] Update `pom.xml`: Struts 2.5.33 → 6.8.0
-- [ ] Update `pom.xml`: Add Caffeine 3.2.3 dependency
+- [ ] Update `pom.xml`: Add Caffeine 3.1.8 dependency
 - [ ] Update `struts.xml`: DTD 2.3 → 6.0
 - [ ] Update `struts.xml`: Fix exclude pattern to `^/servlet/.*`
 - [ ] Run tests and verify functionality
