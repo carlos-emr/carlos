@@ -31,7 +31,6 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.dao.FavoriteDao;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import org.springframework.stereotype.Repository;
 

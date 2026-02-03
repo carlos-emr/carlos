@@ -61,7 +61,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.eform.util.GraphicalCanvasToImage;
 import io.github.carlos_emr.carlos.eform.APExecute;
 

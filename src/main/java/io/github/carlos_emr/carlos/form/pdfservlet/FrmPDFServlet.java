@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.form.FrmRecord;
 import io.github.carlos_emr.carlos.form.FrmRecordFactory;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
