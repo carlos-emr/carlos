@@ -7,10 +7,11 @@ This document outlines the migration plan for upgrading CARLOS EMR from Apache S
 **Key Statistics:**
 - **Current Version**: Struts 2.5.33
 - **Target Version**: Struts 6.8.0
-- **2Action Classes**: 458 files requiring import changes
+- **2Action Classes**: 458 files requiring ActionSupport import changes
+- **ModelDriven Classes**: 2 files requiring ModelDriven import changes
 - **Action Mappings**: 500 mappings in struts.xml
-- **Test Files**: OpenOWebTestBase requires ActionContext API migration
-- **Estimated Scope**: ~500 files total
+- **Test Files**: 3 files require ActionContext API migration
+- **Estimated Scope**: ~465 files total
 
 ---
 
@@ -38,10 +39,11 @@ This document outlines the migration plan for upgrading CARLOS EMR from Apache S
 | Component | Struts 2.5.x | Struts 6.x | Impact |
 |-----------|--------------|------------|--------|
 | ActionSupport Package | `com.opensymphony.xwork2.ActionSupport` | `org.apache.struts2.ActionSupport` | All 458 2Action classes |
-| ActionContext API | `ActionContext.getContext()` | `ActionContext.of()` builder pattern | Test framework |
+| ModelDriven Interface | `com.opensymphony.xwork2.ModelDriven` | `org.apache.struts2.ModelDriven` | 2 action classes |
+| ActionContext API | `ActionContext.getContext()` | `ActionContext.of()` builder pattern | 3 test files |
 | DTD Version | struts-2.3.dtd | struts-6.0.dtd | struts.xml |
-| @Validation Annotation | Supported | Deprecated/Removed | Action classes |
-| OGNL Version | 3.1.29 | 3.3.5 | Expression language |
+| @Validation Annotation | Supported | Deprecated/Removed | 1 action class |
+| OGNL Version | 3.1.29 | 3.3.5 | Expression language (transitive) |
 | Caching | Built-in | Requires Caffeine 3.x | New dependency |
 
 ### Risk Assessment
@@ -112,7 +114,7 @@ Before starting the migration:
 <dependency>
     <groupId>com.github.ben-manes.caffeine</groupId>
     <artifactId>caffeine</artifactId>
-    <version>3.1.8</version>
+    <version>3.2.3</version>
 </dependency>
 ```
 
@@ -202,11 +204,30 @@ echo "Migration complete. Files updated:"
 grep -r "org.apache.struts2.ActionSupport" src/main/java --include="*.java" | wc -l
 ```
 
-### 2.3 Manual Verification
+### 2.3 Migrate ModelDriven Interface
+
+Two files use `ModelDriven` interface that also needs migration:
+
+```java
+// BEFORE
+import com.opensymphony.xwork2.ModelDriven;
+
+// AFTER
+import org.apache.struts2.ModelDriven;
+```
+
+**Files requiring ModelDriven migration:**
+- `src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMDisplayReport2Action.java`
+- `src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDemographicReport2Action.java`
+
+### 2.4 Manual Verification
 
 ```bash
 # Verify no old imports remain
 grep -r "com.opensymphony.xwork2.ActionSupport" src/main/java --include="*.java"
+# Should return 0 results
+
+grep -r "com.opensymphony.xwork2.ModelDriven" src/main/java --include="*.java"
 # Should return 0 results
 
 # Verify new imports are present
@@ -247,19 +268,33 @@ Key modules with 2Action classes:
     "https://struts.apache.org/dtds/struts-6.0.dtd">
 ```
 
-### 3.2 Update Exclude Pattern
+### 3.2 Update Exclude Pattern (CRITICAL - Pre-existing Bug)
 
-Add servlet exclusions to prevent Struts from consuming multipart requests meant for legacy servlets:
+**WARNING**: The current exclude pattern is broken and doesn't match the current servlet namespaces!
 
+**Current servlet URL patterns in web.xml:**
+- `/servlet/io.github.carlos_emr.DocumentMgtUploadServlet`
+- `/servlet/io.github.carlos_emr.DocumentUploadServlet`
+- `/servlet/oscar.DocumentTeleplanReportUploadServlet` (still old namespace)
+
+**Current struts.xml exclude pattern** (references OLD namespaces):
 ```xml
-<!-- BEFORE -->
 <constant name="struts.action.excludePattern"
     value=".*\.(css|js|png|jpg|gif)$|^/ws/.*|^/servlet/(ca\.openosp\.DocumentUploadServlet|oscar\.DocumentTeleplanReportUploadServlet)$" />
+```
 
-<!-- AFTER - Add ^/servlet/.* pattern -->
+**Fix**: Simplify to exclude ALL servlet paths (recommended by experimental branch):
+
+```xml
+<!-- AFTER - Exclude all servlet paths -->
 <constant name="struts.action.excludePattern"
     value=".*\.(css|js|png|jpg|gif)$|^/ws/.*|^/servlet/.*" />
 ```
+
+This is a safer pattern that:
+1. Fixes the pre-existing namespace mismatch bug
+2. Protects against future servlet additions
+3. Matches the experimental branch solution
 
 ### 3.3 Verify Action Mappings
 
@@ -271,11 +306,27 @@ No changes required to individual action mappings - they use class FQN which alr
 
 ### 4.1 Overview
 
-Struts 6.x introduces a builder pattern for ActionContext. This primarily affects test code.
+Struts 6.x introduces a builder pattern for ActionContext. This affects test code that mocks Struts context.
 
-### 4.2 OpenOWebTestBase Migration
+**Files requiring ActionContext migration:**
+1. `src/test-modern/java/io/github/carlos_emr/carlos/test/base/OpenOWebTestBase.java`
+2. `src/test-modern/java/io/github/carlos_emr/carlos/test/examples/Struts2ActionModernTest.java`
+3. `src/test-modern/java/io/github/carlos_emr/carlos/tickler/web/AddTickler2ActionTest.java`
+
+### 4.2 OpenOWebTestBase Migration (Primary)
 
 **File**: `src/test-modern/java/io/github/carlos_emr/carlos/test/base/OpenOWebTestBase.java`
+
+**Import changes required:**
+```java
+// BEFORE
+import com.opensymphony.xwork2.ActionContext;
+import com.opensymphony.xwork2.ActionSupport;
+
+// AFTER
+import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionSupport;
+```
 
 ```java
 // BEFORE (Struts 2.5.x)
@@ -367,68 +418,107 @@ Common XWork2 classes that may need migration:
 
 Struts 6.x file upload interceptor may consume multipart requests before legacy servlets can process them.
 
-### 6.2 DocumentUploadServlet Update
+**Primary mitigation**: The exclude pattern fix in Phase 3.2 (`^/servlet/.*`) handles this by excluding all servlet paths from Struts processing.
 
-**File**: `src/main/java/io/github/carlos_emr/carlos/servlet/DocumentUploadServlet.java` (or similar)
+### 6.2 DocumentUploadServlet Status
 
+**GOOD NEWS**: The main upload servlets already use modern Commons FileUpload API:
+
+**Files already using modern API (no changes needed):**
+- `src/main/java/io/github/carlos_emr/DocumentUploadServlet.java` ✓
+- `src/main/java/io/github/carlos_emr/DocumentMgtUploadServlet.java` ✓
+
+These already use:
 ```java
-// BEFORE (deprecated Commons FileUpload API)
-DiskFileUpload upload = new DiskFileUpload();
-
-// AFTER (modern Commons FileUpload API)
 DiskFileItemFactory factory = new DiskFileItemFactory();
 ServletFileUpload upload = new ServletFileUpload(factory);
 ```
 
-### 6.3 Affected Servlets
+### 6.3 DocumentTeleplanReportUploadServlet - NEEDS UPDATE
 
-Review these servlets for file upload compatibility:
-- `DocumentUploadServlet`
-- `DocumentTeleplanReportUploadServlet`
-- Any other servlet handling `multipart/form-data`
+**File**: `src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/DocumentTeleplanReportUploadServlet.java`
+
+This servlet still uses **deprecated** Commons FileUpload API:
+
+```java
+// CURRENT (deprecated)
+import org.apache.commons.fileupload.DiskFileUpload;
+// ...
+DiskFileUpload upload = new DiskFileUpload();
+
+// SHOULD BE (modern)
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+// ...
+DiskFileItemFactory factory = new DiskFileItemFactory();
+ServletFileUpload upload = new ServletFileUpload(factory);
+```
+
+### 6.4 Other Servlets to Verify
+
+Review these for deprecated API usage:
+- `src/main/java/io/github/carlos_emr/carlos/olis/OLISUploadSimulationData2Action.java`
+- `src/main/java/io/github/carlos_emr/carlos/eform/upload/UploadImage.java`
 
 ---
 
 ## Phase 7: DAO and Model Compatibility Fixes
 
-Based on experimental branch findings, these DAO/model changes may be required:
+Based on experimental branch findings, these DAO/model changes may be required. However, **verification shows some fixes are already applied** in the current codebase.
 
 ### 7.1 TeleplanS25Dao - JPA Parameter Indexing
 
-```java
-// BEFORE (0-based, incorrect in Struts 6.x context)
-query.setParameter(0, value);
+**STATUS: Already Fixed** ✓
 
-// AFTER (1-based, JPA standard)
-query.setParameter(1, value);
-// Or use named parameters
-query.setParameter("paramName", value);
+Current code already uses 1-based indexing:
+```java
+q.setParameter(1, s21Id);
+q.setParameter(2, type);
+q.setParameter(3, practitionerNo);
 ```
 
-### 7.2 DrugDaoImpl - Boolean Literal Fixes
+No changes needed.
+
+### 7.2 DrugDaoImpl - Boolean Literal Fixes (Verify Needed)
+
+Check if queries use integer literals for boolean fields:
 
 ```java
-// BEFORE
+// If found (needs fix)
 query = "... d.archived = 0 ..."
 
-// AFTER
+// Should be
 query = "... d.archived = false ..."
 ```
 
-### 7.3 Drug Model - Type Changes
+### 7.3 Drug Model - Type Changes (Verify Needed)
+
+Check if `gcnSeqNo` field needs type change:
 
 ```java
-// If gcnSeqNo field exists and needs updating
-// BEFORE
+// If currently int (needs fix)
 private int gcnSeqNo;
 
-// AFTER
+// Should be String with default
 private String gcnSeqNo = "0";
 ```
 
-### 7.4 AllergyDaoImpl - Remove Invalid ORDER BY
+### 7.4 AllergyDaoImpl - Remove Invalid ORDER BY (Verify Needed)
 
-Review ORDER BY clauses for non-existent fields.
+Review ORDER BY clauses for non-existent fields like `x.position`.
+
+### 7.5 Verification Commands
+
+```bash
+# Check DrugDaoImpl for boolean literals
+grep -n "archived = 0\|archived = 1" src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java
+
+# Check Drug model gcnSeqNo type
+grep -A2 "gcnSeqNo" src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java | head -10
+
+# Check AllergyDaoImpl ORDER BY
+grep -n "ORDER BY" src/main/java/io/github/carlos_emr/carlos/commn/dao/AllergyDaoImpl.java
+```
 
 ---
 
@@ -485,6 +575,41 @@ Compare test pass rates:
 - Document pre-migration pass rate
 - Document post-migration pass rate
 - Investigate any new failures
+
+---
+
+## Pre-Existing Issues Discovered
+
+During migration planning, the following issues were discovered in the current codebase:
+
+### Issue 1: struts.action.excludePattern Namespace Mismatch
+
+**Severity**: Medium (potential file upload failures)
+
+**Current State**: The `struts.action.excludePattern` in struts.xml references old namespaces that don't match current servlet URL patterns.
+
+```xml
+<!-- Current pattern references old namespaces -->
+value="...^/servlet/(ca\.openosp\.DocumentUploadServlet|oscar\.DocumentTeleplanReportUploadServlet)$"
+
+<!-- But actual URL patterns use new namespaces -->
+/servlet/io.github.carlos_emr.DocumentUploadServlet
+/servlet/io.github.carlos_emr.DocumentMgtUploadServlet
+```
+
+**Recommendation**: Fix this in Phase 3.2 by using `^/servlet/.*` pattern.
+
+### Issue 2: Teleplan Servlet URL Still Uses Old Namespace
+
+**Severity**: Low (works but inconsistent)
+
+**Location**: `web.xml` line 403
+
+```xml
+<url-pattern>/servlet/oscar.DocumentTeleplanReportUploadServlet</url-pattern>
+```
+
+This should ideally be updated to match the new namespace, but may require coordinating with any external systems that call this URL.
 
 ---
 
@@ -622,6 +747,23 @@ grep -A2 "struts2-core" pom.xml
 
 ---
 
-**Document Version**: 1.0
+## Revision History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2026-02-03 | Initial plan based on experimental branch analysis |
+| 1.1 | 2026-02-03 | Corrections after codebase verification: |
+| | | - Added ModelDriven interface migration (2 files) |
+| | | - Fixed Caffeine version (3.1.8 → 3.2.3) |
+| | | - Documented pre-existing struts.action.excludePattern bug |
+| | | - Confirmed DocumentUploadServlet already uses modern API |
+| | | - Confirmed TeleplanS25Dao already uses 1-based indexing |
+| | | - Added all 3 test files requiring ActionContext migration |
+| | | - Added "Pre-Existing Issues Discovered" section |
+
+---
+
+**Document Version**: 1.1
 **Created**: 2026-02-03
+**Last Updated**: 2026-02-03
 **Author**: Generated with Claude Code
