@@ -166,7 +166,7 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
 
         // Update ActionContext parameters using Struts 6.x fluent API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
-        ActionContext.getContext().withParameters(httpParameters);
+        ActionContext.getContext().withParameters(httpParameters).bind();
     }
 
     /**
