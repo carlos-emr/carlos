@@ -31,12 +31,9 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Query;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -163,6 +160,17 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
     }
 
     @Override
+    /**
+     * Retrieves the functional user ID based on the provided program and user type IDs.
+     *
+     * This method first validates the input parameters to ensure they are not null and greater than zero.
+     * It then constructs a SQL query to fetch the ProgramId from the ProgramFunctionalUser table using
+     * the specified programId and userTypeId. If results are found, the first result is returned.
+     * Debug logging is performed to trace the input parameters and the result.
+     *
+     * @param programId the ID of the program to filter by
+     * @param userTypeId the ID of the user type to filter by
+     */
     public Long getFunctionalUserByUserType(Long programId, Long userTypeId) {
         if (programId == null || programId.intValue() <= 0) {
             throw new IllegalArgumentException();
@@ -173,20 +181,12 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
 
         Long result = null;
 
-        String query = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?0 and pfu.UserTypeId = ?1";
-        Session session = sessionFactory.getCurrentSession();
-        Query q = session.createQuery(query);
-        q.setLong(1, programId.longValue());
-        q.setLong(2, userTypeId.longValue());
-        List results = new ArrayList();
-        try {
-            results = q.list();
-        } finally {
-            // releaseSession(session);
-            session.close();
-        }
-        if (results.size() > 0) {
-            result = (Long) results.get(0);
+        String sSQL = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?0 and pfu.UserTypeId = ?1";
+        @SuppressWarnings("unchecked")
+        List<Long> results = (List<Long>) this.getHibernateTemplate().find(sSQL, new Object[]{programId, userTypeId});
+
+        if (!results.isEmpty()) {
+            result = results.get(0);
         }
 
         if (log.isDebugEnabled()) {

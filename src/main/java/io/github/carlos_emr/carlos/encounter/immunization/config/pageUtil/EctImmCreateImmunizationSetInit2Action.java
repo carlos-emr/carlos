@@ -33,9 +33,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
 
 import com.opensymphony.xwork2.ActionSupport;
-import com.opensymphony.xwork2.validator.annotations.Validation;
 
-@Validation
 public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private String setName;

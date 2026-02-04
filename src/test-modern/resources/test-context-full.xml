@@ -52,7 +52,7 @@
             <props>
                 <prop key="db_driver">org.h2.Driver</prop>
                 <prop key="db_uri">jdbc:h2:mem:testdb</prop>
-                <prop key="db_name">;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE</prop>
+                <prop key="db_name">;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;IGNORECASE=TRUE</prop>
                 <prop key="db_username">sa</prop>
                 <prop key="db_password"></prop>
                 <prop key="db_max_active">10</prop>
@@ -87,8 +87,8 @@
         <property name="poolPreparedStatements" value="false" />
     </bean>
 
-    <!-- Initialize lookup tables after EntityManagerFactory -->
-    <bean id="databaseInitializer" class="org.springframework.jdbc.datasource.init.DataSourceInitializer">
+    <!-- Initialize lookup tables after SessionFactory creates schema -->
+    <bean id="databaseInitializer" class="org.springframework.jdbc.datasource.init.DataSourceInitializer" depends-on="sessionFactory">
         <property name="dataSource" ref="dataSource"/>
         <property name="databasePopulator">
             <bean class="org.springframework.jdbc.datasource.init.ResourceDatabasePopulator">
@@ -102,16 +102,7 @@
         </property>
     </bean>
 
-    <!-- SessionFactory extracted from EntityManagerFactory for compatibility -->
-    <bean id="sessionFactory" factory-bean="&amp;entityManagerFactory" factory-method="getNativeEntityManagerFactory" />
-
-    <!-- Configure HibernateTemplate with AUTO flush mode for tests -->
-    <bean id="hibernateTemplate" class="org.springframework.orm.hibernate5.HibernateTemplate">
-        <property name="sessionFactory" ref="sessionFactory" />
-        <property name="checkWriteOperations" value="false" />
-    </bean>
-
-    <!-- JPA EntityManagerFactory - use the SessionFactory we configured -->
+    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings -->
     <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
         <property name="dataSource" ref="dataSource" />
         <property name="persistenceUnitName" value="entityManagerFactory" />
@@ -124,7 +115,7 @@
                 <value>io.github.carlos_emr.carlos</value>
             </list>
         </property>
-        <!-- Use same mappings as SessionFactory -->
+        <!-- Include HBM mappings for entities that need them -->
         <property name="mappingResources">
             <list>
                 <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
@@ -132,9 +123,25 @@
                 <value>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</value>
                 <value>com/quatro/model/security/Secrole.hbm.xml</value>
+                <!-- Exclude Secuserrole.hbm.xml - conflicts with PMmodule SecUserRole.hbm.xml -->
+                <!-- Both map to secUserRole table with different schemas -->
+                <value>com/quatro/model/security/SecProvider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientRestriction.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -147,11 +154,14 @@
         <property name="jpaProperties">
             <props>
                 <prop key="hibernate.dialect">${hibernate.dialect}</prop>
-                <prop key="hibernate.show_sql">false</prop>
+                <prop key="hibernate.show_sql">true</prop>
+                <prop key="hibernate.format_sql">true</prop>
+                <!-- Schema creation managed by EntityManagerFactory -->
                 <prop key="hibernate.hbm2ddl.auto">create</prop>
+                <!-- Use SpringSessionContext so HibernateDaoSupport DAOs share the same session -->
                 <prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate5.SpringSessionContext</prop>
                 <prop key="hibernate.flushMode">AUTO</prop>
-                <prop key="org.hibernate.flushMode">COMMIT</prop>
+                <prop key="org.hibernate.flushMode">AUTO</prop>
                 <prop key="javax.persistence.flush-mode">AUTO</prop>
                 <prop key="hibernate.transaction.flush_before_completion">true</prop>
                 <prop key="hibernate.transaction.auto_close_session">false</prop>
@@ -163,15 +173,73 @@
         </property>
     </bean>
 
-    <!-- JPA support -->
-    <bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor" />
+    <!-- Standalone Hibernate SessionFactory for HibernateDaoSupport DAOs - uses schema from EntityManagerFactory -->
+    <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean" depends-on="entityManagerFactory">
+        <property name="dataSource" ref="dataSource" />
+        <!-- Explicitly list @Entity annotated classes needed for tests -->
+        <property name="annotatedClasses">
+            <list>
+                <value>io.github.carlos_emr.carlos.commn.model.Tickler</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerUpdate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerCategory</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerComment</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CustomFilter</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Admission</value>
+                <value>io.github.carlos_emr.carlos.commn.model.OscarLog</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Facility</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicMerged</value>
+                <value>io.github.carlos_emr.carlos.form.model.FormRourke2009</value>
+            </list>
+        </property>
+        <property name="mappingResources">
+            <list>
+                <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</value>
+                <value>com/quatro/model/security/Secrole.hbm.xml</value>
+                <value>com/quatro/model/security/SecProvider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientRestriction.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.dialect">org.hibernate.dialect.H2Dialect</prop>
+                <prop key="hibernate.show_sql">true</prop>
+                <prop key="hibernate.format_sql">true</prop>
+                <!-- Schema already created by EntityManagerFactory - use validate to avoid conflicts -->
+                <prop key="hibernate.hbm2ddl.auto">none</prop>
+                <prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate5.SpringSessionContext</prop>
+                <prop key="hibernate.cache.use_second_level_cache">false</prop>
+            </props>
+        </property>
+    </bean>
 
-    <!-- TransactionManager - JpaTransactionManager handles both JPA and Hibernate -->
-    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager" autowire="byName">
+    <!-- Configure HibernateTemplate -->
+    <bean id="hibernateTemplate" class="org.springframework.orm.hibernate5.HibernateTemplate">
+        <property name="sessionFactory" ref="sessionFactory" />
+        <property name="checkWriteOperations" value="false" />
+    </bean>
+
+    <!-- TransactionManager - JpaTransactionManager coordinates both JPA EntityManager and Hibernate Session -->
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
         <property name="entityManagerFactory" ref="entityManagerFactory" />
-        <!-- Set default timeout for test transactions -->
         <property name="defaultTimeout" value="60" />
-        <!-- Ensure Hibernate sessions are handled properly -->
         <property name="nestedTransactionAllowed" value="true" />
     </bean>
 
@@ -279,5 +347,39 @@
 
     <!-- OscarSuperManager -->
     <bean id="oscarSuperManager" class="io.github.carlos_emr.carlos.service.OscarSuperManagerImpl" autowire="byName"/>
+
+    <!-- PMmodule DAOs for HQL parameter binding tests -->
+    <bean id="programClientRestrictionDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientRestrictionDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+        <property name="demographicDao" ref="demographicDao" />
+        <property name="programDao" ref="programDao" />
+        <property name="providerDao" ref="providerDao" />
+    </bean>
+
+    <bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <bean id="pmSecUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <bean id="secProviderDao" class="io.github.carlos_emr.carlos.daos.security.SecProviderDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <bean id="providerDAO" class="io.github.carlos_emr.carlos.daos.ProviderDAOImpl" autowire="byName" />
 
 </beans>

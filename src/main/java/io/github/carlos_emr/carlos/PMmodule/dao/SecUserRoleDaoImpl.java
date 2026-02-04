@@ -39,11 +39,21 @@ import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.hibernate.SessionFactory;
 
 @Transactional
 public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRoleDao {
 
     private static Logger log = MiscUtils.getLogger();
+
+    @Autowired
+    /**
+     * Sets the session factory override.
+     */
+    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
+        super.setSessionFactory(sessionFactory);
+    }
 
     @Override
     public List<SecUserRole> getUserRoles(String providerNo) {
