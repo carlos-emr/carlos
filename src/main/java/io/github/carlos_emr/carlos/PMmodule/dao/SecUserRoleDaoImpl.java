@@ -48,6 +48,9 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
     private static Logger log = MiscUtils.getLogger();
 
     @Autowired
+    /**
+     * Sets the session factory override.
+     */
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
         super.setSessionFactory(sessionFactory);
     }

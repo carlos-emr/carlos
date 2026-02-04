@@ -160,6 +160,17 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
     }
 
     @Override
+    /**
+     * Retrieves the functional user ID based on the provided program and user type IDs.
+     *
+     * This method first validates the input parameters to ensure they are not null and greater than zero.
+     * It then constructs a SQL query to fetch the ProgramId from the ProgramFunctionalUser table using
+     * the specified programId and userTypeId. If results are found, the first result is returned.
+     * Debug logging is performed to trace the input parameters and the result.
+     *
+     * @param programId the ID of the program to filter by
+     * @param userTypeId the ID of the user type to filter by
+     */
     public Long getFunctionalUserByUserType(Long programId, Long userTypeId) {
         if (programId == null || programId.intValue() <= 0) {
             throw new IllegalArgumentException();
