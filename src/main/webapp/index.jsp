@@ -584,7 +584,7 @@
 							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
                             <c:if test="${not LoginResourceBean.ssoEnabled}">
                                 <div class="form-group ${ login_error }">
-                                    <input type="password" name="pin" placeholder="Enter your PIN" value=""
+                                    <input type="text" name="pin" placeholder="Enter your PIN" value="" style="-webkit-text-security:disc"
                                            size="15" maxlength="15" autocomplete="off" class="form-control"/>
                                     <span class="extrasmall">
 										<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formCmt"/>
