@@ -30,34 +30,41 @@ package io.github.carlos_emr.carlos.daos.security;
 
 import java.util.List;
 
+import org.hibernate.Session;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 
 public class UserAccessDaoImpl extends HibernateDaoSupport implements UserAccessDao {
 
+    @SuppressWarnings("unchecked")
     @Override
     public List GetUserAccessList(String providerNo, Integer shelterId) {
-        String sSQL = "";
         if (shelterId != null && shelterId.intValue() > 0) {
-            String s = "'%S" + shelterId.toString() + ",%'";
-            sSQL = "from UserAccessValue s where s.providerNo= ?0 " +
-                    " and s.orgCdcsv like " + s + " order by s.functionCd, s.privilege desc, s.orgCd";
+            String shelterPattern = "%S" + shelterId.toString() + ",%";
+            Session session = currentSession();
+            String hql = "from UserAccessValue s where s.providerNo = :providerNo and s.orgCdcsv like :shelterPattern order by s.functionCd, s.privilege desc, s.orgCd";
+            return session.createQuery(hql)
+                    .setParameter("providerNo", providerNo)
+                    .setParameter("shelterPattern", shelterPattern)
+                    .list();
         } else {
-            sSQL = "from UserAccessValue s where s.providerNo= ?1  order by s.functionCd, s.privilege desc, s.orgCd";
+            String sSQL = "from UserAccessValue s where s.providerNo= ?1 order by s.functionCd, s.privilege desc, s.orgCd";
+            return getHibernateTemplate().find(sSQL, providerNo);
         }
-        return getHibernateTemplate().find(sSQL, providerNo);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public List GetUserOrgAccessList(String providerNo, Integer shelterId) {
-        String sSQL = "";
         if (shelterId != null && shelterId.intValue() > 0) {
-            sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o " +
-                    "where s.providerNo= ?0 and s.privilege>='r' and s.orgCd=o.code " +
-                    " and o.codecsv like '%S" + shelterId.toString() + ",%'" +
-                    " order by o.codecsv";
-            return getHibernateTemplate().find(sSQL, providerNo);
+            String shelterPattern = "%S" + shelterId.toString() + ",%";
+            Session session = currentSession();
+            String hql = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o where s.providerNo = :providerNo and s.privilege >= 'r' and s.orgCd = o.code and o.codecsv like :shelterPattern order by o.codecsv";
+            return session.createQuery(hql)
+                    .setParameter("providerNo", providerNo)
+                    .setParameter("shelterPattern", shelterPattern)
+                    .list();
         } else {
-            sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o where s.providerNo= ?1 and s.privilege>='r' and s.orgCd=o.code order by o.codecsv";
+            String sSQL = "select distinct o.codecsv from UserAccessValue s, LstOrgcd o where s.providerNo= ?1 and s.privilege>='r' and s.orgCd=o.code order by o.codecsv";
             return getHibernateTemplate().find(sSQL, providerNo);
         }
     }

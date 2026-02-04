@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.caisi_integrator.ws.CodeType;
 import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdDemographicIssueCompositePk;
@@ -155,17 +156,21 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     @SuppressWarnings("unchecked")
     @Override
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs) {
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
-        for (Program p : programs) {
-            if (i++ > 0)
-                sb.append(",");
-            sb.append(p.getId());
+        if (programs == null || programs.isEmpty()) {
+            return new ArrayList<Integer>();
         }
-        List<Integer> results = (List<Integer>) this.getHibernateTemplate().find(
-                "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > ?0 and program_id in ("
-                        + sb.toString() + ")",
-                new Object[]{date});
+
+        List<Integer> programIds = new ArrayList<Integer>();
+        for (Program p : programs) {
+            programIds.add(p.getId());
+        }
+
+        Session session = currentSession();
+        String hql = "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > :updateDate and program_id in (:programIds)";
+        List<Integer> results = session.createQuery(hql)
+                .setParameter("updateDate", date)
+                .setParameterList("programIds", programIds)
+                .list();
 
         return results;
     }

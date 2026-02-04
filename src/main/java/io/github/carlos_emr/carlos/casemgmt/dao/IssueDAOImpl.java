@@ -168,22 +168,22 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
             return 0;
         }
 
-        StringBuilder buf = new StringBuilder();
-        for (int x = 0; x < roles.size(); x++) {
-            if (x != 0) {
-                buf.append(",");
-            }
-            buf.append("\'" + (roles.get(x).getName()) + "\'");
+        List<String> roleNames = new ArrayList<String>();
+        for (Secrole role : roles) {
+            roleNames.add(role.getName());
         }
-        final String roleList = buf.toString();
 
         search = "%" + search + "%";
         search = search.toLowerCase();
-        final String sql = "select count(i) from Issue i where (lower(i.code) like ?0 or lower(i.description) like ?1  or lower(i.role) like ?2) and i.role in ("
-                + roleList + ") order by sortOrderId";
-        logger.debug(sql);
-        List<Long> result = (List<Long>) this.getHibernateTemplate().find(sql,
-                new Object[]{search, search, roleList});
+
+        Session session = currentSession();
+        String hql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :roleSearch) and i.role in (:roleNames) order by sortOrderId";
+        logger.debug(hql);
+        List<Long> result = session.createQuery(hql)
+                .setParameter("search", search)
+                .setParameter("roleSearch", roleNames.toString())
+                .setParameterList("roleNames", roleNames)
+                .list();
 
         if (result.size() > 0) {
             return result.get(0).intValue();
