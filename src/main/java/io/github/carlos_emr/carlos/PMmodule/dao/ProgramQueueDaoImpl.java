@@ -63,7 +63,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
             throw new IllegalArgumentException();
         }
 
-        String queryStr = " FROM ProgramQueue q WHERE q.ProgramId=?0 ORDER BY  q.Id  ";
+        String queryStr = " FROM ProgramQueue q WHERE q.ProgramId=?1 ORDER BY  q.Id  ";
         List results = getHibernateTemplate().find(queryStr, programId);
 
         if (log.isDebugEnabled()) {
@@ -80,7 +80,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         }
 
         List results = this.getHibernateTemplate().find(
-                "from ProgramQueue pq where pq.ProgramId = ?0 and pq.Status = 'active' order by pq.ReferralDate",
+                "from ProgramQueue pq where pq.ProgramId = ?1 and pq.Status = 'active' order by pq.ReferralDate",
                 Long.valueOf(programId));
 
         if (log.isDebugEnabled()) {
@@ -114,7 +114,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         }
 
         ProgramQueue result = null;
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?0 and pq.ClientId = ?1";
+        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2";
         Object[] params = new Object[]{Long.valueOf(programId), Long.valueOf(clientId)};
         List results = this.getHibernateTemplate().find(sSQL, params);
 
@@ -140,7 +140,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
 
         ProgramQueue result = null;
 
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?0 and pq.ClientId = ?1 and pq.Status='active'";
+        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2 and pq.Status='active'";
         Object[] params = new Object[]{programId, demographicNo};
         List results = this.getHibernateTemplate().find(sSQL, params);
         if (!results.isEmpty()) {

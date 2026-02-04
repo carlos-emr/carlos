@@ -132,7 +132,7 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramTeam tp where tp.programId = ?0";
+        String sSQL = "from ProgramTeam tp where tp.programId = ?1";
         List<ProgramTeam> results = (List<ProgramTeam>) this.getHibernateTemplate().find(sSQL, programId);
 
         if (log.isDebugEnabled()) {

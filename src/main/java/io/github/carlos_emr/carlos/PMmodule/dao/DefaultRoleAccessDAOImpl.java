@@ -60,7 +60,7 @@ public class DefaultRoleAccessDAOImpl extends HibernateDaoSupport implements Def
     }
 
     public DefaultRoleAccess find(Long roleId, Long accessTypeId) {
-        String sSQL = "from DefaultRoleAccess dra where dra.roleId=?0 and dra.accessTypeId=?1";
+        String sSQL = "from DefaultRoleAccess dra where dra.roleId=?1 and dra.accessTypeId=?2";
         List results = this.getHibernateTemplate().find(sSQL, new Object[]{roleId, accessTypeId});
 
         if (!results.isEmpty()) {

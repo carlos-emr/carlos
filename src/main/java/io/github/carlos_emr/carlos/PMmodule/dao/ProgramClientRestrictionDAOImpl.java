@@ -49,7 +49,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
 
     public Collection<ProgramClientRestriction> find(int programId, int demographicNo) {
 
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?0 and pcr.demographicNo = ?1 order by pcr.startDate";
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?1 and pcr.demographicNo = ?2 order by pcr.startDate";
         List<ProgramClientRestriction> pcrs = (List<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, new Object[]{programId, demographicNo});
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
@@ -66,7 +66,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findForProgram(int programId) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?0 order by pcr.demographicNo";
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?1 order by pcr.demographicNo";
         Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, programId);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
@@ -75,7 +75,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findDisabledForProgram(int programId) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.programId = ?0 order by pcr.demographicNo";
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.programId = ?1 order by pcr.demographicNo";
         Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, programId);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
@@ -84,7 +84,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findForClient(int demographicNo) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?0 order by pcr.programId";
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?1 order by pcr.programId";
         Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, demographicNo);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
@@ -93,8 +93,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findForClient(int demographicNo, int facilityId) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?0" +
-        " and pcr.programId in (select s.id from Program s where s.facilityId = ?1 or s.facilityId is null) order by pcr.programId";
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?1 and pcr.programId in (select s.id from Program s where s.facilityId = ?2 or s.facilityId is null) order by pcr.programId";
         Object params[] = new Object[]{Integer.valueOf(demographicNo), facilityId};
         Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, params);
         for (ProgramClientRestriction pcr : pcrs) {
@@ -104,7 +103,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public Collection<ProgramClientRestriction> findDisabledForClient(int demographicNo) {
-        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.demographicNo = ?0 order by pcr.programId";
+        String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.demographicNo = ?1 order by pcr.programId";
         Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) getHibernateTemplate().find(sSQL, demographicNo);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);

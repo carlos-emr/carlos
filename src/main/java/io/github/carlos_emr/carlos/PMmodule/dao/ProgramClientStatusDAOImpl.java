@@ -54,7 +54,7 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
     }
 
     public List<ProgramClientStatus> getProgramClientStatuses(Integer programId) {
-        String sSQL = "from ProgramClientStatus pcs where pcs.programId=?0";
+        String sSQL = "from ProgramClientStatus pcs where pcs.programId=?1";
         return (List<ProgramClientStatus>) this.getHibernateTemplate().find(sSQL, programId);
     }
 
@@ -115,7 +115,7 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from Admission a where a.programId = ?0 and a.teamId = ?1 and a.admissionStatus='current'";
+        String sSQL = "from Admission a where a.programId = ?1 and a.teamId = ?2 and a.admissionStatus='current'";
         List<Admission> results = (List<Admission>) this.getHibernateTemplate().find(sSQL, new Object[]{programId, statusId});
 
         if (log.isDebugEnabled()) {

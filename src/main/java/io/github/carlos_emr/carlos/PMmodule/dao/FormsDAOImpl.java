@@ -65,7 +65,7 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         if (className.indexOf(".") != -1) {
             className = className.substring(className.lastIndexOf(".") + 1);
         }
-        String sSQL = "from ?0 f where f.DemographicNo=?1";
+        String sSQL = "from ?1 f where f.DemographicNo=?2";
         List results = this.getHibernateTemplate().find(sSQL, new Object[]{className, clientId});
         if (results.size() > 0) {
             result = results.get(0);
@@ -88,7 +88,7 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         if (className.indexOf(".") != -1) {
             className = className.substring(className.lastIndexOf(".") + 1);
         }
-        String sSQL = "select f.id,f.ProviderNo,f.FormEdited from ?0 f where f.DemographicNo=?1 order by f.FormEdited DESC";
+        String sSQL = "select f.id,f.ProviderNo,f.FormEdited from ?1 f where f.DemographicNo=?2 order by f.FormEdited DESC";
         Object[] params = new Object[] {
             className,
             Long.valueOf(clientId)

@@ -109,7 +109,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = ?0";
+        String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = ?1";
         List<FunctionalUserType> results = (List<FunctionalUserType>) this.getHibernateTemplate().find(sSQL, programId);
 
         if (log.isDebugEnabled()) {
@@ -181,7 +181,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
 
         Long result = null;
 
-        String sSQL = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?0 and pfu.UserTypeId = ?1";
+        String sSQL = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
         @SuppressWarnings("unchecked")
         List<Long> results = (List<Long>) this.getHibernateTemplate().find(sSQL, new Object[]{programId, userTypeId});
 
