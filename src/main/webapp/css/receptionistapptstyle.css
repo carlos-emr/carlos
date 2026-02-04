@@ -295,6 +295,32 @@ a:Hover {
     color: red;
 }
 
+/* Navigation bar link styles - !important to prevent Bootstrap override */
+#firstTable a,
+#firstTable a:visited,
+#firstTable a:active,
+#firstMenu a,
+#firstMenu a:visited,
+#firstMenu a:active,
+#navlist a,
+#navlist a:visited,
+#navlist a:active,
+#userSettings a,
+#userSettings a:visited,
+#userSettings a:active {
+    color: #00283c !important;
+    text-decoration: none !important;
+    font-weight: bold !important;
+}
+
+#firstTable a:hover,
+#firstMenu a:hover,
+#navlist a:hover,
+#userSettings a:hover {
+    color: #fff !important;
+    background-color: #486ebd;
+}
+
 input, select, textarea {
     background-color: #F4EaD7;
     border: 1px solid #0097cf;
@@ -373,11 +399,18 @@ p {
     color: green;
 }
 
-.tabalert {
-    color: red;
+.tabalert,
+.tabalert a,
+a .tabalert,
+#navlist a .tabalert,
+#navlist .tabalert,
+#firstTable .tabalert {
+    color: red !important;
 }
 
-.tabalert:hover {
+.tabalert:hover,
+.tabalert a:hover,
+a:hover .tabalert {
     color: white !important;
 }
 

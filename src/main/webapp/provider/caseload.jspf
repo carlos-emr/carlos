@@ -52,26 +52,49 @@
 %>
 <tr><td colspan="3">
 <style>
-#caseloadTable {
-	border-collapse: collapse;
-}
+
 .caseloadRow td {
-	padding: 1px;
-	padding-left: 0.5em;
+    padding: 1px;
+    padding-left: 0.5em;
 }
 #caseloadTable form {
-	display: inline;
+    display: inline;
 }
 #caseloadTable .selectedCategory {
-	background-color: #bfefff;
+    background-color: #bfefff;
+}
+#caseloadTable a {
+    color:black;
+}
+#caseloadTable {
+    background-color:white;
 }
 #caseloadHeader b {
-	cursor: pointer;
+    cursor: pointer;
+}
+#caseloadHeader {
+    position: sticky;
+    top: 25px;
+    z-index: 100;
+}
+#caseloadHeader td {
+    background-color: #c0c0c0;
+}
+#caseloadEntry a {
+    color: #000000;  //black
 }
 
-#leftSearch, #rightSearch { display: inline; }
-#rightSearch { float:right; }
+#leftSearch {
+    display: block;
+    text-align: center;
+    margin-bottom: 5px;
+}
+#rightSearch {
+    display: block;
+    text-align: right;
+}
 </style>
+ <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet" type="text/css">
 <%
 Locale locale = request.getLocale();
 String[] clH = new String[] {   LocaleUtils.getMessage(locale, "caseload.msgDemographic"), "", LocaleUtils.getMessage(locale, "caseload.msgAge"), LocaleUtils.getMessage(locale, "caseload.msgSex"), LocaleUtils.getMessage(locale, "caseload.msgLastAppt"), LocaleUtils.getMessage(locale, "caseload.msgNextAppt"), LocaleUtils.getMessage(locale, "caseload.msgApptsLYTD"), LocaleUtils.getMessage(locale, "caseload.msgLab"), LocaleUtils.getMessage(locale, "caseload.msgDoc"), LocaleUtils.getMessage(locale, "caseload.msgTickler"), LocaleUtils.getMessage(locale, "caseload.msgMsg"), LocaleUtils.getMessage(locale, "caseload.msgBMI"), LocaleUtils.getMessage(locale, "caseload.msgBP"), LocaleUtils.getMessage(locale, "caseload.msgWT"), LocaleUtils.getMessage(locale, "caseload.msgSMK"), LocaleUtils.getMessage(locale, "caseload.msgA1C"), LocaleUtils.getMessage(locale, "caseload.msgACR"), LocaleUtils.getMessage(locale, "caseload.msgSCR"), LocaleUtils.getMessage(locale, "caseload.msgLDL"), LocaleUtils.getMessage(locale, "caseload.msgHDL"), LocaleUtils.getMessage(locale, "caseload.msgTCHD"), LocaleUtils.getMessage(locale, "caseload.msgEGFR"), LocaleUtils.getMessage(locale, "caseload.msgEYEE"), LocaleUtils.getMessage(locale, "caseload.msgLastEncounterDate"), LocaleUtils.getMessage(locale, "caseload.msgLastEncounterType"), LocaleUtils.getMessage(locale, "caseload.msgCASHAdmissionDate"), LocaleUtils.getMessage(locale, "caseload.msgACCESS1AdmissionDate")};
@@ -79,9 +102,9 @@ String[] clH = new String[] {   LocaleUtils.getMessage(locale, "caseload.msgDemo
 <script type="text/javascript">
 clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgDemographic"/>", "", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgAge"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSex"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastAppt"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNextAppt"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgApptsLYTD"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLab"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgDoc"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTickler"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgMsg"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgBMI"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgBP"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgWT"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSMK"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgA1C"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgACR"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSCR"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLDL"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgHDL"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTCHD"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgEYEE"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastEncounterDate"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastEncounterType"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgCASHAdmissionDate"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgACCESS1AdmissionDate"/>"];
 </script>
-<table border="1" cellpadding="0" cellspacing="0" width="100%" id="caseloadTable">
+<table border="1" cellpadding="0" cellspacing="0" width="100%" id="caseloadTable" class="table table-hover table-striped" >
 <tr><td colspan='<%=clH.length%>'>
-	<table border='0' cellpadding='0' bgcolor='#fffff0' cellspacing='0' width='100%'>
+	<table border='0' cellpadding='0'  cellspacing='0' width='100%'>
 		<tr class='caseloadRow'>
 		<td colspan='<%=clH.length%>'>
 			<div>
@@ -89,7 +112,7 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 					<form>
 						<b><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNotes"/></b>
 						<input type='text' id='caseloadQ' size='20' onclick='this.value=""; document.getElementById("caseloadDx").value="";' value="<%=StringEscapeUtils.escapeHtml4(caseloadQ).replace("'","\\\'")%>" />
-						<input type='submit' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("noteSearch"); return false;'>
+						<input type='submit' class="btn" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("noteSearch"); return false;'>
 					</form>
 				</div>
 				<div id="rightSearch">
@@ -124,7 +147,7 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 		<% } %>
 					</select>
 					<b>Rostered: </b>
-					<select id='caseloadRoster' onChange='search("search");' style='width: 120px'>
+					<select id='caseloadRoster' onChange='search("search");' style='width: 120'>
 						<option value='' selected></option>
 						<option value='RO'><fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiceditdemographic.optRostered'/></option>
 						<option value='NR'><fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiceditdemographic.optNotRostered'/></option>
@@ -143,7 +166,7 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 					</select>
 					<b>DxReg: </b>
 					<input type='text' id='caseloadDx' size='10' onclick='this.value=""; document.getElementById("caseloadQ").value="";' value="<%= StringEscapeUtils.escapeHtml4(caseloadDx).replace("'","\\\'") %>" />
-					<input type='submit' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("search"); return false;'>
+					<input type='submit' class="btn" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("search"); return false;'>
 					</form>
 				</div>
 			</div>
@@ -169,7 +192,7 @@ String[] objIds = new String[] {"Demographic", "_caseload.DisplayMode", "_caselo
 	<td class='selectedCategory' bgcolor='#c0c0c0' onclick='changeCategory("<%=i%>")'><b><%=clH[i]%> &Delta;</b></td>
 	<% } else if (i == 1) { %>
 	<security:oscarSec roleName="<%=caseloadroleName$%>" objectName="<%=objIds[i]%>" rights="r" reverse="<%=false%>" >
-		<td bgcolor='#c0c0c0' <%="style='width:307px'"%>><b><%=clH[i]%></b></td>
+		<td bgcolor='#c0c0c0' style='width:267px'><b><%=clH[i]%></b></td>
 	</security:oscarSec>
 	<% } else{ %>
 	<security:oscarSec roleName="<%=caseloadroleName$%>" objectName="<%=objIds[i]%>" rights="r" reverse="<%=false%>" >
@@ -345,7 +368,7 @@ function draw(json) {
 	var tableStr = "";
 	var oldRows = rows;
 	jQuery.each(json.data, function() {
-		tableStr += "<tr class='caseloadRow caseloadEntry' bgcolor='" + ((++rows%2==0)?"#FDFEC7":"#FFBBFF") + "'><td>"+this.join("</td><td>")+"</td></tr>\n";
+		tableStr += "<tr class='caseloadRow caseloadEntry' bgcolor='" + ((++rows%2==0)?"":"") + "'><td>"+this.join("</td><td>")+"</td></tr>\n";
 	});
 	if (rows == 0) {
 		hideAllMessages();
