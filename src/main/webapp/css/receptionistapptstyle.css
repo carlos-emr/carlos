@@ -314,9 +314,17 @@ a:Hover {
 }
 
 #firstTable a:hover,
+#firstTable a:focus,
+#firstTable a:focus-visible,
 #firstMenu a:hover,
+#firstMenu a:focus,
+#firstMenu a:focus-visible,
 #navlist a:hover,
-#userSettings a:hover {
+#navlist a:focus,
+#navlist a:focus-visible,
+#userSettings a:hover,
+#userSettings a:focus,
+#userSettings a:focus-visible {
     color: #fff !important;
     background-color: #486ebd;
 }
