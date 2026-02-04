@@ -177,11 +177,10 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
         search = search.toLowerCase();
 
         Session session = currentSession();
-        String hql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :roleSearch) and i.role in (:roleNames) order by sortOrderId";
+        String hql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in (:roleNames) order by sortOrderId";
         logger.debug(hql);
         List<Long> result = session.createQuery(hql)
                 .setParameter("search", search)
-                .setParameter("roleSearch", roleNames.toString())
                 .setParameterList("roleNames", roleNames)
                 .list();
 

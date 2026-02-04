@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
+import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -121,9 +122,12 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
             throw new IllegalArgumentException();
         }
 
-        String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId in " +
-                "(select s.id from Program s where s.facilityId=?1 or s.facilityId is null)";
-        List results = getHibernateTemplate().find(queryStr, new Object[]{providerNo, facilityId});
+        Session session = currentSession();
+        String hql = "from ProgramProvider pp where pp.ProviderNo = :providerNo and pp.ProgramId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
+        List results = session.createQuery(hql)
+                .setParameter("providerNo", providerNo)
+                .setParameter("facilityId", facilityId)
+                .list();
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvidersByProviderAndFacility: providerNo=" + providerNo + ",# of results="
@@ -313,9 +317,12 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
             throw new IllegalArgumentException();
         }
 
-        String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId in " +
-                "(select s.id from Program s where s.facilityId=?1 or s.facilityId is null)";
-        List results = getHibernateTemplate().find(queryStr, new Object[]{providerNo, facilityId});
+        Session session = currentSession();
+        String hql = "from ProgramProvider pp where pp.ProviderNo = :providerNo and pp.ProgramId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
+        List results = session.createQuery(hql)
+                .setParameter("providerNo", providerNo)
+                .setParameter("facilityId", facilityId)
+                .list();
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramDomainByFacility: providerNo=" + providerNo + ",# of results=" + results.size());
