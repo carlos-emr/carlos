@@ -164,7 +164,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Provider> getProviders(String[] providers) {
-        String sSQL = "FROM Provider p WHERE p.providerNumber IN (?0)";
+        String sSQL = "FROM Provider p WHERE p.providerNumber IN (?1)";
         List<Provider> rs = (List<Provider>) getHibernateTemplate().find(sSQL, new Object[]{providers});
         return rs;
     }
@@ -173,7 +173,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     public List<Provider> getProviderFromFirstLastName(String firstname, String lastname) {
         firstname = firstname.trim();
         lastname = lastname.trim();
-        String s = "From Provider p where p.FirstName=?0 and p.LastName=?1";
+        String s = "From Provider p where p.FirstName=?1 and p.LastName=?2";
         Object params[] = new Object[]{firstname, lastname};
         return (List<Provider>) getHibernateTemplate().find(s, params);
     }
@@ -182,7 +182,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     public List<Provider> getProviderLikeFirstLastName(String firstname, String lastname) {
         firstname = firstname.trim();
         lastname = lastname.trim();
-        String s = "From Provider p where p.FirstName like ?0 and p.LastName like ?1";
+        String s = "From Provider p where p.FirstName like ?1 and p.LastName like ?2";
         Object params[] = new Object[]{firstname, lastname};
         return (List<Provider>) getHibernateTemplate().find(s, params);
     }
@@ -191,7 +191,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     public List<Provider> getActiveProviderLikeFirstLastName(String firstname, String lastname) {
         firstname = firstname.trim();
         lastname = lastname.trim();
-        String s = "From Provider p where p.FirstName like ?0 and p.LastName like ?1 and p.Status='1'";
+        String s = "From Provider p where p.FirstName like ?1 and p.LastName like ?2 and p.Status='1'";
         Object params[] = new Object[]{firstname, lastname};
         return (List<Provider>) getHibernateTemplate().find(s, params);
     }
@@ -200,7 +200,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     public List<SecProvider> getActiveProviders(Integer programId) {
         String sSQL = "FROM  SecProvider p where p.status='1' and p.providerNo in " +
                 "(select sr.providerNo from secUserRole sr, LstOrgcd o " +
-                " where o.code = 'P' || ?0 " +
+                " where o.code = 'P' || ?1 " +
                 " and o.codecsv  like '%' || sr.orgcd || ',%' " +
                 " and not (sr.orgcd like 'R%' or sr.orgcd like 'O%'))" +
                 " ORDER BY p.lastName";
@@ -217,12 +217,12 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
         List<Provider> rs;
         if (programId != null && "0".equals(programId) == false) {
             sSQL = "FROM  Provider p where p.Status='1' and p.ProviderNo in "
-                    + "(select c.ProviderNo from ProgramProvider c where c.ProgramId =?0) ORDER BY p.LastName";
+                    + "(select c.ProviderNo from ProgramProvider c where c.ProgramId =?1) ORDER BY p.LastName";
             rs = (List<Provider>) getHibernateTemplate().find(sSQL, Long.valueOf(programId));
         } else if (facilityId != null && "0".equals(facilityId) == false) {
             sSQL = "FROM  Provider p where p.Status='1' and p.ProviderNo in "
                     + "(select c.ProviderNo from ProgramProvider c where c.ProgramId in "
-                    + "(select a.id from Program a where a.facilityId=?0)) ORDER BY p.LastName";
+                    + "(select a.id from Program a where a.facilityId=?1)) ORDER BY p.LastName";
             // JS 2192700 - string facilityId seems to be throwing class cast
             // exception
             Integer intFacilityId = Integer.valueOf(facilityId);
@@ -272,7 +272,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     public List<Provider> getActiveProvidersByRole(String role) {
 
         String sSQL = "select p FROM Provider p, SecUserRole s where p.ProviderNo = s.ProviderNo and p.Status='1' " +
-        "and s.RoleName = ?0 order by p.LastName, p.FirstName";
+        "and s.RoleName = ?1 order by p.LastName, p.FirstName";
         List<Provider> rs = (List<Provider>) getHibernateTemplate().find(sSQL, role);
 
         if (log.isDebugEnabled()) {
@@ -308,7 +308,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @Override
     public List<Provider> getBillableProvidersInBC(LoggedInInfo loggedInInfo) {
         String sSQL = "FROM Provider p where (p.OhipNo <> '' or p.RmaNo <> ''  or p.BillingNo <> '' or p.HsoNo <> '') " +
-                "and p.Status = '1' and p.ProviderNo not like ?0 order by p.LastName";
+                "and p.Status = '1' and p.ProviderNo not like ?1 order by p.LastName";
         return (List<Provider>) getHibernateTemplate().find(sSQL, loggedInInfo.getLoggedInProviderNo());
     }
 
@@ -337,14 +337,14 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             sql = "FROM  Provider p where p.Status='1'" +
                     " and p.ProviderNo in (select sr.providerNo from Secuserrole sr " +
                     " where sr.orgcd in (select o.code from LstOrgcd o, Secuserrole srb " +
-                    " where o.codecsv  like '%' || srb.orgcd || ',%' and srb.providerNo =?0))" +
+                    " where o.codecsv  like '%' || srb.orgcd || ',%' and srb.providerNo =?1))" +
                     " ORDER BY p.LastName";
             paramList.add(providerNo);
         } else {
             sql = "FROM  Provider p where p.Status='1'" +
                     " and p.ProviderNo in (select sr.providerNo from Secuserrole sr " +
                     " where sr.orgcd in (select o.code from LstOrgcd o, Secuserrole srb " +
-                    " where o.codecsv like '%S?0,%' and o.codecsv like '%' || srb.orgcd || ',%' and srb.providerNo =?1))" +
+                    " where o.codecsv like '%S?1,%' and o.codecsv like '%' || srb.orgcd || ',%' and srb.providerNo =?2))" +
                     " ORDER BY p.LastName";
             paramList.add(shelterId);
             paramList.add(providerNo);
@@ -362,7 +362,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @Override
     public List<Provider> getActiveProvider(String providerNo) {
 
-        String sql = "FROM Provider p where p.Status='1' and p.ProviderNo =?0";
+        String sql = "FROM Provider p where p.Status='1' and p.ProviderNo =?1";
         Object params[] = new Object[]{providerNo};
         List<Provider> rs = (List<Provider>) getHibernateTemplate().find(sql, params);
 
@@ -406,7 +406,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Provider> getProvidersByTypeWithNonEmptyOhipNo(String type) {
-        String sSQL = "from Provider p where p.ProviderType = ?0 and p.OhipNo <> ''";
+        String sSQL = "from Provider p where p.ProviderType = ?1 and p.OhipNo <> ''";
         List<Provider> results = (List<Provider>) this.getHibernateTemplate().find(sSQL, type);
         return results;
     }
@@ -414,7 +414,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @Override
     public List<Provider> getProvidersByType(String type) {
 
-        String sSQL = "from Provider p where p.ProviderType = ?0";
+        String sSQL = "from Provider p where p.ProviderType = ?1";
         List<Provider> results = (List<Provider>) this.getHibernateTemplate().find(sSQL, type);
 
         if (log.isDebugEnabled()) {
@@ -428,7 +428,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @Override
     public List<Provider> getProvidersByTypePattern(String typePattern) {
 
-        String sSQL = "from Provider p where p.ProviderType like ?0";
+        String sSQL = "from Provider p where p.ProviderType like ?1";
         List<Provider> results = (List<Provider>) this.getHibernateTemplate().find(sSQL, typePattern);
         return results;
     }
@@ -509,7 +509,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             return null;
         }
 
-        String sSQL = "From Provider p where p.practitionerNo=?0";
+        String sSQL = "From Provider p where p.practitionerNo=?1";
         List<Provider> providerList = (List<Provider>) getHibernateTemplate().find(sSQL, new Object[]{practitionerNo});
 
         if (providerList.size() > 1) {
@@ -535,7 +535,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "From Provider p where p.practitionerNoType IN (?0) AND p.practitionerNo=?1";
+        String sSQL = "From Provider p where p.practitionerNoType IN (?1) AND p.practitionerNo=?2";
         List<Provider> providerList = (List<Provider>) getHibernateTemplate().find(sSQL, new Object[]{practitionerNoTypes, practitionerNo});
         // List<Provider> providerList = getHibernateTemplate().find("From Provider p
         // where p.practitionerNoType IN (:types) AND p.practitionerNo=?",new
@@ -562,7 +562,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @Override
     public List<Provider> getBillableProvidersOnTeam(Provider p) {
 
-        String sSQL = "from Provider p where status='1' and ohip_no!='' and p.Team=?0 order by last_name, first_name";
+        String sSQL = "from Provider p where status='1' and ohip_no!='' and p.Team=?1 order by last_name, first_name";
         List<Provider> providers = (List<Provider>) this.getHibernateTemplate().find(sSQL, p.getTeam());
 
         return providers;
@@ -574,7 +574,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from Provider p where ohip_no like ?0 order by last_name, first_name";
+        String sSQL = "from Provider p where ohip_no like ?1 order by last_name, first_name";
         List<Provider> providers = (List<Provider>) this.getHibernateTemplate().find(sSQL, ohipNo);
 
         if (providers.size() > 1) {
@@ -588,7 +588,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Provider> getProvidersWithNonEmptyOhip(LoggedInInfo loggedInInfo) {
-        String sSQL = "FROM Provider WHERE ohip_no != '' and ProviderNo not like ?0 order by last_name, first_name";
+        String sSQL = "FROM Provider WHERE ohip_no != '' and ProviderNo not like ?1 order by last_name, first_name";
         return (List<Provider>) getHibernateTemplate().find(sSQL, loggedInInfo.getLoggedInProviderNo());
     }
 
@@ -642,9 +642,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Provider> getProviderByPatientId(Integer patientId) {
-        String hql = "SELECT p FROM Provider p, Demographic d "
-                + "WHERE d.ProviderNo = p.ProviderNo "
-                + "AND d.DemographicNo = ?0";
+        String hql = "SELECT p FROM Provider p, Demographic d WHERE d.ProviderNo = p.ProviderNo AND d.DemographicNo = ?1";
         return (List<Provider>) this.getHibernateTemplate().find(hql, patientId);
     }
 
@@ -669,7 +667,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<String> getProvidersInTeam(String teamName) {
-        String sSQL = "select distinct p.ProviderNo from Provider p  where p.Team = ?0";
+        String sSQL = "select distinct p.ProviderNo from Provider p  where p.Team = ?1";
         List<String> providerList = (List<String>) getHibernateTemplate().find(sSQL, new Object[]{teamName});
         return providerList;
     }
@@ -683,7 +681,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
-        String sSQL = "select distinct p.ProviderNo From Provider p where p.lastUpdateDate > ?0 ";
+        String sSQL = "select distinct p.ProviderNo From Provider p where p.lastUpdateDate > ?1 ";
         @SuppressWarnings("unchecked")
         List<String> providers = (List<String>) getHibernateTemplate().find(sSQL, date);
 
@@ -798,7 +796,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @Override
     public Provider getProviderByPractitionerNoAndOlisType(String practitionerNo, String olisIdentifierType) {
         UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
-        String sql = "FROM Provider p WHERE p.practitionerNo=?0";
+        String sql = "FROM Provider p WHERE p.practitionerNo=?1";
 
         List<Provider> providers = (List<Provider>) getHibernateTemplate().find(sql, practitionerNo);
 
