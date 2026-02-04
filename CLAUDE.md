@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 5.3.39, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
+**Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 ## Essential Commands
@@ -142,6 +142,22 @@ public class Example2Action extends ActionSupport {
 1. **Simple Execute**: Single `execute()` method (e.g., `AddTickler2Action`)
 2. **Method-Based**: Route via `method` parameter (e.g., `CaseloadContent2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
+
+### Struts 6.8.0 Compatibility Notes
+
+**Expected Deprecation Warnings**: When building, you will see compiler warnings about deprecated `com.opensymphony.xwork2.*` classes. This is **expected and acceptable**.
+
+- The `com.opensymphony.xwork2.*` packages are deprecated in Struts 6.x but remain **fully functional** due to bug WW-5494
+- All 458 *2Action files continue to use these packages without modification
+- No import statement changes are required
+- These packages will be removed in Struts 7.x (which requires Jakarta EE migration)
+- To suppress warnings, add `<showDeprecation>false</showDeprecation>` to maven-compiler-plugin
+
+**Migration History**:
+- Struts 2.5.33 → 6.8.0 (January 2026, PR #88)
+- Security fix for CVE-2025-64775 (disk exhaustion DoS vulnerability)
+- Configuration-only migration with zero Action class changes
+- Added Caffeine 3.1.8 cache dependency (required by Struts 6.x)
 
 ## Healthcare Domain Context
 
@@ -284,7 +300,11 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
 
 ### Web Technologies
-- **Struts 2.5.33**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
+- **Struts 6.8.0**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
+  - Upgraded from 2.5.33 (January 2026) - Fixes CVE-2025-64775 disk exhaustion DoS vulnerability
+  - Requires Caffeine 3.1.8 cache dependency for internal caching
+  - Maintains backward compatibility with `com.opensymphony.xwork2.*` packages via WW-5494 bug
+  - All 458 *2Action files remain unchanged - no import modifications needed
 - **Apache CXF 3.6.9**: Web services framework for healthcare integrations
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
