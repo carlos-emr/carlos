@@ -630,12 +630,18 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
     @Override
     public boolean inOrg(String org1, String org2) {
         boolean isInString = false;
-        String sql = "From LstOrgcd a where  a.fullcode like %?1";
+        String sql = "From LstOrgcd a where a.fullcode like ?1";
 
-        LstOrgcd orgObj1 = (LstOrgcd) getHibernateTemplate().find(sql, new Object[]{org1});
-        LstOrgcd orgObj2 = (LstOrgcd) getHibernateTemplate().find(sql, new Object[]{org2});
-        if (orgObj2.getFullcode().indexOf(orgObj1.getFullcode()) > 0)
-            isInString = true;
+        // Wildcard must be part of the parameter value, not the HQL query
+        List<LstOrgcd> results1 = (List<LstOrgcd>) getHibernateTemplate().find(sql, new Object[]{"%" + org1});
+        List<LstOrgcd> results2 = (List<LstOrgcd>) getHibernateTemplate().find(sql, new Object[]{"%" + org2});
+
+        if (!results1.isEmpty() && !results2.isEmpty()) {
+            LstOrgcd orgObj1 = results1.get(0);
+            LstOrgcd orgObj2 = results2.get(0);
+            if (orgObj2.getFullcode().indexOf(orgObj1.getFullcode()) > 0)
+                isInString = true;
+        }
         return isInString;
 
     }
