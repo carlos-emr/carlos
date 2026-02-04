@@ -96,18 +96,18 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
         // Create ActionContext using Struts 6.x API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
 
-        ActionContext context = ActionContext.of()
-            .withServletRequest(mockRequest)
-            .withServletResponse(mockResponse)
-            .withParameters(httpParameters)
-            .bind();
-
         // Also set in session map for compatibility
         Map<String, Object> sessionMap = new HashMap<>();
         mockSession.getAttributeNames().asIterator().forEachRemaining(
             name -> sessionMap.put(name, mockSession.getAttribute(name))
         );
-        context.withSession(sessionMap);
+
+        ActionContext.of()
+            .withServletRequest(mockRequest)
+            .withServletResponse(mockResponse)
+            .withParameters(httpParameters)
+            .withSession(sessionMap)
+            .bind();
     }
 
     /**
