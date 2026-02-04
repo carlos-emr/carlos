@@ -295,37 +295,37 @@ a:Hover {
     color: red;
 }
 
-/* Navigation bar link styles - !important to prevent Bootstrap override */
-#firstTable a,
-#firstTable a:visited,
-#firstTable a:active,
-#firstMenu a,
-#firstMenu a:visited,
-#firstMenu a:active,
-#navlist a,
-#navlist a:visited,
-#navlist a:active,
-#userSettings a,
-#userSettings a:visited,
-#userSettings a:active {
-    color: #00283c !important;
-    text-decoration: none !important;
-    font-weight: bold !important;
+/* Navigation bar link styles - Specific selectors to override Bootstrap defaults */
+table#firstTable a,
+table#firstTable a:visited,
+table#firstTable a:active,
+table#firstTable td#firstMenu a,
+table#firstTable td#firstMenu a:visited,
+table#firstTable td#firstMenu a:active,
+table#firstTable td#firstMenu ul#navlist a,
+table#firstTable td#firstMenu ul#navlist a:visited,
+table#firstTable td#firstMenu ul#navlist a:active,
+table#firstTable td#userSettings a,
+table#firstTable td#userSettings a:visited,
+table#firstTable td#userSettings a:active {
+    color: #00283c;
+    text-decoration: none;
+    font-weight: bold;
 }
 
-#firstTable a:hover,
-#firstTable a:focus,
-#firstTable a:focus-visible,
-#firstMenu a:hover,
-#firstMenu a:focus,
-#firstMenu a:focus-visible,
-#navlist a:hover,
-#navlist a:focus,
-#navlist a:focus-visible,
-#userSettings a:hover,
-#userSettings a:focus,
-#userSettings a:focus-visible {
-    color: #fff !important;
+table#firstTable a:hover,
+table#firstTable a:focus,
+table#firstTable a:focus-visible,
+table#firstTable td#firstMenu a:hover,
+table#firstTable td#firstMenu a:focus,
+table#firstTable td#firstMenu a:focus-visible,
+table#firstTable td#firstMenu ul#navlist a:hover,
+table#firstTable td#firstMenu ul#navlist a:focus,
+table#firstTable td#firstMenu ul#navlist a:focus-visible,
+table#firstTable td#userSettings a:hover,
+table#firstTable td#userSettings a:focus,
+table#firstTable td#userSettings a:focus-visible {
+    color: #fff;
     background-color: #486ebd;
 }
 
@@ -407,18 +407,20 @@ p {
     color: green;
 }
 
+/* Alert styling with high specificity to ensure visibility */
 .tabalert,
 .tabalert a,
 a .tabalert,
-#navlist a .tabalert,
-#navlist .tabalert,
-#firstTable .tabalert {
+table#firstTable td#firstMenu ul#navlist a .tabalert,
+table#firstTable td#firstMenu ul#navlist .tabalert,
+table#firstTable .tabalert {
     color: red !important;
 }
 
 .tabalert:hover,
 .tabalert a:hover,
-a:hover .tabalert {
+a:hover .tabalert,
+table#firstTable td#firstMenu ul#navlist a:hover .tabalert {
     color: white !important;
 }
 

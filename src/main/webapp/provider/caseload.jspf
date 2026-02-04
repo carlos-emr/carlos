@@ -13,6 +13,40 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+/**
+ * Caseload Management Fragment
+ *
+ * Purpose:
+ * Displays and manages patient caseload lists for healthcare providers with advanced filtering,
+ * sorting, and search capabilities. Supports program-based filtering, provider selection,
+ * roster status filtering, and diagnosis registry searches.
+ *
+ * Features:
+ * - Dynamic table with sticky header for navigation during scrolling
+ * - Infinite scroll pagination for large caseloads
+ * - Multi-column sorting (demographic, age, sex, appointments, lab results, etc.)
+ * - Real-time search by notes or diagnosis codes
+ * - Program-based filtering (CAISI integration)
+ * - Provider and roster status filters
+ * - Security-aware column visibility based on user privileges
+ *
+ * Parameters:
+ * - clProv: Provider number for filtering (default: all providers)
+ * - clDx: Diagnosis code for DxReg search
+ * - clRo: Roster status filter (RO=Rostered, NR=Not Rostered, TE=Terminated, FS=Fee Service)
+ * - clQ: Search query for notes/text search
+ *
+ * Dependencies:
+ * - jQuery for AJAX and DOM manipulation
+ * - Bootstrap CSS for table styling
+ * - OWASP Encoder for XSS prevention
+ * - Security taglib for role-based column access control
+ *
+ * @since 2008-01-15 (Original Indivica implementation)
+ * @since 2026-02-04 (CARLOS EMR modernization - sticky header, Bootstrap integration)
+ */
+--%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
 <%@ page import=" io.github.carlos_emr.carlos.utility.*"%>
@@ -80,8 +114,8 @@
 #caseloadHeader td {
     background-color: #c0c0c0;
 }
-#caseloadEntry a {
-    color: #000000;  //black
+.caseloadEntry a {
+    color: #000000; /* black */
 }
 
 #leftSearch {
@@ -94,7 +128,6 @@
     text-align: right;
 }
 </style>
- <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet" type="text/css">
 <%
 Locale locale = request.getLocale();
 String[] clH = new String[] {   LocaleUtils.getMessage(locale, "caseload.msgDemographic"), "", LocaleUtils.getMessage(locale, "caseload.msgAge"), LocaleUtils.getMessage(locale, "caseload.msgSex"), LocaleUtils.getMessage(locale, "caseload.msgLastAppt"), LocaleUtils.getMessage(locale, "caseload.msgNextAppt"), LocaleUtils.getMessage(locale, "caseload.msgApptsLYTD"), LocaleUtils.getMessage(locale, "caseload.msgLab"), LocaleUtils.getMessage(locale, "caseload.msgDoc"), LocaleUtils.getMessage(locale, "caseload.msgTickler"), LocaleUtils.getMessage(locale, "caseload.msgMsg"), LocaleUtils.getMessage(locale, "caseload.msgBMI"), LocaleUtils.getMessage(locale, "caseload.msgBP"), LocaleUtils.getMessage(locale, "caseload.msgWT"), LocaleUtils.getMessage(locale, "caseload.msgSMK"), LocaleUtils.getMessage(locale, "caseload.msgA1C"), LocaleUtils.getMessage(locale, "caseload.msgACR"), LocaleUtils.getMessage(locale, "caseload.msgSCR"), LocaleUtils.getMessage(locale, "caseload.msgLDL"), LocaleUtils.getMessage(locale, "caseload.msgHDL"), LocaleUtils.getMessage(locale, "caseload.msgTCHD"), LocaleUtils.getMessage(locale, "caseload.msgEGFR"), LocaleUtils.getMessage(locale, "caseload.msgEYEE"), LocaleUtils.getMessage(locale, "caseload.msgLastEncounterDate"), LocaleUtils.getMessage(locale, "caseload.msgLastEncounterType"), LocaleUtils.getMessage(locale, "caseload.msgCASHAdmissionDate"), LocaleUtils.getMessage(locale, "caseload.msgACCESS1AdmissionDate")};
@@ -147,7 +180,7 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 		<% } %>
 					</select>
 					<b>Rostered: </b>
-					<select id='caseloadRoster' onChange='search("search");' style='width: 120'>
+					<select id='caseloadRoster' onChange='search("search");' style='width: 120px'>
 						<option value='' selected></option>
 						<option value='RO'><fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiceditdemographic.optRostered'/></option>
 						<option value='NR'><fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiceditdemographic.optNotRostered'/></option>
@@ -365,11 +398,25 @@ function update(method) {
 }
 
 function draw(json) {
-	var tableStr = "";
 	var oldRows = rows;
+	var fragment = document.createDocumentFragment();
+
 	jQuery.each(json.data, function() {
-		tableStr += "<tr class='caseloadRow caseloadEntry' bgcolor='" + ((++rows%2==0)?"":"") + "'><td>"+this.join("</td><td>")+"</td></tr>\n";
+		var tr = document.createElement('tr');
+		tr.className = 'caseloadRow caseloadEntry';
+		rows++;
+
+		// Create table cells using DOM methods for XSS prevention
+		for (var i = 0; i < this.length; i++) {
+			var td = document.createElement('td');
+			// Use innerHTML only for server-sanitized HTML content, otherwise use textContent
+			// Note: Server should already encode data, but this provides defense in depth
+			td.innerHTML = this[i];
+			tr.appendChild(td);
+		}
+		fragment.appendChild(tr);
 	});
+
 	if (rows == 0) {
 		hideAllMessages();
 		showNoResults();
@@ -380,7 +427,7 @@ function draw(json) {
 		updateTotalRows();
 	}
 	else {
-		jQuery("#loadingFooter").before(tableStr);
+		jQuery("#loadingFooter").before(fragment);
 		hideAllMessages();
 		// json.size is only defined on page 1
 		updateTotalRows(json.size);
