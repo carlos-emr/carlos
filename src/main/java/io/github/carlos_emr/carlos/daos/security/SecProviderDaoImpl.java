@@ -102,7 +102,7 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public SecProvider findById(java.lang.String id, String status) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            String sql = "from SecProvider where id=?0 and status=?1";
+            String sql = "from SecProvider where id=?1 and status=?2";
             List lst = this.getHibernateTemplate().find(sql, new Object[]{id, status});
             if (lst.size() == 0)
                 return null;

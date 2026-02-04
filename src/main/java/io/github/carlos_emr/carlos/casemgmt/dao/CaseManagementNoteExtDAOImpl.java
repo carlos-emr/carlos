@@ -48,34 +48,34 @@ public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteExt> getExtByNote(Long noteId) {
-        String hql = "from CaseManagementNoteExt cExt where cExt.noteId = ?0 order by cExt.id desc";
+        String hql = "from CaseManagementNoteExt cExt where cExt.noteId = ?1 order by cExt.id desc";
         return (List<CaseManagementNoteExt>) this.getHibernateTemplate().find(hql, noteId);
     }
 
     @Override
     public List getExtByKeyVal(String keyVal) {
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0";
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1";
         return this.getHibernateTemplate().find(hql, keyVal);
     }
 
     @Override
     public List getExtByValue(String keyVal, String value) {
         Object[] param = {keyVal, value};
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0 and cExt.value like ?1";
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.value like ?2";
         return this.getHibernateTemplate().find(hql, param);
     }
 
     @Override
     public List getExtBeforeDate(String keyVal, Date dateValue) {
         Object[] param = {keyVal, dateValue};
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0 and cExt.dateValue <= ?1";
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue <= ?2";
         return this.getHibernateTemplate().find(hql, param);
     }
 
     @Override
     public List getExtAfterDate(String keyVal, Date dateValue) {
         Object[] param = {keyVal, dateValue};
-        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?0 and cExt.dateValue >= ?1";
+        String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue >= ?2";
         return this.getHibernateTemplate().find(hql, param);
     }
 

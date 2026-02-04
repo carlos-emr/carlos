@@ -81,7 +81,7 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
             // get from database
             @SuppressWarnings("unchecked")
             List<ClientImage> results = (List<ClientImage>) getHibernateTemplate()
-                    .find("from ClientImage i where i.demographic_no=?0 order by update_date desc", clientId);
+                    .find("from ClientImage i where i.demographic_no=?1 order by update_date desc", clientId);
             if (results.size() > 0) {
                 clientImage = results.get(0);
 

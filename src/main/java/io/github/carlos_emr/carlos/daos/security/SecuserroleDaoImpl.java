@@ -145,7 +145,7 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("deleting Secuserrole by orgcd");
         try {
 
-            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.orgcd =?0", orgcd);
+            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.orgcd =?1", orgcd);
 
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -158,7 +158,7 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("deleting Secuserrole by providerNo");
         try {
 
-            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.providerNo =?0",
+            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.providerNo =?1",
                     providerNo);
 
         } catch (RuntimeException re) {
@@ -172,7 +172,7 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("deleting Secuserrole by ID");
         try {
 
-            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.id =?0", id);
+            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.id =?1", id);
 
         } catch (RuntimeException re) {
             logger.error("delete failed", re);

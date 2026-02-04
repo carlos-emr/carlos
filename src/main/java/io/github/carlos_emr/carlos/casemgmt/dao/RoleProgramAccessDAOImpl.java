@@ -41,14 +41,14 @@ public class RoleProgramAccessDAOImpl extends HibernateDaoSupport implements Rol
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultAccessRightByRole(Long roleId) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?0";
+        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1";
         return (List<DefaultRoleAccess>) getHibernateTemplate().find(q, roleId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?0 and da.access_type.Name like ?1";
+        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name like ?2";
         return (List<DefaultRoleAccess>) getHibernateTemplate().find(q, new Object[]{roleId, accessType});
     }
 

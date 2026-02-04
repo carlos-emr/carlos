@@ -53,7 +53,7 @@ public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO 
     }
 
     public Provider getProviderByName(String lastName, String firstName) {
-        return (Provider) getHibernateTemplate().find("from Provider p where p.first_name = ?0 and p.last_name = ?1", firstName, lastName).get(0);
+        return (Provider) getHibernateTemplate().find("from Provider p where p.first_name = ?1 and p.last_name = ?2", firstName, lastName).get(0);
     }
 
 }

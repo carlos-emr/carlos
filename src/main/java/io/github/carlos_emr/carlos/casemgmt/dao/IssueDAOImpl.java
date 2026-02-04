@@ -68,7 +68,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
     @Override
     public Issue findIssueByCode(String code) {
-        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.code = ?0",
+        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.code = ?1",
                 new Object[]{code});
         if (list.size() > 0)
             return list.get(0);
@@ -78,7 +78,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
     @Override
     public Issue findIssueByTypeAndCode(String type, String code) {
-        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.type=?0 and i.code = ?1",
+        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.type=?1 and i.code = ?2",
                 new Object[]{type, code});
         if (list.size() > 0)
             return list.get(0);
@@ -102,7 +102,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
     public List<Issue> findIssueBySearch(String search) {
         search = "%" + search + "%";
         search = search.toLowerCase();
-        String sql = "from Issue i where lower(i.code) like ?0 or lower(i.description) like ?1";
+        String sql = "from Issue i where lower(i.code) like ?1 or lower(i.description) like ?2";
         return (List<Issue>) this.getHibernateTemplate().find(sql, new Object[]{search, search});
     }
 
@@ -196,7 +196,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
     public List searchNoRolesConcerned(String search) {
         search = "%" + search + "%";
         search = search.toLowerCase();
-        String sql = "from Issue i where (lower(i.code) like ?0 or lower(i.description) like ?1)";
+        String sql = "from Issue i where (lower(i.code) like ?1 or lower(i.description) like ?2)";
         logger.debug(sql);
         return this.getHibernateTemplate().find(sql, new Object[]{search, search});
     }
@@ -215,7 +215,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
         if (type == null || type.equals("")) {
             codes = new ArrayList<String>();
         } else {
-            codes = (List<String>) this.getHibernateTemplate().find("FROM Issue i WHERE i.type = ?0",
+            codes = (List<String>) this.getHibernateTemplate().find("FROM Issue i WHERE i.type = ?1",
                     new Object[]{type.toLowerCase()});
         }
         return codes;

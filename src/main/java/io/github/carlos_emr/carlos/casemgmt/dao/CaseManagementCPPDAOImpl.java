@@ -49,7 +49,7 @@ public class CaseManagementCPPDAOImpl extends HibernateDaoSupport implements Cas
     @Override
     public CaseManagementCPP getCPP(String demographic_no) {
         List results = this.getHibernateTemplate().find(
-                "from CaseManagementCPP cpp where cpp.demographic_no = ?0 order by update_date desc",
+                "from CaseManagementCPP cpp where cpp.demographic_no = ?1 order by update_date desc",
                 new Object[]{demographic_no});
         return (results.size() != 0) ? (CaseManagementCPP) results.get(0) : null;
     }

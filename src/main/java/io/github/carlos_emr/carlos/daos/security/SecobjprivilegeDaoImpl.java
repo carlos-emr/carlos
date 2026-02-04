@@ -120,7 +120,7 @@ public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements Secob
         logger.debug("deleting Secobjprivilege by roleName");
         try {
 
-            return getHibernateTemplate().bulkUpdate("delete Secobjprivilege as model where model.roleusergroup =?0",
+            return getHibernateTemplate().bulkUpdate("delete Secobjprivilege as model where model.roleusergroup =?1",
                     roleName);
 
         } catch (RuntimeException re) {
