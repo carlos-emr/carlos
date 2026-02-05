@@ -125,7 +125,12 @@
 }
 #rightSearch {
     display: block;
-    text-align: right;
+    text-align: center;
+    margin-bottom: 5px;
+}
+#rightSearch form {
+    display: inline-block;
+    text-align: left;
 }
 </style>
 <%
@@ -254,7 +259,8 @@ var loading = false;
 
 function handleScroll(e) {
 	if (!canLoad || loading) { return false; }
-	if (jQuery(window).scrollTop() >= jQuery(document).height() - jQuery(window).height()){
+	// Trigger load when within 100px of bottom
+	if (jQuery(window).scrollTop() + jQuery(window).height() >= jQuery(document).height() - 100){
 		update(searchMethod);
 	}
 }
