@@ -1,13 +1,13 @@
 name: Documentation
 description: Report documentation issues or improvements
 title: "[Docs]: "
-labels: ["type: documentation"]
+labels: ["type: documentation", "status: needs-triage"]
 type: Documentation
 body:
   - type: markdown
     attributes:
       value: |
-        Report documentation issues or suggest improvements.
+        Thanks for helping us improve our documentation — clear docs make CARLOS easier for everyone.
 
   - type: dropdown
     id: doc_type

@@ -1,0 +1,101 @@
+# GitHub Workflow: DCO (Developer Certificate of Origin) Check
+#
+# Description:
+# Verifies that all commits in a pull request include a valid Signed-off-by
+# line, as required by the Developer Certificate of Origin (DCO).
+# See https://developercertificate.org/
+#
+# This is a REQUIRED check — PRs cannot merge without it passing. Configure
+# this as a required status check in branch protection rules:
+#   Settings → Branches → Branch protection → Require status checks → "DCO"
+#
+# No third-party actions are used beyond actions/checkout. The check is
+# implemented as a shell script to minimize supply chain risk.
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+
+name: DCO
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - experimental
+      - staging/*
+      - hotfix/*
+      - community/*/develop
+      - community/*/staging/*
+
+jobs:
+  dco:
+    name: DCO Sign-Off
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify DCO sign-off on all commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Checking commits ${BASE_SHA:0:7}..${HEAD_SHA:0:7} for DCO sign-off..."
+          echo ""
+
+          missing=()
+          total=0
+          passed=0
+
+          for sha in $(git rev-list "$BASE_SHA".."$HEAD_SHA"); do
+            total=$((total + 1))
+            subject=$(git log -1 --format="%s" "$sha")
+            short=$(git log -1 --format="%h" "$sha")
+
+            # Check for Signed-off-by in the commit body
+            if git log -1 --format="%B" "$sha" | grep -qE "^Signed-off-by: .+ <.+>"; then
+              passed=$((passed + 1))
+            else
+              missing+=("$short $subject")
+            fi
+          done
+
+          echo "Checked $total commit(s): $passed passed, ${#missing[@]} missing sign-off"
+          echo ""
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::The following commit(s) are missing a DCO sign-off (Signed-off-by line):"
+            echo ""
+            for entry in "${missing[@]}"; do
+              echo "  - $entry"
+            done
+            echo ""
+            echo "──────────────────────────────────────────────────────────"
+            echo "All commits must include a Signed-off-by line certifying"
+            echo "you have the right to submit the code under the project's"
+            echo "open source license."
+            echo ""
+            echo "To add a sign-off to your most recent commit:"
+            echo "  git commit --amend -s --no-edit"
+            echo ""
+            echo "To add sign-offs to multiple commits:"
+            echo "  git rebase --signoff HEAD~${#missing[@]}"
+            echo ""
+            echo "For new commits, always use the -s flag:"
+            echo "  git commit -s -m \"feat: your message\""
+            echo ""
+            echo "What is the DCO?"
+            echo "  https://developercertificate.org/"
+            echo ""
+            echo "See CONTRIBUTING.md for details."
+            echo "──────────────────────────────────────────────────────────"
+            exit 1
+          fi
+
+          echo "All commits have valid DCO sign-off."

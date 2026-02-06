@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Suggest a new feature or enhancement.
+        Thanks for sharing your idea — we love hearing how CARLOS can better serve the healthcare community.
 
   - type: textarea
     id: problem
@@ -44,6 +44,7 @@ body:
         - Admin Panel
         - Billing
         - Forms/eForms
+        - Appointment/Schedule
         - Search
         - HL7/FHIR Integration
         - Reports
@@ -69,6 +70,7 @@ body:
     attributes:
       label: Additional Context
       description: Any other context or examples
+      placeholder: Screenshots welcome — but please ensure no patient data (PHI) is visible
 
   - type: checkboxes
     id: checklist
