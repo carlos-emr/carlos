@@ -295,19 +295,10 @@ a:Hover {
     color: red;
 }
 
-/* Navigation bar link styles - Specific selectors to override Bootstrap defaults */
+/* Navigation bar link styles - override Bootstrap defaults */
 table#firstTable a,
 table#firstTable a:visited,
-table#firstTable a:active,
-table#firstTable td#firstMenu a,
-table#firstTable td#firstMenu a:visited,
-table#firstTable td#firstMenu a:active,
-table#firstTable td#firstMenu ul#navlist a,
-table#firstTable td#firstMenu ul#navlist a:visited,
-table#firstTable td#firstMenu ul#navlist a:active,
-table#firstTable td#userSettings a,
-table#firstTable td#userSettings a:visited,
-table#firstTable td#userSettings a:active {
+table#firstTable a:active {
     color: #00283c;
     text-decoration: none;
     font-weight: bold;
@@ -315,16 +306,7 @@ table#firstTable td#userSettings a:active {
 
 table#firstTable a:hover,
 table#firstTable a:focus,
-table#firstTable a:focus-visible,
-table#firstTable td#firstMenu a:hover,
-table#firstTable td#firstMenu a:focus,
-table#firstTable td#firstMenu a:focus-visible,
-table#firstTable td#firstMenu ul#navlist a:hover,
-table#firstTable td#firstMenu ul#navlist a:focus,
-table#firstTable td#firstMenu ul#navlist a:focus-visible,
-table#firstTable td#userSettings a:hover,
-table#firstTable td#userSettings a:focus,
-table#firstTable td#userSettings a:focus-visible {
+table#firstTable a:focus-visible {
     color: #fff;
     background-color: #486ebd;
 }
@@ -407,20 +389,16 @@ p {
     color: green;
 }
 
-/* Alert styling with high specificity to ensure visibility */
+/* Alert styling - high specificity needed to override nav link colors above */
 .tabalert,
 .tabalert a,
 a .tabalert,
-table#firstTable td#firstMenu ul#navlist a .tabalert,
-table#firstTable td#firstMenu ul#navlist .tabalert,
 table#firstTable .tabalert {
     color: red !important;
 }
 
 .tabalert:hover,
-.tabalert a:hover,
-a:hover .tabalert,
-table#firstTable td#firstMenu ul#navlist a:hover .tabalert {
+a:hover .tabalert {
     color: white !important;
 }
 
