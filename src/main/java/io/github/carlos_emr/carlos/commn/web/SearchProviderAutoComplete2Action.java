@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
-import java.util.Hashtable;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -42,8 +41,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-import org.owasp.encoder.Encode;
-import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 
 /**
@@ -52,12 +49,14 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+@SuppressWarnings("deprecation")
 public class SearchProviderAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
 
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -84,8 +83,34 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
             return null;
         }
 
-        List provList = ProviderData.searchProvider(searchStr, true);
-        Hashtable d = new Hashtable();
+        // Parse search string for firstName and lastName (replaces deprecated
+        // ProviderData.searchProvider)
+        String firstName = null;
+        String lastName;
+        if (searchStr.indexOf(",") != -1) {
+            String[] array = searchStr.split(",");
+            lastName = array[0].trim();
+            firstName = array[1].trim();
+        } else {
+            lastName = searchStr.trim();
+        }
+
+        // Use the DAO directly with the newer model class
+        List<io.github.carlos_emr.carlos.commn.model.ProviderData> providers = providerDataDao.findByName(firstName,
+                lastName, true);
+
+        // Convert to the expected map format for JSON response
+        List<java.util.Map<String, String>> provList = new java.util.ArrayList<>();
+        for (io.github.carlos_emr.carlos.commn.model.ProviderData p : providers) {
+            java.util.Map<String, String> result = new java.util.HashMap<>();
+            result.put("providerNo", p.getId());
+            result.put("firstName", p.getFirstName());
+            result.put("lastName", p.getLastName());
+            result.put("ohipNo", p.getOhipNo());
+            provList.add(result);
+        }
+
+        java.util.HashMap<String, Object> d = new java.util.HashMap<>();
         d.put("results", provList);
 
         response.setContentType("text/x-json");
@@ -130,7 +155,7 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
             java.util.LinkedHashMap<String, String> node = new java.util.LinkedHashMap<>();
             String provLastName = provData.getLastName() != null ? provData.getLastName() : "";
             String provFirstName = provData.getFirstName() != null ? provData.getFirstName() : "";
-            node.put("label", Encode.forHtml(provLastName + ", " + provFirstName));
+            node.put("label", provLastName + ", " + provFirstName);
             node.put("value", provData.getId());
             searchResults.add(node);
         }

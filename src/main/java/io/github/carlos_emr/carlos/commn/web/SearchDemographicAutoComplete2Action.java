@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+@SuppressWarnings("deprecation")
 public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
