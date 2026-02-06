@@ -137,7 +137,9 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
-            h.put("formattedDob", Encode.forHtml(demo.getFormattedDob()));
+            String encodedDob = Encode.forHtml(demo.getFormattedDob());
+            h.put("formattedDob", encodedDob);
+            h.put("fomattedDob", encodedDob); // Legacy key for backward compatibility
             h.put("formattedName", Encode.forHtml(demo.getFormattedName()));
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
             h.put("status", Encode.forHtml(demo.getPatientStatus()));
@@ -216,6 +218,8 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             node.put("provider", record.get("providerName"));
             node.put("nextAppt", record.get("nextAppointment"));
             node.put("formattedName", formattedName);
+            node.put("formattedDob", formattedDob);
+            node.put("fomattedDob", formattedDob); // Legacy key for backward compatibility
             results.add(node);
         }
         return objectMapper.writeValueAsString(results);
