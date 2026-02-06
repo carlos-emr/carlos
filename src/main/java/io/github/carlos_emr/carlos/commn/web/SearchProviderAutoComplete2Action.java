@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 
 /**
@@ -88,9 +89,9 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         String firstName = null;
         String lastName;
         if (searchStr.indexOf(",") != -1) {
-            String[] array = searchStr.split(",");
+            String[] array = searchStr.split(",", -1);
             lastName = array[0].trim();
-            firstName = array[1].trim();
+            firstName = array.length > 1 ? array[1].trim() : "";
         } else {
             lastName = searchStr.trim();
         }
@@ -104,9 +105,9 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         for (io.github.carlos_emr.carlos.commn.model.ProviderData p : providers) {
             java.util.Map<String, String> result = new java.util.HashMap<>();
             result.put("providerNo", p.getId());
-            result.put("firstName", p.getFirstName());
-            result.put("lastName", p.getLastName());
-            result.put("ohipNo", p.getOhipNo());
+            result.put("firstName", p.getFirstName() != null ? Encode.forHtml(p.getFirstName()) : "");
+            result.put("lastName", p.getLastName() != null ? Encode.forHtml(p.getLastName()) : "");
+            result.put("ohipNo", p.getOhipNo() != null ? Encode.forHtml(p.getOhipNo()) : "");
             provList.add(result);
         }
 
@@ -153,8 +154,8 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
 
         for (io.github.carlos_emr.carlos.commn.model.ProviderData provData : provList) {
             java.util.LinkedHashMap<String, String> node = new java.util.LinkedHashMap<>();
-            String provLastName = provData.getLastName() != null ? provData.getLastName() : "";
-            String provFirstName = provData.getFirstName() != null ? provData.getFirstName() : "";
+            String provLastName = provData.getLastName() != null ? Encode.forHtml(provData.getLastName()) : "";
+            String provFirstName = provData.getFirstName() != null ? Encode.forHtml(provData.getFirstName()) : "";
             node.put("label", provLastName + ", " + provFirstName);
             node.put("value", provData.getId());
             searchResults.add(node);
