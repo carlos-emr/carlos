@@ -48,7 +48,6 @@
  */
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
 <%@ page import=" io.github.carlos_emr.carlos.utility.*"%>
 <%@ page import="java.util.*, java.net.URLEncoder "%>
 <%@ page import="org.apache.commons.text.StringEscapeUtils"%>
@@ -114,10 +113,6 @@
 #caseloadHeader td {
     background-color: #c0c0c0;
 }
-.caseloadEntry a {
-    color: #000000; /* black */
-}
-
 #leftSearch {
     display: block;
     text-align: center;
@@ -412,11 +407,10 @@ function draw(json) {
 		tr.className = 'caseloadRow caseloadEntry';
 		rows++;
 
-		// Create table cells using DOM methods for XSS prevention
+		// Build cells via DOM (DocumentFragment avoids repeated reflows)
+		// Note: cells contain server-built HTML (links, buttons) so innerHTML is required
 		for (var i = 0; i < this.length; i++) {
 			var td = document.createElement('td');
-			// Use innerHTML only for server-sanitized HTML content, otherwise use textContent
-			// Note: Server should already encode data, but this provides defense in depth
 			td.innerHTML = this[i];
 			tr.appendChild(td);
 		}
