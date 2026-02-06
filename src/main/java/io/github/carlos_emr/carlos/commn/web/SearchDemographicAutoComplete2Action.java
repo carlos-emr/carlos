@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.AppointmentUtil;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
@@ -64,9 +65,16 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws Exception {
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, null)) {
+            throw new RuntimeException("missing required security object (_demographic)");
+        }
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         boolean outOfDomain = false;
         if (request.getParameter("outofdomain") != null && request.getParameter("outofdomain").equals("true")) {
@@ -96,6 +104,13 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         RxProviderData rx = new RxProviderData();
 
         List<Demographic> list = null;
+
+        // Handle null or empty search string
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            response.setContentType("text/x-json");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
 
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
             list = demographicDao.searchDemographicByDOB(
@@ -131,12 +146,13 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             if (demo.getProviderNo() != null) {
                 h.put("providerNo", demo.getProviderNo());
             }
-            if (p.getSurname() != null && p.getFirstName() != null) {
+            if (p != null && p.getSurname() != null && p.getFirstName() != null) {
                 h.put("providerName", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
             }
 
             if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
-                h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
+                String nextAppt = AppointmentUtil.getNextAppointment(demo.getDemographicNo() + "");
+                h.put("nextAppointment", nextAppt != null ? Encode.forHtml(nextAppt) : "");
                 DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils
                         .getBean(DemographicCustDao.class);
                 DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());

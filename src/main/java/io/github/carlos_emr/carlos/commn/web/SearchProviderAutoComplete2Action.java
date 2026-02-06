@@ -39,6 +39,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
@@ -55,8 +57,15 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_provider", SecurityInfoManager.READ, null)) {
+            throw new RuntimeException("missing required security object (_provider)");
+        }
+
         if ("labSearch".equals(request.getParameter("method"))) {
             return labSearch();
         }
@@ -66,6 +75,13 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         }
         if (searchStr == null) {
             searchStr = request.getParameter("name");
+        }
+
+        // Handle null or empty search string
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            response.setContentType("text/x-json");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
         }
 
         List provList = ProviderData.searchProvider(searchStr, true);
@@ -82,6 +98,14 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
     public String labSearch() throws Exception {
 
         String searchStr = request.getParameter("term");
+
+        // Handle null or empty search string
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            response.setContentType("text/x-json");
+            response.getWriter().write("[]");
+            return null;
+        }
+
         String firstName, lastName;
 
         if (searchStr.indexOf(",") != -1) {
