@@ -567,6 +567,15 @@
 
                 <div class="panel-body">
                     <div class="leftinput">
+                        <%--
+                            Autocomplete attribute strategy (WHATWG HTML spec):
+                            - username: "off" — shared clinical workstations; prevent autofill of another provider's identity
+                            - password: "current-password" — enable browser password manager save/fill per
+                              NIST SP 800-63B (https://pages.nist.gov/800-63-3/sp800-63b.html) and
+                              OWASP Authentication Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+                              which recommend allowing password managers for stronger credential hygiene
+                            - pin: "one-time-code" — signal browsers this is a session code, not a saveable credential
+                        --%>
                         <form action="login.do" method="POST">
 
                             <div class="form-group ${ login_error }">
@@ -577,15 +586,16 @@
 
                             <div class="form-group ${ login_error }">
                                 <input type="password" name="password" placeholder="Enter your password"
-                                       value="" size="15" maxlength="32" autocomplete="off"
+                                       value="" size="15" maxlength="32" autocomplete="current-password"
                                        class="form-control" required/>
                             </div>
 
 							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
                             <c:if test="${not LoginResourceBean.ssoEnabled}">
                                 <div class="form-group ${ login_error }">
-                                    <input type="text" name="pin" placeholder="Enter your PIN" value="" style="-webkit-text-security:disc"
-                                           size="15" maxlength="15" autocomplete="off" class="form-control"/>
+                                    <input type="password" name="pin" placeholder="Enter your PIN" value=""
+                                           size="15" maxlength="15" autocomplete="one-time-code"
+                                           inputmode="numeric" class="form-control"/>
                                     <span class="extrasmall">
 										<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formCmt"/>
 									</span>
