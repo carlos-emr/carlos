@@ -389,7 +389,7 @@ Located in `/scripts` directory within the container (copied from `.devcontainer
 ### Legacy Integration & Struts2 Migration Pattern ("2Action") - CRITICAL PATTERN
 
 #### **Migration Strategy Overview**
-OpenO EMR uses a unique incremental migration approach from Struts 1.x to Struts 2.x using a "2Action" naming convention that allows both frameworks to coexist during the transition period.
+CARLOS EMR uses a unique incremental migration approach from Struts 1.x to Struts 2.x using a "2Action" naming convention that allows both frameworks to coexist during the transition period.
 
 #### **2Action Naming Convention & Structure**
 - **Naming Pattern**: All migrated Struts2 actions follow `*2Action.java` naming (e.g., `AddTickler2Action`, `DisplayDashboard2Action`, `Login2Action`)
@@ -505,7 +505,7 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Follow PHI protection patterns
 - Use healthcare-specific validation
 
-This migration pattern allows OpenO EMR to modernize incrementally while maintaining system stability and regulatory compliance throughout the transition process.
+This migration pattern allows CARLOS EMR to modernize incrementally while maintaining system stability and regulatory compliance throughout the transition process.
 
 ## File Patterns
 
@@ -612,30 +612,63 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 - `status: verified-fixed` - Reporter confirmed the fix works
 - `status: fix-failed` - Reporter confirmed the fix doesn't work
 
-### Issue Labeling Standards
+### Issue Classification System
 
-**Every issue should have at minimum:**
-1. **Type label** (required) - What kind of issue is it?
-   - `type: bug` - Something isn't working as expected
-   - `type: feature` - New feature or request
-   - `type: documentation` - Documentation improvements
-   - `type: maintenance` - Code refactoring, dependency updates
-   - `type: regression` - Something that used to work but is broken
-   - `type: security` - Security related issue
-   - `type: test` - Test improvements or additions
+CARLOS uses a three-layer classification system: **Issue Types** (org-level, single-select), **Project Board Fields** (per-item metadata), and **Labels** (stackable cross-cutting attributes).
 
-2. **Priority label** (required) - How urgent is it?
-   - `priority: critical` - Must be fixed ASAP (production broken)
-   - `priority: high` - Stalls work on the project or its dependents
-   - `priority: medium` - Not blocking but should be addressed soon
-   - `priority: low` - Nice to have but not urgent
+#### Issue Types (Organization-Level)
 
-3. **Status label** (as needed) - Current state
-   - `status: needs-triage` - Needs maintainer review
-   - `status: confirmed` - Issue has been reproduced
+Issue types are configured at the GitHub organization level (`carlos-emr`) and provide single-select categorization. Every issue must have exactly one type.
 
-4. **Additional labels** (optional):
-   - **Special labels**: `blocker`, `good first issue`, `help wanted`, `dependencies`
+| Type | Color | Description |
+|------|-------|-------------|
+| Bug | Purple | Something isn't working as expected |
+| Feature | Blue | New feature or enhancement request |
+| Security | Red | Security vulnerabilities, hardening, or audit findings |
+| Documentation | Purple | Documentation improvements or additions |
+| Maintenance | Yellow | Code refactoring, dependency updates, migrations |
+| Test | Green | Test coverage improvements or additions |
+| Performance | Orange | Performance optimization or profiling |
+| Research | Gray | Code reviews, investigations, and exploratory analysis |
+
+**Note**: "Task" is NOT an issue type - it is a value in the project board's Kind field. Research covers code reviews (`Review:` prefix), investigations (`Investigate:` prefix), and discussions.
+
+#### Project Board Fields
+
+Project Board #1 (`carlos-emr development`) has three custom fields:
+
+**Status** (single-select, 12 options):
+- Needs Triage → Backlog → Todo → Blocked → In Progress → In Review → QA → Staging → Done → Won't Do → Duplicate → On Hold
+
+**Priority** (single-select, 4 levels):
+- `1-Critical` - Active exploit vectors (SQL injection, XSS with patient data exposure, authentication bypass)
+- `2-High` - Security vulnerabilities needing fix, critical migration blockers, authentication bypasses
+- `3-Medium` - Security hardening, UI modernization, feature work, migrations, code reviews of medium-risk areas
+- `4-Low` - Nice-to-have features, low-risk reviews, minor chores, investigations, cosmetic improvements
+
+**Kind** (single-select, 2 options):
+- `Epic` - Large initiative spanning multiple issues
+- `Task` - Individual work item (default for all issues)
+
+**Priority guidance**: Authorization issues within the circle-of-care model (shared provider access patterns) are Medium unless they involve exploitable authentication bypass. Be conservative - when in doubt, classify lower.
+
+#### Labels (Stackable Attributes Only)
+
+Labels are reserved for cross-cutting attributes that can apply alongside any issue type. Do NOT use labels for categorization that duplicates issue types or priority.
+
+**Current labels:**
+- `blocker` - Blocks other work from proceeding
+- `discussion` - Needs team discussion before action
+- `duplicate` - Duplicate of another issue
+- `good first issue` - Suitable for new contributors
+- `help wanted` - Extra attention needed from community
+- `hibernate-6-prep` - Related to Hibernate 6 migration preparation
+- `wontfix` - Will not be addressed
+
+**Automated status labels** (set by workflows):
+- `status: pending-verification` - Fix merged, awaiting reporter confirmation
+- `status: verified-fixed` - Reporter confirmed the fix works
+- `status: fix-failed` - Reporter confirmed the fix doesn't work
 
 ## Commit Standards & Quick Reference
 
@@ -648,7 +681,7 @@ When a PR is merged that references an issue (using keywords like `fixes #123`, 
 - `.devcontainer/` - Docker development with AI tools
 
 **Critical Patterns**:
-- **Project Name**: "OpenO EMR" (NOT "OSCAR EMR")
+- **Project Name**: "CARLOS EMR" or "CARLOS" in all user-facing content
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
@@ -714,7 +747,7 @@ Claude Code is integrated into this repository with the following capabilities:
   - **Blocked**: `gh pr merge`, `gh repo create/delete/fork`, `gh secret`, `gh api` write methods
 - Git operations (status, branch, checkout, add, commit, push, pull, fetch, log, diff)
 - File read/write within the repository, subject to the following boundaries:
-  - Scope: Only files inside the checked-out OpenO EMR repository workspace; no access to paths outside the repo.
+  - Scope: Only files inside the checked-out CARLOS EMR repository workspace; no access to paths outside the repo.
   - Protected directories: Claude must not modify Git metadata or CI/CD definitions (e.g., `.git/`, `.github/`, `.github/workflows/`), database seeds/migrations (e.g., `database/`), secrets or credential stores, or other sensitive directories. These protections **must be enforced via explicit write-deny rules** in `.claude/settings.json` (for example: `Write(path:.git/**)`, `Write(path:.github/workflows/**)`, `Write(path:database/**)`).
   - File size: Intended for source files, configuration, and documentation. Very large files (such as database dumps, large binaries, or media assets) may be rejected by the tools and should not be created or edited by Claude.
   - File types: Read/write is primarily for text-based project assets (Java, XML, YAML, JSON, JSP, Markdown, shell scripts, etc.). Claude should not generate or alter compiled artifacts, installers, or opaque binary formats.
