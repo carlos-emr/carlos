@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.util.ArrayList;
@@ -40,7 +39,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -66,8 +65,6 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-
-
     public String execute() throws Exception {
         String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
 
@@ -92,22 +89,26 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
 
         boolean activeOnly = false;
-        activeOnly = request.getParameter("activeOnly") != null && request.getParameter("activeOnly").equalsIgnoreCase("true");
-        boolean jqueryJSON = request.getParameter("jqueryJSON") != null && request.getParameter("jqueryJSON").equalsIgnoreCase("true");
+        activeOnly = request.getParameter("activeOnly") != null
+                && request.getParameter("activeOnly").equalsIgnoreCase("true");
+        boolean jqueryJSON = request.getParameter("jqueryJSON") != null
+                && request.getParameter("jqueryJSON").equalsIgnoreCase("true");
         RxProviderData rx = new RxProviderData();
-
 
         List<Demographic> list = null;
 
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
-            list = demographicDao.searchDemographicByDOB(searchStr.substring(0, 4) + "-" + searchStr.substring(4, 6) + "-" + searchStr.substring(6, 8), 100, 0, providerNo, outOfDomain);
+            list = demographicDao.searchDemographicByDOB(
+                    searchStr.substring(0, 4) + "-" + searchStr.substring(4, 6) + "-" + searchStr.substring(6, 8), 100,
+                    0, providerNo, outOfDomain);
         } else if (activeOnly) {
             OscarProperties props = OscarProperties.getInstance();
             String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
             pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
             List<String> stati = Arrays.asList(pstatus.split(","));
 
-            list = demographicDao.searchDemographicByNameAndNotStatus(searchStr, stati, 100, 0, providerNo, outOfDomain);
+            list = demographicDao.searchDemographicByNameAndNotStatus(searchStr, stati, 100, 0, providerNo,
+                    outOfDomain);
             if (list.size() == 100) {
                 MiscUtils.getLogger().warn("More results exists than returned");
             }
@@ -118,27 +119,26 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             }
         }
 
-
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
-            h.put("fomattedDob", demo.getFormattedDob());
-            h.put("formattedName", StringEscapeUtils.escapeJava(demo.getFormattedName().replaceAll("\"", "\\\"")));
+            h.put("formattedDob", Encode.forHtml(demo.getFormattedDob()));
+            h.put("formattedName", Encode.forHtml(demo.getFormattedName()));
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
-            h.put("status", demo.getPatientStatus());
-
+            h.put("status", Encode.forHtml(demo.getPatientStatus()));
 
             Provider p = rx.getProvider(demo.getProviderNo());
             if (demo.getProviderNo() != null) {
                 h.put("providerNo", demo.getProviderNo());
             }
             if (p.getSurname() != null && p.getFirstName() != null) {
-                h.put("providerName", p.getSurname() + ", " + p.getFirstName());
+                h.put("providerName", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
             }
 
             if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
-                DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
+                DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils
+                        .getBean(DemographicCustDao.class);
                 DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
 
                 if (demographicCust != null) {
@@ -148,21 +148,26 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                     if (cust1 != null) {
                         h.put("cust1", cust1);
                         p = rx.getProvider(cust1);
-                        h.put("cust1Name", p.getSurname() + ", " + p.getFirstName());
+                        if (p != null && p.getSurname() != null && p.getFirstName() != null) {
+                            h.put("cust1Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        }
                     }
                     if (cust2 != null) {
                         h.put("cust2", cust2);
                         p = rx.getProvider(cust2);
-                        h.put("cust2Name", p.getSurname() + ", " + p.getFirstName());
+                        if (p != null && p.getSurname() != null && p.getFirstName() != null) {
+                            h.put("cust2Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        }
                     }
                     if (cust4 != null) {
                         h.put("cust4", cust4);
                         p = rx.getProvider(cust4);
-                        h.put("cust4Name", p.getSurname() + ", " + p.getFirstName());
+                        if (p != null && p.getSurname() != null && p.getFirstName() != null) {
+                            h.put("cust4Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        }
                     }
                 }
             }
-
 
             secondList.add(h);
         }
@@ -181,24 +186,23 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
     }
 
-    private String formatJSON(List<HashMap<String, String>> info) {
-        StringBuilder json = new StringBuilder("[");
-
-        HashMap<String, String> record;
-        int size = info.size();
-        for (int idx = 0; idx < size; ++idx) {
-            record = info.get(idx);
-            json.append("{\"label\":\"" + record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")\",\"value\":\"" + record.get("demographicNo") + "\"");
-            json.append(",\"providerNo\":\"" + record.get("providerNo") + "\",\"provider\":\"" + record.get("providerName") + "\",\"nextAppt\":\"" + record.get("nextAppointment") + "\",");
-            json.append("\"formattedName\":\"" + record.get("formattedName") + "\"}");
-
-            if (idx < size - 1) {
-                json.append(",");
-            }
+    private String formatJSON(List<HashMap<String, String>> info)
+            throws com.fasterxml.jackson.core.JsonProcessingException {
+        List<java.util.LinkedHashMap<String, String>> results = new ArrayList<>();
+        for (HashMap<String, String> record : info) {
+            java.util.LinkedHashMap<String, String> node = new java.util.LinkedHashMap<>();
+            String formattedName = record.get("formattedName") != null ? record.get("formattedName") : "";
+            String formattedDob = record.get("formattedDob") != null ? record.get("formattedDob") : "";
+            String status = record.get("status") != null ? record.get("status") : "";
+            node.put("label", formattedName + " " + formattedDob + " (" + status + ")");
+            node.put("value", record.get("demographicNo"));
+            node.put("providerNo", record.get("providerNo"));
+            node.put("provider", record.get("providerName"));
+            node.put("nextAppt", record.get("nextAppointment"));
+            node.put("formattedName", formattedName);
+            results.add(node);
         }
-        json.append("]");
-
-        return json.toString();
+        return objectMapper.writeValueAsString(results);
     }
 
 }

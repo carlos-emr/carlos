@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.util.Hashtable;
@@ -41,6 +40,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 
@@ -54,7 +54,6 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
@@ -87,8 +86,10 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
 
         if (searchStr.indexOf(",") != -1) {
             String[] searchParams = searchStr.split(",", -1);
-            //note - the -1 is added because split discards a last empty string by default, so "smith,".split(",") returns ["smith"], not ["smith",""].
-            //adding the -1 causes split to return the 2 element array in this situation, to avoid an index out of bounds error when setting the firstName
+            // note - the -1 is added because split discards a last empty string by default,
+            // so "smith,".split(",") returns ["smith"], not ["smith",""].
+            // adding the -1 causes split to return the 2 element array in this situation,
+            // to avoid an index out of bounds error when setting the firstName
             lastName = searchParams[0].trim();
             firstName = searchParams[1].trim();
         } else {
@@ -97,21 +98,21 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         }
 
         ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
-        List<io.github.carlos_emr.carlos.commn.model.ProviderData> provList = providerDataDao.findByName(firstName, lastName, true);
-        StringBuilder searchResults = new StringBuilder("[");
-        int idx = 0;
+        List<io.github.carlos_emr.carlos.commn.model.ProviderData> provList = providerDataDao.findByName(firstName,
+                lastName, true);
+        List<java.util.LinkedHashMap<String, String>> searchResults = new java.util.ArrayList<>();
 
         for (io.github.carlos_emr.carlos.commn.model.ProviderData provData : provList) {
-            searchResults.append("{\"label\":\"" + provData.getLastName() + ", " + provData.getFirstName() + "\",\"value\":\"" + provData.getId() + "\"}");
-            if (idx < provList.size() - 1) {
-                searchResults.append(",");
-            }
-            ++idx;
+            java.util.LinkedHashMap<String, String> node = new java.util.LinkedHashMap<>();
+            String provLastName = provData.getLastName() != null ? provData.getLastName() : "";
+            String provFirstName = provData.getFirstName() != null ? provData.getFirstName() : "";
+            node.put("label", Encode.forHtml(provLastName + ", " + provFirstName));
+            node.put("value", provData.getId());
+            searchResults.add(node);
         }
 
-        searchResults.append("]");
         response.setContentType("text/x-json");
-        response.getWriter().write(searchResults.toString());
+        response.getWriter().write(objectMapper.writeValueAsString(searchResults));
 
         return null;
     }
