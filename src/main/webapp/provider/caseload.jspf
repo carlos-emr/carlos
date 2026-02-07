@@ -129,7 +129,7 @@
     background-color: #c0c0c0;
 }
 /* Keep display mode links on a single line */
-.caseloadEntry td:nth-child(2) {
+#caseloadTable .caseloadEntry td:nth-child(2) {
     white-space: nowrap;
 }
 #leftSearch, #rightSearch { display: inline; }
@@ -230,14 +230,14 @@ String[] objIds = new String[] {"Demographic", "_caseload.DisplayMode", "_caselo
 
 <% for (int i=0; i < clH.length; i++) { %>
 	<% if (i == 0) { %>
-	<td class='selectedCategory' bgcolor='#c0c0c0' onclick='changeCategory("<%=i%>")'><b><%=clH[i]%> &Delta;</b></td>
+	<td class='selectedCategory' onclick='changeCategory("<%=i%>")'><b><%=clH[i]%> &Delta;</b></td>
 	<% } else if (i == 1) { %>
 	<security:oscarSec roleName="<%=caseloadroleName$%>" objectName="<%=objIds[i]%>" rights="r" reverse="<%=false%>" >
-		<td bgcolor='#c0c0c0' style='width:267px'><b><%=clH[i]%></b></td>
+		<td style='width:267px'><b><%=clH[i]%></b></td>
 	</security:oscarSec>
 	<% } else{ %>
 	<security:oscarSec roleName="<%=caseloadroleName$%>" objectName="<%=objIds[i]%>" rights="r" reverse="<%=false%>" >
-		<td bgcolor='#c0c0c0' onclick='changeCategory("<%=i%>")'><b><%=clH[i]%></b></td>
+		<td onclick='changeCategory("<%=i%>")'><b><%=clH[i]%></b></td>
 	</security:oscarSec>
 	<% } %>
 <% } %>
@@ -246,7 +246,7 @@ String[] objIds = new String[] {"Demographic", "_caseload.DisplayMode", "_caselo
 <tbody id="caseloadBody">
 </tbody>
 <tfoot>
-<tr id='loadingFooter' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0' colspan='<%=clH.length%>'><img src="<%= request.getContextPath() %>/images/DMSLoader.gif" /><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLoading"/></td></tr>
+<tr id='loadingFooter' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0'><img src="<%= request.getContextPath() %>/images/DMSLoader.gif" /><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLoading"/></td></tr>
 <tr id='noResults' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0' ><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTryAgain"/></td></tr>
 <tr id='totalResults1' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0' ><span id="rows1"></span>/<span id="totalRows1"></span>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgResults"/></td></tr>
 </tfoot>
@@ -364,7 +364,7 @@ function changeCategory(cat) {
 	}
 	if (cat == category) {
 		sortAsc = !sortAsc;
-		oldCat.attr(onclick,"changeCategory(\"" + category+ "\")");
+		oldCat.attr("onclick","changeCategory(\"" + category+ "\")");
 		oldCat.html("<b>" + clH[category] + " " + getSortDir() + "</b>");
 	}
 	else {
@@ -372,7 +372,7 @@ function changeCategory(cat) {
 		sortAsc = true;
 		oldCat.removeClass("selectedCategory");
 		newCat.addClass("selectedCategory");
-		oldCat.attr(onclick,"changeCategory(\"" + category+ "\")");
+		oldCat.attr("onclick","changeCategory(\"" + category+ "\")");
 		oldCat.html("<b>"+clH[category]+"</b>");
 		newCat.html("<b>" + clH[cat] + " " + getSortDir() + "</b>");
 		category = cat;
@@ -423,6 +423,27 @@ function draw(json) {
 		for (var i = 0; i < this.length; i++) {
 			var td = document.createElement('td');
 			td.innerHTML = this[i];
+
+			// Add click delegation to make cells more clickable (except Display Mode column)
+			// Skip column index 1 (Display Mode with E/C/R letters) which needs precise targeting
+			if (i !== 1) {
+				td.onclick = function(e) {
+					// Only trigger if user clicked the cell background, not a link/button directly
+					if (e.target === this) {
+						var firstLink = this.querySelector('a');
+						if (firstLink) {
+							firstLink.click();
+							return;
+						}
+						var firstButton = this.querySelector('button, input[type="button"], input[type="submit"]');
+						if (firstButton) {
+							firstButton.click();
+							return;
+						}
+					}
+				};
+			}
+
 			tr.appendChild(td);
 		}
 		fragment.appendChild(tr);
