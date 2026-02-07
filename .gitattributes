@@ -1,1 +1,64 @@
-text eol=lf
+# Default: treat all files as text with LF line endings
+* text=auto eol=lf
+
+# Binary images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.svg text
+
+# Binary fonts
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+
+# Binary documents
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+
+# Binary archives and packages
+*.jar binary
+*.war binary
+*.class binary
+*.zip binary
+*.tar.gz binary
+
+# Binary media
+*.swf binary
+
+# Keystores and certificates
+*.p12 binary
+*.jks binary
+*.keystore binary
+*.cer binary
+*.der binary
+
+# Lock files — show diffs but do not manually edit
+package-lock.json -diff linguist-generated
+dependencies-lock.json -diff linguist-generated
+dependencies-lock-modern.json -diff linguist-generated
+
+# Vendored/minified files — exclude from language stats
+*.min.js linguist-vendored
+*.min.css linguist-vendored
+
+# Generated documentation — exclude from language stats
+docs/static/javadoc/** linguist-generated
+.docusaurus/** linguist-generated
+
+# Database SQL — exclude from language stats (large reference data, not application code)
+database/** linguist-vendored
+
+# Markdown diffs
+*.md diff=markdown
+
+# Shell scripts must stay LF even on Windows checkouts
+*.sh text eol=lf
+Makefile text eol=lf
