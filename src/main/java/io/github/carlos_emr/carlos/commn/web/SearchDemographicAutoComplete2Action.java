@@ -40,6 +40,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.owasp.encoder.Encode;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
@@ -123,9 +124,9 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
             h.put("fomattedDob", demo.getFormattedDob());
-            h.put("formattedName", StringEscapeUtils.escapeJava(demo.getFormattedName().replaceAll("\"", "\\\"")));
+            h.put("formattedName", Encode.forHtml(demo.getFormattedName()));
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
-            h.put("status", demo.getPatientStatus());
+            h.put("status", Encode.forHtml(demo.getPatientStatus()));
 
 
             Provider p = rx.getProvider(demo.getProviderNo());
@@ -133,7 +134,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 h.put("providerNo", demo.getProviderNo());
             }
             if (p.getSurname() != null && p.getFirstName() != null) {
-                h.put("providerName", p.getSurname() + ", " + p.getFirstName());
+                h.put("providerName", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
             }
 
             if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
@@ -148,17 +149,17 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                     if (cust1 != null) {
                         h.put("cust1", cust1);
                         p = rx.getProvider(cust1);
-                        h.put("cust1Name", p.getSurname() + ", " + p.getFirstName());
+                        h.put("cust1Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
                     }
                     if (cust2 != null) {
                         h.put("cust2", cust2);
                         p = rx.getProvider(cust2);
-                        h.put("cust2Name", p.getSurname() + ", " + p.getFirstName());
+                        h.put("cust2Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
                     }
                     if (cust4 != null) {
                         h.put("cust4", cust4);
                         p = rx.getProvider(cust4);
-                        h.put("cust4Name", p.getSurname() + ", " + p.getFirstName());
+                        h.put("cust4Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
                     }
                 }
             }
@@ -181,24 +182,19 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
     }
 
-    private String formatJSON(List<HashMap<String, String>> info) {
-        StringBuilder json = new StringBuilder("[");
-
-        HashMap<String, String> record;
-        int size = info.size();
-        for (int idx = 0; idx < size; ++idx) {
-            record = info.get(idx);
-            json.append("{\"label\":\"" + record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")\",\"value\":\"" + record.get("demographicNo") + "\"");
-            json.append(",\"providerNo\":\"" + record.get("providerNo") + "\",\"provider\":\"" + record.get("providerName") + "\",\"nextAppt\":\"" + record.get("nextAppointment") + "\",");
-            json.append("\"formattedName\":\"" + record.get("formattedName") + "\"}");
-
-            if (idx < size - 1) {
-                json.append(",");
-            }
+    private String formatJSON(List<HashMap<String, String>> info) throws Exception {
+        List<HashMap<String, String>> results = new ArrayList<>();
+        for (HashMap<String, String> record : info) {
+            HashMap<String, String> h = new HashMap<>();
+            h.put("label", record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")");
+            h.put("value", record.get("demographicNo"));
+            h.put("providerNo", record.get("providerNo"));
+            h.put("provider", record.get("providerName"));
+            h.put("nextAppt", record.get("nextAppointment"));
+            h.put("formattedName", record.get("formattedName"));
+            results.add(h);
         }
-        json.append("]");
-
-        return json.toString();
+        return objectMapper.writeValueAsString(results);
     }
 
 }
