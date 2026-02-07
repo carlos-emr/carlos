@@ -93,9 +93,7 @@ table#firstTable tr td.icon-container {
     padding-left: 10px;
 }
 
-table#caseloadTable tr.caseloadRow td:first-of-type {
-    background-color: whitesmoke !important;
-}
+
 
 table#firstTable td#oscarLogo a img {
     width: 22px;
