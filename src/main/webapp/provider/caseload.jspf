@@ -86,10 +86,11 @@
 %>
 <tr><td colspan="3">
 <style>
-
-.caseloadRow td {
-    padding: 1px;
-    padding-left: 0.5em;
+/* Tight padding matching oscar19 density */
+#caseloadTable td,
+#caseloadTable th {
+    padding: 1px 0.5em;
+    vertical-align: middle;
 }
 #caseloadTable form {
     display: inline;
@@ -98,14 +99,27 @@
     background-color: #bfefff;
 }
 #caseloadTable a {
-    color:black;
+    color: black;
 }
 #caseloadTable {
-    background-color:white;
+    background-color: white;
+}
+/* Alternating row stripes (replicates Bootstrap table-striped, scoped to caseload) */
+#caseloadTable > tbody > tr:nth-child(odd) > td {
+    background-color: #f9f9f9;
+}
+/* Full-row hover (replicates Bootstrap table-hover, scoped to caseload) */
+#caseloadTable > tbody > tr:hover > td {
+    background-color: #f5f5f5;
+}
+/* Data rows: pointer cursor */
+#caseloadTable .caseloadEntry {
+    cursor: pointer;
 }
 #caseloadHeader b {
     cursor: pointer;
 }
+/* Sticky header — keeps column headings visible during scroll */
 #caseloadHeader {
     position: sticky;
     top: 25px;
@@ -114,22 +128,12 @@
 #caseloadHeader td {
     background-color: #c0c0c0;
 }
-#caseloadTable .caseloadEntry:hover td {
-    background-color: #f5f5f5;
+/* Keep display mode links on a single line */
+#caseloadTable .caseloadEntry td:nth-child(2) {
+    white-space: nowrap;
 }
-#caseloadTable .row-even td {
-    background-color: #f9f9f9;
-}
-#leftSearch,
-#rightSearch {
-    display: block;
-    text-align: center;
-    margin-bottom: 5px;
-}
-#rightSearch form {
-    display: inline-block;
-    text-align: left;
-}
+#leftSearch, #rightSearch { display: inline; }
+#rightSearch { float: right; }
 </style>
 <%
 Locale locale = request.getLocale();
@@ -138,7 +142,8 @@ String[] clH = new String[] {   LocaleUtils.getMessage(locale, "caseload.msgDemo
 <script type="text/javascript">
 clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgDemographic"/>", "", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgAge"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSex"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastAppt"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNextAppt"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgApptsLYTD"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLab"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgDoc"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTickler"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgMsg"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgBMI"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgBP"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgWT"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSMK"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgA1C"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgACR"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSCR"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLDL"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgHDL"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTCHD"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgEYEE"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastEncounterDate"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastEncounterType"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgCASHAdmissionDate"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgACCESS1AdmissionDate"/>"];
 </script>
-<table border="1" cellpadding="0" cellspacing="0" width="100%" id="caseloadTable" class="table">
+<table border="1" cellpadding="0" cellspacing="0" width="100%" id="caseloadTable">
+<thead>
 <tr><td colspan='<%=clH.length%>'>
 	<table border='0' cellpadding='0'  cellspacing='0' width='100%'>
 		<tr class='caseloadRow'>
@@ -236,9 +241,15 @@ String[] objIds = new String[] {"Demographic", "_caseload.DisplayMode", "_caselo
 	</security:oscarSec>
 	<% } %>
 <% } %>
-<tr id='loadingFooter' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0' colspan='<%=clH.length%>'><img src="<%= request.getContextPath() %>/images/DMSLoader.gif" /><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLoading"/></td></tr>
+</tr>
+</thead>
+<tbody id="caseloadBody">
+</tbody>
+<tfoot>
+<tr id='loadingFooter' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0'><img src="<%= request.getContextPath() %>/images/DMSLoader.gif" /><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLoading"/></td></tr>
 <tr id='noResults' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0' ><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTryAgain"/></td></tr>
 <tr id='totalResults1' class='caseloadRow'><td colspan='<%=clH.length%>' style='text-align: center;' bgcolor='#fffff0' ><span id="rows1"></span>/<span id="totalRows1"></span>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgResults"/></td></tr>
+</tfoot>
 </table>
 <script type="text/javascript">
 
@@ -353,18 +364,15 @@ function changeCategory(cat) {
 	}
 	if (cat == category) {
 		sortAsc = !sortAsc;
-//		headers.get(category).innerHTML = "<b onclick='changeCategory(\""+category+"\")'>"+clH[category] + " " + getSortDir() + "</b>";
-		oldCat.attr(onclick,"changeCategory(\"" + category+ "\")");
+		oldCat.attr("onclick","changeCategory(\"" + category+ "\")");
 		oldCat.html("<b>" + clH[category] + " " + getSortDir() + "</b>");
 	}
 	else {
-//		var oldCat = jQuery(headers.get(category));
-//		var newCat = jQuery(headers.get(cat));
 		var newCat = jQuery(getHeadersElement(headers,cat));
 		sortAsc = true;
 		oldCat.removeClass("selectedCategory");
 		newCat.addClass("selectedCategory");
-		oldCat.attr(onclick,"changeCategory(\"" + category+ "\")");
+		oldCat.attr("onclick","changeCategory(\"" + category+ "\")");
 		oldCat.html("<b>"+clH[category]+"</b>");
 		newCat.html("<b>" + clH[cat] + " " + getSortDir() + "</b>");
 		category = cat;
@@ -407,7 +415,7 @@ function draw(json) {
 
 	jQuery.each(json.data, function() {
 		var tr = document.createElement('tr');
-		tr.className = 'caseloadRow caseloadEntry' + (rows % 2 === 0 ? ' row-even' : '');
+		tr.className = 'caseloadRow caseloadEntry';
 		rows++;
 
 		// Build cells via DOM (DocumentFragment avoids repeated reflows)
@@ -415,6 +423,32 @@ function draw(json) {
 		for (var i = 0; i < this.length; i++) {
 			var td = document.createElement('td');
 			td.innerHTML = this[i];
+
+			// Add click delegation to make cells more clickable (except Display Mode column)
+			// Skip column index 1 (Display Mode with E/C/R letters) which needs precise targeting
+			if (i !== 1) {
+				td.onclick = function(e) {
+					// If the click originated on or inside an interactive control, let it handle itself
+					var target = e.target;
+					if (target && typeof target.closest === 'function' &&
+						target.closest('a, button, input, select, textarea, label')) {
+						return;
+					}
+
+					// Fallback: click the first link in the cell, otherwise the first button-like control
+					var firstLink = this.querySelector('a');
+					if (firstLink) {
+						firstLink.click();
+						return;
+					}
+					var firstButton = this.querySelector('button, input[type="button"], input[type="submit"]');
+					if (firstButton) {
+						firstButton.click();
+						return;
+					}
+				};
+			}
+
 			tr.appendChild(td);
 		}
 		fragment.appendChild(tr);
@@ -430,7 +464,7 @@ function draw(json) {
 		updateTotalRows();
 	}
 	else {
-		jQuery("#loadingFooter").before(fragment);
+		document.getElementById('caseloadBody').appendChild(fragment);
 		hideAllMessages();
 		// json.size is only defined on page 1
 		updateTotalRows(json.size);
