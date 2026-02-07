@@ -75,11 +75,11 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
         // Initialize request parameters
         this.requestParameters = new HashMap<>();
 
+        // Set up default security mocks first
+        setUpSecurityMocks();
+
         // Set up Struts2 ActionContext for 2Action testing
         setUpActionContext();
-
-        // Set up default security mocks
-        setUpSecurityMocks();
     }
 
     /**
