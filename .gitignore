@@ -37,9 +37,7 @@ __pycache__/
 /scripts/ai_cli_automation_tools/output/
 .env
 /.smarttomcat/
-.editorconfig
-.claude
-CLAUDE.md
+.claude/settings.local.json
 
 # Docusaurus
 /website/node_modules/

@@ -1,13 +1,13 @@
 name: Dependency Update
 description: Track dependency updates and security patches
 title: "[Dependency]: "
-labels: ["type: maintenance", "dependencies"]
+labels: ["type: maintenance", "dependencies", "status: needs-triage"]
 type: Dependency
 body:
   - type: markdown
     attributes:
       value: |
-        Track dependency updates and upgrades.
+        Thanks for flagging this — keeping dependencies current is important for security and stability.
 
   - type: input
     id: dependency
@@ -55,25 +55,21 @@ body:
     id: breaking_changes
     attributes:
       label: Breaking Changes
-      description: Any breaking changes to be aware of?
+      description: Any known breaking changes? Leave blank if unsure — we can investigate.
       placeholder: |
         - List any API changes
         - List any configuration changes
         - List any behavioral changes
-    validations:
-      required: true
 
   - type: textarea
     id: testing
     attributes:
       label: Testing
-      description: What needs testing?
+      description: What might need testing? Leave blank if unsure.
       placeholder: |
         - Unit tests
         - Integration tests
         - Specific features to test manually
-    validations:
-      required: true
 
   - type: dropdown
     id: priority
@@ -94,8 +90,6 @@ body:
       label: Checklist
       options:
         - label: I have reviewed the changelog for breaking changes
-          required: true
-        - label: I have identified all affected code areas
-          required: true
-        - label: I have a rollback plan if issues arise
+          required: false
+        - label: I have identified affected code areas
           required: false

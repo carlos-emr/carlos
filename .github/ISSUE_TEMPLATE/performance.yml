@@ -7,7 +7,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Report slow performance or high resource usage.
+        Thanks for reporting this — performance matters, especially in clinical environments where every second counts.
+
+        **Important:** Never include real patient data (PHI) in performance reports. Scrub any patient identifiers from logs or screenshots before attaching.
 
   - type: textarea
     id: description
@@ -80,7 +82,7 @@ body:
     id: metrics
     attributes:
       label: Metrics/Logs
-      description: Any metrics or profiling data
+      description: Any metrics or profiling data (scrub any patient data before pasting)
       render: shell
 
   - type: checkboxes
@@ -92,3 +94,5 @@ body:
           required: false
         - label: I have tested with minimal data to rule out data volume issues
           required: false
+        - label: I have verified no patient data (PHI) is included in this report
+          required: true

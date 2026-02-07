@@ -1,0 +1,253 @@
+# CARLOS EMR - Code Ownership
+#
+# This file defines who must review and approve pull requests that touch
+# specific areas of the codebase. Combined with branch protection rules
+# requiring CODEOWNERS approval, this prevents unauthorized changes to
+# security-critical files.
+#
+# Rules: Last matching pattern takes precedence. More specific patterns
+# override the default catch-all.
+#
+# POLICY: @yingbull must approve ALL changes to protected branches.
+# No exceptions. When delegating the * catch-all to others in future,
+# every section below still requires @yingbull.
+#
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+
+# ============================================================================
+# DEFAULT: All changes require maintainer approval
+# ============================================================================
+* @yingbull
+
+
+# ============================================================================
+# CI/CD & INFRASTRUCTURE
+# ============================================================================
+.github/ @yingbull
+.github/workflows/ @yingbull
+.github/ISSUE_TEMPLATE/ @yingbull
+.github/CODEOWNERS @yingbull
+
+
+# ============================================================================
+# AI & IDE TOOLING CONFIGURATION
+# ============================================================================
+.claude/ @yingbull
+.mcp.json @yingbull
+CLAUDE.md @yingbull
+.github/copilot-instructions.md @yingbull
+.vscode/ @yingbull
+.idea/ @yingbull
+
+
+# ============================================================================
+# BUILD, DEVCONTAINER & ROOT CONFIG
+# ============================================================================
+.devcontainer/ @yingbull
+.gitignore @yingbull
+.gitattributes @yingbull
+.checkstyle @yingbull
+.editorconfig @yingbull
+pom.xml @yingbull
+dependencies-lock.json @yingbull
+dependencies-lock-modern.json @yingbull
+
+
+# ============================================================================
+# DATABASE SCHEMA & MIGRATIONS
+# ============================================================================
+database/ @yingbull
+
+
+# ============================================================================
+# DOCUMENTATION & SCRIPTS
+# ============================================================================
+docs/ @yingbull
+scripts/ @yingbull
+website/ @yingbull
+
+
+# ============================================================================
+# ALL SOURCE CODE - Java packages (io.github.carlos_emr.carlos.*)
+# ============================================================================
+src/main/java/io/github/carlos_emr/carlos/admin/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/app/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/appointment/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/appt/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/ar2005/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/billing/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/billings/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/caisi/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/caseload/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/casemgmt/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/ckd/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/clinic/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/commn/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/commons/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/config/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/consultations/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/contactRegistry/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/dao/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/daos/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/dashboard/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/db/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/decision/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/decisionSupport/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/demographic/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/documentManager/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/drools/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/dxresearch/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/eform/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/email/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/encounter/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/entities/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/event/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/facility/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/fax/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/flowsheet/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/flowsheets/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/form/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/inbox/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/inboxhub/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/integration/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/jobs/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/lab/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/labs/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/listeners/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/log/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/login/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/managers/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/match/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/mds/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/measurements/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/messenger/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/model/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/olis/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/olis1/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/PMmodule/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/prescript/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/prescription/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/prev/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/prevention/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/printer/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/provider/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/providers/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/renal/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/report/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/rx/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/scratch/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/sec/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/security/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/service/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/services/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/tags/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/tickler/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/ticklers/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/ui/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/util/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/utility/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/utils/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/vaccine/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/waitinglist/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/web/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/webserv/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/wl/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/workflow/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/ws/ @yingbull
+src/main/java/io/github/carlos_emr/carlos/www/ @yingbull
+
+
+# ============================================================================
+# ALL SOURCE CODE - Legacy and external Java packages
+# ============================================================================
+src/main/java/ca/ @yingbull
+src/main/java/org/ @yingbull
+src/main/java/schemaorg_apache_xmlbeans/ @yingbull
+
+
+# ============================================================================
+# ALL SOURCE CODE - Resources and Spring configuration
+# ============================================================================
+src/main/resources/ @yingbull
+
+
+# ============================================================================
+# ALL SOURCE CODE - Web application (JSP, CSS, JS, images, WEB-INF)
+# ============================================================================
+src/main/webapp/admin/ @yingbull
+src/main/webapp/administration/ @yingbull
+src/main/webapp/annotation/ @yingbull
+src/main/webapp/appointment/ @yingbull
+src/main/webapp/apps/ @yingbull
+src/main/webapp/billing/ @yingbull
+src/main/webapp/caisicore/ @yingbull
+src/main/webapp/calendar/ @yingbull
+src/main/webapp/careconnect/ @yingbull
+src/main/webapp/casemgmt/ @yingbull
+src/main/webapp/cc/ @yingbull
+src/main/webapp/common/ @yingbull
+src/main/webapp/commons/ @yingbull
+src/main/webapp/css/ @yingbull
+src/main/webapp/decision/ @yingbull
+src/main/webapp/demographic/ @yingbull
+src/main/webapp/documentManager/ @yingbull
+src/main/webapp/download/ @yingbull
+src/main/webapp/eform/ @yingbull
+src/main/webapp/email/ @yingbull
+src/main/webapp/episode/ @yingbull
+src/main/webapp/fax/ @yingbull
+src/main/webapp/form/ @yingbull
+src/main/webapp/hcHandler/ @yingbull
+src/main/webapp/help/ @yingbull
+src/main/webapp/hospitalReportManager/ @yingbull
+src/main/webapp/images/ @yingbull
+src/main/webapp/integrator/ @yingbull
+src/main/webapp/js/ @yingbull
+src/main/webapp/jsCalendar/ @yingbull
+src/main/webapp/lab/ @yingbull
+src/main/webapp/layouts/ @yingbull
+src/main/webapp/library/ @yingbull
+src/main/webapp/login/ @yingbull
+src/main/webapp/mcedt/ @yingbull
+src/main/webapp/messenger/ @yingbull
+src/main/webapp/mfa/ @yingbull
+src/main/webapp/mobile/ @yingbull
+src/main/webapp/olis/ @yingbull
+src/main/webapp/oscarEncounter/ @yingbull
+src/main/webapp/oscarMDS/ @yingbull
+src/main/webapp/oscarPrevention/ @yingbull
+src/main/webapp/oscarReport/ @yingbull
+src/main/webapp/oscarResearch/ @yingbull
+src/main/webapp/oscarRx/ @yingbull
+src/main/webapp/oscarWaitingList/ @yingbull
+src/main/webapp/oscarWorkflow/ @yingbull
+src/main/webapp/patient/ @yingbull
+src/main/webapp/PMmodule/ @yingbull
+src/main/webapp/provider/ @yingbull
+src/main/webapp/renal/ @yingbull
+src/main/webapp/report/ @yingbull
+src/main/webapp/schedule/ @yingbull
+src/main/webapp/scratch/ @yingbull
+src/main/webapp/share/ @yingbull
+src/main/webapp/signature_pad/ @yingbull
+src/main/webapp/style/ @yingbull
+src/main/webapp/tickler/ @yingbull
+src/main/webapp/web/ @yingbull
+src/main/webapp/WEB-INF/ @yingbull
+
+
+# ============================================================================
+# ALL SOURCE CODE - Root webapp files (JSP, HTML at webapp root)
+# ============================================================================
+src/main/webapp/*.jsp @yingbull
+src/main/webapp/*.html @yingbull
+
+
+# ============================================================================
+# ALL TESTS - Legacy (JUnit 4) and Modern (JUnit 5)
+# ============================================================================
+src/test/ @yingbull
+src/test-modern/ @yingbull

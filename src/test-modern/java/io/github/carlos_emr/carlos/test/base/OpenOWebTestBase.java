@@ -75,34 +75,39 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
         // Initialize request parameters
         this.requestParameters = new HashMap<>();
 
+        // Set up default security mocks first
+        setUpSecurityMocks();
+
         // Set up Struts2 ActionContext for 2Action testing
         setUpActionContext();
-
-        // Set up default security mocks
-        setUpSecurityMocks();
     }
 
     /**
      * Set up Struts2 ActionContext with mock servlet objects.
      * This is critical for testing 2Actions that use ServletActionContext.
+     *
+     * <p>Updated for Struts 6.x API which uses fluent builder pattern:
+     * - ActionContext.of() instead of new ActionContext(Map)
+     * - bind() instead of setContext()
+     * - withServletRequest/Response() instead of contextMap.put()
+     * - withParameters() instead of setParameters()
      */
     protected void setUpActionContext() {
-        // Create ActionContext
-        ActionContext context = ActionContext.getContext();
-        if (context == null) {
-            context = new ActionContext(new HashMap<>());
-            ActionContext.setContext(context);
-        }
-
-        // Set up servlet context in ActionContext
-        Map<String, Object> contextMap = context.getContextMap();
-        contextMap.put(ServletActionContext.HTTP_REQUEST, mockRequest);
-        contextMap.put(ServletActionContext.HTTP_RESPONSE, mockResponse);
-        contextMap.put(ServletActionContext.SESSION, mockSession);
-
-        // Set parameters
+        // Create ActionContext using Struts 6.x API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
-        context.setParameters(httpParameters);
+
+        // Also set in session map for compatibility
+        Map<String, Object> sessionMap = new HashMap<>();
+        mockSession.getAttributeNames().asIterator().forEachRemaining(
+            name -> sessionMap.put(name, mockSession.getAttribute(name))
+        );
+
+        ActionContext.of()
+            .withServletRequest(mockRequest)
+            .withServletResponse(mockResponse)
+            .withParameters(httpParameters)
+            .withSession(sessionMap)
+            .bind();
     }
 
     /**
@@ -159,9 +164,9 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
         requestParameters.put(name, new String[]{value});
         mockRequest.setParameter(name, value);
 
-        // Update ActionContext parameters
+        // Update ActionContext parameters using Struts 6.x fluent API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
-        ActionContext.getContext().setParameters(httpParameters);
+        ActionContext.getContext().withParameters(httpParameters).bind();
     }
 
     /**
@@ -264,7 +269,8 @@ public abstract class OpenOWebTestBase extends OpenOTestBase {
      */
     @Override
     protected void cleanUp() {
-        ActionContext.setContext(null);
+        // Use Struts 6.x API to clear context
+        ActionContext.clear();
         super.cleanUp();
     }
 }

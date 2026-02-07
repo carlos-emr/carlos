@@ -7,7 +7,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Report a bug or unexpected behavior.
+        Thanks for taking the time to report this — good bug reports help us improve CARLOS for everyone.
+
+        **Important:** Never include real patient data (PHI) in bug reports. Use synthetic or test data only.
 
   - type: textarea
     id: description
@@ -71,7 +73,7 @@ body:
     id: error_logs
     attributes:
       label: Error Messages/Logs
-      description: Any error messages or relevant log output
+      description: Any error messages or relevant log output (scrub any patient data before pasting)
       render: shell
 
   - type: input
@@ -79,7 +81,7 @@ body:
     attributes:
       label: Version/Branch
       description: Which version or branch are you using?
-      placeholder: e.g., develop/dogfish, v2.1.0
+      placeholder: e.g., develop, v2.1.0
 
   - type: checkboxes
     id: checklist
@@ -89,4 +91,8 @@ body:
         - label: I have searched for similar issues
           required: true
         - label: I can reproduce this consistently
+          required: false
+        - label: I have verified no patient data (PHI) is included in this report
+          required: true
+        - label: I am willing to submit a PR to fix this
           required: false
