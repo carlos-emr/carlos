@@ -34,10 +34,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.owasp.encoder.Encode;
@@ -72,8 +74,8 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         SecurityInfoManager securityInfoManager = (SecurityInfoManager) SpringUtils.getBean(SecurityInfoManager.class);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "demographic", SecurityInfoManager.READ, -1)) {
-            return "noPrivilege";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -194,16 +196,21 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
     }
 
-    private String formatJSON(List<HashMap<String, String>> info) throws Exception {
+    private String formatJSON(List<HashMap<String, String>> info) throws JsonProcessingException {
         List<HashMap<String, String>> results = new ArrayList<>(info.size());
         for (HashMap<String, String> record : info) {
             HashMap<String, String> h = new HashMap<>();
-            h.put("label", record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")");
+            String name = Objects.toString(record.get("formattedName"), "");
+            String dob = Objects.toString(record.get("fomattedDob"), "");
+            String status = Objects.toString(record.get("status"), "");
+            
+            String label = name + (dob.isEmpty() ? "" : " " + dob) + (status.isEmpty() ? "" : " (" + status + ")");
+            h.put("label", Encode.forHtml(label));
             h.put("value", record.get("demographicNo"));
             h.put("providerNo", record.get("providerNo"));
-            h.put("provider", record.get("providerName"));
+            h.put("provider", record.get("providerNameHtml"));
             h.put("nextAppt", record.get("nextAppointment"));
-            h.put("formattedName", record.get("formattedName"));
+            h.put("formattedName", record.get("formattedNameHtml"));
             results.add(h);
         }
         return objectMapper.writeValueAsString(results);
