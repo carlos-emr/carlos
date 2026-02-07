@@ -428,18 +428,23 @@ function draw(json) {
 			// Skip column index 1 (Display Mode with E/C/R letters) which needs precise targeting
 			if (i !== 1) {
 				td.onclick = function(e) {
-					// Only trigger if user clicked the cell background, not a link/button directly
-					if (e.target === this) {
-						var firstLink = this.querySelector('a');
-						if (firstLink) {
-							firstLink.click();
-							return;
-						}
-						var firstButton = this.querySelector('button, input[type="button"], input[type="submit"]');
-						if (firstButton) {
-							firstButton.click();
-							return;
-						}
+					// If the click originated on or inside an interactive control, let it handle itself
+					var target = e.target;
+					if (target && typeof target.closest === 'function' &&
+						target.closest('a, button, input, select, textarea, label')) {
+						return;
+					}
+
+					// Fallback: click the first link in the cell, otherwise the first button-like control
+					var firstLink = this.querySelector('a');
+					if (firstLink) {
+						firstLink.click();
+						return;
+					}
+					var firstButton = this.querySelector('button, input[type="button"], input[type="submit"]');
+					if (firstButton) {
+						firstButton.click();
+						return;
 					}
 				};
 			}
