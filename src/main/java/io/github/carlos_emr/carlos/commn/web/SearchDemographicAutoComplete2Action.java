@@ -198,7 +198,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         List<HashMap<String, String>> results = new ArrayList<>(info.size());
         for (HashMap<String, String> record : info) {
             HashMap<String, String> h = new HashMap<>();
-            h.put("label", Encode.forHtml(record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")"));
+            h.put("label", record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")");
             h.put("value", record.get("demographicNo"));
             h.put("providerNo", record.get("providerNo"));
             h.put("provider", record.get("providerName"));

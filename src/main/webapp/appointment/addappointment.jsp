@@ -584,7 +584,7 @@ Ontario, Canada
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
                     return $("<li>")
-                        .append("<div><b>" + item.label + "</b>" + "<br>" + item.provider + "</div>")
+                        .append($("<div>").append($("<b>").text(item.label)).append("<br>").append($("<span>").text(item.provider)))
                         .appendTo(ul);
                 };
 

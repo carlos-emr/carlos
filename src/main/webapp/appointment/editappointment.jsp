@@ -709,7 +709,7 @@
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
                     return jQuery("<li>")
-                        .append("<div><b>" + item.label + "</b>" + "<br>" + item.provider + "</div>")
+                        .append(jQuery("<div>").append(jQuery("<b>").text(item.label)).append("<br>").append(jQuery("<span>").text(item.provider)))
                         .appendTo(ul);
                 };
 
