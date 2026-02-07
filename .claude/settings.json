@@ -182,8 +182,6 @@
       "Bash(xargs ls *)",
       "Bash(xargs head *)",
       "Bash(xargs tail *)",
-      "Bash(env *)",
-      "Bash(printenv *)",
       "Bash(id)",
       "Bash(whoami)",
       "Bash(hostname)",
