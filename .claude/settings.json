@@ -150,8 +150,6 @@
       "Bash(du /workspace/*)",
       "Bash(du /usr/local/tomcat/logs/*)",
       "Bash(df *)",
-      "Bash(echo *)",
-      "Bash(printf *)",
       "Bash(wc -l /tmp/*)",
       "Bash(wc -l /workspace/*)",
       "Bash(wc -l /usr/local/tomcat/logs/*)",
