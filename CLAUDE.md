@@ -187,9 +187,9 @@ public class Example2Action extends ActionSupport {
 **Base Classes**: `OpenOTestBase` (integration), `OpenOUnitTestBase` (unit), domain-specific bases
 **Naming**: BDD camelCase (`shouldReturnTicklerWhenValidIdProvided()`)
 
-**Use `/generate-tests`** for the complete test generation workflow. It contains the detailed test-writing rules previously in this file: pre-generation checklist, interface verification, base class selection, infrastructure expansion (persistence.xml, test-context-full.xml, lookup tables), Hibernate/JPA duality (AbstractDaoImpl vs HibernateDaoSupport), static mocking order, and common pitfalls.
+**Test Generation Workflow**: For detailed test-writing rules, refer to the documentation files listed below. They contain comprehensive guidance on: pre-generation checklist, interface verification, base class selection, infrastructure expansion (persistence.xml, test-context-full.xml, lookup tables), Hibernate/JPA duality (AbstractDaoImpl vs HibernateDaoSupport), static mocking order, and common pitfalls.
 
-**Writing Tests - CRITICAL**: Always read the actual DAO/Manager interface first. Never invent methods. Use `/generate-tests` for the full workflow.
+**Writing Tests - CRITICAL**: Always read the actual DAO/Manager interface first. Never invent methods. Refer to the documentation files below for the complete workflow and best practices.
 
 **Test Execution:**
 ```bash
