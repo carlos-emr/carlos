@@ -185,7 +185,7 @@ public class Example2Action extends ActionSupport {
 **Stack**: JUnit 5, AssertJ, H2 in-memory database, Mockito 5.x, Spring Test
 **Structure**: `src/test-modern/` (parallel to legacy `src/test/`), both suites run automatically
 **Base Classes**: `OpenOTestBase` (integration), `OpenOUnitTestBase` (unit), domain-specific bases
-**Naming**: BDD camelCase (`shouldReturnTicklerWhenValidIdProvided()`)
+**Naming**: BDD camelCase with single underscore (`shouldReturnTickler_whenValidIdProvided()`)
 
 **Test Generation Workflow**: For detailed test-writing rules, refer to the documentation files listed below. They contain comprehensive guidance on: pre-generation checklist, interface verification, base class selection, infrastructure expansion (persistence.xml, test-context-full.xml, lookup tables), Hibernate/JPA duality (AbstractDaoImpl vs HibernateDaoSupport), static mocking order, and common pitfalls.
 
