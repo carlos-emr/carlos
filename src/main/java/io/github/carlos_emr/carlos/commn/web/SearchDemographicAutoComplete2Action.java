@@ -41,12 +41,12 @@ import javax.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.owasp.encoder.Encode;
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.AppointmentUtil;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -70,7 +70,13 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
 
     public String execute() throws Exception {
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager securityInfoManager = (SecurityInfoManager) SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "demographic", SecurityInfoManager.READ, -1)) {
+            return "noPrivilege";
+        }
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         boolean outOfDomain = false;
         if (request.getParameter("outofdomain") != null && request.getParameter("outofdomain").equals("true")) {
@@ -124,9 +130,11 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
             h.put("fomattedDob", demo.getFormattedDob());
-            h.put("formattedName", Encode.forHtml(demo.getFormattedName()));
+            h.put("formattedName", demo.getFormattedName());
+            h.put("formattedNameHtml", Encode.forHtml(demo.getFormattedName()));
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
-            h.put("status", Encode.forHtml(demo.getPatientStatus()));
+            h.put("status", demo.getPatientStatus());
+            h.put("statusHtml", Encode.forHtml(demo.getPatientStatus()));
 
 
             Provider p = rx.getProvider(demo.getProviderNo());
@@ -134,7 +142,8 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 h.put("providerNo", demo.getProviderNo());
             }
             if (p.getSurname() != null && p.getFirstName() != null) {
-                h.put("providerName", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                h.put("providerName", p.getSurname() + ", " + p.getFirstName());
+                h.put("providerNameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
             }
 
             if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
@@ -149,17 +158,20 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                     if (cust1 != null) {
                         h.put("cust1", cust1);
                         p = rx.getProvider(cust1);
-                        h.put("cust1Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        h.put("cust1Name", p.getSurname() + ", " + p.getFirstName());
+                        h.put("cust1NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
                     }
                     if (cust2 != null) {
                         h.put("cust2", cust2);
                         p = rx.getProvider(cust2);
-                        h.put("cust2Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        h.put("cust2Name", p.getSurname() + ", " + p.getFirstName());
+                        h.put("cust2NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
                     }
                     if (cust4 != null) {
                         h.put("cust4", cust4);
                         p = rx.getProvider(cust4);
-                        h.put("cust4Name", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        h.put("cust4Name", p.getSurname() + ", " + p.getFirstName());
+                        h.put("cust4NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
                     }
                 }
             }
@@ -183,10 +195,10 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
     }
 
     private String formatJSON(List<HashMap<String, String>> info) throws Exception {
-        List<HashMap<String, String>> results = new ArrayList<>();
+        List<HashMap<String, String>> results = new ArrayList<>(info.size());
         for (HashMap<String, String> record : info) {
             HashMap<String, String> h = new HashMap<>();
-            h.put("label", record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")");
+            h.put("label", Encode.forHtml(record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")"));
             h.put("value", record.get("demographicNo"));
             h.put("providerNo", record.get("providerNo"));
             h.put("provider", record.get("providerName"));
