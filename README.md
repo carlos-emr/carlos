@@ -1,4 +1,11 @@
 # CARLOS
+
+[![License: GPL-2.0](https://img.shields.io/github/license/carlos-emr/carlos)](https://github.com/carlos-emr/carlos/blob/develop/LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/carlos-emr/carlos/maven-project.yml?branch=develop)](https://github.com/carlos-emr/carlos/actions/workflows/maven-project.yml)
+[![Good First Issues](https://img.shields.io/github/issues/carlos-emr/carlos/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/carlos-emr/carlos/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/carlos-emr/carlos/blob/develop/CONTRIBUTING.md)
+[![Last Commit](https://img.shields.io/github/last-commit/carlos-emr/carlos)](https://github.com/carlos-emr/carlos/commits/develop)
+
 ## What is CARLOS
 
 CARLOS (Clinical Assisting Recording Ledger Open Source) is an electronic medical records system forked from the OpenO EMR project. This software is licensed under the **GNU General Public License (GPL) v2**. The CARLOS contributors and the many others involved with development of this codebase believe strongly in the value of open-source software in healthcare. This license means:
@@ -18,7 +25,12 @@ Detailed installation documentation is available in the `.devcontainer` setup, w
 For installation instructions, see [.devcontainer/README.md](.devcontainer/README.md).
 
 ## Contributing
-We welcome community involvement! If you'd like to contribute to this project, feel free to fork the repository, submit pull requests, or join discussions on issues and enhancements. Together, we can build a more robust, accessible EMR solution for healthcare providers.
+
+We welcome community involvement! Whether you're reporting bugs, improving documentation,
+or writing code, your contributions help build a better EMR for healthcare providers.
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for everything you need to get started, including
+development environment setup, code standards, and the pull request process.
 
 ## Project History and Affiliations
 

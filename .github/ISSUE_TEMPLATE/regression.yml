@@ -7,7 +7,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        ⚠️ Regression - functionality that previously worked is now broken.
+        Thanks for flagging this — regressions are high priority and we want to get them fixed quickly.
+
+        **Important:** Never include real patient data (PHI) in regression reports. Use synthetic or test data only.
 
   - type: input
     id: working_version
@@ -65,6 +67,7 @@ body:
         - Admin Panel
         - Billing
         - Forms/eForms
+        - Appointment/Schedule
         - Search
         - Reports
         - Authentication
@@ -84,6 +87,8 @@ body:
       label: Checklist
       options:
         - label: I have confirmed this worked in a previous version
+          required: true
+        - label: I have verified no patient data (PHI) is included in this report
           required: true
         - label: This is blocking my work
           required: false

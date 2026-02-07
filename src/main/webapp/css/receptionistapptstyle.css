@@ -295,6 +295,22 @@ a:Hover {
     color: red;
 }
 
+/* Navigation bar link styles - override Bootstrap defaults */
+table#firstTable a,
+table#firstTable a:visited,
+table#firstTable a:active {
+    color: #00283c;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+table#firstTable a:hover,
+table#firstTable a:focus,
+table#firstTable a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
 input, select, textarea {
     background-color: #F4EaD7;
     border: 1px solid #0097cf;
@@ -373,11 +389,16 @@ p {
     color: green;
 }
 
-.tabalert {
-    color: red;
+/* Alert styling - high specificity needed to override nav link colors above */
+.tabalert,
+.tabalert a,
+a .tabalert,
+table#firstTable .tabalert {
+    color: red !important;
 }
 
-.tabalert:hover {
+.tabalert:hover,
+a:hover .tabalert {
     color: white !important;
 }
 

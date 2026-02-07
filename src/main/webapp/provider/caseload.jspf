@@ -13,7 +13,41 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%--
+/**
+ * Caseload Management Fragment
+ *
+ * Purpose:
+ * Displays and manages patient caseload lists for healthcare providers with advanced filtering,
+ * sorting, and search capabilities. Supports program-based filtering, provider selection,
+ * roster status filtering, and diagnosis registry searches.
+ *
+ * Features:
+ * - Dynamic table with sticky header for navigation during scrolling
+ * - Infinite scroll pagination for large caseloads
+ * - Multi-column sorting (demographic, age, sex, appointments, lab results, etc.)
+ * - Real-time search by notes or diagnosis codes
+ * - Program-based filtering (CAISI integration)
+ * - Provider and roster status filters
+ * - Security-aware column visibility based on user privileges
+ *
+ * Parameters:
+ * - clProv: Provider number for filtering (default: empty; "all" controlled by CASELOAD_DEFAULT_ALL_PROVIDERS property)
+ * - clProg: Program ID for program-based filtering (default: "all")
+ * - clDx: Diagnosis code for DxReg search
+ * - clRo: Roster status filter (RO=Rostered, NR=Not Rostered, TE=Terminated, FS=Fee Service)
+ * - clQ: Search query for notes/text search
+ *
+ * Dependencies:
+ * - jQuery for AJAX and DOM manipulation
+ * - Bootstrap CSS for table styling
+ * - OWASP Encoder and Apache Commons Text StringEscapeUtils for output encoding
+ * - Security taglib for role-based column access control
+ *
+ * @since 2012-03-02 (Original Indivica implementation)
+ * @since 2026-02-04 (CARLOS EMR modernization - sticky header, Bootstrap integration)
+ */
+--%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
 <%@ page import=" io.github.carlos_emr.carlos.utility.*"%>
 <%@ page import="java.util.*, java.net.URLEncoder "%>
@@ -52,25 +86,50 @@
 %>
 <tr><td colspan="3">
 <style>
-#caseloadTable {
-	border-collapse: collapse;
-}
+
 .caseloadRow td {
-	padding: 1px;
-	padding-left: 0.5em;
+    padding: 1px;
+    padding-left: 0.5em;
 }
 #caseloadTable form {
-	display: inline;
+    display: inline;
 }
 #caseloadTable .selectedCategory {
-	background-color: #bfefff;
+    background-color: #bfefff;
+}
+#caseloadTable a {
+    color:black;
+}
+#caseloadTable {
+    background-color:white;
 }
 #caseloadHeader b {
-	cursor: pointer;
+    cursor: pointer;
 }
-
-#leftSearch, #rightSearch { display: inline; }
-#rightSearch { float:right; }
+#caseloadHeader {
+    position: sticky;
+    top: 25px;
+    z-index: 100;
+}
+#caseloadHeader td {
+    background-color: #c0c0c0;
+}
+#caseloadTable .caseloadEntry:hover td {
+    background-color: #f5f5f5;
+}
+#caseloadTable .row-even td {
+    background-color: #f9f9f9;
+}
+#leftSearch,
+#rightSearch {
+    display: block;
+    text-align: center;
+    margin-bottom: 5px;
+}
+#rightSearch form {
+    display: inline-block;
+    text-align: left;
+}
 </style>
 <%
 Locale locale = request.getLocale();
@@ -79,9 +138,9 @@ String[] clH = new String[] {   LocaleUtils.getMessage(locale, "caseload.msgDemo
 <script type="text/javascript">
 clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgDemographic"/>", "", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgAge"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSex"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastAppt"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNextAppt"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgApptsLYTD"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLab"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgDoc"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTickler"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgMsg"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgBMI"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgBP"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgWT"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSMK"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgA1C"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgACR"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSCR"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLDL"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgHDL"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgTCHD"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgEYEE"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastEncounterDate"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLastEncounterType"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgCASHAdmissionDate"/>", "<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgACCESS1AdmissionDate"/>"];
 </script>
-<table border="1" cellpadding="0" cellspacing="0" width="100%" id="caseloadTable">
+<table border="1" cellpadding="0" cellspacing="0" width="100%" id="caseloadTable" class="table">
 <tr><td colspan='<%=clH.length%>'>
-	<table border='0' cellpadding='0' bgcolor='#fffff0' cellspacing='0' width='100%'>
+	<table border='0' cellpadding='0'  cellspacing='0' width='100%'>
 		<tr class='caseloadRow'>
 		<td colspan='<%=clH.length%>'>
 			<div>
@@ -89,7 +148,7 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 					<form>
 						<b><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNotes"/></b>
 						<input type='text' id='caseloadQ' size='20' onclick='this.value=""; document.getElementById("caseloadDx").value="";' value="<%=StringEscapeUtils.escapeHtml4(caseloadQ).replace("'","\\\'")%>" />
-						<input type='submit' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("noteSearch"); return false;'>
+						<input type='submit' class="btn" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("noteSearch"); return false;'>
 					</form>
 				</div>
 				<div id="rightSearch">
@@ -143,7 +202,7 @@ clH = ["<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msg
 					</select>
 					<b>DxReg: </b>
 					<input type='text' id='caseloadDx' size='10' onclick='this.value=""; document.getElementById("caseloadQ").value="";' value="<%= StringEscapeUtils.escapeHtml4(caseloadDx).replace("'","\\\'") %>" />
-					<input type='submit' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("search"); return false;'>
+					<input type='submit' class="btn" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgSearch"/>' onclick='search("search"); return false;'>
 					</form>
 				</div>
 			</div>
@@ -166,14 +225,14 @@ String[] objIds = new String[] {"Demographic", "_caseload.DisplayMode", "_caselo
 
 <% for (int i=0; i < clH.length; i++) { %>
 	<% if (i == 0) { %>
-	<td class='selectedCategory' bgcolor='#c0c0c0' onclick='changeCategory("<%=i%>")'><b><%=clH[i]%> &Delta;</b></td>
+	<td class='selectedCategory' onclick='changeCategory("<%=i%>")'><b><%=clH[i]%> &Delta;</b></td>
 	<% } else if (i == 1) { %>
 	<security:oscarSec roleName="<%=caseloadroleName$%>" objectName="<%=objIds[i]%>" rights="r" reverse="<%=false%>" >
-		<td bgcolor='#c0c0c0' <%="style='width:307px'"%>><b><%=clH[i]%></b></td>
+		<td style='width:267px'><b><%=clH[i]%></b></td>
 	</security:oscarSec>
 	<% } else{ %>
 	<security:oscarSec roleName="<%=caseloadroleName$%>" objectName="<%=objIds[i]%>" rights="r" reverse="<%=false%>" >
-		<td bgcolor='#c0c0c0' onclick='changeCategory("<%=i%>")'><b><%=clH[i]%></b></td>
+		<td onclick='changeCategory("<%=i%>")'><b><%=clH[i]%></b></td>
 	</security:oscarSec>
 	<% } %>
 <% } %>
@@ -198,7 +257,8 @@ var loading = false;
 
 function handleScroll(e) {
 	if (!canLoad || loading) { return false; }
-	if (jQuery(window).scrollTop() >= jQuery(document).height() - jQuery(window).height()){
+	// Trigger load when within 100px of bottom
+	if (jQuery(window).scrollTop() + jQuery(window).height() >= jQuery(document).height() - 100){
 		update(searchMethod);
 	}
 }
@@ -342,11 +402,24 @@ function update(method) {
 }
 
 function draw(json) {
-	var tableStr = "";
 	var oldRows = rows;
+	var fragment = document.createDocumentFragment();
+
 	jQuery.each(json.data, function() {
-		tableStr += "<tr class='caseloadRow caseloadEntry' bgcolor='" + ((++rows%2==0)?"#FDFEC7":"#FFBBFF") + "'><td>"+this.join("</td><td>")+"</td></tr>\n";
+		var tr = document.createElement('tr');
+		tr.className = 'caseloadRow caseloadEntry' + (rows % 2 === 0 ? ' row-even' : '');
+		rows++;
+
+		// Build cells via DOM (DocumentFragment avoids repeated reflows)
+		// Note: cells contain server-built HTML (links, buttons) so innerHTML is required
+		for (var i = 0; i < this.length; i++) {
+			var td = document.createElement('td');
+			td.innerHTML = this[i];
+			tr.appendChild(td);
+		}
+		fragment.appendChild(tr);
 	});
+
 	if (rows == 0) {
 		hideAllMessages();
 		showNoResults();
@@ -357,7 +430,7 @@ function draw(json) {
 		updateTotalRows();
 	}
 	else {
-		jQuery("#loadingFooter").before(tableStr);
+		jQuery("#loadingFooter").before(fragment);
 		hideAllMessages();
 		// json.size is only defined on page 1
 		updateTotalRows(json.size);
