@@ -202,7 +202,6 @@
       "Bash(make help)",
       "Bash(npm run *)",
       "Bash(npm test *)",
-      "Bash(npm install *)",
       "Bash(npm --version)",
       "Bash(node --version)",
       "Bash(python3 -m pytest *)",
