@@ -86,6 +86,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
 
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
+        DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
         String searchStr = request.getParameter("demographicKeyword");
 
         if (searchStr == null) {
@@ -128,9 +129,9 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
 
 
-        List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
+        List<HashMap<String, String>> secondList = new ArrayList<>();
         for (Demographic demo : list) {
-            HashMap<String, String> h = new HashMap<String, String>();
+            HashMap<String, String> h = new HashMap<>();
             h.put("fomattedDob", demo.getFormattedDob());
             h.put("formattedName", demo.getFormattedName());
             h.put("formattedNameHtml", Encode.forHtml(demo.getFormattedName()));
@@ -150,7 +151,6 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
             if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
-                DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
                 DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
 
                 if (demographicCust != null) {
@@ -160,20 +160,26 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                     if (cust1 != null) {
                         h.put("cust1", cust1);
                         p = rx.getProvider(cust1);
-                        h.put("cust1Name", p.getSurname() + ", " + p.getFirstName());
-                        h.put("cust1NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        if (p.getSurname() != null && p.getFirstName() != null) {
+                            h.put("cust1Name", p.getSurname() + ", " + p.getFirstName());
+                            h.put("cust1NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        }
                     }
                     if (cust2 != null) {
                         h.put("cust2", cust2);
                         p = rx.getProvider(cust2);
-                        h.put("cust2Name", p.getSurname() + ", " + p.getFirstName());
-                        h.put("cust2NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        if (p.getSurname() != null && p.getFirstName() != null) {
+                            h.put("cust2Name", p.getSurname() + ", " + p.getFirstName());
+                            h.put("cust2NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        }
                     }
                     if (cust4 != null) {
                         h.put("cust4", cust4);
                         p = rx.getProvider(cust4);
-                        h.put("cust4Name", p.getSurname() + ", " + p.getFirstName());
-                        h.put("cust4NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        if (p.getSurname() != null && p.getFirstName() != null) {
+                            h.put("cust4Name", p.getSurname() + ", " + p.getFirstName());
+                            h.put("cust4NameHtml", Encode.forHtml(p.getSurname() + ", " + p.getFirstName()));
+                        }
                     }
                 }
             }
@@ -182,7 +188,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             secondList.add(h);
         }
 
-        HashMap<String, List<HashMap<String, String>>> d = new HashMap<String, List<HashMap<String, String>>>();
+        HashMap<String, List<HashMap<String, String>>> d = new HashMap<>();
         d.put("results", secondList);
         response.setContentType("text/x-json");
         if (jqueryJSON) {
