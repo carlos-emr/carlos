@@ -130,10 +130,10 @@ public class IntegratorFileHeader implements Serializable
     /**
      * Gets the file format version.
      *
-     * @return the version number (currently always returns 1)
+     * @return the version number defined by {@link #VERSION}
      */
     public int getVersion() {
-        return 1;
+        return VERSION;
     }
 
     /**
