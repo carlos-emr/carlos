@@ -111,7 +111,7 @@ fetch(`${config.contextPath}/schedule/DayData.do?${params}`);
 >    - Manually add the token header: `headers: { 'CSRF-TOKEN': document.querySelector("meta[name='csrf-token']").content }`
 >    - Or use `XMLHttpRequest` instead of `fetch()` for any POST/PUT/DELETE operations.
 > 3. The existing REST endpoints at `/ws/rs/*` are exempt from CSRF (`unprotected.Rest` pattern in CsrfGuard config), so `fetch()` calls to REST endpoints for status updates are safe.
-> 4. The `OscarCsrfGuardFilter` is currently in **log-only mode** (no redirect on violation), but this could change — design for correctness now.
+> 4. The `OscarCsrfGuardFilter` **logs violations AND redirects** to `/index.jsp?csrfRedirect=true` on CSRF failures (not log-only). Both `Log` and `Redirect` actions are configured in `Owasp.CsrfGuard.properties`. Design for correctness — any non-exempt POST without a valid token will redirect the user.
 
 ### Backward Compatibility
 
@@ -215,7 +215,7 @@ The audit found **20 existing JSON REST endpoints** under `/ws/rs/schedule/` and
 | `provider/tabAlertsRefresh.jsp?id=...` | GET | Navbar badge counts (HTML fragment) | Keep as-is |
 
 **REST Endpoint Notes:**
-- The `GET /ws/rs/scheduleTempCode/get` endpoint in `ScheduleTemplateCodeService.java` is **commented out** (dead code). The live equivalent is `GET /ws/rs/schedule/codes` — this is the one listed above.
+- There is no `ScheduleTemplateCodeService.java` file — template codes are served by `GET /ws/rs/schedule/codes` in `ScheduleService.java` (line 414). This is the one listed above.
 - `updateAppointmentUrgency` in `ScheduleService.java` is missing its `@POST` annotation (existing bug — not blocking for this migration, but should be fixed).
 - The `/ws/rs/*` path is exempt from CSRF Guard protection (`unprotected.Rest` pattern), so `fetch()` calls to these REST endpoints work without CSRF tokens.
 - REST endpoints support **dual auth**: session-based at `/ws/rs/schedule/` and OAuth 1.0a at `/ws/services/schedule/`. This migration uses the session-based path exclusively.
@@ -609,11 +609,11 @@ public class AppointmentSlotDto {
     private String nextStatus;          // Next status in cycle
     private String shortLetters;        // Status short letters
     private String shortLetterColor;
-    // NOTE: In the DB (appointmentStatus table), shortLetterColour is stored as a
-    // numeric string (e.g., "16711680" for red). The DTO should convert to hex CSS:
-    //   Integer.toHexString(Integer.parseInt(shortLetterColour))
-    // padded to 6 chars with leading zeros: String.format("#%06x", numericValue).
-    // ApptStatusData.getShortLetterColour() returns the raw numeric string.
+    // NOTE: ApptStatusData.getShortLetterColour() ALREADY returns a CSS hex color
+    // string like "#FF0000" (it converts from the DB numeric value internally via
+    // "#" + Integer.toHexString(colour).toUpperCase() at ApptStatusData.java:321).
+    // The DTO should pass this value through AS-IS — no further conversion needed.
+    // The JavaScript should use it directly: letterSpan.style.color = appt.shortLetterColor;
 
     // Patient indicators
     private boolean hasTickler;
@@ -721,6 +721,8 @@ public class ScheduleDayData2Action extends ActionSupport {
     private MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     private SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
+    private ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
+    private OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
     private LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
 
     public String execute() {
@@ -979,6 +981,19 @@ This action handles the initial page load. It does NOT query schedule/appointmen
 
 ```java
 public class ProviderDaySchedule2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    // Spring beans — full list from original JSP (lines 125-142)
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
+    private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    private SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
+    private MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
+    private MyGroupAccessRestrictionDao myGroupAccessRestrictionDao = SpringUtils.getBean(MyGroupAccessRestrictionDao.class);
+    private DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
+    private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
+    // ProviderPreferencesUIBean is a static utility — call directly, no bean injection needed
 
     public String execute() {
         // Security: verify _appointment,_day read access
@@ -1133,7 +1148,17 @@ public class ProviderDaySchedule2Action extends ActionSupport {
             OscarProperties.getInstance().isPropertyActive("SHOW_APPT_TYPE_WITH_REASON"));
         configMap.put("docColorEnabled",
             OscarProperties.getInstance().isPropertyActive("ENABLE_APPT_DOC_COLOR"));
+        configMap.put("eformInAppointment",
+            OscarProperties.getInstance().isPropertyActive("eform_in_appointment"));
+        configMap.put("intakeFormEnabled",
+            "on".equalsIgnoreCase(OscarProperties.getInstance().getProperty("appt_intake_form", "off")));
+        configMap.put("pregnancyEnabled",
+            OscarProperties.getInstance().getBooleanProperty("appt_pregnancy", "false"));
         configMap.put("defaultServiceType", defaultServiceType);
+        configMap.put("patientNameLength", patientNameLength); // from UserProperty.PATIENT_NAME_LENGTH
+        configMap.put("multiSiteEnabled", multiSiteEnabled);
+        configMap.put("caisiEnabled", caisiEnabled);
+        configMap.put("providerName", providerName); // for document.title
         // Keyboard shortcut targets — maps key to CSS selector for nav link
         Map<String, String> shortcuts = new LinkedHashMap<>();
         shortcuts.put("S", "[data-nav-key='schedule']");
@@ -1396,6 +1421,10 @@ This is the main JavaScript file. Key aspects:
       setupHashNavigation();
       setupSubNavHandlers();
       setupKeyboardShortcuts();
+      // Set document title with provider name (matches original JSP behavior)
+      if (config.providerName) {
+        document.title = config.providerName + ' - CARLOS Schedule';
+      }
       // On-load alerts from schedulePage.js.jsp load() function:
       checkPasswordExpiration();
       checkCBIReminder();
@@ -1787,9 +1816,10 @@ This is the main JavaScript file. Key aspects:
       const letterSpan = document.createElement('span');
       letterSpan.className = 'fw-bold';
       letterSpan.textContent = appt.shortLetters;
-      // shortLetterColor is stored as numeric in DB; convert to hex CSS color
+      // shortLetterColor is already a CSS hex string (e.g., "#FF0000") from
+      // ApptStatusData.getShortLetterColour() — use it directly, no conversion needed.
       if (appt.shortLetterColor) {
-        letterSpan.style.color = '#' + parseInt(appt.shortLetterColor).toString(16).padStart(6, '0');
+        letterSpan.style.color = appt.shortLetterColor;
       }
       statusBtn.appendChild(letterSpan);
     } else {
@@ -1837,21 +1867,40 @@ This is the main JavaScript file. Key aspects:
         'encounter', 710, 1024, appt.id));
     }
     if (config.hasBillingRights) {
-      // Billing mode: appt.billingMode = 'create' | 'edit' | 'delete'
-      // Label: 'B' (create), '=B' (edit), '-B' (delete/rebill)
+      // Billing has 3 modes with DIFFERENT popup dimensions and confirmation:
+      //   'create' (B):  popupPage(755, 1200, url) — no confirmation
+      //   'edit' (=B):   popupPage(700, 720, url)  — no confirmation (onUpdatebill)
+      //   'delete' (-B): popupPage(700, 720, url)  — WITH confirmation (onUnbilled)
       var bLabel = appt.billingMode === 'edit' ? '=B' :
                    appt.billingMode === 'delete' ? '-B' : 'B';
+      var bHeight = appt.billingMode === 'create' ? 755 : 700;
+      var bWidth  = appt.billingMode === 'create' ? 1200 : 720;
       actions.appendChild(createActionLink(bLabel, appt.billingUrl, 'Billing',
-        'apptProvider', 755, 1200, null));
+        'apptProvider', bHeight, bWidth, null));
     }
     if (config.hasMasterLinkRights) {
       actions.appendChild(createActionLink('M', appt.masterUrl, 'Master Record',
         'master', 700, 1024, appt.id));
     }
     if (config.hasDoctorLinkRights) {
-      // Rx window name matches popupWithApptNo → popupOscarRx which uses 'oscarRx'
+      // Rx window name: popupWithApptNo calls popupOscarRx which uses a resource
+      // bundle key for the window name (resolves to "oscarRx_appt" or similar).
+      // Using 'oscarRx' is acceptable — same popup slot.
       actions.appendChild(createActionLink('Rx', appt.rxUrl, 'Prescription',
         'oscarRx', 700, 1027, appt.id));
+    }
+    // eForm Library link (property-gated: eform_in_appointment=true)
+    if (config.eformInAppointment && appt.demographicNo) {
+      actions.appendChild(createActionLink('F',
+        config.contextPath + '/eform/efmformslistadd.jsp?demographic_no=' + appt.demographicNo
+          + '&appointment=' + appt.id,
+        'eForm Library', 'eformLibrary', 500, 1024, null));
+    }
+    // Intake Form link (property-gated: appt_intake_form=on)
+    if (config.intakeFormEnabled && appt.demographicNo) {
+      actions.appendChild(createActionLink('In',
+        config.contextPath + '/formIntake.jsp?demographic_no=' + appt.demographicNo,
+        'Intake Form', 'intakeForm', 700, 1024, null));
     }
 
     row1.appendChild(actions);
@@ -2521,8 +2570,8 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Site dropdown (multi-site with color backgrounds)
 - [ ] Group dropdown (with access restrictions)
 - [ ] Provider search (find provider form)
-- [ ] Anonymous client creation (property-gated: `facility.isEnableAnonymous()`) — button in sub-nav opens `demographic/demographicaddarecord.jsp?anonymous=true` popup
-- [ ] Phone encounter creation (property-gated: `facility.isEnablePhoneEncounter()`) — button opens `oscarEncounter/IncomingEncounter.do` with phone encounter parameters
+- [ ] Anonymous client creation (property-gated: `facility.isEnableAnonymous()`) — button in sub-nav opens `PMmodule/createAnonymousClient.jsp` popup (710x1024, matches JSP line 1200)
+- [ ] Phone encounter creation (property-gated: `facility.isEnablePhoneEncounter()`) — button opens `PMmodule/createPEClient.jsp` popup (710x1024, matches JSP line 1213)
 
 ### System Messages
 - [ ] System message banner (from SystemMessage.do)
@@ -2999,7 +3048,7 @@ The current JSP checks **30+ configuration values** from three different sources
 | ~~`IS_HEALTH_CARD_ENABLED`~~ | N/A | **REMOVED** — This property does not exist in the codebase. HIN version checking is unconditional (always runs when demographic data is available). The `*` indicator in the appointment cell is based on a date comparison between the demographic's HIN expiry date and today — no property gate. |
 | `eform_in_appointment` | `false` | eForm Library link in appointment actions |
 | `appt_intake_form` | `off` | Intake Form link in appointment actions (check value `on`) |
-| `pregnancy_enabled` | `false` | Pregnancy indicator for patients |
+| `appt_pregnancy` | `false` | Pregnancy indicator for patients (JSP line 2211 uses `getBooleanProperty("appt_pregnancy", "false")` — NOT `pregnancy_enabled`) |
 | `hide_eConsult_link` | `false` | eConsult nav link — **inverted logic**: `true` = HIDDEN. Also requires `billregion=ON` |
 | `WORKFLOW` | `yes` | Workflow module nav link (check value `yes`) |
 | `referral_menu` | `no` | Referral management nav link (check value `yes`) |
