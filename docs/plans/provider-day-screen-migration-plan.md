@@ -2,10 +2,12 @@
 
 ## Executive Summary
 
-Migrate the provider day schedule screen (`appointmentprovideradminday.jsp`) — the primary post-login screen in CARLOS EMR — from a monolithic 2400-line JSP with embedded business logic to a proper MVC architecture using Struts2 Actions, JSTL/EL views, Bootstrap 5, and FullCalendar Standard (MIT, v6.1.x).
+Migrate the provider day schedule screen (`appointmentprovideradminday.jsp`) — the primary post-login screen in CARLOS EMR — from a monolithic 2400-line JSP with embedded business logic to a proper MVC architecture using Struts 6.8.0 Actions (*2Action pattern), JSTL/EL views, Bootstrap 5, and FullCalendar Standard (MIT, v6.1.x).
+
+> **Struts version note:** CARLOS runs Struts **6.8.0** (upgraded from 2.5.33 in January 2026). The `*2Action.java` naming convention and `com.opensymphony.xwork2.*` imports are retained for backward compatibility. Throughout this plan, "2Action" refers to the codebase's action naming convention, not the Struts major version.
 
 **Goals:**
-- Proper MVC separation: all business logic in Struts2 Action, all rendering in JSP with JSTL/EL
+- Proper MVC separation: all business logic in Action classes, all rendering in JSP with JSTL/EL
 - No scriptlets in views (unless truly unavoidable for tag library interop)
 - Bootstrap 5 semantic HTML with responsive design
 - FullCalendar Standard (MIT) replacing the custom HTML table grid
@@ -464,7 +466,9 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
 
 **File**: `src/main/java/.../web/interceptor/RoleNameInterceptor.java`
 
-A Struts2 interceptor that runs before every action and sets:
+> **Codebase context:** The struts.xml currently defines no custom interceptor stacks — all actions inherit `defaultStack` from `struts-default`. This interceptor would be the first custom addition, registered in a new custom stack that wraps `defaultStack`. Alternatively, a simpler approach is a servlet `Filter` registered in `web.xml`, which avoids touching the Struts interceptor chain entirely. Either approach works; the filter is lower-risk.
+
+A Struts interceptor (or servlet filter) that runs before every action and sets:
 - `request.setAttribute("roleName", ...)` — for security tags
 - `request.setAttribute("curProviderNo", ...)` — logged-in provider number
 - `request.setAttribute("curProviderName", ...)` — display name
@@ -627,19 +631,25 @@ public class ScheduleDayData2Action extends ActionSupport {
 - Batch-load prevention warnings
 - This should reduce 34+ queries to ~8-10 queries regardless of appointment count
 
-### Phase 2.3: Struts Configuration
+### Phase 2.3: Struts Configuration and JSON Response Pattern
 
-Add to `struts.xml`:
-```xml
-<action name="schedule/DayData"
-        class="io.github.carlos_emr.carlos.schedule.web.ScheduleDayData2Action">
-    <result name="success" type="json">
-        <param name="root">dayViewResponse</param>
-    </result>
-</action>
+**JSON convention in this codebase:** There is no struts2-json-plugin. All 143+ JSON-returning actions write directly to `response.getWriter()` using Jackson's `ObjectMapper` and return `null` (which tells Struts to skip result processing). This is the established pattern we follow:
+
+```java
+// In ScheduleDayData2Action.execute()
+DayViewResponse data = buildDayViewResponse(...);
+
+response.setContentType("application/json");
+response.setCharacterEncoding("UTF-8");
+new ObjectMapper().writeValue(response.getWriter(), data);
+return null;  // Struts skips result mapping — response already committed
 ```
 
-Or use the direct response writing pattern (write JSON to `response.getWriter()` and return `null`), which is the convention used by existing 2Actions that return JSON.
+Add to `struts.xml` (no `<result>` elements needed since the action always returns `null`):
+```xml
+<action name="schedule/DayData"
+        class="io.github.carlos_emr.carlos.schedule.web.ScheduleDayData2Action" />
+```
 
 ---
 
@@ -1711,7 +1721,7 @@ This migration transforms a 2400-line monolithic JSP into a clean MVC architectu
 
 | Aspect | Before | After |
 |--------|--------|-------|
-| Business logic | Inline scriptlets in JSP | Struts2 Action classes |
+| Business logic | Inline scriptlets in JSP | Struts 6.8.0 Action classes (*2Action pattern) |
 | Data access | 15 Spring beans + 34 queries in JSP | Batched queries in Action with DTOs |
 | View rendering | Table-based HTML with scriptlets | Bootstrap 5 + JSTL/EL + FullCalendar |
 | CSS framework | Custom + Bootstrap 3 fragments | Bootstrap 5.3.3 |
