@@ -115,6 +115,16 @@ For links from other pages that still pass query parameters (e.g., `provider/Day
 // In ProviderDaySchedule2Action
 String year = request.getParameter("year");
 if (year != null) {
+    // SECURITY: Validate date parameters before building hash string
+    // to prevent hash fragment injection via malicious query parameters.
+    if (!year.matches("\\d{4}") || !month.matches("\\d{1,2}") || !day.matches("\\d{1,2}")) {
+        throw new SecurityException("Invalid date parameters");
+    }
+    int m = Integer.parseInt(month);
+    int d = Integer.parseInt(day);
+    if (m < 1 || m > 12 || d < 1 || d > 31) {
+        throw new SecurityException("Date out of range");
+    }
     // Set attribute so JSP can emit a redirect-to-hash script
     request.setAttribute("legacyRedirectHash",
         "date=" + year + "-" + month + "-" + day + "&...");
@@ -268,7 +278,10 @@ src/main/webapp/
             ├── css/bootstrap.min.css
             ├── js/bootstrap.bundle.min.js
             └── icons/
-                └── bootstrap-icons.min.css  # NEW: Bootstrap Icons CSS
+                ├── bootstrap-icons.min.css  # NEW: Bootstrap Icons CSS
+                └── fonts/
+                    ├── bootstrap-icons.woff2  # NEW: Icon font (required by CSS)
+                    └── bootstrap-icons.woff   # NEW: Icon font fallback
 ```
 
 ### WEB-INF Protection: Incremental Adoption Strategy
@@ -351,8 +364,9 @@ Eventually: Most active JSPs in WEB-INF/views/, legacy JSPs still public
 **Files to create/modify:**
 
 1. **Download and store FullCalendar locally**
-   - `src/main/webapp/js/vendor/fullcalendar/index.global.min.js` (FullCalendar 6.1.x standard bundle — includes core, dayGrid, timeGrid, list, interaction plugins)
-   - `src/main/webapp/js/vendor/fullcalendar/bootstrap5.global.min.js` (Bootstrap 5 theme plugin)
+   - `src/main/webapp/js/vendor/fullcalendar/index.global.min.js` — from `fullcalendar` npm package (free/standard bundle — includes core, dayGrid, timeGrid, list, interaction, multiMonth plugins; all auto-register, no `plugins` array needed in JS)
+   - `src/main/webapp/js/vendor/fullcalendar/bootstrap5.global.min.js` — from `@fullcalendar/bootstrap5` npm package (separate package, NOT included in the main bundle; free/standard, not premium). Load via `<script>` tag AFTER the main bundle; auto-registers. Required for `themeSystem: 'bootstrap5'`
+   - **No separate FullCalendar CSS file needed** — FullCalendar 6.x injects its own CSS via JavaScript at runtime. Only include Bootstrap 5's own CSS and Bootstrap Icons CSS.
 
 2. **Upgrade Bootstrap to 5.3.3**
    - `src/main/webapp/library/bootstrap/5.3.3/css/bootstrap.min.css`
@@ -487,19 +501,35 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
 <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
 ```
 
-### Phase 1.4: RoleName Interceptor (Eliminates Scriptlets from Header)
+### Phase 1.4: RoleName Servlet Filter (Eliminates Scriptlets from Header)
 
-**File**: `src/main/java/.../web/interceptor/RoleNameInterceptor.java`
+**File**: `src/main/java/.../web/filter/RoleNameFilter.java`
 
-> **Codebase context:** The struts.xml currently defines no custom interceptor stacks — all actions inherit `defaultStack` from `struts-default`. This interceptor would be the first custom addition, registered in a new custom stack that wraps `defaultStack`. Alternatively, a simpler approach is a servlet `Filter` registered in `web.xml`, which avoids touching the Struts interceptor chain entirely. Either approach works; the filter is lower-risk.
+> **Design decision: Servlet Filter (not Struts interceptor).** The struts.xml currently defines no custom interceptor stacks — all actions inherit `defaultStack` from `struts-default`. Adding a custom interceptor stack would require modifying every action mapping or creating a new package. A servlet Filter registered in `web.xml` is lower-risk: it runs for all requests (including non-Struts JSPs that include the header), requires no Struts configuration changes, and benefits old pages that `<jsp:include>` the shared header.
 
-A Struts interceptor (or servlet filter) that runs before every action and sets:
-- `request.setAttribute("roleName", ...)` — for security tags
+A servlet filter that runs before every request and sets request attributes for the shared header:
+- `request.setAttribute("roleName", ...)` — for `<security:oscarSec>` tags
 - `request.setAttribute("curProviderNo", ...)` — logged-in provider number
 - `request.setAttribute("curProviderName", ...)` — display name
 - `request.setAttribute("contextPath", ...)` — context path
 
-Register in `struts.xml` interceptor stack so every 2Action benefits.
+**Registration in `web.xml`** (after authentication filter, before Struts filter):
+```xml
+<filter>
+    <filter-name>RoleNameFilter</filter-name>
+    <filter-class>io.github.carlos_emr.carlos.web.filter.RoleNameFilter</filter-class>
+</filter>
+<filter-mapping>
+    <filter-name>RoleNameFilter</filter-name>
+    <url-pattern>*.do</url-pattern>
+</filter-mapping>
+<filter-mapping>
+    <filter-name>RoleNameFilter</filter-name>
+    <url-pattern>*.jsp</url-pattern>
+</filter-mapping>
+```
+
+This filter only sets attributes if a valid session exists (no security check — it just reads session values that the authentication filter already validated).
 
 ---
 
@@ -801,14 +831,39 @@ public class ProviderDaySchedule2Action extends ActionSupport {
 
 Note: The result path points to `WEB-INF/views/` — the JSP is not directly URL-accessible. Only the Struts2 action can forward to it. This is the first action to use the new protected path convention.
 
-### Phase 3.3: Update providercontrol.jsp Router
+### Phase 3.3: Update Login Redirect to Bypass providercontrol.jsp
 
-Modify the `opToFile` array to route `"day"` to the new action:
-```java
-{"day", "../provider/Day.do"},  // Forward to new Struts2 action
+> **IMPORTANT**: `pageContext.forward()` (used by `providercontrol.jsp`) is a `RequestDispatcher.forward()` — it can forward to JSP files and servlet paths, but it **cannot** forward to a `.do` URL because the Struts filter chain processes `.do` requests **before** the JSP compilation pipeline. Forwarding to `../provider/Day.do` would result in a 404.
+
+**Correct approach**: Change the login redirect to go directly to `provider/Day.do` instead of `providercontrol.jsp?displaymode=day`.
+
+The login flow (`Login2Action` and the providercontrol.jsp self-redirect logic) currently builds URLs like:
+```
+/provider/providercontrol.jsp?year=2026&month=2&day=8&view=0&displaymode=day&...
 ```
 
-Or better: have the login redirect go directly to `provider/Day.do` instead of `providercontrol.jsp?displaymode=day`.
+Change these redirects to go directly to the new action:
+```
+/provider/Day.do
+```
+
+The `ProviderDaySchedule2Action` handles all parameter defaults internally (today's date, default group, etc.), so no URL parameters are needed.
+
+**For backward compatibility**, keep `providercontrol.jsp` routing `"day"` to the old `appointmentprovideradminday.jsp` as a fallback. The migration flag (`schedule.new_day_view=true`) controls which path is used:
+
+```java
+// In providercontrol.jsp — keep existing "day" mapping unchanged
+{"day", "appointmentprovideradminday.jsp"},
+
+// In Login2Action or wherever the post-login redirect is built:
+if (OscarProperties.getInstance().getBooleanProperty("schedule.new_day_view", "false")) {
+    response.sendRedirect(request.getContextPath() + "/provider/Day.do");
+} else {
+    response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?...");
+}
+```
+
+This avoids the `pageContext.forward()` limitation entirely — the browser makes a new request to `provider/Day.do`, which Struts routes normally.
 
 ---
 
@@ -1076,9 +1131,11 @@ This is the main JavaScript file. Key aspects:
       }
     }));
 
+    // NOTE: With the global bundle (index.global.min.js), all included plugins
+    // (core, dayGrid, timeGrid, list, interaction, multiMonth) auto-register.
+    // The Bootstrap 5 plugin auto-registers from its own global script.
+    // Do NOT pass a `plugins` array — that's only for the ES6 module approach.
     return new FullCalendar.Calendar(el, {
-      plugins: ['timeGrid', 'interaction', 'bootstrap5'],
-      // NOTE: With global bundle, plugins are auto-registered
       themeSystem: 'bootstrap5',
       initialView: 'timeGridDay',
       initialDate: config.date,
@@ -1109,8 +1166,12 @@ This is the main JavaScript file. Key aspects:
       events: [...events, ...bgEvents],
 
       // === CUSTOM EVENT RENDERING ===
+      // eventContent return values (FullCalendar 6.x):
+      //   { domNodes: [...] } — custom DOM nodes (XSS-safe via textContent)
+      //   true — render default content
+      //   null/undefined — render empty container (v6 breaking change from v5)
       eventContent: function(arg) {
-        if (arg.event.display === 'background') return null;
+        if (arg.event.display === 'background') return true;
         return renderAppointmentContent(arg, provider);
       },
 
@@ -1660,7 +1721,7 @@ Every security check in the current JSP must have an equivalent in the new archi
 | Uniform slot duration only | Use smallest configured duration; background events for visual slot type grouping |
 | No built-in appointment status cycling | Custom `eventContent` with click handler → AJAX POST |
 | No row-spanning for multi-slot appointments | FullCalendar handles this natively — events with start/end spanning multiple slots render as tall blocks |
-| Performance with 10+ calendar instances | Lazy render: only create calendars for visible providers; use `IntersectionObserver` for off-screen |
+| Performance with 10+ calendar instances | **Phase 5 optimization**: Lazy render with `IntersectionObserver` for off-screen providers. Initial implementation (Phase 4) creates all instances eagerly — acceptable for typical 3-8 provider groups. Lazy rendering deferred to Phase 5 if performance testing shows need. |
 
 ### 6. Accessibility
 The new view improves accessibility over the current table-based layout:
@@ -1749,7 +1810,7 @@ This lets the shared header roll out ahead of each page's full migration to WEB-
 | `src/main/java/.../schedule/dto/ProviderHeaderDto.java` | Provider header DTO |
 | `src/main/java/.../schedule/dto/ConfigDto.java` | Config DTO |
 | `src/main/java/.../schedule/dto/StatusDto.java` | Status rendering DTO |
-| `src/main/java/.../web/interceptor/RoleNameInterceptor.java` | Security interceptor |
+| `src/main/java/.../web/filter/RoleNameFilter.java` | Servlet filter for header attributes |
 | `src/main/webapp/WEB-INF/views/common/header.jspf` | Reusable navbar (protected) |
 | `src/main/webapp/WEB-INF/views/common/head-includes.jspf` | Shared CSS/JS includes (protected) |
 | `src/main/webapp/WEB-INF/views/common/footer.jspf` | Shared footer (protected) |
@@ -1766,8 +1827,10 @@ This lets the shared header roll out ahead of each page's full migration to WEB-
 ### Modified (Existing Files)
 | File | Change |
 |------|--------|
-| `src/main/webapp/WEB-INF/classes/struts.xml` | Add action mappings |
-| `src/main/webapp/provider/providercontrol.jsp` | Route "day" to new action |
+| `src/main/webapp/WEB-INF/classes/struts.xml` | Add action mappings for `provider/Day` and `schedule/DayData` |
+| `src/main/webapp/WEB-INF/web.xml` | Add `RoleNameFilter` registration |
+| `src/main/java/.../login/Login2Action.java` | Change post-login redirect to `provider/Day.do` (when flag enabled) |
+| `src/main/webapp/provider/providercontrol.jsp` | No change needed (keep old "day" mapping as fallback) |
 
 ### Deleted (After Validation)
 | File | Reason |
