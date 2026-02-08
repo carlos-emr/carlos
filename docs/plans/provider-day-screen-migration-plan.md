@@ -624,9 +624,10 @@ public class AppointmentSlotDto {
     private String siteName;            // Multi-site
     private String siteColor;           // Multi-site color
 
-    // Quick links context
+    // Quick links context — URLs built server-side in ScheduleDayData2Action
     private String encounterUrl;
     private String billingUrl;
+    private String billingMode;        // "create" | "edit" | "delete" — controls B link label
     private String masterUrl;
     private String rxUrl;
 }
@@ -703,6 +704,83 @@ public class ScheduleDayData2Action extends ActionSupport {
 - Batch-load DemographicCust records
 - Batch-load prevention warnings
 - This should reduce 34+ queries to ~8-10 queries regardless of appointment count
+
+**Quick-link URL construction** (in the per-appointment enrichment loop):
+
+Each `AppointmentSlotDto` needs 4 pre-built URLs. These MUST be constructed server-side (not client-side) because they require data not available in the DTO:
+
+```java
+// Encounter URL — matches current JSP lines 2070-2091
+String eURL = request.getContextPath() + "/oscarEncounter/IncomingEncounter.do"
+    + "?providerNo=" + curProviderNo
+    + "&appointmentNo=" + appointment.getId()
+    + "&demographicNo=" + demographicNo
+    + "&curProviderNo=" + curProviderNo
+    + "&reason=" + URLEncoder.encode(reason, "UTF-8")
+    + "&encType=" + encType
+    + "&userName=" + URLEncoder.encode(userName, "UTF-8")
+    + "&curDate=" + dateStr
+    + "&appointmentDate=" + dateStr
+    + "&startTime=" + startTime
+    + "&status=" + status
+    + "&providerview=" + providerNo;
+
+// Master URL — matches current JSP line 2136
+String masterURL = request.getContextPath()
+    + "/demographic/demographiccontrol.jsp"
+    + "?demographic_no=" + demographicNo
+    + "&apptProvider=" + providerNo
+    + "&appointment=" + appointment.getId()
+    + "&displaymode=edit&dboperation=search_detail";
+
+// Rx URL — matches current JSP line 2146
+String rxURL = request.getContextPath()
+    + "/oscarRx/choosePatient.do"
+    + "?providerNo=" + loggedInProviderNo
+    + "&demographicNo=" + demographicNo;
+
+// Billing URL — THREE MODES based on status (matches JSP lines 2107-2124)
+String billingMode;
+String billingURL;
+if (status.indexOf('B') < 0) {
+    // No billing yet → Create billing
+    billingMode = "create";
+    billingURL = request.getContextPath() + "/billing.do"
+        + "?billRegion=" + URLEncoder.encode(billingRegion, "UTF-8")
+        + "&billForm=" + URLEncoder.encode(defaultBillView, "UTF-8")
+        + "&appointment_no=" + appointment.getId()
+        + "&demographic_name=" + URLEncoder.encode(patientName, "UTF-8")
+        + "&status=" + status
+        + "&demographic_no=" + demographicNo
+        + "&providerview=" + providerNo
+        + "&user_no=" + loggedInProviderNo
+        + "&apptProvider_no=" + providerNo
+        + "&appointment_date=" + dateStr
+        + "&start_time=" + startTime
+        + "&bNewForm=1";
+} else if ("ON".equals(billingRegion) && "1".equals(caisiPref)) {
+    // Ontario + CAISI → Edit billing (no delete allowed)
+    billingMode = "edit";
+    billingURL = request.getContextPath()
+        + "/billing/CA/ON/billingEditWithApptNo.jsp"
+        + "?appointment_no=" + appointment.getId()
+        + "&demographic_no=" + demographicNo + "...";
+} else {
+    // Billing exists → Delete/Rebill
+    billingMode = "delete";
+    billingURL = request.getContextPath()
+        + "/billing/CA/" + billingRegion
+        + "/billingDeleteWithoutNo.jsp"
+        + "?status=" + status
+        + "&appointment_no=" + appointment.getId();
+}
+
+dto.setEncounterUrl(eURL);
+dto.setMasterUrl(masterURL);
+dto.setRxUrl(rxURL);
+dto.setBillingUrl(billingURL);
+dto.setBillingMode(billingMode);
+```
 
 ### Phase 2.3: Struts Configuration and JSON Response Pattern
 
@@ -1253,7 +1331,9 @@ This is the main JavaScript file. Key aspects:
       eventClick: function(info) {
         info.jsEvent.preventDefault();
         const appt = info.event.extendedProps;
-        openEditAppointment(appt.id, provider.providerNo);
+        // Pass demographicNo so editappointment.jsp can display patient context.
+        // Current JSP passes actual demographic_no when clicking patient name (line 2052).
+        openEditAppointment(appt.id, provider.providerNo, appt.demographicNo);
       },
 
       selectable: false,  // Disable range selection (use dateClick for new appointments)
@@ -1313,17 +1393,28 @@ This is the main JavaScript file. Key aspects:
     const actions = document.createElement('span');
     actions.className = 'ms-auto d-flex gap-1 appt-actions';
 
+    // Action links — each has specific window name and dimensions from current JSP.
+    // storeApptNo() is called before E/M/Rx to set session attribute for cross-popup context.
+    // Billing has 3 modes based on appointment billing status (see Appendix D checklist).
     if (config.hasDoctorLinkRights) {
-      actions.appendChild(createActionLink('E', appt.encounterUrl, 'Encounter'));
+      actions.appendChild(createActionLink('E', appt.encounterUrl, 'Encounter',
+        'encounter', 710, 1024, appt.id));
     }
     if (config.hasBillingRights) {
-      actions.appendChild(createActionLink('B', appt.billingUrl, 'Billing'));
+      // Billing mode: appt.billingMode = 'create' | 'edit' | 'delete'
+      // Label: 'B' (create), '=B' (edit), '-B' (delete/rebill)
+      var bLabel = appt.billingMode === 'edit' ? '=B' :
+                   appt.billingMode === 'delete' ? '-B' : 'B';
+      actions.appendChild(createActionLink(bLabel, appt.billingUrl, 'Billing',
+        'apptProvider', 755, 1200, null));
     }
     if (config.hasMasterLinkRights) {
-      actions.appendChild(createActionLink('M', appt.masterUrl, 'Master Record'));
+      actions.appendChild(createActionLink('M', appt.masterUrl, 'Master Record',
+        'master', 700, 1024, appt.id));
     }
     if (config.hasDoctorLinkRights) {
-      actions.appendChild(createActionLink('Rx', appt.rxUrl, 'Prescription'));
+      actions.appendChild(createActionLink('Rx', appt.rxUrl, 'Prescription',
+        'oscarRx_appt', 700, 1027, appt.id));
     }
 
     row1.appendChild(actions);
@@ -1487,20 +1578,36 @@ This is the main JavaScript file. Key aspects:
     }
   }
 
-  function openEditAppointment(appointmentNo, providerNo) {
+  /**
+   * Opens the appointment edit popup. Maps to appointmentcontrol.jsp which
+   * routes displaymode=edit to editappointment.jsp.
+   *
+   * NOTE: Appointment DELETION is handled INSIDE the edit popup (editappointment.jsp
+   * has Delete/Cancel/No Show buttons). The day schedule does NOT handle deletion
+   * directly — it only opens the edit popup, which manages all lifecycle operations.
+   *
+   * Current JSP has TWO edit paths with different window sizes:
+   *   - Empty slot tooltip: demographic_no=0, 600×780
+   *   - Patient name click: demographic_no=<actual>, 535×860
+   * We use the patient name path since FullCalendar eventClick gives us the appointment
+   * data including demographicNo.
+   */
+  function openEditAppointment(appointmentNo, providerNo, demographicNo) {
     const params = new URLSearchParams({
       appointment_no: String(appointmentNo),
       provider_no: providerNo,
+      bFirstDisp: 'true',
       year: String(config.year),
       month: String(config.month),
       day: String(config.day),
       start_time: '',
-      demographic_no: '0',
+      demographic_no: String(demographicNo || 0),
       displaymode: 'edit',
       dboperation: 'search'
     });
     const url = config.contextPath + '/appointment/appointmentcontrol.jsp?' + params.toString();
-    openPopup(url, 'apptProvider', 600, 780);
+    // 535×860 matches the "patient name click" path in current JSP (line 2052)
+    openPopup(url, 'apptProvider', 535, 860);
   }
 
   function openPopup(url, windowName, height, width) {
@@ -1522,7 +1629,12 @@ This is the main JavaScript file. Key aspects:
     return div.innerHTML;
   }
 
-  function createActionLink(label, url, title) {
+  /**
+   * Creates an action link (E, B, M, Rx) for an appointment cell.
+   * Each link type has a specific window name and dimensions from the current JSP.
+   * E/M/Rx call storeApptNo() to save appointment_no in the HTTP session before opening.
+   */
+  function createActionLink(label, url, title, windowName, height, width, apptNoForSession) {
     const a = document.createElement('a');
     a.href = '#';
     a.className = 'badge bg-secondary text-white action-link';
@@ -1531,10 +1643,30 @@ This is the main JavaScript file. Key aspects:
     a.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      window.open(url, label === 'Rx' ? 'oscarRx_appt' : 'apptProvider',
-        'width=1024,height=700,scrollbars=yes');
+
+      // Billing delete mode gets a confirmation dialog (matches onUnbilled in current JSP)
+      if (label === '-B') {
+        if (!confirm(config.messages.unbilledConfirm || 'Delete billing record?')) return;
+      }
+
+      // Store appointment_no in session for E/M/Rx popups (matches popupWithApptNo)
+      if (apptNoForSession) {
+        storeApptNo(apptNoForSession);
+      }
+
+      openPopup(url, windowName, height, width);
     });
     return a;
+  }
+
+  /**
+   * Stores appointment_no in the HTTP session via AJAX (for cross-popup context).
+   * Matches storeApptInSession.jsp which sets session.setAttribute("cur_appointment_no", ...).
+   * Used by E/M/Rx popups that need to know which appointment they were launched from.
+   */
+  function storeApptNo(apptNo) {
+    fetch(config.contextPath + '/provider/storeApptInSession.jsp?appointment_no=' +
+      encodeURIComponent(apptNo));
   }
 
   // === INITIALIZATION ===
@@ -1867,7 +1999,10 @@ Keep the old `appointmentprovideradminday.jsp` accessible during migration. Add 
 - Side-by-side comparison during testing
 
 ### 2. Popup Window Compatibility
-The existing popup windows (appointment edit, encounter, billing, prescription, etc.) call `window.opener.refresh()` to trigger a schedule reload. The new view exposes `window.refreshSchedule()` as the global refresh function, and also aliases it to the patterns existing popups use:
+
+> **Appointment lifecycle operations (edit, delete, cancel, no-show, cut, copy) all happen INSIDE the existing popup windows** — they are NOT handled directly by the day schedule. The day schedule's only responsibility is to open the correct popup with the right parameters. The popup then calls `self.opener.refresh()` when done, which triggers `refreshAllCalendars()` on the schedule page.
+
+The existing popup windows call `window.opener.refresh()` to trigger a schedule reload. The new view exposes `window.refreshSchedule()` as the global refresh function, and also aliases it to the patterns existing popups use:
 ```javascript
 // Compatibility shims for existing popup callbacks
 window.refresh = window.refreshSchedule;
