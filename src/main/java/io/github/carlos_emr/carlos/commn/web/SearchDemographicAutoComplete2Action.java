@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 /**
- * @author jaygallagher
+ *
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -190,7 +190,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
         HashMap<String, List<HashMap<String, String>>> d = new HashMap<>();
         d.put("results", secondList);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         if (jqueryJSON) {
             response.getWriter().print(formatJSON(secondList));
             response.getWriter().flush();
@@ -215,7 +215,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("value", record.get("demographicNo"));
             h.put("providerNo", record.get("providerNo"));
             h.put("provider", record.get("providerNameHtml"));
-            h.put("nextAppt", record.get("nextAppointment"));
+            h.put("nextAppt", Encode.forHtml(Objects.toString(record.get("nextAppointment"), "")));
             h.put("formattedName", record.get("formattedNameHtml"));
             results.add(h);
         }
