@@ -609,6 +609,11 @@ public class AppointmentSlotDto {
     private String nextStatus;          // Next status in cycle
     private String shortLetters;        // Status short letters
     private String shortLetterColor;
+    // NOTE: In the DB (appointmentStatus table), shortLetterColour is stored as a
+    // numeric string (e.g., "16711680" for red). The DTO should convert to hex CSS:
+    //   Integer.toHexString(Integer.parseInt(shortLetterColour))
+    // padded to 6 chars with leading zeros: String.format("#%06x", numericValue).
+    // ApptStatusData.getShortLetterColour() returns the raw numeric string.
 
     // Patient indicators
     private boolean hasTickler;
@@ -771,6 +776,7 @@ String eURL = request.getContextPath() + "/oscarEncounter/IncomingEncounter.do"
     + "&appointmentDate=" + dateStr
     + "&startTime=" + startTime
     + "&status=" + status
+    + "&apptProvider_no=" + providerNo
     + "&providerview=" + providerNo;
 
 // Master URL — matches current JSP line 2136
@@ -805,7 +811,7 @@ if (status.indexOf('B') < 0) {
         + "&apptProvider_no=" + providerNo
         + "&appointment_date=" + dateStr
         + "&start_time=" + startTime
-        + "&hotclick=&xml_provider="
+        + "&hotclick=&xml_provider=" + providerNo
         + "&bNewForm=1";
 // NOTE: caisiPref is loaded from userPropertyDao: caisiBillingPreferenceNotDelete
 } else if ("ON".equals(billingRegion) && "1".equals(caisiPref)) {
@@ -1031,7 +1037,10 @@ public class ProviderDaySchedule2Action extends ActionSupport {
         request.setAttribute("billingRegion", billingRegion);
         request.setAttribute("eConsultEnabled", eConsultEnabled);
         request.setAttribute("workflowEnabled", workflowEnabled);
-        request.setAttribute("healthCardEnabled", healthCardEnabled);
+        // NOTE: HIN version checking is unconditional (no property gate).
+        // The versionMismatch indicator is computed in ScheduleDayData2Action.
+        request.setAttribute("hcReaderEnabled",
+            OscarProperties.getInstance().isPropertyActive("indivica_hc_read_enabled"));
         request.setAttribute("anonymousEnabled", anonymousEnabled);
         request.setAttribute("phoneEncounterEnabled", phoneEncounterEnabled);
         request.setAttribute("caisiEnabled", caisiEnabled);
@@ -1044,7 +1053,50 @@ public class ProviderDaySchedule2Action extends ActionSupport {
         // 9. Reason codes (for tooltip display)
         request.setAttribute("reasonCodesJson", reasonCodesJson);
 
-        // 10. JSON config block for JavaScript (serialized by Jackson)
+        // 10. Session attribute persistence — other pages depend on these
+        //     The old JSP writes several session attributes that appointment popups,
+        //     billing pages, and other modules read. The new Action MUST set these
+        //     to maintain cross-page compatibility.
+        session.setAttribute("site_selected", selectedSite);
+        session.setAttribute("programId_oscarView",
+            programIdOscarView != null ? programIdOscarView : "0");
+        session.setAttribute("default_servicetype", defaultServiceType);
+        // providerBean is a Properties cache mapping providerNo → formatted name.
+        // Populated once per session, used by receptionistfindprovider.jsp and others.
+        Properties providerBean = (Properties) session.getAttribute("providerBean");
+        if (providerBean == null || providerBean.isEmpty()) {
+            providerBean = new Properties();
+            for (Provider p : providers) {
+                providerBean.setProperty(p.getProviderNo(), p.getFormattedName());
+            }
+            session.setAttribute("providerBean", providerBean);
+        }
+        // curProvider is read by appointment edit popups for context
+        session.setAttribute("curProvider", curProviderNo);
+        session.setAttribute("curProviderNo", curProviderNo);
+        // myGroupNo persisted so group selection survives page navigations
+        session.setAttribute("myGroupNo", myGroupNo);
+
+        // 11. On-load check attributes (for data-* attributes in JSP)
+        // Password expiration — read from session (set by login flow)
+        request.setAttribute("expiredDays",
+            session.getAttribute("expired_days") != null
+                ? session.getAttribute("expired_days") : "");
+        // CBI Reminder — CAISI-only, read from session
+        String cbiReminder = "";
+        if (IsPropertiesOn.isCaisiEnable()
+            && IsPropertiesOn.propertiesOn("CBI_REMINDER_WINDOW")) {
+            Object cbi = session.getAttribute("cbiReminderWindow");
+            cbiReminder = cbi != null ? cbi.toString() : "";
+            session.removeAttribute("cbiReminderWindow"); // show once
+        }
+        request.setAttribute("cbiReminder", cbiReminder);
+        // Tickler warning — from ProviderPreference.newTicklerWarningWindow
+        request.setAttribute("ticklerWarning",
+            providerPreference != null
+                ? providerPreference.getNewTicklerWarningWindow() : "");
+
+        // 12. JSON config block for JavaScript (serialized by Jackson)
         //     This avoids EL/JSTL encoding issues — ObjectMapper handles JSON escaping.
         Map<String, Object> configMap = new LinkedHashMap<>();
         configMap.put("contextPath", request.getContextPath());
@@ -1073,6 +1125,22 @@ public class ProviderDaySchedule2Action extends ActionSupport {
         configMap.put("quickLinks", quickLinks);
         configMap.put("formLinks", formLinks);
         configMap.put("eFormLinks", eFormLinks);
+        configMap.put("daySheetEnabled",
+            OscarProperties.getInstance().isPropertyActive("view.appointmentdaysheetbutton"));
+        configMap.put("shortLettersEnabled",
+            OscarProperties.getInstance().isPropertyActive("APPT_SHOW_SHORT_LETTERS"));
+        configMap.put("showTypeWithReason",
+            OscarProperties.getInstance().isPropertyActive("SHOW_APPT_TYPE_WITH_REASON"));
+        configMap.put("docColorEnabled",
+            OscarProperties.getInstance().isPropertyActive("ENABLE_APPT_DOC_COLOR"));
+        configMap.put("defaultServiceType", defaultServiceType);
+        // Keyboard shortcut targets — maps key to CSS selector for nav link
+        Map<String, String> shortcuts = new LinkedHashMap<>();
+        shortcuts.put("S", "[data-nav-key='schedule']");
+        shortcuts.put("I", "[data-nav-key='inbox']");
+        shortcuts.put("T", "[data-nav-key='tickler']");
+        // ... additional shortcuts wired in header.jspf via data-nav-key attributes
+        configMap.put("shortcuts", shortcuts);
 
         // i18n messages for client-side dialogs (from resource bundle)
         Map<String, String> messages = new LinkedHashMap<>();
@@ -1198,13 +1266,13 @@ This avoids the `pageContext.forward()` limitation entirely — the browser make
     <div class="container-fluid px-2">
       <%-- Left: Date navigation --%>
       <div class="d-flex align-items-center gap-2">
-        <a href="..." class="btn btn-sm btn-outline-secondary" title="Previous Day">
+        <a href="#" class="btn btn-sm btn-outline-secondary" data-nav="prev-day" title="Previous Day">
           <i class="bi bi-chevron-left"></i>
         </a>
         <span class="fw-bold" id="schedule-date">
           <fmt:formatDate value="${scheduleDate}" pattern="EEEE, MMMM d, yyyy" />
         </span>
-        <a href="..." class="btn btn-sm btn-outline-secondary" title="Next Day">
+        <a href="#" class="btn btn-sm btn-outline-secondary" data-nav="next-day" title="Next Day">
           <i class="bi bi-chevron-right"></i>
         </a>
         <button class="btn btn-sm btn-outline-primary" id="todayBtn">Today</button>
@@ -1277,7 +1345,12 @@ This avoids the `pageContext.forward()` limitation entirely — the browser make
        </script> injection. fn:escapeXml() is correct here because the HTML parser decodes
        entities in attribute values BEFORE JavaScript reads them via dataset.
        The JSON is generated by Jackson ObjectMapper in the Action class. --%>
-  <div id="schedule-config" data-config="${fn:escapeXml(scheduleConfigJson)}" class="d-none"></div>
+  <div id="schedule-config"
+       data-config="${fn:escapeXml(scheduleConfigJson)}"
+       data-expired-days="${fn:escapeXml(expiredDays)}"
+       data-cbi-reminder="${fn:escapeXml(cbiReminder)}"
+       data-tickler-warning="${fn:escapeXml(ticklerWarning)}"
+       class="d-none"></div>
 
   <%-- === SCRIPTS === --%>
   <jsp:include page="/WEB-INF/views/common/footer.jspf" />
@@ -1321,6 +1394,12 @@ This is the main JavaScript file. Key aspects:
       loadSystemMessages();
       startAutoRefresh();
       setupHashNavigation();
+      setupSubNavHandlers();
+      setupKeyboardShortcuts();
+      // On-load alerts from schedulePage.js.jsp load() function:
+      checkPasswordExpiration();
+      checkCBIReminder();
+      checkTicklerWarning();
     } catch (err) {
       console.error('Schedule initialization failed:', err);
       document.getElementById('provider-calendars-row').textContent =
@@ -1366,6 +1445,9 @@ This is the main JavaScript file. Key aspects:
       card.className = 'card border-0';
 
       const header = document.createElement('div');
+      // Current JSP alternates provider header colors (#bfefff / silver).
+      // The new design uses uniform bg-primary for visual consistency.
+      // To restore alternating colors, use: data.providers.indexOf(provider) % 2
       header.className = 'card-header py-1 px-2 d-flex justify-content-between align-items-center bg-primary text-white';
       header.style.fontSize = '12px';
 
@@ -1389,12 +1471,53 @@ This is the main JavaScript file. Key aspects:
       reasonBtn.title = 'Toggle reasons';
       reasonBtn.innerHTML = '<i class="bi bi-chat-left-text"></i>';  // static HTML, no user data
       rightGroup.appendChild(reasonBtn);
-      // Week view and Search buttons (similar pattern — static HTML only)
-      rightGroup.insertAdjacentHTML('beforeend',
-        '<a href="#" class="btn btn-sm btn-outline-light py-0 px-1" title="Week view">' +
-          '<i class="bi bi-calendar-week"></i></a>' +
-        '<a href="#" class="btn btn-sm btn-outline-light py-0 px-1" title="Search">' +
-          '<i class="bi bi-search"></i></a>');
+      // Zoom button — single-provider view
+      var zoomBtn = document.createElement('button');
+      zoomBtn.className = 'btn btn-sm btn-outline-light py-0 px-1';
+      zoomBtn.title = 'Zoom (single provider view)';
+      zoomBtn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+      zoomBtn.addEventListener('click', function() {
+        updateHash({ provider: provider.providerNo });
+      });
+      rightGroup.appendChild(zoomBtn);
+
+      // Week view button
+      var weekBtn = document.createElement('a');
+      weekBtn.className = 'btn btn-sm btn-outline-light py-0 px-1';
+      weekBtn.title = 'Week view';
+      weekBtn.innerHTML = '<i class="bi bi-calendar-week"></i>';
+      weekBtn.href = config.contextPath + '/provider/providercontrol.jsp'
+        + '?year=' + config.year + '&month=' + config.month + '&day=' + config.day
+        + '&view=0&displaymode=week&curProvider=' + provider.providerNo
+        + '&curProviderNo=' + config.providerNo;
+      rightGroup.appendChild(weekBtn);
+
+      // Day Sheet button (property-gated — only shown when config includes it)
+      if (config.daySheetEnabled) {
+        var daySheetBtn = document.createElement('a');
+        daySheetBtn.className = 'btn btn-sm btn-outline-light py-0 px-1';
+        daySheetBtn.title = 'Day Sheet';
+        daySheetBtn.innerHTML = '<i class="bi bi-printer"></i>';
+        daySheetBtn.href = config.contextPath + '/provider/providerDaySheet.jsp'
+          + '?provider_no=' + provider.providerNo
+          + '&sDate=' + config.date;
+        daySheetBtn.target = '_blank';
+        rightGroup.appendChild(daySheetBtn);
+      }
+
+      // Search button
+      var searchBtn = document.createElement('a');
+      searchBtn.className = 'btn btn-sm btn-outline-light py-0 px-1';
+      searchBtn.title = 'Search';
+      searchBtn.innerHTML = '<i class="bi bi-search"></i>';
+      searchBtn.href = '#';
+      searchBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        openPopup(config.contextPath + '/appointment/appointmentsearch.jsp'
+          + '?orderby=appointment_date&provider_no=' + provider.providerNo,
+          'apptSearch', 600, 900);
+      });
+      rightGroup.appendChild(searchBtn);
 
       header.appendChild(leftGroup);
       header.appendChild(rightGroup);
@@ -1527,9 +1650,10 @@ This is the main JavaScript file. Key aspects:
       eventClick: function(info) {
         info.jsEvent.preventDefault();
         const appt = info.event.extendedProps;
-        // Pass demographicNo so editappointment.jsp can display patient context.
+        // Pass demographicNo and start_time so editappointment.jsp can display patient context.
         // Current JSP passes actual demographic_no when clicking patient name (line 2052).
-        openEditAppointment(appt.id, provider.providerNo, appt.demographicNo);
+        var startTime = info.event.start ? formatTime(info.event.start) : '';
+        openEditAppointment(appt.id, provider.providerNo, appt.demographicNo, startTime);
       },
 
       // === DRAG-AND-DROP & RESIZE ===
@@ -1577,9 +1701,11 @@ This is the main JavaScript file. Key aspects:
       return;
     }
 
-    // Format new times for confirmation dialog
+    // Format new times for confirmation dialog.
+    // NOTE: event.end can be null in FullCalendar when the event has no explicit
+    // end time (defaultTimedEventDuration applies). Guard against this.
     var newStart = event.start;
-    var newEnd = event.end;
+    var newEnd = event.end || new Date(newStart.getTime() + (config.everyMin || 15) * 60000);
     var startStr = newStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     var endStr = newEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -1647,20 +1773,36 @@ This is the main JavaScript file. Key aspects:
     const row1 = document.createElement('div');
     row1.className = 'd-flex align-items-center gap-1';
 
-    // Status icon (clickable to advance status)
+    // Status indicator (clickable to advance status)
+    // Two display modes controlled by APPT_SHOW_SHORT_LETTERS property:
+    //   false (default) → show status icon image (todo.gif, here.gif, etc.)
+    //   true → show 1-2 character "short letters" with colored text
     const statusBtn = document.createElement('button');
     statusBtn.className = 'btn btn-xs p-0 border-0 status-btn';
     statusBtn.title = appt.statusTitle || '';
     statusBtn.dataset.apptId = appt.id;
     statusBtn.dataset.nextStatus = appt.nextStatus;
-    const statusImg = document.createElement('img');
-    // Validate statusIcon to prevent path traversal/injection
-    const safeIcon = (appt.statusIcon && /^[a-zA-Z0-9._-]+$/.test(appt.statusIcon))
-      ? appt.statusIcon : 'unknown.gif';
-    statusImg.src = config.contextPath + '/images/' + safeIcon;
-    statusImg.width = 14;
-    statusImg.height = 14;
-    statusBtn.appendChild(statusImg);
+    if (config.shortLettersEnabled && appt.shortLetters) {
+      // Short letter mode: colored text abbreviation
+      const letterSpan = document.createElement('span');
+      letterSpan.className = 'fw-bold';
+      letterSpan.textContent = appt.shortLetters;
+      // shortLetterColor is stored as numeric in DB; convert to hex CSS color
+      if (appt.shortLetterColor) {
+        letterSpan.style.color = '#' + parseInt(appt.shortLetterColor).toString(16).padStart(6, '0');
+      }
+      statusBtn.appendChild(letterSpan);
+    } else {
+      // Icon image mode (default)
+      const statusImg = document.createElement('img');
+      // Validate statusIcon to prevent path traversal/injection
+      const safeIcon = (appt.statusIcon && /^[a-zA-Z0-9._-]+$/.test(appt.statusIcon))
+        ? appt.statusIcon : 'unknown.gif';
+      statusImg.src = config.contextPath + '/images/' + safeIcon;
+      statusImg.width = 14;
+      statusImg.height = 14;
+      statusBtn.appendChild(statusImg);
+    }
     statusBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       advanceStatus(appt.id, appt.nextStatus);
@@ -1715,14 +1857,42 @@ This is the main JavaScript file. Key aspects:
     row1.appendChild(actions);
     container.appendChild(row1);
 
-    // Row 2: Reason (toggleable)
-    if (appt.reason || appt.reasonCodeLabel) {
+    // Row 2: Reason (toggleable) + optional type prefix
+    if (appt.reason || appt.reasonCodeLabel || (config.showTypeWithReason && appt.type)) {
       const reasonDiv = document.createElement('div');
-      reasonDiv.className = `appt-reason reason-${provider.providerNo} small text-muted`;
-      reasonDiv.textContent = [appt.reasonCodeLabel, appt.reason]
-        .filter(Boolean).join(' - ');
+      reasonDiv.className = 'appt-reason reason-' + provider.providerNo + ' small text-muted';
+      var reasonParts = [];
+      // SHOW_APPT_TYPE_WITH_REASON: prepend appointment type to reason
+      if (config.showTypeWithReason && appt.type) reasonParts.push(appt.type);
+      if (appt.reasonCodeLabel) reasonParts.push(appt.reasonCodeLabel);
+      if (appt.reason) reasonParts.push(appt.reason);
+      reasonDiv.textContent = reasonParts.join(' - ');
       container.appendChild(reasonDiv);
     }
+
+    // Row 3: Form / eForm / QuickLink shortcuts (from provider preferences)
+    // These are configurable per-provider links rendered below the appointment cell.
+    // formLinks, eFormLinks, quickLinks are arrays of {name, url} from config.
+    if (config.formLinks && config.formLinks.length > 0) {
+      var formRow = document.createElement('div');
+      formRow.className = 'appt-forms small';
+      config.formLinks.forEach(function(link) {
+        var a = document.createElement('a');
+        a.href = '#';
+        a.className = 'badge bg-info text-white me-1';
+        a.textContent = link.name;
+        a.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          // Forms need demographic_no in the URL
+          var formUrl = link.url.replace('{demographic_no}', appt.demographicNo || '');
+          openPopup(formUrl, 'formWindow', 700, 1024);
+        });
+        formRow.appendChild(a);
+      });
+      container.appendChild(formRow);
+    }
+    // Similar rendering for eFormLinks and quickLinks (same pattern as formLinks)
 
     return { domNodes: [container] };
   }
@@ -1755,6 +1925,10 @@ This is the main JavaScript file. Key aspects:
 
   // === SYNCHRONIZED NAVIGATION ===
 
+  // NOTE: navigateAllCalendars is NOT used in the current design because
+  // refreshAllCalendars() destroys and recreates all instances (needed to update
+  // data, not just the visible date). Kept as a utility for potential future use
+  // where date-only navigation without data refresh is needed.
   function navigateAllCalendars(date) {
     calendars.forEach(cal => cal.gotoDate(date));
   }
@@ -1773,7 +1947,17 @@ This is the main JavaScript file. Key aspects:
 
   function startAutoRefresh() {
     if (config.refreshInterval > 0) {
-      setInterval(refreshAllCalendars, config.refreshInterval);
+      // Use setTimeout + re-schedule pattern instead of setInterval to prevent
+      // overlapping async refreshAllCalendars() calls if one takes longer than
+      // the interval period.
+      function scheduleNext() {
+        setTimeout(function() {
+          refreshAllCalendars()
+            .catch(function(err) { console.error('Auto-refresh failed:', err); })
+            .finally(scheduleNext);
+        }, config.refreshInterval);
+      }
+      scheduleNext();
     }
   }
 
@@ -1836,7 +2020,7 @@ This is the main JavaScript file. Key aspects:
     const allowWeek = (apptDate < oneWeekLater) ? 'Yes' : 'No';
 
     // 6. Build the popup URL with URLSearchParams (proper encoding)
-    const params = new URLSearchParams({
+    const paramObj = {
       provider_no: providerNo,
       bFirstDisp: 'true',
       year: String(config.year),
@@ -1845,7 +2029,12 @@ This is the main JavaScript file. Key aspects:
       start_time: startTime,
       end_time: endTime,
       duration: String(duration)
-    });
+    };
+    // defaultServiceType from ProviderPreference — pass to addappointment.jsp
+    if (config.defaultServiceType) {
+      paramObj.default_servicetype = config.defaultServiceType;
+    }
+    const params = new URLSearchParams(paramObj);
     const url = config.contextPath + '/appointment/addappointment.jsp?' + params.toString();
 
     // 7. Apply booking confirmation logic (matches confirmPopupPage in schedulePage.js.jsp)
@@ -1895,7 +2084,7 @@ This is the main JavaScript file. Key aspects:
    * We use the patient name path since FullCalendar eventClick gives us the appointment
    * data including demographicNo.
    */
-  function openEditAppointment(appointmentNo, providerNo, demographicNo) {
+  function openEditAppointment(appointmentNo, providerNo, demographicNo, startTime) {
     const params = new URLSearchParams({
       appointment_no: String(appointmentNo),
       provider_no: providerNo,
@@ -1903,7 +2092,7 @@ This is the main JavaScript file. Key aspects:
       year: String(config.year),
       month: String(config.month),
       day: String(config.day),
-      start_time: '',
+      start_time: startTime || '',
       demographic_no: String(demographicNo || 0),
       displaymode: 'edit',
       dboperation: 'search'
@@ -1981,14 +2170,20 @@ This is the main JavaScript file. Key aspects:
 
   function loadSystemMessages() {
     fetch(config.contextPath + '/SystemMessage.do')
-      .then(function(r) { return r.text(); })
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
       .then(function(html) {
         var el = document.getElementById('system-message');
         if (el && html && html.trim()) { el.innerHTML = html; el.classList.remove('d-none'); }
       })
       .catch(function() { /* non-critical */ });
     fetch(config.contextPath + '/FacilityMessage.do')
-      .then(function(r) { return r.text(); })
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
       .then(function(html) {
         var el = document.getElementById('facility-message');
         if (el && html && html.trim()) { el.innerHTML = html; el.classList.remove('d-none'); }
@@ -2003,10 +2198,18 @@ This is the main JavaScript file. Key aspects:
     var lines = [appt.title];
     if (appt.reason) lines.push(appt.reason);
     if (appt.notes) lines.push(appt.notes);
+    // Use html:true + <br> for multi-line tooltips because Bootstrap Tooltip
+    // renders title as textContent by default, collapsing \n to spaces.
+    // All values come from the server JSON (already escaped by Jackson), but
+    // we still escape them client-side for defense-in-depth.
+    var htmlTitle = lines.map(function(line) { return escapeHtml(line); }).join('<br>');
     new bootstrap.Tooltip(info.el, {
-      title: lines.join('\n'),
+      title: htmlTitle,
+      html: true,
       placement: 'top',
-      trigger: 'hover',
+      // 'hover focus' ensures tooltips are accessible via keyboard Tab
+      // and on touch devices (long-press).
+      trigger: 'hover focus',
       container: 'body'
     });
   }
@@ -2017,13 +2220,139 @@ This is the main JavaScript file. Key aspects:
     window.addEventListener('hashchange', function() {
       // Re-read state from hash and refresh calendars
       var params = new URLSearchParams(window.location.hash.substring(1));
-      if (params.get('date')) config.date = params.get('date');
+      if (params.get('date')) {
+        config.date = params.get('date');
+        // CRITICAL: Also update year/month/day so popup URLs get the correct date.
+        // openAddAppointment and openEditAppointment use config.year/month/day.
+        var parts = config.date.split('-');
+        config.year = parseInt(parts[0]);
+        config.month = parseInt(parts[1]);
+        config.day = parseInt(parts[2]);
+      }
       if (params.get('group')) config.myGroupNo = params.get('group');
       if (params.get('site')) config.selectedSite = params.get('site');
       if (params.has('viewAll')) config.viewAll = params.get('viewAll') !== 'false';
       refreshAllCalendars();
     });
   }
+
+  // === SUB-NAV EVENT HANDLERS ===
+
+  function setupSubNavHandlers() {
+    // Previous/Next day arrows
+    document.querySelectorAll('[data-nav="prev-day"], [data-nav="next-day"]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var d = new Date(config.year, config.month - 1, config.day);
+        d.setDate(d.getDate() + (this.dataset.nav === 'prev-day' ? -1 : 1));
+        updateHash({ date: formatDate(d) });
+      });
+    });
+    // Today button
+    var todayBtn = document.getElementById('todayBtn');
+    if (todayBtn) todayBtn.addEventListener('click', function() {
+      updateHash({ date: formatDate(new Date()) });
+    });
+    // View All / Scheduled toggle
+    var viewAllBtn = document.getElementById('viewAllBtn');
+    var viewSchedBtn = document.getElementById('viewScheduledBtn');
+    if (viewAllBtn) viewAllBtn.addEventListener('click', function() {
+      updateHash({ viewAll: 'true' });
+    });
+    if (viewSchedBtn) viewSchedBtn.addEventListener('click', function() {
+      updateHash({ viewAll: 'false' });
+    });
+    // Group dropdown
+    var groupSelect = document.getElementById('groupSelect');
+    if (groupSelect) groupSelect.addEventListener('change', function() {
+      updateHash({ group: this.value });
+    });
+    // Site dropdown
+    var siteSelect = document.getElementById('siteSelect');
+    if (siteSelect) siteSelect.addEventListener('change', function() {
+      updateHash({ site: this.value });
+    });
+  }
+
+  // === KEYBOARD SHORTCUTS ===
+
+  function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+      // Only fire when Alt is held (matches existing OSCAR shortcuts)
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
+      // Don't fire inside text inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      var key = e.key.toUpperCase();
+      // Map matches current JSP header shortcuts:
+      // Alt+A=Admin, Alt+B=Billing, Alt+C=Clinical Resources, Alt+D=Drugs,
+      // Alt+E=eDocs, Alt+I=Inbox, Alt+K=eConsult, Alt+L=Lab, Alt+M=Messages,
+      // Alt+O=Consults, Alt+P=Patient Search, Alt+R=Reports, Alt+S=Schedule,
+      // Alt+T=Tickler, Alt+W=Workflow, Ctrl+Q=Scratch Pad
+      var shortcuts = config.shortcuts || {};
+      if (shortcuts[key]) {
+        e.preventDefault();
+        var target = document.querySelector(shortcuts[key]);
+        if (target) target.click();
+      }
+    });
+  }
+
+  // === ON-LOAD CHECKS (from schedulePage.js.jsp load() function) ===
+
+  /**
+   * Checks session for password expiration warning and opens change-password popup.
+   * Matches schedulePage.js.jsp popupPageOfChangePassword() — reads expired_days
+   * from a data attribute set by the Action.
+   */
+  function checkPasswordExpiration() {
+    var el = document.getElementById('schedule-config');
+    var expiredDays = el ? el.dataset.expiredDays : '';
+    if (expiredDays && expiredDays.trim()) {
+      openPopup(config.contextPath + '/provider/changePassword.jsp',
+        'changePassword', 300, 400);
+    }
+  }
+
+  /**
+   * Shows CBI Reminder Window alert when CAISI is enabled and a reminder exists.
+   * Matches schedulePage.js.jsp load() CBI check.
+   * The reminder text is set server-side in the session; after displaying it once,
+   * the Action clears the session attribute.
+   */
+  function checkCBIReminder() {
+    var el = document.getElementById('schedule-config');
+    var cbiReminder = el ? el.dataset.cbiReminder : '';
+    if (cbiReminder && cbiReminder !== 'null' && cbiReminder.trim()) {
+      alert(cbiReminder);
+      // Clear via AJAX so it doesn't show again on refresh
+      fetch(config.contextPath + '/provider/clearCBIReminder.do');
+    }
+  }
+
+  /**
+   * Opens new tickler warning window when ProviderPreference.newTicklerWarningWindow
+   * is 'enabled'. Matches schedulePage.js.jsp load() tickler check.
+   */
+  function checkTicklerWarning() {
+    var el = document.getElementById('schedule-config');
+    var ticklerWarning = el ? el.dataset.ticklerWarning : '';
+    if (ticklerWarning === 'enabled') {
+      openPopup(config.contextPath + '/UnreadTickler.do',
+        'viewUnreadTickler', 120, 250);
+    }
+  }
+
+  // === TOOLTIP PRIVACY TOGGLE ===
+  // Reason toggle also controls tooltip content (short vs full).
+  // When reason is hidden for a provider, tooltips show name only.
+  // When reason is shown, tooltips show name + reason + notes.
+  // This matches the current schedulePage.js.jsp updateTooltipsForProvider().
+
+  // === POPUPINBOXMANAGER ===
+  // popupInboxManager lives in the shared header JS (nav-alerts.js or header.jspf).
+  // The lab link in the header uses onclick="popupInboxManager(url)".
+  // Alt+click switches to Inboxhub: the header wires up an event listener that
+  // checks e.altKey and swaps the URL from documentManager to Inboxhub.
 
   // === GLOBAL REFRESH (called by popup windows via window.opener) ===
   window.refreshSchedule = refreshAllCalendars;
@@ -2179,21 +2508,21 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Scratch Pad link
 - [ ] User preferences link with name display
 - [ ] Logout button
-- [ ] All keyboard shortcuts (Alt+A through Alt+W, Ctrl+Q)
-- [ ] Alt+click for Inboxhub on lab link
+- [ ] All keyboard shortcuts (Alt+A through Alt+W, Ctrl+Q) — see `setupKeyboardShortcuts()` in Phase 4.2. Keys mapped via `config.shortcuts` from Action.
+- [ ] Alt+click for Inboxhub on lab link — lab link in header.jspf wires `onclick` handler that checks `event.altKey` and switches URL from `documentManager/inboxManage.do` to `web/inboxhub/Inboxhub.do` (matches current JSP lines 2401-2405)
 
 ### Sub-Navigation (schedule-specific)
 - [ ] Previous/Next day arrows
 - [ ] Date display
-- [ ] Calendar popup for date jumping
+- [ ] Calendar popup for date jumping — use `<input type="date">` or a Bootstrap datepicker component; on change, call `updateHash({ date: selectedDate })`
 - [ ] Today button
 - [ ] Month view link
 - [ ] View All / Scheduled toggle
 - [ ] Site dropdown (multi-site with color backgrounds)
 - [ ] Group dropdown (with access restrictions)
 - [ ] Provider search (find provider form)
-- [ ] Anonymous client creation (property-gated)
-- [ ] Phone encounter creation (property-gated)
+- [ ] Anonymous client creation (property-gated: `facility.isEnableAnonymous()`) — button in sub-nav opens `demographic/demographicaddarecord.jsp?anonymous=true` popup
+- [ ] Phone encounter creation (property-gated: `facility.isEnablePhoneEncounter()`) — button opens `oscarEncounter/IncomingEncounter.do` with phone encounter parameters
 
 ### System Messages
 - [ ] System message banner (from SystemMessage.do)
@@ -2207,7 +2536,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Search button (appointment search)
 - [ ] Flip view radio
 - [ ] Zoom/single provider view
-- [ ] Reason toggle button (per-provider, persists to localStorage)
+- [ ] Reason toggle button (per-provider, persists to localStorage) — click handler toggles `.appt-reason` visibility for that provider's appointments AND updates tooltip content (short vs full). Matches `schedulePage.js.jsp` `toggleReason()` + `updateTooltipsForProvider()`. Stored as `localStorage.reason_{providerNo} = true/false`.
 - [ ] Template slot coloring (background events)
 
 ### Per-Appointment Cell
@@ -2225,7 +2554,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Patient name (with alias and pronouns)
 - [ ] Birthday cake icon
 - [ ] Multi-site color indicator
-- [ ] Provider color indicator
+- [ ] Provider color indicator — `ENABLE_APPT_DOC_COLOR`: Shows the patient's **primary** provider color (NOT the schedule column's provider). Read from `UserPropertyDAO.COLOR_PROPERTY` for the patient's family doctor, not the appointment provider. Implemented in `ScheduleDayData2Action` enrichment loop.
 - [ ] **E** (Encounter) link → opens encounter popup
 - [ ] **B** (Billing) link → opens billing (or delete/edit if already billed)
 - [ ] **M** (Master File) link → opens demographic popup
@@ -2237,8 +2566,8 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] eForm Library link (property-gated)
 - [ ] Intake Form link (property-gated)
 - [ ] Pregnancy indicator (property-gated)
-- [ ] Tooltip with patient name + reason + notes
-- [ ] Rowspan for multi-slot appointments
+- [ ] Tooltip with patient name + reason + notes — see `mountAppointmentTooltip()` in Phase 4.2. When reason toggle is OFF for a provider, tooltip shows name only (short variant). When ON, shows full content. Uses `html: true` + `escapeHtml()` for multi-line display.
+- [ ] Multi-slot appointments — FullCalendar handles this natively via `start`/`end` times. Events spanning multiple slots automatically render as tall blocks. No rowspan needed.
 
 ### NEW FEATURE: Drag-and-Drop & Resize (not parity — new capability)
 - [ ] Drag appointment to new time slot (within same provider) → confirm → AJAX update
@@ -2255,6 +2584,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 ### Per-Appointment Cell (continued)
 - [ ] `storeApptNo()` — saves appointment number to HTTP session (via `storeApptInSession.jsp`) for cross-popup context
 - [ ] Dynamic patient name truncation (configurable `patientNameLength` from provider preferences)
+- [ ] Empty slot appointments (demographic_no=0) — displayed with `.NAME` prefix from appointment notes, not a patient name. In `renderAppointmentContent`, check `appt.demographicNo === 0` and render differently (no E/M/Rx links, show notes as title)
 - [ ] Double-booking indicator (multiple appointments in same time slot)
 - [ ] Appointment `type` display (configurable visibility)
 - [ ] Appointment `location` display (multi-site)
@@ -2263,9 +2593,9 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Right-click context menu compatibility (existing popup behavior)
 
 ### Week View Links (Per-Provider Header)
-- [ ] Week view button links to `providercontrol.jsp?displaymode=week` or equivalent
-- [ ] 5-day vs 7-day week view toggle (`scheduler.view.weekViews` property)
-- [ ] Hidden E/B/Rx action links in week view cells (different layout from day view)
+- [ ] Week view button links to `providercontrol.jsp?displaymode=week` — see Phase 4.2 `renderProviderCalendars` weekBtn implementation
+- [ ] 5-day vs 7-day week view toggle (`UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS`) — **DEFERRED**: Week view rendering is a separate migration. The day view only provides the link to navigate to it.
+- [ ] Hidden E/B/Rx action links in week view cells — **DEFERRED**: This is a week view layout concern, not day view.
 
 ### Billing Links (3 Modes)
 - [ ] Create Billing — when no billing exists for appointment
@@ -2283,7 +2613,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] `caisi.search.workflow` property (routes search to `PMmodule/ClientSearch2.do`)
 - [ ] `useProgramLocation` property (adds programId filter to appointment queries)
 - [ ] CBI Reminder Window alert on page load (CAISI mode)
-- [ ] `|P` (Program Management) link per appointment when CAISI enabled
+- [ ] `|P` (Program Management) link per appointment when CAISI enabled — add to `createActionLink` set in `renderAppointmentContent` when `config.caisiEnabled`. Link opens PMmodule client view for the demographic.
 
 ### Security Objects (Access Control)
 - [ ] `_site_access_privacy` — restricts visible sites/providers to user's assigned sites
@@ -2299,20 +2629,20 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] `Vaccine Provider` role → redirects to `vaccine_provider.jsp`
 
 ### Dynamic Layout
-- [ ] Dynamic patient name truncation based on provider count (5+: 2-3 chars, 2: 20 chars, 1: 30 chars)
-- [ ] Provider column alternating header colors (`#bfefff` / `silver`)
-- [ ] `[Not On Schedule]` indicator for providers with no schedule for the day
+- [ ] Dynamic patient name truncation based on provider count — CSS `text-overflow: ellipsis` with `max-width` set dynamically in `getColumnClass()` or via `.appt-name` width CSS custom property. The Action also passes `patientNameLength` from ProviderPreference.
+- [ ] Provider column alternating header colors (`#bfefff` / `silver`) — **Design decision**: new view uses uniform `bg-primary`. See Phase 4.2 `renderProviderCalendars` for note on restoring alternation.
+- [ ] `[Not On Schedule]` indicator — in `renderProviderCalendars`, check `provider.available === false` and show a badge/overlay text on the provider column header
 - [ ] `noCountStatus` exclusion list (`C, CS, CV, N, NS, NV` excluded from appointment count)
 - [ ] Multi-site appointment filtering with `CurrentSiteMap` privacy logic
-- [ ] `view` parameter edge case forcing (when `displaymode=day` and `viewall!=1`, force `view=1`)
+- [ ] `view` parameter edge case — when a single provider is specified (via group with one member or zoom), force single-provider view. This is handled automatically in the new design: `updateHash({ provider: providerNo })` triggers single-provider rendering.
 - [ ] Provider group sort ordering via `MyGroup.MyGroupNoViewOrderComparator`
-- [ ] Title bar includes provider name prefix (`Lastname, F-CARLOS Schedule`)
-- [ ] `archiveView` session attribute suppresses auto-refresh
+- [ ] Title bar includes provider name prefix — set `document.title` in `init()` using `config.providerName + ' - CARLOS Schedule'`
+- [ ] `archiveView` session attribute suppresses auto-refresh — check `session.getAttribute("archiveView")` in Action and set `refreshInterval=0` in configMap when active
 - [ ] `record` and `module` context preservation parameters
 
 ### Behavior
 - [ ] Auto-refresh via `<meta http-equiv="refresh">` → migrate to JS `setInterval` (see Appendix E)
-- [ ] Configurable refresh interval from `ProviderPreference.refreshEvery`
+- [ ] Configurable refresh interval from `OscarProperties.refresh.appointmentprovideradminday.jsp` (NOT ProviderPreference)
 - [ ] Scroll position preservation on refresh
 - [ ] Password expiration check on load (`ProviderPreference.passwordExpiredDate`)
 - [ ] Popup blocker detection (property-gated)
@@ -2322,7 +2652,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] `allowWeek` computation (is appointment date within 7 days of today?)
 - [ ] `window.opener.refresh()` support for popup-initiated refreshes
 - [ ] `window.refresh1()` alias for backward compatibility (note: original `refresh1()` also switches `view=1→0`; new implementation is a simple refresh — acceptable since new view uses hash state, not URL params)
-- [ ] Health card reader support (property-gated, `IS_HEALTH_CARD_ENABLED`)
+- [ ] Health card reader support (property-gated, `indivica_hc_read_enabled`)
 - [ ] Mobile responsive layout (see Appendix G — currently a separate code path)
 - [ ] Print support (`.noprint` classes)
 - [ ] Login redirect default handling (no-param → today's date with defaults)
@@ -2332,7 +2662,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Facility message display (from `FacilityMessage.do`)
 - [ ] Integrator message count badge (`integratorMessageCount` — purple color)
 - [ ] Demographic message count badge (`demographicMessageCount` — red color)
-- [ ] `switchLocale` parameter support (language switching)
+- [ ] `switchLocale` parameter support — redirect to `LocaleServlet.do?switchLocale=XX` then back to `provider/Day.do`. Typically triggered from user preferences, not the schedule page itself.
 
 ### OscarProperties Feature Gates (see Appendix E)
 - [ ] All 18+ property checks listed in Appendix E
@@ -2341,6 +2671,8 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 ---
 
 ## Phase 6: Implementation Order and Dependencies
+
+> **Phase numbering note**: Document Phases 1-4 contain detailed designs. Phase 5 is the feature parity **checklist** (a tracking list, not implementation). Phase 6 is this build sequence. Phase 7 is risk mitigation. The build sequence below maps Phases 1-4 (design) to implementation tasks and adds Phase 5 (feature parity **implementation**) and Phase 6 (testing). The numbering in the build sequence intentionally parallels the document phases.
 
 ### Recommended Build Sequence
 
@@ -2600,27 +2932,31 @@ The appointment status system in `ApptStatusData.java` is more complex than a si
 ### Status Code Arrays (from `ApptStatusData.java`)
 
 ```
-Base statuses:    t → T → H → P → E → N → C → B (terminal)
-Signed (S):       tS → TS → HS → PS → ES → NS → CS → BS (terminal)
-Verified (V):     tV → TV → HV → PV → EV → NV → CV → BV (terminal)
+Base statuses:    t → T → H → P → E → N → C → (loops back to t)
+Signed (S):       tS → TS → HS → PS → ES → NS → CS → (loops back to tS)
+Verified (V):     tV → TV → HV → PV → EV → NV → CV → (loops back to tV)
+Terminal:         B → "" , BS → "" , BV → ""
 ```
+> **IMPORTANT**: The cycle loops from C back to t, NOT from C to B. B/BS/BV are only reachable via the billing system, never through status click cycling. From `ApptStatusData.java` line 56: `aNextStatus = {"T","H","P","E","N","C","t","", ...}` — index 6 (C) maps to next status "t" (loops), index 7 (B) maps to "" (terminal).
 
 **Status meanings (default set):**
 | Code | Description | Icon | Notes |
 |------|-------------|------|-------|
-| `t` | To Do (initial) | `todo.gif` | Default for new appointments |
-| `T` | Tagalong | `tagalong.gif` | |
+| `t` | To Do (initial) | `starbill.gif` | Default for new appointments |
+| `T` | Day Sheet Printed | `todo.gif` | (Not "Tagalong" — see resource bundle) |
 | `H` | Here | `here.gif` | Patient has arrived |
 | `P` | Picked | `picked.gif` | Chart picked up |
-| `E` | Empty Room | `empty_room.gif` | Patient in exam room |
-| `N` | Not Here | `not_here.gif` | Patient didn't arrive |
-| `C` | Cancelled | `cancelled.gif` | |
-| `B` | Billed | `billed.gif` | **Terminal** — no further cycling |
+| `E` | Empty Room | `empty.gif` | Patient in exam room |
+| `N` | No Show | `noshow.gif` | Patient didn't arrive |
+| `C` | Cancelled | `cancel.gif` | |
+| `B` | Billed | `billed.gif` | **Terminal** — only set by billing, not by clicking |
 | `*S` | Signed variant | (same + signed) | Chart signed by provider |
 | `*V` | Verified variant | (same + verified) | Chart verified |
 
 **Key behaviors:**
 - **Terminal states**: `B`, `BS`, `BV` — clicking does NOT advance further (next status is empty string `""`)
+- **Cycling wraps**: `C → t` (back to start), `CS → tS`, `CV → tV` — the cycle is a ring, not a linear path to B
+- **B is set externally**: Only the billing system sets status to B/BS/BV — the status click cycle never reaches B
 - **Signed modifier**: Appending `S` to any base code creates the signed variant
 - **Verified modifier**: Appending `V` to any base code creates the verified variant
 - **Special case**: Lowercase `h` is handled separately (see JSP line ~960) — it maps to "Here" with distinct styling
@@ -2660,7 +2996,7 @@ The current JSP checks **30+ configuration values** from three different sources
 | Property Key | Default | Controls |
 |-------------|---------|----------|
 | `ENABLE_EDIT_APPT_STATUS` | `no` | Database-driven status codes vs hardcoded |
-| `IS_HEALTH_CARD_ENABLED` | `true` | HIN version checking indicator (*) |
+| ~~`IS_HEALTH_CARD_ENABLED`~~ | N/A | **REMOVED** — This property does not exist in the codebase. HIN version checking is unconditional (always runs when demographic data is available). The `*` indicator in the appointment cell is based on a date comparison between the demographic's HIN expiry date and today — no property gate. |
 | `eform_in_appointment` | `false` | eForm Library link in appointment actions |
 | `appt_intake_form` | `off` | Intake Form link in appointment actions (check value `on`) |
 | `pregnancy_enabled` | `false` | Pregnancy indicator for patients |
@@ -2669,10 +3005,10 @@ The current JSP checks **30+ configuration values** from three different sources
 | `referral_menu` | `no` | Referral management nav link (check value `yes`) |
 | `default_schedule_viewall` | `true` | Default view-all vs scheduled-only |
 | `view.appointmentdaysheetbutton` | `false` | Day Sheet button per provider |
-| `dashboard_display` | (varies) | Dashboard dropdown visibility |
+| ~~`dashboard_display`~~ | N/A | **REMOVED** — Dashboard visibility is NOT an OscarProperties key. It's controlled by the security object `_dashboardDisplay` via `<security:oscarSec objectName="_dashboardDisplay" rights="r">`. See Security Objects section in checklist. |
 | `billregion` | `ON` | Billing region (ON/BC/generic) — affects billing links |
 | `refresh.appointmentprovideradminday.jsp` | `-1` | Auto-refresh interval in seconds (`-1` = disabled) |
-| `receptionist_alt_view` | `no` | Alternate time slot depth calculation using template period length |
+| `receptionist_alt_view` | `no` | Alternate time slot depth calculation: when `yes`, `slotDuration` is derived from the template's period length (number of characters in template string × code duration) instead of ProviderPreference `everyMin`. Affects `ScheduleDayData2Action` calculation of `slotDurationMinutes` in `ProviderScheduleDto`. |
 | `SHOW_APPT_REASON` | `yes` | Default reason display (via `oscarPropertiesCheck` tag) |
 | `SHOW_APPT_REASON_TOOLTIP` | `yes` | Include reason/notes in appointment tooltips |
 | `APPT_SHOW_SHORT_LETTERS` | `false` | Short letter status display vs icon image display |
@@ -2701,7 +3037,7 @@ The current JSP checks **30+ configuration values** from three different sources
 |-------------------|---------|----------|
 | `UserProperty.HIDE_OLD_ECHART_LINK_IN_APPT` | `false` | Hide legacy encounter link |
 | `UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS` | `false` | 5-day vs 7-day week view toggle |
-| `UserProperty.COLOR_PROPERTY` | (none) | Provider's display color |
+| `UserPropertyDAO.COLOR_PROPERTY` (`"ProviderColour"`) | (none) | Provider's display color. **Note**: The constant is on `UserPropertyDAO`, NOT `UserProperty`. |
 | `resource_helpHtml` user property | (none) | Inline help HTML panel (sliding div with close button) |
 | `resource_baseurl` user property | (none) | Per-user help URL override |
 | `caisiBillingPreferenceNotDelete` | `0` | Controls billing edit vs delete mode in CAISI |
@@ -2752,20 +3088,7 @@ The current `appointmentprovideradminday.jsp` has a **separate mobile code path*
 - FullCalendar has built-in touch support (swipe to navigate dates)
 - This replaces the server-side mobile detection with client-side responsive design
 
-**Implementation note:** Add a mobile-specific variant to the column rendering:
-```javascript
-function getColumnClass(count) {
-  // On mobile (<768px), always show one provider full-width
-  // On tablet (768-991px), show 2-3 providers
-  // On desktop (992px+), show all providers
-  if (count === 1) return 'col-12';
-  if (count === 2) return 'col-12 col-md-6';
-  if (count === 3) return 'col-12 col-md-4';
-  if (count === 4) return 'col-12 col-md-6 col-lg-3';
-  if (count <= 6) return 'col-12 col-md-4 col-lg-2';
-  return 'col-12 col-md-4 col-lg';
-}
-```
+**Implementation note:** The `getColumnClass()` function in Phase 4.2 already handles all breakpoints. See that function for the responsive column sizing logic — do NOT duplicate it here.
 
 ---
 
