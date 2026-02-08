@@ -782,7 +782,106 @@ dto.setBillingUrl(billingURL);
 dto.setBillingMode(billingMode);
 ```
 
-### Phase 2.3: Struts Configuration and JSON Response Pattern
+### Phase 2.3: REST Endpoint for Drag-and-Drop / Resize (Reschedule)
+
+Add a new **slim REST endpoint** specifically for time/duration changes from FullCalendar. This is separate from the existing `POST /schedule/updateAppointment` (which has a broken `AppointmentConverter` and updates ALL fields). The new endpoint only modifies time fields — it's a targeted, safe mutation.
+
+**File**: Add to `ScheduleService.java` (existing REST service)
+
+```java
+/**
+ * Reschedule an appointment — update only time/date fields.
+ * Used by FullCalendar drag-and-drop (eventDrop) and resize (eventResize).
+ *
+ * Only modifies: appointmentDate, startTime, endTime, lastUpdateUser, updateDateTime.
+ * Does NOT modify: status, demographic, notes, reason, billing, etc.
+ *
+ * Archives the old appointment before updating (audit trail).
+ *
+ * @param id  appointment_no
+ * @param payload  JSON with startTime ("HH:mm"), endTime ("HH:mm"), appointmentDate ("yyyy-MM-dd")
+ */
+@POST
+@Path("/appointment/{id}/reschedule")
+@Consumes("application/json")
+@Produces("application/json")
+public Response rescheduleAppointment(@PathParam("id") Integer id, Map<String, String> payload) {
+    LoggedInInfo loggedInInfo = getLoggedInInfo();
+
+    // Security check — requires write access to _appointment
+    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+        return Response.status(Response.Status.FORBIDDEN).build();
+    }
+
+    // Load existing appointment
+    Appointment existing = appointmentDao.find(id);
+    if (existing == null) {
+        return Response.status(Response.Status.NOT_FOUND).build();
+    }
+
+    // Don't allow rescheduling billed appointments
+    String status = existing.getStatus();
+    if (status != null && (status.equals("B") || status.equals("BS") || status.equals("BV"))) {
+        return Response.status(Response.Status.CONFLICT)
+            .entity("{\"error\":\"Cannot reschedule a billed appointment\"}")
+            .build();
+    }
+
+    // Parse new times
+    String startTimeStr = payload.get("startTime");   // "14:30"
+    String endTimeStr = payload.get("endTime");         // "15:00"
+    String dateStr = payload.get("appointmentDate");    // "2026-02-08"
+
+    // Validate format
+    if (startTimeStr == null || endTimeStr == null || dateStr == null
+        || !startTimeStr.matches("\\d{2}:\\d{2}")
+        || !endTimeStr.matches("\\d{2}:\\d{2}")
+        || !dateStr.matches("\\d{4}-\\d{2}-\\d{2}")) {
+        return Response.status(Response.Status.BAD_REQUEST)
+            .entity("{\"error\":\"Invalid time format\"}")
+            .build();
+    }
+
+    // Archive old appointment (audit trail — matches existing update pattern)
+    appointmentArchiveDao.archiveAppointment(existing);
+
+    // Update only time fields
+    SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd");
+    SimpleDateFormat timeFmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    try {
+        Date appointmentDate = dateFmt.parse(dateStr);
+        Date startTime = timeFmt.parse(dateStr + " " + startTimeStr);
+        Date endTime = timeFmt.parse(dateStr + " " + endTimeStr);
+
+        existing.setAppointmentDate(appointmentDate);
+        existing.setStartTime(startTime);
+        existing.setEndTime(endTime);
+    } catch (ParseException e) {
+        return Response.status(Response.Status.BAD_REQUEST)
+            .entity("{\"error\":\"Could not parse date/time\"}")
+            .build();
+    }
+
+    existing.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+    existing.setUpdateDateTime(new Date());
+
+    appointmentDao.merge(existing);
+
+    LogAction.addLogSynchronous(loggedInInfo, "ScheduleService.rescheduleAppointment",
+        "id=" + id + ",start=" + startTimeStr + ",end=" + endTimeStr);
+
+    return Response.ok("{\"success\":true}").build();
+}
+```
+
+**Key design decisions:**
+- **Slim endpoint** — only updates time fields, not the full appointment. Reduces risk of accidental data loss from a drag gesture.
+- **Billed check** — refuses to reschedule billed appointments (status B/BS/BV). The client also checks this, but the server is the authority.
+- **Archive before update** — matches the existing `AppointmentManagerImpl.updateAppointment()` pattern. Every time change is auditable.
+- **No conflict checking** — same as the current system. The current JSP allows double-booking; conflict detection happens in addappointment.jsp only. We match that behavior. (Conflict checking could be added as a future enhancement.)
+- **At `/ws/rs/schedule/appointment/{id}/reschedule`** — CSRF-exempt (under `/ws/rs/*` pattern), so `fetch()` works without CSRF tokens.
+
+### Phase 2.4: Struts Configuration and JSON Response Pattern
 
 **JSON convention in this codebase:** There is no struts2-json-plugin. All 143+ JSON-returning actions write directly to `response.getWriter()` using Jackson's `ObjectMapper` and return `null` (which tells Struts to skip result processing). This is the established pattern we follow:
 
@@ -921,6 +1020,22 @@ public class ProviderDaySchedule2Action extends ActionSupport {
             LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.sameDay"));
         messages.put("sameWeekRestriction",
             LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.sameWeek"));
+        // Drag-and-drop messages (new — add to resource bundle)
+        messages.put("confirmMove",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.confirmMove",
+                "Move appointment to"));
+        messages.put("confirmResize",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.confirmResize",
+                "Change duration to"));
+        messages.put("cannotMoveBilled",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.cannotMoveBilled",
+                "Cannot move a billed appointment."));
+        messages.put("updateFailed",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.updateFailed",
+                "Failed to update appointment. Change reverted."));
+        messages.put("unbilledConfirm",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.unbilledConfirm",
+                "Delete billing record?"));
         configMap.put("messages", messages);
 
         request.setAttribute("scheduleConfigJson",
@@ -1336,9 +1451,107 @@ This is the main JavaScript file. Key aspects:
         openEditAppointment(appt.id, provider.providerNo, appt.demographicNo);
       },
 
-      selectable: false,  // Disable range selection (use dateClick for new appointments)
-      editable: false      // No drag-and-drop (preserve existing workflow)
+      // === DRAG-AND-DROP & RESIZE ===
+      // Requires interaction plugin (included in global bundle, auto-registered).
+      editable: true,               // Enable drag-and-drop + resize
+      eventStartEditable: true,     // Allow dragging events to new times
+      eventDurationEditable: true,  // Allow resizing events (drag bottom edge)
+      selectable: false,            // Disable range selection (use dateClick for new appointments)
+      snapDuration: { minutes: provider.slotDurationMinutes || config.everyMin },
+
+      // Drag confirmation + AJAX update when event is moved to a new time
+      eventDrop: function(info) {
+        handleEventTimeChange(info, provider.providerNo, 'move');
+      },
+
+      // Resize confirmation + AJAX update when event duration is changed
+      eventResize: function(info) {
+        handleEventTimeChange(info, provider.providerNo, 'resize');
+      }
     });
+  }
+
+  // === DRAG-AND-DROP / RESIZE HANDLER ===
+
+  /**
+   * Handles appointment time changes from FullCalendar drag-and-drop or resize.
+   *
+   * Cross-provider drag: NOT supported in this implementation. Each provider has
+   * its own FullCalendar instance, and native drag only works within a single
+   * instance. To move to a different provider, use the edit popup. (Cross-provider
+   * would require Premium resource view or custom HTML5 inter-instance drag.)
+   *
+   * @param info  FullCalendar EventDropArg or EventResizeArg
+   * @param providerNo  The provider this calendar belongs to
+   * @param action  'move' or 'resize' (for confirmation message)
+   */
+  function handleEventTimeChange(info, providerNo, action) {
+    var event = info.event;
+    var appt = event.extendedProps;
+
+    // Don't allow moving terminal-status appointments (Billed)
+    if (appt.status && (appt.status === 'B' || appt.status === 'BS' || appt.status === 'BV')) {
+      info.revert();
+      alert(config.messages.cannotMoveBilled || 'Cannot move a billed appointment.');
+      return;
+    }
+
+    // Format new times for confirmation dialog
+    var newStart = event.start;
+    var newEnd = event.end;
+    var startStr = newStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    var endStr = newEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    var msg = action === 'move'
+      ? (config.messages.confirmMove || 'Move appointment to') + ' ' + startStr + ' - ' + endStr + '?'
+      : (config.messages.confirmResize || 'Change duration to') + ' ' + startStr + ' - ' + endStr + '?';
+
+    if (!confirm(msg)) {
+      info.revert();
+      return;
+    }
+
+    // Build minimal update payload — only time fields, not the full appointment
+    var payload = {
+      appointmentNo: appt.id,
+      providerNo: providerNo,
+      startTime: formatTime(newStart),           // "14:30"
+      endTime: formatTime(newEnd),               // "15:00"
+      appointmentDate: formatDate(newStart)       // "2026-02-08"
+    };
+
+    // POST to new REST endpoint (CSRF-exempt at /ws/rs/*)
+    fetch(config.contextPath + '/ws/rs/schedule/appointment/' + appt.id + '/reschedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('Update failed: ' + resp.status);
+      return resp.json();
+    })
+    .then(function() {
+      // Refresh all calendars to pick up side effects
+      refreshAllCalendars();
+    })
+    .catch(function(err) {
+      console.error('Appointment update failed:', err);
+      info.revert();
+      alert(config.messages.updateFailed || 'Failed to update appointment. Change reverted.');
+    });
+  }
+
+  // Format Date → "HH:mm"
+  function formatTime(date) {
+    return String(date.getHours()).padStart(2, '0') + ':' +
+           String(date.getMinutes()).padStart(2, '0');
+  }
+
+  // Format Date → "yyyy-MM-dd"
+  function formatDate(date) {
+    return date.getFullYear() + '-' +
+           String(date.getMonth() + 1).padStart(2, '0') + '-' +
+           String(date.getDate()).padStart(2, '0');
   }
 
   // === CUSTOM EVENT CONTENT RENDERING ===
@@ -1760,6 +1973,25 @@ Minimal custom CSS — Bootstrap 5 handles most layout:
 .indicator-notes { color: purple; }
 .indicator-version { color: red; }
 .indicator-prevention { color: red; }
+
+/* Drag-and-drop visual feedback */
+.provider-calendar .fc-event {
+  cursor: grab;
+}
+.provider-calendar .fc-event.fc-event-dragging {
+  cursor: grabbing;
+  opacity: 0.7;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Resize handle on event bottom edge */
+.provider-calendar .fc-event .fc-event-resizer {
+  height: 6px;
+  cursor: ns-resize;
+}
+.provider-calendar .fc-event .fc-event-resizer:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+}
 ```
 
 ---
@@ -1852,6 +2084,18 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Tooltip with patient name + reason + notes
 - [ ] Rowspan for multi-slot appointments
 
+### Drag-and-Drop & Resize (NEW — not in current JSP)
+- [ ] Drag appointment to new time slot (within same provider) → confirm → AJAX update
+- [ ] Resize appointment (drag bottom edge) to change duration → confirm → AJAX update
+- [ ] Revert on server error (FullCalendar `info.revert()`)
+- [ ] Block drag/resize for billed appointments (B/BS/BV terminal status)
+- [ ] Snap to slot grid (`snapDuration` from template)
+- [ ] Visual feedback during drag (FullCalendar provides ghost event)
+- [ ] Confirmation dialog before saving (shows new start/end times)
+- [ ] REST endpoint: `POST /ws/rs/schedule/appointment/{id}/reschedule`
+- [ ] Audit trail: archive old appointment before time update
+- [ ] Cross-provider drag: NOT supported (separate FullCalendar instances — use edit popup)
+
 ### Per-Appointment Cell (continued)
 - [ ] `storeApptNo()` — saves appointment number to `sessionStorage` for cross-popup context
 - [ ] Dynamic patient name truncation (configurable `patientNameLength` from provider preferences)
@@ -1938,7 +2182,12 @@ Phase 2 (Data Layer) ───────────────────�
   │        ├── Appointment loading with batch enrichment
   │        ├── Status rendering integration
   │        └── JSON serialization
-  └── 2.3 Struts configuration + endpoint testing               [0.5 day]
+  ├── 2.3 REST reschedule endpoint (drag-and-drop backend)       [1 day]
+  │        ├── POST /schedule/appointment/{id}/reschedule
+  │        ├── Time-only update with archive + audit
+  │        ├── Billed appointment guard
+  │        └── Input validation
+  └── 2.4 Struts configuration + endpoint testing               [0.5 day]
   │
 Phase 3 (Page Action) ────────────────────────────────────────────
   │
@@ -1962,6 +2211,7 @@ Phase 4 (View Layer) ───────────────────�
   │        ├── Custom event rendering (eventContent)
   │        ├── Status click handling (AJAX)
   │        ├── All popup window integrations
+  │        ├── Drag-and-drop (eventDrop) + resize (eventResize)
   │        ├── Reason toggle (per-provider + localStorage)
   │        ├── Synchronized navigation
   │        ├── Auto-refresh
@@ -2014,6 +2264,7 @@ The current page makes 34+ DB queries on every load. The new architecture target
 - Initial page load: 0 DB queries (HTML shell only)
 - AJAX data fetch: 8-10 batched queries (down from 34+)
 - Status update: 1 query (AJAX, no page reload)
+- Reschedule (drag/resize): 1 query (archive) + 1 query (merge) + refresh
 - Auto-refresh: Same 8-10 queries on timer
 
 ### 4. Security Preservation
@@ -2323,6 +2574,7 @@ This migration transforms a 2400-line monolithic JSP into a clean MVC architectu
 | Navigation | 4 duplicate copies | 1 shared header.jspf in WEB-INF |
 | JSP protection | All public (URL-accessible) | New views in WEB-INF/views/ (incremental) |
 | Security | oscarSec tags + inline checks | Interceptor + Action + oscarSec tags |
+| Reschedule | Manual edit via popup only | Drag-and-drop + resize + popup edit |
 | Status updates | Full page reload | AJAX POST to REST endpoint + local refresh |
 | Auto-refresh | `<meta http-equiv="refresh">` (full reload) | JS `setInterval` (AJAX, no flash) |
 | Mobile support | Separate server-side code path | Bootstrap 5 responsive grid (client-side) |
