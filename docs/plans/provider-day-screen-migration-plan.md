@@ -399,6 +399,7 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
 **HTML structure** (Bootstrap 5 navbar):
 ```html
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom fixed-top carlos-nav"
+     data-context-path="${pageContext.request.contextPath}"
      style="height: 30px; min-height: 30px;">
   <div class="container-fluid px-2">
     <!-- Logo -->
@@ -441,10 +442,17 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
 2. **Badge/alert system**: Keep `tabAlertsRefresh.jsp` and evolve the AJAX refresh into a shared `nav-alerts.js`:
    ```javascript
    // nav-alerts.js — loaded by header.jspf
+   // contextPath is read from a data attribute set by header.jspf:
+   //   <nav ... data-context-path="${pageContext.request.contextPath}">
    document.addEventListener('DOMContentLoaded', () => {
      refreshAllTabAlerts();
      setInterval(refreshAllTabAlerts, 30000); // 30-second polling
    });
+
+   function getContextPath() {
+     var nav = document.querySelector('.carlos-nav');
+     return nav ? nav.dataset.contextPath : '';
+   }
 
    function refreshAllTabAlerts() {
      ['oscar_new_lab', 'oscar_new_msg', 'oscar_new_tickler',
@@ -452,11 +460,17 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
    }
 
    function refreshTabAlert(id) {
-     fetch(`${contextPath}/provider/tabAlertsRefresh.jsp?id=${id}`)
-       .then(r => r.text())
-       .then(html => {
-         const el = document.getElementById(id);
-         if (el) el.innerHTML = html;
+     fetch(getContextPath() + '/provider/tabAlertsRefresh.jsp?id=' + encodeURIComponent(id))
+       .then(function(r) { return r.text(); })
+       .then(function(html) {
+         var el = document.getElementById(id);
+         if (el) {
+           // tabAlertsRefresh.jsp returns trusted HTML fragments (badge counts).
+           // This is server-generated HTML, not user input. Using innerHTML is
+           // acceptable here because the JSP is a server-controlled template.
+           // If this is ever changed to accept user input, switch to textContent.
+           el.innerHTML = html;
+         }
        });
    }
    ```
@@ -627,8 +641,9 @@ public class TemplateSlotDto {
     private String backgroundColor; // From ScheduleTemplateCode.color
     private char code;              // Template code character
     private String description;     // Template code description
-    private String confirm;         // Booking confirmation requirement
-    private int bookingLimit;
+    private String duration;        // Default appointment duration (minutes) from ScheduleTemplateCode
+    private String confirm;         // Booking confirmation requirement ("Yes", "Day", "Wk", "Onc", or "")
+    private int bookingLimit;       // Max bookings per slot (0 = unlimited)
 }
 ```
 
@@ -638,29 +653,32 @@ public class TemplateSlotDto {
 
 ```java
 public class ScheduleDayData2Action extends ActionSupport {
-    // Spring beans
-    private SecurityInfoManager securityInfoManager;
-    private ScheduleManager scheduleManager;
-    private DemographicManager demographicManager;
-    private TicklerManager ticklerManager;
-    private PreventionManager preventionManager;
-    private UserPropertyDAO userPropertyDao;
-    private AppointmentStatusMgr appointmentStatusMgr;
-    private ScheduleTemplateCodeDao scheduleTemplateCodeDao;
-    private ScheduleDateDao scheduleDateDao;
-    private MyGroupDao myGroupDao;
-    private ProviderDao providerDao;
-    private SiteDao siteDao;
-    private LookupListManager lookupListManager;
-
-    // Request parameters
-    private String date;            // yyyy-MM-dd
-    private String providerNos;     // Comma-separated or group name
-    private String groupNo;
-    private String site;            // Multi-site filter
-    private boolean viewAll;        // Show all providers or scheduled only
+    // Spring beans (via SpringUtils.getBean — matches codebase convention)
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private ScheduleManager scheduleManager = SpringUtils.getBean(ScheduleManager.class);
+    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+    private PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
+    private UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
+    private AppointmentStatusMgr appointmentStatusMgr = SpringUtils.getBean(AppointmentStatusMgr.class);
+    private ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
+    private ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
+    private MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
+    private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    private SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
+    private LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
 
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
+        // Read parameters via request.getParameter() — this is the codebase convention.
+        // Struts2 property injection (getter/setter) is NOT used in this codebase.
+        String date = request.getParameter("date");          // yyyy-MM-dd
+        String groupNo = request.getParameter("groupNo");
+        String site = request.getParameter("site");          // Multi-site filter
+        boolean viewAll = "true".equals(request.getParameter("viewAll"));
+
         // 1. Security check
         // 2. Resolve provider list (from group, site, viewAll)
         // 3. For each provider:
@@ -726,7 +744,12 @@ public class ProviderDaySchedule2Action extends ActionSupport {
         // Then set request attributes for the JSP:
 
         // 1. Date context
-        request.setAttribute("scheduleDate", resolvedDate);     // java.time.LocalDate
+        // NOTE: <fmt:formatDate> only accepts java.util.Date, NOT java.time.LocalDate.
+        // Convert LocalDate to Date for JSTL, or pass a pre-formatted string.
+        request.setAttribute("scheduleDate",
+            java.util.Date.from(resolvedDate.atStartOfDay(
+                java.time.ZoneId.systemDefault()).toInstant()));  // java.util.Date for <fmt:formatDate>
+        request.setAttribute("scheduleDateStr", resolvedDate.toString()); // ISO string for JS
         request.setAttribute("year", year);
         request.setAttribute("month", month);
         request.setAttribute("day", day);
@@ -811,6 +834,17 @@ public class ProviderDaySchedule2Action extends ActionSupport {
         configMap.put("quickLinks", quickLinks);
         configMap.put("formLinks", formLinks);
         configMap.put("eFormLinks", eFormLinks);
+
+        // i18n messages for client-side dialogs (from resource bundle)
+        Map<String, String> messages = new LinkedHashMap<>();
+        messages.put("confirmBooking",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.confirmBooking"));
+        messages.put("sameDayRestriction",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.sameDay"));
+        messages.put("sameWeekRestriction",
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.sameWeek"));
+        configMap.put("messages", messages);
+
         request.setAttribute("scheduleConfigJson",
             new ObjectMapper().writeValueAsString(configMap));
 
@@ -983,11 +1017,11 @@ This avoids the `pageContext.forward()` limitation entirely — the browser make
   </main>
 
   <%-- === PAGE CONFIGURATION (for JavaScript) === --%>
-  <%-- IMPORTANT: This JSON config block is serialized server-side by Jackson ObjectMapper
-       in the Action class and set as a request attribute. Do NOT use fn:escapeXml() in JSON
-       context — it produces HTML entities (&amp;, &lt;) that corrupt JSON strings.
-       The ObjectMapper handles proper JSON escaping automatically. --%>
-  <script id="schedule-config" type="application/json">${scheduleConfigJson}</script>
+  <%-- SECURITY: JSON config is embedded in a data attribute (not a <script> tag) to prevent
+       </script> injection. fn:escapeXml() is correct here because the HTML parser decodes
+       entities in attribute values BEFORE JavaScript reads them via dataset.
+       The JSON is generated by Jackson ObjectMapper in the Action class. --%>
+  <div id="schedule-config" data-config="${fn:escapeXml(scheduleConfigJson)}" class="d-none"></div>
 
   <%-- === SCRIPTS === --%>
   <jsp:include page="/WEB-INF/views/common/footer.jspf" />
@@ -1007,8 +1041,10 @@ This is the main JavaScript file. Key aspects:
 'use strict';
 
 (function() {
+  // Config is in a data attribute (not <script> tag) to prevent </script> injection.
+  // The browser's HTML parser decodes &amp; → & etc. before dataset provides it.
   const config = JSON.parse(
-    document.getElementById('schedule-config').textContent
+    document.getElementById('schedule-config').dataset.config
   );
   const calendars = new Map();  // providerNo -> FullCalendar instance
 
@@ -1051,40 +1087,59 @@ This is the main JavaScript file. Key aspects:
       const col = document.createElement('div');
       col.className = colClass;
 
-      // Provider header
-      col.innerHTML = `
-        <div class="card border-0">
-          <div class="card-header py-1 px-2 d-flex justify-content-between
-                      align-items-center bg-primary text-white"
-               style="font-size: 12px;">
-            <div class="d-flex align-items-center gap-1">
-              <span class="fw-bold">${escapeHtml(provider.providerName)}</span>
-              <span class="badge bg-light text-dark">${provider.appointmentCount}</span>
-            </div>
-            <div class="d-flex gap-1">
-              <button class="btn btn-sm btn-outline-light py-0 px-1 toggle-reason-btn"
-                      data-provider="${provider.providerNo}" title="Toggle reasons">
-                <i class="bi bi-chat-left-text"></i>
-              </button>
-              <a href="..." class="btn btn-sm btn-outline-light py-0 px-1" title="Week view">
-                <i class="bi bi-calendar-week"></i>
-              </a>
-              <a href="..." class="btn btn-sm btn-outline-light py-0 px-1" title="Search">
-                <i class="bi bi-search"></i>
-              </a>
-            </div>
-          </div>
-          <div class="card-body p-0">
-            <div id="cal-${provider.providerNo}" class="provider-calendar"></div>
-          </div>
-        </div>
-      `;
+      // Provider header — built with DOM API (not innerHTML) to prevent XSS.
+      // All user/DB-controlled values use textContent or setAttribute.
+      const card = document.createElement('div');
+      card.className = 'card border-0';
 
+      const header = document.createElement('div');
+      header.className = 'card-header py-1 px-2 d-flex justify-content-between align-items-center bg-primary text-white';
+      header.style.fontSize = '12px';
+
+      const leftGroup = document.createElement('div');
+      leftGroup.className = 'd-flex align-items-center gap-1';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'fw-bold';
+      nameSpan.textContent = provider.providerName;  // textContent = XSS-safe
+      leftGroup.appendChild(nameSpan);
+      const countBadge = document.createElement('span');
+      countBadge.className = 'badge bg-light text-dark';
+      countBadge.textContent = String(provider.appointmentCount);
+      leftGroup.appendChild(countBadge);
+
+      const rightGroup = document.createElement('div');
+      rightGroup.className = 'd-flex gap-1';
+      // Toggle reason button
+      const reasonBtn = document.createElement('button');
+      reasonBtn.className = 'btn btn-sm btn-outline-light py-0 px-1 toggle-reason-btn';
+      reasonBtn.setAttribute('data-provider', provider.providerNo);  // setAttribute = safe
+      reasonBtn.title = 'Toggle reasons';
+      reasonBtn.innerHTML = '<i class="bi bi-chat-left-text"></i>';  // static HTML, no user data
+      rightGroup.appendChild(reasonBtn);
+      // Week view and Search buttons (similar pattern — static HTML only)
+      rightGroup.insertAdjacentHTML('beforeend',
+        '<a href="#" class="btn btn-sm btn-outline-light py-0 px-1" title="Week view">' +
+          '<i class="bi bi-calendar-week"></i></a>' +
+        '<a href="#" class="btn btn-sm btn-outline-light py-0 px-1" title="Search">' +
+          '<i class="bi bi-search"></i></a>');
+
+      header.appendChild(leftGroup);
+      header.appendChild(rightGroup);
+
+      const body = document.createElement('div');
+      body.className = 'card-body p-0';
+      const calDiv = document.createElement('div');
+      calDiv.id = 'cal-' + provider.providerNo;  // id attribute — providerNo is numeric from DB
+      calDiv.className = 'provider-calendar';
+      body.appendChild(calDiv);
+
+      card.appendChild(header);
+      card.appendChild(body);
+      col.appendChild(card);
       row.appendChild(col);
 
       // Initialize FullCalendar instance
-      const calEl = col.querySelector(`#cal-${provider.providerNo}`);
-      const calendar = createCalendar(calEl, provider, data);
+      const calendar = createCalendar(calDiv, provider, data);
       calendars.set(provider.providerNo, calendar);
       calendar.render();
     });
@@ -1188,16 +1243,17 @@ This is the main JavaScript file. Key aspects:
 
       // === INTERACTION CALLBACKS ===
 
+      // dateClick fires on empty slots AND background events (template slots),
+      // but NOT on foreground events (those go to eventClick).
+      // info.dateStr includes timezone in timeGrid: "2026-02-08T14:30:00-05:00"
       dateClick: function(info) {
-        // Open "Add Appointment" popup
-        openAddAppointment(provider.providerNo, info.dateStr);
+        openAddAppointment(provider.providerNo, info, data);
       },
 
       eventClick: function(info) {
         info.jsEvent.preventDefault();
         const appt = info.event.extendedProps;
-        // Open "Edit Appointment" popup
-        openEditAppointment(appt.id, appt.demographicNo);
+        openEditAppointment(appt.id, provider.providerNo);
       },
 
       selectable: false,  // Disable range selection (use dateClick for new appointments)
@@ -1224,7 +1280,10 @@ This is the main JavaScript file. Key aspects:
     statusBtn.dataset.apptId = appt.id;
     statusBtn.dataset.nextStatus = appt.nextStatus;
     const statusImg = document.createElement('img');
-    statusImg.src = config.contextPath + '/images/' + appt.statusIcon;
+    // Validate statusIcon to prevent path traversal/injection
+    const safeIcon = (appt.statusIcon && /^[a-zA-Z0-9._-]+$/.test(appt.statusIcon))
+      ? appt.statusIcon : 'unknown.gif';
+    statusImg.src = config.contextPath + '/images/' + safeIcon;
     statusImg.width = 14;
     statusImg.height = 14;
     statusBtn.appendChild(statusImg);
@@ -1326,19 +1385,133 @@ This is the main JavaScript file. Key aspects:
 
   // === POPUP HELPERS (maintain existing popup behavior) ===
 
-  function openAddAppointment(providerNo, dateStr) {
-    const time = dateStr.split('T')[1] || '09:00';
-    const url = `${config.contextPath}/appointment/addappointment.jsp` +
-      `?provider_no=${providerNo}&year=${config.year}&month=${config.month}` +
-      `&day=${config.day}&start_time=${time}&end_time=&duration=`;
-    window.open(url, 'apptProvider', 'width=780,height=600,scrollbars=yes');
+  /**
+   * Opens the "Add Appointment" popup. This MUST replicate the full current flow:
+   *
+   * Current flow: user clicks empty slot → confirmPopupPage(600, 780, url, doConfirm, allowDay, allowWeek)
+   *   → checks booking confirmation mode from ScheduleTemplateCode.confirm
+   *   → shows confirm dialog / checks day/week restrictions
+   *   → popupPage() opens addappointment.jsp with all parameters
+   *
+   * FullCalendar dateClick info.dateStr for timeGridDay includes timezone:
+   *   "2026-02-08T14:30:00-05:00" — we need to extract "14:30" only.
+   *
+   * The DayViewResponse includes template slot data in extendedProps (code, confirm,
+   * duration, bookingLimit) so we can look up the template code for the clicked time.
+   */
+  function openAddAppointment(providerNo, info, data) {
+    // 1. Parse time from dateStr (strip seconds and timezone offset)
+    //    info.dateStr = "2026-02-08T14:30:00-05:00" for timeGridDay
+    const timePart = info.dateStr.split('T')[1];  // "14:30:00-05:00"
+    const startTime = timePart ? timePart.substring(0, 5) : '09:00';  // "14:30"
+
+    // 2. Find the template slot for this time to get confirm mode and duration
+    const provider = data.providers.find(p => p.providerNo === providerNo);
+    const clickedTime = info.date.getTime();
+    let templateSlot = null;
+    if (provider && provider.slots) {
+      templateSlot = provider.slots.find(slot => {
+        const slotStart = new Date(slot.start).getTime();
+        const slotEnd = new Date(slot.end).getTime();
+        return clickedTime >= slotStart && clickedTime < slotEnd;
+      });
+    }
+
+    // 3. Extract template code attributes
+    const doConfirm = templateSlot ? (templateSlot.confirm || '') : '';
+    const duration = templateSlot ? (templateSlot.duration || '') : '';
+    const slotDuration = provider ? provider.slotDurationMinutes : config.everyMin;
+
+    // 4. Compute end_time from start + duration
+    const startParts = startTime.split(':');
+    const startMinutes = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
+    const endMinutes = startMinutes + (parseInt(duration) || slotDuration);
+    const endHour = String(Math.floor(endMinutes / 60)).padStart(2, '0');
+    const endMin = String(endMinutes % 60).padStart(2, '0');
+    const endTime = endHour + ':' + endMin;
+
+    // 5. Compute allowDay and allowWeek (same logic as current JSP lines 415-432)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const apptDate = new Date(config.year, config.month - 1, config.day);
+    apptDate.setHours(0, 0, 0, 0);
+
+    const allowDay = (apptDate.getTime() === today.getTime()) ? 'Yes' : 'No';
+    const oneWeekLater = new Date(today);
+    oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+    const allowWeek = (apptDate < oneWeekLater) ? 'Yes' : 'No';
+
+    // 6. Build the popup URL with URLSearchParams (proper encoding)
+    const params = new URLSearchParams({
+      provider_no: providerNo,
+      bFirstDisp: 'true',
+      year: String(config.year),
+      month: String(config.month),
+      day: String(config.day),
+      start_time: startTime,
+      end_time: endTime,
+      duration: String(duration)
+    });
+    const url = config.contextPath + '/appointment/addappointment.jsp?' + params.toString();
+
+    // 7. Apply booking confirmation logic (matches confirmPopupPage in schedulePage.js.jsp)
+    if (doConfirm === 'Yes') {
+      // Simple confirmation required
+      if (!confirm(config.messages.confirmBooking || 'Confirm booking?')) {
+        return;
+      }
+      openPopup(url, 'apptProvider', 600, 780);
+    } else if (doConfirm === 'Day') {
+      if (allowDay === 'No') {
+        alert(config.messages.sameDayRestriction || 'Same-day booking not allowed for this slot.');
+        return;
+      }
+      openPopup(url, 'apptProvider', 600, 780);
+    } else if (doConfirm === 'Wk') {
+      if (allowWeek === 'No') {
+        alert(config.messages.sameWeekRestriction || 'Same-week booking not allowed for this slot.');
+        return;
+      }
+      openPopup(url, 'apptProvider', 600, 780);
+    } else if (doConfirm === 'Onc') {
+      // On-Call Urgent
+      if (allowDay === 'No') {
+        if (!confirm('This is an On Call Urgent appointment. Are you sure you want to book?')) {
+          return;
+        }
+      }
+      openPopup(url, 'apptProvider', 600, 780);
+    } else {
+      // No confirmation needed
+      openPopup(url, 'apptProvider', 600, 780);
+    }
   }
 
-  function openEditAppointment(appointmentNo, demographicNo) {
-    const url = `${config.contextPath}/appointment/appointmentcontrol.jsp` +
-      `?displaymode=edit&appointment_no=${appointmentNo}` +
-      `&demographic_no=${demographicNo}`;
-    window.open(url, 'apptProvider', 'width=860,height=535,scrollbars=yes');
+  function openEditAppointment(appointmentNo, providerNo) {
+    const params = new URLSearchParams({
+      appointment_no: String(appointmentNo),
+      provider_no: providerNo,
+      year: String(config.year),
+      month: String(config.month),
+      day: String(config.day),
+      start_time: '',
+      demographic_no: '0',
+      displaymode: 'edit',
+      dboperation: 'search'
+    });
+    const url = config.contextPath + '/appointment/appointmentcontrol.jsp?' + params.toString();
+    openPopup(url, 'apptProvider', 600, 780);
+  }
+
+  function openPopup(url, windowName, height, width) {
+    var props = 'height=' + height + ',width=' + width +
+      ',location=no,scrollbars=yes,menubars=no,toolbars=no,' +
+      'resizable=yes,screenX=50,screenY=50,top=0,left=0';
+    var popup = window.open(url, windowName, props);
+    if (popup != null) {
+      if (popup.opener == null) popup.opener = self;
+      popup.focus();
+    }
   }
 
   // === UTILITY FUNCTIONS ===
@@ -1581,7 +1754,10 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Scroll position preservation on refresh
 - [ ] Password expiration check on load (`ProviderPreference.passwordExpiredDate`)
 - [ ] Popup blocker detection (property-gated)
-- [ ] Booking confirmation dialog (Yes/Day/Week/OnCall modes per template code `confirm` field)
+- [ ] Booking confirmation dialog (Yes/Day/Wk/Onc modes per template code `confirm` field)
+- [ ] Template code lookup on slot click (find confirm mode, duration, bookingLimit for clicked time)
+- [ ] `allowDay` computation (is appointment date == today?)
+- [ ] `allowWeek` computation (is appointment date within 7 days of today?)
 - [ ] `window.opener.refresh()` support for popup-initiated refreshes
 - [ ] `window.refresh1()` alias for backward compatibility with existing popups
 - [ ] Health card reader support (property-gated, `IS_HEALTH_CARD_ENABLED`)
