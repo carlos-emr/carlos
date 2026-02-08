@@ -87,21 +87,26 @@ window.addEventListener('hashchange', () => {
 - Direct links from other pages: `provider/Day.do#date=2026-02-08` (hash only)
 - Popup callbacks: `window.opener.refreshSchedule()` (no URL manipulation)
 
-**What goes to the AJAX endpoint as POST body** (not URL params):
-- The `ScheduleDayData2Action` receives its parameters as a JSON POST body, not query parameters. This is cleaner and avoids URL length limits:
+**What goes to the AJAX endpoint as GET query parameters:**
+- The `ScheduleDayData2Action` receives its parameters as GET query parameters. This is an **idempotent read-only** operation (no state mutation), so GET is the correct HTTP method. Using GET also avoids CSRF complications (see Security Note below):
 ```javascript
-fetch(`${config.contextPath}/schedule/DayData.do`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    date: state.date,
-    groupNo: state.group,
-    site: state.site,
-    viewAll: state.viewAll,
-    providerNo: state.provider
-  })
+const params = new URLSearchParams({
+  date: state.date,
+  groupNo: state.group,
+  site: state.site,
+  viewAll: state.viewAll,
+  providerNo: state.provider
 });
+fetch(`${config.contextPath}/schedule/DayData.do?${params}`);
 ```
+
+> **CSRF Security Note**: The CARLOS CSRF Guard (`OscarCsrfGuardFilter` + `Owasp.CsrfGuard.properties`) only protects `POST`, `PUT`, and `DELETE` methods. Furthermore, CSRF Guard's JavaScript integration (`csrfguard.js`) patches `XMLHttpRequest.open()` to inject the CSRF token, but does **NOT patch `fetch()`**. This means:
+> 1. **GET requests via `fetch()`**: Safe — CSRF Guard does not protect GET (idempotent reads don't need CSRF protection).
+> 2. **POST requests via `fetch()`**: **UNSAFE** — the CSRF token will NOT be automatically injected. You must either:
+>    - Manually add the token header: `headers: { 'CSRF-TOKEN': document.querySelector("meta[name='csrf-token']").content }`
+>    - Or use `XMLHttpRequest` instead of `fetch()` for any POST/PUT/DELETE operations.
+> 3. The existing REST endpoints at `/ws/rs/*` are exempt from CSRF (`unprotected.Rest` pattern in CsrfGuard config), so `fetch()` calls to REST endpoints for status updates are safe.
+> 4. The `OscarCsrfGuardFilter` is currently in **log-only mode** (no redirect on violation), but this could change — design for correctness now.
 
 ### Backward Compatibility
 
@@ -117,16 +122,30 @@ if (year != null) {
 ```
 The JSP then includes:
 ```jsp
+<%-- Note: legacyRedirectHash is pre-sanitized in the Action using Encode.forJavaScript().
+     Do NOT use fn:escapeXml() here — it produces HTML entities that break JavaScript strings.
+     Alternatively, use a data attribute + JS reader pattern for defense-in-depth. --%>
 <c:if test="${not empty legacyRedirectHash}">
   <script>
     if (window.location.search) {
       window.location.replace(
-        window.location.pathname + '#' + '${fn:escapeXml(legacyRedirectHash)}'
+        window.location.pathname + '#' + '${legacyRedirectHash}'
       );
     }
   </script>
 </c:if>
 ```
+> **Encoding note**: `fn:escapeXml()` is correct for HTML body/attribute contexts but **wrong** for JavaScript string contexts (it produces `&amp;` instead of `\u0026`). For JavaScript contexts, use `Encode.forJavaScript()` in the Action class before setting the request attribute, or use the data-attribute pattern:
+> ```jsp
+> <div id="legacy-redirect" data-hash="${fn:escapeXml(legacyRedirectHash)}" class="d-none"></div>
+> <script>
+>   var el = document.getElementById('legacy-redirect');
+>   if (el && el.dataset.hash && window.location.search) {
+>     window.location.replace(window.location.pathname + '#' + el.dataset.hash);
+>   }
+> </script>
+> ```
+> The data-attribute approach uses `fn:escapeXml()` in its correct context (HTML attribute) and lets JavaScript read the decoded value via `dataset`.
 
 This one-time redirect converts old-style URLs to hash-based URLs transparently.
 
@@ -180,6 +199,12 @@ The audit found **20 existing JSON REST endpoints** under `/ws/rs/schedule/` and
 | `/ws/rs/tickler/{demoNo}/count/overdue` | GET | Overdue tickler count | Useful for indicators |
 | `provider/tabAlertsRefresh.jsp?id=...` | GET | Navbar badge counts (HTML fragment) | Keep as-is |
 
+**REST Endpoint Notes:**
+- The `GET /ws/rs/scheduleTempCode/get` endpoint in `ScheduleTemplateCodeService.java` is **commented out** (dead code). The live equivalent is `GET /ws/rs/schedule/codes` — this is the one listed above.
+- `updateAppointmentUrgency` in `ScheduleService.java` is missing its `@POST` annotation (existing bug — not blocking for this migration, but should be fixed).
+- The `/ws/rs/*` path is exempt from CSRF Guard protection (`unprotected.Rest` pattern), so `fetch()` calls to these REST endpoints work without CSRF tokens.
+- REST endpoints support **dual auth**: session-based at `/ws/rs/schedule/` and OAuth 1.0a at `/ws/services/schedule/`. This migration uses the session-based path exclusively.
+
 ### Key Gap: No Single "Day View Data" Endpoint
 
 The current JSP performs 34+ queries to assemble the complete day view data model. No single existing REST endpoint provides all of this in one call. We need a **new dedicated endpoint** that returns:
@@ -230,8 +255,8 @@ src/main/webapp/
 │   │   └── nav-alerts.js                   # NEW: Evolved from topnav.js
 │   └── vendor/
 │       ├── fullcalendar/
-│       │   ├── index.global.min.js         # FullCalendar 6.1.x bundle
-│       │   └── bootstrap5.global.min.js    # FullCalendar Bootstrap 5 plugin
+│       │   ├── index.global.min.js         # FullCalendar 6.1.x bundle (includes CSS — NO separate .css file needed)
+│       │   └── bootstrap5.global.min.js    # FullCalendar Bootstrap 5 theme plugin
 │       └── (bootstrap JS already available)
 ├── css/
 │   ├── carlos-common.css                   # NEW: Shared base styles
@@ -292,7 +317,7 @@ Eventually: Most active JSPs in WEB-INF/views/, legacy JSPs still public
                   └──────────┘                              └──────────────────┘
                        │
   2. Calendar   →  ┌──────────┐                              ┌──────────────────┐
-     Data Load    │ GET/POST  │  ──── Struts2/JSON ───────→ │ ScheduleDay-     │
+     Data Load    │ GET       │  ──── Struts2/JSON ───────→ │ ScheduleDay-     │
      (AJAX)       │ schedule/ │                              │ Data2Action       │
                   │ DayData.do│  ←── JSON ─────────────────  │ (assembles full  │
                   │           │      { providers: [{         │  day view data   │
@@ -731,6 +756,34 @@ public class ProviderDaySchedule2Action extends ActionSupport {
         // 9. Reason codes (for tooltip display)
         request.setAttribute("reasonCodesJson", reasonCodesJson);
 
+        // 10. JSON config block for JavaScript (serialized by Jackson)
+        //     This avoids EL/JSTL encoding issues — ObjectMapper handles JSON escaping.
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("contextPath", request.getContextPath());
+        configMap.put("date", resolvedDate.toString());
+        configMap.put("year", year);
+        configMap.put("month", month);
+        configMap.put("day", day);
+        configMap.put("startHour", startHour);
+        configMap.put("endHour", endHour);
+        configMap.put("everyMin", everyMin);
+        configMap.put("providerNo", curProviderNo);
+        configMap.put("myGroupNo", myGroupNo);
+        configMap.put("view", view);
+        configMap.put("viewAll", viewAll);
+        configMap.put("selectedSite", selectedSite);
+        configMap.put("billingRegion", billingRegion);
+        configMap.put("hasBillingRights", hasBillingRights);
+        configMap.put("hasDoctorLinkRights", hasDoctorLinkRights);
+        configMap.put("hasMasterLinkRights", hasMasterLinkRights);
+        configMap.put("reasonCodes", reasonCodes);
+        configMap.put("refreshInterval", 300000);
+        configMap.put("quickLinks", quickLinks);
+        configMap.put("formLinks", formLinks);
+        configMap.put("eFormLinks", eFormLinks);
+        request.setAttribute("scheduleConfigJson",
+            new ObjectMapper().writeValueAsString(configMap));
+
         return "success";
     }
 }
@@ -784,8 +837,8 @@ Or better: have the login redirect go directly to `provider/Day.do` instead of `
     <%-- Shared includes --%>
     <jsp:include page="/WEB-INF/views/common/head-includes.jspf" />
 
-    <%-- FullCalendar --%>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/js/vendor/fullcalendar/index.global.min.css">
+    <%-- FullCalendar — NO separate CSS file needed; FullCalendar 6.x injects its CSS
+         at runtime via JavaScript. Only include the JS bundles (in footer). --%>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/schedule/provider-day-schedule.css">
 </head>
 <body>
@@ -875,32 +928,11 @@ Or better: have the login redirect go directly to `provider/Day.do` instead of `
   </main>
 
   <%-- === PAGE CONFIGURATION (for JavaScript) === --%>
-  <script id="schedule-config" type="application/json">
-    {
-      "contextPath": "${pageContext.request.contextPath}",
-      "date": "${scheduleDate}",
-      "year": ${year},
-      "month": ${month},
-      "day": ${day},
-      "startHour": "${startHour}",
-      "endHour": "${endHour}",
-      "everyMin": ${everyMin},
-      "providerNo": "${curProviderNo}",
-      "myGroupNo": "${fn:escapeXml(myGroupNo)}",
-      "view": ${view},
-      "viewAll": ${viewAll},
-      "selectedSite": "${fn:escapeXml(selectedSite)}",
-      "billingRegion": "${fn:escapeXml(billingRegion)}",
-      "hasBillingRights": ${hasBillingRights},
-      "hasDoctorLinkRights": ${hasDoctorLinkRights},
-      "hasMasterLinkRights": ${hasMasterLinkRights},
-      "reasonCodes": ${reasonCodesJson},
-      "refreshInterval": 300000,
-      "quickLinks": ${quickLinksJson},
-      "formLinks": ${formLinksJson},
-      "eFormLinks": ${eFormLinksJson}
-    }
-  </script>
+  <%-- IMPORTANT: This JSON config block is serialized server-side by Jackson ObjectMapper
+       in the Action class and set as a request attribute. Do NOT use fn:escapeXml() in JSON
+       context — it produces HTML entities (&amp;, &lt;) that corrupt JSON strings.
+       The ObjectMapper handles proper JSON escaping automatically. --%>
+  <script id="schedule-config" type="application/json">${scheduleConfigJson}</script>
 
   <%-- === SCRIPTS === --%>
   <jsp:include page="/WEB-INF/views/common/footer.jspf" />
@@ -1425,9 +1457,9 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Template slot coloring (background events)
 
 ### Per-Appointment Cell
-- [ ] Status icon (click to advance through cycle: t→T→H→P→E→N→C→t)
+- [ ] Status icon (click to advance through cycle — see Appendix D for full 24-code system)
 - [ ] Status background color
-- [ ] Signed/Verified status modifiers
+- [ ] Signed/Verified/Billed status modifiers (S and V suffixes, B/BS/BV are terminal)
 - [ ] Short letter display with color
 - [ ] Urgency warning icon
 - [ ] Tickler indicator (!)
@@ -1454,16 +1486,58 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Tooltip with patient name + reason + notes
 - [ ] Rowspan for multi-slot appointments
 
+### Per-Appointment Cell (continued)
+- [ ] `storeApptNo()` — saves appointment number to `sessionStorage` for cross-popup context
+- [ ] Dynamic patient name truncation (configurable `patientNameLength` from provider preferences)
+- [ ] Double-booking indicator (multiple appointments in same time slot)
+- [ ] Appointment `type` display (configurable visibility)
+- [ ] Appointment `location` display (multi-site)
+- [ ] Appointment `resources` display
+- [ ] Appointment `notes` tooltip content
+- [ ] Right-click context menu compatibility (existing popup behavior)
+
+### Week View Links (Per-Provider Header)
+- [ ] Week view button links to `providercontrol.jsp?displaymode=week` or equivalent
+- [ ] 5-day vs 7-day week view toggle (`scheduler.view.weekViews` property)
+- [ ] Hidden E/B/Rx action links in week view cells (different layout from day view)
+
+### Billing Links (3 Modes)
+- [ ] Create Billing — when no billing exists for appointment
+- [ ] Delete/Rebill — when billing already exists
+- [ ] Edit Billing — when billing exists and needs modification
+- [ ] Billing region-specific URLs (ON vs BC vs generic — `billregion` property)
+
+### CAISI/PMmodule Integration
+- [ ] Program selection dropdown (CAISI module only)
+- [ ] `_grp_` prefix convention for CAISI group names
+- [ ] Program-filtered provider list
+- [ ] Infirmary view mode (sticky sub-header with different layout)
+- [ ] `GoToCaisiViewFromOscarView` redirect parameter support
+
 ### Behavior
-- [ ] Auto-refresh (configurable interval)
+- [ ] Auto-refresh via `<meta http-equiv="refresh">` → migrate to JS `setInterval` (see Appendix E)
+- [ ] Configurable refresh interval from `ProviderPreference.refreshEvery`
 - [ ] Scroll position preservation on refresh
-- [ ] Password expiration check on load
-- [ ] Popup blocker detection
-- [ ] Booking confirmation dialog (Yes/Day/Week/OnCall modes)
+- [ ] Password expiration check on load (`ProviderPreference.passwordExpiredDate`)
+- [ ] Popup blocker detection (property-gated)
+- [ ] Booking confirmation dialog (Yes/Day/Week/OnCall modes per template code `confirm` field)
 - [ ] `window.opener.refresh()` support for popup-initiated refreshes
-- [ ] Health card reader support (property-gated)
-- [ ] Mobile responsive layout
+- [ ] `window.refresh1()` alias for backward compatibility with existing popups
+- [ ] Health card reader support (property-gated, `IS_HEALTH_CARD_ENABLED`)
+- [ ] Mobile responsive layout (see Appendix G — currently a separate code path)
 - [ ] Print support (`.noprint` classes)
+- [ ] Login redirect default handling (no-param → today's date with defaults)
+- [ ] Session attribute management (`curProvider`, `curProviderNo`, `myGroupNo`, etc.)
+- [ ] Database-driven status mode support (`ENABLE_EDIT_APPT_STATUS`, see Appendix D)
+- [ ] System message polling (from `SystemMessage.do`)
+- [ ] Facility message display (from `FacilityMessage.do`)
+- [ ] Integrator message count badge (`integratorMessageCount` — purple color)
+- [ ] Demographic message count badge (`demographicMessageCount` — red color)
+- [ ] `switchLocale` parameter support (language switching)
+
+### OscarProperties Feature Gates (see Appendix E)
+- [ ] All 18+ property checks listed in Appendix E
+- [ ] Default values match current behavior when properties are not set
 
 ---
 
@@ -1576,7 +1650,7 @@ Every security check in the current JSP must have an equivalent in the new archi
 - Data endpoint access: `ScheduleDayData2Action.execute()` checks `_appointment`
 - Per-feature visibility: Security flags passed as booleans to JSP, then to JS config
 - Per-patient tickler access: Checked in `ScheduleDayData2Action` during data assembly
-- OWASP encoding: `textContent` in JS (XSS-safe), `fn:escapeXml()` in JSTL, `Encode.forHtml()` in Action
+- OWASP encoding: `textContent` in JS (XSS-safe), `fn:escapeXml()` in JSTL HTML contexts, `Encode.forHtml()` in Action for HTML, `Encode.forJavaScript()` for JS string contexts, Jackson `ObjectMapper` for JSON config blocks (never `fn:escapeXml()` in JSON/JS)
 
 ### 5. FullCalendar Limitations and Workarounds
 
@@ -1715,6 +1789,151 @@ This lets the shared header roll out ahead of each page's full migration to WEB-
 
 ---
 
+## Appendix D: Appointment Status System — Complete Reference
+
+The appointment status system in `ApptStatusData.java` is more complex than a simple cycle. It supports **24 status codes** across 3 tiers (base, signed, verified), with terminal states and an optional database-driven mode.
+
+### Status Code Arrays (from `ApptStatusData.java`)
+
+```
+Base statuses:    t → T → H → P → E → N → C → B (terminal)
+Signed (S):       tS → TS → HS → PS → ES → NS → CS → BS (terminal)
+Verified (V):     tV → TV → HV → PV → EV → NV → CV → BV (terminal)
+```
+
+**Status meanings (default set):**
+| Code | Description | Icon | Notes |
+|------|-------------|------|-------|
+| `t` | To Do (initial) | `todo.gif` | Default for new appointments |
+| `T` | Tagalong | `tagalong.gif` | |
+| `H` | Here | `here.gif` | Patient has arrived |
+| `P` | Picked | `picked.gif` | Chart picked up |
+| `E` | Empty Room | `empty_room.gif` | Patient in exam room |
+| `N` | Not Here | `not_here.gif` | Patient didn't arrive |
+| `C` | Cancelled | `cancelled.gif` | |
+| `B` | Billed | `billed.gif` | **Terminal** — no further cycling |
+| `*S` | Signed variant | (same + signed) | Chart signed by provider |
+| `*V` | Verified variant | (same + verified) | Chart verified |
+
+**Key behaviors:**
+- **Terminal states**: `B`, `BS`, `BV` — clicking does NOT advance further (next status is empty string `""`)
+- **Signed modifier**: Appending `S` to any base code creates the signed variant
+- **Verified modifier**: Appending `V` to any base code creates the verified variant
+- **Special case**: Lowercase `h` is handled separately (see JSP line ~960) — it maps to "Here" with distinct styling
+
+### Database-Driven Mode
+
+When `OscarProperties.ENABLE_EDIT_APPT_STATUS=yes`:
+- Status codes, descriptions, icons, colors, and cycling order are loaded from the `appointmentStatus` database table
+- The `AppointmentStatusMgr` class reads from DB instead of using hardcoded arrays
+- Administrators can customize the status workflow without code changes
+- The cycling logic uses `nextStatus` field from the DB row
+
+### Status REST Endpoint
+
+`POST /ws/rs/schedule/appointment/{id}/updateStatus` is a **dumb setter** — it accepts an `AppointmentTo1` body and reads `.getStatus()` to set. It does NOT validate the status transition; the caller must provide the correct next status code. The current JSP computes `nextStatus` client-side from the `ApptStatusData` arrays.
+
+**Implementation note for new view:** The `ScheduleDayData2Action` should include `nextStatus` in each `AppointmentSlotDto` so the client can advance status with a single click. For database-driven mode, query the `appointmentStatus` table for the cycling map.
+
+### Status Colors and Icons
+
+Each status has:
+- **Background color**: Used for the appointment slot/cell background
+- **Icon**: Small GIF image displayed as the status indicator
+- **Short letters**: 1-2 character abbreviation with configurable color (displayed in the appointment cell)
+- **Short letter color**: Color for the short letter text
+
+These are returned by `GET /ws/rs/schedule/statuses` as `AppointmentStatusTo1` objects.
+
+---
+
+## Appendix E: OscarProperties Feature Gates
+
+The current JSP checks **18+ OscarProperties** to conditionally enable features. The new `ProviderDaySchedule2Action` must check all of these and pass them as boolean/string request attributes:
+
+| Property Key | Default | Controls |
+|-------------|---------|----------|
+| `ENABLE_EDIT_APPT_STATUS` | `no` | Database-driven status codes vs hardcoded |
+| `IS_HEALTH_CARD_ENABLED` | `true` | HIN version checking indicator (*) |
+| `allowAnonAppts` | `false` | "Add Anonymous Client" button in sub-nav |
+| `phoneEncounterEnabled` | `false` | "Phone Encounter" button in sub-nav |
+| `eform_in_appointment` | `false` | eForm Library link in appointment actions |
+| `intake_form_enabled` | `false` | Intake Form link in appointment actions |
+| `pregnancy_enabled` | `false` | Pregnancy indicator for patients |
+| `ENABLE_ECONSULT` | `false` | eConsult nav link |
+| `WORKFLOW_ENHANCE` | `false` | Workflow module nav link |
+| `referral_email_enabled` | `false` | Referral management nav link |
+| `default_schedule_viewall` | `true` | Default view-all vs scheduled-only |
+| `day_sheet_enabled` | `false` | Day Sheet button per provider |
+| `dashboard_display` | (varies) | Dashboard dropdown visibility |
+| `popup_blocker_detection` | `true` | Show popup blocker warning |
+| `billregion` | `ON` | Billing region (ON/BC/generic) — affects billing links |
+| `hide_old_echart_link` | `false` | Hide legacy encounter link |
+| `scheduler.view.weekViews` | `5` | Week view: 5-day or 7-day toggle |
+| `scheduler.view.newPatientLink` | `true` | Show "New Patient" link in add appt |
+
+### Auto-Refresh Mechanism
+
+The current JSP uses a **`<meta http-equiv="refresh">`** tag (NOT a JavaScript `setInterval`):
+```html
+<meta http-equiv="refresh" content="300">
+```
+This causes a full page reload every 5 minutes (300 seconds). The configurable interval comes from `ProviderPreference.refreshEvery`.
+
+**New approach:** Replace with JavaScript `setInterval` calling `refreshAllCalendars()` — this is better UX (no full page reload, preserves scroll position, doesn't flash the screen).
+
+---
+
+## Appendix F: Output Encoding Quick Reference
+
+Correct encoding depends on the output context. Using the wrong encoder is a security vulnerability:
+
+| Context | Correct Encoder | Wrong | Example |
+|---------|----------------|-------|---------|
+| HTML body | `fn:escapeXml()` or `<c:out>` | — | `<span>${fn:escapeXml(name)}</span>` |
+| HTML attribute | `fn:escapeXml()` or `<c:out>` | — | `<input value="${fn:escapeXml(val)}" />` |
+| JSON config block | Jackson `ObjectMapper` | `fn:escapeXml()` | `<script type="application/json">${jsonFromAction}</script>` |
+| JavaScript string | `Encode.forJavaScript()` | `fn:escapeXml()` | Action pre-encodes, JSP uses `${encoded}` |
+| CSS value | `Encode.forCssString()` | `fn:escapeXml()` | Rare — use data attributes instead |
+| URL parameter | `Encode.forUriComponent()` | `fn:escapeXml()` | Action builds URLs server-side |
+
+**Key rule:** `fn:escapeXml()` produces HTML entities (`&amp;`, `&lt;`, `&#39;`). These are correct for HTML parsers but are NOT decoded by JavaScript parsers or JSON parsers. Using `fn:escapeXml()` in a `<script>` block will produce corrupted data.
+
+---
+
+## Appendix G: Mobile View Strategy
+
+The current `appointmentprovideradminday.jsp` has a **separate mobile code path** (detected via user agent or screen width) that renders a simplified layout. This is NOT simply CSS responsive — it's a different rendering branch.
+
+**Current behavior:**
+- Mobile view shows a single-provider schedule with simplified appointment cells
+- Navigation collapses differently (hamburger menu was added in some versions)
+- Some action links (E, B, M, Rx) are hidden or rearranged
+
+**New approach with Bootstrap 5:**
+- The multi-instance FullCalendar grid naturally stacks on small screens (`col-12` breakpoints)
+- On mobile, show one provider at a time with a provider selector dropdown
+- Use Bootstrap's responsive utilities (`d-none d-md-flex`) to hide/show elements
+- FullCalendar has built-in touch support (swipe to navigate dates)
+- This replaces the server-side mobile detection with client-side responsive design
+
+**Implementation note:** Add a mobile-specific variant to the column rendering:
+```javascript
+function getColumnClass(count) {
+  // On mobile (<768px), always show one provider full-width
+  // On tablet (768-991px), show 2-3 providers
+  // On desktop (992px+), show all providers
+  if (count === 1) return 'col-12';
+  if (count === 2) return 'col-12 col-md-6';
+  if (count === 3) return 'col-12 col-md-4';
+  if (count === 4) return 'col-12 col-md-6 col-lg-3';
+  if (count <= 6) return 'col-12 col-md-4 col-lg-2';
+  return 'col-12 col-md-4 col-lg';
+}
+```
+
+---
+
 ## Summary
 
 This migration transforms a 2400-line monolithic JSP into a clean MVC architecture:
@@ -1730,5 +1949,8 @@ This migration transforms a 2400-line monolithic JSP into a clean MVC architectu
 | Navigation | 4 duplicate copies | 1 shared header.jspf in WEB-INF |
 | JSP protection | All public (URL-accessible) | New views in WEB-INF/views/ (incremental) |
 | Security | oscarSec tags + inline checks | Interceptor + Action + oscarSec tags |
-| Status updates | Full page reload | AJAX POST + local refresh |
-| Mobile support | Separate CSS file | Bootstrap 5 responsive grid |
+| Status updates | Full page reload | AJAX POST to REST endpoint + local refresh |
+| Auto-refresh | `<meta http-equiv="refresh">` (full reload) | JS `setInterval` (AJAX, no flash) |
+| Mobile support | Separate server-side code path | Bootstrap 5 responsive grid (client-side) |
+| Encoding | Mixed/inconsistent | Context-appropriate (see Appendix F) |
+| Status system | Partially documented | Full 24-code system documented (see Appendix D) |
