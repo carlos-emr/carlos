@@ -71,7 +71,12 @@ function getStateFromHash() {
 // Update hash when user navigates
 function updateHash(updates) {
   const state = { ...getStateFromHash(), ...updates };
-  const hash = new URLSearchParams(state).toString();
+  // Filter out null/undefined values to prevent them from being serialized
+  // as the literal strings "null"/"undefined" in the URL hash.
+  const filtered = Object.fromEntries(
+    Object.entries(state).filter(([_, v]) => v != null)
+  );
+  const hash = new URLSearchParams(filtered).toString();
   window.location.hash = hash;
 }
 
@@ -236,6 +241,9 @@ src/main/java/.../provider/web/
 ├── ProviderDaySchedule2Action.java        # NEW: Main Struts2 action (MVC controller)
 └── (existing actions remain unchanged)
 
+src/main/java/.../web/filter/
+└── RoleNameFilter.java                    # NEW: Servlet filter for header attributes
+
 src/main/java/.../schedule/
 ├── web/
 │   └── ScheduleDayData2Action.java         # NEW: AJAX JSON endpoint for calendar data
@@ -244,7 +252,8 @@ src/main/java/.../schedule/
     ├── ProviderScheduleDto.java            # NEW: Per-provider schedule + appointments
     ├── AppointmentSlotDto.java             # NEW: Individual appointment for FullCalendar
     ├── TemplateSlotDto.java                # NEW: Background event for slot coloring
-    └── ProviderHeaderDto.java              # NEW: Provider header metadata
+    ├── TemplateCodeDto.java                # NEW: Template code metadata (one per code char)
+    └── StatusDto.java                      # NEW: Status rendering metadata
 
 src/main/webapp/
 ├── WEB-INF/
@@ -365,7 +374,7 @@ Eventually: Most active JSPs in WEB-INF/views/, legacy JSPs still public
 
 1. **Download and store FullCalendar locally**
    - `src/main/webapp/js/vendor/fullcalendar/index.global.min.js` — from `fullcalendar` npm package (free/standard bundle — includes core, dayGrid, timeGrid, list, interaction, multiMonth plugins; all auto-register, no `plugins` array needed in JS)
-   - `src/main/webapp/js/vendor/fullcalendar/bootstrap5.global.min.js` — from `@fullcalendar/bootstrap5` npm package (separate package, NOT included in the main bundle; free/standard, not premium). Load via `<script>` tag AFTER the main bundle; auto-registers. Required for `themeSystem: 'bootstrap5'`
+   - `src/main/webapp/js/vendor/fullcalendar/bootstrap5.global.min.js` — from `@fullcalendar/bootstrap5` npm package (separate package, NOT included in the main bundle; free/standard, not premium). **NOTE**: The source package also names its file `index.global.min.js` — rename to `bootstrap5.global.min.js` to avoid collision with the main bundle in the same directory. Load via `<script>` tag AFTER the main bundle; auto-registers. Required for `themeSystem: 'bootstrap5'`
    - **No separate FullCalendar CSS file needed** — FullCalendar 6.x injects its own CSS via JavaScript at runtime. Only include Bootstrap 5's own CSS and Bootstrap Icons CSS.
 
 2. **Upgrade Bootstrap to 5.3.3**
@@ -560,7 +569,8 @@ public class DayViewResponse {
     private List<ProviderScheduleDto> providers;   // One per provider column
     private Map<String, StatusDto> statuses;        // Status code -> rendering info
     private Map<Character, TemplateCodeDto> templateCodes; // Code char -> color/desc
-    private ConfigDto config;                       // View configuration
+    // NOTE: No ConfigDto here — config is passed via ProviderDaySchedule2Action
+    // as a pre-serialized JSON string in the JSP, NOT in the AJAX data response.
 }
 ```
 
@@ -611,13 +621,16 @@ public class AppointmentSlotDto {
 
     // Appointment details
     private String reason;
+    private String reasonCode;          // Appointment reason code (for encounter URL)
     private String reasonCodeLabel;
     private String type;
-    private String notes;
+    private String notes;               // Parsed from XML via SxmlMisc.getXmlContent("<unotes>")
     private String urgency;
     private String billing;
     private String location;
     private String resources;
+    private String alias;               // Patient alias (from Demographic)
+    private String pronoun;             // Patient pronoun (from Demographic)
 
     // Provider context
     private String providerNo;
@@ -645,8 +658,38 @@ public class TemplateSlotDto {
     private String duration;        // Default appointment duration (minutes) from ScheduleTemplateCode
     private String confirm;         // Booking confirmation requirement ("Yes", "Day", "Wk", "Onc", or "")
     private int bookingLimit;       // Max bookings per slot (0 = unlimited)
+    // NOTE: ScheduleTemplateCode entity getter is getBookinglimit() (lowercase 'l').
+    // Manual mapping needed: dto.setBookingLimit(entity.getBookinglimit())
 }
 ```
+
+**`TemplateCodeDto.java`** — template code metadata (one per code character):
+```java
+public class TemplateCodeDto {
+    private char code;              // 'A', 'B', 'C', etc.
+    private String description;     // "Available", "Booked", etc.
+    private String duration;        // Default appointment duration (minutes)
+    private String color;           // Background color hex
+    private String confirm;         // Booking confirmation requirement
+    private int bookingLimit;       // Max bookings per slot
+}
+```
+
+**`StatusDto.java`** — status rendering metadata:
+```java
+public class StatusDto {
+    private String code;            // "t", "T", "H", "P", "E", "N", "C", "B", etc.
+    private String description;     // "To Do", "Here", "Picked", etc.
+    private String bgColor;         // Background color hex
+    private String icon;            // Image filename (e.g., "todo.gif")
+    private String shortLetters;    // 1-2 char abbreviation
+    private String shortLetterColor;// Color for short letter text
+    private String nextStatus;      // Next status in cycle ("" for terminal B/BS/BV)
+    private String title;           // Tooltip text for status icon
+}
+```
+
+> **Note**: `ProviderHeaderDto.java` listed in the original file structure was redundant — its fields are already included in `ProviderScheduleDto`. Removed from the file inventory. `ConfigDto` was also redundant — the page action passes config as a serialized JSON string via `scheduleConfigJson`, and the AJAX data endpoint does not return config data.
 
 ### Phase 2.2: ScheduleDayData2Action
 
@@ -654,6 +697,10 @@ public class TemplateSlotDto {
 
 ```java
 public class ScheduleDayData2Action extends ActionSupport {
+    // Field-level request/response — matches codebase convention for all *2Action classes.
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
     // Spring beans (via SpringUtils.getBean — matches codebase convention)
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private ScheduleManager scheduleManager = SpringUtils.getBean(ScheduleManager.class);
@@ -661,7 +708,9 @@ public class ScheduleDayData2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
     private UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
-    private AppointmentStatusMgr appointmentStatusMgr = SpringUtils.getBean(AppointmentStatusMgr.class);
+    // NOTE: AppointmentStatusMgr is NOT a Spring-managed bean (no @Service annotation).
+    // Instantiate directly, matching existing pattern in AppointmentStatus2Action.
+    private AppointmentStatusMgr appointmentStatusMgr = new AppointmentStatusMgrImpl();
     private ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
     private ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
     private MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
@@ -670,8 +719,6 @@ public class ScheduleDayData2Action extends ActionSupport {
     private LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
 
     public String execute() {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
 
         // Read parameters via request.getParameter() — this is the codebase convention.
         // Struts2 property injection (getter/setter) is NOT used in this codebase.
@@ -717,6 +764,7 @@ String eURL = request.getContextPath() + "/oscarEncounter/IncomingEncounter.do"
     + "&demographicNo=" + demographicNo
     + "&curProviderNo=" + curProviderNo
     + "&reason=" + URLEncoder.encode(reason, "UTF-8")
+    + "&reasonCode=" + URLEncoder.encode(reasonCode != null ? reasonCode : "", "UTF-8")
     + "&encType=" + encType
     + "&userName=" + URLEncoder.encode(userName, "UTF-8")
     + "&curDate=" + dateStr
@@ -757,7 +805,9 @@ if (status.indexOf('B') < 0) {
         + "&apptProvider_no=" + providerNo
         + "&appointment_date=" + dateStr
         + "&start_time=" + startTime
+        + "&hotclick=&xml_provider="
         + "&bNewForm=1";
+// NOTE: caisiPref is loaded from userPropertyDao: caisiBillingPreferenceNotDelete
 } else if ("ON".equals(billingRegion) && "1".equals(caisiPref)) {
     // Ontario + CAISI → Edit billing (no delete allowed)
     billingMode = "edit";
@@ -784,9 +834,17 @@ dto.setBillingMode(billingMode);
 
 ### Phase 2.3: REST Endpoint for Drag-and-Drop / Resize (Reschedule)
 
-Add a new **slim REST endpoint** specifically for time/duration changes from FullCalendar. This is separate from the existing `POST /schedule/updateAppointment` (which has a broken `AppointmentConverter` and updates ALL fields). The new endpoint only modifies time fields — it's a targeted, safe mutation.
+Add a new **slim REST endpoint** specifically for time/duration changes from FullCalendar. This is separate from the existing `POST /schedule/updateAppointment` (which has a **known bug**: `AppointmentConverter.getAsDomainObject()` returns `null` — this causes NPE, making the endpoint unusable). The new endpoint only modifies time fields — it's a targeted, safe mutation.
 
 **File**: Add to `ScheduleService.java` (existing REST service)
+
+**Required new field declarations** (add to `ScheduleService` alongside existing `@Autowired` fields):
+```java
+@Autowired
+private OscarAppointmentDao appointmentDao;
+@Autowired
+private AppointmentArchiveDao appointmentArchiveDao;
+```
 
 ```java
 /**
@@ -1007,7 +1065,11 @@ public class ProviderDaySchedule2Action extends ActionSupport {
         configMap.put("hasDoctorLinkRights", hasDoctorLinkRights);
         configMap.put("hasMasterLinkRights", hasMasterLinkRights);
         configMap.put("reasonCodes", reasonCodes);
-        configMap.put("refreshInterval", 300000);
+        // Read from OscarProperties (NOT ProviderPreference). "-1" disables refresh.
+        String refreshSecs = OscarProperties.getInstance().getProperty(
+            "refresh.appointmentprovideradminday.jsp", "-1");
+        int refreshMs = "-1".equals(refreshSecs) ? 0 : Integer.parseInt(refreshSecs) * 1000;
+        configMap.put("refreshInterval", refreshMs);
         configMap.put("quickLinks", quickLinks);
         configMap.put("formLinks", formLinks);
         configMap.put("eFormLinks", eFormLinks);
@@ -1020,22 +1082,21 @@ public class ProviderDaySchedule2Action extends ActionSupport {
             LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.sameDay"));
         messages.put("sameWeekRestriction",
             LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.sameWeek"));
-        // Drag-and-drop messages (new — add to resource bundle)
+        // Drag-and-drop messages (new — add keys to resource bundle)
+        // NOTE: LocaleUtils.getMessage() has NO default-value overload. All keys must
+        // exist in the resource bundle. The JavaScript fallbacks (|| 'default text')
+        // handle missing keys at runtime as a safety net, but the keys should be added
+        // to the .properties files before deployment.
         messages.put("confirmMove",
-            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.confirmMove",
-                "Move appointment to"));
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.confirmMove"));
         messages.put("confirmResize",
-            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.confirmResize",
-                "Change duration to"));
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.confirmResize"));
         messages.put("cannotMoveBilled",
-            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.cannotMoveBilled",
-                "Cannot move a billed appointment."));
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.cannotMoveBilled"));
         messages.put("updateFailed",
-            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.updateFailed",
-                "Failed to update appointment. Change reverted."));
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.updateFailed"));
         messages.put("unbilledConfirm",
-            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.unbilledConfirm",
-                "Delete billing record?"));
+            LocaleUtils.getMessage(request, "provider.appointmentProviderAdminDay.unbilledConfirm"));
         configMap.put("messages", messages);
 
         request.setAttribute("scheduleConfigJson",
@@ -1083,7 +1144,9 @@ The `ProviderDaySchedule2Action` handles all parameter defaults internally (toda
 {"day", "appointmentprovideradminday.jsp"},
 
 // In Login2Action or wherever the post-login redirect is built:
-if (OscarProperties.getInstance().getBooleanProperty("schedule.new_day_view", "false")) {
+// NOTE: Use isPropertyActive() — getBooleanProperty("key", "false") checks if
+// the value equals "false", which is the OPPOSITE of what we want.
+if (OscarProperties.getInstance().isPropertyActive("schedule.new_day_view")) {
     response.sendRedirect(request.getContextPath() + "/provider/Day.do");
 } else {
     response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?...");
@@ -1236,29 +1299,46 @@ This is the main JavaScript file. Key aspects:
 (function() {
   // Config is in a data attribute (not <script> tag) to prevent </script> injection.
   // The browser's HTML parser decodes &amp; → & etc. before dataset provides it.
-  const config = JSON.parse(
-    document.getElementById('schedule-config').dataset.config
-  );
+  var config;
+  try {
+    config = JSON.parse(
+      document.getElementById('schedule-config').dataset.config
+    );
+  } catch (e) {
+    console.error('Failed to parse schedule config:', e);
+    document.getElementById('provider-calendars-row').textContent =
+      'Configuration error. Please refresh the page.';
+    return; // Exit IIFE — nothing can work without config
+  }
   const calendars = new Map();  // providerNo -> FullCalendar instance
 
   // === INITIALIZATION ===
 
   async function init() {
-    const data = await fetchDayData();
-    renderProviderCalendars(data);
-    loadSystemMessages();
-    startAutoRefresh();
+    try {
+      const data = await fetchDayData();
+      renderProviderCalendars(data);
+      loadSystemMessages();
+      startAutoRefresh();
+      setupHashNavigation();
+    } catch (err) {
+      console.error('Schedule initialization failed:', err);
+      document.getElementById('provider-calendars-row').textContent =
+        'Failed to load schedule. Please refresh the page.';
+    }
   }
 
   // === DATA FETCHING ===
 
   async function fetchDayData() {
-    const params = new URLSearchParams({
+    const paramObj = {
       date: config.date,
       groupNo: config.myGroupNo,
-      site: config.selectedSite,
       viewAll: config.viewAll
-    });
+    };
+    // Only include site param when multi-site is enabled (avoids "null" string)
+    if (config.selectedSite) paramObj.site = config.selectedSite;
+    const params = new URLSearchParams(paramObj);
     const resp = await fetch(
       `${config.contextPath}/schedule/DayData.do?${params}`
     );
@@ -1340,14 +1420,16 @@ This is the main JavaScript file. Key aspects:
 
   function getColumnClass(count) {
     // Responsive grid: each provider gets equal width
-    // On small screens, stack vertically
+    // On small screens (<768px), stack vertically (col-12)
+    // On tablet (768-991px), show 2-3 columns
+    // On desktop (992px+), show all providers
     if (count === 1) return 'col-12';
     if (count === 2) return 'col-12 col-md-6';
     if (count === 3) return 'col-12 col-md-4';
-    if (count === 4) return 'col-12 col-md-3';
-    if (count <= 6) return 'col-12 col-md-2';
-    // 7+ providers: use custom fractional widths
-    return 'col';
+    if (count === 4) return 'col-12 col-md-6 col-lg-3';
+    if (count <= 6) return 'col-12 col-md-4 col-lg-2';
+    // 7+ providers: stack on mobile, 3-col tablet, equal-width desktop
+    return 'col-12 col-md-4 col-lg';
   }
 
   // === FULLCALENDAR INSTANCE CREATION ===
@@ -1398,7 +1480,6 @@ This is the main JavaScript file. Key aspects:
       headerToolbar: false,        // We handle our own header
       allDaySlot: false,
       nowIndicator: true,
-      expandRows: true,
       height: 'auto',
       slotEventOverlap: true,
 
@@ -1626,8 +1707,9 @@ This is the main JavaScript file. Key aspects:
         'master', 700, 1024, appt.id));
     }
     if (config.hasDoctorLinkRights) {
+      // Rx window name matches popupWithApptNo → popupOscarRx which uses 'oscarRx'
       actions.appendChild(createActionLink('Rx', appt.rxUrl, 'Prescription',
-        'oscarRx_appt', 700, 1027, appt.id));
+        'oscarRx', 700, 1027, appt.id));
     }
 
     row1.appendChild(actions);
@@ -1659,11 +1741,15 @@ This is the main JavaScript file. Key aspects:
         }
       );
       if (resp.ok) {
-        // Refresh calendar data
+        refreshAllCalendars();
+      } else {
+        console.error('Status update failed: HTTP ' + resp.status);
+        // Refresh to revert optimistic UI state back to server truth
         refreshAllCalendars();
       }
     } catch (err) {
       console.error('Status update failed:', err);
+      refreshAllCalendars();
     }
   }
 
@@ -1675,6 +1761,10 @@ This is the main JavaScript file. Key aspects:
 
   async function refreshAllCalendars() {
     const data = await fetchDayData();
+    // Destroy existing FullCalendar instances to prevent memory leaks.
+    // Simply removing DOM nodes does NOT clean up FC's internal timers/listeners.
+    calendars.forEach(function(cal) { cal.destroy(); });
+    calendars.clear();
     // Re-render with fresh data
     renderProviderCalendars(data);
   }
@@ -1836,6 +1926,8 @@ This is the main JavaScript file. Key aspects:
 
   // === UTILITY FUNCTIONS ===
 
+  // escapeHtml() is available as a utility but may not be needed since
+  // all rendering uses textContent (XSS-safe by default).
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -1885,8 +1977,59 @@ This is the main JavaScript file. Key aspects:
   // === INITIALIZATION ===
   document.addEventListener('DOMContentLoaded', init);
 
+  // === SYSTEM / FACILITY MESSAGES ===
+
+  function loadSystemMessages() {
+    fetch(config.contextPath + '/SystemMessage.do')
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var el = document.getElementById('system-message');
+        if (el && html && html.trim()) { el.innerHTML = html; el.classList.remove('d-none'); }
+      })
+      .catch(function() { /* non-critical */ });
+    fetch(config.contextPath + '/FacilityMessage.do')
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var el = document.getElementById('facility-message');
+        if (el && html && html.trim()) { el.innerHTML = html; el.classList.remove('d-none'); }
+      })
+      .catch(function() { /* non-critical */ });
+  }
+
+  // === TOOLTIP MOUNTING ===
+
+  function mountAppointmentTooltip(info) {
+    var appt = info.event.extendedProps;
+    var lines = [appt.title];
+    if (appt.reason) lines.push(appt.reason);
+    if (appt.notes) lines.push(appt.notes);
+    new bootstrap.Tooltip(info.el, {
+      title: lines.join('\n'),
+      placement: 'top',
+      trigger: 'hover',
+      container: 'body'
+    });
+  }
+
+  // === HASH-BASED NAVIGATION (connects URL strategy to implementation) ===
+
+  function setupHashNavigation() {
+    window.addEventListener('hashchange', function() {
+      // Re-read state from hash and refresh calendars
+      var params = new URLSearchParams(window.location.hash.substring(1));
+      if (params.get('date')) config.date = params.get('date');
+      if (params.get('group')) config.myGroupNo = params.get('group');
+      if (params.get('site')) config.selectedSite = params.get('site');
+      if (params.has('viewAll')) config.viewAll = params.get('viewAll') !== 'false';
+      refreshAllCalendars();
+    });
+  }
+
   // === GLOBAL REFRESH (called by popup windows via window.opener) ===
   window.refreshSchedule = refreshAllCalendars;
+  // Compatibility shims: existing popups call window.opener.refresh() / refresh1()
+  window.refresh = refreshAllCalendars;
+  window.refresh1 = refreshAllCalendars;
 
 })();
 ```
@@ -1994,15 +2137,28 @@ Minimal custom CSS — Bootstrap 5 handles most layout:
 }
 ```
 
+### Phase 4.4: Shared Schedule Utilities (schedule-utils.js)
+
+**File**: `src/main/webapp/js/schedule/schedule-utils.js`
+
+Contains shared utility functions used by `provider-day-schedule.js` and potentially future schedule views (week, month):
+- `formatTime(date)` — Date → "HH:mm"
+- `formatDate(date)` — Date → "yyyy-MM-dd"
+- `escapeHtml(text)` — safe HTML entity encoding via DOM
+- `openPopup(url, name, h, w)` — standardized `window.open()` wrapper
+- `getContextPath()` — reads from `data-context-path` on nav element
+
+> **NOTE**: In the current plan, these functions are defined inline within the `provider-day-schedule.js` IIFE. During implementation, extract them to `schedule-utils.js` for reuse. The IIFE can import them or they can be loaded as a preceding `<script>` tag (they would go on the `window` object).
+
 ---
 
 ## Phase 5: Feature Parity Checklist
 
-Every feature of the current screen must be preserved. This checklist tracks each:
+Every feature of the current screen must be preserved. This checklist tracks each. New features (drag-and-drop) are in a separate section below the parity items.
 
 ### Navigation (in header.jspf)
 - [ ] CARLOS logo → home
-- [ ] Schedule / View All toggle
+- [ ] Schedule link
 - [ ] Caseload link
 - [ ] Clinical Resources link (`_resource` gated)
 - [ ] Patient Search popup (`_search` gated)
@@ -2084,7 +2240,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Tooltip with patient name + reason + notes
 - [ ] Rowspan for multi-slot appointments
 
-### Drag-and-Drop & Resize (NEW — not in current JSP)
+### NEW FEATURE: Drag-and-Drop & Resize (not parity — new capability)
 - [ ] Drag appointment to new time slot (within same provider) → confirm → AJAX update
 - [ ] Resize appointment (drag bottom edge) to change duration → confirm → AJAX update
 - [ ] Revert on server error (FullCalendar `info.revert()`)
@@ -2097,7 +2253,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Cross-provider drag: NOT supported (separate FullCalendar instances — use edit popup)
 
 ### Per-Appointment Cell (continued)
-- [ ] `storeApptNo()` — saves appointment number to `sessionStorage` for cross-popup context
+- [ ] `storeApptNo()` — saves appointment number to HTTP session (via `storeApptInSession.jsp`) for cross-popup context
 - [ ] Dynamic patient name truncation (configurable `patientNameLength` from provider preferences)
 - [ ] Double-booking indicator (multiple appointments in same time slot)
 - [ ] Appointment `type` display (configurable visibility)
@@ -2121,8 +2277,38 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Program selection dropdown (CAISI module only)
 - [ ] `_grp_` prefix convention for CAISI group names
 - [ ] Program-filtered provider list
-- [ ] Infirmary view mode (sticky sub-header with different layout)
+- [ ] Infirmary view mode — **DEFERRED** (listed as Non-Goal; preserve redirect to old JSP for CAISI infirmary)
 - [ ] `GoToCaisiViewFromOscarView` redirect parameter support
+- [ ] `TORONTO_RFQ` module load checks (hides nav items when active)
+- [ ] `caisi.search.workflow` property (routes search to `PMmodule/ClientSearch2.do`)
+- [ ] `useProgramLocation` property (adds programId filter to appointment queries)
+- [ ] CBI Reminder Window alert on page load (CAISI mode)
+- [ ] `|P` (Program Management) link per appointment when CAISI enabled
+
+### Security Objects (Access Control)
+- [ ] `_site_access_privacy` — restricts visible sites/providers to user's assigned sites
+- [ ] `_team_access_privacy` — restricts visible teams/providers
+- [ ] `_team_schedule_only` — forces single-provider view (ignores group selection)
+- [ ] `_month` — gates Month link in sub-navigation
+- [ ] `_day` — gates Today link in sub-navigation
+- [ ] `_dashboardCommonLink` — gates Common Provider Dashboard sub-item
+- [ ] `_admin.*` compound check — Administration link checks 11 admin sub-objects
+
+### Role-Based Routing (providercontrol.jsp)
+- [ ] `er_clerk` role → redirects to `er_clerk.jsp` (bypasses schedule entirely)
+- [ ] `Vaccine Provider` role → redirects to `vaccine_provider.jsp`
+
+### Dynamic Layout
+- [ ] Dynamic patient name truncation based on provider count (5+: 2-3 chars, 2: 20 chars, 1: 30 chars)
+- [ ] Provider column alternating header colors (`#bfefff` / `silver`)
+- [ ] `[Not On Schedule]` indicator for providers with no schedule for the day
+- [ ] `noCountStatus` exclusion list (`C, CS, CV, N, NS, NV` excluded from appointment count)
+- [ ] Multi-site appointment filtering with `CurrentSiteMap` privacy logic
+- [ ] `view` parameter edge case forcing (when `displaymode=day` and `viewall!=1`, force `view=1`)
+- [ ] Provider group sort ordering via `MyGroup.MyGroupNoViewOrderComparator`
+- [ ] Title bar includes provider name prefix (`Lastname, F-CARLOS Schedule`)
+- [ ] `archiveView` session attribute suppresses auto-refresh
+- [ ] `record` and `module` context preservation parameters
 
 ### Behavior
 - [ ] Auto-refresh via `<meta http-equiv="refresh">` → migrate to JS `setInterval` (see Appendix E)
@@ -2135,7 +2321,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] `allowDay` computation (is appointment date == today?)
 - [ ] `allowWeek` computation (is appointment date within 7 days of today?)
 - [ ] `window.opener.refresh()` support for popup-initiated refreshes
-- [ ] `window.refresh1()` alias for backward compatibility with existing popups
+- [ ] `window.refresh1()` alias for backward compatibility (note: original `refresh1()` also switches `view=1→0`; new implementation is a simple refresh — acceptable since new view uses hash state, not URL params)
 - [ ] Health card reader support (property-gated, `IS_HEALTH_CARD_ENABLED`)
 - [ ] Mobile responsive layout (see Appendix G — currently a separate code path)
 - [ ] Print support (`.noprint` classes)
@@ -2164,7 +2350,7 @@ Phase 1 (Foundation) ───────────────────�
   ├── 1.1 Vendor libraries (FullCalendar, Bootstrap 5.3.3)     [1 day]
   ├── 1.2 Shared CSS (carlos-common.css, variables)             [1 day]
   ├── 1.3 Shared head-includes.jspf, footer.jspf                [0.5 day]
-  ├── 1.4 RoleName interceptor                                   [0.5 day]
+  ├── 1.4 RoleName servlet filter                                 [0.5 day]
   └── 1.5 header.jspf (reusable navbar)                         [2-3 days]
           ├── Security gating for all menu items
           ├── Badge/alert AJAX (nav-alerts.js)
@@ -2252,12 +2438,7 @@ Keep the old `appointmentprovideradminday.jsp` accessible during migration. Add 
 
 > **Appointment lifecycle operations (edit, delete, cancel, no-show, cut, copy) all happen INSIDE the existing popup windows** — they are NOT handled directly by the day schedule. The day schedule's only responsibility is to open the correct popup with the right parameters. The popup then calls `self.opener.refresh()` when done, which triggers `refreshAllCalendars()` on the schedule page.
 
-The existing popup windows call `window.opener.refresh()` to trigger a schedule reload. The new view exposes `window.refreshSchedule()` as the global refresh function, and also aliases it to the patterns existing popups use:
-```javascript
-// Compatibility shims for existing popup callbacks
-window.refresh = window.refreshSchedule;
-window.refresh1 = window.refreshSchedule;
-```
+The existing popup windows call `window.opener.refresh()` to trigger a schedule reload. The new view's IIFE exposes `window.refreshSchedule`, `window.refresh`, and `window.refresh1` as global aliases for `refreshAllCalendars()`, ensuring all existing popup callbacks work. See the `provider-day-schedule.js` IIFE for the alias declarations.
 
 ### 3. Performance Budget
 The current page makes 34+ DB queries on every load. The new architecture targets:
@@ -2282,7 +2463,6 @@ Every security check in the current JSP must have an equivalent in the new archi
 | No native multi-resource view (Premium only) | Multiple FullCalendar instances in Bootstrap grid columns |
 | Uniform slot duration only | Use smallest configured duration; background events for visual slot type grouping |
 | No built-in appointment status cycling | Custom `eventContent` with click handler → AJAX POST |
-| No row-spanning for multi-slot appointments | FullCalendar handles this natively — events with start/end spanning multiple slots render as tall blocks |
 | Performance with 10+ calendar instances | **Phase 5 optimization**: Lazy render with `IntersectionObserver` for off-screen providers. Initial implementation (Phase 4) creates all instances eagerly — acceptable for typical 3-8 provider groups. Lazy rendering deferred to Phase 5 if performance testing shows need. |
 
 ### 6. Accessibility
@@ -2369,8 +2549,7 @@ This lets the shared header roll out ahead of each page's full migration to WEB-
 | `src/main/java/.../schedule/dto/ProviderScheduleDto.java` | Provider schedule DTO |
 | `src/main/java/.../schedule/dto/AppointmentSlotDto.java` | Appointment DTO |
 | `src/main/java/.../schedule/dto/TemplateSlotDto.java` | Template slot DTO |
-| `src/main/java/.../schedule/dto/ProviderHeaderDto.java` | Provider header DTO |
-| `src/main/java/.../schedule/dto/ConfigDto.java` | Config DTO |
+| `src/main/java/.../schedule/dto/TemplateCodeDto.java` | Template code metadata DTO |
 | `src/main/java/.../schedule/dto/StatusDto.java` | Status rendering DTO |
 | `src/main/java/.../web/filter/RoleNameFilter.java` | Servlet filter for header attributes |
 | `src/main/webapp/WEB-INF/views/common/header.jspf` | Reusable navbar (protected) |
@@ -2472,30 +2651,61 @@ These are returned by `GET /ws/rs/schedule/statuses` as `AppointmentStatusTo1` o
 
 ---
 
-## Appendix E: OscarProperties Feature Gates
+## Appendix E: Feature Gates — Properties, Facility Settings, and User Properties
 
-The current JSP checks **18+ OscarProperties** to conditionally enable features. The new `ProviderDaySchedule2Action` must check all of these and pass them as boolean/string request attributes:
+The current JSP checks **30+ configuration values** from three different sources: OscarProperties (system-wide `.properties` file), Facility settings (database `Facility` table), and UserProperty (per-user database settings). The new actions must check all of these and pass them as request attributes.
+
+### OscarProperties (System-Wide)
 
 | Property Key | Default | Controls |
 |-------------|---------|----------|
 | `ENABLE_EDIT_APPT_STATUS` | `no` | Database-driven status codes vs hardcoded |
 | `IS_HEALTH_CARD_ENABLED` | `true` | HIN version checking indicator (*) |
-| `allowAnonAppts` | `false` | "Add Anonymous Client" button in sub-nav |
-| `phoneEncounterEnabled` | `false` | "Phone Encounter" button in sub-nav |
 | `eform_in_appointment` | `false` | eForm Library link in appointment actions |
-| `intake_form_enabled` | `false` | Intake Form link in appointment actions |
+| `appt_intake_form` | `off` | Intake Form link in appointment actions (check value `on`) |
 | `pregnancy_enabled` | `false` | Pregnancy indicator for patients |
-| `ENABLE_ECONSULT` | `false` | eConsult nav link |
-| `WORKFLOW_ENHANCE` | `false` | Workflow module nav link |
-| `referral_email_enabled` | `false` | Referral management nav link |
+| `hide_eConsult_link` | `false` | eConsult nav link — **inverted logic**: `true` = HIDDEN. Also requires `billregion=ON` |
+| `WORKFLOW` | `yes` | Workflow module nav link (check value `yes`) |
+| `referral_menu` | `no` | Referral management nav link (check value `yes`) |
 | `default_schedule_viewall` | `true` | Default view-all vs scheduled-only |
-| `day_sheet_enabled` | `false` | Day Sheet button per provider |
+| `view.appointmentdaysheetbutton` | `false` | Day Sheet button per provider |
 | `dashboard_display` | (varies) | Dashboard dropdown visibility |
-| `popup_blocker_detection` | `true` | Show popup blocker warning |
 | `billregion` | `ON` | Billing region (ON/BC/generic) — affects billing links |
-| `hide_old_echart_link` | `false` | Hide legacy encounter link |
-| `scheduler.view.weekViews` | `5` | Week view: 5-day or 7-day toggle |
-| `scheduler.view.newPatientLink` | `true` | Show "New Patient" link in add appt |
+| `refresh.appointmentprovideradminday.jsp` | `-1` | Auto-refresh interval in seconds (`-1` = disabled) |
+| `receptionist_alt_view` | `no` | Alternate time slot depth calculation using template period length |
+| `SHOW_APPT_REASON` | `yes` | Default reason display (via `oscarPropertiesCheck` tag) |
+| `SHOW_APPT_REASON_TOOLTIP` | `yes` | Include reason/notes in appointment tooltips |
+| `APPT_SHOW_SHORT_LETTERS` | `false` | Short letter status display vs icon image display |
+| `APPT_SHOW_FULL_NAME` | `false` | Longer patient name display (`lenLimitedL = 25` vs `11`) |
+| `displayAlertsOnScheduleScreen` | `false` | Show "A" alert indicator from DemographicCust |
+| `displayNotesOnScheduleScreen` | `false` | Show "N" notes indicator from DemographicCust |
+| `ENABLE_APPT_DOC_COLOR` | `no` | Show provider color indicator for patient's primary provider |
+| `SHOW_APPT_TYPE_WITH_REASON` | `no` | Prepend appointment type to reason display |
+| `TOGGLE_REASON_BY_PROVIDER` | `yes` | Show per-provider reason toggle button |
+| `NOT_FOR_CAISI` | `yes` | When `no`, hides billing/lab links in TORONTO_RFQ mode |
+| `caisi.search.workflow` | `false` | Routes search to `PMmodule/ClientSearch2.do` (CAISI mode) |
+| `useProgramLocation` | `false` | Adds programId location filter to appointment queries (CAISI) |
+| `resource_base_url` | (varies) | Help link URL base |
+| `indivica_hc_read_enabled` | `false` | Health card reader JavaScript/CSS loading |
+
+### Facility Settings (Database — `loggedInInfo.getCurrentFacility()`)
+
+| Setting | Default | Controls |
+|---------|---------|----------|
+| `isEnableAnonymous()` | `false` | "Add Anonymous Client" button in sub-nav |
+| `isEnablePhoneEncounter()` | `false` | "Phone Encounter" button in sub-nav |
+
+### UserProperty (Per-User Database Settings — `UserPropertyDAO`)
+
+| Property Constant | Default | Controls |
+|-------------------|---------|----------|
+| `UserProperty.HIDE_OLD_ECHART_LINK_IN_APPT` | `false` | Hide legacy encounter link |
+| `UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS` | `false` | 5-day vs 7-day week view toggle |
+| `UserProperty.COLOR_PROPERTY` | (none) | Provider's display color |
+| `resource_helpHtml` user property | (none) | Inline help HTML panel (sliding div with close button) |
+| `resource_baseurl` user property | (none) | Per-user help URL override |
+| `caisiBillingPreferenceNotDelete` | `0` | Controls billing edit vs delete mode in CAISI |
+| `defaultServiceType` | (varies) | Default service type for add-appointment popup |
 
 ### Auto-Refresh Mechanism
 
@@ -2503,9 +2713,9 @@ The current JSP uses a **`<meta http-equiv="refresh">`** tag (NOT a JavaScript `
 ```html
 <meta http-equiv="refresh" content="300">
 ```
-This causes a full page reload every 5 minutes (300 seconds). The configurable interval comes from `ProviderPreference.refreshEvery`.
+This causes a full page reload every 5 minutes (300 seconds). The configurable interval comes from `OscarProperties.refresh.appointmentprovideradminday.jsp` (NOT `ProviderPreference.refreshEvery` — that is a different setting). A value of `"-1"` disables auto-refresh.
 
-**New approach:** Replace with JavaScript `setInterval` calling `refreshAllCalendars()` — this is better UX (no full page reload, preserves scroll position, doesn't flash the screen).
+**New approach:** Replace with JavaScript `setInterval` calling `refreshAllCalendars()`. Read the interval from the OscarProperties value. This is better UX (no full page reload, preserves scroll position, doesn't flash the screen).
 
 ---
 
@@ -2573,7 +2783,7 @@ This migration transforms a 2400-line monolithic JSP into a clean MVC architectu
 | JavaScript | jQuery 1.12 + Prototype.js + inline | Vanilla JS + FullCalendar + Bootstrap |
 | Navigation | 4 duplicate copies | 1 shared header.jspf in WEB-INF |
 | JSP protection | All public (URL-accessible) | New views in WEB-INF/views/ (incremental) |
-| Security | oscarSec tags + inline checks | Interceptor + Action + oscarSec tags |
+| Security | oscarSec tags + inline checks | Servlet filter + Action + oscarSec tags |
 | Reschedule | Manual edit via popup only | Drag-and-drop + resize + popup edit |
 | Status updates | Full page reload | AJAX POST to REST endpoint + local refresh |
 | Auto-refresh | `<meta http-equiv="refresh">` (full reload) | JS `setInterval` (AJAX, no flash) |
