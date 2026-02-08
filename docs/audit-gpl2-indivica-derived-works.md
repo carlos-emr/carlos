@@ -226,4 +226,200 @@ GPL-2-only is therefore inaccurate for these derived works.
 | Extends GPL-2+ AbstractDaoImpl | 16 |
 | Extends GPL-2+ AbstractDao (interface) | 4 |
 | Extends GPL-2+ AbstractModel | 17 |
-| **Total (with overlaps removed)** | **~50** |
+| JSP files including GPL-2+ via `<%@ include %>` or `<jsp:include>` | 7 |
+| **Total (with overlaps removed)** | **~57** |
+
+---
+
+## Category 6: JSP/JSPF Files Including GPL-2+ Code
+
+A comprehensive file-by-file audit of all 45 Indivica GPL-2-only JSP/JSPF files
+(plus 2 JS/CSS files) found that **7 files** include GPL-2+ code via JSP include
+directives. The remaining 38 JSP files and 2 JS/CSS files contain no GPL-2+ includes
+and show no evidence of derivation.
+
+### GPL-2+ Files That Are Included
+
+These 4 unique GPL-2+ files are statically or dynamically included by Indivica
+GPL-2-only JSPs:
+
+| Included File | Copyright Holder | License |
+|---|---|---|
+| `/common/webAppContextAndSuperMgr.jsp` | CRIICH/St. Michael's Hospital 2005-2012 | GPL-2+ |
+| `/casemgmt/taglibs.jsp` | CRIICH/St. Michael's Hospital 2005-2012 | GPL-2+ |
+| `/documentManager/showDocument.jsp` | McMaster University 2001-2002 | GPL-2+ |
+| `/lab/CA/ALL/labDisplayAjax.jsp` | McMaster University 2001-2002 | GPL-2+ |
+| `/images/spinner.jsp` | KAI Innovations 2014-2015 | GPL-2+ |
+
+### 6a. Static Includes (`<%@ include %>`) - Compiled Into the JSP
+
+Static includes cause the included file's source to be textually inserted into the
+including file at compile time. The compiled servlet is a single combined work.
+
+**DiabFlowSheet.jsp**
+- **File**: `src/main/webapp/oscarEncounter/oscarMeasurements/DiabFlowSheet.jsp`
+- **Line 40**: `<%@ include file="/common/webAppContextAndSuperMgr.jsp" %>`
+- **Included file**: CRIICH/St. Michael's Hospital, GPL-2+
+- **Impact**: GPL-2+ code compiled directly into GPL-2-only JSP
+
+**oscarStatus.jsp**
+- **File**: `src/main/webapp/admin/oscarStatus.jsp`
+- **Line 17**: `<%@ include file="/casemgmt/taglibs.jsp" %>`
+- **Included file**: CRIICH/St. Michael's Hospital, GPL-2+
+- **Impact**: GPL-2+ taglib declarations compiled into GPL-2-only JSP
+
+**rebootConfirmation.jsp**
+- **File**: `src/main/webapp/admin/rebootConfirmation.jsp`
+- **Line 17**: `<%@ include file="/casemgmt/taglibs.jsp" %>`
+- **Included file**: CRIICH/St. Michael's Hospital, GPL-2+
+- **Impact**: GPL-2+ taglib declarations compiled into GPL-2-only JSP
+
+**formIntake.jsp**
+- **File**: `src/main/webapp/provider/formIntake.jsp`
+- **Line 21**: `<%@ include file="/common/webAppContextAndSuperMgr.jsp" %>`
+- **Included file**: CRIICH/St. Michael's Hospital, GPL-2+
+- **Impact**: GPL-2+ code compiled directly into GPL-2-only JSP
+
+**olis_preferences.jsp**
+- **File**: `src/main/webapp/provider/olis_preferences.jsp`
+- **Line 16**: `<%@ include file="/casemgmt/taglibs.jsp" %>`
+- **Included file**: CRIICH/St. Michael's Hospital, GPL-2+
+- **Impact**: GPL-2+ taglib declarations compiled into GPL-2-only JSP
+
+### 6b. Dynamic Includes (`<jsp:include>`) - Runtime Inclusion
+
+Dynamic includes invoke the included JSP as a separate servlet at runtime. The
+output is combined into a single response.
+
+**Page.jsp**
+- **File**: `src/main/webapp/oscarMDS/Page.jsp`
+- **Line 249**: `<jsp:include page="/documentManager/showDocument.jsp" flush="true">`
+  - McMaster University 2001-2002, GPL-2+
+- **Line 280**: `<jsp:include page="/lab/CA/ALL/labDisplayAjax.jsp" flush="true">`
+  - McMaster University 2001-2002, GPL-2+
+- **Impact**: Dynamically includes 2 GPL-2+ JSPs as integral parts of page output
+
+**Index.jsp**
+- **File**: `src/main/webapp/oscarMDS/Index.jsp`
+- **Line 131**: `<jsp:include page="/images/spinner.jsp"/>`
+  - KAI Innovations 2014-2015, GPL-2+
+- **Impact**: Dynamically includes GPL-2+ spinner component
+
+---
+
+## Category 6 - Complete File-by-File JSP Audit Results
+
+Every Indivica GPL-2-only JSP/JSPF file was individually audited. Files marked
+CLEAR have no GPL-2+ includes and no evidence of derivation.
+
+### oscarMDS/ (5 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `Index.jsp` | **DERIVED** | `<jsp:include page="/images/spinner.jsp"/>` (GPL-2+) |
+| `Page.jsp` | **DERIVED** | `<jsp:include>` of showDocument.jsp + labDisplayAjax.jsp (both GPL-2+) |
+| `SelectProviderSimple.jsp` | CLEAR | No includes, self-contained |
+| `Split.jsp` | CLEAR | No includes, self-contained |
+| `Splitclose.jsp` | CLEAR | No includes, minimal 20-line script |
+
+### hospitalReportManager/ (11 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `ajaxResponse.jsp` | CLEAR | No includes |
+| `disable_msg_action.jsp` | CLEAR | No includes |
+| `displayHRMDocList.jsp` | CLEAR | No includes |
+| `displayHRMReport.jsp` | CLEAR | No includes |
+| `hospitalReportManager.jsp` | CLEAR | No includes |
+| `hrmAddClassMapping.jsp` | CLEAR | No includes |
+| `hrmCategories.jsp` | CLEAR | No includes |
+| `hrmKeyUploader.jsp` | CLEAR | No includes |
+| `hrmPreferences.jsp` | CLEAR | No includes |
+| `hrmShowMapping.jsp` | CLEAR | No includes |
+| `hrm_categories_action.jsp` | CLEAR | No includes |
+
+### olis/ (6 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `ajaxResponse.jsp` | CLEAR | No includes |
+| `Preferences.jsp` | CLEAR | No includes |
+| `Results.jsp` | CLEAR | No includes |
+| `Search.jsp` | CLEAR | No includes (iframe to Simulate.jsp is not a JSP include) |
+| `SearchSimulator.jsp` | CLEAR | No includes |
+| `Simulate.jsp` | CLEAR | No includes |
+
+### oscarEncounter/ (4 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `attachConsultation2.jsp` | CLEAR | No includes; no predecessor file found |
+| `displayImage.jsp` | CLEAR | No includes |
+| `DiabFlowSheet.jsp` | **DERIVED** | `<%@ include file="/common/webAppContextAndSuperMgr.jsp" %>` (GPL-2+) |
+| `FlowUpdate.jsp` | CLEAR | No includes, minimal error page |
+
+### documentManager/ (4 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `addNewDocumentCategories.jsp` | CLEAR | No includes |
+| `changeStatus.jsp` | CLEAR | No includes |
+| `documentUploader.jsp` | CLEAR | No includes |
+| `documentUploaderFirefox36.jsp` | CLEAR | No includes |
+
+### eform/ (3 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `efmformapconfig_lookup.jsp` | CLEAR | No includes |
+| `efmformrtl_config.jsp` | CLEAR | No includes |
+| `efmformrtl_templates.jsp` | CLEAR | No includes |
+
+### admin/ (4 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `clinicNbrManage.jsp` | CLEAR | No includes |
+| `displayDocumentCategories.jsp` | CLEAR | No includes |
+| `oscarStatus.jsp` | **DERIVED** | `<%@ include file="/casemgmt/taglibs.jsp" %>` (GPL-2+) |
+| `rebootConfirmation.jsp` | **DERIVED** | `<%@ include file="/casemgmt/taglibs.jsp" %>` (GPL-2+) |
+
+### billing/CA/ON/ (2 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `billingLreport.jsp` | CLEAR | No includes |
+| `viewMOHFiles.jsp` | CLEAR | No includes |
+
+### provider/ (3 files)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `caseload.jspf` | CLEAR | No includes |
+| `formIntake.jsp` | **DERIVED** | `<%@ include file="/common/webAppContextAndSuperMgr.jsp" %>` (GPL-2+) |
+| `olis_preferences.jsp` | **DERIVED** | `<%@ include file="/casemgmt/taglibs.jsp" %>` (GPL-2+) |
+
+### lab/CA/ALL/ (1 file)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `labDisplayOLIS.jsp` | CLEAR | No includes |
+
+### library/eforms/ (1 file)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `signatureControl.jsp` | CLEAR | No includes |
+
+### signature_pad/ (1 file)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `tabletSignature.jsp` | CLEAR | No includes |
+
+### casemgmt/ (2 files - JS/CSS)
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `noteProgram.js` | CLEAR | JavaScript, no includes |
+| `noteProgram.css` | CLEAR | CSS, no includes |
