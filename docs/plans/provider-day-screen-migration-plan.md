@@ -210,14 +210,17 @@ src/main/java/.../schedule/
     └── ProviderHeaderDto.java              # NEW: Provider header metadata
 
 src/main/webapp/
-├── WEB-INF/classes/struts.xml              # MODIFY: Add new action mappings
+├── WEB-INF/
+│   ├── classes/struts.xml                  # MODIFY: Add new action mappings
+│   └── views/                              # NEW: Protected JSP directory
+│       ├── common/
+│       │   ├── header.jspf                 # NEW: Reusable Bootstrap 5 navbar
+│       │   ├── head-includes.jspf          # NEW: Shared CSS/JS includes
+│       │   └── footer.jspf                 # NEW: Shared footer/scripts
+│       └── provider/
+│           └── providerDaySchedule.jsp     # NEW: Main day view (JSTL/EL, no scriptlets)
 ├── provider/
-│   ├── providerDaySchedule.jsp             # NEW: Main day view (JSTL/EL, no scriptlets)
 │   └── providercontrol.jsp                 # MODIFY: Route "day" to new action
-├── common/
-│   ├── header.jspf                         # NEW: Reusable Bootstrap 5 navbar
-│   ├── head-includes.jspf                  # NEW: Shared CSS/JS includes
-│   └── footer.jspf                         # NEW: Shared footer/scripts
 ├── js/
 │   ├── schedule/
 │   │   ├── provider-day-schedule.js        # NEW: FullCalendar initialization + event handling
@@ -240,6 +243,38 @@ src/main/webapp/
             └── icons/
                 └── bootstrap-icons.min.css  # NEW: Bootstrap Icons CSS
 ```
+
+### WEB-INF Protection: Incremental Adoption Strategy
+
+**The codebase currently places all JSPs in public webapp directories.** This migration introduces the `WEB-INF/views/` pattern for new files, establishing a convention that future module migrations will follow.
+
+**Why this works incrementally:**
+- Struts2 actions forward to `WEB-INF/views/` paths — the servlet container handles the internal dispatch
+- Old public JSPs continue working unchanged — no mass migration needed
+- Shared JSPFs in `WEB-INF/views/common/` are accessible via `<jsp:include>` from ANY JSP (the include is server-side, so WEB-INF paths resolve correctly)
+- Each module migration moves its new JSP into `WEB-INF/views/` as part of its rewrite — the old public JSP stays as a fallback until validation
+
+**How old pages use the new shared header:**
+```jsp
+<%-- This works from a public JSP like /provider/appointmentprovideradminmonth.jsp --%>
+<jsp:include page="/WEB-INF/views/common/header.jspf" />
+```
+The `<jsp:include>` is a server-side RequestDispatcher forward — it can reach WEB-INF because it never goes through the public URL resolution path. The browser never sees or accesses the JSPF directly.
+
+**Migration progression:**
+```
+Today:      100% public JSPs, 0% WEB-INF
+Phase 1:    Shared templates in WEB-INF/views/common/ (header, footer, head-includes)
+Phase 2-4:  Schedule day view in WEB-INF/views/provider/
+Next module: WEB-INF/views/<module>/
+...
+Eventually: Most active JSPs in WEB-INF/views/, legacy JSPs still public
+```
+
+**What stays public (must be directly URL-accessible):**
+- Static resources: CSS, JS, images, vendor libraries
+- Legacy JSPs that are still accessed directly (until each is migrated)
+- `providercontrol.jsp` (the router — until it's replaced by the Action)
 
 ### Data Flow
 
@@ -316,7 +351,7 @@ src/main/webapp/
 
 ### Phase 1.2: Reusable Header JSPF
 
-**File**: `src/main/webapp/common/header.jspf`
+**File**: `src/main/webapp/WEB-INF/views/common/header.jspf`
 
 This is the single-source-of-truth navigation bar, replacing the 4 current copies. Design decisions:
 
@@ -388,7 +423,7 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
 3. **Active page highlighting**: The including page passes a parameter:
    ```jsp
    <c:set var="activeNav" value="schedule" scope="request" />
-   <jsp:include page="/common/header.jspf" />
+   <jsp:include page="/WEB-INF/views/common/header.jspf" />
    ```
    The header uses: `<li class="nav-item ${activeNav == 'schedule' ? 'active' : ''}">`
 
@@ -407,7 +442,7 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
 
 ### Phase 1.3: Shared Head Includes and Footer
 
-**`src/main/webapp/common/head-includes.jspf`**:
+**`src/main/webapp/WEB-INF/views/common/head-includes.jspf`**:
 ```jsp
 <%-- Common CSS --%>
 <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
@@ -417,7 +452,7 @@ This is the single-source-of-truth navigation bar, replacing the 4 current copie
 <script src="${pageContext.request.contextPath}/csrfguard"></script>
 ```
 
-**`src/main/webapp/common/footer.jspf`**:
+**`src/main/webapp/WEB-INF/views/common/footer.jspf`**:
 ```jsp
 <%-- Common JS --%>
 <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
@@ -696,10 +731,12 @@ public class ProviderDaySchedule2Action extends ActionSupport {
 ```xml
 <action name="provider/Day"
         class="io.github.carlos_emr.carlos.provider.web.ProviderDaySchedule2Action">
-    <result name="success">/provider/providerDaySchedule.jsp</result>
+    <result name="success">/WEB-INF/views/provider/providerDaySchedule.jsp</result>
     <result name="security-error">/securityError.jsp</result>
 </action>
 ```
+
+Note: The result path points to `WEB-INF/views/` — the JSP is not directly URL-accessible. Only the Struts2 action can forward to it. This is the first action to use the new protected path convention.
 
 ### Phase 3.3: Update providercontrol.jsp Router
 
@@ -718,7 +755,7 @@ Or better: have the login redirect go directly to `provider/Day.do` instead of `
 
 ### Phase 4.1: Page Structure
 
-**File**: `src/main/webapp/provider/providerDaySchedule.jsp`
+**File**: `src/main/webapp/WEB-INF/views/provider/providerDaySchedule.jsp`
 
 ```jsp
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -735,7 +772,7 @@ Or better: have the login redirect go directly to `provider/Day.do` instead of `
     <title><fmt:message key="provider.appointmentProviderAdminDay.title"/></title>
 
     <%-- Shared includes --%>
-    <jsp:include page="/common/head-includes.jspf" />
+    <jsp:include page="/WEB-INF/views/common/head-includes.jspf" />
 
     <%-- FullCalendar --%>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/js/vendor/fullcalendar/index.global.min.css">
@@ -745,7 +782,7 @@ Or better: have the login redirect go directly to `provider/Day.do` instead of `
 
   <%-- === SHARED HEADER === --%>
   <c:set var="activeNav" value="schedule" scope="request" />
-  <jsp:include page="/common/header.jspf" />
+  <jsp:include page="/WEB-INF/views/common/header.jspf" />
 
   <%-- === SCHEDULE SUB-NAVIGATION === --%>
   <nav class="navbar navbar-light bg-light fixed-top carlos-subnav"
@@ -856,7 +893,7 @@ Or better: have the login redirect go directly to `provider/Day.do` instead of `
   </script>
 
   <%-- === SCRIPTS === --%>
-  <jsp:include page="/common/footer.jspf" />
+  <jsp:include page="/WEB-INF/views/common/footer.jspf" />
   <script src="${pageContext.request.contextPath}/js/vendor/fullcalendar/index.global.min.js"></script>
   <script src="${pageContext.request.contextPath}/js/vendor/fullcalendar/bootstrap5.global.min.js"></script>
   <script src="${pageContext.request.contextPath}/js/schedule/schedule-utils.js"></script>
@@ -1600,9 +1637,17 @@ After the schedule migration proves the header works, roll it out to other pages
 
 Each migration follows the same pattern:
 1. Create a `*2Action.java` that prepares the model
-2. Update the JSP to `<jsp:include page="/common/header.jspf" />`
-3. Remove the inline header code
-4. Test security gating and badge counts
+2. Create new JSP in `WEB-INF/views/<module>/` with `<jsp:include page="/WEB-INF/views/common/header.jspf" />`
+3. Point Struts action result to the WEB-INF path
+4. Remove the inline header code from old JSP (or replace old JSP entirely)
+5. Test security gating and badge counts
+
+**Transitional option**: If a page can't be fully migrated yet but should use the shared header, existing public JSPs can include it too:
+```jsp
+<%-- Works from /provider/appointmentprovideradminmonth.jsp (public) --%>
+<jsp:include page="/WEB-INF/views/common/header.jspf" />
+```
+This lets the shared header roll out ahead of each page's full migration to WEB-INF.
 
 ---
 
@@ -1621,10 +1666,10 @@ Each migration follows the same pattern:
 | `src/main/java/.../schedule/dto/ConfigDto.java` | Config DTO |
 | `src/main/java/.../schedule/dto/StatusDto.java` | Status rendering DTO |
 | `src/main/java/.../web/interceptor/RoleNameInterceptor.java` | Security interceptor |
-| `src/main/webapp/common/header.jspf` | Reusable navbar |
-| `src/main/webapp/common/head-includes.jspf` | Shared CSS/JS includes |
-| `src/main/webapp/common/footer.jspf` | Shared footer |
-| `src/main/webapp/provider/providerDaySchedule.jsp` | New day view |
+| `src/main/webapp/WEB-INF/views/common/header.jspf` | Reusable navbar (protected) |
+| `src/main/webapp/WEB-INF/views/common/head-includes.jspf` | Shared CSS/JS includes (protected) |
+| `src/main/webapp/WEB-INF/views/common/footer.jspf` | Shared footer (protected) |
+| `src/main/webapp/WEB-INF/views/provider/providerDaySchedule.jsp` | New day view (protected) |
 | `src/main/webapp/js/schedule/provider-day-schedule.js` | FullCalendar init |
 | `src/main/webapp/js/schedule/schedule-utils.js` | Shared utilities |
 | `src/main/webapp/js/schedule/nav-alerts.js` | Badge refresh |
@@ -1643,7 +1688,7 @@ Each migration follows the same pattern:
 ### Deleted (After Validation)
 | File | Reason |
 |------|--------|
-| `src/main/webapp/provider/providerheader-classic.jspf` | Replaced by header.jspf |
+| `src/main/webapp/provider/providerheader-classic.jspf` | Replaced by WEB-INF/views/common/header.jspf |
 | `src/main/webapp/provider/schedulePage.js.jsp` | Logic moved to static JS |
 | (Optional) `src/main/webapp/css/receptionistapptstyle.css` | Replaced (keep until all pages migrated) |
 
@@ -1672,7 +1717,8 @@ This migration transforms a 2400-line monolithic JSP into a clean MVC architectu
 | CSS framework | Custom + Bootstrap 3 fragments | Bootstrap 5.3.3 |
 | Calendar | Custom HTML table grid | FullCalendar 6.1.x Standard (MIT) |
 | JavaScript | jQuery 1.12 + Prototype.js + inline | Vanilla JS + FullCalendar + Bootstrap |
-| Navigation | 4 duplicate copies | 1 shared header.jspf |
+| Navigation | 4 duplicate copies | 1 shared header.jspf in WEB-INF |
+| JSP protection | All public (URL-accessible) | New views in WEB-INF/views/ (incremental) |
 | Security | oscarSec tags + inline checks | Interceptor + Action + oscarSec tags |
 | Status updates | Full page reload | AJAX POST + local refresh |
 | Mobile support | Separate CSS file | Bootstrap 5 responsive grid |
