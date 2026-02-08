@@ -619,7 +619,7 @@ public class AppointmentSlotDto {
     private boolean hasTickler;
     private boolean hasAlert;
     private boolean hasNotes;
-    private boolean versionMismatch;    // Health card version check
+    private boolean versionMismatch;    // HIN version check: true when ver.equals("##") — string sentinel, NOT date comparison
     private String rosterStatus;        // FS, NR, PL, etc.
     private boolean hasPrevWarning;     // Prevention stop sign
     private boolean isBirthday;
@@ -744,6 +744,8 @@ public class ScheduleDayData2Action extends ActionSupport {
         //       - Demographic data (name, alias, pronouns, HIN version, roster)
         //       - Tickler count
         //       - Alert/notes from DemographicCust
+        //         NOTE: Notes uses SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
+        //         to extract user notes from XML-formatted DemographicCust.notes field
         //       - Prevention warnings
         //       - Birthday check
         // 4. Assemble DayViewResponse
@@ -815,9 +817,17 @@ if (status.indexOf('B') < 0) {
         + "&start_time=" + startTime
         + "&hotclick=&xml_provider=" + providerNo
         + "&bNewForm=1";
-// NOTE: caisiPref is loaded from userPropertyDao: caisiBillingPreferenceNotDelete
+// NOTE: caisiPref (caisiBillingPreferenceNotDelete) is loaded from userPropertyDao.
+// IMPORTANT: In the original JSP, this variable is declared (line ~293) but the
+// userPropertyDao.getProp() call to populate it is NEVER executed — it's initialized
+// to null and stays null. This means the "edit" branch below is effectively DEAD CODE
+// in the original. The new Action should ACTUALLY load this property from the DB
+// (fixing this latent bug), so CAISI users with this preference get edit mode.
 } else if ("ON".equals(billingRegion) && "1".equals(caisiPref)) {
     // Ontario + CAISI → Edit billing (no delete allowed)
+    // NOTE: Edit path is HARDCODED to CA/ON/ (Ontario) in original JSP.
+    // Delete path below uses dynamic billingRegion. This asymmetry is
+    // original behavior — edit mode only works for Ontario billing.
     billingMode = "edit";
     billingURL = request.getContextPath()
         + "/billing/CA/ON/billingEditWithApptNo.jsp"
@@ -1098,6 +1108,13 @@ public class ProviderDaySchedule2Action extends ActionSupport {
             session.getAttribute("expired_days") != null
                 ? session.getAttribute("expired_days") : "");
         // CBI Reminder — CAISI-only, read from session
+        // NOTE: The server-side code that POPULATES session.setAttribute("cbiReminderWindow",...)
+        // is COMPLETELY COMMENTED OUT in the original appointmentprovideradminday.jsp
+        // (lines 303-309). The JavaScript load() function in schedulePage.js.jsp
+        // still reads and displays it, but the session attribute is never set by
+        // this page. It may be set by another CAISI code path (e.g., login flow).
+        // Preserving this code for compatibility — if the session attribute is
+        // somehow populated elsewhere, it will still display correctly.
         String cbiReminder = "";
         if (IsPropertiesOn.isCaisiEnable()
             && IsPropertiesOn.propertiesOn("CBI_REMINDER_WINDOW")) {
@@ -1862,6 +1879,12 @@ This is the main JavaScript file. Key aspects:
     // Action links — each has specific window name and dimensions from current JSP.
     // storeApptNo() is called before E/M/Rx to set session attribute for cross-popup context.
     // Billing has 3 modes based on appointment billing status (see Appendix D checklist).
+    //
+    // PRE-EXISTING BUG NOTE: In the original schedulePage.js.jsp, popupWithApptNo()
+    // calls popup() for 'master' and 'encounter' types, but popup() is NEVER DEFINED
+    // in that file (lines 299-307). The E and M links in the original JSP thus fail
+    // silently when triggered via popupWithApptNo(). The new implementation bypasses
+    // this bug entirely by using openPopup() directly.
     if (config.hasDoctorLinkRights) {
       actions.appendChild(createActionLink('E', appt.encounterUrl, 'Encounter',
         'encounter', 710, 1024, appt.id));
@@ -1890,17 +1913,24 @@ This is the main JavaScript file. Key aspects:
         'oscarRx', 700, 1027, appt.id));
     }
     // eForm Library link (property-gated: eform_in_appointment=true)
+    // Original JSP has an additional space-based visibility condition:
+    //   shown only when name is NOT truncated (len == lenLimitedL) OR in
+    //   multi-provider view (view != 0) OR only 1 available provider.
+    // This prevents the F link from crowding small cells. The new view
+    // replicates this via a config flag or CSS media query approach.
     if (config.eformInAppointment && appt.demographicNo) {
       actions.appendChild(createActionLink('F',
         config.contextPath + '/eform/efmformslistadd.jsp?demographic_no=' + appt.demographicNo
-          + '&appointment=' + appt.id,
-        'eForm Library', 'eformLibrary', 500, 1024, null));
+          + '&appointment=' + appt.id
+          + '&parentAjaxId=forms',
+        'eForm Library', 'apptProviderSearch', 500, 1024, null));
     }
     // Intake Form link (property-gated: appt_intake_form=on)
     if (config.intakeFormEnabled && appt.demographicNo) {
+      // Window name 'apptProviderSearch' matches original popupPage2() default
       actions.appendChild(createActionLink('In',
         config.contextPath + '/formIntake.jsp?demographic_no=' + appt.demographicNo,
-        'Intake Form', 'intakeForm', 700, 1024, null));
+        'Intake Form', 'apptProviderSearch', 700, 1024, null));
     }
 
     row1.appendChild(actions);
@@ -1935,13 +1965,15 @@ This is the main JavaScript file. Key aspects:
           e.stopPropagation();
           // Forms need demographic_no in the URL
           var formUrl = link.url.replace('{demographic_no}', appt.demographicNo || '');
-          openPopup(formUrl, 'formWindow', 700, 1024);
+          // Window name 'apptProviderSearch' matches original popupPage2() default
+          openPopup(formUrl, 'apptProviderSearch', 700, 1024);
         });
         formRow.appendChild(a);
       });
       container.appendChild(formRow);
     }
-    // Similar rendering for eFormLinks and quickLinks (same pattern as formLinks)
+    // Similar rendering for eFormLinks and quickLinks (same pattern as formLinks).
+    // All use window name 'apptProviderSearch' (matching original popupPage2() default).
 
     return { domNodes: [container] };
   }
@@ -2127,11 +2159,10 @@ This is the main JavaScript file. Key aspects:
    * has Delete/Cancel/No Show buttons). The day schedule does NOT handle deletion
    * directly — it only opens the edit popup, which manages all lifecycle operations.
    *
-   * Current JSP has TWO edit paths with different window sizes:
-   *   - Empty slot tooltip: demographic_no=0, 600×780
-   *   - Patient name click: demographic_no=<actual>, 535×860
-   * We use the patient name path since FullCalendar eventClick gives us the appointment
-   * data including demographicNo.
+   * Current JSP has TWO edit paths with DIFFERENT window sizes:
+   *   - Empty slot (demographic_no=0): 600×780 — via time slot tooltip link
+   *   - Regular appointment (has patient): 535×860 — via patient name click
+   * Both must be preserved. The new view distinguishes by demographicNo.
    */
   function openEditAppointment(appointmentNo, providerNo, demographicNo, startTime) {
     const params = new URLSearchParams({
@@ -2147,8 +2178,12 @@ This is the main JavaScript file. Key aspects:
       dboperation: 'search'
     });
     const url = config.contextPath + '/appointment/appointmentcontrol.jsp?' + params.toString();
-    // 535×860 matches the "patient name click" path in current JSP (line 2052)
-    openPopup(url, 'apptProvider', 535, 860);
+    // TWO dimension sets matching original JSP:
+    //   Empty slot (demographic_no=0): 600×780 (from JSP tooltip link)
+    //   Regular appointment: 535×860 (from patient name click, JSP line 2052)
+    var popupH = (!demographicNo || demographicNo === 0) ? 600 : 535;
+    var popupW = (!demographicNo || demographicNo === 0) ? 780 : 860;
+    openPopup(url, 'apptProvider', popupH, popupW);
   }
 
   function openPopup(url, windowName, height, width) {
@@ -2206,6 +2241,9 @@ This is the main JavaScript file. Key aspects:
    * Stores appointment_no in the HTTP session via AJAX (for cross-popup context).
    * Matches storeApptInSession.jsp which sets session.setAttribute("cur_appointment_no", ...).
    * Used by E/M/Rx popups that need to know which appointment they were launched from.
+   *
+   * NOTE: Original schedulePage.js.jsp uses Prototype.js Ajax.Request for this call
+   * (lines 42-45). Modernized to fetch() — fire-and-forget, no response needed.
    */
   function storeApptNo(apptNo) {
     fetch(config.contextPath + '/provider/storeApptInSession.jsp?appointment_no=' +
@@ -2228,6 +2266,8 @@ This is the main JavaScript file. Key aspects:
         if (el && html && html.trim()) { el.innerHTML = html; el.classList.remove('d-none'); }
       })
       .catch(function() { /* non-critical */ });
+    // FacilityMessage.do maps to OrganizationMessage2Action in struts.xml
+    // (NOT a hypothetical FacilityMessage2Action — the naming is asymmetric)
     fetch(config.contextPath + '/FacilityMessage.do')
       .then(function(r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -2365,8 +2405,11 @@ This is the main JavaScript file. Key aspects:
   /**
    * Shows CBI Reminder Window alert when CAISI is enabled and a reminder exists.
    * Matches schedulePage.js.jsp load() CBI check.
-   * The reminder text is set server-side in the session; after displaying it once,
-   * the Action clears the session attribute.
+   *
+   * NOTE: The server-side code that populates the cbiReminderWindow session
+   * attribute is COMMENTED OUT in the original JSP (lines 303-309). This
+   * function may never trigger unless another CAISI code path sets the
+   * session attribute. Preserved for compatibility.
    */
   function checkCBIReminder() {
     var el = document.getElementById('schedule-config');
@@ -2407,6 +2450,10 @@ This is the main JavaScript file. Key aspects:
   window.refreshSchedule = refreshAllCalendars;
   // Compatibility shims: existing popups call window.opener.refresh() / refresh1()
   window.refresh = refreshAllCalendars;
+  // NOTE: Original refresh1() (schedulePage.js.jsp lines 314-321) also replaces
+  // view=1 with view=0 in the URL (switching from single-provider back to multi).
+  // The new view uses hash-based state, so this view-switching is handled
+  // automatically — refreshAllCalendars re-reads hash state. Simple alias is correct.
   window.refresh1 = refreshAllCalendars;
 
 })();
@@ -2603,7 +2650,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] Patient name (with alias and pronouns)
 - [ ] Birthday cake icon
 - [ ] Multi-site color indicator
-- [ ] Provider color indicator — `ENABLE_APPT_DOC_COLOR`: Shows the patient's **primary** provider color (NOT the schedule column's provider). Read from `UserPropertyDAO.COLOR_PROPERTY` for the patient's family doctor, not the appointment provider. Implemented in `ScheduleDayData2Action` enrichment loop.
+- [ ] Provider color indicator — `ENABLE_APPT_DOC_COLOR`: Shows the patient's **primary** provider color (NOT the schedule column's provider). Read from `UserPropertyDAO.COLOR_PROPERTY` for the patient's family doctor, not the appointment provider. **IMPORTANT**: In the original JSP, this indicator is ONLY shown when `view==1` (single provider zoom view, JSP line ~2157). The new view should include this data in the DTO but only render the color indicator when in single-provider view mode (zoomed). Implemented in `ScheduleDayData2Action` enrichment loop; rendered conditionally in `renderAppointmentContent()`.
 - [ ] **E** (Encounter) link → opens encounter popup
 - [ ] **B** (Billing) link → opens billing (or delete/edit if already billed)
 - [ ] **M** (Master File) link → opens demographic popup
@@ -2661,7 +2708,7 @@ Every feature of the current screen must be preserved. This checklist tracks eac
 - [ ] `TORONTO_RFQ` module load checks (hides nav items when active)
 - [ ] `caisi.search.workflow` property (routes search to `PMmodule/ClientSearch2.do`)
 - [ ] `useProgramLocation` property (adds programId filter to appointment queries)
-- [ ] CBI Reminder Window alert on page load (CAISI mode)
+- [ ] CBI Reminder Window alert on page load (CAISI mode) — **NOTE**: Server-side population code is COMMENTED OUT in original JSP (lines 303-309); the session attribute may be set by another CAISI code path. Preserve the client-side check for compatibility.
 - [ ] `|P` (Program Management) link per appointment when CAISI enabled — add to `createActionLink` set in `renderAppointmentContent` when `config.caisiEnabled`. Link opens PMmodule client view for the demographic.
 
 ### Security Objects (Access Control)
@@ -3045,7 +3092,7 @@ The current JSP checks **30+ configuration values** from three different sources
 | Property Key | Default | Controls |
 |-------------|---------|----------|
 | `ENABLE_EDIT_APPT_STATUS` | `no` | Database-driven status codes vs hardcoded |
-| ~~`IS_HEALTH_CARD_ENABLED`~~ | N/A | **REMOVED** — This property does not exist in the codebase. HIN version checking is unconditional (always runs when demographic data is available). The `*` indicator in the appointment cell is based on a date comparison between the demographic's HIN expiry date and today — no property gate. |
+| ~~`IS_HEALTH_CARD_ENABLED`~~ | N/A | **REMOVED** — This property does not exist in the codebase. HIN version checking is unconditional (always runs when demographic data is available). The `*` indicator is based on a **string comparison** checking if the demographic's HIN version field equals `"##"` (the literal two-character string) — see JSP line ~2000: `"##".compareTo(ver.toString()) == 0`. This is NOT a date comparison — it checks for a sentinel value indicating no valid version. No property gate. |
 | `eform_in_appointment` | `false` | eForm Library link in appointment actions |
 | `appt_intake_form` | `off` | Intake Form link in appointment actions (check value `on`) |
 | `appt_pregnancy` | `false` | Pregnancy indicator for patients (JSP line 2211 uses `getBooleanProperty("appt_pregnancy", "false")` — NOT `pregnancy_enabled`) |
@@ -3089,7 +3136,7 @@ The current JSP checks **30+ configuration values** from three different sources
 | `UserPropertyDAO.COLOR_PROPERTY` (`"ProviderColour"`) | (none) | Provider's display color. **Note**: The constant is on `UserPropertyDAO`, NOT `UserProperty`. |
 | `resource_helpHtml` user property | (none) | Inline help HTML panel (sliding div with close button) |
 | `resource_baseurl` user property | (none) | Per-user help URL override |
-| `caisiBillingPreferenceNotDelete` | `0` | Controls billing edit vs delete mode in CAISI |
+| `caisiBillingPreferenceNotDelete` | `0` | Controls billing edit vs delete mode in CAISI. **NOTE**: In the original JSP, this property is declared but never loaded from the DB (effectively dead code). The new Action should actually load it — fixing this latent bug so CAISI users with this preference get billing edit mode instead of delete. |
 | `defaultServiceType` | (varies) | Default service type for add-appointment popup |
 
 ### Auto-Refresh Mechanism
