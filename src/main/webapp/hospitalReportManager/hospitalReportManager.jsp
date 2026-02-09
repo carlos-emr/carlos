@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
 <%@ page
-        import="io.github.carlos_emr.carlos.hospitalReportManager.SFTPConnector, io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMProviderConfidentialityStatementDao" %>
+        import="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMProviderConfidentialityStatementDao" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -132,10 +132,6 @@
 
 
         <script>
-            function runFetch() {
-                window.location = "<%=request.getContextPath() %>/hospitalReportManager/hospitalReportManager.jsp?fetch=true";
-            }
-
             function validateForm() {
                 let fileInput = document.getElementById("fileInput");
                 if (fileInput.files.length === 0) {
@@ -210,43 +206,6 @@
             </div>
         </div>
 
-        <% if (request.getParameter("fetch") != null && request.getParameter("fetch").equalsIgnoreCase("true"))
-            if (loggedInInfo == null) {
-                System.err.println("loggedInInfo is null"); 
-            } else {
-                try {
-                    new SFTPConnector(loggedInInfo).startAutoFetch(loggedInInfo);
-                } catch (Exception e) {
-                    System.err.println("Error in startAutoFetch: " + e.getMessage()); 
-                }
-            }
-        %>
-        <p>
-            HRM Status: <%=SFTPConnector.isFetchRunning() ? "Fetching data from HRM" : "Idle" %><br>
-            <% if (!SFTPConnector.isFetchRunning()) { %>
-            <input type="button" class="btn" onClick="runFetch()" value="Fetch New Data from HRM">
-            <% } else { %>
-            Please wait until the current fetch task completes before requesting another data fetch.
-            <% } %>
-        </p>
-        <form enctype="multipart/form-data" action="<%=request.getContextPath() %>/hospitalReportManager/UploadLab.do"
-              method="post" onsubmit="return validateForm()">
-            Upload HRM reports from your computer: <input type="file" id="fileInput" name="uploads" multiple
-                                                          onChange="getFileList(event)"/>
-            <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
-                  style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                    alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"></span>
-
-            <input type="submit" id="file-upload-btn" class="btn" name="submit" value="Upload">
-            <div id="file-list">
-            </div>
-
-            <c:forEach var="file" items="${filesStatusMap}">
-                <script>
-                    addFileNameWithStatus("<c:out value="${file.key}" />", "<c:out value="${file.value}" />");
-                </script>
-            </c:forEach>
-        </form>
         <%
             HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
             String statement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
