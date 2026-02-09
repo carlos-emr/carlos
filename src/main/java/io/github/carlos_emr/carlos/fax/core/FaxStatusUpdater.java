@@ -48,6 +48,9 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
+import io.github.carlos_emr.carlos.fax.connector.FaxConnector;
+import io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory;
+import io.github.carlos_emr.carlos.fax.connector.FaxStatusCheckResult;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -61,61 +64,97 @@ public class FaxStatusUpdater {
 
         List<FaxJob> faxJobList = faxJobDao.getInprogressFaxesByJobId();
         FaxConfig faxConfig;
-        DefaultHttpClient client = new DefaultHttpClient();
-        FaxJob faxJobUpdated;
 
-        log.info("CHECKING STATUS OF " + faxJobList.size() + " FAXES");
+        log.info("CHECKING STATUS OF {} FAXES", faxJobList.size());
 
         for (FaxJob faxJob : faxJobList) {
             faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
 
             if (faxConfig == null) {
-                log.error("Could not find faxConfig while processing fax id: " + faxJob.getId() + " Has the fax number changed?");
+                log.error("Could not find faxConfig while processing fax id: {}. Has the fax number changed?", faxJob.getId());
             } else if (faxConfig.isActive()) {
 
-                Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
-                client.getCredentialsProvider().setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
-
-                HttpGet mGet = new HttpGet(faxConfig.getUrl() + "/" + faxJob.getJobId());
-                mGet.setHeader("accept", "application/json");
-                mGet.setHeader("user", faxConfig.getFaxUser());
-                mGet.setHeader("passwd", faxConfig.getFaxPasswd());
-
-                try {
-                    HttpResponse response = client.execute(mGet);
-                    log.info("RESPONSE: " + response.getStatusLine().getStatusCode());
-
-                    if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-
-                        HttpEntity httpEntity = response.getEntity();
-                        String content = EntityUtils.toString(httpEntity);
-
-                        ObjectMapper mapper = new ObjectMapper();
-                        faxJobUpdated = mapper.readValue(content, FaxJob.class);
-
-                        faxJob.setStatus(faxJobUpdated.getStatus());
-                        faxJob.setStatusString(faxJobUpdated.getStatusString());
-
-                        log.info("UPDATED FAX JOB ID " + faxJob.getJobId() + " WITH STATUS " + faxJob.getStatus());
-                        faxJobDao.merge(faxJob);
-
-                    } else {
-                        log.error("WEB SERVICE RESPONDED WITH " + response.getStatusLine().getStatusCode(), new IOException());
-                    }
-
-                } catch (ClientProtocolException e) {
-                    log.error("HTTP WS CLIENT ERROR", e);
-
-                } catch (IOException e) {
-                    log.error("IO ERROR", e);
-                } finally {
-                    if (mGet != null) {
-                        mGet.reset();
-                    }
+                if (FaxConnectorFactory.isLegacyGateway(faxConfig)) {
+                    updateStatusViaLegacyGateway(faxConfig, faxJob);
+                } else {
+                    updateStatusViaDirectApi(faxConfig, faxJob);
                 }
+            }
+        }
+    }
 
+    /**
+     * Check fax status using the legacy external gateway server.
+     * This preserves the original code path for backward compatibility.
+     */
+    @SuppressWarnings("deprecation")
+    private void updateStatusViaLegacyGateway(FaxConfig faxConfig, FaxJob faxJob) {
+
+        DefaultHttpClient client = new DefaultHttpClient();
+        FaxJob faxJobUpdated;
+
+        Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
+        client.getCredentialsProvider().setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
+
+        HttpGet mGet = new HttpGet(faxConfig.getUrl() + "/" + faxJob.getJobId());
+        mGet.setHeader("accept", "application/json");
+        mGet.setHeader("user", faxConfig.getFaxUser());
+        mGet.setHeader("passwd", faxConfig.getFaxPasswd());
+
+        try {
+            HttpResponse response = client.execute(mGet);
+            log.info("RESPONSE: {}", response.getStatusLine().getStatusCode());
+
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+
+                HttpEntity httpEntity = response.getEntity();
+                String content = EntityUtils.toString(httpEntity);
+
+                ObjectMapper mapper = new ObjectMapper();
+                faxJobUpdated = mapper.readValue(content, FaxJob.class);
+
+                faxJob.setStatus(faxJobUpdated.getStatus());
+                faxJob.setStatusString(faxJobUpdated.getStatusString());
+
+                log.info("UPDATED FAX JOB ID {} WITH STATUS {}", faxJob.getJobId(), faxJob.getStatus());
+                faxJobDao.merge(faxJob);
+
+            } else {
+                log.error("WEB SERVICE RESPONDED WITH {}", response.getStatusLine().getStatusCode());
             }
 
+        } catch (ClientProtocolException e) {
+            log.error("HTTP WS CLIENT ERROR", e);
+
+        } catch (IOException e) {
+            log.error("IO ERROR", e);
+        } finally {
+            if (mGet != null) {
+                mGet.reset();
+            }
+        }
+    }
+
+    /**
+     * Check fax status using a direct API connector (e.g. SRFax).
+     */
+    private void updateStatusViaDirectApi(FaxConfig faxConfig, FaxJob faxJob) {
+
+        FaxConnector connector = FaxConnectorFactory.getConnector(faxConfig);
+
+        try {
+            FaxStatusCheckResult result = connector.checkFaxStatus(faxConfig, faxJob.getJobId());
+
+            if (result.isSuccess()) {
+                faxJob.setStatus(result.getStatus());
+                faxJob.setStatusString(result.getStatusMessage());
+                faxJobDao.merge(faxJob);
+                log.info("UPDATED FAX JOB ID {} WITH STATUS {} via direct API", faxJob.getJobId(), faxJob.getStatus());
+            } else {
+                log.warn("Failed to check status for fax job {}: {}", faxJob.getJobId(), result.getStatusMessage());
+            }
+        } catch (Exception e) {
+            log.error("Error checking fax status via direct API for job {}", faxJob.getJobId(), e);
         }
     }
 

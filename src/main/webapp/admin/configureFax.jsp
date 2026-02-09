@@ -142,6 +142,7 @@
             var div = $("#user").clone(true, true);
 
             $(div).attr("id", userDivId);
+            $(div).find("#integrationType").attr("id", "integrationType" + userCount);
             $(div).find("#faxUser").attr("id", "faxUser" + userCount);
             $(div).find("#faxPasswd").attr("id", "faxPasswd" + userCount);
             $(div).find("#senderEmail").attr("id", "senderEmail" + userCount);
@@ -238,6 +239,27 @@
             });
         }
 
+        function onIntegrationTypeChange(selectElem) {
+            $("#submit").prop("disabled", false);
+            var val = $(selectElem).val();
+            var legacySection = $("#bodyrow");
+            // Show or hide the legacy gateway server credentials section
+            if ($("select[name='integrationType']").length > 0) {
+                var allLegacy = true;
+                $("select[name='integrationType']").each(function() {
+                    if ($(this).val() !== "" && $(this).val() !== "LEGACY_GATEWAY") {
+                        allLegacy = false;
+                    }
+                });
+                // Show legacy server credentials if any account uses the legacy gateway
+                if (allLegacy) {
+                    legacySection.show();
+                } else {
+                    // Keep it visible if mixed - admin may need both
+                    legacySection.show();
+                }
+            }
+        }
 
     </script>
 
@@ -315,6 +337,28 @@
 
                         <div class="row">
                             <div class="span6">
+                                <%
+                                    String currentIntegrationType = "";
+                                    if (!faxConfigList.isEmpty() && faxConfigList.get(count) != null) {
+                                        currentIntegrationType = faxConfigList.get(count).getIntegrationType();
+                                        if (currentIntegrationType == null) currentIntegrationType = "";
+                                    }
+                                %>
+                                <label for="integrationType<%=count == 0 ? "" : count%>">Integration Type</label>
+                                <select class="span6" id="integrationType<%=count == 0 ? "" : count%>" name="integrationType"
+                                        onchange="onIntegrationTypeChange(this)">
+                                    <option value="" <%=("".equals(currentIntegrationType) || "LEGACY_GATEWAY".equals(currentIntegrationType)) ? "selected" : ""%>>Legacy Gateway (External Server)</option>
+                                    <option value="SRFAX" <%="SRFAX".equals(currentIntegrationType) ? "selected" : ""%>>SRFax (Direct API)</option>
+                                </select>
+                            </div>
+                            <div class="span6">
+                                <label for="accountName<%= count == 0 ? "" : count %>">Account Name</label>
+                                <input type="text" name="accountName" id='accountName<%= count == 0 ? "" : count %>'
+                                       value='<%= Encode.forHtmlAttribute(faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getAccountName()) %>'/>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="span6">
                                 <label for="faxUser<%=count == 0 ? "" : count%>">User</label>
                                 <input class="span6" type="text" id="faxUser<%=count == 0 ? "" : count%>" name="faxUser"
                                        value="<%=Encode.forHtmlAttribute( faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getFaxUser() )%>"/>
@@ -377,11 +421,6 @@
                                     %>
                                 </select>
 
-                            </div>
-                            <div class="span6">
-                                <label for="accountName<%= count == 0 ? "" : count %>">Account Name</label>
-                                <input type="text" name="accountName" id='accountName<%= count == 0 ? "" : count %>'
-                                       value='<%= Encode.forHtmlAttribute(faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getAccountName()) %>'/>
                             </div>
                         </div>
                         <div class="row">

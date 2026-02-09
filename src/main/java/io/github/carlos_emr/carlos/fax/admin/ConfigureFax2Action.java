@@ -102,6 +102,7 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] senderEmails = request.getParameterValues("senderEmail");
             String[] accountNames = request.getParameterValues("accountName");
             String[] downloadState = request.getParameterValues("downloadState");
+            String[] integrationTypes = request.getParameterValues("integrationType");
 
             Integer id;
             int savedidx;
@@ -149,6 +150,9 @@ public class ConfigureFax2Action extends ActionSupport {
                         savedFaxConfig.setAccountName(accountNames[idx]);
                         savedFaxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         savedFaxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
+                        if (integrationTypes != null && idx < integrationTypes.length) {
+                            savedFaxConfig.setIntegrationType(integrationTypes[idx]);
+                        }
                         faxConfigList.add(savedFaxConfig);
                     } else {
                         faxConfig.setId(null);
@@ -175,6 +179,9 @@ public class ConfigureFax2Action extends ActionSupport {
                         faxConfig.setAccountName(accountNames[idx]);
                         faxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         faxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
+                        if (integrationTypes != null && idx < integrationTypes.length) {
+                            faxConfig.setIntegrationType(integrationTypes[idx]);
+                        }
                         faxConfigList.add(faxConfig);
                     }
                 }

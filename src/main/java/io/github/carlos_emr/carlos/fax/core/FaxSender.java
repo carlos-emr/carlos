@@ -53,6 +53,9 @@ import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
+import io.github.carlos_emr.carlos.fax.connector.FaxConnector;
+import io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory;
+import io.github.carlos_emr.carlos.fax.connector.FaxSendResult;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -72,139 +75,194 @@ public class FaxSender {
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
         List<FaxJob> faxJobList;
 
-        WebClient client;
-
         String document_dir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         for (FaxConfig faxConfig : faxConfigList) {
             if (faxConfig.isActive()) {
 
-                client = WebClient.create(faxConfig.getUrl());
-                client.path(PATH + "/send/" + faxConfig.getFaxUser());
-                client.type(MediaType.APPLICATION_XML);
-                client.accept(MediaType.APPLICATION_XML);
-
-                String login = faxConfig.getSiteUser() + ":" + faxConfig.getPasswd();
-                String authorizationHeader = "Basic " + Base64Utility.encode(login.getBytes());
-                client.header("Authorization", authorizationHeader);
-
-                /*
-                 * Setting explicit timeout values to ensure that the WebClient does not wait indefinitely for responses.
-                 * Connection timeout set to 30 seconds, which is the same as the default timeout.
-                 * Receive timeout set to 60 seconds, which is also the same as the default timeout.
-                 */
-                HTTPConduit conduit = WebClient.getConfig(client).getHttpConduit();
-                HTTPClientPolicy policy = new HTTPClientPolicy();
-                policy.setConnectionTimeout(30000); // 30 seconds
-                policy.setReceiveTimeout(60000); // 60 seconds
-                conduit.setClient(policy);
-
                 faxJobList = faxJobDao.getReadyToSendFaxes(faxConfig.getFaxNumber());
-                FaxJob faxJobId;
 
-                log.info("SENDING " + faxJobList.size() + " faxes from fax account " + faxConfig.getSiteUser());
+                log.info("SENDING {} faxes from fax account {}", faxJobList.size(), faxConfig.getAccountName());
 
-                String filename;
-                Path filePath;
+                if (FaxConnectorFactory.isLegacyGateway(faxConfig)) {
+                    sendViaLegacyGateway(faxConfig, faxJobList, document_dir);
+                } else {
+                    sendViaDirectApi(faxConfig, faxJobList, document_dir);
+                }
+            }
+        }
+    }
 
-                for (FaxJob faxJob : faxJobList) {
+    /**
+     * Send faxes using the legacy external CXF REST gateway server.
+     * This preserves the original code path for backward compatibility.
+     */
+    private void sendViaLegacyGateway(FaxConfig faxConfig, List<FaxJob> faxJobList, String document_dir) {
 
-                    FaxClientLog faxClientLog = faxClientLogDao.findClientLogbyFaxId(faxJob.getId());
-                    STATUS faxStatus = STATUS.ERROR;
+        WebClient client = WebClient.create(faxConfig.getUrl());
+        client.path(PATH + "/send/" + faxConfig.getFaxUser());
+        client.type(MediaType.APPLICATION_XML);
+        client.accept(MediaType.APPLICATION_XML);
 
-                    client.header("user", faxJob.getUser());
-                    client.header("passwd", faxConfig.getFaxPasswd());
+        String login = faxConfig.getSiteUser() + ":" + faxConfig.getPasswd();
+        String authorizationHeader = "Basic " + Base64Utility.encode(login.getBytes());
+        client.header("Authorization", authorizationHeader);
 
-                    faxJob.setSenderEmail(faxConfig.getSenderEmail());
-                    filename = faxJob.getFile_name();
-                    filePath = Paths.get(filename);
+        HTTPConduit conduit = WebClient.getConfig(client).getHttpConduit();
+        HTTPClientPolicy policy = new HTTPClientPolicy();
+        policy.setConnectionTimeout(30000);
+        policy.setReceiveTimeout(60000);
+        conduit.setClient(policy);
 
-                    /*
-                     * the filename variable may be an absolute path to a temp directory
-                     * at this point. Do a check to verify
-                     */
-                    if (!Files.exists(filePath)) {
+        FaxJob faxJobId;
+        String filename;
+        Path filePath;
 
-                        /*
-                         * The filename variable must point to a file name, not a file path
-                         * Remove any file separators that may have slipped into the filename.
-                         */
-                        if (filename.contains(File.separator)) {
-                            filename.replaceAll(File.separator, "");
-                        }
+        for (FaxJob faxJob : faxJobList) {
 
-                        /*
-                         * the file may be located in the default documents directory if the filename
-                         * is not a path to a temp directory
-                         */
-                        filePath = Paths.get(document_dir, filename);
-                    }
+            FaxClientLog faxClientLog = faxClientLogDao.findClientLogbyFaxId(faxJob.getId());
+            STATUS faxStatus = STATUS.ERROR;
 
-                    log.info("sending fax from file path " + filePath);
+            client.header("user", faxJob.getUser());
+            client.header("passwd", faxConfig.getFaxPasswd());
 
-                    try {
+            faxJob.setSenderEmail(faxConfig.getSenderEmail());
+            filename = faxJob.getFile_name();
+            filePath = Paths.get(filename);
 
-                        /*
-                         * If the filepath still does not exist at this point; it is possible that
-                         * the file was removed from the temp directory or document directory
-                         * before a second or 3rd attempt to send this document out.
-                         * A backup copy of the document should still exist in the database table
-                         * This condition avoids overwriting
-                         */
-                        if (Files.exists(filePath) && Files.isReadable(filePath)) {
-                            String base64 = Base64Utility.encode(Files.readAllBytes(filePath));
+            if (!Files.exists(filePath)) {
+                if (filename.contains(File.separator)) {
+                    filename.replaceAll(File.separator, "");
+                }
+                filePath = Paths.get(document_dir, filename);
+            }
 
-                            /*
-                             * The database will hol\d a temp backup copy of the document
-                             * until a successful send is done.
-                             */
-                            faxJob.setDocument(base64);
-                        }
+            log.info("sending fax from file path {}", filePath);
 
-                        /*
-                         * It's very bad if the document does not exist at this point.
-                         */
-                        if (faxJob.getDocument() == null) {
-                            log.error("Fatal error locating document. Not found in any directory or database.");
-                            throw new IOException();
-                        }
-
-                        Response httpResponse = client.post(faxJob);
-
-                        if (httpResponse.getStatus() == HttpStatus.SC_OK) {
-                            faxJobId = httpResponse.readEntity(FaxJob.class);
-                            faxJob.setDocument(null);
-                            faxJob.setJobId(faxJobId.getJobId());
-                            faxJob.setStatusString(faxJobId.getStatusString());
-                            faxStatus = faxJobId.getStatus();
-                        } else {
-                            faxJob.setStatusString("WEB SERVICE RESPONDED WITH " + httpResponse.getStatus());
-                            log.error("WEB SERVICE RESPONDED WITH " + httpResponse.getStatus(), new IOException());
-                        }
-
-                    } catch (HttpHostConnectException e) {
-                        faxStatus = FaxJob.STATUS.WAITING;
-                        faxJob.setStatusString("Connection error. Check internet connection. Filepath: " + filePath);
-                        log.error("Connection error. Check internet connection Filepath: " + filePath);
-                    } catch (IOException e) {
-                        faxJob.setStatusString("CANNOT FIND Filepath: " + filePath);
-                        log.error("CANNOT FIND Filepath: " + filePath);
-                    } catch (Exception e) {
-                        faxJob.setStatusString("PROBLEM COMMUNICATING WITH WEB SERVICE");
-                        log.error("PROBLEM COMMUNICATING WITH WEB SERVICE", e);
-                    } finally {
-                        faxJob.setStatus(faxStatus);
-                        faxJobDao.merge(faxJob);
-                        log.info("Updated Fax with jobid " + faxJob.getJobId() + " and status " + faxJob.getStatus());
-                        if (faxClientLog != null) {
-                            faxClientLog.setResult(faxStatus.name());
-                            faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
-                            faxClientLogDao.merge(faxClientLog);
-                        }
-                    }
+            try {
+                if (Files.exists(filePath) && Files.isReadable(filePath)) {
+                    String base64 = Base64Utility.encode(Files.readAllBytes(filePath));
+                    faxJob.setDocument(base64);
                 }
 
+                if (faxJob.getDocument() == null) {
+                    log.error("Fatal error locating document. Not found in any directory or database.");
+                    throw new IOException();
+                }
+
+                Response httpResponse = client.post(faxJob);
+
+                if (httpResponse.getStatus() == HttpStatus.SC_OK) {
+                    faxJobId = httpResponse.readEntity(FaxJob.class);
+                    faxJob.setDocument(null);
+                    faxJob.setJobId(faxJobId.getJobId());
+                    faxJob.setStatusString(faxJobId.getStatusString());
+                    faxStatus = faxJobId.getStatus();
+                } else {
+                    faxJob.setStatusString("WEB SERVICE RESPONDED WITH " + httpResponse.getStatus());
+                    log.error("WEB SERVICE RESPONDED WITH {}", httpResponse.getStatus());
+                }
+
+            } catch (HttpHostConnectException e) {
+                faxStatus = FaxJob.STATUS.WAITING;
+                faxJob.setStatusString("Connection error. Check internet connection.");
+                log.error("Connection error. Check internet connection. Filepath: {}", filePath);
+            } catch (IOException e) {
+                faxJob.setStatusString("CANNOT FIND file");
+                log.error("CANNOT FIND Filepath: {}", filePath);
+            } catch (Exception e) {
+                faxJob.setStatusString("PROBLEM COMMUNICATING WITH WEB SERVICE");
+                log.error("PROBLEM COMMUNICATING WITH WEB SERVICE", e);
+            } finally {
+                faxJob.setStatus(faxStatus);
+                faxJobDao.merge(faxJob);
+                log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
+                if (faxClientLog != null) {
+                    faxClientLog.setResult(faxStatus.name());
+                    faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
+                    faxClientLogDao.merge(faxClientLog);
+                }
             }
+        }
+    }
+
+    /**
+     * Send faxes using a direct API connector (e.g. SRFax).
+     * This is the new code path for accounts configured with a direct integration type.
+     */
+    private void sendViaDirectApi(FaxConfig faxConfig, List<FaxJob> faxJobList, String document_dir) {
+
+        FaxConnector connector = FaxConnectorFactory.getConnector(faxConfig);
+
+        for (FaxJob faxJob : faxJobList) {
+
+            FaxClientLog faxClientLog = faxClientLogDao.findClientLogbyFaxId(faxJob.getId());
+            STATUS faxStatus = STATUS.ERROR;
+
+            try {
+                // Ensure the document content is loaded for transmission
+                ensureDocumentLoaded(faxJob, document_dir);
+
+                if (faxJob.getDocument() == null) {
+                    log.error("Fatal error locating document. Not found in any directory or database.");
+                    faxJob.setStatusString("Document not found");
+                    continue;
+                }
+
+                FaxSendResult result = connector.sendFax(faxConfig, faxJob);
+
+                if (result.isSuccess()) {
+                    faxJob.setDocument(null);
+                    faxJob.setJobId(result.getExternalJobId());
+                    faxStatus = result.getStatus();
+                    faxJob.setStatusString(result.getStatusMessage());
+                } else {
+                    faxStatus = result.getStatus();
+                    faxJob.setStatusString(result.getStatusMessage());
+                }
+
+            } catch (Exception e) {
+                faxJob.setStatusString("Error sending via direct API connector");
+                log.error("Error sending fax via direct API connector", e);
+            } finally {
+                faxJob.setStatus(faxStatus);
+                faxJobDao.merge(faxJob);
+                log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
+                if (faxClientLog != null) {
+                    faxClientLog.setResult(faxStatus.name());
+                    faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
+                    faxClientLogDao.merge(faxClientLog);
+                }
+            }
+        }
+    }
+
+    /**
+     * Ensures the fax job has its document content loaded as base64.
+     * Reads from the filesystem if not already present in the FaxJob entity.
+     */
+    private void ensureDocumentLoaded(FaxJob faxJob, String document_dir) {
+        if (faxJob.getDocument() != null) {
+            return;
+        }
+
+        String filename = faxJob.getFile_name();
+        Path filePath = Paths.get(filename);
+
+        if (!Files.exists(filePath)) {
+            if (filename.contains(File.separator)) {
+                filename = filename.replaceAll(File.separator, "");
+            }
+            filePath = Paths.get(document_dir, filename);
+        }
+
+        try {
+            if (Files.exists(filePath) && Files.isReadable(filePath)) {
+                String base64 = Base64Utility.encode(Files.readAllBytes(filePath));
+                faxJob.setDocument(base64);
+            }
+        } catch (IOException e) {
+            log.error("Error reading fax document from filesystem: {}", filePath, e);
         }
     }
 

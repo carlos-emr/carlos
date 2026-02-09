@@ -54,6 +54,9 @@ public class FaxConfig extends AbstractModel<Integer> {
     private String faxNumber = "";
     private String senderEmail = "";
 
+    @Column(name = "integration_type")
+    private String integrationType = "";
+
     @Column(columnDefinition = "boolean default false")
     private boolean active;
     private Integer queue = 0;
@@ -250,6 +253,24 @@ public class FaxConfig extends AbstractModel<Integer> {
         this.senderEmail = senderEmail;
     }
 
+    /**
+     * Returns the integration type for this fax account (e.g. "LEGACY_GATEWAY", "SRFAX").
+     * An empty or null value indicates the legacy external gateway connector.
+     *
+     * @return String the integration type identifier
+     */
+    public String getIntegrationType() {
+        return integrationType;
+    }
+
+    /**
+     * Sets the integration type for this fax account.
+     *
+     * @param integrationType String the integration type identifier
+     */
+    public void setIntegrationType(String integrationType) {
+        this.integrationType = integrationType;
+    }
 
     /**
      * @return the active
