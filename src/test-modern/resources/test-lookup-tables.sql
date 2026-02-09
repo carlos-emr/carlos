@@ -49,3 +49,27 @@ CREATE TABLE IF NOT EXISTS joint_admissions (
     archived tinyint(1) DEFAULT 0,
     created_date datetime DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =====================================================================
+-- Reference data for healthcare domain integration tests
+-- =====================================================================
+
+-- Appointment status reference data
+-- Note: appointmentStatus table is auto-created by Hibernate from @Entity
+-- We insert reference data that tests may depend on
+INSERT INTO appointmentStatus (status, description, active, editable, icon, color)
+SELECT 't', 'Confirmed', 1, 1, '', '' WHERE NOT EXISTS (SELECT 1 FROM appointmentStatus WHERE status = 't');
+INSERT INTO appointmentStatus (status, description, active, editable, icon, color)
+SELECT 'N', 'No Show', 1, 1, '', '' WHERE NOT EXISTS (SELECT 1 FROM appointmentStatus WHERE status = 'N');
+INSERT INTO appointmentStatus (status, description, active, editable, icon, color)
+SELECT 'C', 'Cancelled', 1, 1, '', '' WHERE NOT EXISTS (SELECT 1 FROM appointmentStatus WHERE status = 'C');
+INSERT INTO appointmentStatus (status, description, active, editable, icon, color)
+SELECT 'H', 'Here', 1, 1, '', '' WHERE NOT EXISTS (SELECT 1 FROM appointmentStatus WHERE status = 'H');
+
+-- Schedule template codes reference data
+INSERT INTO scheduletemplatecode (id, code, description, duration, color, confirm, bookinglimit)
+SELECT 1, 'A', 'Available', '15', '00FF00', '', 1 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = 'A');
+INSERT INTO scheduletemplatecode (id, code, description, duration, color, confirm, bookinglimit)
+SELECT 2, 'P', 'Primary Care', '15', '0000FF', '', 1 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = 'P');
+INSERT INTO scheduletemplatecode (id, code, description, duration, color, confirm, bookinglimit)
+SELECT 3, '-', 'Not Available', '15', 'FF0000', '', 0 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = '-');

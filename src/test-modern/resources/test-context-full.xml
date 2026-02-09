@@ -189,6 +189,35 @@
                 <value>io.github.carlos_emr.carlos.commn.model.Facility</value>
                 <value>io.github.carlos_emr.carlos.commn.model.DemographicMerged</value>
                 <value>io.github.carlos_emr.carlos.form.model.FormRourke2009</value>
+                <!-- Healthcare domain entities for manager/DAO integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.Allergy</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Appointment</value>
+                <value>io.github.carlos_emr.carlos.commn.model.AppointmentArchive</value>
+                <value>io.github.carlos_emr.carlos.commn.model.AppointmentStatus</value>
+                <value>io.github.carlos_emr.carlos.commn.model.AppointmentType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Drug</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Prescription</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Measurement</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementMap</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Prevention</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PreventionExt</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Hl7TextInfo</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Hl7TextMessage</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PatientLabRouting</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultationRequest</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultationResponse</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleDate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleHoliday</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplatePrimaryKey</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LookupList</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LookupListItem</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicContact</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultationServices</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultDocs</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc</value>
             </list>
         </property>
         <property name="mappingResources">
@@ -381,5 +410,47 @@
     </bean>
 
     <bean id="providerDAO" class="io.github.carlos_emr.carlos.daos.ProviderDAOImpl" autowire="byName" />
+
+    <!-- ===================================================================== -->
+    <!-- Healthcare Domain DAOs for Manager/DAO Integration Tests              -->
+    <!-- ===================================================================== -->
+
+    <!-- Allergy DAOs -->
+    <bean id="allergyDao" class="io.github.carlos_emr.carlos.commn.dao.AllergyDaoImpl" autowire="byName" />
+
+    <!-- Appointment/Schedule DAOs -->
+    <bean id="oscarAppointmentDao" class="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDaoImpl" autowire="byName" />
+    <bean id="appointmentStatusDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDaoImpl" autowire="byName" />
+    <bean id="appointmentTypeDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDaoImpl" autowire="byName" />
+    <bean id="scheduleDateDao" class="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDaoImpl" autowire="byName" />
+    <bean id="scheduleHolidayDao" class="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDaoImpl" autowire="byName" />
+    <bean id="scheduleTemplateDao" class="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDaoImpl" autowire="byName" />
+    <bean id="scheduleTemplateCodeDao" class="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDaoImpl" autowire="byName" />
+    <bean id="lookupListDao" class="io.github.carlos_emr.carlos.commn.dao.LookupListDaoImpl" autowire="byName" />
+
+    <!-- Prescription/Drug DAOs -->
+    <bean id="drugDao" class="io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl" autowire="byName" />
+    <bean id="prescriptionDao" class="io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl" autowire="byName" />
+
+    <!-- Measurement DAOs -->
+    <bean id="measurementDao" class="io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl" autowire="byName" />
+    <bean id="measurementMapDao" class="io.github.carlos_emr.carlos.commn.dao.MeasurementMapDaoImpl" autowire="byName" />
+
+    <!-- Prevention/Immunization DAOs -->
+    <bean id="preventionDao" class="io.github.carlos_emr.carlos.commn.dao.PreventionDaoImpl" autowire="byName" />
+    <bean id="preventionExtDao" class="io.github.carlos_emr.carlos.commn.dao.PreventionExtDaoImpl" autowire="byName" />
+
+    <!-- Lab/HL7 DAOs -->
+    <bean id="hl7TextInfoDao" class="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDaoImpl" autowire="byName" />
+    <bean id="hl7TextMessageDao" class="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDaoImpl" autowire="byName" />
+    <bean id="patientLabRoutingDao" class="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDaoImpl" autowire="byName" />
+
+    <!-- Consultation DAOs -->
+    <bean id="consultRequestDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultRequestDaoImpl" autowire="byName" />
+    <bean id="consultResponseDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultResponseDaoImpl" autowire="byName" />
+    <bean id="consultationServiceDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDaoImpl" autowire="byName" />
+    <bean id="professionalSpecialistDao" class="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDaoImpl" autowire="byName" />
+    <bean id="consultDocsDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultDocsDaoImpl" autowire="byName" />
+    <bean id="consultResponseDocDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDaoImpl" autowire="byName" />
 
 </beans>
