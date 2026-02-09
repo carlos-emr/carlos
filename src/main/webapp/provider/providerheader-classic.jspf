@@ -158,7 +158,7 @@ function popupPage2(varpage) {
          <li>
          <a href=# onClick = "review('0')" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewProvAval"/>">Schedule <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.schedView"/>--></a>
          </li>
- <% } else if((request.getParameter("caseload")!=null && request.getParameter("caseload").equals("1")) || (request.getParameter("displaymode")==null) ) {  %>
+ <% } else if(request.getParameter("displaymode")==null) {  %>
  <li>
  <a href='<%=request.getContextPath()%>/provider/providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>Schedule</a>
  </li>
@@ -169,10 +169,6 @@ function popupPage2(varpage) {
          </li>
 <% } %>
 </c:if>
-
- <li>
- <a href='<%=request.getContextPath()%>/provider/providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&caseload=1&clProv=<%=curUser_no%>'>Caseload</a>
- </li>
 
 <!-- TODO:mobile version code excluded here re-visit -->
 

@@ -329,7 +329,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 feat: add patient allergy search filter
 fix: correct date formatting in lab results
-refactor: simplify caseload infinite scroll detection
+refactor: extract common validation logic in DemographicManager
 chore: update Spring dependency to 5.3.39
 docs: add deployment guide for BC clinics
 test: add TicklerDao integration tests

@@ -114,7 +114,7 @@ jobs:
             echo "Examples:"
             echo "  feat: add patient allergy search filter"
             echo "  fix: correct date formatting in lab results"
-            echo "  refactor: simplify caseload infinite scroll detection"
+            echo "  refactor: extract common validation logic in DemographicManager"
             echo "  docs: add deployment guide for BC clinics"
             echo ""
             echo "Learn more: https://www.conventionalcommits.org/"
