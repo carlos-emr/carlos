@@ -57,6 +57,16 @@
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</mapping-file>
+        <!-- Security model mappings for Hibernate migration tests -->
+        <mapping-file>com/quatro/model/security/Secobjectname.hbm.xml</mapping-file>
+        <mapping-file>com/quatro/model/security/Secobjprivilege.hbm.xml</mapping-file>
+        <mapping-file>com/quatro/model/security/UserAccessValue.hbm.xml</mapping-file>
+        <!-- CaseManagement additional mappings -->
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/ClientImage.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_cpp.hbm.xml</mapping-file>
+        <!-- PMmodule additional mappings -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</mapping-file>
     </persistence-unit>
 
 </persistence>
