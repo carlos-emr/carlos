@@ -241,23 +241,20 @@
 
         function onIntegrationTypeChange(selectElem) {
             $("#submit").prop("disabled", false);
-            var val = $(selectElem).val();
             var legacySection = $("#bodyrow");
-            // Show or hide the legacy gateway server credentials section
-            if ($("select[name='integrationType']").length > 0) {
-                var allLegacy = true;
-                $("select[name='integrationType']").each(function() {
-                    if ($(this).val() !== "" && $(this).val() !== "LEGACY_GATEWAY") {
-                        allLegacy = false;
-                    }
-                });
-                // Show legacy server credentials if any account uses the legacy gateway
-                if (allLegacy) {
-                    legacySection.show();
-                } else {
-                    // Keep it visible if mixed - admin may need both
-                    legacySection.show();
+            // Determine if any account uses the legacy gateway integration type
+            var anyLegacy = false;
+            $("select[name='integrationType']").each(function() {
+                var v = $(this).val();
+                if (v === "" || v === "LEGACY_GATEWAY") {
+                    anyLegacy = true;
                 }
+            });
+            // Show legacy server credentials only if at least one account uses them
+            if (anyLegacy) {
+                legacySection.show();
+            } else {
+                legacySection.hide();
             }
         }
 

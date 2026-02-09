@@ -54,6 +54,12 @@ public class FaxConfig extends AbstractModel<Integer> {
     private String faxNumber = "";
     private String senderEmail = "";
 
+    /**
+     * Determines which fax provider connector to use for this account.
+     * Empty or null defaults to the legacy external gateway. "SRFAX" uses the SRFax direct API.
+     *
+     * @see io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory
+     */
     @Column(name = "integration_type")
     private String integrationType = "";
 

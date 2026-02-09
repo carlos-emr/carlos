@@ -54,12 +54,31 @@ import io.github.carlos_emr.carlos.fax.connector.FaxStatusCheckResult;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Polls for in-progress outbound fax jobs and updates their delivery status.
+ * <p>
+ * Supports two integration modes based on each fax account's configuration:
+ * <ul>
+ *   <li><b>Legacy Gateway</b>: Queries the external CXF REST gateway server via
+ *       HTTP GET for the job's current status.</li>
+ *   <li><b>Direct API</b> (e.g. SRFax): Uses the {@link FaxConnector} interface to
+ *       check delivery status directly with the cloud fax provider.</li>
+ * </ul>
+ * Called periodically by the {@code FaxSchedulerJob} TimerTask.
+ *
+ * @since 2026-02-09 (refactored for dual-mode fax support)
+ */
 public class FaxStatusUpdater {
 
     private FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private Logger log = MiscUtils.getLogger();
 
+    /**
+     * Main status update entry point. Retrieves all in-progress fax jobs (those with
+     * a non-null jobId and SENT status) and checks their delivery status with the
+     * appropriate fax service.
+     */
     public void updateStatus() {
 
         List<FaxJob> faxJobList = faxJobDao.getInprogressFaxesByJobId();
@@ -68,12 +87,14 @@ public class FaxStatusUpdater {
         log.info("CHECKING STATUS OF {} FAXES", faxJobList.size());
 
         for (FaxJob faxJob : faxJobList) {
+            // Look up the fax config by the fax line number stored on the job
             faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
 
             if (faxConfig == null) {
                 log.error("Could not find faxConfig while processing fax id: {}. Has the fax number changed?", faxJob.getId());
             } else if (faxConfig.isActive()) {
 
+                // Dispatch to the appropriate code path based on integration type
                 if (FaxConnectorFactory.isLegacyGateway(faxConfig)) {
                     updateStatusViaLegacyGateway(faxConfig, faxJob);
                 } else {
@@ -136,13 +157,25 @@ public class FaxStatusUpdater {
     }
 
     /**
-     * Check fax status using a direct API connector (e.g. SRFax).
+     * Check fax delivery status using a direct API connector (e.g. SRFax).
+     * <p>
+     * Obtains the appropriate {@link FaxConnector} via the factory, queries the
+     * remote service for the job's current status, and persists the updated status
+     * back to the database if the query succeeds.
+     *
+     * @param faxConfig FaxConfig the fax account configuration
+     * @param faxJob FaxJob the in-progress fax job to check
      */
     private void updateStatusViaDirectApi(FaxConfig faxConfig, FaxJob faxJob) {
 
         FaxConnector connector = FaxConnectorFactory.getConnector(faxConfig);
 
         try {
+            // Guard against null jobId to prevent NPE during Long-to-long unboxing
+            if (faxJob.getJobId() == null) {
+                log.warn("Fax job {} has null jobId, cannot check status via direct API", faxJob.getId());
+                return;
+            }
             FaxStatusCheckResult result = connector.checkFaxStatus(faxConfig, faxJob.getJobId());
 
             if (result.isSuccess()) {

@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.fax.exception.FaxApiValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -59,11 +58,20 @@ import java.util.Map;
  */
 public class SRFaxConnector implements FaxConnector {
 
+    /** Integration type constant registered with {@link io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory}. */
     public static final String INTEGRATION_TYPE = "SRFAX";
 
     private static final Logger logger = MiscUtils.getLogger();
+    /** Date formatter matching the SRFax API date format (yyyyMMdd). */
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern(SRFaxApiConnector.DATE_FORMAT);
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Queues the fax document with SRFax via the {@link SRFaxApiConnector#queueFax} API.
+     * The document content must already be base64-encoded in the FaxJob entity.
+     * Connection errors return WAITING status (transient), validation errors return ERROR (permanent).
+     */
     @Override
     public FaxSendResult sendFax(FaxConfig faxConfig, FaxJob faxJob) {
         try {
@@ -106,11 +114,19 @@ public class SRFaxConnector implements FaxConnector {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Polls the SRFax inbox for unread faxes received in the last 24 hours.
+     * Each inbox item is mapped to a {@link FaxInboundResult} with the received
+     * date parsed from the SRFax epoch time field.
+     */
     @Override
     public List<FaxInboundResult> pollIncomingFaxes(FaxConfig faxConfig) {
         try {
             SRFaxApiConnector api = createApiConnector(faxConfig);
 
+            // Query for unread faxes from yesterday through today
             String startDate = LocalDate.now().minusDays(1).format(DATE_FMT);
             String endDate = LocalDate.now().format(DATE_FMT);
 
@@ -128,7 +144,17 @@ public class SRFaxConnector implements FaxConnector {
                     fir.setExternalReference(inboxItem.getDetailsId());
                     fir.setFileName(inboxItem.getFileName());
                     fir.setCallerNumber(inboxItem.getCallerId());
-                    fir.setReceivedDate(new Date());
+                    // Parse the actual received date from the SRFax epoch time field
+                    Date receivedDate = null;
+                    if (inboxItem.getEpochTime() != null && !inboxItem.getEpochTime().isEmpty()) {
+                        try {
+                            long epoch = Long.parseLong(inboxItem.getEpochTime());
+                            receivedDate = new Date(epoch * 1000L);
+                        } catch (NumberFormatException nfe) {
+                            logger.warn("Could not parse epoch time '{}' for fax {}", inboxItem.getEpochTime(), inboxItem.getFileName());
+                        }
+                    }
+                    fir.setReceivedDate(receivedDate != null ? receivedDate : new Date());
 
                     try {
                         fir.setPageCount(Integer.parseInt(inboxItem.getPages()));
@@ -154,6 +180,11 @@ public class SRFaxConnector implements FaxConnector {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Downloads the fax content as a base64-encoded PDF string via the SRFax Retrieve_Fax API.
+     */
     @Override
     public String downloadFax(FaxConfig faxConfig, String faxReference) {
         try {
@@ -184,6 +215,12 @@ public class SRFaxConnector implements FaxConnector {
         return true;
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Queries the SRFax Get_FaxStatus API and maps the remote status string
+     * ("Sent", "Failed", "In Progress") to the corresponding {@link FaxJob.STATUS} enum value.
+     */
     @Override
     public FaxStatusCheckResult checkFaxStatus(FaxConfig faxConfig, long externalJobId) {
         try {
@@ -195,6 +232,7 @@ public class SRFaxConnector implements FaxConnector {
                 GetFaxStatusResult statusResult = result.getResult();
                 String remoteSentStatus = statusResult.getSentStatus();
 
+                // Map SRFax status strings to CARLOS FaxJob.STATUS enum
                 FaxJob.STATUS mappedStatus;
                 if (SRFaxApiConnector.RESPONSE_STATUS_SENT.equalsIgnoreCase(remoteSentStatus)) {
                     mappedStatus = FaxJob.STATUS.COMPLETE;
@@ -221,6 +259,12 @@ public class SRFaxConnector implements FaxConnector {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Uses the SRFax Update_Viewed_Status API to mark the fax as read,
+     * preventing it from appearing in subsequent inbox polls.
+     */
     @Override
     public void markFaxAsRead(FaxConfig faxConfig, String faxReference) {
         try {
@@ -240,11 +284,18 @@ public class SRFaxConnector implements FaxConnector {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public String getIntegrationType() {
         return INTEGRATION_TYPE;
     }
 
+    /**
+     * Creates a new SRFaxApiConnector using the fax account credentials from the FaxConfig.
+     *
+     * @param faxConfig FaxConfig the fax account configuration containing SRFax login credentials
+     * @return SRFaxApiConnector a new API connector instance
+     */
     private SRFaxApiConnector createApiConnector(FaxConfig faxConfig) {
         return new SRFaxApiConnector(faxConfig.getFaxUser(), faxConfig.getFaxPasswd());
     }

@@ -28,14 +28,35 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Generic wrapper for single-result SRFax API responses.
+ * Generic JSON response wrapper for SRFax API responses that return a single result value.
  *
- * @param <T> the type of the result value
+ * <p>The SRFax API returns JSON responses with "Status" and "Result" fields. This class
+ * deserializes those fields into typed Java objects. When the Status field equals "Success",
+ * the Result field contains the typed value. On failure, the error field contains the
+ * error message from the API response.</p>
+ *
+ * <p>Usage example:</p>
+ * <pre>
+ * SingleWrapper&lt;String&gt; response = mapper.readValue(jsonString, new TypeReference&lt;SingleWrapper&lt;String&gt;&gt;() {});
+ * if (response.isSuccess()) {
+ *     String result = response.getResult();
+ *     // Process successful result
+ * } else {
+ *     String error = response.getError();
+ *     // Handle error
+ * }
+ * </pre>
+ *
+ * @param <T> the type of the result value returned by the SRFax API
  * @since 2026-02-09 (ported from JunoEMR CloudPractice fax module)
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SingleWrapper<T> {
 
+    /**
+     * The success status string returned by the SRFax API.
+     * Used to determine if an API response indicates successful execution.
+     */
     public static final String STATUS_SUCCESS = "Success";
 
     @JsonProperty("Status")
@@ -45,30 +66,71 @@ public class SingleWrapper<T> {
 
     private String error;
 
+    /**
+     * Gets the status field from the SRFax API response.
+     *
+     * @return the status string indicating the API call outcome (typically "Success" or an error status)
+     */
     public String getStatus() {
         return status;
     }
 
+    /**
+     * Sets the status field from the SRFax API response.
+     *
+     * @param status the status string indicating the API call outcome
+     */
     public void setStatus(String status) {
         this.status = status;
     }
 
+    /**
+     * Checks if the SRFax API response indicates successful execution.
+     *
+     * @return true if the status field equals "Success", false otherwise
+     */
     public boolean isSuccess() {
         return STATUS_SUCCESS.equals(status);
     }
 
+    /**
+     * Gets the result value from the SRFax API response.
+     *
+     * <p>This field is populated when the API call is successful (Status = "Success").
+     * The actual type depends on the generic type parameter T.</p>
+     *
+     * @return the typed result value from the SRFax API response, or null if not present
+     */
     public T getResult() {
         return result;
     }
 
+    /**
+     * Sets the result value from the SRFax API response.
+     *
+     * @param result the typed result value returned by the SRFax API
+     */
     public void setResult(T result) {
         this.result = result;
     }
 
+    /**
+     * Gets the error message from the SRFax API response.
+     *
+     * <p>This field is populated when the API call fails (Status != "Success").
+     * Contains the error message or error code from the SRFax API.</p>
+     *
+     * @return the error message from the SRFax API response, or null if no error
+     */
     public String getError() {
         return error;
     }
 
+    /**
+     * Sets the error message from the SRFax API response.
+     *
+     * @param error the error message returned by the SRFax API on failure
+     */
     public void setError(String error) {
         this.error = error;
     }

@@ -25,20 +25,35 @@
 package io.github.carlos_emr.carlos.fax.exception;
 
 /**
- * Thrown when fax API request validation fails (missing required fields, etc.).
+ * Thrown when fax API request validation fails before the request is sent.
+ * <p>
+ * This indicates a programming or configuration error such as missing required
+ * parameters, invalid fax numbers, or malformed request data. Unlike
+ * {@link FaxApiConnectionException}, this is not a transient error and
+ * retrying will not help without fixing the input data.
  *
  * @since 2026-02-09 (ported from JunoEMR CloudPractice fax module)
  */
 public class FaxApiValidationException extends FaxException {
 
+    /**
+     * @param message String the technical detail message for logging
+     */
     public FaxApiValidationException(String message) {
         super(message);
     }
 
+    /**
+     * @param message String the technical detail message for logging
+     * @param userMessageResourceKey String the resource bundle key for the user-facing message
+     */
     public FaxApiValidationException(String message, String userMessageResourceKey) {
         super(message, userMessageResourceKey);
     }
 
+    /**
+     * @param e Exception the underlying cause
+     */
     public FaxApiValidationException(Exception e) {
         super(e);
     }

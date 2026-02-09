@@ -32,11 +32,13 @@ import io.github.carlos_emr.carlos.fax.connector.srfax.SRFaxConnector;
  */
 public final class FaxConnectorFactory {
 
+    /** Singleton instance of the legacy gateway connector (default). */
     private static final LegacyGatewayConnector LEGACY_CONNECTOR = new LegacyGatewayConnector();
+    /** Singleton instance of the SRFax direct API connector. */
     private static final SRFaxConnector SRFAX_CONNECTOR = new SRFaxConnector();
 
+    /** Private constructor prevents instantiation of this utility class. */
     private FaxConnectorFactory() {
-        // utility class
     }
 
     /**
@@ -46,6 +48,9 @@ public final class FaxConnectorFactory {
      * @return FaxConnector the appropriate connector implementation
      */
     public static FaxConnector getConnector(FaxConfig faxConfig) {
+        if (faxConfig == null) {
+            return LEGACY_CONNECTOR;
+        }
         String type = faxConfig.getIntegrationType();
         return getConnectorByType(type);
     }

@@ -25,20 +25,34 @@
 package io.github.carlos_emr.carlos.fax.exception;
 
 /**
- * Thrown when a connection to the fax API service cannot be established.
+ * Thrown when a connection to an external fax API service cannot be established.
+ * <p>
+ * Typical causes include network timeouts, DNS failures, or the remote fax
+ * service being unavailable. Callers should treat this as a transient error
+ * and may retry the operation after a delay.
  *
  * @since 2026-02-09 (ported from JunoEMR CloudPractice fax module)
  */
 public class FaxApiConnectionException extends FaxException {
 
+    /**
+     * @param message String the technical detail message for logging
+     */
     public FaxApiConnectionException(String message) {
         super(message);
     }
 
+    /**
+     * @param e Exception the underlying cause (e.g. IOException)
+     */
     public FaxApiConnectionException(Exception e) {
         super(e);
     }
 
+    /**
+     * @param e Exception the underlying cause
+     * @param userMessageResourceKey String the resource bundle key for the user-facing message
+     */
     public FaxApiConnectionException(Exception e, String userMessageResourceKey) {
         super(e, userMessageResourceKey);
     }

@@ -26,15 +26,26 @@ package io.github.carlos_emr.carlos.fax.exception;
 
 /**
  * Thrown when a fax number is invalid or improperly formatted.
+ * <p>
+ * The SRFax API requires fax numbers in a specific format. This exception
+ * is raised during pre-send validation when the destination or sender
+ * fax number does not meet the required format.
  *
  * @since 2026-02-09 (ported from JunoEMR CloudPractice fax module)
  */
 public class FaxNumberException extends FaxException {
 
+    /**
+     * @param message String the technical detail message for logging
+     */
     public FaxNumberException(String message) {
         super(message);
     }
 
+    /**
+     * @param message String the technical detail message for logging
+     * @param userMessageResourceKey String the resource bundle key for the user-facing message
+     */
     public FaxNumberException(String message, String userMessageResourceKey) {
         super(message, userMessageResourceKey);
     }

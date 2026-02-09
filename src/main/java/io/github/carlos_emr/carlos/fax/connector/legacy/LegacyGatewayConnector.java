@@ -24,7 +24,6 @@ import io.github.carlos_emr.carlos.fax.connector.FaxInboundResult;
 import io.github.carlos_emr.carlos.fax.connector.FaxSendResult;
 import io.github.carlos_emr.carlos.fax.connector.FaxStatusCheckResult;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -43,45 +42,80 @@ import java.util.List;
  */
 public class LegacyGatewayConnector implements FaxConnector {
 
+    /** Integration type constant for the legacy external gateway. */
     public static final String INTEGRATION_TYPE = "LEGACY_GATEWAY";
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws UnsupportedOperationException always; legacy fax sending is handled
+     *         directly by {@code FaxSender.sendViaLegacyGateway()}
+     */
     @Override
     public FaxSendResult sendFax(FaxConfig faxConfig, FaxJob faxJob) {
-        // Legacy path: handled directly by FaxSender's original code
         throw new UnsupportedOperationException(
                 "Legacy gateway uses direct FaxSender code path, not the connector interface");
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws UnsupportedOperationException always; legacy inbox polling is handled
+     *         directly by {@code FaxImporter.pollViaLegacyGateway()}
+     */
     @Override
     public List<FaxInboundResult> pollIncomingFaxes(FaxConfig faxConfig) {
-        // Legacy path: handled directly by FaxImporter's original code
         throw new UnsupportedOperationException(
                 "Legacy gateway uses direct FaxImporter code path, not the connector interface");
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws UnsupportedOperationException always; legacy download is handled
+     *         directly by {@code FaxImporter.downloadFax()}
+     */
     @Override
     public String downloadFax(FaxConfig faxConfig, String faxReference) {
         throw new UnsupportedOperationException(
                 "Legacy gateway uses direct FaxImporter code path, not the connector interface");
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws UnsupportedOperationException always; legacy deletion is handled
+     *         directly by {@code FaxImporter.deleteFax()}
+     */
     @Override
     public boolean deleteFax(FaxConfig faxConfig, String faxReference) {
         throw new UnsupportedOperationException(
                 "Legacy gateway uses direct FaxImporter code path, not the connector interface");
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws UnsupportedOperationException always; legacy status checking is handled
+     *         directly by {@code FaxStatusUpdater.updateStatusViaLegacyGateway()}
+     */
     @Override
     public FaxStatusCheckResult checkFaxStatus(FaxConfig faxConfig, long externalJobId) {
         throw new UnsupportedOperationException(
                 "Legacy gateway uses direct FaxStatusUpdater code path, not the connector interface");
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * No-op for the legacy gateway. The legacy gateway server manages its own read state.
+     */
     @Override
     public void markFaxAsRead(FaxConfig faxConfig, String faxReference) {
         // No-op for legacy gateway
     }
 
+    /** {@inheritDoc} */
     @Override
     public String getIntegrationType() {
         return INTEGRATION_TYPE;

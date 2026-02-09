@@ -72,10 +72,30 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 
+/**
+ * Polls remote fax services for incoming faxes, downloads them, and saves
+ * them into the CARLOS document management system.
+ * <p>
+ * Supports two integration modes based on each fax account's configuration:
+ * <ul>
+ *   <li><b>Legacy Gateway</b>: Uses HTTP GET calls to the external CXF REST gateway
+ *       to retrieve and delete incoming faxes.</li>
+ *   <li><b>Direct API</b> (e.g. SRFax): Uses the {@link FaxConnector} interface to
+ *       poll, download, and mark faxes as read on the remote service.</li>
+ * </ul>
+ * Downloaded faxes are saved as PDF documents via {@link EDocUtil}, linked to the
+ * configured inbox queue, and routed through provider lab routing for notification.
+ * Called periodically by the {@code FaxSchedulerJob} TimerTask.
+ *
+ * @since 2026-02-09 (refactored for dual-mode fax support)
+ */
 public class FaxImporter {
 
+    /** REST path segment for the legacy fax gateway endpoint. */
     private static String PATH = "/fax";
+    /** Filesystem directory for storing downloaded fax documents. */
     private static String DOCUMENT_DIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    /** Default provider ID for system-generated fax records. */
     private static String DEFAULT_USER = "-1";
     private FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
@@ -83,6 +103,10 @@ public class FaxImporter {
     private ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
     private Logger log = MiscUtils.getLogger();
 
+    /**
+     * Main polling entry point. Iterates all active fax configurations that have
+     * downloading enabled and checks each for incoming faxes.
+     */
     public void poll() {
 
         log.info("CHECKING REMOTE FOR INCOMING FAXES");
@@ -92,6 +116,7 @@ public class FaxImporter {
         for (FaxConfig faxConfig : faxConfigList) {
             if (faxConfig.isActive() && faxConfig.isDownload()) {
 
+                // Dispatch to the appropriate code path based on integration type
                 if (FaxConnectorFactory.isLegacyGateway(faxConfig)) {
                     pollViaLegacyGateway(faxConfig);
                 } else {

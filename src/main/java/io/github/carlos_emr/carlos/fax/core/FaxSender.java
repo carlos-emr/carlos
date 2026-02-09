@@ -61,8 +61,24 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarProperties;
 
+/**
+ * Dispatches outbound fax jobs to the appropriate fax service.
+ * <p>
+ * Iterates over all active fax configurations, retrieves pending fax jobs for each,
+ * and dispatches them based on the configuration's integration type:
+ * <ul>
+ *   <li><b>Legacy Gateway</b>: Uses the original CXF WebClient path to send faxes
+ *       through an external REST-based fax gateway server.</li>
+ *   <li><b>Direct API</b> (e.g. SRFax): Uses the {@link FaxConnector} interface to
+ *       send faxes directly to the cloud fax provider's API.</li>
+ * </ul>
+ * Called periodically by the {@code FaxSchedulerJob} TimerTask.
+ *
+ * @since 2026-02-09 (refactored for dual-mode fax support)
+ */
 public class FaxSender {
 
+    /** REST path segment for the legacy fax gateway endpoint. */
     private static String PATH = "/fax";
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
@@ -70,6 +86,10 @@ public class FaxSender {
 
     private Logger log = MiscUtils.getLogger();
 
+    /**
+     * Main send entry point. Iterates all active fax configurations and sends
+     * any pending fax jobs through the appropriate integration path.
+     */
     public void send() {
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
@@ -84,6 +104,7 @@ public class FaxSender {
 
                 log.info("SENDING {} faxes from fax account {}", faxJobList.size(), faxConfig.getAccountName());
 
+                // Dispatch to the appropriate code path based on integration type
                 if (FaxConnectorFactory.isLegacyGateway(faxConfig)) {
                     sendViaLegacyGateway(faxConfig, faxJobList, document_dir);
                 } else {
