@@ -37,18 +37,33 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link UserAccessDao} Hibernate migration validation.
+ * Integration tests for {@link UserAccessDao} validating HQL query correctness
+ * and parameter binding for the Hibernate 5-to-6 migration.
  *
- * <p>These tests validate that HQL queries with positional parameters in
- * {@code UserAccessDaoImpl} bind parameters correctly after Hibernate migration.
- * The {@code UserAccessValue} entity is mapped as {@code mutable="false"} to the
- * {@code v_user_access} view, so test data must be inserted via native SQL.</p>
+ * <p>The {@link UserAccessValue} entity is mapped to the {@code v_user_access} database
+ * view with {@code mutable="false"} in the HBM XML. In the test environment, Hibernate's
+ * {@code hbm2ddl.auto=create} creates this as a regular table in H2, allowing insert
+ * operations via native SQL while preserving the read-only HQL query behavior.</p>
  *
- * <p><b>Note on GetUserOrgAccessList:</b> Tests for {@code GetUserOrgAccessList}
- * are intentionally omitted because that method joins against the {@code LstOrgcd}
- * entity (mapped to {@code lst_orgcd} table), which is not available in the test
- * context. The {@code GetUserAccessList} method queries only the
- * {@code UserAccessValue} entity and can be tested in isolation.</p>
+ * <p>The entity uses a <b>composite primary key</b> consisting of:
+ * <ul>
+ *   <li>{@code functionCd} (mapped to {@code objectname} column) - the security object name</li>
+ *   <li>{@code orgCd} (mapped to {@code orgcd} column) - the organization code</li>
+ * </ul>
+ * Additional mapped properties include {@code providerNo}, {@code privilege},
+ * {@code orgCdcsv}, and {@code orgApplicable}.</p>
+ *
+ * <p><b>Test scope limitations:</b></p>
+ * <ul>
+ *   <li>{@code GetUserAccessList(providerNo, null)} - Tested. Simple HQL with one
+ *       positional parameter and ORDER BY clause.</li>
+ *   <li>{@code GetUserAccessList(providerNo, shelterId)} - Not tested. The shelter ID
+ *       branch uses string concatenation which is a pre-existing SQL injection
+ *       vulnerability, not a migration concern.</li>
+ *   <li>{@code GetUserOrgAccessList} - Not tested. Requires the {@code LstOrgcd} entity
+ *       (mapped to {@code lst_orgcd} table) which is not available in the test persistence
+ *       context.</li>
+ * </ul>
  *
  * @since 2026-02-09
  * @see UserAccessDao
@@ -61,27 +76,34 @@ import static org.assertj.core.api.Assertions.*;
 @Transactional
 public class UserAccessDaoIntegrationTest extends OpenOTestBase {
 
+    /** DAO under test, autowired from Spring test context bean {@code userAccessDao}. */
     @Autowired
     private UserAccessDao userAccessDao;
 
+    /** JPA EntityManager for native SQL test data setup and verification. */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    /**
+     * Native SQL INSERT for the {@code v_user_access} table. Uses positional parameters
+     * (?1 through ?6) for safe parameterized insertion. Required because the entity
+     * mapping declares {@code mutable="false"}, preventing Hibernate DML operations.
+     */
     private static final String INSERT_SQL = "INSERT INTO v_user_access (objectname, orgcd, provider_no, privilege, orgCdcsv, orgapplicable) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
 
     /**
-     * Insert a row into the {@code v_user_access} table using native SQL.
+     * Inserts a single row into the {@code v_user_access} table using native SQL.
      *
      * <p>Native SQL is required because the {@code UserAccessValue} HBM mapping
      * declares {@code mutable="false"}, which prevents Hibernate from performing
-     * insert/update/delete operations on the entity.</p>
+     * insert, update, or delete operations on this entity.</p>
      *
-     * @param functionCd  the security object name (composite key part 1)
-     * @param orgCd       the organization code (composite key part 2)
-     * @param providerNo  the provider number
-     * @param privilege    the privilege level (e.g. "r", "w", "x")
-     * @param orgCdcsv    the comma-separated organization code tree
-     * @param orgApplicable whether the organization is applicable
+     * @param functionCd    String the security object name (composite key part 1)
+     * @param orgCd         String the organization code (composite key part 2)
+     * @param providerNo    String the provider number to associate the access with
+     * @param privilege      String the privilege level (e.g., "r" for read, "w" for write, "x" for execute)
+     * @param orgCdcsv      String the comma-separated organization code tree for shelter filtering
+     * @param orgApplicable boolean whether the organization is applicable for this access entry
      */
     private void insertUserAccess(String functionCd, String orgCd, String providerNo,
                                   String privilege, String orgCdcsv, boolean orgApplicable) {
@@ -96,30 +118,44 @@ public class UserAccessDaoIntegrationTest extends OpenOTestBase {
         entityManager.flush();
     }
 
+    /**
+     * Sets up test data with access records for two providers.
+     *
+     * <p>Provider P001 receives three access records spanning two functions and two
+     * organizations, with varying privilege levels. Provider P002 receives a single
+     * record to verify cross-provider query isolation.</p>
+     */
     @BeforeEach
     void setUp() {
-        // Insert test data for provider P001
+        // Provider P001: three access records across two functions and two organizations
         insertUserAccess("functionA", "ORG1", "P001", "r", "S1,", true);
         insertUserAccess("functionB", "ORG1", "P001", "w", "S1,", true);
         insertUserAccess("functionA", "ORG2", "P001", "x", "S2,", false);
 
-        // Insert test data for a different provider P002
+        // Provider P002: one access record to verify provider isolation
         insertUserAccess("functionC", "ORG1", "P002", "r", "S1,", true);
     }
 
+    /**
+     * Verifies that {@code GetUserAccessList} returns all access records for a given
+     * provider when no shelter ID filter is applied (null shelterId branch).
+     *
+     * <p>This exercises the HQL query:
+     * {@code from UserAccessValue s where s.providerNo= ?0 order by s.functionCd, s.privilege desc, s.orgCd}</p>
+     */
     @Test
     @Tag("read")
     @DisplayName("should return user access list when provider matches and no shelter ID")
     void shouldReturnUserAccessList_whenProviderNoMatchesAndNoShelterId() {
-        // When
+        // When - retrieve without shelter filter (null triggers the simpler HQL branch)
         List results = userAccessDao.GetUserAccessList("P001", null);
 
-        // Then
+        // Then - P001 has exactly 3 access records
         assertThat(results)
             .isNotNull()
             .hasSize(3);
 
-        // Verify the results contain UserAccessValue instances for the correct provider
+        // Verify all returned records belong to the correct provider
         assertThat(results)
             .allSatisfy(item -> {
                 UserAccessValue uav = (UserAccessValue) item;
@@ -127,53 +163,66 @@ public class UserAccessDaoIntegrationTest extends OpenOTestBase {
             });
     }
 
+    /**
+     * Verifies that {@code GetUserAccessList} returns an empty list (not null)
+     * when the provider number does not match any access records in the database.
+     */
     @Test
     @Tag("read")
     @DisplayName("should return empty list when provider number does not match")
     void shouldReturnEmptyList_whenProviderNoDoesNotMatch() {
-        // When
+        // When - query with a provider that has no access records
         List results = userAccessDao.GetUserAccessList("NONEXISTENT", null);
 
-        // Then
+        // Then - should return empty, not null
         assertThat(results)
             .isNotNull()
             .isEmpty();
     }
 
+    /**
+     * Verifies that {@code GetUserAccessList} returns results in the correct ORDER BY
+     * sequence: {@code functionCd ASC, privilege DESC, orgCd ASC}.
+     *
+     * <p>Test data for P001:
+     * <pre>
+     *   functionA | ORG1 | privilege=r
+     *   functionA | ORG2 | privilege=x
+     *   functionB | ORG1 | privilege=w
+     * </pre>
+     * Expected order after sorting:
+     * <pre>
+     *   functionA | x | ORG2  (functionA group, highest privilege first)
+     *   functionA | r | ORG1  (functionA group, lower privilege)
+     *   functionB | w | ORG1  (functionB group)
+     * </pre>
+     * </p>
+     */
     @Test
     @Tag("read")
     @DisplayName("should return ordered results when multiple access records exist")
     void shouldReturnOrderedResults_whenMultipleAccessRecordsExist() {
-        // The query orders by: functionCd ASC, privilege DESC, orgCd ASC.
-        // P001 has:
-        //   functionA, ORG1, privilege=r
-        //   functionA, ORG2, privilege=x
-        //   functionB, ORG1, privilege=w
-        // Expected order by (functionCd, privilege desc, orgCd):
-        //   functionA, x, ORG2
-        //   functionA, r, ORG1
-        //   functionB, w, ORG1
-
         // When
         List results = userAccessDao.GetUserAccessList("P001", null);
 
-        // Then
+        // Then - verify the total count
         assertThat(results).hasSize(3);
 
         UserAccessValue first = (UserAccessValue) results.get(0);
         UserAccessValue second = (UserAccessValue) results.get(1);
         UserAccessValue third = (UserAccessValue) results.get(2);
 
-        // First group: functionA, ordered by privilege desc
+        // First entry: functionA group, privilege DESC means "x" comes before "r"
         assertThat(first.getFunctionCd()).isEqualTo("functionA");
         assertThat(first.getPrivilege()).isEqualTo("x");
         assertThat(first.getOrgCd()).isEqualTo("ORG2");
 
+        // Second entry: still functionA, lower privilege
         assertThat(second.getFunctionCd()).isEqualTo("functionA");
         assertThat(second.getPrivilege()).isEqualTo("r");
         assertThat(second.getOrgCd()).isEqualTo("ORG1");
 
-        // Second group: functionB
+        // Third entry: functionB group (only one record)
         assertThat(third.getFunctionCd()).isEqualTo("functionB");
         assertThat(third.getPrivilege()).isEqualTo("w");
         assertThat(third.getOrgCd()).isEqualTo("ORG1");
