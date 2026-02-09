@@ -73,7 +73,7 @@ public abstract class PrescriptionUnitTestBase extends OpenOUnitTestBase {
      */
     protected Drug createTestDrug() {
         Drug drug = new Drug();
-        drug.setDemographicNo(TEST_DEMO_NO);
+        drug.setDemographicId(TEST_DEMO_NO);
         drug.setProviderNo(TEST_PROVIDER);
         drug.setBrandName(TEST_DRUG_NAME);
         drug.setAtc(TEST_ATC_CODE);
@@ -130,7 +130,7 @@ public abstract class PrescriptionUnitTestBase extends OpenOUnitTestBase {
      */
     protected Prescription createTestPrescription() {
         Prescription prescription = new Prescription();
-        prescription.setDemographicNo(TEST_DEMO_NO);
+        prescription.setDemographicId(TEST_DEMO_NO);
         prescription.setProviderNo(TEST_PROVIDER);
         prescription.setDatePrescribed(new Date());
         return prescription;

@@ -78,9 +78,9 @@ public abstract class ScheduleUnitTestBase extends OpenOUnitTestBase {
         ScheduleDate scheduleDate = new ScheduleDate();
         scheduleDate.setDate(new Date());
         scheduleDate.setProviderNo(TEST_PROVIDER);
-        scheduleDate.setAvailable("1");
+        scheduleDate.setAvailable('1');
         scheduleDate.setHour(TEST_TEMPLATE_NAME);
-        scheduleDate.setPriority("a");
+        scheduleDate.setPriority('a');
         return scheduleDate;
     }
 
@@ -103,12 +103,12 @@ public abstract class ScheduleUnitTestBase extends OpenOUnitTestBase {
     /**
      * Creates a test ScheduleTemplateCode.
      *
-     * @param code The single-char code
+     * @param code The single-character code
      * @param description The description
      * @param color The display color
      * @return A ScheduleTemplateCode instance for testing
      */
-    protected ScheduleTemplateCode createTestScheduleTemplateCode(String code, String description, String color) {
+    protected ScheduleTemplateCode createTestScheduleTemplateCode(Character code, String description, String color) {
         ScheduleTemplateCode templateCode = new ScheduleTemplateCode();
         templateCode.setCode(code);
         templateCode.setDescription(description);

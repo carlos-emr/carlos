@@ -73,7 +73,7 @@ public abstract class PreventionUnitTestBase extends OpenOUnitTestBase {
      */
     protected Prevention createTestPrevention() {
         Prevention prevention = new Prevention();
-        prevention.setDemographicNo(TEST_DEMO_NO);
+        prevention.setDemographicId(TEST_DEMO_NO);
         prevention.setPreventionType(TEST_PREVENTION_TYPE);
         prevention.setPreventionDate(new Date());
         prevention.setProviderNo(TEST_PROVIDER);
