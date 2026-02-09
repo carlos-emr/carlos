@@ -113,7 +113,7 @@
                 <% } else {%>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgNew"/>
                 <br>
-                <input type="checkbox" name="signature" size="40" />
+                <input type="text" name="signature" size="40" />
                 <br>
                 <!-- add by caisi -->
                 <caisi:isModuleLoad moduleName="caisi">
