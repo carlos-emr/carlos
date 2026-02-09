@@ -412,6 +412,18 @@
     String strMonth = month > 9 ? ("" + month) : ("0" + month);
     String strDay = day > 9 ? ("" + day) : ("0" + day);
 
+    // Timeline indicator variables - shows current time marker on today's schedule
+    SimpleDateFormat formatHour = new SimpleDateFormat("HH");
+    SimpleDateFormat formatMin = new SimpleDateFormat("mm");
+    SimpleDateFormat formatAdate = new SimpleDateFormat("yyyyMMdd");
+    Date curDate = new Date();
+    String curHour = formatHour.format(curDate);
+    String curMin = formatMin.format(curDate);
+    String curDate2 = formatAdate.format(curDate);
+    boolean isToday = curDate2.equals(strYear + strMonth + strDay);
+    int curH = Integer.parseInt(curHour);
+    int totalM = Integer.parseInt(curMin) + curH * 60 - 6; // 6min grace offset
+    boolean isTimeline = OscarProperties.getInstance().getProperty("display_timeline", "true").equalsIgnoreCase("true");
 
     Calendar apptDate = Calendar.getInstance();
     apptDate.set(year, month - 1, day);
@@ -571,6 +583,87 @@
             .ds-btn {
                 background-color: #f4ead7;
                 border: 1px solid #0097cf;
+            }
+
+            /* Quick Date Navigation Buttons */
+            .quick-nav {
+                display: inline-block;
+                vertical-align: middle;
+            }
+            .quick-btn {
+                padding: 2px 6px;
+                margin: 0 1px;
+                font-size: 11px;
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            .quick-btn:hover {
+                background-color: #e0e0e0;
+                border-color: #999;
+            }
+            .multiplier-input {
+                width: 24px;
+                padding: 2px 4px;
+                font-size: 11px;
+                text-align: center;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                background-color: #f8f8f8;
+            }
+            .multiplier-input:focus {
+                border-color: #0066cc;
+                outline: none;
+            }
+
+            /* Toggle Cancelled Appointments */
+            #toggleCancelledBtn {
+                display: inline-block;
+                vertical-align: middle;
+                cursor: pointer;
+                color: #333;
+            }
+            #toggleCancelledBtn:hover {
+                color: #0066cc;
+            }
+            #toggleCancelledIcon.cancelled-hidden {
+                opacity: 0.5;
+            }
+            .hideCancelled {
+                display: none !important;
+            }
+
+            /* Timeline Indicator - Current Time Marker */
+            .timeline-indicator {
+                height: 2px;
+            }
+            .timeline-indicator td {
+                padding: 0 !important;
+                border: none !important;
+            }
+            .timeline-marker {
+                border: none;
+                border-top: 2px dotted tomato;
+                margin: 0;
+                padding: 0;
+            }
+
+            /* Clickable Date for Calendar Popup */
+            .clickable-date {
+                color: inherit;
+                text-decoration: none;
+                cursor: pointer;
+            }
+            .clickable-date:hover {
+                color: #0066cc;
+                text-decoration: underline;
+            }
+            .clickable-date .dateAppointment {
+                border-bottom: 1px dashed #999;
+            }
+            .clickable-date:hover .dateAppointment {
+                border-bottom-color: #0066cc;
             }
         </style>
 
@@ -1135,19 +1228,6 @@
                     <span class="glyphicon glyphicon-step-backward"
                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
-                <b><span class="dateAppointment"><%
-                    if (isWeekView) {
-                %><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
-                } else {
-                %><%=formatDate%><%
-                    }
-                %></span></b>
-                <a class="redArrow"
-                   href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
-                    <span class="glyphicon glyphicon-step-forward"
-                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
-                </a>
-
                 <%
                     String calendarUrl = request.getContextPath() + "/share/CalendarPopup.jsp?urlfrom=" + request.getContextPath() + "/provider/providercontrol.jsp" + "&year=" + strYear + "&month=" + strMonth + "&param=" + URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewall, "UTF-8");
 
@@ -1155,10 +1235,43 @@
                         calendarUrl += URLEncoder.encode("&provider_no=" + provNum, "UTF-8");
                     }
                 %>
+                <b><a href="#" class="clickable-date" onclick="popupPage(425,430,'<%=calendarUrl%>'); return false;"
+                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.clickToOpenCalendar"/>">
+                    <span class="dateAppointment"><%
+                    if (isWeekView) {
+                %><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
+                } else {
+                %><%=formatDate%><%
+                    }
+                %></span></a></b>
+                <a class="redArrow"
+                   href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
+                    <span class="glyphicon glyphicon-step-forward"
+                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
+                </a>
 
-                <a id="calendarLink" href="#" onClick="popupPage(425,430,'<%=calendarUrl%>')">
-                    <fmt:setBundle basename="oscarResources"/>
-                    <fmt:message key="global.calendar"/>
+                <!-- Quick Date Navigation Shortcuts with Multiplier -->
+                <span class="quick-nav noprint" style="margin-left: 10px;">
+                    <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
+                    <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
+                    <input type="text" id="dateMultiplier" value="1" maxlength="2" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
+                    <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
+                    <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
+                    |
+                    <input type="button" value="2W" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
+                    <input type="button" value="4W" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
+                    <input type="button" value="3M" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                    <input type="button" value="6M" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                </span>
+
+                <!-- Toggle Cancelled Appointments -->
+                <a id="toggleCancelledBtn" href="javascript:void(0)" onclick="toggleCancelled();" class="noprint" style="margin-left: 10px;" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>">
+                    <span id="toggleCancelledIcon" class="glyphicon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                        </svg>
+                    </span>
                 </a>
 
                 <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -1708,6 +1821,15 @@
                                                         } else {
                                                             hourmin = new StringBuffer();
                                                         }
+
+                                                        // Timeline indicator - show current time marker on today's schedule
+                                                        if ((ih >= totalM) && (ih < (totalM + depth)) && !isWeekView && isToday && isTimeline) {
+                                                %>
+                                                <tr class="timeline-indicator noprint">
+                                                    <td colspan="8"><hr class="timeline-marker"/></td>
+                                                </tr>
+                                                <%
+                                                        }
                                                 %>
                                                 <tr>
                                                     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
@@ -1840,8 +1962,10 @@
 
                                                          //multi-site. if a site have been selected, only display appointment in that site
                                                    if (!bMultisites || (selectedSite == null && CurrentSiteMap.get(sitename) != null) || sitename.equals(selectedSite)) {
+                                                        // Check if this is a cancelled appointment (C, CS, CV, N, NS, NV)
+                                                        boolean isCancelled = noCountStatus.contains(status);
                                                     %>
-                                                    <td class="appt" bgcolor='<%=as.getBgColor()%>'
+                                                    <td class="appt<%= isCancelled ? " Cancelled" : "" %>" bgcolor='<%=as.getBgColor()%>'
                                                         rowspan="<%=iRows%>"
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->

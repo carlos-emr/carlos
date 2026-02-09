@@ -64,7 +64,168 @@ return classElements;
 
 document.addEventListener('DOMContentLoaded', function() {
     setDefaultReasonView();
+    initCancelledVisibility();
 });
+
+// Toggle Cancelled Appointments Visibility
+// Toggles .Cancelled elements and saves state to localStorage
+function toggleCancelled() {
+    const cancelledElements = document.querySelectorAll('.Cancelled');
+    const eyeIcon = document.getElementById('toggleCancelledIcon');
+    let isHidden = false;
+
+    cancelledElements.forEach(function(el) {
+        if (el.classList.contains('hideCancelled')) {
+            el.classList.remove('hideCancelled');
+            el.style.display = '';
+        } else {
+            el.classList.add('hideCancelled');
+            el.style.display = 'none';
+            isHidden = true;
+        }
+    });
+
+    // Toggle icon appearance
+    if (eyeIcon) {
+        if (isHidden) {
+            eyeIcon.classList.add('cancelled-hidden');
+            eyeIcon.title = '<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>';
+        } else {
+            eyeIcon.classList.remove('cancelled-hidden');
+            eyeIcon.title = '<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>';
+        }
+    }
+
+    localStorage.setItem('hideCancelled', isHidden ? 'true' : 'false');
+}
+
+// Initialize cancelled appointments visibility on page load
+function initCancelledVisibility() {
+    const hideState = localStorage.getItem('hideCancelled');
+    if (hideState === 'true') {
+        const cancelledElements = document.querySelectorAll('.Cancelled');
+        const eyeIcon = document.getElementById('toggleCancelledIcon');
+
+        cancelledElements.forEach(function(el) {
+            el.classList.add('hideCancelled');
+            el.style.display = 'none';
+        });
+
+        if (eyeIcon) {
+            eyeIcon.classList.add('cancelled-hidden');
+            eyeIcon.title = '<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>';
+        }
+    }
+}
+
+// Quick Date Navigation
+// Jumps forward or backward by weeks/months
+var qsParm = {};
+
+function initializeQSArray() {
+    qsParm['year'] = null;
+    qsParm['month'] = null;
+    qsParm['day'] = null;
+    qsParm['view'] = null;
+    qsParm['curProvider'] = null;
+    qsParm['curProviderName'] = null;
+    qsParm['displaymode'] = null;
+    qsParm['dboperation'] = null;
+    qsParm['viewall'] = null;
+    qsParm['provider_no'] = null;
+}
+
+function getQSValues() {
+    var query = window.location.search.substring(1);
+    var parms = query.split('&');
+    for (var i = 0; i < parms.length; i++) {
+        var pos = parms[i].indexOf('=');
+        if (pos > 0) {
+            var key = parms[i].substring(0, pos);
+            var val = parms[i].substring(pos + 1);
+            qsParm[key] = decodeURIComponent(val);
+        }
+    }
+}
+
+function getMonthNumber(month) {
+    return month + 1;
+}
+
+function DateAdd(itemType, dateToWorkOn, valueToBeAdded) {
+    switch (itemType) {
+        case 'd':
+            dateToWorkOn.setDate(dateToWorkOn.getDate() + valueToBeAdded);
+            break;
+        case 'w':
+            dateToWorkOn.setDate(dateToWorkOn.getDate() + (valueToBeAdded * 7));
+            break;
+        case 'm':
+            dateToWorkOn.setMonth(dateToWorkOn.getMonth() + parseInt(valueToBeAdded));
+            break;
+        case 'y':
+            dateToWorkOn.setFullYear(dateToWorkOn.getFullYear() + valueToBeAdded);
+            break;
+    }
+    return dateToWorkOn;
+}
+
+function getLocation(id, multiplier) {
+    initializeQSArray();
+    getQSValues();
+
+    var dateSelected = new Date(qsParm['year'], qsParm['month'] - 1, qsParm['day']);
+    var itemType, valueToAdd;
+
+    switch (id) {
+        case 'dayForward':
+            itemType = 'd';
+            valueToAdd = multiplier;
+            break;
+        case 'dayBackward':
+            itemType = 'd';
+            valueToAdd = -1 * multiplier;
+            break;
+        case 'weekBackward':
+            itemType = 'w';
+            valueToAdd = -1 * multiplier;
+            break;
+        case 'weekForward':
+            itemType = 'w';
+            valueToAdd = multiplier;
+            break;
+        case 'monthBackward':
+            itemType = 'm';
+            valueToAdd = -1 * multiplier;
+            break;
+        case 'monthForward':
+            itemType = 'm';
+            valueToAdd = multiplier;
+            break;
+    }
+
+    var dateDestination = DateAdd(itemType, dateSelected, valueToAdd);
+
+    var destination = 'providercontrol.jsp?year=' + dateDestination.getFullYear()
+        + '&month=' + getMonthNumber(dateDestination.getMonth())
+        + '&day=' + dateDestination.getDate()
+        + '&view=' + (qsParm['view'] || '0')
+        + '&displaymode=' + (qsParm['displaymode'] || 'day')
+        + '&dboperation=' + (qsParm['dboperation'] || 'searchappointmentday')
+        + '&viewall=' + (qsParm['viewall'] || '0');
+
+    if (qsParm['curProvider']) {
+        destination += '&curProvider=' + qsParm['curProvider'];
+    }
+    if (qsParm['curProviderName']) {
+        destination += '&curProviderName=' + encodeURIComponent(qsParm['curProviderName']);
+    }
+    if (qsParm['provider_no']) {
+        destination += '&provider_no=' + qsParm['provider_no'];
+    }
+
+    window.location = destination;
+}
 
 function setDefaultReasonView() {
     const hideReasonEl = document.getElementById("hideReason");
