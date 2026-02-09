@@ -44,6 +44,58 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 
 <script type="application/javascript">
+    // Global Barcode Scanner Listener
+    // Captures health card swipes even when cursor isn't in search box
+    (function() {
+        var barcodeBuffer = '';
+        var barcodeTimeout = null;
+        var BARCODE_PREFIX = '%b610054';
+        var BARCODE_MIN_LENGTH = 18;
+        var TYPING_TIMEOUT = 100; // ms - scanners type faster than humans
+
+        document.addEventListener('keypress', function(e) {
+            // Ignore if already focused on search input
+            if (document.activeElement === document.getElementById('keyword')) {
+                return;
+            }
+
+            // Clear buffer after typing pause (human typing vs scanner)
+            if (barcodeTimeout) {
+                clearTimeout(barcodeTimeout);
+            }
+
+            // Add character to buffer
+            barcodeBuffer += e.key;
+
+            // Check if buffer starts with barcode prefix
+            if (barcodeBuffer.length >= BARCODE_MIN_LENGTH &&
+                barcodeBuffer.indexOf(BARCODE_PREFIX) === 0) {
+
+                // Extract HIN (positions 8-18)
+                var hin = barcodeBuffer.substring(8, 18);
+
+                // Put HIN in search box and submit
+                var searchInput = document.getElementById('keyword');
+                var searchMode = document.getElementById('search_mode');
+
+                if (searchInput && searchMode) {
+                    searchInput.value = hin;
+                    searchMode.value = 'search_hin';
+                    document.titlesearch.submit();
+                }
+
+                barcodeBuffer = '';
+                e.preventDefault();
+                return;
+            }
+
+            // Reset buffer after short delay (human typing is slower)
+            barcodeTimeout = setTimeout(function() {
+                barcodeBuffer = '';
+            }, TYPING_TIMEOUT);
+        });
+    })();
+
     function checkdbstatus() {
         if (document.titlesearch.search_mode.value === 'search_band_number') {
             document.titlesearch.dboperation.value = 'search_status_id';
@@ -90,21 +142,48 @@
     
     function checkTypeIn() {
         var dob = document.titlesearch.keyword;
-        if (document.titlesearch.search_mode.value == "search_dob") {
+        var typeInOK = true;
+
+        // Health Card Barcode Scanner Support (Ontario format)
+        // Detects barcode swipe input starting with %b610054 and extracts HIN
+        if (dob.value.indexOf('%b610054') == 0 && dob.value.length > 18) {
+            document.titlesearch.keyword.value = dob.value.substring(8, 18);
+            document.titlesearch.search_mode.value = 'search_hin';
+            return true;
+        }
+
+        // Convert name searches to lowercase for consistency
+        if (document.titlesearch.search_mode.value === 'search_name') {
+            document.titlesearch.keyword.value = dob.value.toLowerCase();
+        }
+
+        // DOB format validation
+        if (document.titlesearch.search_mode.value === 'search_dob') {
             // Remove hyphens for validation
             var dobValue = dob.value.replace(/-/g, '');
-            
+
             // Check if we have enough digits
-            if (dobValue.length < 8) {
+            if (dobValue.length > 0 && dobValue.length < 8) {
                 alert("Date format must be YYYY-MM-DD");
-                return false;
+                typeInOK = false;
             }
         }
-        return true;
+        return typeInOK;
     }
 
 </script>
 <div class="searchBox">
+    <!-- Styled Header with Search Icon -->
+    <div class="RowTop header" style="width:100%; background:#f5f5f5; padding:8px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+        <div class="title">
+            <h4 style="margin:0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom;">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgSearchPatient"/>
+            </h4>
+        </div>
+    </div>
     <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp"
           onsubmit="return checkTypeIn()">
 
@@ -147,7 +226,7 @@
                 </oscar:oscarPropertiesCheck>
             </select>
 
-            <input class="wideInput form-control" type="search" placeholder="Search Patient" NAME="keyword"
+            <input class="wideInput form-control" type="search" placeholder="Search Patient" NAME="keyword" ID="keyword"
                    VALUE="<%=StringEscapeUtils.escapeHtml4(keyWord)%>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
@@ -162,7 +241,8 @@
             <INPUT TYPE="hidden" NAME="fromMessenger" VALUE="<%=fromMessenger%>">
             <INPUT TYPE="hidden" NAME="outofdomain" VALUE="">
             <div class="input-group-btn">
-                <INPUT TYPE="SUBMIT" class="rightButton blueButton top btn btn-primary" VALUE="Active" SIZE="17"
+                <INPUT TYPE="SUBMIT" class="rightButton blueButton top btn btn-primary"
+                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>" SIZE="17"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>">
 
 
@@ -170,10 +250,19 @@
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchInactive"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.Inactive"/>">
 
-
                 <INPUT TYPE="button" class="btn btn-secondary" onclick="searchAll();"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>">
+
+                <INPUT TYPE="button" class="btn btn-link"
+                       onclick="document.titlesearch.keyword.value='';document.titlesearch.submit();"
+                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgMostRecentPatients"/>"
+                       TITLE="Show most recently viewed patients">
+
+                <INPUT TYPE="button" class="btn btn-link"
+                       onclick="window.close();if(window.opener)window.opener.location.reload();"
+                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                       TITLE="Close window">
             </div>
             <%
                 LoggedInInfo loggedInInfo2 = LoggedInInfo.getLoggedInInfoFromSession(request);
