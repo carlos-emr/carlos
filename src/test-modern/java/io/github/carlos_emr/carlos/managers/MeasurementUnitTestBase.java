@@ -85,11 +85,11 @@ public abstract class MeasurementUnitTestBase extends OpenOUnitTestBase {
      */
     protected Measurement createTestMeasurement(String type, String dataField) {
         Measurement measurement = new Measurement();
-        measurement.setDemographicNo(TEST_DEMO_NO);
+        measurement.setDemographicId(TEST_DEMO_NO);
         measurement.setType(type);
         measurement.setDataField(dataField);
         measurement.setProviderNo(TEST_PROVIDER);
-        measurement.setObservationDate(new Date());
+        measurement.setDateObserved(new Date());
         measurement.setCreateDate(new Date());
         return measurement;
     }

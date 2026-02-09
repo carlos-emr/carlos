@@ -79,10 +79,10 @@ public abstract class LabUnitTestBase extends OpenOUnitTestBase {
         info.setSex("M");
         info.setHealthNumber("1234567890");
         info.setResultStatus("F"); // final
-        info.setObservationDateTime("20260115120000");
+        info.setObrDate("20260115120000");
         info.setReportStatus("F");
         info.setAccessionNumber("ACC001");
-        info.setFillerOrderNumber("FILL001");
+        info.setFillerOrderNum("FILL001");
         info.setSendingFacility("TestLab");
         return info;
     }
@@ -90,14 +90,12 @@ public abstract class LabUnitTestBase extends OpenOUnitTestBase {
     /**
      * Creates a test Hl7TextMessage with HL7 message content.
      *
-     * @param labId The lab number
-     * @param message The HL7 message string
+     * @param message The HL7 message string (stored as base64 encoded)
      * @return An Hl7TextMessage instance
      */
-    protected Hl7TextMessage createTestHl7TextMessage(Integer labId, String message) {
+    protected Hl7TextMessage createTestHl7TextMessage(String message) {
         Hl7TextMessage msg = new Hl7TextMessage();
-        msg.setLabNumber(labId);
-        msg.setMessage(message);
+        msg.setBase64EncodedeMessage(message);
         msg.setType(TEST_LAB_TYPE);
         return msg;
     }

@@ -209,7 +209,6 @@
                 <value>io.github.carlos_emr.carlos.commn.model.ScheduleDate</value>
                 <value>io.github.carlos_emr.carlos.commn.model.ScheduleHoliday</value>
                 <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplate</value>
-                <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplatePrimaryKey</value>
                 <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode</value>
                 <value>io.github.carlos_emr.carlos.commn.model.LookupList</value>
                 <value>io.github.carlos_emr.carlos.commn.model.LookupListItem</value>
