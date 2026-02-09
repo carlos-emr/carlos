@@ -202,8 +202,7 @@ public class DocumentPreview2Action extends ActionSupport {
      * Renders a laboratory result document as a PDF and returns it as base64-encoded JSON.
      *
      * Retrieves the specified lab result by segment ID and generates a PDF representation.
-     * Laboratory results include HL7-formatted lab reports from provincial lab systems such
-     * as OLIS (Ontario Laboratory Information System) and other integrated laboratory
+     * Laboratory results include HL7-formatted lab reports from integrated laboratory
      * information systems. The resulting PDF is converted to base64 and returned in a JSON response.
      *
      * Expected request parameters:

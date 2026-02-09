@@ -232,11 +232,6 @@ Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>()
             segmentIDs = segmentIdList.toArray(new String[segmentIdList.size()]);
 
             hl7 = Factory.getHL7Body(segmentID);
-            if (handler instanceof OLISHL7Handler) {
-%>
-<jsp:forward page="labDisplayOLIS.jsp"/>
-<%
-            }
         }
 
     } else // remote lab

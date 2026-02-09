@@ -131,14 +131,6 @@
                 <scope>import</scope>
             </dependency>
           
-            <!-- Force secure version of MIME4J to fix header injection CVE -->
-            <!-- Transitive from axis2-transport-http (used for OLIS) -->
-            <dependency>
-                <groupId>org.apache.james</groupId>
-                <artifactId>apache-mime4j-core</artifactId>
-                <version>0.8.10</version>
-             </dependency>
-
             <!-- Transitive Hibernate/JPA dependencies -->
             <!-- Hibernate core -->
             <dependency>
@@ -843,63 +835,11 @@
             <version>0.2.19</version>
         </dependency>
 
-        <!-- OLIS -->
-        <dependency>
-            <groupId>ca.ssha.www</groupId>
-            <artifactId>olis-service</artifactId>
-            <version>20111111</version>
-        </dependency>
-
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>1.79</version>
-        </dependency>
-
-        <!-- AXIS2 (for OLIS) -->
-        <!-- 
-            Updated to 1.8.2 for Jakarta EE migration preparation,
-            the higher version 2.0.0 will need when we migrate to jakarta 
-        -->
-        <!-- https://mvnrepository.com/artifact/org.apache.axis2/axis2 -->
-        <dependency>
-            <groupId>org.apache.axis2</groupId>
-            <artifactId>axis2</artifactId>
-            <version>1.8.2</version>
-            <type>pom</type>
-        </dependency>
-        <!-- Detected as "Unused dependency" but don't remove it, caused 404 error after removing -->
-        <dependency>
-            <groupId>org.apache.axis2</groupId>
-            <artifactId>axis2-transport-http</artifactId>
-            <version>1.8.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.ws.commons.schema</groupId>
-                    <artifactId>XmlSchema</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.neethi</groupId>
-                    <artifactId>neethi</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.apache.ant</groupId>
-                    <artifactId>ant</artifactId>
-                </exclusion>
-                <!-- Exclude old JAX-RS API to avoid conflict with jakarta.ws.rs -->
-                <exclusion>
-                    <groupId>javax.ws.rs</groupId>
-                    <artifactId>jsr311-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.axis2/axis2-adb -->
-        <dependency>
-            <groupId>org.apache.axis2</groupId>
-            <artifactId>axis2-adb</artifactId>
-            <version>1.8.2</version>
         </dependency>
 
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->

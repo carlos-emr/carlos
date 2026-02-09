@@ -141,8 +141,6 @@ public class ProviderSettings {
     private boolean disableCommentOnAck;
     private boolean defaultPmm;
 
-    private String olisDefaultReportingLab = "";
-    private String olisDefaultExcludeReportingLab = "";
     private boolean dashboardShare;
 
 
@@ -770,22 +768,6 @@ public class ProviderSettings {
 
     public void setDefaultPmm(boolean defaultPmm) {
         this.defaultPmm = defaultPmm;
-    }
-
-    public String getOlisDefaultReportingLab() {
-        return olisDefaultReportingLab;
-    }
-
-    public void setOlisDefaultReportingLab(String olisDefaultReportingLab) {
-        this.olisDefaultReportingLab = olisDefaultReportingLab;
-    }
-
-    public String getOlisDefaultExcludeReportingLab() {
-        return olisDefaultExcludeReportingLab;
-    }
-
-    public void setOlisDefaultExcludeReportingLab(String olisDefaultExcludeReportingLab) {
-        this.olisDefaultExcludeReportingLab = olisDefaultExcludeReportingLab;
     }
 
 

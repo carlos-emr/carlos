@@ -1223,7 +1223,7 @@ public class MDSHandler implements MessageHandler {
      * Checks if the test result is blocked based on the ZPD segment in the HL7 message.
      * The ZPD segment is generated during import when BlockedTestResult is "Y" in the XML.
      * Format: ZPD|||Y| where field 3 contains "Y" if blocked.
-     * Uses HAPI segment access pattern consistent with OLISHL7Handler.isOBRBlocked().
+     * Uses HAPI segment access pattern via Terser for custom segment field extraction.
      *
      * @param i OBR index (unused, blocked status applies to entire message)
      * @param j OBX index (unused, blocked status applies to entire message)

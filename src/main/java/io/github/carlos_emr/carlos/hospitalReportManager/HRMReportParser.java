@@ -487,16 +487,7 @@ public class HRMReportParser {
 
         String practitionerNo = report.getDeliverToUserId();
 
-        Provider sendToProvider = null;
-        if (OscarProperties.getInstance().isPropertyActive("OMD_match_using_OLIS_identifier_type")) {
-            if (practitionerNo.startsWith("D")) {
-                sendToProvider = providerDao.getProviderByPractitionerNoAndOlisType(practitionerNo.substring(1), "MDL");
-            } else if (practitionerNo.startsWith("N")) {
-                sendToProvider = providerDao.getProviderByPractitionerNoAndOlisType(practitionerNo.substring(1), "NPL");
-            }
-        } else {
-            sendToProvider = providerDao.getProviderByPractitionerNo(practitionerNo.substring(1));
-        }
+        Provider sendToProvider = providerDao.getProviderByPractitionerNo(practitionerNo.substring(1));
 
         List<Provider> sendToProviderList = new LinkedList<Provider>();
         if (sendToProvider != null) {

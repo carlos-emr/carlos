@@ -202,12 +202,10 @@
                     String officialFirstName = request.getParameter("officialFirstName");
                     String officialSecondName = request.getParameter("officialSecondName");
                     String officialLastName = request.getParameter("officialLastName");
-                    String officialOlisIdtype = request.getParameter("officialOlisIdtype");
 
                     userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_FIRST_NAME, officialFirstName);
                     userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_SECOND_NAME, officialSecondName);
                     userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_LAST_NAME, officialLastName);
-                    userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_OLIS_IDTYPE, officialOlisIdtype);
 
 
                     if (IsPropertiesOn.isMultisitesEnable()) {

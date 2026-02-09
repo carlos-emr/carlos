@@ -150,12 +150,6 @@ public interface ProviderDao {
 
     public List<String> getProviderNosWithAppointmentsOnDate(Date appointmentDate);
 
-    public List<Provider> getOlisHicProviders();
-
-    public Provider getProviderByPractitionerNoAndOlisType(String practitionerNo, String olisIdentifierType);
-
-    public List<Provider> getOlisProvidersByPractitionerNo(List<String> practitionerNumbers);
-
     public List<Provider> getProvidersByIds(List<String> providerNumbers);
 
     public Map<String, String> getProviderNamesByIdsAsMap(List<String> providerNumbers);
