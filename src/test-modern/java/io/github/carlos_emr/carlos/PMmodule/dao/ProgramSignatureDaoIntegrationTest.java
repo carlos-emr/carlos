@@ -375,8 +375,8 @@ public class ProgramSignatureDaoIntegrationTest extends OpenOTestBase {
      */
     @Test
     @Tag("read")
-    @DisplayName("should return null when no signatures for program")
-    void shouldReturnNull_whenNoSignaturesForProgram() {
+    @DisplayName("should return empty list when no signatures for program")
+    void shouldReturnEmptyList_whenNoSignaturesForProgram() {
         // When - query with a valid but non-existent program ID
         List<ProgramSignature> results = programSignatureDao.getProgramSignatures(99999);
 
