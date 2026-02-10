@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
 
@@ -245,12 +246,11 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
     @Override
     public LookupTableDefValue GetLookupTableDef(String tableId) {
         String sSQL = "from LookupTableDefValue s where s.tableId= ?1";
-        try {
-            return (LookupTableDefValue) getHibernateTemplate().find(sSQL, new Object[]{tableId}).get(0);
-        } catch (Exception ex) {
-            MiscUtils.getLogger().error("Error", ex);
+        List<?> results = HqlQueryHelper.find(currentSession(), sSQL, tableId);
+        if (results.isEmpty()) {
             return null;
         }
+        return (LookupTableDefValue) results.get(0);
     }
 
     @Override
@@ -260,7 +260,7 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
         paramList.add(tableId);
         Object params[] = paramList.toArray(new Object[paramList.size()]);
 
-        return getHibernateTemplate().find(sSql, params);
+        return HqlQueryHelper.find(currentSession(), sSql, params);
     }
 
     @Override
@@ -618,8 +618,8 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
         if (!newCd.isActive()) {
             String oldCsv = oldCd.getCodecsv() + "_%";
 
-            List<LstOrgcd> o = (List<LstOrgcd>) this.getHibernateTemplate()
-                    .find("FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
+            List<LstOrgcd> o = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(),
+                    "FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
             for (LstOrgcd l : o) {
                 l.setActiveyn(0);
                 this.getHibernateTemplate().update(l);
@@ -633,8 +633,8 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
         String sql = "From LstOrgcd a where a.fullcode like ?1";
 
         // Wildcard must be part of the parameter value, not the HQL query
-        List<LstOrgcd> results1 = (List<LstOrgcd>) getHibernateTemplate().find(sql, new Object[]{"%" + org1});
-        List<LstOrgcd> results2 = (List<LstOrgcd>) getHibernateTemplate().find(sql, new Object[]{"%" + org2});
+        List<LstOrgcd> results1 = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(), sql, "%" + org1);
+        List<LstOrgcd> results2 = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(), sql, "%" + org2);
 
         if (!results1.isEmpty() && !results2.isEmpty()) {
             LstOrgcd orgObj1 = results1.get(0);

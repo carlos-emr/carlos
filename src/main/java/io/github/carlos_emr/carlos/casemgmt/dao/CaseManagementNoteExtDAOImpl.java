@@ -36,6 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements CaseManagementNoteExtDAO {
 
@@ -49,34 +50,31 @@ public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements
     @Override
     public List<CaseManagementNoteExt> getExtByNote(Long noteId) {
         String hql = "from CaseManagementNoteExt cExt where cExt.noteId = ?1 order by cExt.id desc";
-        return (List<CaseManagementNoteExt>) this.getHibernateTemplate().find(hql, noteId);
+        return (List<CaseManagementNoteExt>) HqlQueryHelper.find(currentSession(), hql, noteId);
     }
 
     @Override
     public List getExtByKeyVal(String keyVal) {
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1";
-        return this.getHibernateTemplate().find(hql, keyVal);
+        return HqlQueryHelper.find(currentSession(), hql, keyVal);
     }
 
     @Override
     public List getExtByValue(String keyVal, String value) {
-        Object[] param = {keyVal, value};
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.value like ?2";
-        return this.getHibernateTemplate().find(hql, param);
+        return HqlQueryHelper.find(currentSession(), hql, keyVal, value);
     }
 
     @Override
     public List getExtBeforeDate(String keyVal, Date dateValue) {
-        Object[] param = {keyVal, dateValue};
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue <= ?2";
-        return this.getHibernateTemplate().find(hql, param);
+        return HqlQueryHelper.find(currentSession(), hql, keyVal, dateValue);
     }
 
     @Override
     public List getExtAfterDate(String keyVal, Date dateValue) {
-        Object[] param = {keyVal, dateValue};
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue >= ?2";
-        return this.getHibernateTemplate().find(hql, param);
+        return HqlQueryHelper.find(currentSession(), hql, keyVal, dateValue);
     }
 
     @Override

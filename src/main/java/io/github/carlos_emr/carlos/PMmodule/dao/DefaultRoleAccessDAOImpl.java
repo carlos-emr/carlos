@@ -35,8 +35,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @SuppressWarnings("unchecked")
+@Transactional
 public class DefaultRoleAccessDAOImpl extends HibernateDaoSupport implements DefaultRoleAccessDAO {
 
     public void deleteDefaultRoleAccess(Long id) {
@@ -47,21 +50,24 @@ public class DefaultRoleAccessDAOImpl extends HibernateDaoSupport implements Def
         return this.getHibernateTemplate().get(DefaultRoleAccess.class, id);
     }
 
+    @Transactional(readOnly = true)
     public List<DefaultRoleAccess> getDefaultRoleAccesses() {
-        return (List<DefaultRoleAccess>) this.getHibernateTemplate().find("from DefaultRoleAccess dra ORDER BY role_id");
+        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), "from DefaultRoleAccess dra ORDER BY role_id");
     }
 
+    @Transactional(readOnly = true)
     public List<DefaultRoleAccess> findAll() {
-        return (List<DefaultRoleAccess>) this.getHibernateTemplate().find("from DefaultRoleAccess dra");
+        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), "from DefaultRoleAccess dra");
     }
 
     public void saveDefaultRoleAccess(DefaultRoleAccess dra) {
         this.getHibernateTemplate().saveOrUpdate(dra);
     }
 
+    @Transactional(readOnly = true)
     public DefaultRoleAccess find(Long roleId, Long accessTypeId) {
         String sSQL = "from DefaultRoleAccess dra where dra.roleId=?1 and dra.accessTypeId=?2";
-        List results = this.getHibernateTemplate().find(sSQL, new Object[]{roleId, accessTypeId});
+        List results = HqlQueryHelper.find(currentSession(), sSQL, roleId, accessTypeId);
 
         if (!results.isEmpty()) {
             return (DefaultRoleAccess) results.get(0);
@@ -69,8 +75,9 @@ public class DefaultRoleAccessDAOImpl extends HibernateDaoSupport implements Def
         return null;
     }
 
+    @Transactional(readOnly = true)
     public List<Object[]> findAllRolesAndAccessTypes() {
-        return (List<Object[]>) getHibernateTemplate().find("FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.Id");
+        return (List<Object[]>) HqlQueryHelper.find(currentSession(), "FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.Id");
     }
 
 }

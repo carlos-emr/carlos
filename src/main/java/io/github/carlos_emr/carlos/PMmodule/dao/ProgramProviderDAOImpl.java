@@ -33,7 +33,6 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -41,8 +40,11 @@ import io.github.carlos_emr.carlos.utility.QueueCache;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 public class ProgramProviderDAOImpl extends HibernateDaoSupport implements ProgramProviderDAO {
 
@@ -64,7 +66,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
 
         if (results == null) {
             String q = "select pp from ProgramProvider pp where pp.ProgramId=?1 and pp.ProviderNo=?2";
-            results = (List<ProgramProvider>) getHibernateTemplate().find(q, new Object[]{programId, providerNo});
+            results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), q, programId, providerNo);
             if (results != null)
                 programProviderByProviderProgramIdCache.put(cacheKey, results);
         }
@@ -75,14 +77,14 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
     @SuppressWarnings("unchecked")
     @Override
     public List<ProgramProvider> getAllProgramProviders() {
-        return (List<ProgramProvider>) getHibernateTemplate().find("FROM ProgramProvider");
+        return (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), "FROM ProgramProvider");
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<ProgramProvider> getProgramProviderByProviderNo(String providerNo) {
         String q = "select pp from ProgramProvider pp where pp.ProviderNo=?1";
-        return (List<ProgramProvider>) getHibernateTemplate().find(q, providerNo);
+        return (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), q, providerNo);
     }
 
     @Override
@@ -92,8 +94,8 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         }
 
         @SuppressWarnings("unchecked")
-        List<ProgramProvider> results = (List<ProgramProvider>) this.getHibernateTemplate()
-                .find("from ProgramProvider pp where pp.ProgramId = ?1", programId);
+        List<ProgramProvider> results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(),
+                "from ProgramProvider pp where pp.ProgramId = ?1", programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProviders: programId=" + programId + ",# of results=" + results.size());
@@ -108,7 +110,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         }
 
         String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1";
-        List<ProgramProvider> results = (List<ProgramProvider>) this.getHibernateTemplate().find(sSQL, providerNo);
+        List<ProgramProvider> results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvidersByProvider: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -122,12 +124,11 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
             throw new IllegalArgumentException();
         }
 
-        Session session = currentSession();
         String hql = "from ProgramProvider pp where pp.ProviderNo = :providerNo and pp.ProgramId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
-        List results = session.createQuery(hql)
-                .setParameter("providerNo", providerNo)
-                .setParameter("facilityId", facilityId)
-                .list();
+        Map<String, Object> params = new HashMap<>();
+        params.put("providerNo", providerNo);
+        params.put("facilityId", facilityId);
+        List results = HqlQueryHelper.find(currentSession(), hql, params);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvidersByProviderAndFacility: providerNo=" + providerNo + ",# of results="
@@ -166,7 +167,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
 
         ProgramProvider result = null;
         String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2 and pp.RoleId = ?3";
-        List results = this.getHibernateTemplate().find(queryStr, new Object[] { providerNo, programId, roleId });
+        List results = HqlQueryHelper.find(currentSession(), queryStr, providerNo, programId, roleId);
 
         if (!results.isEmpty()) {
             result = (ProgramProvider) results.get(0);
@@ -192,7 +193,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
 
         ProgramProvider result = null;
         String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2";
-        List results = this.getHibernateTemplate().find(sSQL, new Object[]{providerNo, programId});
+        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo, programId);
         if (!results.isEmpty()) {
             result = (ProgramProvider) results.get(0);
         }
@@ -270,7 +271,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         Long pId = programId.longValue();
 
         String sSQL = "select pp from ProgramProvider pp left join pp.teams as team where pp.ProgramId = ?1 and team.id = ?2";
-        List<ProgramProvider> results = (List<ProgramProvider>) this.getHibernateTemplate().find(sSQL, new Object[]{pId, teamId});
+        List<ProgramProvider> results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), sSQL, pId, teamId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvidersInTeam: programId=" + programId + ",teamId=" + teamId + ",# of results="
@@ -288,7 +289,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         }
 
         String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1";
-        List results = this.getHibernateTemplate().find(sSQL, providerNo);
+        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramDomain: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -303,7 +304,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         }
 
         String sSQL = "select pp from ProgramProvider pp, Program p where pp.ProgramId=p.id and p.programStatus='active' and pp.ProviderNo = ?1";
-        List results = this.getHibernateTemplate().find(sSQL, providerNo);
+        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramDomain: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -317,12 +318,11 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
             throw new IllegalArgumentException();
         }
 
-        Session session = currentSession();
         String hql = "from ProgramProvider pp where pp.ProviderNo = :providerNo and pp.ProgramId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
-        List results = session.createQuery(hql)
-                .setParameter("providerNo", providerNo)
-                .setParameter("facilityId", facilityId)
-                .list();
+        Map<String, Object> params = new HashMap<>();
+        params.put("providerNo", providerNo);
+        params.put("facilityId", facilityId);
+        List results = HqlQueryHelper.find(currentSession(), hql, params);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramDomainByFacility: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -337,8 +337,8 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         }
 
         String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2";
-        List results = getHibernateTemplate().find(queryStr,
-                new Object[]{providerNo, Long.valueOf(programId.longValue())});
+        List results = HqlQueryHelper.find(currentSession(), queryStr,
+                providerNo, Long.valueOf(programId.longValue()));
         if (results != null && results.size() > 0) {
             return true;
         } else {
@@ -355,7 +355,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         }
         String sSQL = "select distinct f from Facility f, Program p, ProgramProvider pp " +
         "where pp.ProgramId = p.id and f.id = p.facilityId and pp.ProviderNo = ?1";
-        List results = this.getHibernateTemplate().find(sSQL, providerNo);
+        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo);
 
         return results;
     }

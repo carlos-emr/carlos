@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 public class ClientReferralDAOImpl extends HibernateDaoSupport implements ClientReferralDAO {
 
@@ -58,7 +59,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
     public List<ClientReferral> getReferrals() {
         @SuppressWarnings("unchecked")
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find("from ClientReferral");
+        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral");
 
         if (log.isDebugEnabled()) {
             log.debug("getReferrals: # of results=" + results.size());
@@ -75,7 +76,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
         }
         
         String sSQL = "from ClientReferral cr where cr.ClientId = ?1";
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find(sSQL, clientId);
+        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, clientId);
 
         if (log.isDebugEnabled()) {
             log.debug("getReferrals: clientId=" + clientId + ",# of results=" + results.size());
@@ -104,7 +105,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             facilityId,
             facilityId
         };
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find(sSQL, param);
+        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, param);
 
         if (log.isDebugEnabled()) {
             log.debug("getReferralsByFacility: clientId=" + clientId + ",# of results=" + results.size());
@@ -128,7 +129,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             String sSQL = "from ClientReferral r where r.ClientId = ?1 and r.Id < ?2 order by r.Id desc";
             Object[] param = new Object[]{cr.getClientId(), cr.getId()};
             @SuppressWarnings("unchecked")
-            List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find(sSQL, param);
+            List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, param);
 
             // temp - completionNotes/Referring program/agency, notes/External
             String completionNotes = "";
@@ -164,7 +165,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
         String queryStr = "FROM Program p WHERE p.id = ?1 AND p.type = 'external'";
         @SuppressWarnings("unchecked")
-        List<Program> rs = (List<Program>) getHibernateTemplate().find(queryStr, programId);
+        List<Program> rs = (List<Program>) HqlQueryHelper.find(currentSession(), queryStr, programId);
 
         if (!rs.isEmpty()) {
             result = true;
@@ -184,7 +185,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
         String queryStr = "FROM Admission a WHERE a.clientId=?1 ORDER BY a.admissionDate DESC";
         @SuppressWarnings("unchecked")
-        List<Admission> rs = (List<Admission>) getHibernateTemplate().find(queryStr, new Object[]{demographicNo});
+        List<Admission> rs = (List<Admission>) HqlQueryHelper.find(currentSession(), queryStr, demographicNo);
         return rs;
     }
     // end of change
@@ -204,7 +205,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
                 ClientReferral.STATUS_PENDING,
                 ClientReferral.STATUS_UNKNOWN
             };
-            results = (List<ClientReferral>) this.getHibernateTemplate().find(resultQuery, param);
+            results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), resultQuery, param);
         } else {
             String sSQL = "from ClientReferral cr where cr.ClientId = ?1 and (cr.Status = ?2 or cr.Status = ?3 or cr.Status = ?4) and ((cr.FacilityId=?5) or (cr.ProgramId in (select s.id from Program s where s.facilityId=?6)))";
             Object params[] = new Object[] {
@@ -215,7 +216,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
                 facilityId,
                 facilityId
             };
-            results = (List<ClientReferral>) getHibernateTemplate().find(sSQL, params);
+            results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, params);
         }
 
         if (log.isDebugEnabled()) {
@@ -243,7 +244,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             ClientReferral.STATUS_ACTIVE,
             ClientReferral.STATUS_CURRENT
         };
-        results = (List<ClientReferral>) getHibernateTemplate().find(sSQL, params);
+        results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, params);
 
         if (log.isDebugEnabled()) {
             log.debug("getActiveReferralsByClientAndProgram: clientId=" + clientId + "programId " + programId + ", # of results=" + results.size());
@@ -299,7 +300,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
     public List<ClientReferral> getClientReferralsByProgram(int programId) {
         @SuppressWarnings("unchecked")
-        List<ClientReferral> results = (List<ClientReferral>) this.getHibernateTemplate().find("from ClientReferral cr where cr.ProgramId = ?1", Long.valueOf(programId));
+        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral cr where cr.ProgramId = ?1", Long.valueOf(programId));
 
         return results;
     }

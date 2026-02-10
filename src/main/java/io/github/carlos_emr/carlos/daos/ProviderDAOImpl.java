@@ -35,6 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
  * This couldn't possibly work, it's not a spring managed bean according to the xml files.
@@ -45,7 +46,7 @@ public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO 
 
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
-        return (List<Provider>) getHibernateTemplate().find("from Provider p order by p.lastName");
+        return (List<Provider>) HqlQueryHelper.find(currentSession(), "from Provider p order by p.lastName");
     }
 
     public Provider getProvider(String provider_no) {
@@ -53,7 +54,7 @@ public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO 
     }
 
     public Provider getProviderByName(String lastName, String firstName) {
-        return (Provider) getHibernateTemplate().find("from Provider p where p.first_name = ?1 and p.last_name = ?2", firstName, lastName).get(0);
+        return (Provider) HqlQueryHelper.find(currentSession(), "from Provider p where p.first_name = ?1 and p.last_name = ?2", firstName, lastName).get(0);
     }
 
 }

@@ -33,13 +33,14 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.LockMode;
-import org.hibernate.Query;
+import org.hibernate.query.Query;
 import org.hibernate.Session;
 import org.hibernate.criterion.Example;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
  * @author JZhang
@@ -103,7 +104,7 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
         logger.debug("getting Provider instance with id: " + id);
         try {
             String sql = "from SecProvider where id=?1 and status=?2";
-            List lst = this.getHibernateTemplate().find(sql, new Object[]{id, status});
+            List lst = HqlQueryHelper.find(currentSession(), sql, id, status);
             if (lst.size() == 0)
                 return null;
             else

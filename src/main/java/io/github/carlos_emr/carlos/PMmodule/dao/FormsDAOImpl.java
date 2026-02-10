@@ -67,7 +67,7 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         // Entity names cannot be parameterized in HQL/JPQL
         List results = this.getHibernateTemplate().findByCriteria(
             DetachedCriteria.forClass(clazz)
-                .add(org.hibernate.criterion.Restrictions.eq("DemographicNo", clientId))
+                .add(org.hibernate.criterion.Restrictions.eq("demographicNo", Integer.parseInt(clientId)))
         );
         if (results.size() > 0) {
             result = results.get(0);
@@ -90,23 +90,23 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         // Use Criteria API with projections to select specific fields
         // Entity names cannot be parameterized in HQL/JPQL
         DetachedCriteria criteria = DetachedCriteria.forClass(clazz)
-            .add(org.hibernate.criterion.Restrictions.eq("DemographicNo", clientId))
+            .add(org.hibernate.criterion.Restrictions.eq("demographicNo", Integer.parseInt(clientId)))
             .setProjection(Projections.projectionList()
                 .add(Projections.property("id"))
-                .add(Projections.property("ProviderNo"))
-                .add(Projections.property("FormEdited")))
-            .addOrder(org.hibernate.criterion.Order.desc("FormEdited"));
+                .add(Projections.property("providerNo"))
+                .add(Projections.property("formEdited")))
+            .addOrder(org.hibernate.criterion.Order.desc("formEdited"));
 
         List results = this.getHibernateTemplate().findByCriteria(criteria);
         for (Iterator iter = results.iterator(); iter.hasNext(); ) {
             FormInfo fi = new FormInfo();
             Object[] values = (Object[]) iter.next();
-            Long id = (Long) values[0];
-            Long providerNo = (Long) values[1];
+            Integer id = (Integer) values[0];
+            String providerNo = (String) values[1];
             Date dateEdited = (Date) values[2];
-            Provider provider = this.getHibernateTemplate().get(Provider.class, String.valueOf(providerNo));
-            fi.setFormId(id);
-            fi.setProviderNo(providerNo);
+            Provider provider = this.getHibernateTemplate().get(Provider.class, providerNo);
+            fi.setFormId(id.longValue());
+            fi.setProviderNo(Long.parseLong(providerNo));
             fi.setFormDate(dateEdited);
             fi.setProviderName(provider.getFormattedName());
             formInfos.add(fi);

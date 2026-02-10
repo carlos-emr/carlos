@@ -41,6 +41,7 @@ import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
 public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRoleDao {
@@ -63,7 +64,7 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
 
         String sSQL = "from SecUserRole s where s.ProviderNo = ?1";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, providerNo);
+        List<SecUserRole> results = (List<SecUserRole>) HqlQueryHelper.find(currentSession(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getUserRoles: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -76,7 +77,7 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
     public List<SecUserRole> getSecUserRolesByRoleName(String roleName) {
         String sSQL = "from SecUserRole s where s.RoleName = ?1";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, roleName);
+        List<SecUserRole> results = (List<SecUserRole>) HqlQueryHelper.find(currentSession(), sSQL, roleName);
 
         return results;
     }
@@ -85,7 +86,7 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
     public List<SecUserRole> findByRoleNameAndProviderNo(String roleName, String providerNo) {
         String sSQL = "from SecUserRole s where s.RoleName = ?1 and s.ProviderNo=?2";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, new Object[]{roleName, providerNo});
+        List<SecUserRole> results = (List<SecUserRole>) HqlQueryHelper.find(currentSession(), sSQL, roleName, providerNo);
 
         return results;
     }
@@ -99,7 +100,7 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
         boolean result = false;
         String sSQL = "from SecUserRole s where s.ProviderNo = ?1 and s.RoleName = 'admin'";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) this.getHibernateTemplate().find(sSQL, providerNo);
+        List<SecUserRole> results = (List<SecUserRole>) HqlQueryHelper.find(currentSession(), sSQL, providerNo);
         if (!results.isEmpty()) {
             result = true;
         }
@@ -126,7 +127,7 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
         String sSQL = "select p.ProviderNo From SecUserRole p WHERE p.lastUpdateDate > ?1";
         @SuppressWarnings("unchecked")
-        List<String> records = (List<String>) getHibernateTemplate().find(sSQL, date);
+        List<String> records = (List<String>) HqlQueryHelper.find(currentSession(), sSQL, date);
 
         return records;
     }
