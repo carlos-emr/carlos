@@ -133,6 +133,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("Security Privilege Checks")
+    @Tag("security")
     class SecurityPrivilegeChecks {
 
         @BeforeEach
@@ -244,6 +245,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointment")
+    @Tag("read")
     class GetAppointment {
 
         @Test
@@ -311,6 +313,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("addAppointment")
+    @Tag("create")
     class AddAppointment {
 
         @Test
@@ -369,6 +372,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("updateAppointment")
+    @Tag("update")
     class UpdateAppointment {
 
         @Test
@@ -442,6 +446,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("deleteAppointment")
+    @Tag("delete")
     class DeleteAppointment {
 
         @Test
@@ -509,6 +514,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentHistoryWithoutDeleted")
+    @Tag("read")
+    @Tag("query")
     class GetAppointmentHistoryWithoutDeleted {
 
         @Test
@@ -589,6 +596,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentHistoryWithDeleted")
+    @Tag("read")
+    @Tag("query")
     class GetAppointmentHistoryWithDeleted {
 
         @Test
@@ -751,6 +760,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("updateAppointmentStatus")
+    @Tag("update")
     class UpdateAppointmentStatus {
 
         @Test
@@ -829,6 +839,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("updateAppointmentType")
+    @Tag("update")
     class UpdateAppointmentType {
 
         @Test
@@ -906,6 +917,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("updateAppointmentUrgency")
+    @Tag("update")
     class UpdateAppointmentUrgency {
 
         @Test
@@ -983,6 +995,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentStatuses")
+    @Tag("read")
     class GetAppointmentStatuses {
 
         @Test
@@ -1044,6 +1057,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("getReasons")
+    @Tag("read")
     class GetReasons {
 
         @Test
@@ -1127,6 +1141,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("findMonthlyAppointments")
+    @Tag("read")
+    @Tag("query")
     class FindMonthlyAppointments {
 
         @Test
@@ -1222,6 +1238,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @Nested
     @DisplayName("getNextAppointmentDate")
+    @Tag("read")
+    @Tag("query")
     class GetNextAppointmentDate {
 
         @Test
