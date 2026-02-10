@@ -1,4 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -18,38 +19,65 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportFilter" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%
-    String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
-// get form name
-    String reportName = (new RptReportItem()).getReportName(reportId);
+    // Validate and sanitize report ID parameter
+    int reportIdInt = 0;
+    String reportId = "0";
+    try {
+        String idParam = request.getParameter("id");
+        if (idParam != null && !idParam.trim().isEmpty()) {
+            reportIdInt = Integer.parseInt(idParam);
+            reportId = String.valueOf(reportIdInt); // Safe, validated version
+        }
+    } catch (NumberFormatException e) {
+        // Log attempt and redirect or display error
+        System.err.println("Possible SQL injection attempt with id: " + request.getParameter("id"));
+        response.sendRedirect("reportFormRecord.jsp?error=invalid_id");
+        return;
+    }
 
+    // get form name (using validated ID)
+    String reportName = (new RptReportItem()).getReportName(reportId);
 
     boolean bDeletedList = false;
     String msg = "Limit To";
     Properties prop = new Properties();
     RptReportFilter reportFilter = new RptReportFilter();
 
-// delete/undelete list
+    // delete/undelete list
     if (request.getParameter("undelete") != null && "true".equals(request.getParameter("undelete"))) {
         bDeletedList = true;
     }
-// delete action
+
+    // delete action
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
-        // check the input data
-        String id = request.getParameter("id");
-        int nId = id != null ? Integer.parseInt(id) : 0;
+        try {
+            // check the input data
+            String id = request.getParameter("id");
+            int nId = id != null ? Integer.parseInt(id) : 0;
+        } catch (NumberFormatException e) {
+            // Handle invalid number
+            System.err.println("Invalid ID format: " + request.getParameter("id"));
+        }
     }
 
-// search the list
+    // search the list
     int n = bDeletedList ? 0 : 1;
     String link = bDeletedList ? "<a href='reportFormRecord.jsp'>Report list</a>" : "<a href='reportFormRecord.jsp?undelete=true'>Deleted report list</a>";
     Vector vec = reportFilter.getNameList(reportId, n);
+
+    // Store values for JSTL use
+    pageContext.setAttribute("reportId", reportId);
+    pageContext.setAttribute("reportName", reportName);
+    pageContext.setAttribute("msg", msg);
+    pageContext.setAttribute("link", link);
+    pageContext.setAttribute("bDeletedList", bDeletedList ? "Deleted" : "");
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><%=bDeletedList ? "Deleted" : ""%> Report List</title>
+        <title><c:out value="${bDeletedList}"/> Report List</title>
         <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -67,7 +95,6 @@
             <!--
             function setfocus() {
                 this.focus();
-                //document.forms[0].service_code.focus();
             }
 
             function onDelete() {
@@ -89,16 +116,22 @@
                 }
             }
 
+            // Modified function for SQL injection prevention
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                // Ensure id is a number
+                id = parseInt(id);
+                if (!isNaN(id)) {
+                    self.location.href = "reportFilter.jsp?id=" + id;
+                } else {
+                    alert("Invalid report ID");
+                }
             }
 
             //-->
 
         </script>
     </head>
-    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0"
-          rightmargin="0">
+    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr>
             <td align="left">&nbsp;</td>
@@ -108,18 +141,15 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><%=reportName%>
-                </th>
+                <th><c:out value="${reportName}"/></th>
             </tr>
         </table>
     </center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=msg%>
-            </td>
-            <td width="10%" align="right" nowrap><a
-                    href="reportFormRecord.jsp">Back to Report List</a> | <a
-                    href="reportFormConfig.jsp?id=<%=reportId%>">Configuration</a></td>
+            <td><c:out value="${msg}"/></td>
+            <td width="10%" align="right" nowrap><a href="reportFormRecord.jsp">Back to Report List</a> |
+                <a href="reportFormConfig.jsp?id=<c:out value="${reportId}"/>">Configuration</a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
@@ -131,33 +161,38 @@
                     String[] strElt = (String[]) vec.get(i);
                     String itemId = strElt[3];
                     vecJS.add(strElt[4]);
-            %>
 
-            <tr bgcolor="<%=color%>">
-                <td align="right" width="20%"><b><input type="checkbox"
-                                                        name="<%="filter_" + itemId%>" <%="1".equals(itemId)?"checked":""%>></b>
+                    // Store for JSTL access
+                    pageContext.setAttribute("color", color);
+                    pageContext.setAttribute("itemId", itemId);
+                    pageContext.setAttribute("display", strElt[0]);
+                    pageContext.setAttribute("valueField", strElt[1]);
+                    pageContext.setAttribute("positionField", strElt[2]);
+                    pageContext.setAttribute("dateFormat", strElt[5]);
+                    pageContext.setAttribute("checked", "1".equals(itemId) ? "checked" : "");
+            %>
+            <tr bgcolor="<c:out value="${color}"/>">
+                <td align="right" width="20%">
+                    <b><input type="checkbox" name="filter_<c:out value="${itemId}"/>" <c:if test="${checked eq 'checked'}">checked</c:if>></b>
                 </td>
-                <td><%=strElt[0]%>
+                <td><c:out value="${display}"/></td>
+                <td width="5%" align="right">
+                    <input type="hidden" name="value_<c:out value="${itemId}"/>" value="<c:out value="${valueField}"/>">
+                    <input type="hidden" name="position_<c:out value="${itemId}"/>" value="<c:out value="${positionField}"/>">
+                    <input type="hidden" name="dateFormat_<c:out value="${itemId}"/>" value="<c:out value="${dateFormat}"/>">
                 </td>
-                <td width="5%" align="right"><input type="hidden"
-                                                    name="<%="value_" + itemId%>" value="<%=strElt[1]%>"> <input
-                        type="hidden" name="<%="position_" + itemId%>" value="<%=strElt[2]%>">
-                    <input type="hidden" name="<%="dateFormat_" + itemId%>"
-                           value="<%=strElt[5]%>"></td>
             </tr>
             <% } %>
             <tr bgcolor="silver">
-                <td colspan="2" align="center"><input type="hidden" name="id"
-                                                      value="<%=reportId%>"> <input type="submit" name="submit"
-                                                                                    value="Report in HTML"> | <input
-                        type="submit" name="submit"
-                        value="Report in CSV"></td>
+                <td colspan="2" align="center">
+                    <input type="hidden" name="id" value="<c:out value="${reportId}"/>">
+                    <input type="submit" name="submit" value="Report in HTML"> |
+                    <input type="submit" name="submit" value="Report in CSV">
+                </td>
                 <td align='right'></td>
             </tr>
         </form>
     </table>
-
-
     </body>
     <script type="text/javascript">
         <%

@@ -1,4 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -23,56 +24,78 @@
     Properties prop = new Properties();
     RptReportItem reportItem = new RptReportItem();
 
-// delete/undelete list
+    // delete/undelete list
     if (request.getParameter("undelete") != null && "true".equals(request.getParameter("undelete"))) {
         bDeletedList = true;
     }
-// delete action
+
+    // delete action - with proper validation
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
-        // check the input data
-        String id = request.getParameter("id");
-        int nId = id != null ? Integer.parseInt(id) : 0;
-        if (!reportItem.deleteRecord(nId)) {
-            msg = "The report is NOT deleted by some reasons. Please check your action.";
-        }
-    }
-// undelete action
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Restore")) {
-        // check the input data
-        String id = request.getParameter("id");
-        int nId = id != null ? Integer.parseInt(id) : 0;
-        if (!reportItem.unDeleteRecord(nId)) {
-            msg = "The report is NOT undeleted by some reasons. Please check your action.";
-        }
-    }
-// add action
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Add")) {
-        // check the input data
-        String report_name = request.getParameter("name");
-        reportItem.setReport_name(report_name);
-        if (!reportItem.insertRecord()) {
-            msg = "The report is NOT added by some reasons. Please check your action.";
+        try {
+            // check the input data
+            String id = request.getParameter("id");
+            int nId = id != null ? Integer.parseInt(id) : 0;
+            if (!reportItem.deleteRecord(nId)) {
+                msg = "The report is NOT deleted by some reasons. Please check your action.";
+            }
+        } catch (NumberFormatException e) {
+            msg = "Invalid report ID format";
         }
     }
 
-// search the list
+    // undelete action - with proper validation
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Restore")) {
+        try {
+            // check the input data
+            String id = request.getParameter("id");
+            int nId = id != null ? Integer.parseInt(id) : 0;
+            if (!reportItem.unDeleteRecord(nId)) {
+                msg = "The report is NOT undeleted by some reasons. Please check your action.";
+            }
+        } catch (NumberFormatException e) {
+            msg = "Invalid report ID format";
+        }
+    }
+
+    // add action - with proper validation and sanitization
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Add")) {
+        // check the input data
+        String report_name = request.getParameter("name");
+
+        // Validate input
+        if (report_name == null || report_name.trim().length() < 2) {
+            msg = "Report name must be at least 2 characters";
+        } else {
+            // Sanitize input to prevent XSS
+            String sanitizedName = StringEscapeUtils.escapeHtml4(report_name);
+            reportItem.setReport_name(sanitizedName);
+            if (!reportItem.insertRecord()) {
+                msg = "The report is NOT added by some reasons. Please check your action.";
+            }
+        }
+    }
+
+    // search the list
     int n = bDeletedList ? 0 : 1;
     String link = bDeletedList ? "<a href='reportFormRecord.jsp'>Report list</a>" : "<a href='reportFormRecord.jsp?undelete=true'>Deleted report list</a>";
     Vector vec = reportItem.getNameList(n);
+
+    // Store values for JSTL use
+    pageContext.setAttribute("msg", msg);
+    pageContext.setAttribute("link", link);
+    pageContext.setAttribute("bDeletedList", bDeletedList ? "Deleted" : "");
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><%=bDeletedList ? "Deleted" : ""%> Report List</title>
+        <title><c:out value="${bDeletedList}"/> Report List</title>
         <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
         <script language="JavaScript">
-
             <!--
             function setfocus() {
                 this.focus();
-                //document.forms[0].service_code.focus();
             }
 
             function onDelete() {
@@ -94,16 +117,20 @@
                 }
             }
 
+            // Modified to validate id parameter - prevent SQL injection
             function goPage(id) {
-                self.location.href = "reportFilter.jsp?id=" + id;
+                // Ensure id is a number
+                id = parseInt(id);
+                if (!isNaN(id)) {
+                    self.location.href = "reportFilter.jsp?id=" + id;
+                } else {
+                    alert("Invalid report ID");
+                }
             }
-
             //-->
-
         </script>
     </head>
-    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0"
-          rightmargin="0">
+    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr>
             <td align="left">&nbsp;</td>
@@ -113,15 +140,13 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><%=msg%>
-                </th>
+                <th><c:out value="${msg}"/></th>
             </tr>
         </table>
     </center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td align="right"><%=link%>
-            </td>
+            <td align="right"><c:out value="${link}" escapeXml="false"/></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
@@ -129,23 +154,29 @@
             String color = i % 2 == 0 ? "#EEEEFF" : "";
             prop = (Properties) vec.get(i);
             String itemId = prop.getProperty("id");
+            String propValue = prop.getProperty(itemId);
+
+            // Store for JSTL access
+            pageContext.setAttribute("color", color);
+            pageContext.setAttribute("itemId", itemId);
+            pageContext.setAttribute("propValue", propValue);
+            pageContext.setAttribute("rowNum", i + 1);
         %>
-        <form method="post" name="baseurl<%=i+1%>"
-              action="reportFormRecord.jsp">
-            <tr bgcolor="<%=color%>">
-                <td align="right"><b><%=i + 1%>
-                </b></td>
-                <td
-                        onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                        onMouseout="this.style.backgroundColor='<%=color%>';"
-                        onClick="goPage(<%=itemId%>)"><%=prop.getProperty(itemId)%>
+        <form method="post" name="baseurl<%=i+1%>" action="reportFormRecord.jsp">
+            <tr bgcolor="<c:out value="${color}"/>">
+                <td align="right"><b><c:out value="${rowNum}"/></b></td>
+                <td onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
+                    onMouseout="this.style.backgroundColor='<c:out value="${color}"/>';"
+                    onClick="goPage('<c:out value="${itemId}"/>')">
+                    <c:out value="${propValue}"/>
                 </td>
-                <td width="5%" align="right"><input type="hidden" name="id"
-                                                    value="<%=itemId%>"> <% if (!bDeletedList) { %> <input
-                        type="submit" name="submit" value="Delete"
-                        onclick="javascript:return onDelete();"> <% } else { %> <input
-                        type="submit" name="submit" value="Restore"
-                        onclick="javascript:return onRestore();"> <% } %>
+                <td align="right">
+                    <input type="hidden" name="id" value="<c:out value="${itemId}"/>">
+                    <% if (!bDeletedList) { %>
+                        <input type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
+                    <% } else { %>
+                        <input type="submit" name="submit" value="Restore" onclick="javascript:return onRestore();">
+                    <% } %>
                 </td>
             </tr>
         </form>
@@ -160,12 +191,11 @@
         <tr>
             <td align="center">
                 <form method="post" name="baseurl" action="reportFormRecord.jsp">
-                    <input type="text" name="name" value="" size="60"/> <input
-                        type="submit" name="submit" value="Add"
-                        onclick="javascript:return onAdd();"/></form>
+                    <input type="text" name="name" value="" size="60"/>
+                    <input type="submit" name="submit" value="Add" onclick="javascript:return onAdd();"/>
+                </form>
             </td>
         </tr>
     </table>
-
     </body>
 </html>
