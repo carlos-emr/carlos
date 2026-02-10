@@ -1174,7 +1174,9 @@
                 <div id="quickSearchDropdown"
                      class="quick-search-dropdown"
                      role="listbox"
-                     aria-label="<fmt:message key="schedule.quicksearch.label"/>">
+                     aria-label="<fmt:message key="schedule.quicksearch.label"/>"
+                     data-msg-noresults="<fmt:message key="schedule.quicksearch.noresults"/>"
+                     data-msg-loading="<fmt:message key="schedule.quicksearch.loading"/>">
                 </div>
             </td>
             </security:oscarSec>
@@ -2536,6 +2538,9 @@
 
         if (!input || !btn || !dropdown) return;
 
+        var MSG_NO_RESULTS = dropdown.getAttribute("data-msg-noresults") || "No patients found";
+        var MSG_LOADING = dropdown.getAttribute("data-msg-loading") || "Searching...";
+
         var debounceTimer = null;
         var activeIndex = -1;
         var currentResults = [];
@@ -2545,6 +2550,7 @@
         function createDropdownItem(item, index) {
             var div = document.createElement("div");
             div.className = "quick-search-item";
+            div.setAttribute("id", "quickSearchOption-" + index);
             div.setAttribute("role", "option");
             div.setAttribute("data-index", index);
             div.setAttribute("data-demographic-no", item.value);
@@ -2581,7 +2587,7 @@
             if (results.length === 0) {
                 var empty = document.createElement("div");
                 empty.className = "quick-search-empty";
-                empty.textContent = '<fmt:message key="schedule.quicksearch.noresults"/>';
+                empty.textContent = MSG_NO_RESULTS;
                 dropdown.appendChild(empty);
                 dropdown.classList.add("open");
                 input.setAttribute("aria-expanded", "true");
@@ -2602,7 +2608,7 @@
             }
             var loading = document.createElement("div");
             loading.className = "quick-search-loading";
-            loading.textContent = '<fmt:message key="schedule.quicksearch.loading"/>';
+            loading.textContent = MSG_LOADING;
             dropdown.appendChild(loading);
             dropdown.classList.add("open");
             input.setAttribute("aria-expanded", "true");
@@ -2612,6 +2618,7 @@
         function closeDropdown() {
             dropdown.classList.remove("open");
             input.setAttribute("aria-expanded", "false");
+            input.removeAttribute("aria-activedescendant");
             activeIndex = -1;
         }
 
@@ -2678,9 +2685,13 @@
                 if (i === activeIndex) {
                     items[i].classList.add("active");
                     items[i].scrollIntoView({ block: "nearest" });
+                    input.setAttribute("aria-activedescendant", items[i].id);
                 } else {
                     items[i].classList.remove("active");
                 }
+            }
+            if (activeIndex < 0) {
+                input.removeAttribute("aria-activedescendant");
             }
         }
 
@@ -2714,7 +2725,7 @@
                 case "ArrowUp":
                     e.preventDefault();
                     if (!isOpen) return;
-                    activeIndex = Math.max(activeIndex - 1, 0);
+                    activeIndex = Math.max(activeIndex - 1, -1);
                     updateActiveItem();
                     break;
                 case "Enter":
