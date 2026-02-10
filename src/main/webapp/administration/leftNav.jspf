@@ -834,15 +834,7 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmShowMapping.jsp">Hospital Report Manager (HRM) Class Mappings</a></li>
 						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmCategories.jsp">Hospital Report Manager (HRM) Categories</a></li>
 					</caisi:isModuleLoad>
-					
-					<%
-						String olisKeystore = OscarProperties.getInstance().getProperty("olis_keystore", "");
-						if(olisKeystore.length()>0) {
-					%>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/olis/Preferences.jsp">OLIS Preferences</a></li>
-					<% } %>	
-					
-		
+
 					<%
 						if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))
 									{

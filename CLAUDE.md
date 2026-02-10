@@ -165,7 +165,7 @@ public class Example2Action extends ActionSupport {
 - **PMmodule/**: Program management and case management
 - **billing/**: Province-specific billing (BC, ON) with diagnostic codes
 - **prescription/**: Drug management with ATC codes, interaction checking
-- **lab/**: HL7 lab results, OLIS integration (Ontario)
+- **lab/**: HL7 lab results
 - **prevention/**: Immunization tracking with provincial schedules
 - **demographic/**: Patient data with HIN (Health Insurance Number) management
 
@@ -278,7 +278,6 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **DICOM**: Medical imaging support for diagnostic images
 
 **Provincial Healthcare Systems**:
-- **OLIS**: Ontario Labs Information System integration
 - **Teleplan**: BC MSP billing system with specialized upload/download
 - **MCEDT**: Medical Certificate Electronic Data Transfer
 - **DrugRef**: Drug reference database integration
@@ -321,7 +320,6 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 Multiple modular application contexts:
 - `applicationContext.xml` - Core Spring configuration
 - `applicationContextREST.xml` - REST APIs with OAuth 1.0a
-- `applicationContextOLIS.xml` - Ontario Labs Information System
 - `applicationContextHRM.xml` - Hospital Report Manager
 - `applicationContextCaisi.xml` - CAISI community integration
 - `applicationContextFax.xml`, `applicationContextJobs.xml` - Specialized modules
@@ -338,7 +336,7 @@ Multiple modular application contexts:
 - **DemographicService**: Patient demographics with HIN management
 - **ScheduleService**: Appointment scheduling with reason codes and billing types
 - **PrescriptionService**: Medication management with ATC codes and interaction checking
-- **LabService**: Laboratory results with HL7 integration and OLIS connectivity
+- **LabService**: Laboratory results with HL7 integration
 - **PreventionService**: Immunization tracking with provincial schedules
 - **ConsultationWebService**: Referral management and specialist communication
 - **DocumentService**: Medical document management with privacy statement injection
