@@ -580,28 +580,15 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
                 assertThat(result).isTrue();
             }
 
-            @Test
-            @DisplayName("should lock account when patient-specific privilege satisfies NORIGHTS check")
-            void shouldLockAccount_whenPatientSpecificPrivilegeSatisfiesNoRightsCheck() {
-                // Patient-specific grants read for doctor, but checkRights("r", "o") is true
-                // because "r" >= "o" alphabetically, triggering the NORIGHTS branch which
-                // locks the account and returns false (does not fall through to READ check).
-                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
-                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
-                    Collection<String> names = inv.getArgument(0);
-                    if (names.contains(patientObjName)) {
-                        return Collections.singletonList(
-                            createPrivilege(ROLE_DOCTOR, patientObjName, "r", 0));
-                    }
-                    return Collections.emptyList();
-                });
-
-                boolean result = securityInfoManager.hasPrivilege(
-                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
-                    String.valueOf(TEST_DEMOGRAPHIC_NO));
-
-                assertThat(result).isFalse();
-            }
+            // TODO: Known bug in OscarRoleObjectPrivilege.checkRights() - uses string compareTo
+            // which treats "r" >= "o" as true, causing patient-specific READ privileges to
+            // incorrectly trigger NORIGHTS/account-lock logic. This should be fixed in
+            // production code (see SecurityInfoManagerImpl:141-145 and
+            // OscarRoleObjectPrivilege:172-174). Once fixed, add test asserting that
+            // patient-specific READ privilege grants READ access (not locks account).
+            //
+            // Issue: Patient with "r" privilege should have READ access, not be locked out.
+            // Root cause: checkRights uses alphabetical comparison instead of explicit match.
 
             @Test
             @DisplayName("should lock account and deny access for patient-specific NORIGHTS")
