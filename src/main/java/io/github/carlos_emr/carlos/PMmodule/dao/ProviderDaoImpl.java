@@ -48,11 +48,9 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -772,57 +770,6 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             // this.releaseSession(session);
             //session.close();
         }
-    }
-
-    @Override
-    public List<Provider> getOlisHicProviders() {
-        UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
-        // Session session = getSession();
-        Session session = currentSession();
-        String sql = "FROM Provider p WHERE p.practitionerNo IS NOT NULL AND p.practitionerNo != ''";
-        Query query = session.createQuery(sql);
-        List<Provider> practitionerNoProviders = query.list();
-
-        List<Provider> results = new ArrayList<Provider>();
-        for (Provider practitionerNoProvider : practitionerNoProviders) {
-            String olisType = userPropertyDAO.getStringValue(practitionerNoProvider.getProviderNo(),
-                    UserProperty.OFFICIAL_OLIS_IDTYPE);
-            if (olisType != null && !olisType.isEmpty()) {
-                results.add(practitionerNoProvider);
-            }
-        }
-        //session.close();
-        return results;
-    }
-
-    @Override
-    public Provider getProviderByPractitionerNoAndOlisType(String practitionerNo, String olisIdentifierType) {
-        UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
-        String sql = "FROM Provider p WHERE p.practitionerNo=?0";
-
-        List<Provider> providers = (List<Provider>) getHibernateTemplate().find(sql, practitionerNo);
-
-        if (!providers.isEmpty()) {
-            Provider provider = providers.get(0);
-            String olisType = userPropertyDAO.getStringValue(provider.getProviderNo(),
-                    UserProperty.OFFICIAL_OLIS_IDTYPE);
-            if (olisIdentifierType.equals(olisType)) {
-                return providers.get(0);
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public List<Provider> getOlisProvidersByPractitionerNo(List<String> practitionerNumbers) {
-        // Session session = getSession();
-        Session session = currentSession();
-        String sql = "FROM Provider p WHERE p.practitionerNo IN (:practitionerNumbers)";
-        Query query = session.createQuery(sql);
-        query.setParameterList("practitionerNumbers", practitionerNumbers);
-        List<Provider> providers = query.list();
-        //session.close();
-        return providers;
     }
 
     /**

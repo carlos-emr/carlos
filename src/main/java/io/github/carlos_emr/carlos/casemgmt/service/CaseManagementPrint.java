@@ -39,7 +39,7 @@
  *   <li>Multi-section printing: notes, CPP, Rx, labs, preventions, allergies</li>
  *   <li>Date range filtering for historical data retrieval</li>
  *   <li>Integration with CAISI Integrator for remote facility notes</li>
- *   <li>HL7/OLIS laboratory report integration</li>
+ *   <li>HL7 laboratory report integration</li>
  *   <li>Configurable note sorting (ascending/descending by observation date)</li>
  *   <li>Extension point system for custom print sections</li>
  * </ul>
@@ -81,10 +81,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
-import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.OLISLabPDFCreator;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.OLISHL7Handler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -154,7 +152,7 @@ public class CaseManagementPrint {
      *                         "UUID" prefixed strings for remote integrator notes
      * @param printCPP boolean true to include Clinical Prevention Profile sections (OMeds, SocHistory, etc.)
      * @param printRx boolean true to include prescription/medication information
-     * @param printLabs boolean true to include laboratory results (HL7/OLIS reports)
+     * @param printLabs boolean true to include laboratory results (HL7 reports)
      * @param printPreventions boolean true to include prevention/immunization records
      * @param printAllergies boolean true to include patient allergy information
      * @param useDateRange boolean true to filter notes by date range (requires startDate and endDate)
@@ -393,13 +391,7 @@ public class CaseManagementPrint {
                     file2 = new File(fileName2);
                     os2 = new FileOutputStream(file2);
 
-                    if (handler instanceof OLISHL7Handler) {
-                        OLISLabPDFCreator olisLabPdfCreator = new OLISLabPDFCreator(os2, request, segmentId);
-                        olisLabPdfCreator.printPdf();
-                        os2.close();
-                        pdfDocs.add(fileName2);
-                    } else {
-
+                    {
                         LabPDFCreator pdfCreator = new LabPDFCreator(os2, segmentId, loggedInInfo.getLoggedInProviderNo());
                         try {
                             pdfCreator.printPdf();

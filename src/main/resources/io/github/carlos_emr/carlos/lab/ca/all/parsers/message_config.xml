@@ -14,7 +14,6 @@
 	<handler name="IHA" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.IHAPOIHandler"/>
 	<handler name="IHAPOI" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.IHAPOIHandler" />
 	<handler name="MDS" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.MDSHandler" />
-	<handler name="OLIS_HL7" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.OLISHL7Handler" />   
 	<handler name="OSCAR_TO_OSCAR_HL7_V2" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.OscarToOscarHl7V2Handler"/>
 	<handler name="PATHL7" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler" />
         <handler name="PDFDOC" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.PDFHandler" />
