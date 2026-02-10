@@ -210,12 +210,18 @@ mvn test -Dgroups="create,update"  # Specific operations
 
 Modern tests use BDD (Behavior-Driven Development) naming for clarity. Choose ONE style and use it consistently:
 
-**Option 1: Pure camelCase (RECOMMENDED for Java)**
+**Pattern: `should<Action>_<preposition><Condition>()` (RECOMMENDED for Java)**
 ```java
-void shouldReturnTicklerWhenValidIdProvided()
-void shouldThrowExceptionWhenTicklerNotFound()
-void shouldLoadSpringContext()
+void shouldReturnTickler_whenValidIdProvided()
+void shouldThrowException_whenTicklerNotFound()
+void shouldReturnSpecialists_byServiceName()
+void shouldPersistMeasurement_withBloodPressureData()
+void shouldConvertExtensionList_toMapKeyedByExtKey()
+void shouldReturnTrue_forOMedsCppCode()
 ```
+
+**Rules**: ONE underscore separator, camelCase throughout, `should` prefix required.
+The preposition after the underscore (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should be whichever reads most naturally for the test scenario.
 
 **Benefits**: Self-documenting, clear failure messages, searchable
 
@@ -927,7 +933,7 @@ src/test/resources/over_ride_config.properties    # Test configuration template
    - Integration tests: Extend `OpenOTestBase` (Spring context + database)
    - Unit tests: Extend `OpenOUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
-5. **Follow BDD naming strictly**: `should<Action>_when<Condition>` (camelCase, ONE underscore)
+5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests
 7. **For Manager unit tests with static classes** (LogAction, etc.):
    - Register SpringUtils mocks FIRST, THEN create static mocks

@@ -138,10 +138,11 @@ Always include tests for edge cases and error conditions:
 
 ### Method Naming Patterns
 
-1. **`should<Action>_when<Condition>`** - Testing behavior/requirements
+1. **`should<Action>_<preposition><Condition>`** - Testing behavior/requirements
    - Use camelCase
    - Exactly ONE underscore separating action from condition
-   - Example: `shouldReturnTickler_whenValidIdProvided()`
+   - The preposition (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should read naturally
+   - Examples: `shouldReturnTickler_whenValidIdProvided()`, `shouldReturnSpecialists_byServiceName()`, `shouldPersistMeasurement_withBloodPressureData()`
 
 2. **`<methodName>_<scenario>_<expectedOutcome>`** - Testing specific methods
    - Example: `findActiveByDemographicNo_multipleStatuses_returnsOnlyActive()`
