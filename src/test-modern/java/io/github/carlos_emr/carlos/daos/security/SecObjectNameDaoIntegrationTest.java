@@ -180,26 +180,10 @@ public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
     /**
      * Verifies that {@link SecObjectNameDao#saveOrUpdate(Secobjectname)} correctly
      * updates an already-persisted {@link Secobjectname} entity when its mutable
-     * fields are modified.
-     *
-     * <p>This test exercises the UPDATE path of {@code HibernateTemplate.saveOrUpdate()}.
-     * The entity is first persisted with initial values, then its {@code description}
-     * and {@code orgapplicable} fields are modified, and {@code saveOrUpdate} is called
-     * a second time. Because the entity is still managed within the same Hibernate
-     * session (thanks to {@code @Transactional}), this results in an UPDATE rather
-     * than a duplicate INSERT.</p>
-     *
-     * <h4>Verification</h4>
-     * <p>After the second flush, a native SQL query confirms that only one row exists
-     * for the primary key, and that it contains the updated (not original) field values.
-     * This confirms that {@code saveOrUpdate} correctly merged the changes rather than
-     * creating a duplicate record.</p>
-     *
-     * @see SecObjectNameDao#saveOrUpdate(Secobjectname)
+    /**
+     * Tests that an existing {@link Secobjectname} instance is updated correctly
+     * when its mutable fields are modified and saved again.
      */
-    @Test
-    @Tag("update")
-    @DisplayName("should update Secobjectname when existing instance modified")
     void shouldUpdateSecobjectname_whenExistingInstanceModified() {
         // Given - save an initial entity with original values
         Secobjectname secObj = new Secobjectname("_testObject2", "Original description", 0);
@@ -283,23 +267,9 @@ public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
     /**
      * Verifies that {@link SecObjectNameDao#saveOrUpdate(Secobjectname)} correctly
      * persists all fields when the full three-argument constructor is used.
-     *
-     * <p>This test is complementary to
-     * {@link #shouldPersistWithMinimalFields_whenOnlyObjectnameProvided()} and confirms
-     * that the full constructor {@link Secobjectname#Secobjectname(String, String, Integer)}
-     * populates every column in the {@code secObjectName} table. Together, these two
-     * tests ensure that both constructor paths produce valid, persistable entities.</p>
-     *
-     * <h4>Verification</h4>
-     * <p>After flushing, a native SQL query confirms that all three columns contain the
-     * expected non-null values passed to the full constructor.</p>
-     *
-     * @see SecObjectNameDao#saveOrUpdate(Secobjectname)
-     * @see Secobjectname#Secobjectname(String, String, Integer)
+    /**
+     * Verifies that all fields are correctly persisted when using the full constructor of Secobjectname.
      */
-    @Test
-    @Tag("create")
-    @DisplayName("should persist with all fields when full constructor used")
     void shouldPersistWithAllFields_whenFullConstructorUsed() {
         // Given - use the full constructor with all three fields populated
         Secobjectname secObj = new Secobjectname("_testObject4", "Full constructor test", 1);
