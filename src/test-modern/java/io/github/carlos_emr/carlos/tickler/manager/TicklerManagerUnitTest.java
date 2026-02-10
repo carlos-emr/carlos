@@ -28,12 +28,10 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.managers.TicklerManagerImpl;
 import io.github.carlos_emr.carlos.tickler.TicklerUnitTestBase;
-import io.github.carlos_emr.carlos.log.LogAction;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.HashSet;
@@ -78,22 +76,13 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     private TicklerCommentDao mockTicklerCommentDao;
 
     private TicklerManagerImpl ticklerManager;
-    private MockedStatic<LogAction> logActionMock;
 
     @BeforeEach
     void setUp() {
-        // Register mocks for SpringUtils BEFORE mocking LogAction
-        // LogAction's static initializer needs OscarLogDao
+        // Register mocks for SpringUtils
         registerMock(TicklerDao.class, mockTicklerDao);
         registerMock(TicklerUpdateDao.class, mockTicklerUpdateDao);
         registerMock(TicklerCommentDao.class, mockTicklerCommentDao);
-
-        // Register OscarLogDao mock to satisfy LogAction static initialization
-        registerMock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class,
-                    createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
-
-        // Now we can safely mock LogAction
-        logActionMock = mockStatic(LogAction.class);
 
         // Security manager returns true for all privilege checks in unit tests
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
@@ -107,14 +96,6 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         injectDependency(ticklerManager, "ticklerUpdateDao", mockTicklerUpdateDao);
         injectDependency(ticklerManager, "ticklerCommentDao", mockTicklerCommentDao);
         injectDependency(ticklerManager, "securityInfoManager", mockSecurityInfoManager);
-    }
-
-    @AfterEach
-    void tearDown() {
-        // Clean up static mock
-        if (logActionMock != null) {
-            logActionMock.close();
-        }
     }
 
     @Nested
