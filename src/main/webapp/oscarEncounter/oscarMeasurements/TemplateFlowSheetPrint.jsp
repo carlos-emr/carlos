@@ -128,8 +128,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 dates.put("sdate", sdate);
                 dates.put("edate", edate);
                 forPrint.put(toPrint, dates);
-            } else {
-                // Prevention items have no printStyle dropdown, default to showing all entries
+            } else if (printStyle == null) {
+                // Items without a printStyle dropdown (e.g. preventions, drugs) default to all entries
                 forPrint.put(toPrint, "all");
             }
         }
