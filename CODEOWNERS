@@ -80,7 +80,6 @@ src/main/java/io/github/carlos_emr/carlos/billing/ @yingbull
 src/main/java/io/github/carlos_emr/carlos/billings/ @yingbull
 src/main/java/io/github/carlos_emr/carlos/caisi/ @yingbull
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ @yingbull
-src/main/java/io/github/carlos_emr/carlos/caseload/ @yingbull
 src/main/java/io/github/carlos_emr/carlos/casemgmt/ @yingbull
 src/main/java/io/github/carlos_emr/carlos/ckd/ @yingbull
 src/main/java/io/github/carlos_emr/carlos/clinic/ @yingbull

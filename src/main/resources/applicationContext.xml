@@ -151,7 +151,6 @@
 
         <bean id="queueDocumentLinkDAO" class="io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDaoImpl" autowire="byName"/>
 
-	<bean id="caseloadDao" class="io.github.carlos_emr.carlos.commn.dao.CaseloadDaoImpl" autowire="byName" />
 	<bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDaoImpl" autowire="byName" />
     <bean id="inboxResultsRepository" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsRepositoryImpl" autowire="byName" />
     <bean id="securityDao" class="io.github.carlos_emr.carlos.commn.dao.SecurityDaoImpl" autowire="byName" />
