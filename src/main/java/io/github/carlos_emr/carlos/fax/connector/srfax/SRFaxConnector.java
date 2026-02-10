@@ -243,6 +243,10 @@ public class SRFaxConnector implements FaxConnector {
 
             if (result != null && result.isSuccess()) {
                 GetFaxStatusResult statusResult = result.getResult();
+                if (statusResult == null) {
+                    logger.warn("SRFax returned success but null status result for job {}", externalJobId);
+                    return new FaxStatusCheckResult(false, null, "SRFax returned null status");
+                }
                 String remoteSentStatus = statusResult.getSentStatus();
 
                 // Map SRFax status strings to CARLOS FaxJob.STATUS enum
