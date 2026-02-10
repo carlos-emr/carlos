@@ -293,7 +293,7 @@
                                                                 <td>&nbsp;${measurementType.lastDateEntered}</td>
                                                                 <td>&nbsp;${measurementType.lastComments}</td>
                                                                 <td>
-                                                                    <i class="icon-time icon-large" title="<fmt:message key='oscarEncounter.Index.oldMeasurements'/>"
+                                                                    <i class="fa-solid fa-clock fa-lg" title="<fmt:message key='oscarEncounter.Index.oldMeasurements'/>"
                                                                        onclick="popupPage(300,800,'oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=${measurementType.type}'); return false;">
                                                                     </i>
                                                                 </td>

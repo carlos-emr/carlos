@@ -218,7 +218,7 @@
             <p>
             <div id="panelDisplay">
                 <a href="<%=request.getContextPath()%>/eform/efmformmanager.jsp" class="btn contentLink">
-                    <i class="icon-circle-arrow-left"></i> Back to eForm Library
+                    <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
                     <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
                 </a>
                 <input type="button" class="btn"
@@ -229,7 +229,7 @@
             </div>
 
             <a href="#" class="btn" id="popupDisplay" onClick="window.close()">
-                <i class="icon-circle-arrow-left"></i> Back to eForm Library
+                <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
             </a>
 

@@ -193,7 +193,7 @@
 
     Activity List | <a href="#" onClick="showHideLayers('Layer2','','show');">Show Archive</a>
     <button class="btn pull-right" type="button" value="Print" onclick="window.print()"/>
-    <i class="icon-print"></i> Print</button>
+    <i class="fa-solid fa-print"></i> Print</button>
 
 
     <table class="table table-striped  table-condensed">

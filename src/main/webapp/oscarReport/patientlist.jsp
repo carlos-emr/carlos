@@ -68,7 +68,7 @@
             <div class="control-group">
                 <div class="controls">
                     <button type="submit" class="btn btn-primary">
-                        <i class="icon-download-alt icon-white"></i>Export
+                        <i class="fa-solid fa-download icon-white"></i>Export
                     </button>
                 </div>
             </div>

@@ -128,7 +128,7 @@
 
             <input type="submit" name="Submit" class="btn btn-primary" value="Import">
 
-            <p><i class="icon-info-sign"></i> Use this function to import data for a specific form into the OSCAR
+            <p><i class="fa-solid fa-circle-info"></i> Use this function to import data for a specific form into the OSCAR
                 database</p>
 
         </form>

@@ -103,13 +103,13 @@
                                                 <a class="pull-right"
                                                    href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup.do?groupName=${ groupName }"
                                                    title="delete group">
-                                                    <i style="color:red;" class="icon-remove"></i>
+                                                    <i style="color:red;" class="fa-solid fa-xmark"></i>
                                                 </a>
                                                 <span>&nbsp;</span>
                                                 <a class="pull-right"
                                                    href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup.do?groupName=${ groupName }"
                                                    title="edit group">
-                                                    <i style="color:blue;" class="icon-edit"></i>
+                                                    <i style="color:blue;" class="fa-solid fa-pen-to-square"></i>
                                                 </a>
                                             </td>
                                         </tr>
@@ -182,7 +182,7 @@
                                                         <td>
                                                             <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/remFromGroup.do?tid=${template}&groupName=${temp.groupName}"
                                                                class="pull-right" title="delete template from group">
-                                                                <i style="color:red;" class="icon-remove"></i>
+                                                                <i style="color:red;" class="fa-solid fa-xmark"></i>
                                                             </a>
                                                         </td>
                                                     </c:if>

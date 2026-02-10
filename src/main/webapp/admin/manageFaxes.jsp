@@ -298,7 +298,7 @@
                     <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="From" id="dateBegin" name="dateBegin" required/>
                     <span class="add-on">
-                		<i class="icon-calendar"></i>
+                		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
 
@@ -307,7 +307,7 @@
                     <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="To" id="dateEnd" name="dateEnd" required/>
                     <span class="add-on">
-                		<i class="icon-calendar"></i>
+                		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
                 <div class="span6">

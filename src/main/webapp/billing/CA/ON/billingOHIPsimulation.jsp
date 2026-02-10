@@ -314,7 +314,7 @@
             <%=healthOffice%>
 
             <button type='button' name='print' value='Print' class="btn pull-right" onClick='window.print()'><i
-                    class="icon icon-print"></i> Print
+                    class="icon fa-solid fa-print"></i> Print
             </button>
             <br/>
 
@@ -375,7 +375,7 @@
                     <div class="input-append">
                         <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>" style="width:90px"
                                autocomplete="off"/>
-                        <span class="add-on"><i class="icon-calendar"></i></span>
+                        <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
 
@@ -385,7 +385,7 @@
                     <div class="input-append">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
                                value="<%=xml_appointment_date%>" style="width:90px" autocomplete="off"/>
-                        <span class="add-on"><i class="icon-calendar"></i></span>
+                        <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
 

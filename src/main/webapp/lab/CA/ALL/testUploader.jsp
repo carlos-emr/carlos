@@ -269,7 +269,7 @@
     <form method='POST' name="UPLOAD" id="uploadForm" enctype="multipart/form-data" onsubmit="return validateForm()"
           action='${ctx}/lab/CA/ALL/insideLabUpload.do'>
 
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.pleaseSelectTheLabfile"/>: <i class="icon-question-sign"></i>
+        <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.pleaseSelectTheLabfile"/>: <i class="fa-solid fa-circle-question"></i>
         
 
         <div style="position:relative;">
@@ -304,7 +304,7 @@
         <br>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.warnings"/>
         <br><br>
-        <button type="submit" class="btn btn-primary"><i class="icon-upload"></i> Upload</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload"></i> Upload</button>
 
         <div id="file-list">
         </div>

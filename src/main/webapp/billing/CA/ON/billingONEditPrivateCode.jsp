@@ -354,7 +354,7 @@
                 <div class="input-append date" id="billingservice_date" data-date="" data-date-format="yyyy-mm-dd">
                     <input style="width:90px" name="billingservice_date" id="billingservice_date" size="16" type="text"
                            value="" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" readonly>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
 
 

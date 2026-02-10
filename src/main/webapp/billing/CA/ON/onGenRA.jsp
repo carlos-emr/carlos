@@ -124,7 +124,7 @@
 
 <div class="container-fluid well">
     <button class="btn btn-primary pull-right" type='button' name='print' value='Print'
-            onClick='window.print(); return false;'><i class="icon icon-print icon-white"></i> Print
+            onClick='window.print(); return false;'><i class="icon fa-solid fa-print icon-white"></i> Print
     </button>
     <br/><br/>
 

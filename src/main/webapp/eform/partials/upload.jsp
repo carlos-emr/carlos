@@ -126,7 +126,7 @@
 
         <input type="file" name="formHtml" id="formHtml" class="check" size="50" required>
         <span style="color:red;">
-								         <i class="icon-warning-sign"
+								         <i class="fa-solid fa-triangle-exclamation"
                                             title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
 								        </span>
 

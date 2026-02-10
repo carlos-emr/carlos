@@ -358,7 +358,7 @@
                </thead>
                 <tbody>
                     <tr ng-repeat="exportFile in exportFiles">
-                        <th scope="row"><a ng-click="download(exportFile)">{{exportFile.name}}<i class="icon-download-alt"></i></a></th>
+                        <th scope="row"><a ng-click="download(exportFile)">{{exportFile.name}}<i class="fa-solid fa-download"></i></a></th>
                         <td>{{exportFile.createDate | date}}</td>
                         <td>
                             <button type="button" ng-if="!exportFile.sent" class="btn btn-default btn-xs" ng-click="setAsSent(exportFile)">Set as Sent</button>

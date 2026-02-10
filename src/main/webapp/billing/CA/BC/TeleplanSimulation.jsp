@@ -173,7 +173,7 @@
 </div>
 
 <%if (request.getAttribute("TeleplanHtmlFile") != null) {%>
-<button class="btn noprint" type='button' value='Print' onClick="window.print()"><i class="icon-print"></i> Print
+<button class="btn noprint" type='button' value='Print' onClick="window.print()"><i class="fa-solid fa-print"></i> Print
 </button>
 <%
         out.println(request.getAttribute("TeleplanHtmlFile"));

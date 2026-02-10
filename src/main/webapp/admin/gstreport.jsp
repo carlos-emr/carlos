@@ -119,7 +119,7 @@
         </div>
         <div class="span2 pull-right">
             <button class="btn" type="button" value="Print" onclick="window.print()"/>
-            <i class="icon-print icon-white"></i> Print</button></div>
+            <i class="fa-solid fa-print icon-white"></i> Print</button></div>
 
         <div class="span12">
             <div class="span2">
@@ -127,7 +127,7 @@
                 <div class="input-append">
                     <input type="text" name="xml_vdate" id="xml_vdate" value="<%=startDate%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
             <div class="span2">
@@ -135,7 +135,7 @@
                 <div class="input-append">
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<%=endDate%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 

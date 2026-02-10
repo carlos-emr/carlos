@@ -258,7 +258,7 @@
         %>
 
         <button class="btn pull-right" type='button' name='print' value='Print' onClick='window.print()'><i
-                class="icon icon-print"></i> Print
+                class="icon fa-solid fa-print"></i> Print
         </button>
         <br/><input type="checkbox" onclick="selectAll();"><br/><br/>
 
@@ -354,7 +354,7 @@
                             <input type="text" name="BillDate" id="BillDate"
                                    value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
                                    data-date-format="yyyy-m-d" style="width:90px" autocomplete="off" readonly/>
-                            <span class="add-on"><i class="icon-calendar"></i></span>
+                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
 

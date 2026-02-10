@@ -1279,9 +1279,9 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <table class="xmyDarkGreen"
            style="width: 100%; background-color: silver;">
         <tr>
-            <td><H4><i class="icon-money" style="margin-left:10px;"></i>&nbsp;Ontario Billing</H4></td>
-            <td style="text-align: right"><i class="icon-question-sign"></i>&nbsp;
-                <i class="icon-edit"></i><a href="javascript:void(0);"
+            <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;Ontario Billing</H4></td>
+            <td style="text-align: right"><i class="fa-solid fa-circle-question"></i>&nbsp;
+                <i class="fa-solid fa-pen-to-square"></i><a href="javascript:void(0);"
                                               onclick="popupPage(800,700,'billingONfavourite.jsp'); return false;">
                     Edit
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">

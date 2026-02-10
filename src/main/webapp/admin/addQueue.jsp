@@ -82,7 +82,7 @@
         <input type="text" id="newQueueName" class="input-xlarge input-queue" placeholder="Type queue name" value=""/>
         <input type="button" class="btn btn-primary" value="Add" id="add-btn"/>
 
-        <i class="icon-question-sign" style="margin-left:20px;"></i>
+        <i class="fa-solid fa-circle-question" style="margin-left:20px;"></i>
     </form>
 
 </div>

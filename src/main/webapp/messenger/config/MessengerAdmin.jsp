@@ -347,7 +347,7 @@
                         </c:forEach>
                         <li>
                             <a data-toggle="tab" href="#new-group" class="muted">
-                                <i class="icon-plus add-group-tab" title="New Group"></i>
+                                <i class="fa-solid fa-plus add-group-tab" title="New Group"></i>
                             </a>
                         </li>
                     </ul>
@@ -360,7 +360,7 @@
                                     <c:forEach items="${ group.value }" var="member">
                                         <div class="row-fluid contact-entry">
                                             <label class="checkbox">
-                                                <i class="icon-trash group-member"
+                                                <i class="fa-solid fa-trash group-member"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
                                                    title="Remove Contact"
                                                    id="${ member.id.compositeId }-${ group.key.id }"></i>

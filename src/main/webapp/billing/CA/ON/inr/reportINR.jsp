@@ -104,7 +104,7 @@
 
 <div class="container-fluid well">
     <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
-            class="icon icon-print"></i> Print
+            class="icon fa-solid fa-print"></i> Print
     </button>
 
     <% String providerview = request.getParameter("provider_no") == null ? "" : request.getParameter("provider_no");
