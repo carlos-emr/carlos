@@ -12,6 +12,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/setup-github-cli.sh\"",
+            "timeout": 120
+          }
+        ]
       }
     ],
     "PreToolUse": [
