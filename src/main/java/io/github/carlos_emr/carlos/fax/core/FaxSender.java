@@ -153,7 +153,7 @@ public class FaxSender {
 
             if (!Files.exists(filePath)) {
                 if (filename.contains(File.separator)) {
-                    filename.replaceAll(File.separator, "");
+                    filename = filename.replaceAll(File.separator, "");
                 }
                 filePath = Paths.get(document_dir, filename);
             }
