@@ -74,6 +74,7 @@ public class ListWrapper<T> {
     @JsonProperty("Result")
     private List<T> result;
 
+    @JsonProperty("Error")
     private String error;
 
     /**

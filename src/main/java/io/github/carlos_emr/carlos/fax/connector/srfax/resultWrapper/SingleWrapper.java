@@ -64,6 +64,7 @@ public class SingleWrapper<T> {
     @JsonProperty("Result")
     private T result;
 
+    @JsonProperty("Error")
     private String error;
 
     /**

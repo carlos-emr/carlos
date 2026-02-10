@@ -94,7 +94,12 @@ public class SRFaxConnector implements FaxConnector {
                     coverLetterOption);
 
             if (result != null && result.isSuccess()) {
-                long externalId = result.getResult().longValue();
+                Integer resultValue = result.getResult();
+                if (resultValue == null) {
+                    logger.warn("SRFax returned success but null result");
+                    return new FaxSendResult(false, 0, FaxJob.STATUS.ERROR, "SRFax returned null job ID");
+                }
+                long externalId = resultValue.longValue();
                 logger.info("SRFax send success, externalId={}", externalId);
                 return new FaxSendResult(true, externalId, FaxJob.STATUS.SENT, "Sending via SRFax");
             } else {
