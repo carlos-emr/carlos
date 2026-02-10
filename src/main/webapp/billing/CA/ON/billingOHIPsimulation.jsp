@@ -314,7 +314,7 @@
             <%=healthOffice%>
 
             <button type='button' name='print' value='Print' class="btn pull-right" onClick='window.print()'><i
-                    class="icon fa-solid fa-print"></i> Print
+                    class="fa-solid fa-print"></i> Print
             </button>
             <br/>
 

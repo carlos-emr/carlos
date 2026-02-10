@@ -79,6 +79,7 @@
                     src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
             <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.min.css" rel="stylesheet"
                   type="text/css"/>
+            <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
             <style type="text/css">
                 summary {
                     cursor: pointer;

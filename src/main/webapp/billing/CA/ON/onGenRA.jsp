@@ -82,6 +82,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script language="JavaScript">
         <!--
@@ -124,7 +125,7 @@
 
 <div class="container-fluid well">
     <button class="btn btn-primary pull-right" type='button' name='print' value='Print'
-            onClick='window.print(); return false;'><i class="icon fa-solid fa-print icon-white"></i> Print
+            onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>
     <br/><br/>
 

@@ -97,6 +97,7 @@
         //-->
     </script>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 
 <body>
@@ -104,7 +105,7 @@
 
 <div class="container-fluid well">
     <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
-            class="icon fa-solid fa-print"></i> Print
+            class="fa-solid fa-print"></i> Print
     </button>
 
     <% String providerview = request.getParameter("provider_no") == null ? "" : request.getParameter("provider_no");

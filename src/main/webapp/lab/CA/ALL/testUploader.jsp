@@ -60,6 +60,7 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.labUploadUtility"/></title>
 
     <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
 

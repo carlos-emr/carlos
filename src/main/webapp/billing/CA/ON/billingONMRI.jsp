@@ -238,7 +238,7 @@
     <div class="row well hidden-print">
 
         <button type='button' name='print' value='Print' class="btn hidden-print" onClick='window.print()'
-                style="position:absolute;top:20px;right:20px;"><i class="icon fa-solid fa-print"></i> Print
+                style="position:absolute;top:20px;right:20px;"><i class="fa-solid fa-print"></i> Print
         </button>
 
         <div class="dropdown">

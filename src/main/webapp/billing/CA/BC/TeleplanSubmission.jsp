@@ -93,6 +93,7 @@
 <head>
     <title>Billing Report</title>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <script language="JavaScript">
         var checkSubmitFlg = false;
 

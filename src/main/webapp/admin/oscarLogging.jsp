@@ -103,7 +103,7 @@
         <div class="control-group">
             <div class="controls">
                 <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-download icon-white"></i> Get Report
+                    <i class="fa-solid fa-download"></i> Get Report
                 </button>
             </div>
         </div>

@@ -232,6 +232,7 @@
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
               rel="stylesheet">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <script>
             $(document).ready(function () {
                 var startDate = $("#xml_vdate").datepicker({format: "yyyy-mm-dd"});
@@ -706,7 +707,7 @@
                         <div class="span4" style="padding-top:10px;">
                             <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
                             <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
-                                    class="icon fa-solid fa-print"></i> Print
+                                    class="fa-solid fa-print"></i> Print
                             </button>
                         </div>
                     </div>

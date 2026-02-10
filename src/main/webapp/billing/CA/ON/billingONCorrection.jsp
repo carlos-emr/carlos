@@ -1253,7 +1253,7 @@
                     <%if (billNo != null) {%>
 
                     <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%=billNo%>" class="btn"><i
-                            class="icon fa-solid fa-print"></i> Reprint</a>
+                            class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"
                        class="btn">Rebill OHIP</a>

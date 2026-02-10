@@ -138,11 +138,11 @@
             text-decoration: none;
         }
 
-        .fa-solid fa-chevron-right {
+        .fa-solid.fa-chevron-right {
             opacity: 0.3;
         }
 
-        .accordion-heading a:hover > .fa-solid fa-chevron-right {
+        .accordion-heading a:hover > .fa-solid.fa-chevron-right {
             opacity: 1;
         }
 
@@ -185,7 +185,7 @@
             color: #0088cc;
         }
 
-        .fa-solid fa-chevron-right {
+        .fa-solid.fa-chevron-right {
             float: right;
         }
 
@@ -262,7 +262,7 @@
             color: #0088cc;
         }
 
-        .fa-solid fa-trash:hover {
+        .fa-solid.fa-trash:hover {
             color: #bd362f !important;
         }
 

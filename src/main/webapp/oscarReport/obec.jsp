@@ -89,7 +89,7 @@
         Overnight Batch Eligibility Checking Report
         <div class="pull-right">
             <button name="print" onclick="window.print()" class="btn">
-                <i class="fa-solid fa-print icon-black"></i>
+                <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
         </div>

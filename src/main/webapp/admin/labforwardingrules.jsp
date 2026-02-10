@@ -70,6 +70,7 @@
 <head>
 
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></title>
+    <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
 

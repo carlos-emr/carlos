@@ -168,6 +168,7 @@
 
         <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
 
         <script language="JavaScript">

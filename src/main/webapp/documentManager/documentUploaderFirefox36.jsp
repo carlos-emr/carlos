@@ -144,7 +144,7 @@
 <script type="text/javascript">
     jQuery(function () {
         jQuery('#fileupload').fileUploadUIX({sequentialUploads: true});
-        jQuery(".file_upload_label").button({icons: {primary: 'ui-fa-solid fa-plus'}})
+        jQuery(".file_upload_label").button({icons: {primary: 'ui-icon-plusthick'}})
     });
 </script>
 <style type="text/css">

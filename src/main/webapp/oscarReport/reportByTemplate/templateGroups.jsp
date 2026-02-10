@@ -46,6 +46,7 @@
         <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"
               rel="stylesheet">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
 

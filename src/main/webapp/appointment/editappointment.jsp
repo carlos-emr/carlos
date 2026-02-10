@@ -236,7 +236,7 @@
 
 
     <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <%--<link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">--%>
+        <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
     <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
         <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>

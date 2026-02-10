@@ -54,6 +54,7 @@
 
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <script type="text/javascript">
             function popupPage(varpage, windowname) {

@@ -537,7 +537,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <a href="JavaScript:void(0);" class="btn btn-small back loading" title="Cancel"
                        data-loading-text="cancelling...">Cancel</a>
                     <button type="button" class="btn btn-small btn-success DoNotPrint"
-                            onclick="javascript:window.print();"><i class="fa-solid fa-print icon-white"></i> Print
+                            onclick="javascript:window.print();"><i class="fa-solid fa-print"></i> Print
                     </button>
                     <%} else {%>
 

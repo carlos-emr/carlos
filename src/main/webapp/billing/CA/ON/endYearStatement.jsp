@@ -118,7 +118,7 @@
                 <div class="input-append">
                     <input class="span4" id="nameForlooksOnly" type="text" value="<%=name%>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
-                            class="icon fa-solid fa-magnifying-glass"></i></button>
+                            class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
             </div>
 

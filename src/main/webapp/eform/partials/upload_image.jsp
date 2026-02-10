@@ -44,6 +44,7 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet">
 
