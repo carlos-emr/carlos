@@ -173,6 +173,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getDayAppointments")
+    @Tag("read")
+    @Tag("query")
     class GetDayAppointments {
 
         @Test
@@ -246,6 +248,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointment")
+    @Tag("read")
     class GetAppointment {
 
         @Test
@@ -290,6 +293,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("addAppointment")
+    @Tag("create")
     class AddAppointment {
 
         @Test
@@ -340,6 +344,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("updateAppointment")
+    @Tag("update")
     class UpdateAppointment {
 
         @Test
