@@ -225,6 +225,44 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public List<ProfessionalSpecialist> findByFullNameAndReferralNo(String lastName, String firstName, String referralNo, Integer offset, Integer maxResults) {
+        String queryString = "SELECT x FROM ProfessionalSpecialist x WHERE x.hideFromView = false ";
+
+        if (lastName != null) {
+            queryString += "AND ( x.lastName LIKE :lastName ) ";
+        }
+        if (firstName != null) {
+            queryString += "AND ( x.firstName LIKE :firstName ) ";
+        }
+        if (referralNo != null) {
+            queryString += "AND ( x.referralNo LIKE :refNo ) ";
+        }
+
+        queryString += "ORDER BY x.lastName, x.firstName";
+
+        Query query = entityManager.createQuery(queryString);
+
+        if (lastName != null) {
+            query.setParameter("lastName", lastName + "%");
+        }
+        if (firstName != null) {
+            query.setParameter("firstName", firstName + "%");
+        }
+        if (referralNo != null) {
+            query.setParameter("refNo", referralNo + "%");
+        }
+        if (offset != null) {
+            query.setFirstResult(offset);
+        }
+        if (maxResults != null) {
+            query.setMaxResults(maxResults);
+        }
+
+        return query.getResultList();
+    }
+
+    @Override
     public List<ProfessionalSpecialist> findByServiceId(Integer serviceId) {
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x, ServiceSpecialists ss WHERE x.id = ss.id.specId and ss.id.serviceId = ?1");
         query.setParameter(1, serviceId);

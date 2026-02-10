@@ -190,6 +190,7 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DocumentService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.SpecialistsService" autowire="byName"/>
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
