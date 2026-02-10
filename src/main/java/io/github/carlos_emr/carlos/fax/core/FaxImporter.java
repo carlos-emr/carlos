@@ -193,8 +193,13 @@ public class FaxImporter {
                     }
 
                     if (fileName != null) {
-                        providerRouting(Integer.parseInt(edoc.getDocId()));
-                        deleteFax(client, faxConfig, receivedFax);
+                        try {
+                            providerRouting(Integer.parseInt(edoc.getDocId()));
+                            deleteFax(client, faxConfig, receivedFax);
+                        } catch (NumberFormatException nfe) {
+                            log.error("Invalid document ID '{}' for received fax; skipping provider routing and delete.", edoc.getDocId(), nfe);
+                            fileName = FaxJob.STATUS.ERROR.name();
+                        }
                     } else {
                         fileName = FaxJob.STATUS.ERROR.name();
                     }
