@@ -83,6 +83,114 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         return provider;
     }
 
+    /** Tests for CRUD read operations on Provider entities. */
+    @Nested
+    @DisplayName("CRUD read operations")
+    class CrudReadOperations {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should get provider by provider number")
+        void shouldGetProvider_whenValidProviderNoProvided() {
+            // When
+            Provider found = providerDao.getProvider("T001");
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getFirstName()).isEqualTo("John");
+            assertThat(found.getLastName()).isEqualTo("Smith");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when provider number is empty")
+        void shouldReturnNull_whenProviderNoIsEmpty() {
+            // When
+            Provider found = providerDao.getProvider("");
+
+            // Then
+            assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return true when provider exists")
+        void shouldReturnTrue_whenProviderExists() {
+            // When/Then
+            assertThat(providerDao.providerExists("T001")).isTrue();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return false when provider does not exist")
+        void shouldReturnFalse_whenProviderDoesNotExist() {
+            // When/Then
+            assertThat(providerDao.providerExists("NONEXISTENT")).isFalse();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should get provider name as first last")
+        void shouldGetProviderName_whenValidProviderNoProvided() {
+            // When
+            String name = providerDao.getProviderName("T001");
+
+            // Then
+            assertThat(name).contains("John").contains("Smith");
+        }
+    }
+
+    /** Tests for CRUD write operations on Provider entities. */
+    @Nested
+    @DisplayName("CRUD write operations")
+    class CrudWriteOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new provider with valid data")
+        void shouldPersistProvider_whenValidDataProvided() {
+            // Given
+            Provider newProvider = new Provider();
+            newProvider.setProviderNo("T099");
+            newProvider.setFirstName("New");
+            newProvider.setLastName("Provider");
+            newProvider.setStatus("1");
+            newProvider.setProviderType("doctor");
+            newProvider.setSex("F");
+            newProvider.setSpecialty("Cardiology");
+
+            // When
+            providerDao.saveProvider(newProvider);
+            hibernateTemplate.flush();
+
+            // Then
+            Provider found = providerDao.getProvider("T099");
+            assertThat(found).isNotNull();
+            assertThat(found.getFirstName()).isEqualTo("New");
+            assertThat(found.getLastName()).isEqualTo("Provider");
+            assertThat(found.getSpecialty()).isEqualTo("Cardiology");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update provider information when changes occur")
+        void shouldUpdateProvider_whenChangesOccur() {
+            // Given
+            Provider existing = providerDao.getProvider("T001");
+            assertThat(existing).isNotNull();
+            existing.setSpecialty("Neurology");
+
+            // When
+            providerDao.updateProvider(existing);
+            hibernateTemplate.flush();
+
+            // Then
+            Provider updated = providerDao.getProvider("T001");
+            assertThat(updated.getSpecialty()).isEqualTo("Neurology");
+        }
+    }
+
+    /** Tests for getProviderFromFirstLastName (2 params). */
     @Nested
     @DisplayName("getProviderFromFirstLastName (2 params)")
     class GetProviderFromFirstLastName {
@@ -124,6 +232,7 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for getProviderLikeFirstLastName (2 params). */
     @Nested
     @DisplayName("getProviderLikeFirstLastName (2 params)")
     class GetProviderLikeFirstLastName {
@@ -155,6 +264,7 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for getActiveProviderLikeFirstLastName (2 params). */
     @Nested
     @DisplayName("getActiveProviderLikeFirstLastName (2 params)")
     class GetActiveProviderLikeFirstLastName {
@@ -187,21 +297,37 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for query methods with single parameters (baseline coverage). */
     @Nested
-    @DisplayName("Single parameter queries (baseline)")
-    class SingleParamQueries {
+    @DisplayName("Query operations")
+    class QueryOperations {
 
         @Test
         @Tag("read")
-        @DisplayName("should get provider by provider number")
-        void shouldGetProviderByProviderNo() {
+        @DisplayName("should retrieve all providers via query method")
+        void shouldRetrieveAllProviders() {
             // When
-            Provider found = providerDao.getProvider("T001");
+            List<Provider> results = providerDao.getProviders();
 
             // Then
-            assertThat(found).isNotNull();
-            assertThat(found.getFirstName()).isEqualTo("John");
-            assertThat(found.getLastName()).isEqualTo("Smith");
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(Provider::getProviderNo)
+                .contains("T001", "T002", "T003", "T004");
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should filter active providers by status parameter")
+        void shouldFilterActiveProviders_byStatusParameter() {
+            // When
+            List<Provider> activeProviders = providerDao.getActiveProviders();
+
+            // Then - T004 (inactive) should be excluded
+            assertThat(activeProviders)
+                .extracting(Provider::getProviderNo)
+                .contains("T001", "T002", "T003")
+                .doesNotContain("T004");
         }
 
         @Test
@@ -218,12 +344,78 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         }
 
         @Test
+        @Tag("filter")
+        @DisplayName("should retrieve billable providers with billing filter")
+        void shouldRetrieveBillableProviders_withBillingFilter() {
+            // Given - Add a provider with an OHIP number
+            Provider billable = persistProvider("T005", "Bill", "Able", "1", "doctor");
+            billable.setOhipNo("12345");
+            hibernateTemplate.update(billable);
+            hibernateTemplate.flush();
+
+            // When
+            List<Provider> results = providerDao.getBillableProviders();
+
+            // Then - Should contain the billable provider
+            assertThat(results).isNotEmpty();
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should find doctors with OHIP certification applied")
+        void shouldFindDoctors_withOhipCertification() {
+            // Given - Add provider with OHIP
+            Provider withOhip = persistProvider("T006", "Doc", "Ohip", "1", "doctor");
+            withOhip.setOhipNo("OH123");
+            hibernateTemplate.update(withOhip);
+            hibernateTemplate.flush();
+
+            // When
+            List<Provider> results = providerDao.getDoctorsWithOhip();
+
+            // Then
+            assertThat(results).isNotEmpty();
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .contains("T006");
+        }
+
+        @Test
         @Tag("read")
-        @DisplayName("should check if provider exists")
-        void shouldCheckProviderExists() {
-            // When/Then
-            assertThat(providerDao.providerExists("T001")).isTrue();
-            assertThat(providerDao.providerExists("NONEXISTENT")).isFalse();
+        @DisplayName("should get provider name in last-first format")
+        void shouldGetProviderNameLastFirst() {
+            // When
+            String name = providerDao.getProviderNameLastFirst("T001");
+
+            // Then
+            assertThat(name).isNotNull();
+            assertThat(name).contains("Smith").contains("John");
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should search providers using name pattern matching")
+        void shouldSearchProviders_byNamePattern() {
+            // When
+            List<Provider> results = providerDao.search("John");
+
+            // Then
+            assertThat(results).isNotEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should get providers by boolean active filter")
+        void shouldGetProviders_byActiveFilter() {
+            // When
+            List<Provider> activeOnly = providerDao.getProviders(true);
+            List<Provider> all = providerDao.getProviders(false);
+
+            // Then
+            assertThat(activeOnly.size()).isLessThanOrEqualTo(all.size());
+            assertThat(activeOnly)
+                .extracting(Provider::getProviderNo)
+                .doesNotContain("T004");
         }
     }
 }

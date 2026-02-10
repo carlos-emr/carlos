@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -73,7 +74,6 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
 
     @BeforeEach
     void setUp() {
-        // Create test issues
         testIssue1 = new Issue();
         testIssue1.setCode("TEST001");
         testIssue1.setDescription("Test Issue 1");
@@ -91,10 +91,6 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         entityManager.flush();
     }
 
-    /**
-     * Creates a CaseManagementIssue for testing.
-     * Note: Model uses Integer for demographic_no, DAO methods use String.
-     */
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue) {
         CaseManagementIssue cmi = new CaseManagementIssue();
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
@@ -121,12 +117,104 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         return cmi;
     }
 
+    private CaseManagementIssue createResolvedIssue(String demographicNo, Issue issue) {
+        CaseManagementIssue cmi = new CaseManagementIssue();
+        cmi.setDemographic_no(Integer.valueOf(demographicNo));
+        cmi.setIssue_id(issue.getId());
+        cmi.setAcute(false);
+        cmi.setCertain(true);
+        cmi.setMajor(false);
+        cmi.setResolved(true);
+        cmi.setUpdate_date(new Date());
+        caseManagementIssueDAO.saveIssue(cmi);
+        return cmi;
+    }
+
     private Date daysFromNow(int days) {
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DAY_OF_MONTH, days);
         return cal.getTime();
     }
 
+    /** Tests for CRUD operations. */
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist case management issue with valid data")
+        void shouldPersistIssue_whenValidDataProvided() {
+            // Given
+            CaseManagementIssue cmi = new CaseManagementIssue();
+            cmi.setDemographic_no(600);
+            cmi.setIssue_id(testIssue1.getId());
+            cmi.setAcute(true);
+            cmi.setCertain(false);
+            cmi.setMajor(true);
+            cmi.setResolved(false);
+            cmi.setUpdate_date(new Date());
+
+            // When
+            caseManagementIssueDAO.saveIssue(cmi);
+            entityManager.flush();
+
+            // Then
+            assertThat(cmi.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete issue by entity reference")
+        void shouldDeleteIssue_whenValidIssueProvided() {
+            // Given
+            CaseManagementIssue cmi = createCaseManagementIssue("601", testIssue1);
+            entityManager.flush();
+            Long savedId = cmi.getId();
+
+            // When
+            caseManagementIssueDAO.deleteIssueById(cmi);
+            entityManager.flush();
+
+            // Then
+            @SuppressWarnings("unchecked")
+            List<CaseManagementIssue> results = entityManager
+                .createQuery("from CaseManagementIssue where id = :id")
+                .setParameter("id", savedId)
+                .getResultList();
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should batch save issue list")
+        void shouldBatchSave_whenIssueListProvided() {
+            // Given
+            List<CaseManagementIssue> issues = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                CaseManagementIssue cmi = new CaseManagementIssue();
+                cmi.setDemographic_no(700 + i);
+                cmi.setIssue_id(testIssue1.getId());
+                cmi.setAcute(false);
+                cmi.setCertain(true);
+                cmi.setMajor(false);
+                cmi.setResolved(false);
+                cmi.setUpdate_date(new Date());
+                issues.add(cmi);
+            }
+
+            // When
+            caseManagementIssueDAO.saveAndUpdateCaseIssues(issues);
+            entityManager.flush();
+
+            // Then
+            assertThat(caseManagementIssueDAO.getIssuesByDemographic("700")).isNotEmpty();
+            assertThat(caseManagementIssueDAO.getIssuesByDemographic("701")).isNotEmpty();
+            assertThat(caseManagementIssueDAO.getIssuesByDemographic("702")).isNotEmpty();
+        }
+    }
+
+    /** Tests for getIssuebyId (2 params: demo, id). */
     @Nested
     @DisplayName("getIssuebyId (2 params: demo, id)")
     class GetIssueById {
@@ -137,15 +225,15 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         void shouldFindIssue_whenBothDemoAndIdMatch() {
             // Given
             createCaseManagementIssue("111", testIssue1);
-            CaseManagementIssue issue2 = createCaseManagementIssue("222", testIssue1);  // Same issue, different demo
-            CaseManagementIssue issue3 = createCaseManagementIssue("111", testIssue2);  // Same demo, different issue
+            createCaseManagementIssue("222", testIssue1);
+            createCaseManagementIssue("111", testIssue2);
             entityManager.flush();
 
             // When
             CaseManagementIssue found = caseManagementIssueDAO.getIssuebyId(
                 "111", String.valueOf(testIssue1.getId()));
 
-            // Then - Should find issue1 only
+            // Then
             assertThat(found).isNotNull();
             assertThat(found.getDemographic_no()).isEqualTo(111);
             assertThat(found.getIssue_id()).isEqualTo(testIssue1.getId());
@@ -159,7 +247,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             createCaseManagementIssue("111", testIssue1);
             entityManager.flush();
 
-            // When - Search with wrong demographic
+            // When
             CaseManagementIssue found = caseManagementIssueDAO.getIssuebyId(
                 "999", String.valueOf(testIssue1.getId()));
 
@@ -168,6 +256,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for getIssuebyIssueCode (2 params: demo, issueCode). */
     @Nested
     @DisplayName("getIssuebyIssueCode (2 params: demo, issueCode)")
     class GetIssueByIssueCode {
@@ -177,9 +266,9 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should find issue when both demographic and issue code match")
         void shouldFindIssue_whenBothDemoAndCodeMatch() {
             // Given
-            CaseManagementIssue cmi = createCaseManagementIssue("111", testIssue1);  // testIssue1 has code "TEST001"
-            createCaseManagementIssue("222", testIssue1);  // Same code, different demo
-            createCaseManagementIssue("111", testIssue2);  // Same demo, different code
+            CaseManagementIssue cmi = createCaseManagementIssue("111", testIssue1);
+            createCaseManagementIssue("222", testIssue1);
+            createCaseManagementIssue("111", testIssue2);
             entityManager.flush();
 
             // When
@@ -199,7 +288,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             createCaseManagementIssue("111", testIssue1);
             entityManager.flush();
 
-            // When - Search with wrong code
+            // When
             CaseManagementIssue found = caseManagementIssueDAO.getIssuebyIssueCode("111", "NONEXISTENT");
 
             // Then
@@ -207,8 +296,9 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for getIssuesByDemographicSince (2 params). */
     @Nested
-    @DisplayName("getIssuesByDemographicSince (2 params: demographicNo, date)")
+    @DisplayName("getIssuesByDemographicSince (2 params)")
     class GetIssuesByDemographicSince {
 
         @Test
@@ -217,7 +307,6 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         void shouldFilterByBothDemoAndDate() {
             // Given
             Date cutoff = daysFromNow(-5);
-
             CaseManagementIssue recent = createCaseManagementIssue("111", testIssue1, daysFromNow(-2));
             CaseManagementIssue old = createCaseManagementIssue("111", testIssue2, daysFromNow(-10));
             CaseManagementIssue wrongDemo = createCaseManagementIssue("222", testIssue1, daysFromNow(-2));
@@ -227,7 +316,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             List<CaseManagementIssue> results = caseManagementIssueDAO
                 .getIssuesByDemographicSince("111", cutoff);
 
-            // Then - Only 'recent' should match both criteria
+            // Then
             assertThat(results)
                 .extracting(CaseManagementIssue::getId)
                 .contains(recent.getId())
@@ -236,13 +325,13 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return empty list when no issues match both criteria")
+        @DisplayName("should return empty list when no issues match")
         void shouldReturnEmptyList_whenNoIssuesMatch() {
-            // Given - Create old issue only
+            // Given
             createCaseManagementIssue("111", testIssue1, daysFromNow(-30));
             entityManager.flush();
 
-            // When - Search for recent issues
+            // When
             List<CaseManagementIssue> results = caseManagementIssueDAO
                 .getIssuesByDemographicSince("111", daysFromNow(-1));
 
@@ -251,9 +340,10 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for query operations including resolved/unresolved filtering. */
     @Nested
-    @DisplayName("Single parameter queries (baseline)")
-    class SingleParamQueries {
+    @DisplayName("Query operations")
+    class QueryOperations {
 
         @Test
         @Tag("read")
@@ -262,7 +352,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             // Given
             createCaseManagementIssue("333", testIssue1);
             createCaseManagementIssue("333", testIssue2);
-            createCaseManagementIssue("444", testIssue1);  // Different demographic
+            createCaseManagementIssue("444", testIssue1);
             entityManager.flush();
 
             // When
@@ -271,6 +361,93 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             // Then
             assertThat(results).hasSize(2);
             assertThat(results).allMatch(i -> i.getDemographic_no().equals(333));
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should filter unresolved issues by boolean parameter")
+        void shouldFilterUnresolvedIssues_byBooleanParameter() {
+            // Given
+            createCaseManagementIssue("800", testIssue1);
+            createResolvedIssue("800", testIssue2);
+            entityManager.flush();
+
+            // When
+            List<CaseManagementIssue> unresolvedResults = caseManagementIssueDAO
+                .getIssuesByDemographicOrderActive(800, false);
+
+            // Then
+            assertThat(unresolvedResults)
+                .isNotEmpty()
+                .allMatch(i -> !i.isResolved());
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should filter resolved issues by boolean parameter")
+        void shouldFilterResolvedIssues_byBooleanParameter() {
+            // Given
+            createCaseManagementIssue("801", testIssue1);
+            createResolvedIssue("801", testIssue2);
+            entityManager.flush();
+
+            // When
+            List<CaseManagementIssue> resolvedResults = caseManagementIssueDAO
+                .getIssuesByDemographicOrderActive(801, true);
+
+            // Then
+            assertThat(resolvedResults)
+                .isNotEmpty()
+                .allMatch(CaseManagementIssue::isResolved);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should get all certain issues")
+        void shouldGetAllCertainIssues() {
+            // Given
+            createCaseManagementIssue("900", testIssue1);
+            entityManager.flush();
+
+            // When
+            List<CaseManagementIssue> results = caseManagementIssueDAO.getAllCertainIssues();
+
+            // Then
+            assertThat(results).isNotEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should retrieve issues by demographic and ID combination")
+        void shouldRetrieveIssues_byDemographicAndIdCombination() {
+            // Given
+            CaseManagementIssue cmi = createCaseManagementIssue("850", testIssue1);
+            entityManager.flush();
+
+            // When
+            CaseManagementIssue found = caseManagementIssueDAO.getIssuebyId(
+                "850", String.valueOf(testIssue1.getId()));
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getDemographic_no()).isEqualTo(850);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should match by issue code")
+        void shouldMatchByIssueCode() {
+            // Given
+            createCaseManagementIssue("860", testIssue1);
+            entityManager.flush();
+
+            // When
+            CaseManagementIssue found = caseManagementIssueDAO
+                .getIssuebyIssueCode("860", "TEST001");
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getIssue_id()).isEqualTo(testIssue1.getId());
         }
     }
 }

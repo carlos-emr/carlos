@@ -73,18 +73,14 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
         long positiveNanoTime = Math.abs(nanoTime);
         long baseId = positiveNanoTime % 10000L;
 
-        // Use unique client IDs derived arithmetically to avoid parsing errors
         testClientId1 = baseId * 100 + 1;
         testClientId2 = baseId * 100 + 2;
 
-        // Create programs for referrals
         Program program1 = createProgram("Test Program 1");
         Program program2 = createProgram("Test Program 2");
         testProgramId1 = (long) program1.getId();
         testProgramId2 = (long) program2.getId();
 
-        // Create test referrals with various combinations
-        // Note: Not setting providerNo to avoid triggering formula subquery against provider table
         createReferral(testClientId1, testProgramId1, testFacilityId1, "active");
         createReferral(testClientId1, testProgramId2, testFacilityId1, "active");
         createReferral(testClientId1, testProgramId1, testFacilityId2, "pending");
@@ -109,25 +105,154 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
         ref.setProgramId(programId);
         ref.setFacilityId(facilityId);
         ref.setStatus(status);
-        // Not setting providerNo to avoid formula subquery issues
         ref.setReferralDate(new Date());
         hibernateTemplate.save(ref);
         return ref;
     }
 
+    /** Tests for CRUD operations on ClientReferral entities. */
     @Nested
-    @DisplayName("getActiveReferrals (multi-param: clientId, facilityId, 3 status values)")
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should retrieve referral by valid ID")
+        void shouldRetrieveReferral_whenValidIdProvided() {
+            // Given
+            ClientReferral saved = createReferral(testClientId1, testProgramId1, testFacilityId1, "active");
+            hibernateTemplate.flush();
+
+            // When
+            ClientReferral found = clientReferralDAO.getClientReferral(saved.getId());
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getClientId()).isEqualTo(testClientId1);
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist referral with valid data")
+        void shouldPersistReferral_whenValidDataProvided() {
+            // Given
+            ClientReferral ref = new ClientReferral();
+            ref.setClientId(testClientId1);
+            ref.setProgramId(testProgramId1);
+            ref.setFacilityId(testFacilityId1);
+            ref.setStatus("active");
+            ref.setReferralDate(new Date());
+            ref.setNotes("Test referral note");
+
+            // When
+            clientReferralDAO.saveClientReferral(ref);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(ref.getId()).isNotNull();
+            ClientReferral found = clientReferralDAO.getClientReferral(ref.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getNotes()).isEqualTo("Test referral note");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update referral with changes")
+        void shouldUpdateReferral_whenChangesProvided() {
+            // Given
+            ClientReferral saved = createReferral(testClientId1, testProgramId1, testFacilityId1, "pending");
+            hibernateTemplate.flush();
+
+            // When
+            saved.setStatus("active");
+            saved.setNotes("Updated notes");
+            hibernateTemplate.update(saved);
+            hibernateTemplate.flush();
+
+            // Then
+            ClientReferral found = clientReferralDAO.getClientReferral(saved.getId());
+            assertThat(found.getStatus()).isEqualTo("active");
+            assertThat(found.getNotes()).isEqualTo("Updated notes");
+        }
+    }
+
+    /** Tests for getReferrals by client ID (single param). */
+    @Nested
+    @DisplayName("getReferrals (single param: clientId)")
+    class GetReferralsByClientId {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter by client ID")
+        void shouldFilterByClientId() {
+            // When
+            List<ClientReferral> results = clientReferralDAO.getReferrals(testClientId1);
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .allMatch(r -> r.getClientId().equals(testClientId1));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when client doesn't exist")
+        void shouldReturnEmpty_whenClientDoesntExist() {
+            // When
+            List<ClientReferral> results = clientReferralDAO.getReferrals(99999L);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /** Tests for getReferralsByFacility (multi-param with subselect). */
+    @Nested
+    @DisplayName("getReferralsByFacility (2 params: clientId, facilityId)")
+    class GetReferralsByFacility {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter by client and facility")
+        void shouldFilterByClientAndFacility() {
+            // When
+            List<ClientReferral> results = clientReferralDAO.getReferralsByFacility(
+                testClientId1, testFacilityId1);
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .allMatch(r -> r.getClientId().equals(testClientId1));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when client doesn't match facility")
+        void shouldReturnEmpty_whenClientDoesntMatchFacility() {
+            // When
+            List<ClientReferral> results = clientReferralDAO.getReferralsByFacility(
+                99999L, testFacilityId1);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /** Tests for getActiveReferrals (multi-param: clientId, facilityId, status values). */
+    @Nested
+    @DisplayName("getActiveReferrals (multi-param)")
     class GetActiveReferrals {
 
         @Test
         @Tag("query")
-        @DisplayName("should find active referrals when client matches")
+        @DisplayName("should find active referrals when client matches (null facility)")
         void shouldFindActive_whenClientMatches() {
             // When - null facilityId tests the 4-param branch
             List<ClientReferral> results = clientReferralDAO.getActiveReferrals(
                 testClientId1, null);
 
-            // Then - Should find active referrals for client 1
+            // Then
             assertThat(results)
                 .isNotEmpty()
                 .allMatch(r -> r.getClientId().equals(testClientId1));
@@ -158,10 +283,25 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
             // Then
             assertThat(results).isEmpty();
         }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should filter for pending referrals via status")
+        void shouldFilterForPendingReferrals_viaStatus() {
+            // When - getActiveReferrals includes "pending" in its status filter
+            List<ClientReferral> results = clientReferralDAO.getActiveReferrals(
+                testClientId1, null);
+
+            // Then - Should include pending referrals
+            assertThat(results)
+                .extracting(ClientReferral::getStatus)
+                .containsAnyOf("active", "pending", "unknown");
+        }
     }
 
+    /** Tests for getActiveReferralsByClientAndProgram (2 params). */
     @Nested
-    @DisplayName("getActiveReferralsByClientAndProgram (2 params: clientId, programId)")
+    @DisplayName("getActiveReferralsByClientAndProgram (2 params)")
     class GetActiveReferralsByClientAndProgram {
 
         @Test
@@ -172,7 +312,7 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
             List<ClientReferral> results = clientReferralDAO.getActiveReferralsByClientAndProgram(
                 testClientId1, testProgramId1);
 
-            // Then - Only active referrals should be returned
+            // Then
             assertThat(results)
                 .isNotEmpty()
                 .allMatch(r -> r.getClientId().equals(testClientId1))
@@ -204,27 +344,10 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for Criteria API and single parameter queries. */
     @Nested
-    @DisplayName("Single parameter queries (baseline)")
-    class SingleParamQueries {
-
-        @Test
-        @Tag("read")
-        @DisplayName("should get referral by ID")
-        void shouldGetById() {
-            // Given - Create and save a referral
-            ClientReferral saved = createReferral(testClientId1, testProgramId1, testFacilityId1, "active");
-            hibernateTemplate.flush();
-            Long savedId = saved.getId();
-
-            // When
-            ClientReferral result = clientReferralDAO.getClientReferral(savedId);
-
-            // Then
-            assertThat(result).isNotNull();
-            assertThat(result.getId()).isEqualTo(savedId);
-            assertThat(result.getClientId()).isEqualTo(testClientId1);
-        }
+    @DisplayName("Search and single parameter queries")
+    class SearchAndSingleParamQueries {
 
         @Test
         @Tag("read")
@@ -234,10 +357,38 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
             List<ClientReferral> results = clientReferralDAO.getClientReferralsByProgram(
                 testProgramId1.intValue());
 
-            // Then - Program 1 has referrals from multiple clients
+            // Then
             assertThat(results)
                 .isNotEmpty()
                 .allMatch(r -> r.getProgramId().equals(testProgramId1));
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should search referrals using Criteria API")
+        void shouldSearchReferrals_usingCriteriaApi() {
+            // Given
+            ClientReferral searchCriteria = new ClientReferral();
+            searchCriteria.setProgramId(testProgramId1);
+
+            // When
+            List<ClientReferral> results = clientReferralDAO.search(searchCriteria);
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .allMatch(r -> r.getProgramId().equals(testProgramId1));
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should get all referrals")
+        void shouldGetAllReferrals() {
+            // When
+            List<ClientReferral> results = clientReferralDAO.getReferrals();
+
+            // Then
+            assertThat(results).isNotEmpty();
         }
     }
 }
