@@ -230,14 +230,18 @@ public class FaxSender {
                     continue;
                 }
 
+                // Delegate the actual send to the connector (e.g. SRFaxConnector)
                 FaxSendResult result = connector.sendFax(faxConfig, faxJob);
 
                 if (result.isSuccess()) {
+                    // Clear the large base64 document from the entity to save memory
                     faxJob.setDocument(null);
+                    // Store the external job ID for status tracking in FaxStatusUpdater
                     faxJob.setJobId(result.getExternalJobId());
                     faxStatus = result.getStatus();
                     faxJob.setStatusString(result.getStatusMessage());
                 } else {
+                    // Preserve the error status from the connector (may be ERROR or WAITING)
                     faxStatus = result.getStatus();
                     faxJob.setStatusString(result.getStatusMessage());
                 }
@@ -263,6 +267,7 @@ public class FaxSender {
      * Reads from the filesystem if not already present in the FaxJob entity.
      */
     private void ensureDocumentLoaded(FaxJob faxJob, String document_dir) {
+        // Skip if document is already loaded (e.g. stored in the database entity)
         if (faxJob.getDocument() != null) {
             return;
         }
@@ -270,7 +275,9 @@ public class FaxSender {
         String filename = faxJob.getFile_name();
         Path filePath = Paths.get(filename);
 
+        // If the file isn't at the stored path, try the document directory
         if (!Files.exists(filePath)) {
+            // Strip directory separators from filename before building the fallback path
             if (filename.contains(File.separator)) {
                 filename = filename.replaceAll(File.separator, "");
             }

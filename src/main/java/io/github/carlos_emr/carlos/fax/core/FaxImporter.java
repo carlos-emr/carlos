@@ -222,14 +222,17 @@ public class FaxImporter {
      */
     private void pollViaDirectApi(FaxConfig faxConfig) {
 
+        // Resolve the connector implementation based on the account's integration type
         FaxConnector connector = FaxConnectorFactory.getConnector(faxConfig);
 
         try {
+            // Query the remote API for unread incoming faxes
             List<FaxInboundResult> inboundFaxes = connector.pollIncomingFaxes(faxConfig);
 
             log.info("Direct API poll returned {} incoming faxes for account {}",
                     inboundFaxes.size(), faxConfig.getAccountName());
 
+            // Process each inbound fax individually; errors on one fax don't block others
             for (FaxInboundResult inbound : inboundFaxes) {
                 try {
                     processDirectApiInboundFax(connector, faxConfig, inbound);

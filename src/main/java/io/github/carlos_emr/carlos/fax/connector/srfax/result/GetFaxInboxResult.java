@@ -300,18 +300,38 @@ public class GetFaxInboxResult {
         this.viewedStatus = viewedStatus;
     }
 
+    /**
+     * Gets the SRFax user identifier associated with this inbox entry.
+     *
+     * @return String the User_ID value from the SRFax API, or null if not set
+     */
     public String getUserId() {
         return userId;
     }
 
+    /**
+     * Sets the SRFax user identifier for this inbox entry.
+     *
+     * @param userId String the User_ID value from the SRFax API
+     */
     public void setUserId(String userId) {
         this.userId = userId;
     }
 
+    /**
+     * Gets the fax number of the user account that received this fax.
+     *
+     * @return String the User_FaxNumber value from the SRFax API, or null if not set
+     */
     public String getUserFaxNumber() {
         return userFaxNumber;
     }
 
+    /**
+     * Sets the fax number of the user account that received this fax.
+     *
+     * @param userFaxNumber String the User_FaxNumber value from the SRFax API
+     */
     public void setUserFaxNumber(String userFaxNumber) {
         this.userFaxNumber = userFaxNumber;
     }

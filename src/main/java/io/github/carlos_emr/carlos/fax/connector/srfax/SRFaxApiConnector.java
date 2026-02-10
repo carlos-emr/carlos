@@ -246,7 +246,24 @@ public class SRFaxApiConnector {
     }
 
     /**
-     * Queue a standard fax with all cover letter options.
+     * Queue a standard single fax with full cover letter customization.
+     * <p>
+     * Convenience overload that defaults to {@link #FAX_TYPE_SINGLE} and {@link #RESPONSE_FORMAT_JSON},
+     * while allowing all cover letter fields (from name, to name, organization, subject, comments)
+     * and a custom fax-from header.
+     *
+     * @param sCallerID String the sender's caller ID (fax number)
+     * @param sSenderEmail String the sender's email address for notifications
+     * @param sToFaxNumber String the destination fax number
+     * @param sFileMap Map of filename to base64-encoded content pairs to attach
+     * @param sCoverPage String cover page template name (see {@link #validCoverLetterNames}), or null
+     * @param sCPFromName String cover page "From" name, or null
+     * @param sCPToName String cover page "To" name, or null
+     * @param sCPOrganization String cover page organization name, or null
+     * @param sCPSubject String cover page subject line, or null
+     * @param sCPComments String cover page comments, or null
+     * @param sFaxFromHeader String custom fax-from header override, or null
+     * @return SingleWrapper containing the fax details ID (Integer) on success
      */
     public SingleWrapper<Integer> queueFax(String sCallerID, String sSenderEmail, String sToFaxNumber,
                                            Map<String, String> sFileMap,
@@ -259,7 +276,17 @@ public class SRFaxApiConnector {
     }
 
     /**
-     * Queue a standard fax with basic cover letter.
+     * Queue a standard single fax with a basic cover letter template.
+     * <p>
+     * Convenience overload that defaults to {@link #FAX_TYPE_SINGLE} and {@link #RESPONSE_FORMAT_JSON}
+     * with only a cover page template name. No cover letter field customization is available.
+     *
+     * @param sCallerID String the sender's caller ID (fax number)
+     * @param sSenderEmail String the sender's email address for notifications
+     * @param sToFaxNumber String the destination fax number
+     * @param sFileMap Map of filename to base64-encoded content pairs to attach
+     * @param sCoverPage String cover page template name (see {@link #validCoverLetterNames}), or null for none
+     * @return SingleWrapper containing the fax details ID (Integer) on success
      */
     public SingleWrapper<Integer> queueFax(String sCallerID, String sSenderEmail, String sToFaxNumber,
                                            Map<String, String> sFileMap, String sCoverPage) {
@@ -268,7 +295,17 @@ public class SRFaxApiConnector {
     }
 
     /**
-     * Queue a standard fax with no cover letter.
+     * Queue a standard single fax with no cover letter.
+     * <p>
+     * Simplest convenience overload: defaults to {@link #FAX_TYPE_SINGLE} and
+     * {@link #RESPONSE_FORMAT_JSON} with no cover page or optional parameters.
+     * This is the overload used by {@link SRFaxConnector#sendFax} when no cover letter is configured.
+     *
+     * @param sCallerID String the sender's caller ID (fax number)
+     * @param sSenderEmail String the sender's email address for notifications
+     * @param sToFaxNumber String the destination fax number
+     * @param sFileMap Map of filename to base64-encoded content pairs to attach
+     * @return SingleWrapper containing the fax details ID (Integer) on success
      */
     public SingleWrapper<Integer> queueFax(String sCallerID, String sSenderEmail, String sToFaxNumber,
                                            Map<String, String> sFileMap) {
@@ -599,10 +636,12 @@ public class SRFaxApiConnector {
      */
     private String postRequest(Map<String, String> postVariables) {
         String result = "";
+        // Auto-close the HTTP client after the request completes
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
             logger.debug("POST URL: {}", SERVER_URL);
             HttpPost httpPost = new HttpPost(SERVER_URL);
 
+            // Convert the parameter map to form-encoded name-value pairs
             ArrayList<NameValuePair> postParameters = new ArrayList<>(postVariables.size());
             for (Map.Entry<String, String> entry : postVariables.entrySet()) {
                 postParameters.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
@@ -615,6 +654,7 @@ public class SRFaxApiConnector {
                     httpResponse.getStatusLine().getStatusCode(),
                     httpResponse.getStatusLine().getReasonPhrase());
 
+            // Read the response body as a UTF-8 string (expected to be JSON)
             HttpEntity entity = httpResponse.getEntity();
             if (entity != null) {
                 try (InputStream inputStream = entity.getContent()) {
@@ -623,6 +663,7 @@ public class SRFaxApiConnector {
             }
         } catch (IOException e) {
             logger.error("Error", e);
+            // Wrap as FaxApiConnectionException so callers can distinguish transient errors
             throw new FaxApiConnectionException(e, "fax.exception.connectionError.srfax");
         }
         return result;
@@ -641,10 +682,13 @@ public class SRFaxApiConnector {
         inputVariables.addAll(Arrays.asList(optionalFields));
 
         for (String paramName : inputVariables) {
+            // Handle wildcard parameters like sFileName_* (expand to sFileName_1, sFileName_2, etc.)
             if (paramName.endsWith("*") && paramName.indexOf('|') == -1) {
                 String fieldPrefix = paramName.replace("*", "");
                 postVariables.putAll(getWildcardVariables(fieldPrefix, parameters));
-            } else if (paramName.contains("|")) {
+            }
+            // Handle piped alternatives like "sFaxFileName|sFaxDetailsID" (include whichever is present)
+            else if (paramName.contains("|")) {
                 for (String pipedPart : paramName.split("\\|")) {
                     if (pipedPart.endsWith("*")) {
                         String fieldPrefix = pipedPart.replace("*", "");
@@ -656,7 +700,9 @@ public class SRFaxApiConnector {
                         }
                     }
                 }
-            } else if (parameters.containsKey(paramName)) {
+            }
+            // Simple parameter: include if present in the input map
+            else if (parameters.containsKey(paramName)) {
                 postVariables.put(paramName, parameters.get(paramName));
             }
         }

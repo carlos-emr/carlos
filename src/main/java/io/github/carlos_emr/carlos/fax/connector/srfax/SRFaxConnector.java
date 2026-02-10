@@ -208,6 +208,14 @@ public class SRFaxConnector implements FaxConnector {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * SRFax does not support permanent deletion of individual faxes from the inbox.
+     * Instead, faxes are marked as read via {@link #markFaxAsRead(FaxConfig, String)}
+     * to prevent them from appearing in subsequent unread inbox polls.
+     * This method always returns {@code true} as a no-op.
+     */
     @Override
     public boolean deleteFax(FaxConfig faxConfig, String faxReference) {
         // SRFax marks faxes as read rather than deleting them

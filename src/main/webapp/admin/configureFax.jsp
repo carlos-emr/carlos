@@ -28,6 +28,35 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    configureFax.jsp - Fax Gateway Account Configuration
+
+    Purpose:
+    Admin page for managing fax gateway accounts in CARLOS EMR. Allows administrators
+    to create, update, and delete fax accounts with support for multiple integration
+    types (Legacy External Gateway and SRFax Direct API).
+
+    Features:
+    - Multiple fax account management (add/remove accounts dynamically)
+    - Integration type selection per account (Legacy Gateway or SRFax)
+    - Shared legacy server credentials (URL, username, password) shown/hidden
+      based on whether any account uses the Legacy Gateway integration type
+    - Per-account fields: fax user, password, fax number, email, inbox queue
+    - Enable/disable gateway and fax receiving per account
+    - Fax scheduler status display and restart capability
+    - OWASP-encoded output for all user-supplied values
+
+    Parameters:
+    - No request parameters required (reads configuration from FaxConfigDao)
+    - Form submission via AJAX POST to ConfigureFax2Action (method=configure)
+
+    Security:
+    - Requires _admin read privilege for page access
+    - Requires _admin.fax.restart read privilege for scheduler status
+    - Passwords displayed as "**********" placeholder, never echoed in cleartext
+
+    @since 2026-02-09 (modified for integration type dropdown support)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
