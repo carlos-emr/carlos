@@ -106,6 +106,27 @@
         // Timeout to distinguish scanner (fast) from human typing (slow)
         const TYPING_TIMEOUT = 100;
 
+        /**
+         * Submits HIN search and resets barcode buffer state.
+         * Centralizes the submit logic to ensure consistent behavior across all barcode detection paths.
+         *
+         * @param {string} hin - The validated 10-digit Health Identification Number
+         * @param {Event} event - The keyboard event to prevent default behavior on
+         */
+        function submitHIN(hin, event) {
+            const searchInput = document.getElementById('keyword');
+            const searchMode = document.getElementById('search_mode');
+
+            if (searchInput && searchMode) {
+                searchInput.value = hin;
+                searchMode.value = 'search_hin';
+                document.titlesearch.submit();
+            }
+
+            barcodeBuffer = '';
+            event.preventDefault();
+        }
+
         document.addEventListener('keydown', function(e) {
             // Ignore if already focused on search input
             if (document.activeElement === document.getElementById('keyword')) {
@@ -137,18 +158,7 @@
                 const hin = extractHINFromBarcode(barcodeBuffer);
 
                 if (hin) {
-                    // Put HIN in search box and submit
-                    const searchInput = document.getElementById('keyword');
-                    const searchMode = document.getElementById('search_mode');
-
-                    if (searchInput && searchMode) {
-                        searchInput.value = hin;
-                        searchMode.value = 'search_hin';
-                        document.titlesearch.submit();
-                    }
-
-                    barcodeBuffer = '';
-                    e.preventDefault();
+                    submitHIN(hin, e);
                     return;
                 }
             }
@@ -161,18 +171,7 @@
                 const hin = extractHINFromBarcode(barcodeBuffer);
 
                 if (hin) {
-                    // Put HIN in search box and submit
-                    const searchInput = document.getElementById('keyword');
-                    const searchMode = document.getElementById('search_mode');
-
-                    if (searchInput && searchMode) {
-                        searchInput.value = hin;
-                        searchMode.value = 'search_hin';
-                        document.titlesearch.submit();
-                    }
-
-                    barcodeBuffer = '';
-                    e.preventDefault();
+                    submitHIN(hin, e);
                     return;
                 }
             }
