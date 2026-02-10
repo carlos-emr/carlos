@@ -203,7 +203,27 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                     dao.merge(msg);
                 }
             }
-        } else {
+		} else if (request.getParameter("btnRead") != null){
+			providerNo = bean.getProviderNo();
+			MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
+			for (int i = 0; i < messageNo.length; i++) {
+				List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]));
+				for (MessageList msg : msgs) {
+					msg.setStatus("read");
+					dao.merge(msg);
+				}
+			}
+		} else if (request.getParameter("btnUnread") != null){
+			providerNo = bean.getProviderNo();
+			MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
+			for (int i = 0; i < messageNo.length; i++) {
+				List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]));
+				for (MessageList msg : msgs) {
+					msg.setStatus("unread");
+					dao.merge(msg);
+				}
+			}
+		} else {
             MiscUtils.getLogger().debug("Unexpected action in MsgDisplayMessagesBean.java");
         }
 
