@@ -273,7 +273,7 @@ public class Feature2Action extends ActionSupport {
 
 ### 2Action Categories:
 1. **Simple Execute**: Single `execute()` method (e.g., `AddTickler2Action`)
-2. **Method-Based**: Route via `method` parameter (e.g., `CaseloadContent2Action`) 
+2. **Method-Based**: Route via `method` parameter (e.g., `SystemMessage2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
 ## Healthcare Domain Context
@@ -759,7 +759,7 @@ CARLOS EMR uses a unique incremental migration approach from Struts 1.x to Strut
 **2. Method-Based Actions**
 - Use `method` parameter to route to different methods within the action
 - Pattern: `String mtd = request.getParameter("method");`
-- Examples: `CaseloadContent2Action` (noteSearch/search methods), `SystemMessage2Action`
+- Examples: `SystemMessage2Action` (view/edit methods)
 - Allows multiple related operations in one action class
 
 **3. Inheritance-Based Actions**
@@ -1085,7 +1085,7 @@ src/main/java/io/github/carlos_emr/carlos/fhir/                               # 
 ```bash
 # Study These 2Action Implementations
 src/main/java/io/github/carlos_emr/carlos/tickler/pageUtil/AddTickler2Action.java      # Simple execute pattern
-src/main/java/io/github/carlos_emr/carlos/caseload/CaseloadContent2Action.java         # Method-based routing
+src/main/java/io/github/carlos_emr/carlos/admin/SystemMessage2Action.java              # Method-based routing
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplay*2Action.java   
 # Base Classes for 2Actions
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java    

@@ -39,12 +39,6 @@ tr#ivoryBar, table#monthScheduleNavigation tr td {
     padding-right: 5px;
 }
 
-#caseloadTable {
-    margin-top: 25px;
-    left: 0;
-    right: 0;
-}
-
 .hideReason {
     display: none;
 }
