@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.commn.model.TicklerComment;
 import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -775,5 +776,19 @@ public class TicklerManagerImpl implements TicklerManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", privilege, null)) {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        return ticklerDao.getTicklerDTOs(filter, offset, limit);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        return ticklerDao.getTicklerDTOs(filter);
     }
 }
