@@ -29,10 +29,37 @@
 
 --%>
 
+<%--
+    Patient Search Interface with Barcode Scanner Support
+
+    Purpose:
+    This JSP fragment provides a comprehensive patient search interface with support for multiple
+    search modes (name, phone, DOB, address, HIN, chart number, demographic number) and Ontario
+    health card barcode scanning capabilities.
+
+    Features:
+    - Multi-mode patient search (name, phone, DOB, address, HIN, chart, demographic #)
+    - Ontario health card barcode scanner support (%b610054 format)
+    - Global keyboard listener for hands-free barcode scanning
+    - Real-time DOB format validation and formatting
+    - Inactive/All patient search options
+    - Most Recent Patients quick access
+    - Integrator support for multi-facility searches
+    - Out-of-domain search (with appropriate security)
+
+    Parameters:
+    - search_mode: Type of search (search_name, search_phone, search_dob, etc.)
+    - keyword: Search term entered by user
+    - fromMessenger: Boolean indicating if called from messenger context
+
+    @since 2006-01-01 (original OSCAR implementation)
+    @since 2026-02-09 (CARLOS enhancement: barcode scanner support)
+--%>
+
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.lang.*" %>
 <%@page import="io.github.carlos_emr.OscarProperties" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <%
     boolean fromMessenger = request.getParameter("fromMessenger") == null ? false : (request.getParameter("fromMessenger")).equalsIgnoreCase("true") ? true : false;
@@ -44,18 +71,49 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 
 <script type="application/javascript">
+    /**
+     * Extracts Health Identification Number (HIN) from Ontario health card barcode format.
+     * Ontario health card barcodes follow the %b610054 prefix format with HIN at positions 8-18.
+     *
+     * @param {string} input - Raw barcode input string
+     * @returns {string|null} - Validated 10-digit HIN or null if invalid
+     */
+    function extractHINFromBarcode(input) {
+        const BARCODE_PREFIX = '%b610054';
+        const BARCODE_MIN_LENGTH = 18;
+        const HIN_START_INDEX = 8;
+        const HIN_END_INDEX = 18;
+
+        if (input.indexOf(BARCODE_PREFIX) === 0 && input.length >= BARCODE_MIN_LENGTH) {
+            const hin = input.substring(HIN_START_INDEX, HIN_END_INDEX).trim();
+            // Validate Ontario HIN format: exactly 10 digits
+            if (/^\d{10}$/.test(hin)) {
+                return hin;
+            }
+        }
+        return null;
+    }
+
     // Global Barcode Scanner Listener
     // Captures health card swipes even when cursor isn't in search box
     (function() {
-        var barcodeBuffer = '';
-        var barcodeTimeout = null;
-        var BARCODE_PREFIX = '%b610054';
-        var BARCODE_MIN_LENGTH = 18;
-        var TYPING_TIMEOUT = 100; // ms - scanners type faster than humans
+        let barcodeBuffer = '';
+        let barcodeTimeout = null;
+        const BARCODE_PREFIX = '%b610054';
+        const BARCODE_MIN_LENGTH = 18;
+        // Maximum buffer size to prevent unbounded growth
+        const MAX_BUFFER_LENGTH = 50;
+        // Timeout to distinguish scanner (fast) from human typing (slow)
+        const TYPING_TIMEOUT = 100;
 
-        document.addEventListener('keypress', function(e) {
+        document.addEventListener('keydown', function(e) {
             // Ignore if already focused on search input
             if (document.activeElement === document.getElementById('keyword')) {
+                return;
+            }
+
+            // Only process single printable characters
+            if (e.key.length !== 1) {
                 return;
             }
 
@@ -67,26 +125,56 @@
             // Add character to buffer
             barcodeBuffer += e.key;
 
-            // Check if buffer starts with barcode prefix
+            // Prevent unbounded buffer growth
+            if (barcodeBuffer.length > MAX_BUFFER_LENGTH) {
+                barcodeBuffer = '';
+                return;
+            }
+
+            // Check for Enter key to finalize barcode scan
+            // Many scanners send Enter after the barcode data
+            if (e.key === 'Enter' && barcodeBuffer.length >= BARCODE_MIN_LENGTH) {
+                const hin = extractHINFromBarcode(barcodeBuffer);
+
+                if (hin) {
+                    // Put HIN in search box and submit
+                    const searchInput = document.getElementById('keyword');
+                    const searchMode = document.getElementById('search_mode');
+
+                    if (searchInput && searchMode) {
+                        searchInput.value = hin;
+                        searchMode.value = 'search_hin';
+                        document.titlesearch.submit();
+                    }
+
+                    barcodeBuffer = '';
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // Also check if buffer has complete barcode without Enter
+            // (for scanners that don't send Enter)
             if (barcodeBuffer.length >= BARCODE_MIN_LENGTH &&
                 barcodeBuffer.indexOf(BARCODE_PREFIX) === 0) {
 
-                // Extract HIN (positions 8-18)
-                var hin = barcodeBuffer.substring(8, 18);
+                const hin = extractHINFromBarcode(barcodeBuffer);
 
-                // Put HIN in search box and submit
-                var searchInput = document.getElementById('keyword');
-                var searchMode = document.getElementById('search_mode');
+                if (hin) {
+                    // Put HIN in search box and submit
+                    const searchInput = document.getElementById('keyword');
+                    const searchMode = document.getElementById('search_mode');
 
-                if (searchInput && searchMode) {
-                    searchInput.value = hin;
-                    searchMode.value = 'search_hin';
-                    document.titlesearch.submit();
+                    if (searchInput && searchMode) {
+                        searchInput.value = hin;
+                        searchMode.value = 'search_hin';
+                        document.titlesearch.submit();
+                    }
+
+                    barcodeBuffer = '';
+                    e.preventDefault();
+                    return;
                 }
-
-                barcodeBuffer = '';
-                e.preventDefault();
-                return;
             }
 
             // Reset buffer after short delay (human typing is slower)
@@ -118,16 +206,16 @@
         document.titlesearch.outofdomain.value = "true";
         if (checkTypeIn()) document.titlesearch.submit();
     }
-    
+
     function formatDateInput(input) {
         // Remove any non-digit characters
-        var value = input.value.replace(/\D/g, '');
-        
+        let value = input.value.replace(/\D/g, '');
+
         // Format as YYYY-MM-DD
         if (value.length > 0) {
             // Ensure we only take the first 8 digits
             value = value.substring(0, Math.min(8, value.length));
-            
+
             // Add hyphens
             if (value.length > 4) {
                 value = value.substring(0, 4) + '-' + value.substring(4);
@@ -136,31 +224,32 @@
                 value = value.substring(0, 7) + '-' + value.substring(7);
             }
         }
-        
+
         input.value = value;
     }
-    
+
     function checkTypeIn() {
-        var dob = document.titlesearch.keyword;
-        var typeInOK = true;
+        const keyword = document.titlesearch.keyword;
+        let typeInOK = true;
 
         // Health Card Barcode Scanner Support (Ontario format)
         // Detects barcode swipe input starting with %b610054 and extracts HIN
-        if (dob.value.indexOf('%b610054') == 0 && dob.value.length > 18) {
-            document.titlesearch.keyword.value = dob.value.substring(8, 18);
+        const hin = extractHINFromBarcode(keyword.value);
+        if (hin !== null) {
+            document.titlesearch.keyword.value = hin;
             document.titlesearch.search_mode.value = 'search_hin';
             return true;
         }
 
         // Convert name searches to lowercase for consistency
         if (document.titlesearch.search_mode.value === 'search_name') {
-            document.titlesearch.keyword.value = dob.value.toLowerCase();
+            document.titlesearch.keyword.value = keyword.value.toLowerCase();
         }
 
         // DOB format validation
         if (document.titlesearch.search_mode.value === 'search_dob') {
             // Remove hyphens for validation
-            var dobValue = dob.value.replace(/-/g, '');
+            const dobValue = keyword.value.replace(/-/g, '');
 
             // Check if we have enough digits
             if (dobValue.length > 0 && dobValue.length < 8) {
@@ -226,8 +315,8 @@
                 </oscar:oscarPropertiesCheck>
             </select>
 
-            <input class="wideInput form-control" type="search" placeholder="Search Patient" NAME="keyword" ID="keyword"
-                   VALUE="<%=StringEscapeUtils.escapeHtml4(keyWord)%>" SIZE="17" MAXLENGTH="100"
+            <input class="wideInput form-control" type="search" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.placeholder"/>" NAME="keyword" ID="keyword"
+                   VALUE="<%=Encode.forHtmlAttribute(keyWord)%>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
 
@@ -260,7 +349,7 @@
                        TITLE="Show most recently viewed patients">
 
                 <INPUT TYPE="button" class="btn btn-link"
-                       onclick="window.close();if(window.opener)window.opener.location.reload();"
+                       onclick="try{if(window.opener && !window.opener.closed)window.opener.location.reload();}catch(e){}window.close();"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
                        TITLE="Close window">
             </div>
