@@ -92,6 +92,14 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
 
     private AppointmentManagerImpl appointmentManager;
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers mock DAOs with SpringUtils, stubs the security manager to grant all
+     * privileges by default, creates a fresh {@link AppointmentManagerImpl} instance,
+     * and injects mock dependencies (appointment DAOs, status DAO, lookup DAO, archive DAO,
+     * SecurityInfoManager) via reflection.</p>
+     */
     @BeforeEach
     void setUp() {
         // Register DAO mocks for SpringUtils

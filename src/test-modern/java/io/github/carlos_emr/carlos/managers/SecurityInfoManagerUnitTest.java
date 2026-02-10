@@ -99,6 +99,16 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     private static final String ROLE_DOCTOR = "doctor";
     private static final String ROLE_ADMIN = "admin";
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers SecObjPrivilegeDao with SpringUtils (required by
+     * OscarRoleObjectPrivilege static access), creates a fresh
+     * {@link SecurityInfoManagerImpl} instance with injected dependencies,
+     * and configures default stubs: LoggedInInfo returns a known provider number,
+     * the provider has a "doctor" role, and no privilege data is loaded (to
+     * prevent NPE in OscarRoleObjectPrivilege.getPrivilegeProp).</p>
+     */
     @BeforeEach
     void setUp() {
         // Register SecObjPrivilegeDao for OscarRoleObjectPrivilege static access via SpringUtils

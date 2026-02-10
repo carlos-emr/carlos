@@ -88,6 +88,15 @@ public class LabManagerUnitTest extends LabUnitTestBase {
 
     private LabManagerImpl labManager;
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers mock DAOs and managers with SpringUtils, stubs the security manager
+     * to grant all privileges by default (lenient to avoid unnecessary stubbing warnings),
+     * creates a fresh {@link LabManagerImpl} instance, and injects mock dependencies
+     * (HL7 DAOs, patient lab routing DAO, NioFileManager, SecurityInfoManager) via
+     * reflection.</p>
+     */
     @BeforeEach
     void setUp() {
         // Register DAO mocks for SpringUtils

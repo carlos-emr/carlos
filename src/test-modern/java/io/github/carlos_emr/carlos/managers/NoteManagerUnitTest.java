@@ -114,6 +114,15 @@ public class NoteManagerUnitTest extends OpenOUnitTestBase {
     private static final String TEST_ROLE_NAME = "doctor";
     private static final String TEST_PROGRAM_NAME = "OSCAR";
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers mocks required by model class static initializers (CaseManagementNote
+     * and CaseManagementIssue both call SpringUtils.getBean() during construction),
+     * creates a fresh LoggedInInfo mock, instantiates the {@link NoteManager}, and
+     * injects mock dependencies (CaseManagementManager, CaseManagementNoteDAO,
+     * IssueDAO) via reflection.</p>
+     */
     @BeforeEach
     void setUp() {
         // Register mocks for model class field initializers

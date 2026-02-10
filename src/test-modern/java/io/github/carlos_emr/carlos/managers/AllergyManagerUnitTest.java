@@ -85,6 +85,13 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
 
     private AllergyManagerImpl allergyManager;
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers mock DAOs with SpringUtils, creates a fresh {@link AllergyManagerImpl}
+     * instance, and injects mock dependencies (AllergyDao, PatientConsentManager) via
+     * reflection to isolate the manager from Spring context.</p>
+     */
     @BeforeEach
     void setUp() {
         // Register mocks for SpringUtils

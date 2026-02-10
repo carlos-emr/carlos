@@ -120,6 +120,16 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
 
     private ScheduleManagerImpl scheduleManager;
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers all mock DAOs and managers with SpringUtils, stubs the security
+     * manager to grant all privileges by default, creates a fresh
+     * {@link ScheduleManagerImpl} instance, and injects the full set of mock
+     * dependencies (appointment, schedule, template, holiday, and status DAOs plus
+     * SecurityInfoManager, PatientConsentManager, AppointmentManager) via
+     * reflection.</p>
+     */
     @BeforeEach
     void setUp() {
         // Register mocks for SpringUtils

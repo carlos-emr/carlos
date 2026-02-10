@@ -86,6 +86,16 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
     private PreventionManagerImpl preventionManager;
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers mock DAOs with SpringUtils (including PreventionDS used by
+     * getCustomPreventionItems), stubs both SecurityInfoManager hasPrivilege
+     * overloads (String and int) to grant all privileges by default, creates a
+     * fresh {@link PreventionManagerImpl} instance, and injects mock dependencies
+     * (PreventionDao, PreventionExtDao, PropertyDao, PreventionDS,
+     * SecurityInfoManager) via reflection.</p>
+     */
     @BeforeEach
     void setUp() {
         // Register mocks for SpringUtils (used by getCustomPreventionItems via SpringUtils.getBean)

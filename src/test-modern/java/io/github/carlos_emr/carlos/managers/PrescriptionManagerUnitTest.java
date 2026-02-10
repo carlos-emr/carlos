@@ -86,6 +86,15 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
     private static final Integer TEST_PROGRAM_ID = 1;
     private static final Integer TEST_DIGITAL_SIG_ID = 500;
 
+    /**
+     * Initializes the test environment before each test method.
+     *
+     * <p>Registers mock DAOs with SpringUtils, stubs both SecurityInfoManager
+     * hasPrivilege overloads (String and int) to grant all privileges by default,
+     * creates a fresh {@link PrescriptionManagerImpl} instance, and injects mock
+     * dependencies (PrescriptionDao, DrugDao, SecurityInfoManager,
+     * PatientConsentManager) via reflection.</p>
+     */
     @BeforeEach
     void setUp() {
         // Register mocks for SpringUtils
