@@ -108,7 +108,6 @@ public class PatientManagement2Action extends BasePatientAction {
 
 Some notable 2Action implementations in CARLOS EMR:
 
-- `CaseloadContent2Action`: Patient caseload management
 - `EctDisplayMeasurements2Action`: Clinical measurements display
 - `AppointmentType2Action`: Appointment type management
 - `ProgramManager2Action`: Program administration

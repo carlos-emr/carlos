@@ -265,7 +265,7 @@ label.error {
 			         <li>
 			         <a href=# onClick = "review('0')" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewProvAval"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.schedView"/></a>
 			         </li>
-			 <% } else if((request.getParameter("caseload")!=null && request.getParameter("caseload").equals("1")) || (request.getParameter("displaymode")==null) ) {  %>
+			 <% } else if(request.getParameter("displaymode")==null) {  %>
 			 <li>
 			 <a href='<%=request.getContextPath()%>/provider/providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>Schedule</a>
 			 </li>
@@ -276,10 +276,6 @@ label.error {
 			         </li>
 			<% } %>
 			</c:if>
-			
-			 <li>
-			 <a href='<%=request.getContextPath()%>/provider/providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&caseload=1&clProv=<%=curUser_no%>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.caseload"/></a>
-			 </li>
 			
 			<!-- TODO:mobile version code excluded here re-visit -->
 		

@@ -106,7 +106,6 @@
 
     <bean id="queueDocumentLinkDAO" class="io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao" autowire="byName"/>
 
-	<bean id="caseloadDao" class="io.github.carlos_emr.carlos.commn.dao.CaseloadDao" autowire="byName" />
 	<bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDao" autowire="byName" />
 	
 	<!-- Dao classes that implement OscarSuperDao -->
