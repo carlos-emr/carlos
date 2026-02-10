@@ -65,19 +65,29 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved) {
-        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?1 "
-                        + (resolved != null ? " and cmi.resolved=" + resolved : "") + " order by cmi.resolved",
-                demographic_no);
+        if (resolved != null) {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    demographic_no, resolved);
+        } else {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.demographic_no = ?1 order by cmi.resolved",
+                    demographic_no);
+        }
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
-        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
-                "from CaseManagementIssue cmi where cmi.notes.id = ?1 "
-                        + (resolved != null ? " and cmi.resolved=" + resolved : "") + " order by cmi.resolved",
-                noteId);
+        if (resolved != null) {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    noteId, resolved);
+        } else {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 order by cmi.resolved",
+                    noteId);
+        }
     }
 
     @SuppressWarnings("unchecked")

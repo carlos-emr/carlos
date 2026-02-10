@@ -874,7 +874,8 @@ public class HibernateTemplate implements HibernateOperations, InitializingBean 
 			prepareQuery(queryObject);
 			if (values != null) {
 				for (int i = 0; i < values.length; i++) {
-					queryObject.setParameter(i, values[i]);
+					// Use 1-based parameter binding to match HQL positional parameter syntax (?1, ?2, etc.)
+					queryObject.setParameter(i + 1, values[i]);
 				}
 			}
 			return queryObject.list();
