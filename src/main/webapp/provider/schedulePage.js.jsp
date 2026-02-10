@@ -229,10 +229,10 @@ function getLocation(id, multiplier) {
     var destination = 'providercontrol.jsp?year=' + dateDestination.getFullYear()
         + '&month=' + getMonthNumber(dateDestination.getMonth())
         + '&day=' + dateDestination.getDate()
-        + '&view=' + (qsParm['view'] || '0')
-        + '&displaymode=' + (qsParm['displaymode'] || 'day')
-        + '&dboperation=' + (qsParm['dboperation'] || 'searchappointmentday')
-        + '&viewall=' + (qsParm['viewall'] || '0');
+        + '&view=' + encodeURIComponent(qsParm['view'] || '0')
+        + '&displaymode=' + encodeURIComponent(qsParm['displaymode'] || 'day')
+        + '&dboperation=' + encodeURIComponent(qsParm['dboperation'] || 'searchappointmentday')
+        + '&viewall=' + encodeURIComponent(qsParm['viewall'] || '0');
 
     if (qsParm['curProvider']) {
         destination += '&curProvider=' + encodeURIComponent(qsParm['curProvider']);
