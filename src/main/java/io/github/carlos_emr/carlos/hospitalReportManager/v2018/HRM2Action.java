@@ -62,11 +62,11 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Struts 2 action for Hospital Report Manager (HRM) viewing and administration.
  * <p>
- * This action provides read-only access to existing HRM documents:
+ * This action provides document viewing and limited administrative operations for existing HRM documents:
  * <ul>
  * <li>DataTables-based report listing with filtering and pagination</li>
  * <li>Report categorization and search (searchCategory, saveCategory)</li>
- * <li>Provider confidentiality statement management</li>
+ * <li>Provider confidentiality statement management (read and write)</li>
  * </ul>
  * <p>
  * The SFTP integration for fetching new reports from Ontario MD has been removed.
@@ -77,7 +77,7 @@ import org.apache.struts2.ServletActionContext;
  * All operations enforce role-based security checks using SecurityInfoManager with
  * three privilege levels:
  * <ul>
- * <li>_hrm - Standard HRM access for providers</li>
+ * <li>_hrm - Standard HRM access for providers (read operations require "r", write operations require "w")</li>
  * <li>_hrm.administrator - Administrative HRM access</li>
  * <li>_admin.hrm - System-level HRM administration</li>
  * </ul>
@@ -99,6 +99,9 @@ public class HRM2Action extends ActionSupport {
 
     public String getConfidentialityStatement() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
+            throw new SecurityException("missing required security object _hrm");
+        }
         HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 
         String data = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
@@ -113,6 +116,9 @@ public class HRM2Action extends ActionSupport {
 
     public String saveConfidentialityStatement() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "w", null)) {
+            throw new SecurityException("missing required security object _hrm");
+        }
         HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 
         String value = request.getParameter("value");
@@ -130,6 +136,9 @@ public class HRM2Action extends ActionSupport {
     }
 
     public String searchCategory() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "r", null)) {
+            throw new SecurityException("missing required security object _hrm");
+        }
 
         String query = request.getParameter("query");
 
@@ -156,12 +165,12 @@ public class HRM2Action extends ActionSupport {
         String hrmDocumentId = request.getParameter("hrmDocumentId");
         String categoryId = request.getParameter("categoryId");
 
-        boolean isHrm = securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "r", null);
+        boolean isHrm = securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null);
 
         HRMCategory category = null;
         HRMDocument doc = null;
 
-        if (isHrm) {
+        if (isHrm && StringUtils.isNumeric(categoryId) && StringUtils.isNumeric(hrmDocumentId)) {
 
             category = hrmCategoryDao.find(Integer.parseInt(categoryId));
             if (category != null) {
@@ -169,7 +178,7 @@ public class HRM2Action extends ActionSupport {
 
                 if (doc != null) {
                     doc.setHrmCategoryId(Integer.parseInt(categoryId));
-                    hrmCategoryDao.merge(doc);
+                    hrmDocumentDao.merge(doc);
                 }
             }
         }
@@ -275,7 +284,7 @@ public class HRM2Action extends ActionSupport {
                 }
 
                 List<HRMDocumentToDemographic> ptList = hrmDocumentToDemographicDao.findByHrmDocumentId(d.getId().toString());
-                Integer demographicNo = ptList.get(0).getDemographicNo();
+                Integer demographicNo = (ptList != null && !ptList.isEmpty()) ? ptList.get(0).getDemographicNo() : null;
                 JSONObject data1 = new JSONObject();
                 data1.put("id", d.getId() + "");
                 data1.put("provider_no", d.getRecipientProviderNo() != null ? d.getRecipientProviderNo() : "");

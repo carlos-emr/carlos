@@ -16,6 +16,7 @@
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -72,10 +73,11 @@
             String statement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
         %>
         <form action="<%=request.getContextPath() %>/hospitalReportManager/Statement.do" method="post">
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <div class="control-group">
                 <label class="control-label">Provider Confidentiality Statement</label>
                 <div class="controls">
-                    <textarea name="statement"><%=statement %></textarea>
+                    <textarea name="statement"><%= Encode.forHtml(statement != null ? statement : "") %></textarea>
                 </div>
             </div>
             <div>
