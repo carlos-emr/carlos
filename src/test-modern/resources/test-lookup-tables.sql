@@ -67,9 +67,9 @@ INSERT INTO appointmentStatus (status, description, active, editable, icon, colo
 SELECT 'H', 'Here', 1, 1, '', '' WHERE NOT EXISTS (SELECT 1 FROM appointmentStatus WHERE status = 'H');
 
 -- Schedule template codes reference data
-INSERT INTO scheduletemplatecode (id, code, description, duration, color, confirm, bookinglimit)
-SELECT 1, 'A', 'Available', '15', '00FF00', '', 1 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = 'A');
-INSERT INTO scheduletemplatecode (id, code, description, duration, color, confirm, bookinglimit)
-SELECT 2, 'P', 'Primary Care', '15', '0000FF', '', 1 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = 'P');
-INSERT INTO scheduletemplatecode (id, code, description, duration, color, confirm, bookinglimit)
-SELECT 3, '-', 'Not Available', '15', 'FF0000', '', 0 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = '-');
+INSERT INTO scheduletemplatecode (code, description, duration, color, confirm, bookinglimit)
+SELECT 'A', 'Available', '15', '00FF00', '', 1 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = 'A');
+INSERT INTO scheduletemplatecode (code, description, duration, color, confirm, bookinglimit)
+SELECT 'P', 'Primary Care', '15', '0000FF', '', 1 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = 'P');
+INSERT INTO scheduletemplatecode (code, description, duration, color, confirm, bookinglimit)
+SELECT '-', 'Not Available', '15', 'FF0000', '', 0 WHERE NOT EXISTS (SELECT 1 FROM scheduletemplatecode WHERE code = '-');

@@ -141,7 +141,8 @@ Always include tests for edge cases and error conditions:
 1. **`should<Action>_<preposition><Condition>`** - Testing behavior/requirements
    - Use camelCase
    - Exactly ONE underscore separating action from condition
-   - The preposition (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should read naturally
+   - The preposition should read naturally; **`when` is the primary/preferred choice for conditional tests** (i.e., `should<Action>_when<Condition>`)
+   - Other prepositions (`by`, `for`, `with`, `to`, `from`, etc.) are allowed when they significantly improve readability (for example, data-access patterns or non-conditional relationships)
    - Examples: `shouldReturnTickler_whenValidIdProvided()`, `shouldReturnSpecialists_byServiceName()`, `shouldPersistMeasurement_withBloodPressureData()`
 
 2. **`<methodName>_<scenario>_<expectedOutcome>`** - Testing specific methods
