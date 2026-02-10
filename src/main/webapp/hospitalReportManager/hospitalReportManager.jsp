@@ -13,6 +13,23 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Hospital Report Manager - Provider Confidentiality Statement
+
+    Purpose: Allows providers to view and update their HRM confidentiality statement.
+             The SFTP integration for fetching new reports from Ontario MD has been removed.
+             This page provides read-only access to the confidentiality statement configuration.
+
+    Features:
+        - Display provider's current confidentiality statement
+        - Edit and save confidentiality statement
+        - Form validation and CSRF protection
+
+    Parameters:
+        - statementSuccess (request attribute): Boolean indicating save result
+
+    @since 2006-04-20
+--%>
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>

@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMProviderConfidentialityStatement;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -88,8 +90,6 @@ public class HRM2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    static int draw = 0;
-
     Logger logger = MiscUtils.getLogger();
 
     private HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
@@ -99,6 +99,10 @@ public class HRM2Action extends ActionSupport {
 
     public String getConfidentialityStatement() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
+            return null;
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required security object _hrm");
         }
@@ -114,14 +118,18 @@ public class HRM2Action extends ActionSupport {
         return null;
     }
 
-    public String saveConfidentialityStatement() {
+    public String saveConfidentialityStatement() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
+            return null;
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "w", null)) {
             throw new SecurityException("missing required security object _hrm");
         }
         HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 
-        String value = request.getParameter("value");
+        String value = StringUtils.trimToEmpty(request.getParameter("value"));
 
         HRMProviderConfidentialityStatement stmt = hrmProviderConfidentialityStatementDao.findByProvider(loggedInInfo.getLoggedInProviderNo());
 
@@ -136,7 +144,12 @@ public class HRM2Action extends ActionSupport {
     }
 
     public String searchCategory() throws Exception {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
+            return null;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required security object _hrm");
         }
 
@@ -161,23 +174,32 @@ public class HRM2Action extends ActionSupport {
     }
 
     public String saveCategory() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
+            return null;
+        }
 
         String hrmDocumentId = request.getParameter("hrmDocumentId");
         String categoryId = request.getParameter("categoryId");
 
-        boolean isHrm = securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null);
+        boolean isHrm = securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "w", null);
 
         HRMCategory category = null;
         HRMDocument doc = null;
 
-        if (isHrm && StringUtils.isNumeric(categoryId) && StringUtils.isNumeric(hrmDocumentId)) {
+        if (isHrm
+                && io.github.carlos_emr.carlos.util.StringUtils.isInteger(categoryId)
+                && io.github.carlos_emr.carlos.util.StringUtils.isInteger(hrmDocumentId)) {
 
-            category = hrmCategoryDao.find(Integer.parseInt(categoryId));
+            int catId = Integer.parseInt(categoryId);
+            int docId = Integer.parseInt(hrmDocumentId);
+            category = hrmCategoryDao.find(catId);
             if (category != null) {
-                doc = hrmDocumentDao.find(Integer.parseInt(hrmDocumentId));
+                doc = hrmDocumentDao.find(docId);
 
                 if (doc != null) {
-                    doc.setHrmCategoryId(Integer.parseInt(categoryId));
+                    doc.setHrmCategoryId(catId);
                     hrmDocumentDao.merge(doc);
                 }
             }
@@ -211,13 +233,25 @@ public class HRM2Action extends ActionSupport {
         } else if ("saveCategory".equals(method)) {
             return saveCategory();
         }
-        boolean isHrmAdmin = securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm.administrator", "r", null);
-        boolean isHrm = securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "r", null);
-        boolean isAdmin = securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.hrm", "r", null);
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
+            return null;
+        }
+
+        boolean isHrmAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_hrm.administrator", "r", null);
+        boolean isHrm = securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null);
+        boolean isAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", "r", null);
 
 
         String start = request.getParameter("start");
         String length = request.getParameter("length");
+
+        if (!StringUtils.isNumeric(start) || !StringUtils.isNumeric(length)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid pagination parameters");
+            return null;
+        }
 
         String orderingColumnIndex = request.getParameter("order[0][column]"); //idx (eg 0)
         String orderingColumnDirection = request.getParameter("order[0][dir]"); //asc,desc
@@ -233,7 +267,7 @@ public class HRM2Action extends ActionSupport {
             providerNo = null;
         }
         if (!isHrmAdmin && !isAdmin) {
-            providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+            providerNo = loggedInInfo.getLoggedInProviderNo();
         }
 
         //setup a column map from request parameters
@@ -250,6 +284,10 @@ public class HRM2Action extends ActionSupport {
         String orderBy = null;
 
         if (!StringUtils.isEmpty(orderingColumnIndex)) {
+            if (!StringUtils.isNumeric(orderingColumnIndex)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid column index");
+                return null;
+            }
             ColumnInfo columnInfo = columnMap.get(Integer.parseInt(orderingColumnIndex));
             if ("patient_name".equals(columnInfo.getData())) {
                 orderBy = "formattedName";
@@ -274,6 +312,10 @@ public class HRM2Action extends ActionSupport {
 
             total = hrmDocumentDao.queryForCount(providerNo, "true".equals(providerUnmatched), "true".equals(noSignOff), "true".equals(demographicUnmatched), Integer.parseInt(start), Integer.parseInt(length), orderBy, orderingColumnDirection);
 
+            // Audit logging for patient data access
+            if (!docs.isEmpty()) {
+                LogAction.addLogSynchronous(loggedInInfo, LogConst.READ, LogConst.CON_HRM);
+            }
 
             SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
@@ -306,7 +348,7 @@ public class HRM2Action extends ActionSupport {
                     }
                 }
 
-                data1.put("report_date", reportDate != null ? reportDate : "");
+                data1.put("report_date", reportDate);
 
 
                 data1.put("sending_facility", d.getSourceFacility() != null ? d.getSourceFacility() : "");
@@ -331,7 +373,7 @@ public class HRM2Action extends ActionSupport {
                     }
                 }
 
-                data1.put("received_date", fmt.format(d.getTimeReceived()));
+                data1.put("received_date", d.getTimeReceived() != null ? fmt.format(d.getTimeReceived()) : "");
                 data1.put("category", category != null ? category.getCategoryName() : "");
                 data1.put("description", d.getDescription());
 
@@ -340,7 +382,8 @@ public class HRM2Action extends ActionSupport {
         }
 
         JSONObject obj = new JSONObject();
-        obj.put("draw", ++draw);
+        String drawParam = request.getParameter("draw");
+        obj.put("draw", drawParam != null ? Integer.parseInt(drawParam) : 1);
         obj.put("recordsTotal", total);
         obj.put("recordsFiltered", total);
         obj.put("data", data);
