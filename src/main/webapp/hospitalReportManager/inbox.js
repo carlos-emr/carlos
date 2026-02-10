@@ -48,11 +48,6 @@ function openReport(id) {
 
 $(document).ready(function () {
 
-    getHrmStatus();
-    setInterval(function () {
-        getHrmStatus();
-    }, 5000);
-
     // table sorting
     $('#libraryTable').DataTable({
         serverSide: true,
@@ -110,10 +105,6 @@ $(document).ready(function () {
 
     });
 
-    $("#uploadHRM").on('click', function () {
-        $("#uploadHRMDialog").modal();
-    });
-
     $("#providerUnmatched").on('change', function () {
         updateProviderFilter();
     });
@@ -135,16 +126,6 @@ $(document).ready(function () {
 
     $("#showCategoryInfo").on('change', function () {
         $("#libraryTable").DataTable().column(10).visible($(this).is(":checked"));
-    });
-
-    $('#hrm_file').fileupload({
-        dataType: 'json',
-        done: function (e, data) {
-            $("#uploadHRMDialog").modal('hide');
-            $("#libraryTable").DataTable().ajax.reload();
-        }, fail: function (e, data) {
-            alert('Error uploading file. See log for more information');
-        }
     });
 
 });
@@ -171,36 +152,3 @@ function reloadTable() {
     $("#libraryTable").DataTable().ajax.reload();
 }
 
-function fetchNewData() {
-    $.ajax({
-        type: "GET",
-        url: '../hospitalReportManager/hrm.do?method=fetch',
-        dataType: 'json',
-        async: true,
-        success: function (data) {
-            if (data && data.error) {
-                alert('An error occured. Please check the HRM log for more information\n' + data.error);
-            }
-            $("#libraryTable").DataTable().ajax.reload();
-        }
-    });
-
-}
-
-function getHrmStatus() {
-    $.ajax({
-        type: "GET",
-        url: '../hospitalReportManager/hrm.do?method=getHrmStatus',
-        dataType: 'json',
-        async: true,
-        success: function (data) {
-            if (data.running != null && data.running == true) {
-                $("#hrm_status").html("Fetching data from HRM");
-            } else {
-                $("#hrm_status").html("Idle");
-            }
-
-        }
-    });
-
-}
