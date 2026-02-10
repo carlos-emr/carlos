@@ -278,7 +278,7 @@ public class AgencyDaoIntegrationTest extends OpenOTestBase {
     @Test
     @Tag("create")
     @DisplayName("should throw exception when saving null")
-    void shouldThrowException_whenSaveNull() {
+    void shouldThrowExceptionWhenSaveNull() {
         // When / Then - passing null should trigger the DAO's explicit null guard
         assertThatThrownBy(() -> agencyDao.saveAgency(null))
                 .isInstanceOf(IllegalArgumentException.class);
