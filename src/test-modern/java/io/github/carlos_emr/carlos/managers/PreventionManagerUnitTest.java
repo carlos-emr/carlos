@@ -126,6 +126,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("getPrevention")
+    @Tag("read")
     class GetPrevention {
 
         @Test
@@ -179,6 +180,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("getPreventionsByDemographicNo")
+    @Tag("read")
     class GetPreventionsByDemographicNo {
 
         @Test
@@ -295,11 +297,12 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("addPreventionWithExts")
+    @Tag("create")
     class AddPreventionWithExts {
 
         @Test
         @DisplayName("should persist prevention and all extensions")
-        void shouldPersistPreventionAndExtensions() {
+        void shouldPersistPreventionAndExtensions_whenExtsProvided() {
             // Given
             Prevention prevention = createTestPreventionWithId(TEST_PREVENTION_ID);
             HashMap<String, String> exts = new HashMap<>();
@@ -341,7 +344,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
         @Test
         @DisplayName("should skip extensions with empty keys or values")
-        void shouldSkipEmptyExtValues() {
+        void shouldSkipExtensions_whenKeysOrValuesEmpty() {
             // Given
             Prevention prevention = createTestPreventionWithId(TEST_PREVENTION_ID);
             HashMap<String, String> exts = new HashMap<>();
@@ -463,7 +466,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
         @Test
         @DisplayName("should return items from property via SpringUtils for getCustomPreventionItems")
-        void shouldReturnItemsFromProperty() {
+        void shouldReturnItems_whenPropertyExists() {
             // Given - getCustomPreventionItems uses SpringUtils.getBean(PropertyDao.class)
             Property prop = new Property();
             prop.setName("hide_prevention_item");
@@ -782,7 +785,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
         @Test
         @DisplayName("should filter out disabled preventions and keep enabled ones")
-        void shouldFilterOutDisabledPreventions() {
+        void shouldFilterOutPreventions_whenDisabled() {
             // Given - "Flu" is disabled, "MMR" is not
             Property itemsProp = new Property();
             itemsProp.setName("hide_prevention_stop_signs");
@@ -850,7 +853,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
         @Test
         @DisplayName("should return preventions updated after specified date")
-        void shouldReturnPreventionsUpdatedAfterDate() {
+        void shouldReturnPreventions_whenUpdatedAfterDate() {
             // Given
             Date cutoffDate = new Date();
             List<Prevention> expected = List.of(createTestPrevention());
@@ -867,7 +870,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
         @Test
         @DisplayName("should return preventions by demographic and date")
-        void shouldReturnPreventionsByDemographicAndDate() {
+        void shouldReturnPreventions_whenFilteredByDemographicAndDate() {
             // Given
             Date cutoffDate = new Date();
             List<Prevention> expected = List.of(createTestPrevention());
@@ -885,7 +888,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
         @Test
         @DisplayName("should return preventions by program provider demographic and date")
-        void shouldReturnPreventionsByProgramProviderDemographicDate() {
+        void shouldReturnPreventions_whenFilteredByProgramProviderDemographicDate() {
             // Given
             Calendar cal = Calendar.getInstance();
             List<Prevention> expected = List.of(createTestPrevention());

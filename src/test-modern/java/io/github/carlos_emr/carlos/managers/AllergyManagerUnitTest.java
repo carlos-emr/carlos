@@ -634,6 +634,7 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
      */
     @Nested
     @DisplayName("Edge Cases")
+    @Tag("read")
     class EdgeCases {
 
         @Test
@@ -762,6 +763,7 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
      */
     @Nested
     @DisplayName("DAO Interaction Verification")
+    @Tag("read")
     class DaoInteraction {
 
         @Test
@@ -832,6 +834,7 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
      */
     @Nested
     @DisplayName("Consent Manager Interaction")
+    @Tag("read")
     class ConsentManagerInteraction {
 
         @Test

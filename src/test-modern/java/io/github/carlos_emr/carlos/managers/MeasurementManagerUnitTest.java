@@ -129,6 +129,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getMeasurement")
+    @Tag("read")
     class GetMeasurement {
 
         @Test
@@ -174,7 +175,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
         @Test
         @DisplayName("should handle null ID gracefully")
-        void shouldHandleNullId() {
+        void shouldReturnNull_whenIdIsNull() {
             // Given
             when(mockMeasurementDao.find(null)).thenReturn(null);
 
@@ -194,6 +195,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getCreatedAfterDate")
+    @Tag("read")
     class GetCreatedAfterDate {
 
         @Test
@@ -546,7 +548,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
         @Test
         @DisplayName("should return all measurement maps")
-        void shouldReturnAllMaps() {
+        void shouldReturnAllMaps_whenQueried() {
             // Given
             List<MeasurementMap> expected = List.of(
                     createTestMeasurementMap("BP", "8462-4", "Blood Pressure"),
@@ -596,11 +598,12 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("addMeasurement")
+    @Tag("create")
     class AddMeasurement {
 
         @Test
         @DisplayName("should persist measurement via DAO")
-        void shouldPersistMeasurement() {
+        void shouldPersistMeasurement_whenAdding() {
             // Given
             Measurement measurement = createTestMeasurement();
 
@@ -1105,11 +1108,12 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("Edge Cases")
+    @Tag("read")
     class EdgeCases {
 
         @Test
         @DisplayName("getMeasurementByType should handle empty types list")
-        void shouldHandleEmptyTypesList() {
+        void shouldReturnEmptyList_whenTypesListIsEmpty() {
             // Given
             List<String> emptyTypes = Collections.emptyList();
             when(mockMeasurementDao.findByType(TEST_DEMO_NO, emptyTypes)).thenReturn(Collections.emptyList());
@@ -1124,7 +1128,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
         @Test
         @DisplayName("getCreatedAfterDate should handle zero items to return")
-        void shouldHandleZeroItemsToReturn() {
+        void shouldReturnEmptyList_whenItemsToReturnIsZero() {
             // Given
             Date cutoffDate = new Date();
             when(mockMeasurementDao.findByCreateDate(cutoffDate, 0)).thenReturn(Collections.emptyList());
@@ -1138,7 +1142,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
         @Test
         @DisplayName("getMeasurementsByProgramProviderDemographicDate should handle null programId")
-        void shouldHandleNullProgramId() {
+        void shouldReturnEmptyList_whenProgramIdIsNull() {
             // Given - programId is not actually used by the DAO call, only for logging
             Calendar cutoff = Calendar.getInstance();
             when(mockMeasurementDao.findByProviderDemographicLastUpdateDate(

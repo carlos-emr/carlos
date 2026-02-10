@@ -201,7 +201,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
         @Test
         @Tag("read")
         @DisplayName("should handle zero offset and zero limit")
-        void shouldHandleZeroOffsetAndZeroLimit() {
+        void shouldReturnEmptyList_whenOffsetAndLimitAreZero() {
             // Given
             when(mockHl7TextMessageDao.findByDemographicNo(TEST_DEMO_NO, 0, 0))
                 .thenReturn(Collections.emptyList());
@@ -417,7 +417,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
         @Test
         @Tag("read")
         @DisplayName("should handle zero lab ID")
-        void shouldHandleZeroLabId() {
+        void shouldReturnNull_whenLabIdIsZero() {
             // Given
             when(mockHl7TextMessageDao.find(0))
                 .thenReturn(null);
@@ -433,7 +433,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
         @Test
         @Tag("read")
         @DisplayName("should handle negative lab ID")
-        void shouldHandleNegativeLabId() {
+        void shouldReturnNull_whenLabIdIsNegative() {
             // Given
             when(mockHl7TextMessageDao.find(-1))
                 .thenReturn(null);

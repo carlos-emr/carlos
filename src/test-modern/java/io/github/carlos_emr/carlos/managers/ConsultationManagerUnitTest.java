@@ -202,7 +202,6 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
         injectDependency(consultationManager, "securityInfoManager", mockSecurityInfoManager);
         injectDependency(consultationManager, "demographicManager", mockDemographicManager);
         injectDependency(consultationManager, "documentManager", mockDocumentManager);
-        injectDependency(consultationManager, "consultDocsDao", mockConsultDocsDao);
     }
 
     // =========================================================================
@@ -649,6 +648,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
      */
     @Nested
     @DisplayName("Search Operations")
+    @Tag("read")
     @Tag("search")
     class SearchOperations {
 
@@ -741,7 +741,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should return request count from DAO")
-        void shouldReturnRequestCount_fromDao() {
+        void shouldReturnRequestCount_whenDaoQueried() {
             // Given
             ConsultationRequestSearchFilter filter = new ConsultationRequestSearchFilter();
             when(mockConsultRequestDao.getConsultationCount2(filter)).thenReturn(42);
@@ -755,7 +755,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should return response count from DAO")
-        void shouldReturnResponseCount_fromDao() {
+        void shouldReturnResponseCount_whenDaoQueried() {
             // Given
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             when(mockConsultResponseDao.getConsultationCount(filter)).thenReturn(17);
@@ -851,7 +851,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should return active services excluding referring doctor")
-        void shouldReturnActiveServices_excludingReferringDoctor() {
+        void shouldReturnActiveServices_whenExcludingReferringDoctor() {
             // Given
             List<ConsultationServices> services = new ArrayList<>();
             services.add(createService(1, "Cardiology"));
@@ -907,7 +907,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should return specialists from referring doctor service")
-        void shouldReturnSpecialists_fromReferringDoctorService() {
+        void shouldReturnSpecialists_whenFromReferringDoctorService() {
             // Given
             ConsultationServices service = createService(1, "Referring Doctor");
             List<ProfessionalSpecialist> specialists = new ArrayList<>();
@@ -951,7 +951,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should return specialists by service name")
-        void shouldReturnSpecialists_byServiceName() {
+        void shouldReturnSpecialists_whenFilteredByServiceName() {
             // Given
             List<ProfessionalSpecialist> expected = List.of(new ProfessionalSpecialist());
             when(mockProfessionalSpecialistDao.findByService("Cardiology")).thenReturn(expected);
@@ -965,7 +965,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should return specialists by service ID")
-        void shouldReturnSpecialists_byServiceId() {
+        void shouldReturnSpecialists_whenFilteredByServiceId() {
             // Given
             List<ProfessionalSpecialist> expected = List.of(new ProfessionalSpecialist());
             when(mockProfessionalSpecialistDao.findByServiceId(TEST_SERVICE_ID)).thenReturn(expected);
@@ -1413,7 +1413,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should convert extension list to map keyed by extension key")
-        void shouldConvertExtensionList_toMapKeyedByExtKey() {
+        void shouldConvertExtensionListToMap_whenKeyedByExtKey() {
             // Given
             List<ConsultationRequestExt> extras = new ArrayList<>();
             extras.add(createExt(1, TEST_REQUEST_ID, "appointmentYear", "2026"));
