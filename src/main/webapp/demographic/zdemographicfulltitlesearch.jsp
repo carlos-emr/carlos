@@ -96,15 +96,18 @@
 
     // Global Barcode Scanner Listener
     // Captures health card swipes even when cursor isn't in search box
-    (function() {
-        let barcodeBuffer = '';
-        let barcodeTimeout = null;
-        const BARCODE_PREFIX = '%b610054';
-        const BARCODE_MIN_LENGTH = 18;
-        // Maximum buffer size to prevent unbounded growth
-        const MAX_BUFFER_LENGTH = 50;
-        // Timeout to distinguish scanner (fast) from human typing (slow)
-        const TYPING_TIMEOUT = 100;
+    // Only enabled on standalone search page via window.enableGlobalBarcodeSearch flag
+    // to prevent unwanted form submissions on edit/add patient pages
+    if (window.enableGlobalBarcodeSearch) {
+        (function() {
+            let barcodeBuffer = '';
+            let barcodeTimeout = null;
+            const BARCODE_PREFIX = '%b610054';
+            const BARCODE_MIN_LENGTH = 18;
+            // Maximum buffer size to prevent unbounded growth
+            const MAX_BUFFER_LENGTH = 50;
+            // Timeout to distinguish scanner (fast) from human typing (slow)
+            const TYPING_TIMEOUT = 100;
 
         /**
          * Submits HIN search and resets barcode buffer state.
@@ -181,7 +184,8 @@
                 barcodeBuffer = '';
             }, TYPING_TIMEOUT);
         });
-    })();
+        })();
+    }
 
     function checkdbstatus() {
         if (document.titlesearch.search_mode.value === 'search_band_number') {
@@ -260,23 +264,6 @@
     }
 
 </script>
-<style>
-    .search-header {
-        width: 100%;
-        background: #f5f5f5;
-        padding: 8px;
-        border-bottom: 1px solid #ddd;
-        margin-bottom: 10px;
-    }
-
-    .search-header-title {
-        margin: 0;
-    }
-
-    .search-header-icon {
-        vertical-align: text-bottom;
-    }
-</style>
 <div class="searchBox">
     <!-- Styled Header with Search Icon -->
     <div class="RowTop header search-header">

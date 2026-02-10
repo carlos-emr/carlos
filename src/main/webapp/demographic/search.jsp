@@ -56,6 +56,10 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.title"/></title>
 
     <script type="text/javascript">
+        // Enable global barcode scanner listener for this page
+        // This flag prevents the listener from firing on patient edit/add pages
+        window.enableGlobalBarcodeSearch = true;
+
         function setfocus() {
             document.titlesearch.keyword.focus();
             document.titlesearch.keyword.select();
