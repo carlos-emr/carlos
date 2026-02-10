@@ -37,11 +37,7 @@
   */
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-
-<%
-
-%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
@@ -88,11 +84,11 @@
             <%
                 if (param.startsWith("&formdatebox=")) {
             %>
-            opener.<%=param.substring("&formdatebox=".length())%> = year1 + "-" + month1 + "-" + day1;
+            opener.<%=Encode.forJavaScript(param.substring("&formdatebox=".length()))%> = year1 + "-" + month1 + "-" + day1;
             <%
                 } else {
             %>
-            opener.location.href = "<%=urlfrom%>" + "?year=" + year1 + "&month=" + month1 + "&day=" + day1 + "<%=param%>";
+            opener.location.href = "<%=Encode.forJavaScript(urlfrom)%>" + "?year=" + year1 + "&month=" + month1 + "&day=" + day1 + "<%=Encode.forJavaScript(param)%>";
             <%  }  %>
             self.close();
         }
@@ -131,16 +127,16 @@
             <h2>&nbsp;<%=arrayMonth[month-1]%>&nbsp;<%=year%>&nbsp;</h2>
         </td>
         <td align="right"><h2>
-            <a href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
                 <i class="icon-double-angle-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
             </a>
-            <a href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
                 <i class="icon-angle-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"></i>
             </a>
-            <a href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
                 <i class="icon-angle-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextMonth"/>"></i>
             </a>
-            <a href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
                 <i class="icon-double-angle-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextYear"/>"></i>
             </a>&nbsp;</h2>
         </td>
@@ -153,7 +149,7 @@
             <%
                 for (int i = 0; i < 12; i++) {
             %> <a
-                href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"><font
+                href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"><font
                 SIZE="2" <%=(i+1)==month?"color='red'":""%>><%=arrayMonth[i]%>
         </a>
             <% } %>
