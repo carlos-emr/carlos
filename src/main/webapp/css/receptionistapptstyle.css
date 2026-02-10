@@ -499,6 +499,153 @@ div.reason-tag a {
     color: red !important;
 }
 
+/* Quick Search Bar - typeahead patient search in schedule header */
+.quick-search-bar {
+    display: flex;
+    align-items: center;
+    position: relative;
+    margin: 0 8px;
+    height: 20px;
+}
+
+.quick-search-input {
+    width: 180px;
+    height: 20px;
+    padding: 2px 6px;
+    font-size: 11px;
+    border: 1px solid #0097cf;
+    border-right: none;
+    border-radius: 3px 0 0 3px;
+    background-color: #F4EaD7;
+    color: #00283c;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.quick-search-input:focus {
+    border-color: #486ebd;
+    box-shadow: 0 0 0 2px rgba(72, 110, 189, 0.2);
+    background-color: #fff;
+}
+
+.quick-search-input::placeholder {
+    color: #8a8a8a;
+    font-style: italic;
+}
+
+.quick-search-btn {
+    height: 20px;
+    padding: 0 6px;
+    border: 1px solid #0097cf;
+    border-radius: 0 3px 3px 0;
+    background-color: #486ebd;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1;
+    transition: background-color 0.15s;
+}
+
+.quick-search-btn:hover {
+    background-color: #3a5a9e;
+}
+
+.quick-search-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+}
+
+.quick-search-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1100;
+    min-width: 320px;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #fff;
+    border: 1px solid #0097cf;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-top: 1px;
+}
+
+.quick-search-dropdown.open {
+    display: block;
+}
+
+.quick-search-item {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.1s;
+}
+
+.quick-search-item:last-child {
+    border-bottom: none;
+}
+
+.quick-search-item:hover,
+.quick-search-item.active {
+    background-color: #486ebd;
+    color: #fff;
+}
+
+.quick-search-item-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: #00283c;
+    line-height: 1.3;
+}
+
+.quick-search-item:hover .quick-search-item-name,
+.quick-search-item.active .quick-search-item-name {
+    color: #fff;
+}
+
+.quick-search-item-info {
+    font-size: 10px;
+    color: #666;
+    line-height: 1.3;
+}
+
+.quick-search-item:hover .quick-search-item-info,
+.quick-search-item.active .quick-search-item-info {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.quick-search-empty,
+.quick-search-loading {
+    padding: 10px;
+    text-align: center;
+    font-size: 11px;
+    color: #666;
+    font-style: italic;
+}
+
+.quick-search-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+/* Hide on small screens - not enough room in the nav */
+@media (max-width: 900px) {
+    .quick-search-bar {
+        display: none;
+    }
+}
+
 @media print {
     .noprint {
         display: none !important;

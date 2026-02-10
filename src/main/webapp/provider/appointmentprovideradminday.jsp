@@ -1148,6 +1148,37 @@
 
             </td>
 
+            <%-- Quick Search Bar with Live Typeahead (Issue #249) --%>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_search" rights="r">
+            <td class="quick-search-bar noprint" role="search"
+                aria-label="<fmt:message key="schedule.quicksearch.aria"/>">
+                <input type="text"
+                       id="quickSearchInput"
+                       class="quick-search-input"
+                       placeholder="<fmt:message key="schedule.quicksearch.placeholder"/>"
+                       autocomplete="off"
+                       aria-label="<fmt:message key="schedule.quicksearch.aria"/>"
+                       aria-expanded="false"
+                       aria-controls="quickSearchDropdown"
+                       aria-autocomplete="list"
+                       role="combobox">
+                <button type="button"
+                        id="quickSearchBtn"
+                        class="quick-search-btn"
+                        title="<fmt:message key="schedule.quicksearch.submit"/>"
+                        aria-label="<fmt:message key="schedule.quicksearch.submit"/>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                </button>
+                <div id="quickSearchDropdown"
+                     class="quick-search-dropdown"
+                     role="listbox"
+                     aria-label="<fmt:message key="schedule.quicksearch.label"/>">
+                </div>
+            </td>
+            </security:oscarSec>
+
             <td id="userSettings">
                 <ul id="userSettingsMenu" style="display: flex; gap:5px;">
                     <li>
@@ -2487,6 +2518,242 @@
             });
         });
     </script>
+    <!-- Quick Search Bar - Vanilla JS with Fetch API (Issue #249) -->
+    <script>
+    (function() {
+        "use strict";
+
+        var CONTEXT_PATH = document.getElementById("contextPath").value;
+        var SEARCH_URL = CONTEXT_PATH + "/demographic/SearchDemographic.do";
+        var ECHART_URL = CONTEXT_PATH + "/demographic/demographiccontrol.jsp";
+        var SEARCH_POPUP_URL = CONTEXT_PATH + "/demographic/search.jsp";
+        var DEBOUNCE_MS = 300;
+        var MIN_CHARS = 2;
+
+        var input = document.getElementById("quickSearchInput");
+        var btn = document.getElementById("quickSearchBtn");
+        var dropdown = document.getElementById("quickSearchDropdown");
+
+        if (!input || !btn || !dropdown) return;
+
+        var debounceTimer = null;
+        var activeIndex = -1;
+        var currentResults = [];
+        var abortController = null;
+
+        /** Create a single dropdown item using safe DOM APIs (no innerHTML). */
+        function createDropdownItem(item, index) {
+            var div = document.createElement("div");
+            div.className = "quick-search-item";
+            div.setAttribute("role", "option");
+            div.setAttribute("data-index", index);
+            div.setAttribute("data-demographic-no", item.value);
+
+            var nameEl = document.createElement("div");
+            nameEl.className = "quick-search-item-name";
+            nameEl.textContent = item.formattedName || "";
+
+            var infoEl = document.createElement("div");
+            infoEl.className = "quick-search-item-info";
+
+            /* Extract DOB from label: "Name DOB (Status)" */
+            var labelParts = (item.label || "").match(/^(.*?)\s+(\d{4}-\d{2}-\d{2})\s+\((\w+)\)$/);
+            if (labelParts) {
+                infoEl.textContent = "DOB: " + labelParts[2] + " \u2022 Status: " + labelParts[3];
+            } else {
+                infoEl.textContent = item.label || "";
+            }
+
+            div.appendChild(nameEl);
+            div.appendChild(infoEl);
+            return div;
+        }
+
+        /** Render dropdown with results. */
+        function renderDropdown(results) {
+            /* Clear existing content safely */
+            while (dropdown.firstChild) {
+                dropdown.removeChild(dropdown.firstChild);
+            }
+            activeIndex = -1;
+            currentResults = results;
+
+            if (results.length === 0) {
+                var empty = document.createElement("div");
+                empty.className = "quick-search-empty";
+                empty.textContent = '<fmt:message key="schedule.quicksearch.noresults"/>';
+                dropdown.appendChild(empty);
+                dropdown.classList.add("open");
+                input.setAttribute("aria-expanded", "true");
+                return;
+            }
+
+            for (var i = 0; i < results.length; i++) {
+                dropdown.appendChild(createDropdownItem(results[i], i));
+            }
+            dropdown.classList.add("open");
+            input.setAttribute("aria-expanded", "true");
+        }
+
+        /** Show loading indicator. */
+        function showLoading() {
+            while (dropdown.firstChild) {
+                dropdown.removeChild(dropdown.firstChild);
+            }
+            var loading = document.createElement("div");
+            loading.className = "quick-search-loading";
+            loading.textContent = '<fmt:message key="schedule.quicksearch.loading"/>';
+            dropdown.appendChild(loading);
+            dropdown.classList.add("open");
+            input.setAttribute("aria-expanded", "true");
+        }
+
+        /** Close dropdown. */
+        function closeDropdown() {
+            dropdown.classList.remove("open");
+            input.setAttribute("aria-expanded", "false");
+            activeIndex = -1;
+        }
+
+        /** Navigate to patient E-chart. */
+        function openEchart(demographicNo) {
+            if (!demographicNo) return;
+            var url = ECHART_URL + "?demographic_no=" + encodeURIComponent(demographicNo)
+                    + "&displaymode=edit&dboperation=search_detail";
+            popupPage2(url, "master");
+            closeDropdown();
+            input.value = "";
+        }
+
+        /** Open full search popup for manual entry. */
+        function openSearchPopup() {
+            var query = input.value.trim();
+            var url = SEARCH_POPUP_URL;
+            if (query) {
+                url += "?keyword=" + encodeURIComponent(query);
+            }
+            popupPage2(url, "apptProviderSearch");
+            closeDropdown();
+            input.value = "";
+        }
+
+        /** Fetch search results from the server. */
+        function fetchResults(query) {
+            if (abortController) {
+                abortController.abort();
+            }
+            abortController = new AbortController();
+
+            showLoading();
+
+            var params = "?term=" + encodeURIComponent(query)
+                       + "&jqueryJSON=true&activeOnly=true";
+
+            fetch(SEARCH_URL + params, {
+                signal: abortController.signal,
+                credentials: "same-origin"
+            })
+            .then(function(response) {
+                if (!response.ok) throw new Error("HTTP " + response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                if (Array.isArray(data)) {
+                    renderDropdown(data);
+                } else {
+                    renderDropdown([]);
+                }
+            })
+            .catch(function(err) {
+                if (err.name !== "AbortError") {
+                    closeDropdown();
+                }
+            });
+        }
+
+        /** Update the active/highlighted item in dropdown. */
+        function updateActiveItem() {
+            var items = dropdown.querySelectorAll(".quick-search-item");
+            for (var i = 0; i < items.length; i++) {
+                if (i === activeIndex) {
+                    items[i].classList.add("active");
+                    items[i].scrollIntoView({ block: "nearest" });
+                } else {
+                    items[i].classList.remove("active");
+                }
+            }
+        }
+
+        /* --- Event Listeners --- */
+
+        input.addEventListener("input", function() {
+            var query = input.value.trim();
+            clearTimeout(debounceTimer);
+
+            if (query.length < MIN_CHARS) {
+                closeDropdown();
+                return;
+            }
+
+            debounceTimer = setTimeout(function() {
+                fetchResults(query);
+            }, DEBOUNCE_MS);
+        });
+
+        input.addEventListener("keydown", function(e) {
+            var items = dropdown.querySelectorAll(".quick-search-item");
+            var isOpen = dropdown.classList.contains("open");
+
+            switch (e.key) {
+                case "ArrowDown":
+                    e.preventDefault();
+                    if (!isOpen) return;
+                    activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                    updateActiveItem();
+                    break;
+                case "ArrowUp":
+                    e.preventDefault();
+                    if (!isOpen) return;
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                    updateActiveItem();
+                    break;
+                case "Enter":
+                    e.preventDefault();
+                    if (isOpen && activeIndex >= 0 && currentResults[activeIndex]) {
+                        openEchart(currentResults[activeIndex].value);
+                    } else {
+                        openSearchPopup();
+                    }
+                    break;
+                case "Escape":
+                    closeDropdown();
+                    break;
+            }
+        });
+
+        /* Delegate click on dropdown items */
+        dropdown.addEventListener("click", function(e) {
+            var item = e.target.closest(".quick-search-item");
+            if (item) {
+                var demoNo = item.getAttribute("data-demographic-no");
+                openEchart(demoNo);
+            }
+        });
+
+        /* Click on search button opens full search popup */
+        btn.addEventListener("click", function() {
+            openSearchPopup();
+        });
+
+        /* Close dropdown when clicking outside */
+        document.addEventListener("click", function(e) {
+            if (!e.target.closest(".quick-search-bar")) {
+                closeDropdown();
+            }
+        });
+    })();
+    </script>
+
     <!-- end of keycode block -->
     <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
     <jsp:include page="/hcHandler/hcHandler.html"/>
