@@ -28,6 +28,35 @@
         <class>io.github.carlos_emr.carlos.commn.model.DemographicMerged</class>
         <class>io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue</class>
         <class>io.github.carlos_emr.carlos.form.model.FormRourke2009</class>
+        <!-- Healthcare domain entities for manager/DAO integration tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.Allergy</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Appointment</class>
+        <class>io.github.carlos_emr.carlos.commn.model.AppointmentArchive</class>
+        <class>io.github.carlos_emr.carlos.commn.model.AppointmentStatus</class>
+        <class>io.github.carlos_emr.carlos.commn.model.AppointmentType</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Drug</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Prescription</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Measurement</class>
+        <class>io.github.carlos_emr.carlos.commn.model.MeasurementMap</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Prevention</class>
+        <class>io.github.carlos_emr.carlos.commn.model.PreventionExt</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Hl7TextInfo</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Hl7TextMessage</class>
+        <class>io.github.carlos_emr.carlos.commn.model.PatientLabRouting</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ConsultationRequest</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ConsultationResponse</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ScheduleDate</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ScheduleHoliday</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ScheduleTemplate</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode</class>
+        <class>io.github.carlos_emr.carlos.commn.model.LookupList</class>
+        <class>io.github.carlos_emr.carlos.commn.model.LookupListItem</class>
+        <!-- Relationship dependencies for ConsultationRequest -->
+        <class>io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist</class>
+        <class>io.github.carlos_emr.carlos.commn.model.DemographicContact</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ConsultationServices</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ConsultDocs</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc</class>
         <!-- HBM.XML mapped entities -->
         <mapping-file>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</mapping-file>
@@ -57,6 +86,16 @@
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</mapping-file>
+        <!-- Security model mappings for Hibernate migration tests -->
+        <mapping-file>com/quatro/model/security/Secobjectname.hbm.xml</mapping-file>
+        <mapping-file>com/quatro/model/security/Secobjprivilege.hbm.xml</mapping-file>
+        <mapping-file>com/quatro/model/security/UserAccessValue.hbm.xml</mapping-file>
+        <!-- CaseManagement additional mappings -->
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/ClientImage.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_cpp.hbm.xml</mapping-file>
+        <!-- PMmodule additional mappings -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</mapping-file>
     </persistence-unit>
 
 </persistence>

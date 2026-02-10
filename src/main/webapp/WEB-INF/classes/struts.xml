@@ -2028,7 +2028,6 @@
         <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action">
             <result name="error">/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
-        <action name="caseload/CaseloadContent" class="io.github.carlos_emr.carlos.caseload.CaseloadContent2Action"/>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
             <result name="close">/closenreload.jsp</result>
             <result name="failure">/failure.jsp</result>

@@ -104,10 +104,6 @@
                     <% } %>
                 </c:if>
 
-                <li>
-                    <a href='providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&caseload=1&clProv=<%=curUser_no%>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.caseload"/></a>
-                </li>
-
                 <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
                         <li>

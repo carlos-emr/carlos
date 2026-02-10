@@ -140,7 +140,7 @@ public class Example2Action extends ActionSupport {
 
 ### 2Action Categories:
 1. **Simple Execute**: Single `execute()` method (e.g., `AddTickler2Action`)
-2. **Method-Based**: Route via `method` parameter (e.g., `CaseloadContent2Action`)
+2. **Method-Based**: Route via `method` parameter (e.g., `SystemMessage2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
 ### Struts 6.8.0 Compatibility Notes
@@ -210,12 +210,18 @@ mvn test -Dgroups="create,update"  # Specific operations
 
 Modern tests use BDD (Behavior-Driven Development) naming for clarity. Choose ONE style and use it consistently:
 
-**Option 1: Pure camelCase (RECOMMENDED for Java)**
+**Pattern: `should<Action>_<preposition><Condition>()` (RECOMMENDED for Java)**
 ```java
-void shouldReturnTicklerWhenValidIdProvided()
-void shouldThrowExceptionWhenTicklerNotFound()
-void shouldLoadSpringContext()
+void shouldReturnTickler_whenValidIdProvided()
+void shouldThrowException_whenTicklerNotFound()
+void shouldReturnSpecialists_byServiceName()
+void shouldPersistMeasurement_withBloodPressureData()
+void shouldConvertExtensionList_toMapKeyedByExtKey()
+void shouldReturnTrue_forOMedsCppCode()
 ```
+
+**Rules**: ONE underscore separator, camelCase throughout, `should` prefix required.
+The preposition after the underscore (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should be whichever reads most naturally for the test scenario.
 
 **Benefits**: Self-documenting, clear failure messages, searchable
 
@@ -420,7 +426,7 @@ CARLOS EMR uses a unique incremental migration approach from Struts 1.x to Strut
 **2. Method-Based Actions**
 - Use `method` parameter to route to different methods within the action
 - Pattern: `String mtd = request.getParameter("method");`
-- Examples: `CaseloadContent2Action` (noteSearch/search methods), `SystemMessage2Action`
+- Examples: `SystemMessage2Action` (view/edit methods)
 - Allows multiple related operations in one action class
 
 **3. Inheritance-Based Actions**
@@ -878,7 +884,7 @@ src/main/java/io/github/carlos_emr/carlos/fhir/                               # 
 ```bash
 # Study These 2Action Implementations
 src/main/java/io/github/carlos_emr/carlos/tickler/pageUtil/AddTickler2Action.java      # Simple execute pattern
-src/main/java/io/github/carlos_emr/carlos/caseload/CaseloadContent2Action.java         # Method-based routing
+src/main/java/io/github/carlos_emr/carlos/admin/SystemMessage2Action.java              # Method-based routing
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplay*2Action.java
 # Base Classes for 2Actions
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java
@@ -925,7 +931,7 @@ src/test/resources/over_ride_config.properties    # Test configuration template
    - Integration tests: Extend `OpenOTestBase` (Spring context + database)
    - Unit tests: Extend `OpenOUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
-5. **Follow BDD naming strictly**: `should<Action>_when<Condition>` (camelCase, ONE underscore)
+5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests
 7. **For Manager unit tests with static classes** (LogAction, etc.):
    - Register SpringUtils mocks FIRST, THEN create static mocks
