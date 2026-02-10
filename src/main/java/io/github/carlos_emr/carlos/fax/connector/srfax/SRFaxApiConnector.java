@@ -646,7 +646,7 @@ public class SRFaxApiConnector {
             for (Map.Entry<String, String> entry : postVariables.entrySet()) {
                 postParameters.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
             }
-            UrlEncodedFormEntity urlEntity = new UrlEncodedFormEntity(postParameters);
+            UrlEncodedFormEntity urlEntity = new UrlEncodedFormEntity(postParameters, "UTF-8");
             httpPost.setEntity(urlEntity);
 
             HttpResponse httpResponse = httpClient.execute(httpPost);
