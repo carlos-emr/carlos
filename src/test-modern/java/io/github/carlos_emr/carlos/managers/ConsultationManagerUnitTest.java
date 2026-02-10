@@ -194,6 +194,7 @@ public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
         injectDependency(consultationManager, "serviceDao", mockServiceDao);
         injectDependency(consultationManager, "professionalSpecialistDao", mockProfessionalSpecialistDao);
         injectDependency(consultationManager, "requestDocDao", mockConsultDocsDao);
+        injectDependency(consultationManager, "consultDocsDao", mockConsultDocsDao);
         injectDependency(consultationManager, "responseDocDao", mockResponseDocDao);
         injectDependency(consultationManager, "propertyDao", mockPropertyDao);
         injectDependency(consultationManager, "consultationRequestExtDao", mockConsultationRequestExtDao);

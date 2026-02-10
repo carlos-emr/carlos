@@ -52,7 +52,7 @@ public abstract class AppointmentUnitTestBase extends OpenOUnitTestBase {
     protected static final String TEST_PROVIDER = "999990";
     protected static final Integer TEST_APPOINTMENT_ID = 1;
     protected static final String TEST_REASON = "Follow-up visit";
-    protected static final String TEST_STATUS = "t"; // confirmed
+    protected static final String TEST_STATUS = "t";
 
     @BeforeEach
     void setUpAppointmentMocks() {

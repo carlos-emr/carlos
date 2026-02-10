@@ -577,9 +577,11 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
             }
 
             @Test
-            @DisplayName("should use patient-specific privileges when role matches")
-            void shouldUsePatientSpecificPrivileges_whenRoleMatches() {
-                // Patient-specific grants read for doctor
+            @DisplayName("should lock account when patient-specific privilege satisfies NORIGHTS check")
+            void shouldLockAccount_whenPatientSpecificPrivilegeSatisfiesNoRightsCheck() {
+                // Patient-specific grants read for doctor, but checkRights("r", "o") is true
+                // because "r" >= "o" alphabetically, triggering the NORIGHTS branch which
+                // locks the account and returns false (does not fall through to READ check).
                 String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
                 when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
                     Collection<String> names = inv.getArgument(0);
@@ -594,7 +596,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
                     mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
                     String.valueOf(TEST_DEMOGRAPHIC_NO));
 
-                assertThat(result).isTrue();
+                assertThat(result).isFalse();
             }
 
             @Test

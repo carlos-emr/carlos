@@ -32,7 +32,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.settings.Strictness;
+import org.mockito.quality.Strictness;
 import org.mockito.junit.jupiter.MockitoSettings;
 
 import java.util.*;
@@ -142,6 +142,8 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
     private void denyPrivilege(String objectName, String action) {
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq(objectName), eq(action), any()))
             .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq(objectName), eq(action), anyInt()))
+            .thenReturn(false);
     }
 
     // -----------------------------------------------------------------------
@@ -178,13 +180,13 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
         void shouldDelegateToDao_whenGetPrescriptionCalled() {
             // Given
             Prescription expected = createTestPrescriptionWithId(1);
-            when(mockPrescriptionDao.find(1)).thenReturn(expected);
+            when(mockPrescriptionDao.find((Object) 1)).thenReturn(expected);
 
             // When
             prescriptionManager.getPrescription(mockLoggedInInfo, 1);
 
             // Then
-            verify(mockPrescriptionDao, times(1)).find(1);
+            verify(mockPrescriptionDao, times(1)).find((Object) 1);
         }
 
         @Test
@@ -244,8 +246,10 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
         @Test
         @DisplayName("should return archived drugs when archived flag is true")
         void shouldReturnArchivedDrugs_whenArchivedFlagTrue() {
-            // Given
-            Drug archivedDrug = createArchivedDrug();
+            // Given - drug must have an ID because getDrugsByScriptNo calls
+            // Drug.getIdsAsStringList(results) which invokes getId().toString()
+            Drug archivedDrug = createTestDrugWithId(TEST_DRUG_ID);
+            archivedDrug.setArchived(true);
             when(mockDrugDao.findByScriptNo(TEST_SCRIPT_NO, true)).thenReturn(List.of(archivedDrug));
 
             // When
@@ -640,7 +644,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             // Given
             Prescription prescription = createTestPrescriptionWithId(TEST_SCRIPT_NO);
             prescription.setDatePrinted(null);
-            when(mockPrescriptionDao.find(TEST_SCRIPT_NO)).thenReturn(prescription);
+            when(mockPrescriptionDao.find((int) TEST_SCRIPT_NO)).thenReturn(prescription);
 
             // When
             boolean result = prescriptionManager.print(mockLoggedInInfo, TEST_SCRIPT_NO);
@@ -658,7 +662,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             Prescription prescription = createTestPrescriptionWithId(TEST_SCRIPT_NO);
             prescription.setDatePrinted(new Date());
             prescription.setDatesReprinted(null);
-            when(mockPrescriptionDao.find(TEST_SCRIPT_NO)).thenReturn(prescription);
+            when(mockPrescriptionDao.find((int) TEST_SCRIPT_NO)).thenReturn(prescription);
 
             // When
             boolean result = prescriptionManager.print(mockLoggedInInfo, TEST_SCRIPT_NO);
@@ -677,7 +681,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             Prescription prescription = createTestPrescriptionWithId(TEST_SCRIPT_NO);
             prescription.setDatePrinted(new Date());
             prescription.setDatesReprinted("2025-01-01 10:00:00;" + TEST_PROVIDER);
-            when(mockPrescriptionDao.find(TEST_SCRIPT_NO)).thenReturn(prescription);
+            when(mockPrescriptionDao.find((int) TEST_SCRIPT_NO)).thenReturn(prescription);
 
             // When
             boolean result = prescriptionManager.print(mockLoggedInInfo, TEST_SCRIPT_NO);
@@ -716,7 +720,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
         void shouldSetDigitalSignature_whenValidScriptNo() {
             // Given
             Prescription prescription = createTestPrescriptionWithId(TEST_SCRIPT_NO);
-            when(mockPrescriptionDao.find(TEST_SCRIPT_NO)).thenReturn(prescription);
+            when(mockPrescriptionDao.find((int) TEST_SCRIPT_NO)).thenReturn(prescription);
 
             // When
             boolean result = prescriptionManager.setPrescriptionSignature(
@@ -733,13 +737,13 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
         void shouldPersistUpdatedPrescription_afterSettingSignature() {
             // Given
             Prescription prescription = createTestPrescriptionWithId(TEST_SCRIPT_NO);
-            when(mockPrescriptionDao.find(TEST_SCRIPT_NO)).thenReturn(prescription);
+            when(mockPrescriptionDao.find((int) TEST_SCRIPT_NO)).thenReturn(prescription);
 
             // When
             prescriptionManager.setPrescriptionSignature(mockLoggedInInfo, TEST_SCRIPT_NO, TEST_DIGITAL_SIG_ID);
 
             // Then
-            verify(mockPrescriptionDao).find(TEST_SCRIPT_NO);
+            verify(mockPrescriptionDao).find((int) TEST_SCRIPT_NO);
             verify(mockPrescriptionDao).merge(prescription);
         }
 
@@ -749,7 +753,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             // Given
             Prescription prescription = createTestPrescriptionWithId(TEST_SCRIPT_NO);
             prescription.setDigitalSignatureId(TEST_DIGITAL_SIG_ID);
-            when(mockPrescriptionDao.find(TEST_SCRIPT_NO)).thenReturn(prescription);
+            when(mockPrescriptionDao.find((int) TEST_SCRIPT_NO)).thenReturn(prescription);
 
             // When
             boolean result = prescriptionManager.setPrescriptionSignature(

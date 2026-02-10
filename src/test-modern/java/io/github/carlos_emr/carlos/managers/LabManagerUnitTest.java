@@ -146,7 +146,8 @@ public class LabManagerUnitTest extends LabUnitTestBase {
 
             // Then
             assertThat(results).hasSize(2);
-            assertThat(results).containsExactly(msg1, msg2);
+            assertThat(results.get(0)).isSameAs(msg1);
+            assertThat(results.get(1)).isSameAs(msg2);
             verify(mockHl7TextMessageDao).findByDemographicNo(TEST_DEMO_NO, 0, 10);
         }
 
@@ -251,7 +252,8 @@ public class LabManagerUnitTest extends LabUnitTestBase {
 
             // Then
             assertThat(results).hasSize(2);
-            assertThat(results).containsExactly(info1, info2);
+            assertThat(results.get(0)).isSameAs(info1);
+            assertThat(results.get(1)).isSameAs(info2);
             verify(mockPatientLabRoutingDao).findByDemographicAndLabType(TEST_DEMO_NO, PatientLabRoutingDao.HL7);
             verify(mockHl7TextInfoDao).findByLabIdList(Arrays.asList(101, 102));
         }
@@ -350,7 +352,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
 
             // Then
             assertThat(results).hasSize(1);
-            assertThat(results.get(0)).isEqualTo(info);
+            assertThat(results.get(0)).isSameAs(info);
         }
     }
 
@@ -370,7 +372,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
         void shouldReturnMessage_whenValidLabIdProvided() {
             // Given
             Hl7TextMessage expectedMessage = createTestHl7TextMessage("MSH|^~\\&|Lab|");
-            when(mockHl7TextMessageDao.find(TEST_LAB_ID))
+            when(mockHl7TextMessageDao.find((int) TEST_LAB_ID))
                 .thenReturn(expectedMessage);
 
             // When
@@ -378,8 +380,8 @@ public class LabManagerUnitTest extends LabUnitTestBase {
 
             // Then
             assertThat(result).isNotNull();
-            assertThat(result).isEqualTo(expectedMessage);
-            verify(mockHl7TextMessageDao).find(TEST_LAB_ID);
+            assertThat(result).isSameAs(expectedMessage);
+            verify(mockHl7TextMessageDao).find((int) TEST_LAB_ID);
         }
 
         @Test
@@ -681,7 +683,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
         @DisplayName("should handle DAO exception in getHl7Message")
         void shouldPropagateException_whenDaoThrowsInGetHl7Message() {
             // Given
-            when(mockHl7TextMessageDao.find(TEST_LAB_ID))
+            when(mockHl7TextMessageDao.find((int) TEST_LAB_ID))
                 .thenThrow(new RuntimeException("Database connection lost"));
 
             // When / Then
@@ -759,19 +761,19 @@ public class LabManagerUnitTest extends LabUnitTestBase {
         @DisplayName("should call find exactly once for getHl7Message")
         void shouldCallFindOnce_whenGetHl7MessageCalled() {
             // Given
-            when(mockHl7TextMessageDao.find(TEST_LAB_ID))
+            when(mockHl7TextMessageDao.find((int) TEST_LAB_ID))
                 .thenReturn(null);
 
             // When
             labManager.getHl7Message(mockLoggedInInfo, TEST_LAB_ID);
 
             // Then
-            verify(mockHl7TextMessageDao, times(1)).find(TEST_LAB_ID);
+            verify(mockHl7TextMessageDao, times(1)).find((int) TEST_LAB_ID);
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should not call Hl7TextInfoDao when routing list is empty")
+        @DisplayName("should still call Hl7TextInfoDao with empty list when routing list is empty")
         void shouldStillCallHl7TextInfoDao_whenRoutingListIsEmpty() {
             // Given
             when(mockPatientLabRoutingDao.findByDemographicAndLabType(TEST_DEMO_NO, PatientLabRoutingDao.HL7))

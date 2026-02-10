@@ -205,8 +205,10 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
         @Test
         @DisplayName("should throw RuntimeException when security check fails")
         void shouldThrowException_whenSecurityCheckFails() {
-            // Given
+            // Given - must deny BOTH String and int overloads of hasPrivilege
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), any()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), anyInt()))
                 .thenReturn(false);
 
             // When / Then
@@ -219,8 +221,10 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
         @Test
         @DisplayName("should not call DAO when security check fails")
         void shouldNotCallDao_whenSecurityCheckFails() {
-            // Given
+            // Given - must deny BOTH String and int overloads of hasPrivilege
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), any()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), anyInt()))
                 .thenReturn(false);
 
             // When
@@ -933,8 +937,10 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
         @Test
         @DisplayName("should enforce security check before retrieving immunizations")
         void shouldEnforceSecurityCheck_whenRetrievingImmunizations() {
-            // Given
+            // Given - must deny BOTH String and int overloads of hasPrivilege
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), any()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), anyInt()))
                 .thenReturn(false);
 
             // When / Then

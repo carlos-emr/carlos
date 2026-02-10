@@ -54,8 +54,8 @@ import static org.mockito.Mockito.*;
 /**
  * Comprehensive unit tests for {@link NoteManager} business logic.
  *
- * <p>Tests cover all five public methods of NoteManager: getCppNotes, getActiveCppNotes
- * (both overloads), convertNote, isCppCode, and getIssueIds. Each method is tested
+ * <p>Tests cover all six public methods of NoteManager: getCppNotes, getActiveCppNotes
+ * (two overloads), convertNote, isCppCode, and getIssueIds. Each method is tested
  * for normal operation, empty/null inputs, and edge cases.</p>
  *
  * <p>Model classes {@link CaseManagementNote} and {@link CaseManagementIssue} have field

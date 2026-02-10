@@ -238,16 +238,4 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         }
     }
 
-    /**
-     * Helper method to inject dependencies into manager using reflection.
-     */
-    private void injectDependency(Object target, String fieldName, Object dependency) {
-        try {
-            java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(target, dependency);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject " + fieldName, e);
-        }
-    }
 }

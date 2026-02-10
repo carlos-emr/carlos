@@ -508,7 +508,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
 
             // Then
             assertThat(result).hasSize(2);
-            assertThat(result).containsExactly(code1, code2);
+            assertThat(result.get(0)).isSameAs(code1);
+            assertThat(result.get(1)).isSameAs(code2);
             verify(mockScheduleTemplateCodeDao).findAll();
         }
 

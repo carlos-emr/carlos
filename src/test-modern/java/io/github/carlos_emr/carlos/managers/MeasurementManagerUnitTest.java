@@ -177,14 +177,14 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         @DisplayName("should handle null ID gracefully")
         void shouldReturnNull_whenIdIsNull() {
             // Given
-            when(mockMeasurementDao.find(null)).thenReturn(null);
+            when(mockMeasurementDao.find((Object) null)).thenReturn(null);
 
             // When
             Measurement result = measurementManager.getMeasurement(mockLoggedInInfo, null);
 
             // Then
             assertThat(result).isNull();
-            verify(mockMeasurementDao).find(null);
+            verify(mockMeasurementDao).find((Object) null);
         }
     }
 

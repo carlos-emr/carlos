@@ -52,7 +52,7 @@ import static org.mockito.Mockito.*;
 /**
  * Comprehensive unit tests for {@link AppointmentManagerImpl} business logic.
  *
- * <p>Tests cover all 12 interface methods including security privilege checks,
+ * <p>Tests cover all 13 interface methods including security privilege checks,
  * appointment CRUD operations, history retrieval with deduplication, status/type/urgency
  * updates, lookup queries, monthly search, and next appointment date formatting.</p>
  *
@@ -249,9 +249,9 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @Test
         @DisplayName("should return appointment when valid ID is provided")
         void shouldReturnAppointment_whenValidIdProvided() {
-            // Given
+            // Given - cast to int to match find(int) overload since getAppointment takes primitive int
             Appointment expected = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(expected);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(expected);
 
             // When
             Appointment result = appointmentManager.getAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -278,14 +278,14 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @Test
         @DisplayName("should call DAO find with correct appointment number")
         void shouldCallDaoFind_whenGettingAppointment() {
-            // Given
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(createTestAppointmentWithId(TEST_APPOINTMENT_ID));
+            // Given - cast to int to match find(int) overload
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(createTestAppointmentWithId(TEST_APPOINTMENT_ID));
 
             // When
             appointmentManager.getAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
 
             // Then
-            verify(mockAppointmentDao).find(TEST_APPOINTMENT_ID);
+            verify(mockAppointmentDao).find((int) TEST_APPOINTMENT_ID);
         }
 
         @Test
@@ -379,7 +379,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
             Appointment updated = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
             updated.setReason("Updated reason");
 
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((Object) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             appointmentManager.updateAppointment(mockLoggedInInfo, updated);
@@ -394,7 +394,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldSkipArchive_whenExistingNotFound() {
             // Given
             Appointment updated = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(null);
+            when(mockAppointmentDao.find((Object) TEST_APPOINTMENT_ID)).thenReturn(null);
 
             // When
             appointmentManager.updateAppointment(mockLoggedInInfo, updated);
@@ -423,13 +423,13 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldLookUpExistingById_beforeArchiving() {
             // Given
             Appointment updated = createTestAppointmentWithId(42);
-            when(mockAppointmentDao.find(42)).thenReturn(createTestAppointmentWithId(42));
+            when(mockAppointmentDao.find((Object) 42)).thenReturn(createTestAppointmentWithId(42));
 
             // When
             appointmentManager.updateAppointment(mockLoggedInInfo, updated);
 
             // Then
-            verify(mockAppointmentDao).find(42);
+            verify(mockAppointmentDao).find((Object) 42);
         }
     }
 
@@ -449,7 +449,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldArchiveAndRemove_whenDeleting() {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -463,7 +463,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should skip archive when existing appointment not found")
         void shouldSkipArchive_whenExistingNotFound() {
             // Given
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(null);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(null);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -678,7 +678,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
 
             // Then
             assertThat(result).hasSize(2);
-            assertThat(result).contains(appt, archive);
+            assertThat(result.get(0)).isSameAs(appt);
+            assertThat(result.get(1)).isSameAs(archive);
         }
 
         @Test
@@ -758,7 +759,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
             existing.setStatus("t");
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             Appointment result = appointmentManager.updateAppointmentStatus(
@@ -776,7 +777,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
             existing.setStatus("t");
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             Appointment result = appointmentManager.updateAppointmentStatus(
@@ -806,7 +807,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should skip archive but still merge when appointment not found")
         void shouldSkipArchiveButStillMerge_whenAppointmentNotFound() {
             // Given - find returns null, causing appt to be null
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(null);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(null);
 
             // When/Then - the implementation calls merge(null) and getId() on null,
             // which would throw NPE. This verifies the current behavior.
@@ -836,7 +837,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
             existing.setType("");
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             Appointment result = appointmentManager.updateAppointmentType(
@@ -853,7 +854,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldReturnAppointmentWithUpdatedType() {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             Appointment result = appointmentManager.updateAppointmentType(
@@ -871,7 +872,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
                 .thenReturn(false);
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When - should succeed despite denied privileges (no security check in implementation)
             Appointment result = appointmentManager.updateAppointmentType(
@@ -886,7 +887,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should throw NPE when appointment not found")
         void shouldThrowNpe_whenAppointmentNotFound() {
             // Given
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(null);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(null);
 
             // When/Then - implementation calls merge(null) then getId() on null
             assertThatThrownBy(() ->
@@ -913,7 +914,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
             existing.setUrgency("low");
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             Appointment result = appointmentManager.updateAppointmentUrgency(
@@ -930,7 +931,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldReturnAppointmentWithUpdatedUrgency() {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             Appointment result = appointmentManager.updateAppointmentUrgency(
@@ -948,7 +949,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
                 .thenReturn(false);
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When - should succeed despite denied privileges
             Appointment result = appointmentManager.updateAppointmentUrgency(
@@ -963,7 +964,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should throw NPE when appointment not found")
         void shouldThrowNpe_whenAppointmentNotFound() {
             // Given
-            when(mockAppointmentDao.find(TEST_APPOINTMENT_ID)).thenReturn(null);
+            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(null);
 
             // When/Then
             assertThatThrownBy(() ->

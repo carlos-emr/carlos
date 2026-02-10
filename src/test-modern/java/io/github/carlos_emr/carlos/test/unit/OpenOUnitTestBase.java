@@ -37,7 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * Base class for unit tests in OpenO EMR that need to mock the SpringUtils static dependency.
+ * Base class for unit tests in CARLOS EMR that need to mock the SpringUtils static dependency.
  *
  * <p>This class provides infrastructure for true unit testing despite the SpringUtils anti-pattern
  * used throughout the codebase. It uses Mockito's MockedStatic feature to mock static method calls

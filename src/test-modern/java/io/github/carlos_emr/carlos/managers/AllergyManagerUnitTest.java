@@ -156,8 +156,8 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
             // When
             allergyManager.getAllergy(mockLoggedInInfo, specificId);
 
-            // Then
-            verify(mockAllergyDao).find(eq(42));
+            // Then - cast to Object to match find(Object) overload since DAO has both find(Object) and find(int)
+            verify(mockAllergyDao).find((Object) 42);
         }
 
         @Test
@@ -648,7 +648,7 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
 
             // Then
             assertThat(result).isNull();
-            verify(mockAllergyDao).find(eq(0));
+            verify(mockAllergyDao).find((Object) 0);
         }
 
         @Test
