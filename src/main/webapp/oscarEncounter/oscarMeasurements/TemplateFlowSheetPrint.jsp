@@ -28,6 +28,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Custom Print view for flowsheet templates (e.g. Diabetes, Prenatal).
+
+    Allows clinicians to select which measurements, preventions, and drugs
+    to include in a printed flowsheet summary. Supports three print modes:
+    All entries, Last Only, and Out of Range. Individual items can be refined
+    by count or date range via per-item dropdowns (measurements only).
+
+    Flow: Initial load shows checkboxes for selection -> "Preview" submits
+    selections via POST -> page re-renders with only selected items visible
+    -> browser print dialog.
+
+    @param demographic_no patient demographic number (required)
+    @param template flowsheet template identifier, e.g. "diab2" (required)
+    @param printView if present, renders in print-preview mode
+    @param printHP[] selected item identifiers to include in printout
+    @param show optional view filter: "lastOnly" or "outOfRange"
+
+    @since 2006-02-14
+--%>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% long startTime = System.currentTimeMillis(); %>
