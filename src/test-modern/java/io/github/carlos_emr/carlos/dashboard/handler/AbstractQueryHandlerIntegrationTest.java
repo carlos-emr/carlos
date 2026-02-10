@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.dashboard.handler;
 
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
-import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
 import io.github.carlos_emr.carlos.dashboard.query.RangeLowerLimit;
 import io.github.carlos_emr.carlos.dashboard.query.RangeUpperLimit;
 import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
@@ -57,7 +56,7 @@ import static org.assertj.core.api.Assertions.*;
  * Execution tests therefore use self-contained queries (e.g., {@code SELECT 1 AS result})
  * that do not depend on pre-existing test data.</p>
  *
- * <p>The test is organized into four {@link Nested} inner classes, each covering a
+ * <p>The test is organized into five {@link Nested} inner classes, each covering a
  * distinct aspect of the query handler lifecycle:</p>
  * <ul>
  *   <li>{@link QueryStringFiltering} - SQL comment and special character removal</li>
