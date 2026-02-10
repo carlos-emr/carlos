@@ -126,7 +126,7 @@ It may work without WSL, but we do not test or QA that workflow on Windows and y
 expect poor build and runtime performance.
 
 ```bash
-# From a Windows terminal (PowerShell or CMD - as Admin), install WSL with Ubuntu if needed
+# From an Administrator terminal (PowerShell or CMD), install WSL with Ubuntu if needed
 wsl --install -d Ubuntu
 
 # Enter your WSL environment
