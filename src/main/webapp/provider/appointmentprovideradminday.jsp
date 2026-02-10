@@ -352,8 +352,6 @@
     }
     int nProvider;
 
-    boolean caseload = "1".equals(request.getParameter("caseload"));
-
     GregorianCalendar cal = new GregorianCalendar();
     int curYear = cal.get(Calendar.YEAR);
     int curMonth = (cal.get(Calendar.MONTH) + 1);
@@ -484,16 +482,10 @@
             }
         %>
 
-        <%
-            if (!caseload) {
-        %>
         <c:if test="${empty sessionScope.archiveView or sessionScope.archiveView != true}">
             <%!String refresh = io.github.carlos_emr.OscarProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
             <%="-1".equals(refresh) ? "" : "<meta http-equiv=\"refresh\" content=\"" + refresh + "\">"%>
         </c:if>
-        <%
-            }
-        %>
 
 
         <script type="text/javascript"
@@ -927,10 +919,6 @@
                         <% } %>
                     </c:if>
 
-                    <li>
-                        <a href='providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&caseload=1&clProv=<%=loggedInInfo1.getLoggedInProviderNo()%>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.caseload"/></a>
-                    </li>
-
                     <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
                             <li>
@@ -1213,13 +1201,6 @@
 
     <div id="system_message"></div>
     <div id="facility_message"></div>
-    <%
-        if (caseload) {
-    %>
-    <jsp:include page="caseload.jspf"/>
-    <%
-    } else {
-    %>
 
     <table id="scheduleNavigation">
         <tr id="ivoryBar">
@@ -2380,7 +2361,6 @@
 
 
                     </tr>
-                    <% } // end caseload view %>
                 </table>        <!-- end table for the whole schedule row display -->
 
 

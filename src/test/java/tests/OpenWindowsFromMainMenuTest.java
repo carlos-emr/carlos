@@ -16,48 +16,6 @@ import java.util.Set;
 // No need to test the open resources and help windows scenarios as they are not available
 public class OpenWindowsFromMainMenuTest extends BaseTest {
 
-    // Test the open caseload page successful scenario
-    @Test
-    public void openCaseloadPageSuccessful() throws InterruptedException {
-        WebDriver driver = createHeadlessDriver();
-        WebDriverWait wait = createWait(driver);
-
-        try {
-            // Login
-            login(driver, wait);
-            Assert.assertTrue(isLoginSuccessful(driver));
-            System.out.println("Login successful, the current URL is: " + driver.getCurrentUrl());
-
-            // Click on the 'Caseload' tab on the menu bar
-            WebElement caseloadTab = wait.until(ExpectedConditions.elementToBeClickable(By.linkText("Caseload")));
-            caseloadTab.click();
-
-            // Check for encountering 500 error
-            boolean is500Error = false;
-            try {
-                WebElement errorElement = driver.findElement(By.xpath("//*[contains(text(), 'Looks like something went wrong...')]"));
-                if (errorElement.isDisplayed()) {
-                    is500Error = true;
-                    System.out.println("500 error encountered while opening caseload page.");
-                    Assert.fail("500 error encountered while opening caseload page.");
-                }
-            } catch (NoSuchElementException e) {
-                System.out.println("No 500 error encountered.");
-            }
-
-            if (!is500Error) {
-                wait.until(ExpectedConditions.urlContains("provider/providercontrol.jsp"));
-                Assert.assertTrue(driver.getCurrentUrl().contains("provider/providercontrol.jsp"));
-                System.out.println("Caseload page opened successfully.");
-            }
-
-            // Display the caseload page for 2 sec
-            Thread.sleep(2000);
-        } finally {
-            driver.quit();
-        }
-    }
-
     // Test the open report window successful scenario
     @Test
     public void openReportWindowSuccessful() throws InterruptedException {

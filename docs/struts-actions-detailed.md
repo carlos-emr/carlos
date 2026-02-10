@@ -114,14 +114,6 @@ Comprehensive billing management for various Canadian provinces.
 | BillingONReview | io.github.carlos_emr.carlos.commn.web.BillingONReview2Action | Reviews Ontario billing submissions |
 | billing | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action | Main billing interface |
 
-## Caseload Module
-
-Patient caseload management functionality.
-
-| Action Name | Class Name | Description |
-|-------------|------------|-------------|
-| caseload/CaseloadContent | io.github.carlos_emr.carlos.caseload.CaseloadContent2Action | Manages patient caseload content |
-
 ## Case Management Module
 
 Clinical case management and documentation.
