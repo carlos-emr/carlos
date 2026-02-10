@@ -627,14 +627,11 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             denyPrivilege("_rx", "w");
             List<Drug> drugs = List.of(createTestDrug());
 
-            // When
-            try {
-                prescriptionManager.createNewPrescription(mockLoggedInInfo, drugs, TEST_DEMO_NO);
-            } catch (AccessDeniedException e) {
-                // Expected
-            }
+            // When / Then
+            assertThatThrownBy(() ->
+                prescriptionManager.createNewPrescription(mockLoggedInInfo, drugs, TEST_DEMO_NO)
+            ).isInstanceOf(AccessDeniedException.class);
 
-            // Then
             verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", TEST_DEMO_NO);
         }
     }
