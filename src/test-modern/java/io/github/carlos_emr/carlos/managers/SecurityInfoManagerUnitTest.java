@@ -200,31 +200,31 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("should define READ constant as 'r'")
-        void shouldDefineReadConstant() {
+        void shouldDefineReadConstant_whenInterfaceLoaded() {
             assertThat(SecurityInfoManager.READ).isEqualTo("r");
         }
 
         @Test
         @DisplayName("should define WRITE constant as 'w'")
-        void shouldDefineWriteConstant() {
+        void shouldDefineWriteConstant_whenInterfaceLoaded() {
             assertThat(SecurityInfoManager.WRITE).isEqualTo("w");
         }
 
         @Test
         @DisplayName("should define UPDATE constant as 'u'")
-        void shouldDefineUpdateConstant() {
+        void shouldDefineUpdateConstant_whenInterfaceLoaded() {
             assertThat(SecurityInfoManager.UPDATE).isEqualTo("u");
         }
 
         @Test
         @DisplayName("should define DELETE constant as 'd'")
-        void shouldDefineDeleteConstant() {
+        void shouldDefineDeleteConstant_whenInterfaceLoaded() {
             assertThat(SecurityInfoManager.DELETE).isEqualTo("d");
         }
 
         @Test
         @DisplayName("should define NORIGHTS constant as 'o'")
-        void shouldDefineNoRightsConstant() {
+        void shouldDefineNoRightsConstant_whenInterfaceLoaded() {
             assertThat(SecurityInfoManager.NORIGHTS).isEqualTo("o");
         }
     }
@@ -653,7 +653,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
 
             @Test
             @DisplayName("should propagate PatientDirectiveException without catching")
-            void shouldPropagatePatientDirectiveException() {
+            void shouldPropagatePatientDirectiveException_whenDirectiveViolated() {
                 when(mockSecObjPrivilegeDao.findByObjectNames(any()))
                     .thenThrow(new PatientDirectiveException("Patient directive block"));
 
@@ -789,7 +789,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("getRoles should return empty list for null LoggedInInfo")
-        void getRolesShouldReturnEmptyList_forNullLoggedInInfo() {
+        void shouldReturnEmptyList_whenLoggedInInfoIsNull() {
             List<Secuserrole> roles = securityInfoManager.getRoles(null);
 
             assertThat(roles).isEmpty();
@@ -797,7 +797,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
 
         @Test
         @DisplayName("getRoles should return empty list when provider number is null")
-        void getRolesShouldReturnEmptyList_whenProviderNoIsNull() {
+        void shouldReturnEmptyList_whenProviderNoIsNull() {
             when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(null);
 
             List<Secuserrole> roles = securityInfoManager.getRoles(mockLoggedInInfo);

@@ -373,6 +373,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentsForPatient")
+    @Tag("read")
     class GetAppointmentsForPatient {
 
         @Test
@@ -421,6 +422,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentsByProgramProviderDemographicDate")
+    @Tag("read")
+    @Tag("query")
     class GetAppointmentsByProgramProviderDemographicDate {
 
         @Test
@@ -462,6 +465,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentsForDateRangeAndProvider")
+    @Tag("read")
+    @Tag("query")
     class GetAppointmentsForDateRangeAndProvider {
 
         @Test
@@ -496,6 +501,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getScheduleTemplateCodes")
+    @Tag("read")
     class GetScheduleTemplateCodes {
 
         @Test
@@ -542,6 +548,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentTypes")
+    @Tag("read")
     class GetAppointmentTypes {
 
         @Test
@@ -573,6 +580,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentStatuses")
+    @Tag("read")
     class GetAppointmentStatuses {
 
         @Test
@@ -621,6 +629,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentUpdatedAfterDate")
+    @Tag("read")
+    @Tag("query")
     class GetAppointmentUpdatedAfterDate {
 
         @Test
@@ -677,6 +687,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentByDemographicIdUpdatedAfterDate")
+    @Tag("read")
+    @Tag("query")
     class GetAppointmentByDemographicIdUpdatedAfterDate {
 
         @Test
@@ -736,6 +748,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAppointmentArchiveUpdatedAfterDate")
+    @Tag("read")
+    @Tag("query")
     class GetAppointmentArchiveUpdatedAfterDate {
 
         @Test
@@ -769,6 +783,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getAllDemographicIdByProgramProvider")
+    @Tag("read")
+    @Tag("query")
     class GetAllDemographicIdByProgramProvider {
 
         @Test
@@ -801,6 +817,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("listAppointmentsByPeriodProvider")
+    @Tag("read")
+    @Tag("security")
     class ListAppointmentsByPeriodProvider {
 
         @Test
@@ -876,6 +894,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("listProviderAppointmentCounts")
+    @Tag("read")
+    @Tag("security")
     class ListProviderAppointmentCounts {
 
         @Test
@@ -918,6 +938,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("getDayWorkSchedule")
+    @Tag("read")
+    @Tag("query")
     class GetDayWorkSchedule {
 
         @Test
@@ -1098,6 +1120,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @Nested
     @DisplayName("removeIfDoubleBooked")
+    @Tag("delete")
     class RemoveIfDoubleBooked {
 
         @Test
