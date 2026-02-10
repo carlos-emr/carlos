@@ -156,6 +156,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Get Prescription")
+    @Tag("read")
     class GetPrescriptionTests {
 
         @Test
@@ -226,6 +227,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Get Drugs By Script Number")
+    @Tag("read")
     class GetDrugsByScriptNoTests {
 
         @Test
@@ -279,6 +281,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Find Drug By ID")
+    @Tag("read")
     class FindDrugByIdTests {
 
         @Test
@@ -331,6 +334,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Get Active Medications")
+    @Tag("read")
     class ActiveMedicationsTests {
 
         @Test
@@ -420,6 +424,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Get Medications By Demographic Number")
+    @Tag("read")
     class MedicationsByDemographicTests {
 
         @Test
@@ -475,6 +480,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Get Long-Term Drugs")
+    @Tag("read")
     class LongTermDrugsTests {
 
         @Test
@@ -526,6 +532,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Get Unique Drugs By Patient")
+    @Tag("read")
     class UniqueDrugsByPatientTests {
 
         @Test
@@ -595,6 +602,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Create New Prescription")
+    @Tag("create")
     class CreateNewPrescriptionTests {
 
         @Test
@@ -636,6 +644,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Print Prescription")
+    @Tag("update")
     class PrintPrescriptionTests {
 
         @Test
@@ -713,6 +722,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Set Prescription Signature")
+    @Tag("update")
     class SetPrescriptionSignatureTests {
 
         @Test
@@ -771,6 +781,8 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Prescription Updated After Date")
+    @Tag("read")
+    @Tag("query")
     class PrescriptionUpdatedAfterDateTests {
 
         @Test
@@ -853,6 +865,8 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Prescriptions By Program Provider and Demographic Date")
+    @Tag("read")
+    @Tag("query")
     class PrescriptionsByProgramProviderTests {
 
         @Test
@@ -899,6 +913,7 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
      */
     @Nested
     @DisplayName("Security Access Control")
+    @Tag("security")
     class SecurityAccessControlTests {
 
         @Test
