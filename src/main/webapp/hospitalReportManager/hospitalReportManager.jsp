@@ -53,75 +53,6 @@
             body {
                 margin-left: 30px !important;
             }
-
-            .file-item {
-                border: 1px solid green;
-                border-radius: 5px;
-                padding: 7px;
-                margin-bottom: 3px;
-                font-size: 14px;
-                word-wrap: break-word;
-                max-width: 100%;
-                position: relative;
-            }
-
-            .upload-text {
-                position: absolute;
-                top: 50%;
-                right: 10px;
-                transform: translateY(-50%);
-                font-weight: bold;
-            }
-
-            .file-name {
-                max-width: calc(100% - 170px);
-                display: inline-block;
-                vertical-align: middle;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            .loading-screen {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: #f1f1f1;
-                display: none;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                z-index: 9999;
-            }
-
-            .loading-bar {
-                width: 50%;
-                margin-bottom: 20px;
-            }
-
-            .loading-message {
-                font-size: 16px;
-                font-weight: bold;
-            }
-
-            .flex {
-                display: flex;
-            }
-
-            .invalid {
-                color: red;
-            }
-
-            .success,
-            .pending {
-                color: green;
-            }
-
-            .failed {
-                color: #FFD700;
-            }
         </style>
 
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -131,80 +62,10 @@
               href="${ pageContext.request.contextPath }/hospitalReportManager/inbox.css">
 
 
-        <script>
-            function validateForm() {
-                let fileInput = document.getElementById("fileInput");
-                if (fileInput.files.length === 0) {
-                    alert("Please select a file to upload.");
-                    return false;
-                }
-
-                document.getElementById("file-upload-btn").disabled = true;
-                document.querySelector('.loading-screen').classList.toggle('flex');
-                return true;
-            }
-
-            function getFileList(event) {
-                const fileList = document.getElementById('file-list');
-                const files = event.target.files;
-                fileList.innerHTML = '';
-
-                for (let i = 0; i < files.length; i++) {
-                    addFileNameWithStatus(files[i].name, "PENDING");
-                }
-            }
-
-            function addFileNameWithStatus(name, status) {
-                const fileList = document.getElementById('file-list');
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-
-                const fileName = document.createElement('span');
-                fileName.className = 'file-name';
-                fileName.textContent = name;
-
-                const uploadText = document.createElement('span');
-                uploadText.className = 'upload-text';
-                uploadText.classList.remove('invalid', 'success', 'pending', 'failed');
-                switch (status.trim()) {
-                    case "FAILED":
-                        uploadText.textContent = 'Failed to handle HRM report';
-                        uploadText.classList.add('failed');
-                        break;
-                    case "COMPLETED":
-                        uploadText.textContent = 'Uploaded Successfully';
-                        uploadText.classList.add('success');
-                        break;
-                    case "PENDING":
-                        uploadText.textContent = 'Pending Upload';
-                        uploadText.classList.add('pending');
-                        break;
-                    default:
-                        uploadText.textContent = 'Invalid File';
-                        uploadText.classList.add('invalid');
-                        break;
-                }
-
-                fileItem.appendChild(fileName);
-                fileItem.appendChild(uploadText);
-                fileList.appendChild(fileItem);
-            }
-        </script>
-
-
     </head>
     <body>
     <div class="container">
         <h4>Hospital Report Manager</h4>
-        <div class="loading-screen">
-            <div class="loading-bar progress progress-striped active">
-                <div class="bar" style="width: 100%;"></div>
-            </div>
-            <div class="loading-message">
-                Please be patient. Uploading a large number of HRM documents may take some time. Do not close this
-                window while uploading...
-            </div>
-        </div>
 
         <%
             HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
@@ -226,9 +87,6 @@
                 <% } %>
             </div>
         </form>
-        <input type="button" class="btn"
-               value="I don't want to receive any more HRM outage messages for this outage instance"
-               onclick="window.location='hospitalReportManager/disable_msg_action.jsp'">
     </div>
     </body>
 </html>

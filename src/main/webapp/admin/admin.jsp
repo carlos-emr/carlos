@@ -833,12 +833,6 @@
                     <li><a href="<%=request.getContextPath()%>/lab/CA/ALL/sendOruR01.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmPreferences.jsp");return false;'>Hospital Report
-                        Manager (HRM) Preferences</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmShowMapping.jsp");return false;'>Hospital Report
-                        Manager (HRM) Class Mappings</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmCategories.jsp");return false;'>Hospital Report
-                        Manager (HRM) Categories</a></li>
 
                     <%
                         String olisKeystore = OscarProperties.getInstance().getProperty("olis_keystore", "");

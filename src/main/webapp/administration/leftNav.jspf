@@ -828,11 +828,8 @@ String curProvider_no = (String)session.getAttribute("user");
 <%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/setProviderStaleDate.do?method=viewIntegratorProperties'><fmt:setBundle basename="oscarResources"/><fmt:message key="providers.btnSetIntegratorPreferences"/></a></li>--%>
 <%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 					
-					<caisi:isModuleLoad moduleName="HRM">	
+					<caisi:isModuleLoad moduleName="HRM">
 						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp">Hospital Report Manager (HRM) Status</a></li>
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmPreferences.jsp">Hospital Report Manager (HRM) Preferences</a></li>
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmShowMapping.jsp">Hospital Report Manager (HRM) Class Mappings</a></li>
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmCategories.jsp">Hospital Report Manager (HRM) Categories</a></li>
 					</caisi:isModuleLoad>
 					
 					<%
