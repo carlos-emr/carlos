@@ -136,7 +136,7 @@ table#scheduleNavigation tr td.title {
 
 tr td.infirmaryView {
     position: sticky;
-    top: 50px;
+    top: 56px;
     left: 0;
     height: 25px;
     padding: 0 5px;
@@ -149,7 +149,7 @@ td#group {
 
 table#scheduleNavigation, table#monthScheduleNavigation {
     position: fixed;
-    top: 25px;
+    top: 31px;
     right: 0;
     left: 0;
     height: 25px;
