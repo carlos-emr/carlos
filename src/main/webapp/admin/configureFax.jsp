@@ -62,7 +62,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css" type="text/css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" type="text/css">
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>

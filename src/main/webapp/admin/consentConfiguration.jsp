@@ -53,7 +53,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.consentConfig"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/angular.min.js"></script>
     <script src="<%=request.getContextPath() %>/web/common/surveillanceServices.js"></script>
     <script src="<%=request.getContextPath() %>/web/common/providerServices.js"></script>

@@ -115,7 +115,7 @@
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
 
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <title>Log Report</title>
         <script language="JavaScript">
 

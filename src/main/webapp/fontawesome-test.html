@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Font Awesome 6.x Test Page - CARLOS EMR</title>
+    <link rel="stylesheet" href="css/fontawesome-all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .icon-item {
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 3px;
+        }
+        .icon-item i {
+            font-size: 2em;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 0; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Font Awesome 6.x Infrastructure Test - CARLOS EMR</h1>
+    <p>This page tests the Font Awesome 6.x infrastructure implementation for issue #247.</p>
+
+    <div class="test-section">
+        <h2>✓ Font Awesome 6.x CSS Loaded</h2>
+        <p>If you can see icons below, Font Awesome 6.x is working correctly.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Solid Icons (fa-solid)</h2>
+        <div class="icon-grid">
+            <div class="icon-item">
+                <i class="fa-solid fa-calendar"></i>
+                <code>fa-calendar</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <code>fa-magnifying-glass</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-print"></i>
+                <code>fa-print</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-user"></i>
+                <code>fa-user</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-heart"></i>
+                <code>fa-heart</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-file"></i>
+                <code>fa-file</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-envelope"></i>
+                <code>fa-envelope</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-home"></i>
+                <code>fa-home</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-trash"></i>
+                <code>fa-trash</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-pencil"></i>
+                <code>fa-pencil</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-check"></i>
+                <code>fa-check</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-solid fa-xmark"></i>
+                <code>fa-xmark</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Regular Icons (fa-regular)</h2>
+        <div class="icon-grid">
+            <div class="icon-item">
+                <i class="fa-regular fa-calendar"></i>
+                <code>fa-regular fa-calendar</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-regular fa-user"></i>
+                <code>fa-regular fa-user</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-regular fa-heart"></i>
+                <code>fa-regular fa-heart</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-regular fa-file"></i>
+                <code>fa-regular fa-file</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Brand Icons (fa-brands)</h2>
+        <div class="icon-grid">
+            <div class="icon-item">
+                <i class="fa-brands fa-github"></i>
+                <code>fa-brands fa-github</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-brands fa-twitter"></i>
+                <code>fa-brands fa-twitter</code>
+            </div>
+            <div class="icon-item">
+                <i class="fa-brands fa-facebook"></i>
+                <code>fa-brands fa-facebook</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Icon Mappings for Issue #248</h2>
+        <p>Common migrations from FA3 to FA6:</p>
+        <ul>
+            <li><code>icon-calendar</code> → <code>fa-solid fa-calendar</code> <i class="fa-solid fa-calendar"></i></li>
+            <li><code>icon-search</code> → <code>fa-solid fa-magnifying-glass</code> <i class="fa-solid fa-magnifying-glass"></i></li>
+            <li><code>icon-print</code> → <code>fa-solid fa-print</code> <i class="fa-solid fa-print"></i></li>
+            <li><code>icon-user</code> → <code>fa-solid fa-user</code> <i class="fa-solid fa-user"></i></li>
+            <li><code>icon-envelope</code> → <code>fa-solid fa-envelope</code> <i class="fa-solid fa-envelope"></i></li>
+            <li><code>icon-trash</code> → <code>fa-solid fa-trash</code> <i class="fa-solid fa-trash"></i></li>
+            <li><code>icon-pencil</code> → <code>fa-solid fa-pencil</code> <i class="fa-solid fa-pencil"></i></li>
+            <li><code>icon-ok</code> → <code>fa-solid fa-check</code> <i class="fa-solid fa-check"></i></li>
+            <li><code>icon-remove</code> → <code>fa-solid fa-xmark</code> <i class="fa-solid fa-xmark"></i></li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Implementation Details</h2>
+        <ul>
+            <li><strong>Font Awesome Version:</strong> 6.7.2 Free</li>
+            <li><strong>CSS File:</strong> <code>/css/fontawesome-all.min.css</code></li>
+            <li><strong>Webfonts Directory:</strong> <code>/webfonts/</code></li>
+            <li><strong>JSP Files Updated:</strong> 30 files</li>
+            <li><strong>Related Issue:</strong> <a href="https://github.com/carlos-emr/carlos/issues/247">#247</a></li>
+            <li><strong>Unblocks Issue:</strong> <a href="https://github.com/carlos-emr/carlos/issues/248">#248</a></li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Next Steps</h2>
+        <ol>
+            <li>Verify all icons display correctly in this test page</li>
+            <li>Test in Chrome, Firefox, and Safari browsers</li>
+            <li>Proceed with issue #248 to migrate icon classes across all JSP files</li>
+            <li>After migration is complete, remove legacy FA3 CSS files</li>
+        </ol>
+    </div>
+</body>
+</html>

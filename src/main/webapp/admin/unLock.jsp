@@ -109,7 +109,7 @@
 <html>
     <head>
         <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></title>
         <script type="text/javascript" language="JavaScript">
 
