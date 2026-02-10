@@ -344,9 +344,10 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
 
             // Then
             verify(mockAppointmentDao).persist(argThat(appt ->
-                "Test notes".equals(appt.getNotes()) &&
-                "Room 1".equals(appt.getLocation()) &&
-                TEST_PROVIDER.equals(appt.getProviderNo())
+                appt instanceof Appointment &&
+                "Test notes".equals(((Appointment) appt).getNotes()) &&
+                "Room 1".equals(((Appointment) appt).getLocation()) &&
+                TEST_PROVIDER.equals(((Appointment) appt).getProviderNo())
             ));
         }
     }

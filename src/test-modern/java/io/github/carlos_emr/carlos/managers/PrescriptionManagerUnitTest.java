@@ -94,7 +94,10 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
         registerMock(PatientConsentManager.class, mockPatientConsentManager);
 
         // Security manager returns true for all privilege checks by default
+        // Must stub BOTH overloads: hasPrivilege(..., String) and hasPrivilege(..., int)
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+            .thenReturn(true);
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
             .thenReturn(true);
 
         // Create manager instance and inject dependencies

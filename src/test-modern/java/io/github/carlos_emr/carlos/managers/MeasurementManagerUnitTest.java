@@ -999,9 +999,10 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
             measurementManager.addMeasurementGroupDS(groupName, dsHTML);
 
             // Then
-            verify(mockPropertyDao).persist(argThat(property ->
-                    "mgroup.ds.html.42".equals(property.getName()) &&
-                    dsHTML.equals(property.getValue())
+            verify(mockPropertyDao).persist(argThat(p ->
+                    p instanceof Property &&
+                    "mgroup.ds.html.42".equals(((Property) p).getName()) &&
+                    dsHTML.equals(((Property) p).getValue())
             ));
         }
 
@@ -1043,7 +1044,8 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
             verify(mockPropertyDao).merge(existingProperty);
             // persist is called in other code paths through findGroupId/isProperty chain;
             // here we verify merge was the final write operation
-            verify(mockPropertyDao, never()).persist(argThat(p -> "mgroup.ds.html.55".equals(p.getName())));
+            verify(mockPropertyDao, never()).persist(argThat(p ->
+                    p instanceof Property && "mgroup.ds.html.55".equals(((Property) p).getName())));
         }
     }
 
@@ -1185,8 +1187,9 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
             measurementManager.addMeasurementGroupDS(groupName, "<html>test</html>");
 
             // Then - should still create property with null in key
-            verify(mockPropertyDao).persist(argThat(property ->
-                    "mgroup.ds.html.null".equals(property.getName())
+            verify(mockPropertyDao).persist(argThat(p ->
+                    p instanceof Property &&
+                    "mgroup.ds.html.null".equals(((Property) p).getName())
             ));
         }
     }
