@@ -29,8 +29,6 @@
             reportId = String.valueOf(reportIdInt); // Safe, validated version
         }
     } catch (NumberFormatException e) {
-        // Log attempt and redirect or display error
-        System.err.println("Possible SQL injection attempt with id: " + request.getParameter("id"));
         response.sendRedirect("reportFormRecord.jsp?error=invalid_id");
         return;
     }
@@ -48,17 +46,7 @@
         bDeletedList = true;
     }
 
-    // delete action
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
-        try {
-            // check the input data
-            String id = request.getParameter("id");
-            int nId = id != null ? Integer.parseInt(id) : 0;
-        } catch (NumberFormatException e) {
-            // Handle invalid number
-            System.err.println("Invalid ID format: " + request.getParameter("id"));
-        }
-    }
+    // delete action - note: reportId already validated as integer above
 
     // search the list
     int n = bDeletedList ? 0 : 1;

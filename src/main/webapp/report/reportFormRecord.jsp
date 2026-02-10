@@ -15,8 +15,6 @@
 %>
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%
     boolean bDeletedList = false;
@@ -66,9 +64,8 @@
         if (report_name == null || report_name.trim().length() < 2) {
             msg = "Report name must be at least 2 characters";
         } else {
-            // Sanitize input to prevent XSS
-            String sanitizedName = StringEscapeUtils.escapeHtml4(report_name);
-            reportItem.setReport_name(sanitizedName);
+            // Store raw value; XSS prevention handled by <c:out> on output
+            reportItem.setReport_name(report_name);
             if (!reportItem.insertRecord()) {
                 msg = "The report is NOT added by some reasons. Please check your action.";
             }
