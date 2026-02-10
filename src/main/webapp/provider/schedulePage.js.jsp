@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Toggles .Cancelled elements and saves state to localStorage
 function toggleCancelled() {
     const cancelledElements = document.querySelectorAll('.Cancelled');
+    const toggleBtn = document.getElementById('toggleCancelledBtn');
     const eyeIcon = document.getElementById('toggleCancelledIcon');
     let isHidden = false;
 
@@ -85,25 +86,37 @@ function toggleCancelled() {
         }
     });
 
-    // Toggle icon appearance
-    if (eyeIcon) {
+    // Toggle icon appearance and title from data attributes
+    if (eyeIcon && toggleBtn) {
         if (isHidden) {
             eyeIcon.classList.add('cancelled-hidden');
-            eyeIcon.title = '<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>';
+            toggleBtn.title = toggleBtn.dataset.titleShow;
         } else {
             eyeIcon.classList.remove('cancelled-hidden');
-            eyeIcon.title = '<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>';
+            toggleBtn.title = toggleBtn.dataset.titleHide;
         }
     }
 
-    localStorage.setItem('hideCancelled', isHidden ? 'true' : 'false');
+    try {
+        localStorage.setItem('hideCancelled', isHidden ? 'true' : 'false');
+    } catch (e) {
+        // localStorage may be unavailable (e.g., private browsing); ignore
+    }
 }
 
 // Initialize cancelled appointments visibility on page load
 function initCancelledVisibility() {
-    const hideState = localStorage.getItem('hideCancelled');
-    if (hideState === 'true') {
+    let hideState = false;
+    try {
+        hideState = localStorage.getItem('hideCancelled') === 'true';
+    } catch (e) {
+        // localStorage may be unavailable; fall back to default visibility
+        hideState = false;
+    }
+
+    if (hideState) {
         const cancelledElements = document.querySelectorAll('.Cancelled');
+        const toggleBtn = document.getElementById('toggleCancelledBtn');
         const eyeIcon = document.getElementById('toggleCancelledIcon');
 
         cancelledElements.forEach(function(el) {
@@ -111,9 +124,9 @@ function initCancelledVisibility() {
             el.style.display = 'none';
         });
 
-        if (eyeIcon) {
+        if (eyeIcon && toggleBtn) {
             eyeIcon.classList.add('cancelled-hidden');
-            eyeIcon.title = '<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>';
+            toggleBtn.title = toggleBtn.dataset.titleShow;
         }
     }
 }
@@ -171,6 +184,13 @@ function DateAdd(itemType, dateToWorkOn, valueToBeAdded) {
 }
 
 function getLocation(id, multiplier) {
+    // Parse and validate multiplier
+    multiplier = parseInt(multiplier, 10);
+    if (isNaN(multiplier) || multiplier < 1 || multiplier > 99) {
+        alert('Please enter a valid number between 1 and 99');
+        return;
+    }
+
     initializeQSArray();
     getQSValues();
 
@@ -215,13 +235,13 @@ function getLocation(id, multiplier) {
         + '&viewall=' + (qsParm['viewall'] || '0');
 
     if (qsParm['curProvider']) {
-        destination += '&curProvider=' + qsParm['curProvider'];
+        destination += '&curProvider=' + encodeURIComponent(qsParm['curProvider']);
     }
     if (qsParm['curProviderName']) {
         destination += '&curProviderName=' + encodeURIComponent(qsParm['curProviderName']);
     }
     if (qsParm['provider_no']) {
-        destination += '&provider_no=' + qsParm['provider_no'];
+        destination += '&provider_no=' + encodeURIComponent(qsParm['provider_no']);
     }
 
     window.location = destination;

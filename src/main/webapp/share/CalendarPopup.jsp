@@ -189,7 +189,7 @@
                 else {
                     bTodayDate = false;
                     now.add(now.DATE, 1);
-                    if ( (todayDate == now.get(Calendar.DATE)) && ( (month - 1) == (cal.get(Calendar.MONTH)) ) ) {
+                    if ( (todayDate == now.get(Calendar.DATE)) && ( (month - 1) == (cal.get(Calendar.MONTH)) ) && ( year == cal.get(Calendar.YEAR) ) ) {
                         bTodayDate = true;
                     }
     %>
