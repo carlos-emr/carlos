@@ -261,12 +261,29 @@
     }
 
 </script>
+<style>
+    .search-header {
+        width: 100%;
+        background: #f5f5f5;
+        padding: 8px;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 10px;
+    }
+
+    .search-header-title {
+        margin: 0;
+    }
+
+    .search-header-icon {
+        vertical-align: text-bottom;
+    }
+</style>
 <div class="searchBox">
     <!-- Styled Header with Search Icon -->
-    <div class="RowTop header" style="width:100%; background:#f5f5f5; padding:8px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+    <div class="RowTop header search-header">
         <div class="title">
-            <h4 style="margin:0;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom;">
+            <h4 class="search-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="search-header-icon">
                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
                 </svg>
                 &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgSearchPatient"/>
