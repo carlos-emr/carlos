@@ -490,7 +490,7 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         @DisplayName("should pass exact demographic ID and date to DAO")
         void shouldPassExactParameters_whenPatientConsented() {
             // Given
-            Integer specificDemo = 54321;
+            int specificDemo = 54321;
             Date specificDate = new Date(5000000L);
             when(mockPatientConsentManager.hasPatientConsented(specificDemo, mockConsentType)).thenReturn(true);
             when(mockAllergyDao.findByDemographicIdUpdatedAfterDate(specificDemo, specificDate))
