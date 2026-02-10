@@ -195,6 +195,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     /** Tests that the interface constants defining privilege levels are correct. */
     @Nested
     @DisplayName("Interface Constants")
+    @Tag("read")
     class InterfaceConstants {
 
         @Test
@@ -235,6 +236,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link SecurityInfoManagerImpl#getRoles(LoggedInInfo)}. */
     @Nested
     @DisplayName("getRoles")
+    @Tag("read")
     class GetRolesTests {
 
         @Test
@@ -291,6 +293,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link SecurityInfoManagerImpl#getSecurityObjects(LoggedInInfo)}. */
     @Nested
     @DisplayName("getSecurityObjects")
+    @Tag("read")
     class GetSecurityObjectsTests {
 
         @Test
@@ -338,6 +341,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link SecurityInfoManagerImpl#hasPrivilege(LoggedInInfo, String, String, String)}. */
     @Nested
     @DisplayName("hasPrivilege with String demographicNo")
+    @Tag("security")
     class HasPrivilegeStringOverloadTests {
 
         /** Verifies that write privilege grants read, update, and write but not delete. */
@@ -693,6 +697,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link SecurityInfoManagerImpl#hasPrivilege(LoggedInInfo, String, String, int)}. */
     @Nested
     @DisplayName("hasPrivilege with int demographicNo")
+    @Tag("security")
     class HasPrivilegeIntOverloadTests {
 
         @Test
@@ -725,6 +730,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link SecurityInfoManagerImpl#isAllowedAccessToPatientRecord(LoggedInInfo, Integer)}. */
     @Nested
     @DisplayName("isAllowedAccessToPatientRecord")
+    @Tag("security")
     class IsAllowedAccessToPatientRecordTests {
 
         @Test
@@ -791,6 +797,7 @@ public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
     /** Cross-cutting tests verifying null safety across all methods. */
     @Nested
     @DisplayName("Null LoggedInInfo Handling")
+    @Tag("security")
     class NullLoggedInInfoHandling {
 
         @Test

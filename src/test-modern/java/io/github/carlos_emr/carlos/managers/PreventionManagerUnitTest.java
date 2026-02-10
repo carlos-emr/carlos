@@ -259,6 +259,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("getPreventionExtByPrevention")
+    @Tag("read")
     class GetPreventionExtByPrevention {
 
         @Test
@@ -390,6 +391,8 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("Hide Prevention Items")
+    @Tag("read")
+    @Tag("update")
     class HidePreventionItems {
 
         @Test
@@ -545,6 +548,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("Prevention Stop Signs")
+    @Tag("read")
     class PreventionStopSigns {
 
         @Test
@@ -701,6 +705,8 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("Set and Get Disabled Preventions")
+    @Tag("read")
+    @Tag("update")
     class DisabledPreventions {
 
         @Test
@@ -785,6 +791,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("checkNames")
+    @Tag("read")
     class CheckNames {
 
         @Test
@@ -853,6 +860,8 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("Date-Based Queries")
+    @Tag("read")
+    @Tag("query")
     class DateBasedQueries {
 
         @Test
@@ -917,6 +926,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
      */
     @Nested
     @DisplayName("getImmunizationsByDemographic")
+    @Tag("read")
     class GetImmunizationsByDemographic {
 
         @Test

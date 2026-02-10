@@ -255,6 +255,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getMeasurementByType")
+    @Tag("read")
     class GetMeasurementByType {
 
         @Test
@@ -314,6 +315,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getMeasurementByDemographicIdAfter (consent-gated)")
+    @Tag("read")
     class GetMeasurementByDemographicIdAfter {
 
         @Test
@@ -419,6 +421,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getLatestMeasurementsByDemographicIdObservedAfter (consent-gated)")
+    @Tag("read")
     class GetLatestMeasurementsByDemographicIdObservedAfter {
 
         @Test
@@ -544,6 +547,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getMeasurementMaps")
+    @Tag("read")
     class GetMeasurementMaps {
 
         @Test
@@ -666,6 +670,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getMeasurementsByProgramProviderDemographicDate")
+    @Tag("read")
     class GetMeasurementsByProgramProviderDemographicDate {
 
         @Test
@@ -740,6 +745,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("findGroupId")
+    @Tag("read")
     class FindGroupId {
 
         @Test
@@ -816,6 +822,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("isProperty")
+    @Tag("read")
     class IsProperty {
 
         @Test
@@ -869,6 +876,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("getDShtml")
+    @Tag("read")
     class GetDShtml {
 
         @Test
@@ -956,6 +964,8 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("addMeasurementGroupDS")
+    @Tag("create")
+    @Tag("update")
     class AddMeasurementGroupDS {
 
         @Test
@@ -1060,6 +1070,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      */
     @Nested
     @DisplayName("removeMeasurementGroupDS")
+    @Tag("delete")
     class RemoveMeasurementGroupDS {
 
         @Test

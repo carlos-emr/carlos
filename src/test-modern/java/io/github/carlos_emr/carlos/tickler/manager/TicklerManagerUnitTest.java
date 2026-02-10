@@ -100,6 +100,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 
     @Nested
     @DisplayName("Validation Logic")
+    @Tag("read")
     class ValidationLogic {
 
         @Test
@@ -159,7 +160,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 
         @Test
         @DisplayName("should reject null tickler")
-        void shouldRejectNullTickler() {
+        void shouldRejectTickler_whenNull() {
             // When
             boolean isValid = ticklerManager.validateTicklerIsValid(null);
 
@@ -170,6 +171,8 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 
     @Nested
     @DisplayName("Business Operations")
+    @Tag("create")
+    @Tag("update")
     class BusinessOperations {
 
         @Test
@@ -188,7 +191,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 
         @Test
         @DisplayName("should not persist invalid tickler")
-        void shouldNotPersistInvalidTickler() {
+        void shouldNotPersistTickler_whenInvalid() {
             // Given
             Tickler invalidTickler = createInvalidTickler();
 
@@ -223,7 +226,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 
         @Test
         @DisplayName("should not update invalid tickler")
-        void shouldNotUpdateInvalidTickler() {
+        void shouldNotUpdateTickler_whenInvalid() {
             // Given
             Tickler invalidTickler = createTestTicklerWithId(456);
             invalidTickler.setTaskAssignedTo(null); // Make it invalid

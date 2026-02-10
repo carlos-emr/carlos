@@ -219,6 +219,7 @@ public class NoteManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link NoteManager#getCppNotes(LoggedInInfo, Integer)}. */
     @Nested
     @DisplayName("getCppNotes")
+    @Tag("read")
     class GetCppNotesTests {
 
         @Test
@@ -302,6 +303,7 @@ public class NoteManagerUnitTest extends OpenOUnitTestBase {
      *  {@link NoteManager#getActiveCppNotes(LoggedInInfo, Integer, String[])}. */
     @Nested
     @DisplayName("getActiveCppNotes")
+    @Tag("read")
     class GetActiveCppNotesTests {
 
         @Test
@@ -424,6 +426,7 @@ public class NoteManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link NoteManager#convertNote(LoggedInInfo, CaseManagementNote)}. */
     @Nested
     @DisplayName("convertNote")
+    @Tag("read")
     class ConvertNoteTests {
 
         @Test
@@ -824,6 +827,7 @@ public class NoteManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link NoteManager#isCppCode(CaseManagementIssue)}. */
     @Nested
     @DisplayName("isCppCode")
+    @Tag("read")
     class IsCppCodeTests {
 
         @Test
@@ -990,6 +994,7 @@ public class NoteManagerUnitTest extends OpenOUnitTestBase {
     /** Tests for {@link NoteManager#getIssueIds(String[])}. */
     @Nested
     @DisplayName("getIssueIds")
+    @Tag("read")
     class GetIssueIdsTests {
 
         @Test

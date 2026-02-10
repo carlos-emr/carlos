@@ -128,6 +128,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
      */
     @Nested
     @DisplayName("getHl7Messages")
+    @Tag("read")
     class GetHl7Messages {
 
         @Test
@@ -225,6 +226,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
      */
     @Nested
     @DisplayName("getHl7TextInfo")
+    @Tag("read")
     class GetHl7TextInfo {
 
         @Test
@@ -364,6 +366,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
      */
     @Nested
     @DisplayName("getHl7Message")
+    @Tag("read")
     class GetHl7Message {
 
         @Test
@@ -460,6 +463,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
      */
     @Nested
     @DisplayName("renderLab")
+    @Tag("read")
     class RenderLab {
 
         @Test
@@ -502,6 +506,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
      */
     @Nested
     @DisplayName("Security Privilege Checks")
+    @Tag("security")
     class SecurityPrivilegeChecks {
 
         @BeforeEach
@@ -597,6 +602,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
      */
     @Nested
     @DisplayName("Edge Cases and Null Parameters")
+    @Tag("read")
     class EdgeCasesAndNullParameters {
 
         @Test
@@ -719,6 +725,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
      */
     @Nested
     @DisplayName("DAO Interaction Verification")
+    @Tag("read")
     class DaoInteractionVerification {
 
         @Test
