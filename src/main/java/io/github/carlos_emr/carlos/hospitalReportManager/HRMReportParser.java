@@ -147,13 +147,14 @@ public class HRMReportParser {
                 logger.error("SAX ERROR PARSING XML " + e);
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {
-                logger.error("error", e);
                 String msg = (e.getLinkedException() != null)
                     ? e.getLinkedException().getMessage()
                     : e.getMessage();
-                SFTPConnector.notifyHrmError(loggedInInfo, msg);
+                logger.error("HRM JAXB parse error: " + msg, e);
+                if (errors != null) errors.add(e);
             } catch (IOException e) {
-                logger.error("ERROR READING report_manager_cds.xsd RESOURCE" + e);
+                logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                if (errors != null) errors.add(e);
             }
 
             if (root != null && hrmReportFileLocation != null && fileData != null) {
