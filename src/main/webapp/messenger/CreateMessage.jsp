@@ -30,12 +30,12 @@
 --%>
 <%--
     CreateMessage.jsp - Main message composition interface for the OpenO EMR messaging system
-    
+
     Purpose:
     This JSP page provides the primary interface for healthcare providers to compose and send
     internal messages within the EMR system. It supports creating new messages, replying to
     existing messages, and forwarding messages with attachments.
-    
+
     Key Features:
     - Message composition with subject and body text
     - Recipient selection from local and remote provider lists
@@ -44,30 +44,30 @@
     - Attachment support including PDF documents
     - Delegate/proxy messaging capabilities
     - Reply and forward functionality with quoted text
-    
+
     Security:
     - Requires write permissions on "_msg" object
     - Session validation through msgSessionBean
     - OWASP encoding for XSS prevention
-    
+
     Dependencies:
     - MsgSessionBean: Maintains message session state
     - MessengerGroupManager: Handles provider groups and membership
     - MessagingManager: Core messaging operations
     - DemographicData: Patient information retrieval
-    
+
     Request Parameters:
     - subject: Initial message subject
     - demographic_no: Associated patient ID
     - delegate: Delegate/proxy provider ID
     - ReSubject: Reply subject (from reply action)
     - ReText: Quoted text for replies
-    
+
     Session Attributes:
     - msgSessionBean: Message composition session data
     - userrole: Current user role
     - user: Current username
-    
+
     @since 2002
 --%>
 
@@ -81,17 +81,22 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.MessagingManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Groups" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgProviderData" %>
-<%@ page import="java.util.Map, java.util.List" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="java.util.Map" %>
+<%@ page import="java.util.List" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     // Security check: Build role string from session attributes for authorization
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -195,10 +200,26 @@
             }
         </style>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery-1.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/js/jquery-1.12.3.js"></script>
         <script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css"> -->
 
-        <script type="text/javascript">
+<link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
+
+
+<link rel="stylesheet" href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css">
+<script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/toastui/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.js"></script>
+
+<link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+
+<style>
+    .toastui-editor-contents{
+        font-size: 17px;
+    }
+ </style>
+        <script>
 
             function checkGroup(group) {
                 $.each($("input." + group.id), function () {
@@ -322,355 +343,309 @@
                 if (submissionerror) {
                     alert(submissionerror);
                 }
-            })
+
+        document.getElementsByName("message")[0].setAttribute("style", "display:none;");
+        editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
+        editor.moveCursorToStart();
+
+        disableArchive();
+	})
 
         </script>
-    </head>
-    <body class="BodyStyle" vlink="#0000FF">
-    <div class="container">
-        <table class="MainTable" id="scrollNumber1">
-            <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgMessenger"/>
-                </td>
-                <td class="MainTableTopRowRightColumn">
-                    <table class="TopStatusBar">
-                        <tr>
-                            <td><h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgCreate"/></h2>
-                            </td>
-                            <td>&nbsp;</td>
-                            <td style="text-align: right">
-                                
-                                <a href="javascript:void(0)"
-                                   onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="MainTableLeftColumn">&nbsp;</td>
-                <td class="MainTableRightColumn">
-                    <table>
+</head>
+<body class="BodyStyle" >
+<table style="width:100%;">
+    <tr>
+        <td style="vertical-align:top">
+            <h4>&nbsp;<i class="icon-envelope" title='<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;
+<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgCreate"/>
+            </h4>
+        </td>
+        <td>
+        </td>
+        <td style="text-align:right" >
+            <i class=" icon-question-sign"></i>
+            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
+            <i class=" icon-info-sign" style="margin-left:10px;"></i>
+            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+        </td>
+    </tr>
+</table>
 
-                        <tr>
-                            <td>
-                                <table cellspacing=3>
-                                    <tr>
-                                        <td>
-                                            <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
-                                                            class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox"/>
-                                                    </a></td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                        <td>
-                                            <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="${pageContext.request.contextPath}/messenger/ClearMessage.do"
-                                                            class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear"/>
-                                                    </a></td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                        <td>
-                                            <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="javascript:BackToOscar()"
-                                                            class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnExit"/></a></td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
+<table class="MainTable" id="scrollNumber1" style="width:100%">
 
-                        <tr>
-                            <td>
-                                <form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validatefields()">
-                                    <table>
-                                        <tr>
-                                            <th bgcolor="#DDDDFF" width="75"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgRecipients"/></th>
-                                            <th colspan="2" align="left" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgMessage"/></th>
-                                        </tr>
-                                        <tr>
+	<tr>
+		<td class="MainTableRightColumn">
+		<table style="width:100%">
 
-                                            <td bgcolor="#EEEEFF" valign=top>
-                                                <table>
-                                                    <tr>
-                                                        <td><input type="submit" class="ControlPushButton"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendMessage"/>">
-                                                        </td>
-                                                        <td><input type="button" class="ControlPushButton"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>"
-                                                                   onClick="XMLHttpRequestSendnArch()">
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                                <div class="ChooseRecipientsBox">
-                                                    <table>
-                                                        <tr>
-                                                            <td style="padding: 10px 5px;">
-                                                                <!--list of the providers cell Start-->
-                                                                <%if (recall) { %>
-                                                                <div>
-                                                                    <input name="provider" value="<%=delegate%>"
-                                                                           type="checkbox" checked>
-                                                                    <strong><a
-                                                                            title="default recall delegate: <%=delegateName%>">default: <%=delegateName%>
-                                                                    </a></strong>
-                                                                </div>
-                                                                <%} %>
+			<tr>
 
-                                                                <!-- Display Member Groups -->
-                                                                <div id="member-groups">
+						<td>
+						    <a class="btn btn-light" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
+								<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox" />
+							</a>
+                            <a class="btn btn-light" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
+								<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear" />
+							</a>
+                            <a href="javascript:BackToOscar()" class="btn btn-light">
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnExit" />
+                            </a>
+                            <br>&nbsp;
+						</td>
 
-                                                                    <strong>Member Groups</strong>
 
-                                                                    <c:forEach items="${ groupManager }" var="group">
-                                                                        <details>
-                                                                            <summary>
-                                                                                <input type="checkbox" name="tableDFR"
-                                                                                       id="member_group_${ group.key.id }"
-                                                                                       value="${ group.key.id }"
-                                                                                       onclick="checkGroup(this)"/>
-                                                                                <label for="member_group_${ group.key.id }">${ group.key.groupDesc }</label>
-                                                                            </summary>
+			</tr>
 
-                                                                            <c:forEach items="${ group.value }"
-                                                                                       var="member">
-                                                                                <div class="group_member_contact">
+			<tr>
+				<td colspan="3">
+				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validatefields()">
+				<table class="well" style="width:100%">
+						<tr class="subheader">
+							<th><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
+							<th colspan="2" style="text-align:left"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgMessage" /></th>
+						</tr>
+						<tr>
 
-                                                                                    <input type="checkbox"
-                                                                                           name="provider"
-                                                                                           class="member_group_${ group.key.id }"
-                                                                                           id="${ group.key.id }-${ member.id.compositeId }"
-                                                                                           value="${ member.id.compositeId }"/>
+						<td style="vertical-align:top"><br>
 
-                                                                                    <label for="${ group.key.id }-${ member.id.compositeId }">
-                                                                                        <c:out value="${ member.lastName }"/>,
-                                                                                        <c:out value="${ member.firstName }"/>
-                                                                                    </label>
+							<div class="ChooseRecipientsBox" style="max-height: 576px; overflow-y: scroll;">
+							<table>
+                                <tr>
+								<td style="padding: 10px 5px; min-width:fit-content;"  class="form-inline"><!--list of the providers cell Start-->
+									<%if(recall){ %>
+										<div>
+											<input name="provider" value="<%=delegate%>" type="checkbox" checked>
+											<strong><a title="default recall delegate: <%=delegateName%>">default: <%=delegateName%></a></strong>
+										</div>
+									<%} %>
 
-                                                                                </div>
-                                                                            </c:forEach>
+										<!-- Display Member Groups -->
+										<div id="member-groups">
 
-                                                                        </details>
-                                                                    </c:forEach>
+											<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.memberGroups" /></strong>
 
-                                                                </div>
+											<c:forEach items="${ groupManager }" var="group">
+											<details>
+												<summary>
+													<input type="checkbox" name="tableDFR" id="member_group_${ group.key.id }"
+															value="${ group.key.id }" onclick="checkGroup(this)" >
+													<label for="member_group_${ group.key.id }" >${ group.key.groupDesc }</label>
+												</summary>
 
-                                                                <!-- Display Members by remote locations -->
-                                                                <c:if test="${ not empty remoteMembers }">
+												<c:forEach items="${ group.value }" var="member">
+													<div class="group_member_contact" style="white-space: nowrap;">
+														<input type="checkbox" name="provider" class="member_group_${ group.key.id }"
+															id="${ group.key.id }-${ member.id.compositeId }" value="${ member.id.compositeId }" >
 
-                                                                    <hr style="border-top:1px solid #dcdcdc; border-bottom:none;"/>
+														<label for="${ group.key.id }-${ member.id.compositeId }" >
+															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+														</label>
+													</div>
+												</c:forEach>
 
-                                                                    <div id="remote-locations">
-                                                                        <details>
-                                                                            <summary>
-                                                                                <strong>All Integrated Clinics</strong>
-                                                                            </summary>
-                                                                            <c:forEach items="${ remoteMembers }"
-                                                                                       var="location">
-                                                                                <details>
-                                                                                    <summary>
-                                                                                        <input type="checkbox"
-                                                                                               name="tableDFR"
-                                                                                               id="remote_group_${ location.key }"
-                                                                                               value="${ location.key }"
-                                                                                               onchange="checkGroup(this)"/>
-                                                                                        <label for="remote_group_${ location.key }">${ location.key }</label>
-                                                                                    </summary>
+											</details>
+											</c:forEach>
 
-                                                                                    <c:forEach
-                                                                                            items="${ location.value }"
-                                                                                            var="member">
+										</div>
 
-                                                                                        <%-- this is horrible. try not to repeat it --%>
-                                                                                        <c:set var="providerChecked"
-                                                                                               value="false"/>
-                                                                                        <c:forEach var="replyId"
-                                                                                                   items="${ replyList }">
-                                                                                            <c:if test="${ replyId.compositeId eq member.id.compositeId }">
-                                                                                                <c:set var="providerChecked"
-                                                                                                       value="true"/>
-                                                                                            </c:if>
-                                                                                        </c:forEach>
+										<!-- Display Members by remote locations -->
+										<c:if test="${ not empty remoteMembers }" >
 
-                                                                                        <div class="remote_member_contact">
-                                                                                            <input type="checkbox"
-                                                                                                   name="provider"
-                                                                                                   class="remote_group_${ location.key }"
-                                                                                                   id="${ member.id.compositeId }"
-                                                                                                   value="${ member.id.compositeId }"  ${ providerChecked ? 'checked' : '' }/>
-                                                                                            <label for="${ member.id.compositeId }">
-                                                                                                <c:out value="${ member.lastName }"/>,
-                                                                                                <c:out value="${ member.firstName }"/>
-                                                                                            </label>
-                                                                                        </div>
-                                                                                    </c:forEach>
+										<hr style="border-top:1px solid #dcdcdc; border-bottom:none;">
 
-                                                                                </details>
-                                                                            </c:forEach>
-                                                                        </details>
-                                                                    </div>
-                                                                </c:if>
+										<div id="remote-locations">
+										<details>
+											<summary>
+												<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.remoteMembers" /></strong>
+											</summary>
+											<c:forEach items="${ remoteMembers }" var="location" >
+												<details>
+													<summary>
+														<input type="checkbox" name="tableDFR" id="remote_group_${ location.key }"
+																value="${ location.key }" onchange="checkGroup(this)" />
+														<label for="remote_group_${ location.key }" >${ location.key }</label>
+													</summary>
 
-                                                                <hr style="border-top:1px solid #dcdcdc; border-bottom:none;"/>
+													<c:forEach items="${ location.value }" var="member">
 
-                                                                <details open="true">
-                                                                    <summary>
-                                                                        <strong>All Local Members</strong>
-                                                                    </summary>
+														<%-- this is horrible. try not to repeat it --%>
+														<c:set var="providerChecked" value="false" />
+														<c:forEach var="replyId" items="${ replyList }">
+															<c:if test="${ replyId.compositeId eq member.id.compositeId }">
+																<c:set var="providerChecked" value="true" />
+															</c:if>
+														</c:forEach>
 
-                                                                    <!-- Display all local members -->
-                                                                    <c:forEach items="${ localMembers }" var="member">
+														<div class="remote_member_contact">
+															<input type="checkbox" name="provider" class="remote_group_${ location.key }"
+																id="${ member.id.compositeId }" value="${ member.id.compositeId }"  ${ providerChecked ? 'checked' : '' }/>
+															<label for="${ member.id.compositeId }" >
+																<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+															</label>
+														</div>
+													</c:forEach>
 
-                                                                        <%-- this is horrible. try not to repeat it --%>
-                                                                        <c:set var="providerChecked" value="false"/>
-                                                                        <c:forEach var="replyId" items="${ replyList }">
-                                                                            <c:if test="${ replyId.compositeId eq member.id.compositeId }">
-                                                                                <c:set var="providerChecked"
-                                                                                       value="true"/>
-                                                                            </c:if>
-                                                                        </c:forEach>
+												</details>
+											</c:forEach>
+										</details>
+										</div>
+										</c:if>
 
-                                                                        <div class="member_contact">
-                                                                            <input type="checkbox" name="provider"
-                                                                                   id="0-${ member.id.compositeId }"
-                                                                                   value="${ member.id.compositeId }"  ${ providerChecked ? 'checked' : '' }/>
-                                                                            <label for="0-${ member.id.compositeId }">
-                                                                                <c:out value="${ member.lastName }"/>,
-                                                                                <c:out value="${ member.firstName }"/>
-                                                                            </label>
-                                                                        </div>
-                                                                    </c:forEach>
-                                                                </details>
-                                                            </td><!--list of the providers cell end-->
-                                                        </tr>
-                                                    </table>
-                                                </div> <!-- end ChooseRecipientsBox -->
-                                            </td>
-                                            <td bgcolor="#EEEEFF" valign=top colspan="2"><!--Message and Subject Cell-->
-                                                <div>
-                                                    <label for="subject">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject"/> :
-                                                    </label>
-                                                    <input type="text" name="subject" id="subject" size="67" value="${messageSubject}"/>
-                                                    <br>
-                                                </div>
-                                                <div>
-                                                    <textarea class="boxsizingBorder"
-                                                                   name="message"
-                                                              cols="60" rows="18">${messageBody}</textarea>
-                                                </div>
-                                                <%
-                                                    String att = bean.getAttachment();
-                                                    String pdfAtt = bean.getPDFAttachment();
-                                                    if (att != null || pdfAtt != null) {
-                                                %>
-                                                <br>
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachments"/>
-                                                <input type="hidden" id="attachmentAlert" name="attachmentAlert"
-                                                       value="true"/>
-                                                <%
-                                                        bean.setSubject(null);
-                                                        bean.setMessage(null);
-                                                    }%>
-                                            </td>
-                                        </tr>
+										<hr style="border-top:1px solid #dcdcdc; border-bottom:none;">
 
-                                        <tr>
-                                            <td bgcolor="#B8B8FF"></td>
-                                            <td bgcolor="#B8B8FF" colspan="2"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgLinkThisMessage"/></strong>
-                                            </td>
-                                        </tr>
+										<details open="true">
+											<summary>
+												<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.localMembers" /></strong>
+											</summary>
 
-                                        <tr>
-                                            <td bgcolor="#EEEEFF"></td>
-                                            <td bgcolor="#EEEEFF">
-                                                <input type="text" name="keyword" size="30"/> <input type="hidden"
-                                                                                                     name="demographic_no"
-                                                                                                     value="<%=demographic_no%>"/>
-                                            </td>
-                                            <td bgcolor="#EEEEFF">
-                                                <input type="button" class="ControlPushButton" name="searchDemo"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSearchDemographic"/>"
-                                                       onclick="popupSearchDemo(document.forms[0].keyword.value)"/>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td bgcolor="#EEEEFF"></td>
-                                            <td bgcolor="#EEEEFF" colspan="2"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSelectedDemographic"/></strong>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td bgcolor="#EEEEFF"></td>
+											<!-- Display all local members -->
+											<c:forEach items="${ localMembers }" var="member">
 
-                                            <td bgcolor="#EEEEFF">
+												<%-- this is horrible. try not to repeat it --%>
+												<c:set var="providerChecked" value="false" />
+												<c:forEach var="replyId" items="${ replyList }">
+													<c:if test="${ replyId.compositeId eq member.id.compositeId }">
+														<c:set var="providerChecked" value="true" />
+													</c:if>
+												</c:forEach>
 
-                                                <c:choose>
-                                                    <c:when test="${ not empty unlinkedIntegratorDemographicName }">
-                                                        <input type="text" name="selectedDemo"
-                                                               value="<c:out value='${ unlinkedIntegratorDemographicName }' />"
-                                                               size="30" style="background: #EEEEFF; border: none;"
-                                                               readonly/>
-                                                    </c:when>
-                                                    <c:otherwise>
-                                                        <input type="text" id="selectedDemo" name="selectedDemo"
-                                                               size="30" readonly
-                                                               style="background: #EEEEFF; border: none" value="none"/>
-                                                        <script type="text/javascript">
-                                                            if ('<%=Encode.forHtmlUnquotedAttribute(demoName)%>' && '<%=Encode.forHtmlUnquotedAttribute(demoName)%>' !== 'null') {
-                                                                document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
-                                                                document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
-                                                            }
-                                                        </script>
-                                                    </c:otherwise>
-                                                </c:choose>
+												<div class="member_contact" style="white-space: nowrap;">
+													<input type="checkbox" name="provider" id="0-${ member.id.compositeId }"
+														value="${ member.id.compositeId }"  ${ providerChecked ? 'checked' : '' }/>
+													<label for="0-${ member.id.compositeId }" >
+														<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+													</label>
+												</div>
 
-                                            </td>
-                                            <td bgcolor="#EEEEFF">
-                                                <input type="button"
-                                                       class="ControlPushButton" name="clearDemographic"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic"/>"
-                                                       onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"'/>
-                                                <input type="button" class="ControlPushButton" name="attachDemo"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachDemographic"/>"
-                                                       onclick="popupAttachDemo(document.forms[0].demographic_no.value)"
-                                                       style="display: "/>
-                                            </td>
+											</c:forEach>
+										</details>
+									</td><!--list of the providers cell end-->
+								</tr>
+							</table>
+						</div> <!-- end ChooseRecipientsBox -->
+					</td>
+					<td style="vertical-align:top;" colspan="2"><!--Message and Subject Cell-->
+                    <br>
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject" /> :
+					<input type="text" name="subject" class="form-control " value="${messageSubject}"> <br>
+					<br>
+                    <div id="messagediv"></div>
+					<textarea name="message" rows="15" style="min-width: 100%">${messageBody}</textarea>
+							<table>
+								<tr>
+									<td><input type="submit" class="btn btn-primary" onclick="writeToMessage();"
+										value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendMessage"/>">
+									</td>
+									<td><input type="button" class="btn btn-secondary" id="sendArchive" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
+										value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>" >
+									</td>
+								</tr>
+							</table>
+					<%
+                       String att = bean.getAttachment();
+                       String pdfAtt = bean.getPDFAttachment();
+                       if (att != null || pdfAtt != null){
+                    %>
+							<br>
+							<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachments" />
+							<input type="hidden" id="attachmentAlert" name="attachmentAlert" value="true" />
+							<%
+							bean.setSubject(null);
+							bean.setMessage(null);
+						}%>
+					</td>
+				</tr>
 
-                                        </tr>
+				<tr>
+					<td class="subheader"></td>
+					<td class="subheader" colspan="2" style="font-weight: bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgLinkThisMessage" /></td>
+				</tr>
 
-                                    </table>
-                                </form>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <script language="JavaScript">
-                                    document.forms[0].message.focus();
-                                </script>
-                            </td>
-                        </tr>
+				<tr>
+					<td><br><br>&nbsp;</td>
+					<td>
+                      <input type="text" name="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=demographic_no%>" >
+                    </td>
+	                <td>
+                      <input type="button" class="btn btn-light" name="searchDemo" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >
+                  	</td>
+				</tr>
+				<tr>
+					<td></td>
+					<td colspan="2" style="font-weight: bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSelectedDemographic" /></td>
+				</tr>
+				<tr>
+					<td></td>
 
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
-                <td class="MainTableBottomRowRightColumn">&nbsp;</td>
-            </tr>
-        </table>
-    </div>
-    </body>
+					<td>
+
+						<c:choose>
+							<c:when test="${ not empty unlinkedIntegratorDemographicName }">
+								<input type="text" name="selectedDemo" value="${ unlinkedIntegratorDemographicName }"
+									class="form-control" style="border: none;" readonly />
+							</c:when>
+							<c:otherwise>
+								<input type="text" name="selectedDemo" class="form-control" readonly style="border: none" value="none" />
+								<script>
+			                          if ('<%=Encode.forHtmlUnquotedAttribute(demoName)%>' && '<%=Encode.forHtmlUnquotedAttribute(demoName)%>' !== 'null') {
+                                        document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
+                                        document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
+                                       }
+			                     </script>
+							</c:otherwise>
+						</c:choose>
+
+	                </td>
+	                <td>
+                    <input type="button"
+						class="btn btn-light" name="clearDemographic"
+						value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic" />"
+						onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
+					<input type="button" class="btn btn-light" name="attachDemo"
+						value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachDemographic" />"
+						onclick="popupAttachDemo(document.forms[0].demographic_no.value)"
+						>
+					</td>
+
+				</tr>
+
+		</table>
+		</form>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			<script>
+                 document.forms[0].message.focus();
+            </script>
+            </td>
+		</tr>
+
+	</table>
+	</td>
+	</tr>
+	<tr>
+		<td class="MainTableBottomRowLeftColumn">&nbsp;</td>
+		<td class="MainTableBottomRowRightColumn">&nbsp;</td>
+	</tr>
+</table>
+
+<script>
+
+    // note that global.language.code != global.i18nLanguagecode
+    const Editor = toastui.Editor;
+    const editor = new Editor({
+      el: document.getElementById('messagediv'),
+        initialEditType:'wysiwyg',
+        usageStatistics: false,
+        height: '500px',
+        language:'<fmt:setBundle basename="oscarResources"/><fmt:message key="global.language.code" />'
+	    })
+
+    function writeToMessage() {
+        document.getElementsByName("message")[0].value = editor.getMarkdown();
+    }
+
+</script>
+</body>
 </html>
