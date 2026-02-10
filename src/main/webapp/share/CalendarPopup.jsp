@@ -63,7 +63,7 @@
 <html>
 <head>
     <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>CALENDAR</title>
     <% if (session.getAttribute("mobileOptimized") != null) { %>

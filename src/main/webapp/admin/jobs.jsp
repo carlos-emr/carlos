@@ -63,7 +63,7 @@
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>OSCAR Jobs</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">

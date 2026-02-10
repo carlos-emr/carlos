@@ -395,7 +395,7 @@
 <head>
 
     <link href="${ pageContext.request.contextPath }/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="${ pageContext.request.contextPath }/css/font-awesome.min.css">
+    <link rel="stylesheet" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css">
 
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
 

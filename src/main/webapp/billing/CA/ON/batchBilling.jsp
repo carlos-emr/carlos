@@ -86,7 +86,7 @@
 
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBatchBilling"/></title>
     <script type="text/javascript">

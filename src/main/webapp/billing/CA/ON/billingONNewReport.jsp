@@ -353,7 +353,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/font-awesome.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
 
     <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">

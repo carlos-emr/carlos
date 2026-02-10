@@ -64,7 +64,7 @@
         <link rel="stylesheet"
               href="${ pageContext.request.contextPath }/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css">
         <link rel="stylesheet" href="${ pageContext.request.contextPath }/hospitalReportManager/inbox.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>

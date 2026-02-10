@@ -64,7 +64,7 @@
         <link href="css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
 
 
-        <link rel="stylesheet" href="css/font-awesome.min.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
 
         <style>
             body {
