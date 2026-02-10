@@ -38,11 +38,92 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.OscarProperties;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class RxSessionBean implements java.io.Serializable {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String SESSION_KEY_PREFIX = "RxSessionBean_";
+    private static final String LEGACY_SESSION_KEY = "RxSessionBean";
+
+    /**
+     * Gets the session key for a specific patient's RxSessionBean.
+     *
+     * @param demographicNo int the patient's demographic number
+     * @return String the session attribute key, e.g. {@code "RxSessionBean_123"}
+     * @since 2026-01-30
+     */
+    static String getSessionKey(int demographicNo) {
+        return SESSION_KEY_PREFIX + demographicNo;
+    }
+
+    /**
+     * Retrieves the {@link RxSessionBean} for a specific patient from the session.
+     * Checks the per-patient key first, then falls back to the legacy
+     * {@code "RxSessionBean"} key if the demographic matches (migrating it
+     * to the new key on first access).
+     *
+     * @param session HttpSession the HTTP session to search
+     * @param demographicNo int the patient's demographic number
+     * @return RxSessionBean for this patient, or {@code null} if not found
+     * @since 2026-01-30
+     */
+    public static RxSessionBean getFromSession(HttpSession session, int demographicNo) {
+        RxSessionBean bean = (RxSessionBean) session.getAttribute(getSessionKey(demographicNo));
+        if (bean != null) {
+            return bean;
+        }
+        bean = (RxSessionBean) session.getAttribute(LEGACY_SESSION_KEY);
+        if (bean != null && bean.getDemographicNo() == demographicNo) {
+            session.setAttribute(getSessionKey(demographicNo), bean);
+            return bean;
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the {@link RxSessionBean} for a specific patient from the
+     * request's session. Convenience wrapper for
+     * {@link #getFromSession(HttpSession, int)}.
+     *
+     * @param request HttpServletRequest the HTTP request whose session to search
+     * @param demographicNo int the patient's demographic number
+     * @return RxSessionBean for this patient, or {@code null} if not found
+     * @since 2026-01-30
+     */
+    public static RxSessionBean getFromSession(HttpServletRequest request, int demographicNo) {
+        return getFromSession(request.getSession(), demographicNo);
+    }
+
+    /**
+     * Saves the {@link RxSessionBean} to the session using both the per-patient key
+     * ({@code RxSessionBean_&lt;demographicNo&gt;}) and the legacy
+     * {@code "RxSessionBean"} key. Both keys reference the same object instance,
+     * so no memory duplication occurs. {@link RxSessionFilter} swaps the correct
+     * bean into the legacy key at the start of each request.
+     *
+     * @param session HttpSession the HTTP session to store the bean in
+     * @param bean RxSessionBean the bean to save
+     * @since 2026-01-30
+     */
+    public static void saveToSession(HttpSession session, RxSessionBean bean) {
+        session.setAttribute(getSessionKey(bean.getDemographicNo()), bean);
+        session.setAttribute(LEGACY_SESSION_KEY, bean);
+    }
+
+    /**
+     * Saves the {@link RxSessionBean} to the request's session. Convenience
+     * wrapper for {@link #saveToSession(HttpSession, RxSessionBean)}.
+     *
+     * @param request HttpServletRequest the HTTP request whose session to use
+     * @param bean RxSessionBean the bean to save
+     * @since 2026-01-30
+     */
+    public static void saveToSession(HttpServletRequest request, RxSessionBean bean) {
+        saveToSession(request.getSession(), bean);
+    }
 
     private String providerNo = null;
     private int demographicNo = 0;

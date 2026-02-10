@@ -37,6 +37,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
@@ -173,7 +174,22 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 
+        <%-- RxSessionInterceptor: Enables multi-patient tab support by adding demographicNo to AJAX calls and iframes --%>
         <script type="text/javascript">
+            var currentDemographicNo = '<%= Encode.forJavaScript(Integer.toString(bean.getDemographicNo())) %>';
+        </script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/oscarRx/js/rxSessionInterceptor.js"></script>
+
+        <script type="text/javascript">
+
+            function resetStash() {
+                var url = "<%= request.getContextPath() %>" + "/oscarRx/deleteRx.do?parameterValue=clearStash";
+                new Ajax.Request(url, {
+                    method: 'post',
+                    parameters: '',
+                    asynchronous: false
+                });
+            }
 
             function setComment() {
                 frames['preview'].document.getElementById('additNotes').innerHTML = '<%=comment%>';
@@ -313,13 +329,14 @@
                                 <td width=440px>
                                     <div class="DivContentPadding">
                                         <iframe id=preview name=preview width=440px height=580px
-                                                src="oscarRx/Preview.jsp?rePrint=<%=reprint%>"
+                                                src="oscarRx/Preview.jsp?rePrint=<%=reprint%>&demographicNo=<%=Encode.forUriComponent(Integer.toString(bean.getDemographicNo()))%>"
                                                 align=center border=0 frameborder=0></iframe>
                                     </div>
                                 </td>
 
-                                <td valign=top><form action="${pageContext.request.contextPath}/oscarRx/clearPending.do" method="post">
+                                <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/oscarRx/clearPending.do" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
+                                    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(Integer.toString(bean.getDemographicNo()))%>"/>
                                 </form>
                                     <script language=javascript>
                                         function clearPending(action) {
@@ -386,7 +403,7 @@
                                             <td><span><input type=button
                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgBackToOscar"/>"
                                                              class="ControlPushButton" style="width: 200px"
-                                                             onClick="javascript:clearPending('close');"/></span></td>
+                                                             onClick="resetStash();javascript:clearPending('close');"/></span></td>
                                         </tr>
 
                                         <%if (request.getAttribute("rePrint") == null) {%>
