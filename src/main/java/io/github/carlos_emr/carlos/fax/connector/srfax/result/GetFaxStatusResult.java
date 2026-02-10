@@ -162,6 +162,11 @@ public class GetFaxStatusResult {
      */
     public void setRawFileName(String rawFileName) {
         this.rawFileName = rawFileName;
+        if (rawFileName == null || rawFileName.trim().isEmpty()) {
+            this.fileName = null;
+            this.detailsId = null;
+            return;
+        }
         // SRFax returns filenames in "filename|detailsId" format
         String[] parts = rawFileName.split("\\|");
         this.fileName = parts[0];

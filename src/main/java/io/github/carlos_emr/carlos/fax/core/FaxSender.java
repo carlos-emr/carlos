@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.fax.connector.FaxConnector;
 import io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory;
 import io.github.carlos_emr.carlos.fax.connector.FaxSendResult;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarProperties;
@@ -153,7 +154,7 @@ public class FaxSender {
 
             if (!Files.exists(filePath)) {
                 if (filename.contains(File.separator)) {
-                    filename = filename.replaceAll(File.separator, "");
+                    filename = filename.replace(File.separator, "");
                 }
                 filePath = Paths.get(document_dir, filename);
             }
@@ -273,24 +274,47 @@ public class FaxSender {
         }
 
         String filename = faxJob.getFile_name();
-        Path filePath = Paths.get(filename);
-
-        // If the file isn't at the stored path, try the document directory
-        if (!Files.exists(filePath)) {
-            // Strip directory separators from filename before building the fallback path
-            if (filename.contains(File.separator)) {
-                filename = filename.replaceAll(File.separator, "");
-            }
-            filePath = Paths.get(document_dir, filename);
+        if (filename == null || filename.isEmpty()) {
+            log.error("Fatal error locating document. Filename is null or empty.");
+            return;
         }
 
+        File documentDir = new File(document_dir);
+        Path filePath = null;
+
         try {
-            if (Files.exists(filePath) && Files.isReadable(filePath)) {
+            // Try the path as-is first if it's absolute and exists
+            Path originalPath = Paths.get(filename);
+            if (originalPath.isAbsolute() && Files.exists(originalPath)) {
+                // Validate the existing absolute path is within allowed directories
+                File fileAtPath = originalPath.toFile();
+                try {
+                    PathValidationUtils.validateExistingPath(fileAtPath, documentDir);
+                    filePath = originalPath;
+                } catch (SecurityException se) {
+                    // Not in document dir, check if it's in allowed temp directories
+                    if (!PathValidationUtils.isInAllowedTempDirectory(fileAtPath)) {
+                        log.error("File path validation failed for {}: {}", filename, se.getMessage());
+                        return;
+                    }
+                    filePath = originalPath;
+                }
+            } else {
+                // Fall back to document directory - validate the constructed path
+                File validatedPath = PathValidationUtils.validatePath(filename, documentDir);
+                filePath = validatedPath.toPath();
+            }
+
+            if (filePath != null && Files.exists(filePath) && Files.isReadable(filePath)) {
                 String base64 = Base64Utility.encode(Files.readAllBytes(filePath));
                 faxJob.setDocument(base64);
+            } else {
+                log.error("Fatal error locating document. Not found at: {}", filePath);
             }
         } catch (IOException e) {
             log.error("Error reading fax document from filesystem: {}", filePath, e);
+        } catch (SecurityException se) {
+            log.error("Path validation failed for fax document: {}", filename, se);
         }
     }
 

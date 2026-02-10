@@ -465,7 +465,7 @@ public class SRFaxApiConnector {
         putIfPresent(parameters, S_DIRECTION, sDirection);
         putIfPresent(parameters, S_RESPONSE_FORMAT, RESPONSE_FORMAT_JSON);
 
-        String[] requiredFields = {S_DIRECTION, S_FAX_FILE_NAME + "_*|" + S_FAX_DETAILS_ID + "_*"};
+        String[] requiredFields = {S_DIRECTION, S_FAX_FILE_NAME + "|" + S_FAX_DETAILS_ID};
         String[] optionalFields = {S_RESPONSE_FORMAT};
         String result = processRequest(ACTION_DELETE_FAX, requiredFields, optionalFields, parameters);
         return processSingleResponse(result);

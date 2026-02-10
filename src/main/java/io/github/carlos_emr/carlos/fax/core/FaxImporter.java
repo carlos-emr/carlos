@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.fax.connector.FaxConnector;
 import io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory;
 import io.github.carlos_emr.carlos.fax.connector.FaxInboundResult;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.itextpdf.text.pdf.codec.Base64;
@@ -137,15 +138,14 @@ public class FaxImporter {
         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
 
-        CloseableHttpClient client = HttpClientBuilder.create()
-                .setDefaultCredentialsProvider(credentialsProvider)
-                .build();
-
         HttpGet mGet = null;
-        HttpResponse response = null;
-        int status = HttpStatus.SC_OK;
 
-        try {
+        try (CloseableHttpClient client = HttpClientBuilder.create()
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .build()) {
+
+            HttpResponse response = null;
+            int status = HttpStatus.SC_OK;
 
             log.debug("Service Path: {}{}{}{}", faxConfig.getUrl(), PATH, File.separator, faxConfig.getFaxUser());
 
@@ -286,25 +286,34 @@ public class FaxImporter {
         newDoc.setDocPublic("0");
         filename = newDoc.getFileName();
 
-        if (Base64.decodeToFile(base64Content, DOCUMENT_DIR + "/" + filename)) {
+        // Validate the destination path to prevent path traversal
+        File documentDir = new File(DOCUMENT_DIR);
+        File validatedPath = PathValidationUtils.validatePath(filename, documentDir);
+
+        if (Base64.decodeToFile(base64Content, validatedPath.getAbsolutePath())) {
 
             newDoc.setContentType("application/pdf");
             newDoc.setNumberOfPages(inbound.getPageCount());
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
 
             Integer queueId = faxConfig.getQueue();
-            Integer docNum = Integer.parseInt(doc_no);
 
-            queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
+            try {
+                Integer docNum = Integer.parseInt(doc_no);
+                queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
+                log.info("Saved inbound fax {} to filesystem as document ID {}", filename, docNum);
+                providerRouting(docNum);
 
-            log.info("Saved inbound fax {} to filesystem as document ID {}", filename, docNum);
+                // Persist job record before marking as read to ensure we have a record even if mark-as-read fails
+                saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.RECEIVED, filename);
 
-            providerRouting(docNum);
-
-            // Mark as read on the remote service so it does not appear again
-            connector.markFaxAsRead(faxConfig, faxReference);
-
-            saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.RECEIVED, filename);
+                // Mark as read on the remote service so it does not appear again
+                connector.markFaxAsRead(faxConfig, faxReference);
+            } catch (NumberFormatException nfe) {
+                log.error("Invalid document ID '{}' for inbound fax ref={}; skipping routing and mark-as-read.",
+                        doc_no, faxReference, nfe);
+                saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.ERROR, "Invalid document ID");
+            }
 
         } else {
             log.error("Failed to save fax file {} to filesystem", filename);

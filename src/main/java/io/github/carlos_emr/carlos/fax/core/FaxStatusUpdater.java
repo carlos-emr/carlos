@@ -39,9 +39,11 @@ import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.methods.CloseableHttpClient;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -108,21 +110,21 @@ public class FaxStatusUpdater {
      * Check fax status using the legacy external gateway server.
      * This preserves the original code path for backward compatibility.
      */
-    @SuppressWarnings("deprecation")
     private void updateStatusViaLegacyGateway(FaxConfig faxConfig, FaxJob faxJob) {
 
-        DefaultHttpClient client = new DefaultHttpClient();
-        FaxJob faxJobUpdated;
-
         Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
-        client.getCredentialsProvider().setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
+        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
 
-        HttpGet mGet = new HttpGet(faxConfig.getUrl() + "/" + faxJob.getJobId());
-        mGet.setHeader("accept", "application/json");
-        mGet.setHeader("user", faxConfig.getFaxUser());
-        mGet.setHeader("passwd", faxConfig.getFaxPasswd());
+        try (CloseableHttpClient client = HttpClientBuilder.create()
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .build()) {
 
-        try {
+            HttpGet mGet = new HttpGet(faxConfig.getUrl() + "/" + faxJob.getJobId());
+            mGet.setHeader("accept", "application/json");
+            mGet.setHeader("user", faxConfig.getFaxUser());
+            mGet.setHeader("passwd", faxConfig.getFaxPasswd());
+
             HttpResponse response = client.execute(mGet);
             log.info("RESPONSE: {}", response.getStatusLine().getStatusCode());
 
@@ -132,7 +134,7 @@ public class FaxStatusUpdater {
                 String content = EntityUtils.toString(httpEntity);
 
                 ObjectMapper mapper = new ObjectMapper();
-                faxJobUpdated = mapper.readValue(content, FaxJob.class);
+                FaxJob faxJobUpdated = mapper.readValue(content, FaxJob.class);
 
                 faxJob.setStatus(faxJobUpdated.getStatus());
                 faxJob.setStatusString(faxJobUpdated.getStatusString());
@@ -144,15 +146,8 @@ public class FaxStatusUpdater {
                 log.error("WEB SERVICE RESPONDED WITH {}", response.getStatusLine().getStatusCode());
             }
 
-        } catch (ClientProtocolException e) {
-            log.error("HTTP WS CLIENT ERROR", e);
-
         } catch (IOException e) {
-            log.error("IO ERROR", e);
-        } finally {
-            if (mGet != null) {
-                mGet.reset();
-            }
+            log.error("HTTP WS CLIENT ERROR", e);
         }
     }
 
