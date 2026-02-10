@@ -413,6 +413,7 @@
     String strDay = day > 9 ? ("" + day) : ("0" + day);
 
     // Timeline indicator variables - shows current time marker on today's schedule
+    final int TIMELINE_GRACE_OFFSET_MINUTES = 6; // Grace period to account for page load delay
     SimpleDateFormat formatHour = new SimpleDateFormat("HH");
     SimpleDateFormat formatMin = new SimpleDateFormat("mm");
     SimpleDateFormat formatAdate = new SimpleDateFormat("yyyyMMdd");
@@ -422,7 +423,7 @@
     String curDate2 = formatAdate.format(curDate);
     boolean isToday = curDate2.equals(strYear + strMonth + strDay);
     int curH = Integer.parseInt(curHour);
-    int totalM = Integer.parseInt(curMin) + curH * 60 - 6; // 6min grace offset
+    int totalM = Integer.parseInt(curMin) + curH * 60 - TIMELINE_GRACE_OFFSET_MINUTES;
     boolean isTimeline = OscarProperties.getInstance().getProperty("display_timeline", "true").equalsIgnoreCase("true");
 
     Calendar apptDate = Calendar.getInstance();
