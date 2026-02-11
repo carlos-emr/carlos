@@ -10,10 +10,16 @@
 
 ## Identified Race Condition Risks
 
-### Risk 1: `MockedStatic` (Unit Tests) — CRITICAL
-`OpenOUnitTestBase` creates `MockedStatic<SpringUtils>` and `MockedStatic<LogAction>` per test method in `@BeforeEach`/`@AfterEach`. Mockito's `MockedStatic` works by replacing a class's static behavior **on the current thread only** (via thread-local instrumentation). If two unit tests from **different test classes** run simultaneously on different threads, each tries to `mockStatic(SpringUtils.class)` — Mockito will throw `org.mockito.exceptions.base.MockitoException: For SpringUtils, static mocking is already registered in the current thread`. This is because the ByteBuddy agent intercepts at the classloader level, not truly per-thread.
+### Risk 1: `MockedStatic` (Unit Tests) — RESOLVED ✓
+`OpenOUnitTestBase` creates `MockedStatic<SpringUtils>` and `MockedStatic<LogAction>` per test method in `@BeforeEach`/`@AfterEach`.
 
-**Impact**: Unit tests will fail immediately if run in parallel across classes.
+**Initial Assessment**: There was concern that Mockito's `MockedStatic` would collide when multiple threads call `mockStatic(SpringUtils.class)` simultaneously because the ByteBuddy agent operates at the classloader level.
+
+**Verification (lines 89-100 below)**: Mockito 5.x uses **thread-local scoping** for `MockedStatic`. Each thread can independently call `mockStatic(SpringUtils.class)` and maintain its own isolated mock scope. The Mockito documentation confirms: "Each MockedStatic is bound to the thread that created it."
+
+**Validation**: The `MockedStaticThreadSafetyTest` validates this thread-local behavior by spawning concurrent threads that each create their own `MockedStatic<SpringUtils>` scope and verify isolation.
+
+**Impact**: Unit tests are **safe to run in parallel across classes** when using Mockito 5.x. No changes required to existing test code beyond marking `OpenOUnitTestBase` with `@Execution(CONCURRENT)`.
 
 ### Risk 2: Shared H2 Database (Integration Tests) — HIGH
 All integration tests share a single `jdbc:h2:mem:testdb` instance. While `@Transactional` + `@Rollback` provides isolation for individual test methods (uncommitted data is invisible to other connections), there are subtleties:
@@ -106,7 +112,7 @@ This is correct for Mockito 5.x with the inline mock maker (which is the default
 ```properties
 junit.jupiter.execution.parallel.enabled = true
 junit.jupiter.execution.parallel.mode.default = same_thread
-junit.jupiter.execution.parallel.mode.classes.default = concurrent
+junit.jupiter.execution.parallel.mode.classes.default = same_thread
 junit.jupiter.execution.parallel.config.strategy = fixed
 junit.jupiter.execution.parallel.config.fixed.parallelism = 4
 ```
