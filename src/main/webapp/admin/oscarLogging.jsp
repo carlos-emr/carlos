@@ -45,6 +45,13 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Log Viewer</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 
 
 <%@page import="java.io.File" %>
@@ -156,3 +163,5 @@
     registerFormSubmit('logForm', 'dynamic-content');
 
 </script>
+</body>
+</html>

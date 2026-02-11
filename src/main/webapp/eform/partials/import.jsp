@@ -53,6 +53,7 @@
             background-color: #f5f5f5;
         }
     </style>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 
 <body>

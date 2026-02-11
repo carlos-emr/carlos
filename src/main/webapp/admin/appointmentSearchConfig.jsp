@@ -243,17 +243,17 @@
                                 <h4 class="list-group-item-heading">{{appointmentType.name}}</h4>
                                 <%--
                                <p class="list-group-item-text">
-                                   <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa fa-arrow-up"></i></a>
-                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa fa-arrow-down"></i></a>
-                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa fa-trash"></i></a>
+                                   <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa-solid fa-arrow-up"></i></a>
+                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa-solid fa-arrow-down"></i></a>
+                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa-solid fa-trash"></i></a>
                                </p>
 
                                <md-list ng-cloak>
                               <md-list-item ng-repeat="appointmentType in currentSearchConfig.bookingAppointmentTypes">
                                   <p>{{appointmentType.name}}</p>
-                                  <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa fa-arrow-up"></i></a>
-                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa fa-arrow-down"></i></a>
-                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa fa-trash"></i></a>
+                                  <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa-solid fa-arrow-up"></i></a>
+                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa-solid fa-arrow-down"></i></a>
+                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa-solid fa-trash"></i></a>
                               </md-list-item>
                           </md-list>
 

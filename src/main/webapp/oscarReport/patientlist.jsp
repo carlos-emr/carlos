@@ -20,6 +20,13 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient List Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 
 <div class="page-header">
     <h4>Patient List</h4>
@@ -103,3 +110,5 @@
         });
     });
 </script>
+</body>
+</html>

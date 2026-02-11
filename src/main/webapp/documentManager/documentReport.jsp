@@ -351,6 +351,7 @@
             }
 
         </style>
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     </head>
     <body>
