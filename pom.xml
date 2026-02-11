@@ -132,6 +132,16 @@
             </dependency>
           
             <!-- Transitive Hibernate/JPA dependencies -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>1.17.7</version>
+            </dependency>
+            <dependency>
+               <groupId>net.bytebuddy</groupId>
+               <artifactId>byte-buddy-agent</artifactId>
+               <version>1.17.7</version>
+            </dependency>
             <!-- Hibernate core -->
             <dependency>
                 <groupId>org.hibernate</groupId>
@@ -1672,11 +1682,13 @@
                                 <exclude>**/archive/**/*Test.java</exclude>
                             </excludes>
                             <argLine>
-                                -Xmx2048m
-                                -Dnet.bytebuddy.experimental=true
-                                --add-opens java.base/java.lang=ALL-UNNAMED
-                                --add-opens java.base/java.util=ALL-UNNAMED
-                            </argLine>
+                               -Xmx2048m
+                               -Dnet.bytebuddy.experimental=true
+                               --add-opens java.base/java.lang=ALL-UNNAMED
+                               --add-opens java.base/java.util=ALL-UNNAMED
+                               -Djdk.attach.allowAttachSelf=true
+                               -XX:+EnableDynamicAgentLoading
+                             </argLine>
                             <!-- Test filtering by groups when specified -->
                             <groups>${groups}</groups>
                         </configuration>
