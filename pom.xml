@@ -40,6 +40,19 @@
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
         <skipLegacyTests>false</skipLegacyTests>
+        <!-- Legacy test process parallelism (multiple JVMs) -->
+        <legacy.tests.forkCount>1</legacy.tests.forkCount>
+        <legacy.tests.reuseForks>true</legacy.tests.reuseForks>
+        <!-- Modern test process parallelism (multiple JVMs) -->
+        <modern.tests.forkCount>1</modern.tests.forkCount>
+        <modern.tests.reuseForks>true</modern.tests.reuseForks>
+        <!-- Modern JUnit 5 in-process parallelism -->
+        <modern.junit.parallel.enabled>false</modern.junit.parallel.enabled>
+        <modern.junit.parallel.mode.default>same_thread</modern.junit.parallel.mode.default>
+        <modern.junit.parallel.mode.classes.default>same_thread</modern.junit.parallel.mode.classes.default>
+        <modern.junit.parallel.config.strategy>dynamic</modern.junit.parallel.config.strategy>
+        <modern.junit.parallel.config.dynamic.factor>1.0</modern.junit.parallel.config.dynamic.factor>
+        <modern.junit.parallel.config.fixed.parallelism>4</modern.junit.parallel.config.fixed.parallelism>
         <!-- Control test execution phases - set to 'none' to skip -->
         <modern.tests.phase>test</modern.tests.phase>
         <legacy.tests.phase>test</legacy.tests.phase>
@@ -1689,6 +1702,17 @@
                                -Djdk.attach.allowAttachSelf=true
                                -XX:+EnableDynamicAgentLoading
                              </argLine>
+                            <forkCount>${modern.tests.forkCount}</forkCount>
+                            <reuseForks>${modern.tests.reuseForks}</reuseForks>
+                            <runOrder>balanced</runOrder>
+                            <systemPropertyVariables>
+                                <junit.jupiter.execution.parallel.enabled>${modern.junit.parallel.enabled}</junit.jupiter.execution.parallel.enabled>
+                                <junit.jupiter.execution.parallel.mode.default>${modern.junit.parallel.mode.default}</junit.jupiter.execution.parallel.mode.default>
+                                <junit.jupiter.execution.parallel.mode.classes.default>${modern.junit.parallel.mode.classes.default}</junit.jupiter.execution.parallel.mode.classes.default>
+                                <junit.jupiter.execution.parallel.config.strategy>${modern.junit.parallel.config.strategy}</junit.jupiter.execution.parallel.config.strategy>
+                                <junit.jupiter.execution.parallel.config.dynamic.factor>${modern.junit.parallel.config.dynamic.factor}</junit.jupiter.execution.parallel.config.dynamic.factor>
+                                <junit.jupiter.execution.parallel.config.fixed.parallelism>${modern.junit.parallel.config.fixed.parallelism}</junit.jupiter.execution.parallel.config.fixed.parallelism>
+                            </systemPropertyVariables>
                             <!-- Test filtering by groups when specified -->
                             <groups>${groups}</groups>
                         </configuration>
@@ -1740,6 +1764,9 @@
                                 --add-opens java.base/java.io=ALL-UNNAMED
                                 --add-opens java.base/java.util=ALL-UNNAMED
                             </argLine>
+                            <forkCount>${legacy.tests.forkCount}</forkCount>
+                            <reuseForks>${legacy.tests.reuseForks}</reuseForks>
+                            <runOrder>balanced</runOrder>
                         </configuration>
                     </execution>
                 </executions>
