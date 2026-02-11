@@ -1,3 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient List Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DoctorList" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.bean.ProviderNameBean" %>
 <%@ page import="java.util.ArrayList" %>
@@ -103,3 +110,5 @@
         });
     });
 </script>
+</body>
+</html>

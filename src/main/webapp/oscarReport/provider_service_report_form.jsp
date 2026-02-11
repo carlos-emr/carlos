@@ -1,3 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Provider Service Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 <%--
 
 
@@ -126,3 +133,5 @@
         });
     });
 </script>
+</body>
+</html>

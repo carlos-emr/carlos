@@ -1,3 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Population Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 <%--
 
 
@@ -319,3 +326,5 @@
         </tbody>
     </table>
 </c:forEach>
+</body>
+</html>

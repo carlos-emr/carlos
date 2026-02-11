@@ -201,6 +201,7 @@
                 text-align: right;
             }
         </style>
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     </head>
 
