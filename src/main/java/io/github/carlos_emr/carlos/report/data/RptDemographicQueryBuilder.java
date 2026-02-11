@@ -71,6 +71,27 @@ public class RptDemographicQueryBuilder {
     public RptDemographicQueryBuilder() {
     }
 
+    /**
+     * Builds a demographic query without applying a rostering date filter.
+     * Delegates to {@link #buildQuery(LoggedInInfo, RptDemographicReport2Form, String)}
+     * with {@code asofRosterDate} set to {@code null}.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param frm RptDemographicReport2Form the demographic report form parameters
+     * @return ArrayList&lt;ArrayList&lt;String&gt;&gt; list of demographic result rows
+     */
+    public ArrayList<ArrayList<String>> buildQuery(LoggedInInfo loggedInInfo, RptDemographicReport2Form frm) {
+        return buildQuery(loggedInInfo, frm, null);
+    }
+
+    /**
+     * Builds a demographic query with optional post-query rostering filtering.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user session
+     * @param frm RptDemographicReport2Form the demographic query form with search criteria
+     * @param asofRosterDate String date (yyyy-MM-dd) to filter by rostering status, or null to skip
+     * @return ArrayList&lt;ArrayList&lt;String&gt;&gt; list of demographic result rows
+     */
     public java.util.ArrayList<ArrayList<String>> buildQuery(LoggedInInfo loggedInInfo, RptDemographicReport2Form frm, String asofRosterDate) {
         MiscUtils.getLogger().debug("in buildQuery");
 

@@ -94,7 +94,8 @@ public class PreventionReport2Action extends ActionSupport {
         frm.addDemoIfNotPresent();
         frm.setAsofDate(asofDate);
         RptDemographicQueryBuilder demoQ = new RptDemographicQueryBuilder();
-        ArrayList<ArrayList<String>> list = demoQ.buildQuery(loggedInInfo, frm, asofDate);
+        // Use overload without asofRosterDate to avoid roster-date filtering for prevention reports.
+        ArrayList<ArrayList<String>> list = demoQ.buildQuery(loggedInInfo, frm);
 
         log.debug("set size " + list.size());
 
