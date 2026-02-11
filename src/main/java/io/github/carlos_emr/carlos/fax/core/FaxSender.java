@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.OscarProperties;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -121,10 +122,18 @@ public class FaxSender {
         Path filePath = Paths.get(filename);
 
         if (!Files.exists(filePath)) {
-            if (filename.contains(File.separator)) {
-                filename = filename.replace(File.separator, "");
+            // Extract just the file name and validate path to prevent traversal attacks
+            try {
+                File validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
+                filePath = validatedFile.toPath();
+            } catch (SecurityException e) {
+                log.error("Path validation failed for filename: {}", filename, e);
+                // Fall back to document dir with just the base filename
+                Path baseFilename = Paths.get(filename).getFileName();
+                if (baseFilename != null) {
+                    filePath = Paths.get(documentDir, baseFilename.toString());
+                }
             }
-            filePath = Paths.get(documentDir, filename);
         }
 
         return filePath;

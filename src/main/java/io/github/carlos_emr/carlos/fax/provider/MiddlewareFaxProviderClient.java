@@ -1,3 +1,28 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2017-2024. Juno EMR. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Portions contributed by Juno EMR.
+ * Now maintained by the CARLOS EMR Project.
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.fax.provider;
 
 import java.io.File;
@@ -40,6 +65,8 @@ import org.springframework.stereotype.Component;
  *
  * <p>This class extracts all middleware transport details from core fax orchestration so the
  * pipeline can remain provider-agnostic.</p>
+ *
+ * @since 2026-02-11
  */
 @Component
 public class MiddlewareFaxProviderClient implements FaxProviderClient {
