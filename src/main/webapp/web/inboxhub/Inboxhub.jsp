@@ -38,7 +38,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css" />
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" />
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css" />
-    <link href="${pageContext.request.contextPath}/css/font-awesome.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/web/css/Inboxhub.css"/>
 
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/moment.js"></script>

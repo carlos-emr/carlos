@@ -119,7 +119,7 @@
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
         <div class="pull-right">
             <button name="print" onclick="window.print()" class="btn hidden-print">
-                <i class="icon-print icon-black"></i>
+                <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
         </div>

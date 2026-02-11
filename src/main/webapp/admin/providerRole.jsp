@@ -395,7 +395,7 @@
 <head>
 
     <link href="${ pageContext.request.contextPath }/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="${ pageContext.request.contextPath }/css/font-awesome.min.css">
+    <link rel="stylesheet" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css">
 
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
 
@@ -479,7 +479,7 @@
 
 <div id="header" class="navbar">
     <div class="navbar-inner">
-        <div class="brand"><i class="icon-lock"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></div>
+        <div class="brand"><i class="fa-solid fa-lock"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></div>
     </div>
 </div>
 

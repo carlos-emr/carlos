@@ -2004,24 +2004,11 @@
         <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
             <result name="display" type="dispatcher">/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
-        <action name="hospitalReportManager/hrmKeyUploader" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadKey2Action">
-            <result name="success">/hospitalReportManager/hrmPreferences.jsp</result>
-        </action>
-        <action name="hospitalReportManager/UploadLab" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadLab2Action">
-            <interceptor-ref name="defaultStack"/>
-            <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
-        </action>
         <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action">
             <result name="ajax">/hospitalReportManager/ajaxResponse.jsp</result>
         </action>
         <action name="hospitalReportManager/Statement" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action">
             <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
-        </action>
-        <action name="hospitalReportManager/Mapping" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMMapping2Action">
-            <result name="success">/hospitalReportManager/hrmShowMapping.jsp</result>
-        </action>
-        <action name="hospitalReportManager/HRMPreferences" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMPreferences2Action">
-            <result name="success">/hospitalReportManager/hrmPreferences.jsp</result>
         </action>
         <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
         <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>

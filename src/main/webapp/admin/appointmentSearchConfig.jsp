@@ -53,7 +53,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.surveillanceConfig"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/angular.min.js"></script>
@@ -358,7 +358,7 @@
                </thead>
                 <tbody>
                     <tr ng-repeat="exportFile in exportFiles">
-                        <th scope="row"><a ng-click="download(exportFile)">{{exportFile.name}}<i class="icon-download-alt"></i></a></th>
+                        <th scope="row"><a ng-click="download(exportFile)">{{exportFile.name}}<i class="fa-solid fa-download"></i></a></th>
                         <td>{{exportFile.createDate | date}}</td>
                         <td>
                             <button type="button" ng-if="!exportFile.sent" class="btn btn-default btn-xs" ng-click="setAsSent(exportFile)">Set as Sent</button>

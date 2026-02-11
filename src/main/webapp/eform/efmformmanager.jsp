@@ -44,6 +44,7 @@
 <html>
     <head>
     <title>E-Form Manager</title>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
@@ -186,7 +187,7 @@
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
-                        class="icon-file" title="<%=curForm.get("formFileName").toString()%>"></i><%}%></td>
+                        class="fa-solid fa-file" title="<%=curForm.get("formFileName").toString()%>"></i><%}%></td>
                 <td title="<%=curForm.get("formName")%>">
                     <a href="#"
                        onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data.jsp?fid=<%=curForm.get("fid")%>', '<%="Form"+i%>'); return false;"><%=curForm.get("formName")%>
@@ -206,19 +207,19 @@
                         <a class="btn btn-link contentLink"
                            href="<%= request.getContextPath() %>/eform/efmformmanageredit.jsp?fid=<%= curForm.get("fid")%>"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.editform"/><%=curForm.get("formName")%>'><i
-                                class="icon-pencil" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.editform"/>"></i></a>
+                                class="fa-solid fa-pencil" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.editform"/>"></i></a>
 
 
                         <a class="btn btn-link"
                            href='<%= request.getContextPath() %>/eform/manageEForm.do?method=exportEForm&fid=<%=curForm.get("fid")%>'
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnExport"/> <%=curForm.get("formName")%>'><i
-                                class="icon-download-alt" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
+                                class="fa-solid fa-download" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
                         <a class="btn btn-link contentLink"
                            href='<%= request.getContextPath() %>/eform/delEForm.do?fid=<%=curForm.get("fid")%>'
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
-                                class="icon-trash" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
+                                class="fa-solid fa-trash" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
                     </div>
                 </td>
 

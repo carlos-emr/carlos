@@ -63,7 +63,7 @@
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>OSCAR Jobs</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
@@ -212,7 +212,7 @@
                                 var job = arr[i];
                                 var extraClass = (job.cronExpression != undefined) ? "blue" : "red";
                                 var html = '<tr>';
-                                html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="icon-calendar ' + extraClass + '"></i></a></td>';
+                                html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="fa-solid fa-calendar ' + extraClass + '"></i></a></td>';
                                 html += '<td><u><a href="javascript:void();" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
                                 html += '<td><a onclick="cancelJob(' + job.id + ');">Cancel</a></td>';
                                 html += '<td>' + ((job.enabled == true) ? "Enabled (<a onclick='updateJobStatus(" + job.id + ",false)'>Disable</a>)" : "<span color='red'>Disabled</span> (<a onclick='updateJobStatus(" + job.id + ",true)'>Enable</a>)") + '</td>';

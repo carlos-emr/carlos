@@ -353,7 +353,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/font-awesome.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
 
     <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
@@ -417,10 +417,10 @@
                    href="billingReportCenter.jsp">OSCARbilling</a></H4>
         </td>
         <td style="text-align:right;">
-            <i class=" icon-question-sign"></i>
+            <i class=" fa-solid fa-circle-question"></i>
             <a href="javascript:void(0)"
                onClick="popupPage(600,750,'<%=(OscarProperties.getInstance()).getProperty("HELP_SEARCH_URL")%>'+'OscarBilling+Billing')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
-            <i class=" icon-info-sign" style="margin-left:10px;"></i>
+            <i class=" fa-solid fa-circle-info" style="margin-left:10px;"></i>
             <a href="javascript:void(0)"
                onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
         </td>

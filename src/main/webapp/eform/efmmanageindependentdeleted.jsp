@@ -54,6 +54,7 @@
 
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <script type="text/javascript">
             function popupPage(varpage, windowname) {
@@ -84,7 +85,7 @@
 
     <div class="well">
         <h3 style="display:inline"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
-            class="icon-question-sign"></i>
+            class="fa-solid fa-circle-question"></i>
 
         <p>View: <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp"
                     class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnCurrent"/></a> | <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnDeleted"/></p>

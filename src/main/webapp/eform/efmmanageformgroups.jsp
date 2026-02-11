@@ -136,8 +136,8 @@
                     <td>
                         <a href='<%= request.getContextPath() %>/eforms/delGroup.do?group_name=<%=URLEncoder.encode(groupName, "UTF-8")%>'
                            class="btn btn-small" title="delete this group"
-                           data-confirm="<i class='icon-warning-sign icon-large'></i> Are you sure you would like to delete group: <strong><%=groupName%></strong>?"><i
-                                class="icon-trash"></i></a></td>
+                           data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=groupName%></strong>?"><i
+                                class="fa-solid fa-trash"></i></a></td>
                     <td title="<%=groupName%>"><a
                             href='<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
                             class="contentLink"><%=groupName%>
@@ -197,8 +197,8 @@
                     <td>
                         <a href="<%= request.getContextPath() %>/eforms/removeFromGroup.do?fid=<%=curForm.get("fid")%>&groupName=<%=URLEncoder.encode(groupView, "UTF-8")%>"
                            title="remove from group" class="btn btn-small" title="delete eform from group"
-                           data-confirm="<i class='icon-warning-sign icon-large'></i> Are you sure you would like to remove this eform from this group?"><i
-                                class="icon-trash"></i></a>
+                           data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"><i
+                                class="fa-solid fa-trash"></i></a>
                     </td>
 
                     <td><a href="#"
