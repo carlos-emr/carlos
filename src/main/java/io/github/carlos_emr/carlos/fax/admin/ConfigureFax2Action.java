@@ -98,7 +98,11 @@ public class ConfigureFax2Action extends ActionSupport {
         ObjectNode jsonObject;
 
         // Fax configuration is admin-fax write protected.
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("No valid session found");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.fax)");
         }
 
@@ -341,10 +345,14 @@ public class ConfigureFax2Action extends ActionSupport {
      * Restarts fax scheduler thread/task via manager layer.
      */
     public void restartFaxScheduler() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax.restart", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("No valid session found");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.fax.restart)");
         }
-        faxManager.restartFaxScheduler(LoggedInInfo.getLoggedInInfoFromSession(request));
+        faxManager.restartFaxScheduler(loggedInInfo);
     }
 
     /**
@@ -352,6 +360,9 @@ public class ConfigureFax2Action extends ActionSupport {
      */
     public void getFaxSchedularStatus() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("No valid session found");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "r", null)) {
             throw new SecurityException("missing required sec object (_admin.fax.restart)");
         }

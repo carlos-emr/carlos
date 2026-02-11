@@ -324,6 +324,18 @@ public class SRFaxProviderClient implements FaxProviderClient {
     /**
      * Returns first available text value from a list of candidate keys.
      */
+    private String textOrDefault(JsonNode root, String key1, String key2, String fallback) {
+        String v1 = textAt(root, key1);
+        if (v1 != null && !v1.isEmpty()) {
+            return v1;
+        }
+        String v2 = textAt(root, key2);
+        if (v2 != null && !v2.isEmpty()) {
+            return v2;
+        }
+        return fallback;
+    }
+
     private String textOrDefault(JsonNode root, String key1, String key2, String key3, String fallback) {
         String v1 = textAt(root, key1);
         if (v1 != null && !v1.isEmpty()) {

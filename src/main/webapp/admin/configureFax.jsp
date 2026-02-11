@@ -159,12 +159,12 @@
                     success: function (data) {
 
                         if (data.success) {
-                            $("#msg").html(data.message || "Configuration saved!");
+                            $("#msg").text(data.message || "Configuration saved!");
                             $('.alert').removeClass('alert-error');
                             $('.alert').addClass('alert-success');
                             $('.alert').show();
                         } else {
-                            $("#msg").html(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
+                            $("#msg").text(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
                             $('.alert').removeClass('alert-success');
                             $('.alert').addClass('alert-error');
                             $('.alert').show();
@@ -321,6 +321,7 @@
 <div class="container-fluid fax-page">
     <form id="configFrm" method="post">
         <input type="hidden" name="method" value="configure"/>
+        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <div id="bodyrow" class="row">
 
             <legend class="fax-section-title"><i class="fas fa-server"></i> Fax Server Credentials</legend>
@@ -450,7 +451,7 @@
                                                 }
                                             }
 
-                                            out.print(">" + queueMap.get(queueId) + "</option>");
+                                            out.print(">" + Encode.forHtml(queueMap.get(queueId)) + "</option>");
                                         }
                                     %>
                                 </select>

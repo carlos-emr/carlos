@@ -29,6 +29,9 @@
 package io.github.carlos_emr.carlos.fax.core;
 
 
+import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.List;
 
@@ -47,6 +50,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import com.itextpdf.text.pdf.codec.Base64;
 
@@ -101,7 +105,7 @@ public class FaxImporter {
                         try {
                             faxFile = providerClient.downloadFax(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
-                            log.error("Failed to download incoming fax file " + receivedFax.getFile_name(), e);
+                            log.error("Failed to download incoming fax file {}", receivedFax.getFile_name(), e);
                         }
                     }
 
@@ -114,12 +118,18 @@ public class FaxImporter {
                     }
 
                     if (fileName != null) {
-                        providerRouting(Integer.parseInt(edoc.getDocId()));
+                        try {
+                            int docId = Integer.parseInt(edoc.getDocId());
+                            providerRouting(docId);
+                        } catch (NumberFormatException e) {
+                            log.error("Invalid document ID from EDoc: {}", edoc.getDocId(), e);
+                            fileName = FaxJob.STATUS.ERROR.name();
+                        }
 
                         try {
                             providerClient.deleteFax(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
-                            log.error("Failed to delete remote fax file " + receivedFax.getFile_name(), e);
+                            log.error("Failed to delete remote fax file {}", receivedFax.getFile_name(), e);
                         }
                     } else {
                         fileName = FaxJob.STATUS.ERROR.name();
@@ -162,6 +172,13 @@ public class FaxImporter {
         newDoc.setDocPublic("0");
 
         filename = newDoc.getFileName();
+
+        // Validate file path to prevent path traversal attacks
+        Path resolvedPath = Paths.get(DOCUMENT_DIR, filename).normalize();
+        if (!resolvedPath.startsWith(Paths.get(DOCUMENT_DIR).normalize())) {
+            log.error("Path traversal attempt blocked for filename: " + filename);
+            return null;
+        }
 
         if (Base64.decodeToFile(faxFile.getDocument(), DOCUMENT_DIR + "/" + filename)) {
 

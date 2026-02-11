@@ -158,6 +158,10 @@ public class FaxSchedulerJob {
             logger.error("FaxSchedulerJob period is missing or invalid in properties file: {}: {}", FAX_POLL_INTERVAL_KEY, faxPollInterval, e);
             logger.error("Setting period to default: {} ms", DEFAULT_PERIOD_MS);
         }
+        if (period <= 0) {
+            logger.error("FaxSchedulerJob period must be positive, got {}. Using default: {} ms", period, DEFAULT_PERIOD_MS);
+            period = DEFAULT_PERIOD_MS;
+        }
 
         timerTask = new TimerTask() {
             @Override
