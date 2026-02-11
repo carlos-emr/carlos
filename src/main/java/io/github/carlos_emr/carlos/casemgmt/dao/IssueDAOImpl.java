@@ -165,7 +165,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
         search = "%" + search + "%";
         search = search.toLowerCase();
 
-        String hql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in (:roleNames) order by sortOrderId";
+        String hql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in (:roleNames)";
         logger.debug(hql);
         Map<String, Object> params = new HashMap<>();
         params.put("search", search);

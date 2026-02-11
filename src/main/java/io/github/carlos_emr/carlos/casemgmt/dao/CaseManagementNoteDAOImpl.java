@@ -708,9 +708,9 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             return new ArrayList<Integer>();
         }
 
-        List<Integer> programIds = new ArrayList<Integer>();
+        List<String> programIds = new ArrayList<String>();
         for (Program p : programs) {
-            programIds.add(p.getId());
+            programIds.add(String.valueOf(p.getId()));
         }
 
         String hql = "select distinct cmn.demographic_no from CaseManagementNote cmn where cmn.program_no in (:programIds) and cmn.update_date > :updateDate and cmn.locked != '1' and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
