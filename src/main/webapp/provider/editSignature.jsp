@@ -95,9 +95,9 @@
                 <%
                     if (sig.hasSignature(curUser_no)) {
                 %>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgEdit"/>
+                <label for="signature"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgEdit"/></label>
                 <br>
-                <input type="text" name="signature" size="40" value="<%= Encode.forHtmlAttribute(sig.getSignature(curUser_no)) %>" />
+                <input type="text" name="signature" id="signature" size="40" value="<%= Encode.forHtmlAttribute(sig.getSignature(curUser_no)) %>" />
                 <br>
 
                 <!-- add by caisi -->
@@ -111,9 +111,9 @@
                 <input type="submit"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.btnUpdate"/>"/>
                 <% } else {%>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgNew"/>
+                <label for="signature"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgNew"/></label>
                 <br>
-                <input type="checkbox" name="signature" size="40" />
+                <input type="text" name="signature" id="signature" size="40" />
                 <br>
                 <!-- add by caisi -->
                 <caisi:isModuleLoad moduleName="caisi">
