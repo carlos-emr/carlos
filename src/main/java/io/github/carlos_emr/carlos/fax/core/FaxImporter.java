@@ -173,10 +173,12 @@ public class FaxImporter {
 
         filename = newDoc.getFileName();
 
-        // Validate file path to prevent path traversal attacks
-        Path resolvedPath = Paths.get(DOCUMENT_DIR, filename).normalize();
-        if (!resolvedPath.startsWith(Paths.get(DOCUMENT_DIR).normalize())) {
-            log.error("Path traversal attempt blocked for filename: " + filename);
+        // Validate file path to prevent path traversal attacks using PathValidationUtils
+        try {
+            File validatedFile = PathValidationUtils.validatePath(filename, new File(DOCUMENT_DIR));
+            filename = validatedFile.getName(); // Use validated filename
+        } catch (SecurityException e) {
+            log.error("Path validation failed for filename: {}", filename, e);
             return null;
         }
 

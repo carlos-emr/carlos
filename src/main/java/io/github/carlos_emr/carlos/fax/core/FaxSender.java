@@ -119,23 +119,20 @@ public class FaxSender {
     }
 
     private Path resolveFilePath(String filename, String documentDir) {
-        Path filePath = Paths.get(filename);
-
-        if (!Files.exists(filePath)) {
-            // Extract just the file name and validate path to prevent traversal attacks
-            try {
-                File validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
-                filePath = validatedFile.toPath();
-            } catch (SecurityException e) {
-                log.error("Path validation failed for filename: {}", filename, e);
-                // Fall back to document dir with just the base filename
-                Path baseFilename = Paths.get(filename).getFileName();
-                if (baseFilename != null) {
-                    filePath = Paths.get(documentDir, baseFilename.toString());
-                }
+        // ALWAYS validate paths using PathValidationUtils to prevent path traversal attacks
+        // Do not bypass validation even if the file exists
+        try {
+            File validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
+            return validatedFile.toPath();
+        } catch (SecurityException e) {
+            log.error("Path validation failed for filename: {}", filename, e);
+            // Fall back to document dir with just the base filename
+            Path baseFilename = Paths.get(filename).getFileName();
+            if (baseFilename != null) {
+                return Paths.get(documentDir, baseFilename.toString());
             }
+            // If we can't extract a base filename, throw the security exception
+            throw e;
         }
-
-        return filePath;
     }
 }
