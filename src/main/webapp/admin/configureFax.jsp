@@ -34,9 +34,9 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.fax");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,7 +57,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Manage Fax</title>
+    <title>Fax Configuration</title>
 
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
@@ -66,6 +66,69 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" type="text/css">
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>
+
+    <style>
+        body {
+            background: #f8f9fc;
+            color: #1f2937;
+        }
+
+        .fax-page {
+            max-width: 1200px;
+            margin: 24px auto;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            padding: 20px 20px 12px;
+        }
+
+        .fax-section-title {
+            color: #0d6efd;
+            font-size: 1.15rem;
+            font-weight: 600;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+        }
+
+        .fax-card {
+            border: 1px solid #e6e9ef;
+            border-radius: 10px;
+            background: #fbfcfe;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .fax-muted {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        #submit.btn {
+            background: #0d6efd;
+            color: #fff;
+            border-color: #0d6efd;
+        }
+
+        #submit.btn:disabled {
+            background: #9ec5fe;
+            border-color: #9ec5fe;
+            color: #fff;
+        }
+
+        #msg.alert {
+            margin-top: 14px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .status-label {
+            font-weight: 600;
+            min-width: 175px;
+            display: inline-block;
+        }
+    </style>
 
     <script type="text/javascript">
 
@@ -96,14 +159,14 @@
                     success: function (data) {
 
                         if (data.success) {
-                            $("#msg").html("Configuration saved!");
+                            $("#msg").html(data.message || "Configuration saved!");
                             $('.alert').removeClass('alert-error');
                             $('.alert').addClass('alert-success');
                             $('.alert').show();
                         } else {
-                            $("#msg").html("There was a problem saving your configuration.  Check the logs for further details.");
+                            $("#msg").html(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
                             $('.alert').removeClass('alert-success');
-                            $('.alert').adqdClass('alert-error');
+                            $('.alert').addClass('alert-error');
                             $('.alert').show();
                         }
                     }
@@ -164,12 +227,14 @@
             $(div).find("#download_of").attr("id", "download_of" + userCount);
             $(div).find("#downloadState").val("");
             $(div).find("#downloadState").attr("id", "downloadState" + userCount);
+            $(div).find("#providerType").attr("id", "providerType" + userCount);
+            $(div).find("#providerType" + userCount).val("MIDDLEWARE");
             $(div).find("#id").val("-1");
             $(div).find("#id").attr("id", "id" + userCount);
 
 
             $(div).find("#id").val("-1");
-            $(div).find("select").val("-1");
+            $(div).find("select[name='inboxQueue']").val("-1");
 
             var theSpan = document.createElement("span");
             //<div class="span12">
@@ -220,6 +285,13 @@
                 success: function (data) {
                     $('#restartFaxSchedulerBtn').prop('disabled', data.isRunning);
                     $("#faxStatusDetails").text(data.faxSchedularStatus).css("color", data.isRunning ? "black" : "red");
+
+                    var lastRunText = "Never";
+                    if (data.lastSuccessfulRunEpochMs && data.lastSuccessfulRunEpochMs > 0) {
+                        lastRunText = new Date(data.lastSuccessfulRunEpochMs).toLocaleString();
+                    }
+                    $("#faxLastRunDetails").text(lastRunText);
+                    $("#faxLastErrorDetails").text(data.lastError && data.lastError.length > 0 ? data.lastError : "None");
                     HideSpin();
                 }
             });
@@ -246,25 +318,26 @@
 
 <body>
 <jsp:include page="/images/spinner.jsp" flush="true"/>
-<div class="container-fluid">
+<div class="container-fluid fax-page">
     <form id="configFrm" method="post">
         <input type="hidden" name="method" value="configure"/>
         <div id="bodyrow" class="row">
 
-            <legend>Fax Server Credentials</legend>
+            <legend class="fax-section-title"><i class="fas fa-server"></i> Fax Server Credentials</legend>
             <div class="span12">
 
                 <div class="row">
                     <div class="span12">
-                        <label for="faxUrl"> Fax Server URL</label>
+                        <label for="faxUrl"><i class="fas fa-link"></i> Fax Server URL</label>
                         <input class="span12" id="faxUrl" type="text" name="faxUrl" placeholder="fax web service URL"
                                value="<%=Encode.forHtmlAttribute( ! faxConfigList.isEmpty() ? faxConfigList.get(0).getUrl() : "")%>"/>
+                        <small class="muted">For middleware mode use relay service URL. For SRFax mode use SRFax API endpoint URL.</small>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="span6">
-                        <label for="faxServiceUser">Fax Server Username</label>
+                        <label for="faxServiceUser"><i class="fas fa-user"></i> Fax Server Username</label>
                         <input class="span6" id="faxServiceUser" type="text" name="siteUser"
                                value="<%=Encode.forHtmlAttribute( ! faxConfigList.isEmpty() ? faxConfigList.get(0).getSiteUser() : "" )%>"/>
                     </div>
@@ -279,7 +352,7 @@
                             }
 
                         %>
-                        <label for="faxServicePasswd">Fax Server Password</label>
+                        <label for="faxServicePasswd"><i class="fas fa-key"></i> Fax Server Password</label>
                         <input class="span6" id="faxServicePasswd" type="password" name="sitePasswd"
                                value="<%=Encode.forHtmlAttribute( faxServicePassword )%>"/>
                     </div>
@@ -291,11 +364,17 @@
                                    reverse="<%=false%>">
                     <div class="row">
                         <div class="span12" style="display: ruby">
-                            <label>Fax Server Connection Status:&nbsp;</label><label id="faxStatusDetails"></label>
+                            <label class="status-label"><i class="fas fa-heartbeat"></i> Fax Server Connection Status:</label><label id="faxStatusDetails"></label>
+                        </div>
+                        <div class="span12" style="display: ruby">
+                            <label class="status-label"><i class="fas fa-clock"></i> Last Successful Poll:</label><label id="faxLastRunDetails">Never</label>
+                        </div>
+                        <div class="span12" style="display: ruby">
+                            <label class="status-label"><i class="fas fa-exclamation-triangle"></i> Last Error:</label><label id="faxLastErrorDetails">None</label>
                         </div>
                         <div class="span12">
-                            <button id="restartFaxSchedulerBtn" type="button" onclick="rebootFaxSchedular()" disabled>
-                                Restart Connection
+                            <button id="restartFaxSchedulerBtn" class="btn btn-warning" type="button" onclick="rebootFaxSchedular()" disabled>
+                                <i class="fas fa-sync-alt"></i> Restart Connection
                             </button>
                         </div>
                     </div>
@@ -304,13 +383,12 @@
             </div>
         </div>
         <div id="content" class="row">
-            <legend>Fax Gateway Accounts <a class="pull-right" style="margin-right:40px;" href=""
-                                            onclick="addUser();return false;">+Add</a></legend>
+            <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> Fax Gateway Accounts <a class="pull-right btn btn-mini btn-primary" style="margin-right:20px;" href="" onclick="addUser();return false;"><i class="fas fa-plus"></i> Add Account</a></legend>
 
             <div class="span12">
 
                 <% do { %>
-                <div class="row" id="user<%=count == 0 ? "" : count%>">
+                <div class="row fax-card" id="user<%=count == 0 ? "" : count%>">
                     <div class="span12">
 
                         <div class="row">
@@ -386,6 +464,16 @@
                         </div>
                         <div class="row">
                             <div class="span6">
+                                <label for="providerType<%=count == 0 ? "" : count%>">Provider Type</label>
+                                <select class="span6" id="providerType<%=count == 0 ? "" : count%>" name="providerType">
+                                    <option value="MIDDLEWARE" <%=faxConfigList.isEmpty() || faxConfigList.get(count).getProviderType() == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>>Middleware Relay</option>
+                                    <option value="SRFAX" <%=!faxConfigList.isEmpty() && faxConfigList.get(count).getProviderType() == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>>SRFax Direct API</option>
+                                </select>
+                                <small class="fax-muted"><i class="fas fa-info-circle"></i> SRFax inbound duplicate control uses unread-only fetch and mark-as-read after download.</small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="span6">
                                 <label>Enable/Disable Gateway</label>
 
                                 <label class="radio inline control-label">
@@ -423,8 +511,7 @@
                         <% if (count <= faxConfigList.size()) { %>
                         <div class="row">
                             <div class="span12">
-                                <a class="pull-right" style="color:red;" id="remove" href=""
-                                   onclick="removeUser(<%=count%>);return false;">-Delete</a>
+                                <a class="pull-right btn btn-mini btn-danger" id="remove" href="" onclick="removeUser(<%=count%>);return false;"><i class="fas fa-trash-alt"></i> Delete</a>
                             </div>
                         </div>
                         <%} %>
@@ -439,11 +526,11 @@
         </div> <!-- end content -->
 
         <div class="row">
-            <input class="btn btn-default" id="submit" type="submit" disabled value="Save"/>
+            <input class="btn" id="submit" type="submit" disabled value="Save Configuration"/>
         </div>
     </form>
 
-    <div id="msg" class="row alert" style="display:none;">
+    <div id="msg" class="row alert" role="alert" style="display:none;">
     </div>
 </div>    <!-- end container -->
 

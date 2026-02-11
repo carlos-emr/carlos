@@ -38,6 +38,11 @@ import javax.persistence.*;
 @Table(name = "fax_config")
 public class FaxConfig extends AbstractModel<Integer> {
 
+    public enum ProviderType {
+        MIDDLEWARE,
+        SRFAX
+    }
+
     private static final long serialVersionUID = 1L;
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -61,6 +66,14 @@ public class FaxConfig extends AbstractModel<Integer> {
 
     @Column(columnDefinition = "boolean default true")
     private boolean download;
+
+    /**
+     * Provider type used to route fax transport operations.
+     * Defaults to middleware to preserve backward compatibility for existing rows.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "providerType")
+    private ProviderType providerType = ProviderType.MIDDLEWARE;
 
     @Override
     public Integer getId() {
@@ -256,6 +269,23 @@ public class FaxConfig extends AbstractModel<Integer> {
      */
     public boolean getActive() {
         return active;
+    }
+
+    /**
+     * Returns configured provider type with safe middleware default when null.
+     */
+    public ProviderType getProviderType() {
+        if (providerType == null) {
+            return ProviderType.MIDDLEWARE;
+        }
+        return providerType;
+    }
+
+    /**
+     * Sets configured fax provider type for this account.
+     */
+    public void setProviderType(ProviderType providerType) {
+        this.providerType = providerType;
     }
 
 

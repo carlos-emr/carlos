@@ -752,13 +752,20 @@ public class FaxManagerImpl implements FaxManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_admin.fax.restart)");
         }
+        boolean running = faxSchedulerJob.isRunning();
+        long lastRun = faxSchedulerJob.getLastSuccessfulRunEpochMs();
+        String lastError = faxSchedulerJob.getLastError();
+
         String status = "Uncaught Exception - connection is likely down";
-        if (FaxSchedulerJob.isRunning()) {
+        if (running) {
             status = "No uncaught exception - connection is likely up";
         }
+
         ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put("faxSchedularStatus", status);
-        jsonObject.put("isRunning", FaxSchedulerJob.isRunning());
+        jsonObject.put("isRunning", running);
+        jsonObject.put("lastSuccessfulRunEpochMs", lastRun);
+        jsonObject.put("lastError", lastError == null ? "" : lastError);
         return jsonObject;
     }
 

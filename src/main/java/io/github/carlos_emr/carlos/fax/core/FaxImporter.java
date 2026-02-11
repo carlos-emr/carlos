@@ -29,27 +29,10 @@
 package io.github.carlos_emr.carlos.fax.core;
 
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URLEncoder;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.http.HttpStatus;
 import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
@@ -58,27 +41,40 @@ import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import com.itextpdf.text.pdf.codec.Base64;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import com.itextpdf.text.pdf.codec.Base64;
+
+import io.github.carlos_emr.OscarProperties;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
 public class FaxImporter {
 
-    private static String PATH = "/fax";
     private static String DOCUMENT_DIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
     private static String DEFAULT_USER = "-1";
-    private FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
-    private FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
-    private QueueDocumentLinkDao queueDocumentLinkDao = SpringUtils.getBean(QueueDocumentLinkDao.class);
-    private ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
+    private final FaxConfigDao faxConfigDao;
+    private final FaxJobDao faxJobDao;
+    private final QueueDocumentLinkDao queueDocumentLinkDao;
+    private final ProviderLabRoutingDao providerLabRoutingDao;
+    private final FaxProviderClientFactory faxProviderClientFactory;
     private Logger log = MiscUtils.getLogger();
+
+    @Autowired
+    public FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
+            ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory) {
+        this.faxConfigDao = faxConfigDao;
+        this.faxJobDao = faxJobDao;
+        this.queueDocumentLinkDao = queueDocumentLinkDao;
+        this.providerLabRoutingDao = providerLabRoutingDao;
+        this.faxProviderClientFactory = faxProviderClientFactory;
+    }
 
     public void poll() {
 
@@ -86,175 +82,58 @@ public class FaxImporter {
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
 
-
         for (FaxConfig faxConfig : faxConfigList) {
-            if (faxConfig.isActive() && faxConfig.isDownload()) {
+            if (!faxConfig.isActive() || !faxConfig.isDownload()) {
+                continue;
+            }
 
-                Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
-                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
+            try {
+                FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
+                List<FaxJob> faxList = providerClient.listInboundFaxes(faxConfig);
 
-                CloseableHttpClient client = HttpClientBuilder.create()
-                        .setDefaultCredentialsProvider(credentialsProvider)
-                        .build();
+                for (FaxJob receivedFax : faxList) {
 
-                HttpGet mGet = null;
-                HttpResponse response = null;
-                int status = HttpStatus.SC_OK;
+                    String fileName = null;
+                    EDoc edoc = null;
+                    FaxJob faxFile = null;
 
-                try {
-
-                    log.debug("Service Path: " + faxConfig.getUrl() + PATH + File.separator + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
-
-                    mGet = new HttpGet(faxConfig.getUrl() + PATH + File.separator + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
-                    mGet.setHeader("accept", "application/json");
-                    mGet.setHeader("user", faxConfig.getFaxUser());
-                    mGet.setHeader("passwd", faxConfig.getFaxPasswd());
-                    response = client.execute(mGet);
-
-                    if (response != null) {
-                        status = response.getStatusLine().getStatusCode();
-                    }
-
-                    if (status == HttpStatus.SC_OK) {
-
-                        HttpEntity httpEntity = response.getEntity();
-                        String content = EntityUtils.toString(httpEntity);
-
-                        log.debug("CONTENT: " + content);
-
-                        ObjectMapper mapper = new ObjectMapper();
-
-                        List<FaxJob> faxList = mapper.readValue(content, new TypeReference<List<FaxJob>>() {
-                        });
-
-                        for (FaxJob receivedFax : faxList) {
-
-                            String fileName = null;
-                            EDoc edoc = null;
-                            FaxJob faxFile = null;
-
-                            // if this recievedFax Object contains an error
-                            // skip the download step there is no file to download.
-                            if (!FaxJob.STATUS.ERROR.equals(receivedFax.getStatus())) {
-                                faxFile = downloadFax(client, faxConfig, receivedFax);
-                            }
-
-                            // save the received fax to the file system and assign to an inbox Queue
-                            if (faxFile != null) {
-                                edoc = saveAndInsertIntoQueue(faxConfig, receivedFax, faxFile);
-                            }
-
-                            if (edoc != null) {
-                                fileName = edoc.getFileName();
-                            }
-
-                            // The fileName variable will be NULL if the saveAndInsertIntoQueue methods fails
-                            // to fully complete. If NULL, the file will not be deleted from the Host server.
-                            if (fileName != null) {
-
-                                // set the new fax into provider lab routing for tracking it's route.
-                                providerRouting(Integer.parseInt(edoc.getDocId()));
-
-                                // delete the fax on the sever.
-                                deleteFax(client, faxConfig, receivedFax);
-
-                            } else {
-                                fileName = FaxJob.STATUS.ERROR.name();
-                            }
-
-                            // this received fax may contain status errors that the
-                            // end user needs to see. So the job should be saved to the database anyway.
-                            receivedFax.setFile_name(fileName);
-
-                            // save the receivedFax Object regardless of status or fileName.
-                            saveFaxJob(new FaxJob(receivedFax));
+                    if (!FaxJob.STATUS.ERROR.equals(receivedFax.getStatus())) {
+                        try {
+                            faxFile = providerClient.downloadFax(faxConfig, receivedFax);
+                        } catch (FaxProviderException e) {
+                            log.error("Failed to download incoming fax file " + receivedFax.getFile_name(), e);
                         }
+                    }
 
+                    if (faxFile != null) {
+                        edoc = saveAndInsertIntoQueue(faxConfig, receivedFax, faxFile);
+                    }
+
+                    if (edoc != null) {
+                        fileName = edoc.getFileName();
+                    }
+
+                    if (fileName != null) {
+                        providerRouting(Integer.parseInt(edoc.getDocId()));
+
+                        try {
+                            providerClient.deleteFax(faxConfig, receivedFax);
+                        } catch (FaxProviderException e) {
+                            log.error("Failed to delete remote fax file " + receivedFax.getFile_name(), e);
+                        }
                     } else {
-                        log.error("HTTP Status error with HTTP code: " + status);
+                        fileName = FaxJob.STATUS.ERROR.name();
                     }
 
-                } catch (IOException e) {
-                    log.error("HTTP WS CLIENT ERROR", e);
-                } finally {
-                    if (mGet != null) {
-                        mGet.reset();
-                    }
+                    receivedFax.setFile_name(fileName);
+                    saveFaxJob(new FaxJob(receivedFax));
                 }
+
+            } catch (FaxProviderException e) {
+                log.error("HTTP WS CLIENT ERROR", e);
             }
         }
 
-    }
-
-    private FaxJob downloadFax(CloseableHttpClient client, FaxConfig faxConfig, FaxJob fax) {
-
-        FaxJob downloadedFax = null;
-        HttpGet mGet = null;
-
-        try {
-            mGet = new HttpGet(faxConfig.getUrl() + PATH + "/"
-                    + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8") + "/"
-                    + URLEncoder.encode(fax.getFile_name(), "UTF-8"));
-            mGet.setHeader("accept", "application/json");
-            mGet.setHeader("user", faxConfig.getFaxUser());
-            mGet.setHeader("passwd", faxConfig.getFaxPasswd());
-
-            HttpResponse response = client.execute(mGet);
-
-            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-
-                HttpEntity httpEntity = response.getEntity();
-                String content = EntityUtils.toString(httpEntity);
-
-                ObjectMapper mapper = new ObjectMapper();
-
-                downloadedFax = mapper.readValue(content, FaxJob.class);
-
-                fax.setStatus(downloadedFax.getStatus());
-                fax.setStatusString(downloadedFax.getStatusString());
-
-                // the fileName will be null if there is an error
-                // will need to modify the receivedFax header appropriately.
-                if (FaxJob.STATUS.ERROR.equals(downloadedFax.getStatus())) {
-                    downloadedFax = null;
-                }
-            }
-
-        } catch (ClientProtocolException e) {
-            log.error("HTTP WS CLIENT ERROR", e);
-        } catch (IOException e) {
-            log.error("IO ERROR", e);
-        } finally {
-            if (mGet != null) {
-                mGet.reset();
-            }
-        }
-
-        return downloadedFax;
-    }
-
-    private void deleteFax(CloseableHttpClient client, FaxConfig faxConfig, FaxJob fax)
-            throws ClientProtocolException, IOException {
-        HttpDelete mDelete = new HttpDelete(faxConfig.getUrl() + PATH + "/"
-                + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8") + "/"
-                + URLEncoder.encode(fax.getFile_name(), "UTF-8"));
-
-        mDelete.setHeader("accept", "application/json");
-        mDelete.setHeader("user", faxConfig.getFaxUser());
-        mDelete.setHeader("passwd", faxConfig.getFaxPasswd());
-
-        log.info("Deleting Fax file " + fax.getFile_name() + " from the host server.");
-
-        HttpResponse response = client.execute(mDelete);
-        mDelete.reset();
-
-        if (!(response.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT)) {
-            log.debug("Failed to delete Fax file " + fax.getFile_name() + " from the host server.");
-            throw new ClientProtocolException("CANNOT DELETE " + fax.getFile_name());
-        } else {
-            log.info("Fax file " + fax.getFile_name() + " has been deleted from the host server.");
-        }
     }
 
     private EDoc saveAndInsertIntoQueue(FaxConfig faxConfig, FaxJob receivedFax, FaxJob faxFile) {
@@ -269,7 +148,7 @@ public class FaxImporter {
 
         filename = filename.replace(".tif", ".pdf");
 
-        if (!filename.endsWith(".pdf") || !filename.endsWith(".PDF")) {
+        if (!filename.endsWith(".pdf") && !filename.endsWith(".PDF")) {
             filename = filename + ".pdf";
         }
 

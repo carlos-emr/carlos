@@ -785,7 +785,8 @@ FOREIGN KEY (`merged_to`) REFERENCES `demographic` (`demographic_no`);
 
 ALTER TABLE `fax_config`
 MODIFY COLUMN `download` tinyint(1) DEFAULT 1,
-MODIFY COLUMN `gatewayName` varchar(255) DEFAULT '' AFTER `download`,
+ADD COLUMN `providerType` varchar(25) DEFAULT 'MIDDLEWARE' AFTER `download`,
+MODIFY COLUMN `gatewayName` varchar(255) DEFAULT '' AFTER `providerType`,
 MODIFY COLUMN `faxReply` varchar(10) DEFAULT '' AFTER `gatewayName`;
 
 --

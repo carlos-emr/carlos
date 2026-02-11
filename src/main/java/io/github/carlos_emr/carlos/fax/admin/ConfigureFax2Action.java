@@ -47,6 +47,13 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Admin action for fax configuration and scheduler controls.
+ *
+ * <p>This action is intentionally backed by established Struts endpoints used by
+ * the pre-existing fax admin JSP UX. Configuration writes are restricted to
+ * `_admin.fax` write privilege.</p>
+ */
 public class ConfigureFax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -54,9 +61,13 @@ public class ConfigureFax2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private static final String PASSWORD_BLANKET = "**********";
+    private static final String DEFAULT_ERROR_MESSAGE = "There was a problem saving your configuration. Check the logs for details.";
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Dispatches request methods for configure/scheduler endpoints.
+     */
     public String execute() {
         String method = request.getParameter("method");
 
@@ -77,11 +88,18 @@ public class ConfigureFax2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Persists fax server and account configuration rows from admin form submission.
+     *
+     * <p>Provider selection is parsed per account and defaults to middleware when
+     * invalid or unspecified, preserving backward compatibility.</p>
+     */
     public String configure() {
         ObjectNode jsonObject;
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        // Fax configuration is admin-fax write protected.
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.fax)");
         }
 
         try {
@@ -102,6 +120,7 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] senderEmails = request.getParameterValues("senderEmail");
             String[] accountNames = request.getParameterValues("accountName");
             String[] downloadState = request.getParameterValues("downloadState");
+            String[] providerTypes = request.getParameterValues("providerType");
 
             Integer id;
             int savedidx;
@@ -119,6 +138,9 @@ public class ConfigureFax2Action extends ActionSupport {
                         continue;
                     }
                     id = Integer.parseInt(faxConfigIds[idx]);
+                    FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
+                    validateConfigRow(providerType, faxUrl, siteUser, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
+
                     faxConfig = new FaxConfig();
                     faxConfig.setId(id);
 
@@ -149,6 +171,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         savedFaxConfig.setAccountName(accountNames[idx]);
                         savedFaxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         savedFaxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
+                        savedFaxConfig.setProviderType(providerType);
                         faxConfigList.add(savedFaxConfig);
                     } else {
                         faxConfig.setId(null);
@@ -158,7 +181,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxConfig.setPasswd(sitePasswd.trim());
                         }
                         // the password carries over from the last configuration. Usually the first entry
-                        else if ((masterFaxConfig = savedFaxConfigList.get(0)) != null) {
+                        else if (!savedFaxConfigList.isEmpty() && (masterFaxConfig = savedFaxConfigList.get(0)) != null) {
                             faxConfig.setPasswd(masterFaxConfig.getPasswd());
                         }
 
@@ -175,6 +198,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         faxConfig.setAccountName(accountNames[idx]);
                         faxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         faxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
+                        faxConfig.setProviderType(providerType);
                         faxConfigList.add(faxConfig);
                     }
                 }
@@ -206,17 +230,20 @@ public class ConfigureFax2Action extends ActionSupport {
                     faxConfig.setPasswd(sitePasswd.trim());
                 }
                 // the password carries over from the last configuration. Usually the first entry
-                else if ((masterFaxConfig = savedFaxConfigList.get(0)) != null) {
+                else if (!savedFaxConfigList.isEmpty() && (masterFaxConfig = savedFaxConfigList.get(0)) != null) {
                     faxConfig.setPasswd(masterFaxConfig.getPasswd());
                 }
+                faxConfig.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
                 faxConfigDao.saveEntity(faxConfig);
             }
 
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
+            jsonObject.put("message", "Configuration saved!");
         } catch (Exception ex) {
-                jsonObject = objectMapper.createObjectNode();
-                jsonObject.put("success", false);
+            jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", ex.getMessage() == null ? DEFAULT_ERROR_MESSAGE : ex.getMessage());
             MiscUtils.getLogger().error("COULD NOT SAVE FAX CONFIGURATION", ex);
         }
 
@@ -225,6 +252,94 @@ public class ConfigureFax2Action extends ActionSupport {
         return null;
     }
 
+
+    /**
+     * Resolves provider type selection from request arrays with safe middleware fallback.
+     *
+     * @param providerTypes provider type request values
+     * @param idx row index currently being processed
+     * @param faxConfigId persisted identifier for logging context
+     * @return resolved provider type, defaulting to {@link FaxConfig.ProviderType#MIDDLEWARE} when absent/invalid
+     */
+    private FaxConfig.ProviderType resolveProviderType(String[] providerTypes, int idx, Integer faxConfigId) {
+        FaxConfig.ProviderType providerType = FaxConfig.ProviderType.MIDDLEWARE;
+
+        if (providerTypes != null && idx < providerTypes.length && providerTypes[idx] != null) {
+            try {
+                providerType = FaxConfig.ProviderType.valueOf(providerTypes[idx]);
+            } catch (IllegalArgumentException ex) {
+                MiscUtils.getLogger().warn("Invalid provider type '{}' for fax config id {}. Falling back to MIDDLEWARE.",
+                        providerTypes[idx], faxConfigId);
+            }
+        }
+
+        return providerType;
+    }
+
+    /**
+     * Validates a single fax account row before persistence.
+     *
+     * @param providerType provider selected for the account row
+     * @param faxUrl shared fax endpoint URL
+     * @param siteUser shared fax endpoint username
+     * @param faxUsers per-row fax usernames
+     * @param faxPasswds per-row fax passwords
+     * @param faxNumbers per-row sender fax numbers
+     * @param senderEmails per-row sender emails
+     * @param inboxQueues per-row inbox queue identifiers
+     * @param idx row index currently being processed
+     * @param faxConfigId persisted identifier used to distinguish new vs existing rows
+     * @throws IllegalArgumentException when required values are missing or malformed
+     */
+    private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser,
+                                   String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
+                                   String[] inboxQueues, int idx, Integer faxConfigId) {
+        if (StringUtils.isBlank(faxUrl)) {
+            throw new IllegalArgumentException("Fax server URL is required.");
+        }
+        if (StringUtils.isBlank(siteUser)) {
+            throw new IllegalArgumentException("Fax server username is required.");
+        }
+        if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
+            throw new IllegalArgumentException("Fax user is required for account row " + (idx + 1) + ".");
+        }
+        if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
+            throw new IllegalArgumentException("Fax number is required for account row " + (idx + 1) + ".");
+        }
+        if (senderEmails == null || idx >= senderEmails.length || StringUtils.isBlank(senderEmails[idx])) {
+            throw new IllegalArgumentException("Sender email is required for account row " + (idx + 1) + ".");
+        }
+        if (inboxQueues == null || idx >= inboxQueues.length || StringUtils.isBlank(inboxQueues[idx])) {
+            throw new IllegalArgumentException("Inbox queue is required for account row " + (idx + 1) + ".");
+        }
+
+        try {
+            Integer.parseInt(inboxQueues[idx]);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("Inbox queue must be a numeric value for account row " + (idx + 1) + ".");
+        }
+
+        // Basic format check to give immediate, actionable feedback in admin UX.
+        if (!senderEmails[idx].contains("@")) {
+            throw new IllegalArgumentException("Sender email must be valid for account row " + (idx + 1) + ".");
+        }
+
+        if (providerType == FaxConfig.ProviderType.SRFAX) {
+            boolean missingPassword = faxPasswds == null || idx >= faxPasswds.length || StringUtils.isBlank(faxPasswds[idx]);
+            boolean isNewConfigRow = faxConfigId == null || faxConfigId <= 0;
+            if (isNewConfigRow && missingPassword) {
+                throw new IllegalArgumentException("SRFax password is required for new SRFax account row " + (idx + 1) + ".");
+            }
+
+            if (!faxUrl.toLowerCase().contains("srfax")) {
+                MiscUtils.getLogger().warn("SRFax provider selected for row {} but URL does not appear to be an SRFax endpoint: {}", idx + 1, faxUrl);
+            }
+        }
+    }
+
+    /**
+     * Restarts fax scheduler thread/task via manager layer.
+     */
     public void restartFaxScheduler() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax.restart", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.fax.restart)");
@@ -232,6 +347,9 @@ public class ConfigureFax2Action extends ActionSupport {
         faxManager.restartFaxScheduler(LoggedInInfo.getLoggedInInfoFromSession(request));
     }
 
+    /**
+     * Returns scheduler health/status payload for admin UI polling.
+     */
     public void getFaxSchedularStatus() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "r", null)) {

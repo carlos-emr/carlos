@@ -39,6 +39,15 @@
 **Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
+
+## Fax Provider Feature Context (AI + Dev)
+
+- Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+- Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+- Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
+- SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
+- See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
+
 ## Essential Commands
 
 ```bash
