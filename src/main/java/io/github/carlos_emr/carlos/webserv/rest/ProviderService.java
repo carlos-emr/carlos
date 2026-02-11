@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.model.ProviderSettings;
 import io.github.carlos_emr.carlos.utility.JsDateSerializer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -107,6 +108,8 @@ public class ProviderService extends AbstractServiceImpl {
     @Autowired
     DemographicManager demographicManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
 
     public ProviderService() {
@@ -394,6 +397,12 @@ public class ProviderService extends AbstractServiceImpl {
         AbstractSearchResponse<ProviderSettings> response = new AbstractSearchResponse<ProviderSettings>();
 
         ProviderSettings settings = providerManager.getProviderSettings(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo());
+
+        // Redact sensitive credentials - never expose passwords via API
+        if (settings.geteRxPassword() != null && !settings.geteRxPassword().isEmpty()) {
+            settings.seteRxPassword("********");
+        }
+
         List<ProviderSettings> content = new ArrayList<ProviderSettings>();
         content.add(settings);
         response.setContent(content);
@@ -408,7 +417,19 @@ public class ProviderService extends AbstractServiceImpl {
     public GenericRESTResponse saveProviderSettings(ProviderSettings json, @PathParam("providerNo") String providerNo) {
         GenericRESTResponse response = new GenericRESTResponse();
 
-        MiscUtils.getLogger().warn(json.toString());
+        // Prevent IDOR: users can only modify their own settings unless they have admin privileges
+        String currentProviderNo = getLoggedInInfo().getLoggedInProviderNo();
+        if (!currentProviderNo.equals(providerNo) && !securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", "w", null)) {
+            throw new SecurityException("missing required security object (_admin)");
+        }
+
+        // If the eRx password field contains the redacted placeholder, preserve the existing password
+        if ("********".equals(json.geteRxPassword())) {
+            ProviderSettings existing = providerManager.getProviderSettings(getLoggedInInfo(), providerNo);
+            if (existing != null) {
+                json.seteRxPassword(existing.geteRxPassword());
+            }
+        }
 
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);
         return response;
@@ -418,7 +439,9 @@ public class ProviderService extends AbstractServiceImpl {
     @Path("/suggestProviderNo")
     @Produces("application/json")
     public GenericRESTResponse suggestProviderNo() {
-
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", "r", null)) {
+            throw new SecurityException("missing required security object (_admin)");
+        }
         List<Provider> providers = providerManager.getProviders(getLoggedInInfo(), null);
         List<Integer> providerList = new ArrayList<Integer>();
         for (Provider h : providers) {
