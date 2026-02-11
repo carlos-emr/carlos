@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
@@ -57,6 +58,10 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
+
+    /** Flushes the Hibernate Session used by SecuserroleDaoImpl (HibernateDaoSupport). */
+    @Autowired
+    private HibernateTemplate hibernateTemplate;
 
     private Secuserrole createSecuserrole(String providerNo, String roleName, String orgcd) {
         Secuserrole role = new Secuserrole();
@@ -95,7 +100,7 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
 
             // When
             secuserroleDao.save(role);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(role.getId()).isNotNull();
@@ -107,10 +112,9 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("create")
         @DisplayName("should save all secuserroles in batch")
-        @SuppressWarnings("unchecked")
         void shouldSaveAll_whenBatchProvided() {
             // Given
-            List batch = new ArrayList();
+            List<Secuserrole> batch = new ArrayList<>();
             for (int i = 0; i < 3; i++) {
                 Secuserrole role = new Secuserrole();
                 role.setProviderNo("BATCH" + i);
@@ -119,9 +123,11 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
                 batch.add(role);
             }
 
-            // When
-            secuserroleDao.saveAll(batch);
-            entityManager.flush();
+            // When - DAO interface accepts raw List for backward compatibility
+            @SuppressWarnings("unchecked")
+            List rawBatch = batch;
+            secuserroleDao.saveAll(rawBatch);
+            hibernateTemplate.flush();
 
             // Then
             List<Secuserrole> results = secuserroleDao.findAll();
@@ -136,12 +142,12 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         void shouldUpdateRoleName_byId() {
             // Given
             Secuserrole role = createSecuserrole("P200", "doctor", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             secuserroleDao.updateRoleName(role.getId(), "specialist");
-            entityManager.flush();
-            entityManager.clear();
+            hibernateTemplate.flush();
+            hibernateTemplate.clear();
 
             // Then
             Secuserrole found = secuserroleDao.findById(role.getId());
@@ -154,12 +160,12 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         void shouldDeleteSecuserrole_whenEntityProvided() {
             // Given
             Secuserrole role = createSecuserrole("P300", "doctor", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
             Integer savedId = role.getId();
 
             // When
             secuserroleDao.delete(role);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             Secuserrole found = secuserroleDao.findById(savedId);
@@ -172,7 +178,7 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         void shouldDeleteSecuserrole_byId() {
             // Given
             Secuserrole role = createSecuserrole("P301", "nurse", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
             Integer savedId = role.getId();
 
             // When
@@ -188,12 +194,12 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         void shouldMergeSecuserrole_whenDetachedInstanceProvided() {
             // Given
             Secuserrole role = createSecuserrole("P400", "doctor", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             role.setRoleName("merged_role");
             Secuserrole merged = secuserroleDao.merge(role);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(merged).isNotNull();
@@ -206,12 +212,12 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         void shouldUpdateActiveStatus_viaUpdateMethod() {
             // Given
             Secuserrole role = createSecuserroleWithActive("P500", "doctor", "ORG1", 1);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             role.setActiveyn(0);
             int rowsUpdated = secuserroleDao.update(role);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(rowsUpdated).isGreaterThanOrEqualTo(1);
@@ -229,7 +235,7 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         void shouldFindById_whenValidIdProvided() {
             // Given
             Secuserrole saved = createSecuserrole("P600", "doctor", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             Secuserrole found = secuserroleDao.findById(saved.getId());
@@ -254,15 +260,15 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find secuserroles by provider number")
-        @SuppressWarnings("unchecked")
-        void shouldFindByProviderNo() {
+        void shouldFindSecuserroles_byProviderNo() {
             // Given
             createSecuserrole("P700", "doctor", "ORG1");
             createSecuserrole("P700", "nurse", "ORG2");
             createSecuserrole("P701", "admin", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // When
+            // When - DAO interface returns raw List for backward compatibility
+            @SuppressWarnings("unchecked")
             List<Secuserrole> results = secuserroleDao.findByProviderNo("P700");
 
             // Then
@@ -274,15 +280,15 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find secuserroles by role name")
-        @SuppressWarnings("unchecked")
-        void shouldFindByRoleName() {
+        void shouldFindSecuserroles_byRoleName() {
             // Given
             createSecuserrole("P800", "specialist", "ORG1");
             createSecuserrole("P801", "specialist", "ORG2");
             createSecuserrole("P802", "nurse", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // When
+            // When - DAO interface returns raw List for backward compatibility
+            @SuppressWarnings("unchecked")
             List<Secuserrole> results = secuserroleDao.findByRoleName("specialist");
 
             // Then
@@ -294,14 +300,14 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("filter")
         @DisplayName("should filter by active status")
-        @SuppressWarnings("unchecked")
-        void shouldFilterByActiveStatus() {
+        void shouldFilterSecuserroles_byActiveStatus() {
             // Given
             createSecuserroleWithActive("P900", "doctor", "ORG1", 1);
             createSecuserroleWithActive("P901", "nurse", "ORG1", 0);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // When
+            // When - DAO interface returns raw List for backward compatibility
+            @SuppressWarnings("unchecked")
             List<Secuserrole> activeResults = secuserroleDao.findByActiveyn(1);
 
             // Then
@@ -317,7 +323,7 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
             // Given
             createSecuserrole("P111", "doctor", "ORG1");
             createSecuserrole("P222", "nurse", "ORG2");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<Secuserrole> results = secuserroleDao.findAll();
@@ -334,13 +340,13 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("delete")
-        @DisplayName("should delete by orgcd")
-        void shouldDeleteByOrgcd() {
+        @DisplayName("should delete secuserroles by orgcd")
+        void shouldDeleteSecuserroles_byOrgcd() {
             // Given
             createSecuserrole("P001", "doctor", "ORG1");
             createSecuserrole("P002", "nurse", "ORG1");
             createSecuserrole("P003", "admin", "ORG2");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             int deleted = secuserroleDao.deleteByOrgcd("ORG1");
@@ -351,13 +357,13 @@ public class SecuserroleDaoIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("delete")
-        @DisplayName("should delete by provider number")
-        void shouldDeleteByProviderNo() {
+        @DisplayName("should delete secuserroles by provider number")
+        void shouldDeleteSecuserroles_byProviderNo() {
             // Given
             createSecuserrole("PDEL1", "doctor", "ORG1");
             createSecuserrole("PDEL1", "nurse", "ORG2");
             createSecuserrole("PDEL2", "admin", "ORG1");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             int deleted = secuserroleDao.deleteByProviderNo("PDEL1");

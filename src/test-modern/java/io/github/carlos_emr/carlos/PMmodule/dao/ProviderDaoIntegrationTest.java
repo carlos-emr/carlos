@@ -305,7 +305,7 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should retrieve all providers via query method")
-        void shouldRetrieveAllProviders() {
+        void shouldRetrieveAllProviders_fromDatabase() {
             // When
             List<Provider> results = providerDao.getProviders();
 
@@ -333,7 +333,7 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get providers by type")
-        void shouldGetProvidersByType() {
+        void shouldGetProviders_byType() {
             // When
             List<Provider> doctors = providerDao.getProvidersByType("doctor");
 
@@ -383,7 +383,7 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get provider name in last-first format")
-        void shouldGetProviderNameLastFirst() {
+        void shouldGetProviderName_inLastFirstFormat() {
             // When
             String name = providerDao.getProviderNameLastFirst("T001");
 
@@ -407,15 +407,20 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
         @Tag("read")
         @DisplayName("should get providers by boolean active filter")
         void shouldGetProviders_byActiveFilter() {
-            // When
+            // When - getProviders(true) returns active, getProviders(false) returns inactive
             List<Provider> activeOnly = providerDao.getProviders(true);
-            List<Provider> all = providerDao.getProviders(false);
+            List<Provider> inactiveOnly = providerDao.getProviders(false);
 
-            // Then
-            assertThat(activeOnly.size()).isLessThanOrEqualTo(all.size());
+            // Then - active filter excludes inactive provider T004
+            assertThat(activeOnly).isNotEmpty();
             assertThat(activeOnly)
                 .extracting(Provider::getProviderNo)
                 .doesNotContain("T004");
+
+            // Inactive filter includes only inactive provider T004
+            assertThat(inactiveOnly)
+                .extracting(Provider::getProviderNo)
+                .contains("T004");
         }
     }
 }

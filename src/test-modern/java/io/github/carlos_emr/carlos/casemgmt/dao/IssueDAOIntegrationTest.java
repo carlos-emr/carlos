@@ -73,7 +73,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         createIssue("DIAB002", "Diabetes Type 2", "doctor", "medical");
         createIssue("HYPER001", "Hypertension", "doctor", "medical");
         createIssue("PSYCH001", "Depression", "nurse", "mental");
-        entityManager.flush();
+        hibernateTemplate.flush();
     }
 
     private Issue createIssue(String code, String description, String role, String type) {
@@ -97,7 +97,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         void shouldRetrieveIssue_whenValidIdProvided() {
             // Given
             Issue saved = createIssue("CRUD001", "CRUD Test Issue", "doctor", "medical");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             Issue found = issueDAO.getIssue(saved.getId());
@@ -121,7 +121,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
 
             // When
             issueDAO.saveIssue(issue);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(issue.getId()).isNotNull();
@@ -136,12 +136,12 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         void shouldUpdateIssue_whenChangesProvided() {
             // Given
             Issue issue = createIssue("UPD001", "Original", "doctor", "medical");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             issue.setDescription("Updated Description");
             issueDAO.saveIssue(issue);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             Issue found = issueDAO.getIssue(issue.getId());
@@ -198,7 +198,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("query")
         @DisplayName("should handle code array parameters")
-        void shouldHandleCodeArrayParams() {
+        void shouldHandleCodeArrayParams_withMultipleCodes() {
             // Given
             String[] codes = new String[]{"DIAB001", "HYPER001"};
 
@@ -305,11 +305,11 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
             for (int i = 0; i < 5; i++) {
                 createIssue("PAGE" + i, "Pagination Test " + i, "doctor", "medical");
             }
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             Secrole role = new Secrole("doctor", "Doctor role");
             secroleDao.save(role);
-            entityManager.flush();
+            hibernateTemplate.flush();
             List<Secrole> roles = new ArrayList<>();
             roles.add(role);
 
@@ -322,12 +322,12 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("aggregate")
-        @DisplayName("should count search results")
-        void shouldCountSearchResults() {
+        @DisplayName("should count search results for matching roles")
+        void shouldCountSearchResults_forMatchingRoles() {
             // Given
             Secrole role = new Secrole("doctor", "Doctor role");
             secroleDao.save(role);
-            entityManager.flush();
+            hibernateTemplate.flush();
             List<Secrole> roles = new ArrayList<>();
             roles.add(role);
 
@@ -344,7 +344,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         void shouldRetrieveCommunitySpecificCodes() {
             // Given
             createIssue("COMM001", "Community Issue", "doctor", "community");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<String> codes = issueDAO.getLocalCodesByCommunityType("community");

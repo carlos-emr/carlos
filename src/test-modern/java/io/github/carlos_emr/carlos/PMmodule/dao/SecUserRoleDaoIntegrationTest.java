@@ -65,7 +65,7 @@ public class SecUserRoleDaoIntegrationTest extends OpenOTestBase {
 
     @BeforeEach
     void setUp() {
-        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 8);
+        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 3);
 
         // Create test user roles using HibernateTemplate (same as DAO uses)
         hibernateTemplate.save(new SecUserRole("doctor", uniquePrefix + "001"));

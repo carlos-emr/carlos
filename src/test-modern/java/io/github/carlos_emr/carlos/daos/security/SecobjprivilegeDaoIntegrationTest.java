@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
@@ -109,6 +110,17 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
     private EntityManager entityManager;
 
     /**
+     * HibernateTemplate for flushing the Hibernate Session.
+     * SecobjprivilegeDaoImpl extends HibernateDaoSupport, so its writes go through
+     * the standalone Hibernate Session, not the JPA EntityManager. Calling
+     * entityManager.flush() only flushes the JPA persistence context, not the
+     * Hibernate Session. We must flush via HibernateTemplate to push pending
+     * Hibernate writes to the database before native SQL verification queries.
+     */
+    @Autowired
+    private HibernateTemplate hibernateTemplate;
+
+    /**
      * Native SQL that selects all columns from the {@code secObjPrivilege} table
      * for a given composite key (roleUserGroup + objectName). Used in save tests
      * to verify that the DAO correctly persisted all five mapped columns:
@@ -167,9 +179,9 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
         Secobjprivilege priv = new Secobjprivilege(roleUserGroup, objectName,
                 privilege, priority, providerNo);
         secobjprivilegeDao.save(priv);
-        // Flush to synchronize the persistence context with the database,
-        // making the row visible to native SQL verification queries
-        entityManager.flush();
+        // Flush the Hibernate Session (not JPA EntityManager) to synchronize
+        // HibernateDaoSupport writes with the database
+        hibernateTemplate.flush();
         return priv;
     }
 
@@ -226,7 +238,7 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
 
             // When
             secobjprivilegeDao.save(priv);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then - verify via native query to confirm persistence
             @SuppressWarnings("unchecked")
@@ -309,7 +321,7 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
             // When
             secobjprivilegeDao.delete(priv);
             // Flush to force the DELETE SQL to execute immediately
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then - confirm the row no longer exists in the database
             @SuppressWarnings("unchecked")
@@ -365,9 +377,9 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
             assertThat(deleted).isEqualTo(2);
 
             // Verify the other role's privilege was not deleted
-            entityManager.flush();
+            hibernateTemplate.flush();
             // Clear the persistence context to force a fresh read from the database
-            entityManager.clear();
+            hibernateTemplate.clear();
             @SuppressWarnings("unchecked")
             List<Object[]> remaining = entityManager
                     .createNativeQuery(NATIVE_CHECK_BY_ROLE)

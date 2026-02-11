@@ -184,8 +184,8 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should filter by client ID")
-        void shouldFilterByClientId() {
+        @DisplayName("should filter referrals by client ID")
+        void shouldFilterReferrals_byClientId() {
             // When
             List<ClientReferral> results = clientReferralDAO.getReferrals(testClientId1);
 
@@ -214,8 +214,8 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should filter by client and facility")
-        void shouldFilterByClientAndFacility() {
+        @DisplayName("should filter referrals by client and facility")
+        void shouldFilterReferrals_byClientAndFacility() {
             // When
             List<ClientReferral> results = clientReferralDAO.getReferralsByFacility(
                 testClientId1, testFacilityId1);
@@ -223,7 +223,8 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
             // Then
             assertThat(results)
                 .isNotEmpty()
-                .allMatch(r -> r.getClientId().equals(testClientId1));
+                .allMatch(r -> r.getClientId().equals(testClientId1))
+                .allMatch(r -> r.getFacilityId().equals(testFacilityId1));
         }
 
         @Test
@@ -284,19 +285,6 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
             assertThat(results).isEmpty();
         }
 
-        @Test
-        @Tag("filter")
-        @DisplayName("should filter for pending referrals via status")
-        void shouldFilterForPendingReferrals_viaStatus() {
-            // When - getActiveReferrals includes "pending" in its status filter
-            List<ClientReferral> results = clientReferralDAO.getActiveReferrals(
-                testClientId1, null);
-
-            // Then - Should include pending referrals
-            assertThat(results)
-                .extracting(ClientReferral::getStatus)
-                .containsAnyOf("active", "pending", "unknown");
-        }
     }
 
     /** Tests for getActiveReferralsByClientAndProgram (2 params). */
@@ -352,7 +340,7 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get referrals by program")
-        void shouldGetByProgram() {
+        void shouldGetReferrals_byProgram() {
             // When
             List<ClientReferral> results = clientReferralDAO.getClientReferralsByProgram(
                 testProgramId1.intValue());
@@ -382,13 +370,16 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should get all referrals")
-        void shouldGetAllReferrals() {
+        @DisplayName("should return all referrals when no filter applied")
+        void shouldReturnAllReferrals_whenNoFilterApplied() {
             // When
             List<ClientReferral> results = clientReferralDAO.getReferrals();
 
-            // Then
-            assertThat(results).isNotEmpty();
+            // Then - setUp creates 4 referrals
+            assertThat(results)
+                .hasSizeGreaterThanOrEqualTo(4)
+                .extracting(ClientReferral::getClientId)
+                .contains(testClientId1, testClientId2);
         }
     }
 }

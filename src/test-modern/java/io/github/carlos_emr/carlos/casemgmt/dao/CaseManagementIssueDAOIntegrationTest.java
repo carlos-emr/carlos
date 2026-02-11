@@ -32,8 +32,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -66,9 +64,6 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
     @Qualifier("IssueDAO")
     private IssueDAO issueDAO;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
-
     private Issue testIssue1;
     private Issue testIssue2;
 
@@ -88,7 +83,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         testIssue2.setType("system");
         issueDAO.saveIssue(testIssue2);
 
-        entityManager.flush();
+        hibernateTemplate.flush();
     }
 
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue) {
@@ -104,6 +99,11 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         return cmi;
     }
 
+    /**
+     * Creates a CaseManagementIssue with a specific update date.
+     * Note: saveIssue() overwrites update_date with new Date(), so we must
+     * re-set the date after saving and flush to persist the correct value.
+     */
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue, Date updateDate) {
         CaseManagementIssue cmi = new CaseManagementIssue();
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
@@ -114,6 +114,8 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         cmi.setResolved(false);
         cmi.setUpdate_date(updateDate);
         caseManagementIssueDAO.saveIssue(cmi);
+        // saveIssue() overwrites update_date with new Date() — re-set to desired date
+        cmi.setUpdate_date(updateDate);
         return cmi;
     }
 
@@ -157,7 +159,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
 
             // When
             caseManagementIssueDAO.saveIssue(cmi);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(cmi.getId()).isNotNull();
@@ -169,19 +171,17 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         void shouldDeleteIssue_whenValidIssueProvided() {
             // Given
             CaseManagementIssue cmi = createCaseManagementIssue("601", testIssue1);
-            entityManager.flush();
+            hibernateTemplate.flush();
             Long savedId = cmi.getId();
 
             // When
             caseManagementIssueDAO.deleteIssueById(cmi);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // Then
+            // Then - verify via HibernateTemplate (same persistence context as DAO)
             @SuppressWarnings("unchecked")
-            List<CaseManagementIssue> results = entityManager
-                .createQuery("from CaseManagementIssue where id = :id")
-                .setParameter("id", savedId)
-                .getResultList();
+            List<CaseManagementIssue> results = (List<CaseManagementIssue>) hibernateTemplate
+                .find("from CaseManagementIssue where id = ?0", savedId);
             assertThat(results).isEmpty();
         }
 
@@ -205,7 +205,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
 
             // When
             caseManagementIssueDAO.saveAndUpdateCaseIssues(issues);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(caseManagementIssueDAO.getIssuesByDemographic("700")).isNotEmpty();
@@ -227,7 +227,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             createCaseManagementIssue("111", testIssue1);
             createCaseManagementIssue("222", testIssue1);
             createCaseManagementIssue("111", testIssue2);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             CaseManagementIssue found = caseManagementIssueDAO.getIssuebyId(
@@ -245,7 +245,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         void shouldReturnNull_whenDemoDoesntMatch() {
             // Given
             createCaseManagementIssue("111", testIssue1);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             CaseManagementIssue found = caseManagementIssueDAO.getIssuebyId(
@@ -269,7 +269,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             CaseManagementIssue cmi = createCaseManagementIssue("111", testIssue1);
             createCaseManagementIssue("222", testIssue1);
             createCaseManagementIssue("111", testIssue2);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             CaseManagementIssue found = caseManagementIssueDAO.getIssuebyIssueCode("111", "TEST001");
@@ -286,7 +286,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         void shouldReturnNull_whenCodeDoesntMatch() {
             // Given
             createCaseManagementIssue("111", testIssue1);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             CaseManagementIssue found = caseManagementIssueDAO.getIssuebyIssueCode("111", "NONEXISTENT");
@@ -307,14 +307,14 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         void shouldFilterByBothDemoAndDate() {
             // Given
             Date cutoff = daysFromNow(-5);
-            CaseManagementIssue recent = createCaseManagementIssue("111", testIssue1, daysFromNow(-2));
-            CaseManagementIssue old = createCaseManagementIssue("111", testIssue2, daysFromNow(-10));
-            CaseManagementIssue wrongDemo = createCaseManagementIssue("222", testIssue1, daysFromNow(-2));
-            entityManager.flush();
+            CaseManagementIssue recent = createCaseManagementIssue("50111", testIssue1, daysFromNow(-2));
+            CaseManagementIssue old = createCaseManagementIssue("50111", testIssue2, daysFromNow(-10));
+            CaseManagementIssue wrongDemo = createCaseManagementIssue("50222", testIssue1, daysFromNow(-2));
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementIssue> results = caseManagementIssueDAO
-                .getIssuesByDemographicSince("111", cutoff);
+                .getIssuesByDemographicSince("50111", cutoff);
 
             // Then
             assertThat(results)
@@ -328,12 +328,12 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should return empty list when no issues match")
         void shouldReturnEmptyList_whenNoIssuesMatch() {
             // Given
-            createCaseManagementIssue("111", testIssue1, daysFromNow(-30));
-            entityManager.flush();
+            createCaseManagementIssue("50333", testIssue1, daysFromNow(-30));
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementIssue> results = caseManagementIssueDAO
-                .getIssuesByDemographicSince("111", daysFromNow(-1));
+                .getIssuesByDemographicSince("50333", daysFromNow(-1));
 
             // Then
             assertThat(results).isEmpty();
@@ -348,12 +348,12 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get issues by demographic")
-        void shouldGetIssuesByDemographic() {
+        void shouldGetIssues_byDemographic() {
             // Given
             createCaseManagementIssue("333", testIssue1);
             createCaseManagementIssue("333", testIssue2);
             createCaseManagementIssue("444", testIssue1);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementIssue> results = caseManagementIssueDAO.getIssuesByDemographic("333");
@@ -370,7 +370,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             // Given
             createCaseManagementIssue("800", testIssue1);
             createResolvedIssue("800", testIssue2);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementIssue> unresolvedResults = caseManagementIssueDAO
@@ -389,7 +389,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             // Given
             createCaseManagementIssue("801", testIssue1);
             createResolvedIssue("801", testIssue2);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementIssue> resolvedResults = caseManagementIssueDAO
@@ -403,51 +403,21 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should get all certain issues")
-        void shouldGetAllCertainIssues() {
+        @DisplayName("should return all certain issues when queried")
+        void shouldReturnAllCertainIssues_whenQueried() {
             // Given
-            createCaseManagementIssue("900", testIssue1);
-            entityManager.flush();
+            CaseManagementIssue cmi = createCaseManagementIssue("900", testIssue1);
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementIssue> results = caseManagementIssueDAO.getAllCertainIssues();
 
             // Then
-            assertThat(results).isNotEmpty();
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(CaseManagementIssue::getId)
+                .contains(cmi.getId());
         }
 
-        @Test
-        @Tag("query")
-        @DisplayName("should retrieve issues by demographic and ID combination")
-        void shouldRetrieveIssues_byDemographicAndIdCombination() {
-            // Given
-            CaseManagementIssue cmi = createCaseManagementIssue("850", testIssue1);
-            entityManager.flush();
-
-            // When
-            CaseManagementIssue found = caseManagementIssueDAO.getIssuebyId(
-                "850", String.valueOf(testIssue1.getId()));
-
-            // Then
-            assertThat(found).isNotNull();
-            assertThat(found.getDemographic_no()).isEqualTo(850);
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("should match by issue code")
-        void shouldMatchByIssueCode() {
-            // Given
-            createCaseManagementIssue("860", testIssue1);
-            entityManager.flush();
-
-            // When
-            CaseManagementIssue found = caseManagementIssueDAO
-                .getIssuebyIssueCode("860", "TEST001");
-
-            // Then
-            assertThat(found).isNotNull();
-            assertThat(found.getIssue_id()).isEqualTo(testIssue1.getId());
-        }
     }
 }

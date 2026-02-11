@@ -1664,6 +1664,8 @@
                                 <include>**/test/**/*Tests.java</include>
                                 <include>**/tickler/**/*Test.java</include>
                                 <include>**/managers/**/*Test.java</include>
+                                <include>**/*IntegrationTest.java</include>
+                                <include>**/*UnitTest.java</include>
                             </includes>
                             <excludes>
                                 <!-- Exclude archive tests from modern test run -->

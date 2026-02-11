@@ -273,7 +273,7 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("aggregate")
         @DisplayName("should count active demographics")
-        void shouldCountActiveDemographics() {
+        void shouldCountDemographics_byActiveStatus() {
             // When
             Long count = demographicDao.getActiveDemographicCount();
 
@@ -294,8 +294,8 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("filter")
-        @DisplayName("should filter by active status")
-        void shouldFilterByActiveStatus() {
+        @DisplayName("should filter demographic IDs by active status")
+        void shouldFilterDemographicIds_byActiveStatus() {
             // When
             List<Integer> activeIds = demographicDao.getActiveDemographicIds();
 
@@ -308,7 +308,7 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get demographics by provider")
-        void shouldGetDemographicsByProvider() {
+        void shouldGetDemographics_byProvider() {
             // When
             List<Demographic> results = demographicDao.getDemographicByProvider("999998", true);
 
@@ -331,8 +331,8 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("search")
-        @DisplayName("should search by HIN")
-        void shouldSearchByHin() {
+        @DisplayName("should search demographics by HIN")
+        void shouldSearchDemographics_byHin() {
             // When
             List<Demographic> results = demographicDao.searchByHealthCard(uniquePrefix + "0");
 
@@ -345,11 +345,11 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("search")
-        @DisplayName("should search by name pattern")
-        void shouldSearchByNamePattern() {
+        @DisplayName("should search demographics by name pattern")
+        void shouldSearchDemographics_byNamePattern() {
             // When
             List<Demographic> results = demographicDao.getDemographicWithLastFirstDOB(
-                "Smith", null, null, null, null);
+                "Smith", "", null, null, null);
 
             // Then
             assertThat(results)
@@ -360,8 +360,8 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should project demographic IDs")
-        void shouldProjectDemographicIds() {
+        @DisplayName("should project demographic IDs from database")
+        void shouldProjectDemographicIds_fromDatabase() {
             // When
             List<Integer> ids = demographicDao.getDemographicIds();
 

@@ -64,7 +64,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldRetrieveNote_whenValidIdProvided() {
             // Given
             CaseManagementNote note = createNote("111", "Test note content");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
@@ -93,7 +93,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             // When
             caseManagementNoteDAO.saveNote(note);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(note.getId()).isNotNull();
@@ -121,7 +121,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             // When
             caseManagementNoteDAO.saveNote(note);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
@@ -134,12 +134,12 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldUpdateNote_whenChangesProvided() {
             // Given
             CaseManagementNote note = createNote("502", "Original content");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             note.setNote("Updated content");
             caseManagementNoteDAO.updateNote(note);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
@@ -164,7 +164,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             // When
             Object result = caseManagementNoteDAO.saveAndReturn(note);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then
             assertThat(result).isNotNull();
@@ -190,7 +190,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             CaseManagementNote wrongProgram = createNoteWithProgram(200, jan15);
             CaseManagementNote beforeRange = createNoteWithProgram(100, createDate(2023, 12, 15));
             CaseManagementNote afterRange = createNoteWithProgram(100, feb15);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -210,7 +210,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldReturnEmptyList_whenNoNotesMatchAllCriteria() {
             // Given
             createNoteWithProgram(100, createDate(2024, 1, 15));
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -231,7 +231,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             CaseManagementNote onMinDate = createNoteWithProgram(100, jan1);
             CaseManagementNote onMaxDate = createNoteWithProgram(100, jan31);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -257,11 +257,11 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             CaseManagementNote match = createNote("111", "Patient has diabetes mellitus");
             CaseManagementNote wrongDemo = createNote("222", "Patient has diabetes mellitus");
             CaseManagementNote wrongContent = createNote("111", "Patient is healthy");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
-                .searchDemographicNotes("111", "diabetes");
+                .searchDemographicNotes("111", "%diabetes%");
 
             // Then
             assertThat(results)
@@ -277,7 +277,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldReturnEmptyList_whenSearchStringNotFoundInDemographic() {
             // Given
             createNote("111", "Patient has hypertension");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -293,11 +293,11 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldBeCaseInsensitive_whenSearching() {
             // Given
             CaseManagementNote note = createNote("111", "Patient has DIABETES");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
-                .searchDemographicNotes("111", "diabetes");
+                .searchDemographicNotes("111", "%diabetes%");
 
             // Then
             assertThat(results)
@@ -320,7 +320,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             CaseManagementNote afterCutoff = createNote("111", "Recent note", daysFromNow(-2));
             CaseManagementNote beforeCutoff = createNote("111", "Old note", daysFromNow(-10));
             CaseManagementNote wrongDemoAfter = createNote("222", "Wrong demo recent", daysFromNow(-2));
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -339,7 +339,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldReturnEmptyList_whenDemographicHasNoRecentNotes() {
             // Given
             createNote("111", "Old note", daysFromNow(-30));
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -363,7 +363,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             CaseManagementNote unsigned1 = createNoteWithSignedStatus("111", false);
             CaseManagementNote signed1 = createNoteWithSignedStatus("111", true);
             CaseManagementNote unsigned2 = createNoteWithSignedStatus("222", false);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<Map<String, Object>> results = caseManagementNoteDAO
@@ -388,13 +388,13 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @Test
         @Tag("read")
         @DisplayName("should count notes by demographic")
-        void shouldCountNotesByDemographic() {
+        void shouldCountNotes_byDemographic() {
             // Given
             createNote("333", "Note 1");
             createNote("333", "Note 2");
             createNote("333", "Note 3");
             createNote("444", "Different demo");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             long count = caseManagementNoteDAO.getNotesCountByDemographicId("333");
@@ -406,12 +406,12 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @Test
         @Tag("read")
         @DisplayName("should get notes by demographic number")
-        void shouldGetNotesByDemographic() {
+        void shouldGetNotes_byDemographic() {
             // Given
             createNote("555", "First note");
             createNote("555", "Second note");
             createNote("666", "Other demo");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO.getNotesByDemographic("555");
@@ -425,13 +425,13 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         @Test
         @Tag("read")
-        @DisplayName("should apply note count limits")
-        void shouldApplyNoteCountLimits() {
+        @DisplayName("should apply note count limits when limit specified")
+        void shouldApplyNoteCountLimits_whenLimitSpecified() {
             // Given
             for (int i = 0; i < 5; i++) {
                 createNote("777", "Note " + i);
             }
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -456,7 +456,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             newer.setUuid(sharedUuid);
             newer.setUpdate_date(daysFromNow(-1));
             caseManagementNoteDAO.updateNote(newer);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             CaseManagementNote mostRecent = caseManagementNoteDAO.getMostRecentNote(sharedUuid);
@@ -479,7 +479,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             CaseManagementNote v2 = createNote("999", "Version 2");
             v2.setUuid(sharedUuid);
             caseManagementNoteDAO.updateNote(v2);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> history = caseManagementNoteDAO.getNotesByUUID(sharedUuid);
@@ -499,7 +499,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             CaseManagementNote note1 = createNote("111", "Appointment note");
             note1.setAppointmentNo(12345);
             caseManagementNoteDAO.updateNote(note1);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -516,7 +516,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             // Given
             CaseManagementNote recent = createNote("1010", "Recent", daysFromNow(-1));
             CaseManagementNote old = createNote("1010", "Old", daysFromNow(-30));
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
