@@ -18,6 +18,7 @@ build_and_deploy() {
   run_tests="$1"
   compile_jsps="$2"
   dev_mode="$3"
+  test_mvn_args="$4"
 
   # Stop the Catalina server if it's running (ignore errors if it's not)
   # This prevents Java fault errors when the server isn't already running
@@ -61,7 +62,7 @@ build_and_deploy() {
     mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
     echo ""
     echo "Running modern tests..."
-    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json $test_mvn_args
 
     # Clean up between phases to ensure complete isolation
     echo ""
@@ -78,7 +79,7 @@ build_and_deploy() {
     mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
     echo ""
     echo "Running legacy tests..."
-    mvn test -DskipModernTests=true
+    mvn test -DskipModernTests=true $test_mvn_args
   elif [ "$run_tests" = "modern" ]; then
     # Run only modern tests with JUnit 5 profile and modern lock file
     # Build WITH modern profile activated and modern lock file
@@ -86,14 +87,14 @@ build_and_deploy() {
     echo ""
     echo "Running modern tests..."
     # Activate modern-tests profile, use modern lock file
-    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json $test_mvn_args
   elif [ "$run_tests" = "legacy" ]; then
     # Run only legacy tests WITHOUT JUnit 5, use default lock file
     mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
     echo ""
     echo "Running legacy tests..."
     # Skip modern tests, use default lock file
-    mvn test -DskipModernTests=true
+    mvn test -DskipModernTests=true $test_mvn_args
   elif [ "$run_tests" = "unit" ]; then
     # Run only modern unit tests with modern lock file
     # Build WITH modern profile activated and modern lock file
@@ -101,7 +102,7 @@ build_and_deploy() {
     echo ""
     echo "Running modern unit tests..."
     # Use groups + activate modern profile with modern lock file
-    mvn test -Pmodern-tests -Dgroups="unit" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+    mvn test -Pmodern-tests -Dgroups="unit" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json $test_mvn_args
   elif [ "$run_tests" = "integration" ]; then
     # Run only modern integration tests with modern lock file
     # Build WITH modern profile activated and modern lock file
@@ -109,7 +110,7 @@ build_and_deploy() {
     echo ""
     echo "Running modern integration tests..."
     # Use groups + activate modern profile with modern lock file
-    mvn test -Pmodern-tests -Dgroups="integration" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+    mvn test -Pmodern-tests -Dgroups="integration" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json $test_mvn_args
   else
     # Regular build without tests - skip modern tests to use default lock file
     mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
@@ -267,6 +268,12 @@ print_help() {
       echo "      --run-legacy-tests                      Run only legacy tests (JUnit 4)"
       echo "      --run-unit-tests                        Run only modern unit tests"
       echo "      --run-integration-tests                 Run only modern integration tests"
+      echo "      --legacy-fork-count <n>                Override -Dlegacy.tests.forkCount"
+      echo "      --modern-fork-count <n>                Override -Dmodern.tests.forkCount"
+      echo "      --legacy-reuse-forks <true|false>      Override -Dlegacy.tests.reuseForks"
+      echo "      --modern-reuse-forks <true|false>      Override -Dmodern.tests.reuseForks"
+      echo "      --modern-junit-parallel <true|false>   Override -Dmodern.junit.parallel.enabled"
+      echo "      --modern-junit-fixed-parallelism <n>   Override -Dmodern.junit.parallel.config.fixed.parallelism"
       echo "      --jspc                                  Compile JSPs"
       echo "      --dev-mode                              Enable Struts dev mode"
       echo "  jspc                                          Compile JSPs only (no deployment)."
@@ -284,6 +291,7 @@ print_help() {
 run_tests=false
 compile_jsps=false
 dev_mode=false
+test_mvn_args=""
 
 # If no arguments are provided, display usage instructions and exit.
 if [ $# -eq 0 ]; then
@@ -329,6 +337,30 @@ for arg in "$@"; do
             compile_jsps=true
             shift
             ;;
+          --legacy-fork-count)
+            test_mvn_args="$test_mvn_args -Dlegacy.tests.forkCount=$2"
+            shift 2
+            ;;
+          --modern-fork-count)
+            test_mvn_args="$test_mvn_args -Dmodern.tests.forkCount=$2"
+            shift 2
+            ;;
+          --legacy-reuse-forks)
+            test_mvn_args="$test_mvn_args -Dlegacy.tests.reuseForks=$2"
+            shift 2
+            ;;
+          --modern-reuse-forks)
+            test_mvn_args="$test_mvn_args -Dmodern.tests.reuseForks=$2"
+            shift 2
+            ;;
+          --modern-junit-parallel)
+            test_mvn_args="$test_mvn_args -Dmodern.junit.parallel.enabled=$2"
+            shift 2
+            ;;
+          --modern-junit-fixed-parallelism)
+            test_mvn_args="$test_mvn_args -Dmodern.junit.parallel.config.fixed.parallelism=$2"
+            shift 2
+            ;;
           --dev-mode)
             dev_mode=true
             shift
@@ -341,7 +373,7 @@ for arg in "$@"; do
         esac
       done
       # Run the build and deploy process, passing in whether or not to run tests and compile JSPs.
-      build_and_deploy "$run_tests" "$compile_jsps" "$dev_mode"
+      build_and_deploy "$run_tests" "$compile_jsps" "$dev_mode" "$test_mvn_args"
       # Exit after successful build to prevent help menu from showing
       exit 0
       ;;
