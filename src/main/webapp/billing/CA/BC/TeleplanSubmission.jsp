@@ -93,6 +93,7 @@
 <head>
     <title>Billing Report</title>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <script language="JavaScript">
         var checkSubmitFlg = false;
 
@@ -193,7 +194,7 @@
 
     Activity List | <a href="#" onClick="showHideLayers('Layer2','','show');">Show Archive</a>
     <button class="btn pull-right" type="button" value="Print" onclick="window.print()"/>
-    <i class="icon-print"></i> Print</button>
+    <i class="fa-solid fa-print"></i> Print</button>
 
 
     <table class="table table-striped  table-condensed">

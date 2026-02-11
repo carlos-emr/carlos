@@ -257,7 +257,7 @@
                                         </div>
                                         <div class="col-sm-1">
                                             <button type="button" title="Remove Email" class="btn btn-danger"
-                                                    onclick="removeReceiverEmail(this)"><i class="icon-remove"></i>
+                                                    onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -266,7 +266,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <span class="icon-warning-sign"></span> <c:out value="${ emailConsentName }"/>: <b><c:out
+                        <span class="fa-solid fa-triangle-exclamation"></span> <c:out value="${ emailConsentName }"/>: <b><c:out
                             value="${ emailConsentStatus }"/></b>
                         <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
                     </div>
@@ -369,15 +369,15 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <span class="icon-warning-sign"></span> Unencrypted Body of Email
+                        <span class="fa-solid fa-triangle-exclamation"></span> Unencrypted Body of Email
                     </div>
                 </div>
 
                 <div class="card mt-4">
                     <div class="card-header">
                         <h5 class="card-title">
-                            <span class="icon-lock"></span> Encryption <span id="encryptionOptionsInfo"
-                                                                             class="icon-info-sign"
+                            <span class="fa-solid fa-lock"></span> Encryption <span id="encryptionOptionsInfo"
+                                                                             class="fa-solid fa-circle-info"
                                                                              data-toggle="tooltip"
                                                                              data-placement="auto right"
                                                                              title="Emails will be sent encrypted by default. Encryption settings can be modified by disabling this feature."></span>
@@ -392,7 +392,7 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12 form-group">
-                                    <label>Encrypted message <span id="encryptedMessageInfo" class="icon-info-sign"
+                                    <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
                                                                    data-toggle="tooltip" data-placement="auto right"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
@@ -415,7 +415,7 @@
                             </div>
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
-                                    <label>Clue <span id="clueInfo" class="icon-info-sign" data-toggle="tooltip"
+                                    <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-toggle="tooltip"
                                                       data-placement="auto right"
                                                       title="Clue will be added into the email body (visible)"></span></label>
                                 </div>
@@ -428,7 +428,7 @@
                             </div>
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
-                                    <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="icon-info-sign"
+                                    <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
                                                                      data-toggle="tooltip" data-placement="auto right"
                                                                      title="Email attachments will be encrypted when enabled"></span></label>
                                 </div>
@@ -499,7 +499,7 @@
                                                         data-bs-target="#emailAttachmentBody${loop.index + 1}"
                                                         aria-expanded="false"
                                                         aria-controls="emailAttachmentBody${loop.index + 1}">
-                                                    <i class="icon-file attachmentIcon"></i> <span
+                                                    <i class="fa-solid fa-file attachmentIcon"></i> <span
                                                         class="attachmentName"><c:out
                                                         value="${emailAttachment.fileName}"/></span>
                                                     <span class="text-muted attachmentSize"><c:out
@@ -545,13 +545,13 @@
                     <div class="row">
                         <div class="col-sm-12">
                             <button type="submit" id="btnSend" class="btn btn-primary btn-md pull-right" value="Send">
-                                <span class="btn-label"><i class="icon-location-arrow"></i></span>
+                                <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 Send
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel"
                                     class="btn btn-danger btn-md pull-right" value="Cancel" name="close"
                                     onclick="cancelEmail()">
-                                <span class="btn-label"><i class="icon-remove"></i></span>
+                                <span class="btn-label"><i class="fa-solid fa-xmark"></i></span>
                                 Cancel
                             </button>
                         </div>

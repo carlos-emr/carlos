@@ -103,7 +103,7 @@
     </head>
     <body onLoad="setfocus()">
 
-    <h4><i class="icon-search" title=""></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.description"/></h4>
+    <h4><i class="fa-solid fa-magnifying-glass" title=""></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.description"/></h4>
     <div name="alert" style="display:none;" class="alert alert-error"></div>
     <div class="well">
         <form method="post" action="securitysearchresults.jsp" name="searchprovider">
@@ -121,7 +121,7 @@
                         <div class="input-append" name="keywordwrap">
                             <input type="text" name="keyword" class="input input-large" maxlength="100">
                             <button type="submit" name="button" class="btn add-on" style="height:30px; width:30px;">
-                                <i class="icon-search"
+                                <i class="fa-solid fa-magnifying-glass"
                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchrecordshtm.btnSearch"/>"></i></button>
                         </div>
                         <input type="hidden" name="orderby" value="user_name">

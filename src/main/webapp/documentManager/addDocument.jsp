@@ -171,8 +171,8 @@
     }
 
     function showhide(hideelement, button) {
-        var plus = '<i class="icon-plus"></i>';
-        var minus = '<i class="icon-minus"></i>';
+        var plus = '<i class="fa-solid fa-plus"></i>';
+        var minus = '<i class="fa-solid fa-minus"></i>';
         if (document.getElementById) { // DOM3 = IE5, NS6
             if (document.getElementById(hideelement).style.display === 'none') {
                 document.getElementById(hideelement).style.display = 'block';

@@ -49,7 +49,7 @@
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/>
         <div class="pull-right">
             <button name='print' onClick='window.print()' class="btn">
-                <i class="icon-print icon-black"></i>
+                <i class="fa-solid fa-print icon-black"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
         </div>
