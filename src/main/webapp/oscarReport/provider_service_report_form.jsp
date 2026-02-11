@@ -1,10 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Provider Service Report</title>
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-</head>
-<body>
 <%--
 
 
@@ -49,6 +42,17 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Provider Service Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <script src="<%=request.getContextPath()%>/js/jquery.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
+    <script src="<%=request.getContextPath()%>/js/jquery.validate.min.js"></script>
+</head>
+<body>
 
 <%@page import="java.util.*" %>
 <%@page import="org.caisi.dao.*" %>

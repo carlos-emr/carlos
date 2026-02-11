@@ -1,10 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Population Report</title>
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-</head>
-<body>
 <%--
 
 
@@ -48,6 +41,13 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Population Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 
 <%@ include file="/taglibs.jsp" %>
 
@@ -56,7 +56,7 @@
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/>
         <div class="pull-right">
             <button name='print' onClick='window.print()' class="btn">
-                <i class="fa-solid fa-print icon-black"></i>
+                <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
         </div>

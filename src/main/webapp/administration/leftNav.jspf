@@ -60,7 +60,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseOne">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UserManagement"/>
-				<i class="fa-solid fa-chevron-right"></i> 
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseOne" class="accordion-body collapse">
