@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentArchiveTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentTransfer;
@@ -63,6 +64,9 @@ public class ScheduleWs extends AbstractWs {
 
     @Autowired
     private ScheduleManager scheduleManager;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     public ScheduleTemplateCodeTransfer[] getScheduleTemplateCodes() {
         List<ScheduleTemplateCode> scheduleTemplateCodes = scheduleManager.getScheduleTemplateCodes();
@@ -126,6 +130,9 @@ public class ScheduleWs extends AbstractWs {
      * @return the ID of the appointment just added
      */
     public Integer addAppointment(AppointmentTransfer appointmentTransfer) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new SecurityException("missing required security object (_appointment)");
+        }
         Appointment appointment = new Appointment();
         appointmentTransfer.copyTo(appointment);
         scheduleManager.addAppointment(getLoggedInInfo(), getLoggedInSecurity(), appointment);
@@ -133,6 +140,9 @@ public class ScheduleWs extends AbstractWs {
     }
 
     public void updateAppointment(AppointmentTransfer appointmentTransfer) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new SecurityException("missing required security object (_appointment)");
+        }
         Appointment appointment = scheduleManager.getAppointment(getLoggedInInfo(), appointmentTransfer.getId());
 
         appointmentTransfer.copyTo(appointment);

@@ -211,7 +211,6 @@ public class ProviderService extends AbstractServiceImpl {
             Provider provider = getLoggedInInfo().getLoggedInProvider();
 
             if (provider == null) {
-                // build a JSON error payload
                 ObjectNode error = objectMapper.createObjectNode();
                 error.put("error", "Provider not found");
                 return Response.status(Status.NOT_FOUND)
@@ -220,8 +219,9 @@ public class ProviderService extends AbstractServiceImpl {
                                .build();
             }
 
-            // serialize the provider to JSON
-            String body = objectMapper.valueToTree(provider).toString();
+            // Use ProviderTransfer to avoid exposing raw entity fields
+            ProviderTransfer transfer = ProviderTransfer.toTransfer(provider);
+            String body = objectMapper.valueToTree(transfer).toString();
 
             logger.info("Successfully retrieved logged-in provider: {}", provider.getProviderNo());
             return Response.ok(body, "application/json").build();
@@ -254,8 +254,10 @@ public class ProviderService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
 
+        // Use ProviderTransfer to avoid exposing raw entity fields
+        ProviderTransfer transfer = ProviderTransfer.toTransfer(provider);
         logger.info("Successfully retrieved provider {} as JSON", id);
-        return objectMapper.valueToTree(provider).toString();
+        return objectMapper.valueToTree(transfer).toString();
     }
 
 

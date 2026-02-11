@@ -40,6 +40,7 @@ import org.apache.cxf.annotations.GZIP;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementMapTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,9 @@ import org.springframework.stereotype.Component;
 public class MeasurementWs extends AbstractWs {
     @Autowired
     private MeasurementManager measurementManager;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     public MeasurementTransfer getMeasurement(Integer measurementId) {
         Measurement measurement = measurementManager.getMeasurement(getLoggedInInfo(), measurementId);
@@ -71,6 +75,9 @@ public class MeasurementWs extends AbstractWs {
      * @return the ID of the added measurement
      */
     public Integer addMeasurement(MeasurementTransfer measurementTransfer) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_measurement", "w", null)) {
+            throw new SecurityException("missing required security object (_measurement)");
+        }
         Measurement measurement = new Measurement();
         measurementTransfer.copyTo(measurement);
         measurementManager.addMeasurement(getLoggedInInfo(), measurement);
