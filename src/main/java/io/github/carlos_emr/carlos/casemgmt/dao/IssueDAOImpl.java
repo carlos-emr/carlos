@@ -215,7 +215,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
         if (type == null || type.equals("")) {
             codes = new ArrayList<String>();
         } else {
-            codes = (List<String>) this.getHibernateTemplate().find("FROM Issue i WHERE i.type = ?0",
+            codes = (List<String>) this.getHibernateTemplate().find("SELECT i.code FROM Issue i WHERE i.type = ?0",
                     new Object[]{type.toLowerCase()});
         }
         return codes;

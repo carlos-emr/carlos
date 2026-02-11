@@ -54,18 +54,13 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
     @Autowired
     private DemographicDao demographicDao;
 
-    // Store created demographics for test reference
     private Demographic demo1, demo2, demo3, demo4;
-    // Unique prefix for this test run to avoid data pollution
     private String uniquePrefix;
 
     @BeforeEach
     void setUp() {
-        // Generate unique prefix to isolate test data
         uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 10);
 
-        // Create test demographics using DAO's save method to ensure same session
-        // Hibernate should auto-flush before queries in the same transaction
         demo1 = createDemographic("John", "Smith", "ON", uniquePrefix + "0", "AC");
         demo2 = createDemographic("John", "Doe", "ON", uniquePrefix + "1", "AC");
         demo3 = createDemographic("Jane", "Smith", "BC", uniquePrefix + "2", "AC");
@@ -81,7 +76,6 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
                                                      String hcType, String hin, String patientStatus,
                                                      String rosterStatus) {
         Demographic demo = new Demographic();
-        // Don't set demographicNo - let it be auto-generated
         demo.setFirstName(firstName);
         demo.setLastName(lastName);
         demo.setHcType(hcType);
@@ -99,6 +93,81 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         return demo;
     }
 
+    /** Tests for CRUD operations on Demographic entities. */
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should retrieve demographic by valid ID")
+        void shouldRetrieveDemographic_whenValidIdProvided() {
+            // When
+            Demographic found = demographicDao.getDemographicById(demo1.getDemographicNo());
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getFirstName()).isEqualTo("John");
+            assertThat(found.getLastName()).isEqualTo("Smith");
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist demographic with valid data")
+        void shouldPersistDemographic_whenValidDataProvided() {
+            // Given
+            Demographic newDemo = new Demographic();
+            newDemo.setFirstName("New");
+            newDemo.setLastName("Patient");
+            newDemo.setHcType("ON");
+            newDemo.setHin(uniquePrefix + "9");
+            newDemo.setPatientStatus("AC");
+            newDemo.setProviderNo("999998");
+            newDemo.setYearOfBirth("1990");
+            newDemo.setMonthOfBirth("06");
+            newDemo.setDateOfBirth("20");
+            newDemo.setSex("F");
+
+            // When
+            demographicDao.save(newDemo);
+
+            // Then
+            assertThat(newDemo.getDemographicNo()).isNotNull();
+            Demographic found = demographicDao.getDemographicById(newDemo.getDemographicNo());
+            assertThat(found).isNotNull();
+            assertThat(found.getFirstName()).isEqualTo("New");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update demographic with changes")
+        void shouldUpdateDemographic_whenChangesProvided() {
+            // Given
+            Demographic existing = demographicDao.getDemographicById(demo1.getDemographicNo());
+            assertThat(existing).isNotNull();
+
+            // When
+            existing.setPhone("555-1234");
+            demographicDao.save(existing);
+
+            // Then
+            Demographic updated = demographicDao.getDemographicById(demo1.getDemographicNo());
+            assertThat(updated.getPhone()).isEqualTo("555-1234");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null for invalid ID")
+        void shouldReturnNull_whenInvalidIdProvided() {
+            // When
+            Demographic found = demographicDao.getDemographicById(-999);
+
+            // Then
+            assertThat(found).isNull();
+        }
+    }
+
+    /** Tests for getClientsByHealthCard (2 params). */
     @Nested
     @DisplayName("getClientsByHealthCard (2 params: hin, hcType)")
     class GetClientsByHealthCard {
@@ -107,10 +176,10 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should find demographic when both HIN and HC type match")
         void shouldFind_whenBothHinAndTypeMatch() {
-            // When - Use the unique HIN from demo1
+            // When
             List<Demographic> results = demographicDao.getClientsByHealthCard(uniquePrefix + "0", "ON");
 
-            // Then - Only demo1 should match
+            // Then
             assertThat(results)
                 .hasSize(1)
                 .extracting(Demographic::getDemographicNo)
@@ -132,7 +201,7 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should return empty when HC type doesn't match")
         void shouldReturnEmpty_whenTypeDoesntMatch() {
-            // When - HIN exists but with different type (demo1 is ON, search BC)
+            // When
             List<Demographic> results = demographicDao.getClientsByHealthCard(uniquePrefix + "0", "BC");
 
             // Then
@@ -140,6 +209,7 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for getDemographicWithLastFirstDOB (2+ params). */
     @Nested
     @DisplayName("getDemographicWithLastFirstDOB (2+ params)")
     class GetDemographicWithLastFirstDOB {
@@ -148,11 +218,11 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should find demographics matching last name and first name")
         void shouldFind_whenLastAndFirstNameMatch() {
-            // When - Search with partial matching
+            // When
             List<Demographic> results = demographicDao.getDemographicWithLastFirstDOB(
                 "Smith", "John", null, null, null);
 
-            // Then - Demo1 should match
+            // Then
             assertThat(results)
                 .extracting(Demographic::getDemographicNo)
                 .contains(demo1.getDemographicNo());
@@ -171,6 +241,7 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for getDemographicByRosterStatus (2 params). */
     @Nested
     @DisplayName("getDemographicByRosterStatus (2 params)")
     class GetDemographicByRosterStatus {
@@ -179,7 +250,7 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should filter by roster status and patient status")
         void shouldFilterByRosterAndPatientStatus() {
-            // Given - Create demographics with roster status using unique HINs
+            // Given
             Demographic rostered = createDemographicWithRoster("Test", "Rostered", "ON", uniquePrefix + "R", "AC", "RO");
             Demographic notRostered = createDemographicWithRoster("Test", "NotRostered", "ON", uniquePrefix + "N", "AC", "NR");
 
@@ -194,41 +265,75 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for query operations covering aggregation, pagination, and search. */
     @Nested
-    @DisplayName("Single parameter queries (baseline)")
-    class SingleParamQueries {
+    @DisplayName("Query operations")
+    class QueryOperations {
 
         @Test
-        @Tag("read")
-        @DisplayName("should get demographic by ID")
-        void shouldGetDemographicById() {
+        @Tag("aggregate")
+        @DisplayName("should count active demographics")
+        void shouldCountDemographics_byActiveStatus() {
             // When
-            Demographic found = demographicDao.getDemographicById(demo1.getDemographicNo());
+            Long count = demographicDao.getActiveDemographicCount();
+
+            // Then - At least 3 active (demo1, demo2, demo3)
+            assertThat(count).isGreaterThanOrEqualTo(3L);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should retrieve paginated results with offset and limit")
+        void shouldRetrievePaginatedResults_withOffsetAndLimit() {
+            // When
+            List<Demographic> results = demographicDao.getActiveDemographics(0, 2);
 
             // Then
-            assertThat(found).isNotNull();
-            assertThat(found.getFirstName()).isEqualTo("John");
-            assertThat(found.getLastName()).isEqualTo("Smith");
+            assertThat(results).hasSize(2);
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should filter demographic IDs by active status")
+        void shouldFilterDemographicIds_byActiveStatus() {
+            // When
+            List<Integer> activeIds = demographicDao.getActiveDemographicIds();
+
+            // Then
+            assertThat(activeIds)
+                .contains(demo1.getDemographicNo(), demo2.getDemographicNo(), demo3.getDemographicNo())
+                .doesNotContain(demo4.getDemographicNo());
         }
 
         @Test
         @Tag("read")
         @DisplayName("should get demographics by provider")
-        void shouldGetDemographicsByProvider() {
+        void shouldGetDemographics_byProvider() {
             // When
             List<Demographic> results = demographicDao.getDemographicByProvider("999998", true);
 
-            // Then - Should return only active demographics for this provider
+            // Then
             assertThat(results)
                 .isNotEmpty()
                 .allMatch(d -> d.getPatientStatus().equals("AC"));
         }
 
         @Test
-        @Tag("read")
-        @DisplayName("should search by health card number")
-        void shouldSearchByHealthCard() {
-            // When - Use the unique HIN from demo1
+        @Tag("query")
+        @DisplayName("should handle provider queries with no matches")
+        void shouldHandleProviderQueries_withNoMatches() {
+            // When
+            List<Demographic> results = demographicDao.getDemographicByProvider("NONEXISTENT_PROVIDER", true);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should search demographics by HIN")
+        void shouldSearchDemographics_byHin() {
+            // When
             List<Demographic> results = demographicDao.searchByHealthCard(uniquePrefix + "0");
 
             // Then
@@ -239,16 +344,31 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
         }
 
         @Test
-        @Tag("read")
-        @DisplayName("should get active demographic IDs")
-        void shouldGetActiveDemographicIds() {
+        @Tag("search")
+        @DisplayName("should search demographics by name pattern")
+        void shouldSearchDemographics_byNamePattern() {
             // When
-            List<Integer> ids = demographicDao.getActiveDemographicIds();
+            List<Demographic> results = demographicDao.getDemographicWithLastFirstDOB(
+                "Smith", "", null, null, null);
 
-            // Then - Should not include inactive (demo4)
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(Demographic::getLastName)
+                .allMatch(ln -> ln.trim().equals("Smith"));
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should project demographic IDs from database")
+        void shouldProjectDemographicIds_fromDatabase() {
+            // When
+            List<Integer> ids = demographicDao.getDemographicIds();
+
+            // Then
             assertThat(ids)
-                .contains(demo1.getDemographicNo(), demo2.getDemographicNo(), demo3.getDemographicNo())
-                .doesNotContain(demo4.getDemographicNo());
+                .isNotEmpty()
+                .contains(demo1.getDemographicNo(), demo2.getDemographicNo());
         }
     }
 }

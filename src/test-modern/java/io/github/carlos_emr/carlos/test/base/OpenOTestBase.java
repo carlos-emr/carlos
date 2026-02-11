@@ -17,6 +17,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -78,6 +79,20 @@ public abstract class OpenOTestBase {
     /** Spring application context for the test */
     @Autowired
     protected ApplicationContext applicationContext;
+
+    /**
+     * HibernateTemplate for flushing the standalone Hibernate Session.
+     *
+     * <p>During the Hibernate→JPA migration, legacy HibernateDaoSupport DAOs write
+     * through the standalone Hibernate Session while modern DAOs use the JPA
+     * EntityManager. These are separate persistence contexts sharing the same JDBC
+     * Connection. Calling {@code entityManager.flush()} does NOT flush the Hibernate
+     * Session. Tests that persist data through HibernateDaoSupport DAOs must call
+     * {@code hibernateTemplate.flush()} to push those writes to the database before
+     * verification queries.</p>
+     */
+    @Autowired
+    protected HibernateTemplate hibernateTemplate;
 
     /** Static context reference for SpringUtils initialization */
     private static ApplicationContext staticContext;
