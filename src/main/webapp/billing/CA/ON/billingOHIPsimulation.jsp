@@ -64,6 +64,7 @@
 
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <%
         GregorianCalendar now = new GregorianCalendar();
         int curYear = now.get(Calendar.YEAR);

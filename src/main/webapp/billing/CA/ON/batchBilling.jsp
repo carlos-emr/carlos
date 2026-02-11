@@ -258,7 +258,7 @@
         %>
 
         <button class="btn pull-right" type='button' name='print' value='Print' onClick='window.print()'><i
-                class="icon fa-solid fa-print"></i> Print
+                class="fa-solid fa-print"></i> Print
         </button>
         <br/><input type="checkbox" onclick="selectAll();"><br/><br/>
 

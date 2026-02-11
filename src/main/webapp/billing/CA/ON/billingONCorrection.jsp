@@ -782,7 +782,7 @@
                                 <div class="input-append">
                                     <input type="text" name="rdohip" value="<%=r_doctor_ohip%>" class="span2" readonly/>
                                     <a href="javascript:referralScriptAttach2('rdohip','rd')" class="btn"><i
-                                            class="icon fa-solid fa-magnifying-glass"></i></a>
+                                            class="fa-solid fa-magnifying-glass"></i></a>
                                 </div>
                             </td>
                         </tr>
@@ -1226,7 +1226,7 @@
 
                     <div class="input-append">
                         <input type="text" name="xml_diagnostic_detail" value="<%=diagCode%>" class="span8">
-                        <a href="javascript:ScriptAttach()" class="btn"><i class="icon fa-solid fa-magnifying-glass"></i></a>
+                        <a href="javascript:ScriptAttach()" class="btn"><i class="fa-solid fa-magnifying-glass"></i></a>
                     </div>
 
                 </div>
