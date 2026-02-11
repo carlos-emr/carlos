@@ -63,12 +63,13 @@ public class SecProviderDaoIntegrationTest extends OpenOTestBase {
 
     @BeforeEach
     void setUp() {
-        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 6);
+        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 4);
 
-        // Create test providers with unique IDs
+        // Create test providers with unique IDs (providerNo must fit VARCHAR(6): 4-char prefix + 2-char suffix)
         createProvider(uniquePrefix + "01", "John", "Smith", "1");  // Active
         createProvider(uniquePrefix + "02", "Jane", "Doe", "1");    // Active
         createProvider(uniquePrefix + "03", "Bob", "Johnson", "0"); // Inactive
+        hibernateTemplate.flush();
     }
 
     private SecProvider createProvider(String providerNo, String firstName, String lastName, String status) {
@@ -79,6 +80,7 @@ public class SecProviderDaoIntegrationTest extends OpenOTestBase {
         provider.setStatus(status);
         provider.setSex("M");
         provider.setProviderType("doctor");
+        provider.setSpecialty("");  // Required NOT NULL field from Provider.hbm.xml
         secProviderDao.save(provider);
         return provider;
     }

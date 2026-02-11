@@ -45,15 +45,17 @@ public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO 
 
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
-        return (List<Provider>) getHibernateTemplate().find("from Provider p order by p.lastName");
+        return (List<Provider>) getHibernateTemplate().find("from Provider p order by p.LastName");
     }
 
     public Provider getProvider(String provider_no) {
         return getHibernateTemplate().get(Provider.class, provider_no);
     }
 
+    @SuppressWarnings("unchecked")
     public Provider getProviderByName(String lastName, String firstName) {
-        return (Provider) getHibernateTemplate().find("from Provider p where p.first_name = ?0 and p.last_name = ?1", firstName, lastName).get(0);
+        List<Provider> results = (List<Provider>) getHibernateTemplate().find("from Provider p where p.FirstName = ?0 and p.LastName = ?1", firstName, lastName);
+        return results.isEmpty() ? null : results.get(0);
     }
 
 }
