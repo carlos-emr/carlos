@@ -474,7 +474,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             }
         </style>
 
-
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     </head>
 
     <body class="BodyStyle" id="printFlowsheetBody">

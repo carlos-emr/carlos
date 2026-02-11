@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.daos.security;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.Criteria;
 import org.hibernate.LockMode;
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -134,16 +135,17 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     }
 
     @Override
+    /**
+     * Finds Provider instances by a specified property and value.
+     */
     public List findByProperty(String propertyName, Object value) {
         logger.debug("finding Provider instance with property: " + propertyName
                 + ", value: " + value);
         Session session = currentSession();
         try {
-            String queryString = "from Provider as model where model."
-                    + propertyName + "= ?1";
-            Query queryObject = session.createQuery(queryString);
-            queryObject.setParameter(1, value);
-            return queryObject.list();
+            Criteria criteria = session.createCriteria(SecProvider.class);
+            criteria.add(org.hibernate.criterion.Restrictions.eq(propertyName, value));
+            return criteria.list();
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
             throw re;
@@ -231,11 +233,14 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     }
 
     @Override
+    /**
+     * Retrieves all Provider instances from the database.
+     */
     public List findAll() {
         logger.debug("finding all Provider instances");
         Session session = currentSession();
         try {
-            String queryString = "from Provider";
+            String queryString = "from SecProvider";
             Query queryObject = session.createQuery(queryString);
             return queryObject.list();
         } catch (RuntimeException re) {

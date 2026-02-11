@@ -8,7 +8,7 @@
     <class name="io.github.carlos_emr.carlos.model.security.SecProvider" table="provider">
         <id name="providerNo" type="java.lang.String">
             <column name="provider_no" length="6" />
-            <generator class="native" />
+            <generator class="assigned" />
         </id>
         <property name="lastName" type="java.lang.String">
             <column name="last_name" length="30" />

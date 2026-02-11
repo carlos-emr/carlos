@@ -178,7 +178,7 @@ public class AgencyDaoIntegrationTest extends OpenOTestBase {
 
         // When - persist via DAO and flush to force the SQL INSERT to execute
         agencyDao.saveAgency(agency);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - verify the entity received a generated ID from Hibernate
         assertThat(agency.getId()).isNotNull();
@@ -218,8 +218,8 @@ public class AgencyDaoIntegrationTest extends OpenOTestBase {
         // Given - persist an agency so the database is not empty
         Agency agency = createAgency(10, "AB", null, "CD");
         agencyDao.saveAgency(agency);
-        // Flush to ensure the INSERT is written before the read query executes
-        entityManager.flush();
+        // Flush Hibernate Session to ensure the INSERT is written before the read query
+        hibernateTemplate.flush();
 
         // When - retrieve the local agency via DAO
         Agency result = agencyDao.getLocalAgency();
@@ -316,7 +316,7 @@ public class AgencyDaoIntegrationTest extends OpenOTestBase {
         // Given - persist an agency with initial intake configuration
         Agency agency = createAgency(5, "HS", 3, "AC");
         agencyDao.saveAgency(agency);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Capture the generated primary key to verify identity is preserved after update
         Long savedId = agency.getId();
@@ -326,10 +326,11 @@ public class AgencyDaoIntegrationTest extends OpenOTestBase {
         agency.setIntakeQuickState("ZZ");
         agencyDao.saveAgency(agency);
 
-        // Flush to execute the UPDATE SQL, then clear the persistence context
-        // so the subsequent find() performs a real database SELECT rather than
-        // returning the cached entity from the first-level cache
-        entityManager.flush();
+        // Flush Hibernate Session to execute the UPDATE SQL, then clear both
+        // persistence contexts so the subsequent read performs a real database
+        // SELECT rather than returning a cached entity
+        hibernateTemplate.flush();
+        hibernateTemplate.clear();
         entityManager.clear();
 
         // Then - re-read from database and verify the updated values
