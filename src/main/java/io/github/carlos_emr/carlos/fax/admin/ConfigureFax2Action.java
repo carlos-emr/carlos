@@ -244,10 +244,17 @@ public class ConfigureFax2Action extends ActionSupport {
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
             jsonObject.put("message", "Configuration saved!");
-        } catch (Exception ex) {
+        } catch (IllegalArgumentException ex) {
+            // Validation errors - safe to expose message
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
             jsonObject.put("message", ex.getMessage() == null ? DEFAULT_ERROR_MESSAGE : ex.getMessage());
+            MiscUtils.getLogger().error("Fax configuration validation failed: {}", ex.getMessage(), ex);
+        } catch (Exception ex) {
+            // System errors - do not leak details
+            jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", DEFAULT_ERROR_MESSAGE);
             MiscUtils.getLogger().error("COULD NOT SAVE FAX CONFIGURATION", ex);
         }
 

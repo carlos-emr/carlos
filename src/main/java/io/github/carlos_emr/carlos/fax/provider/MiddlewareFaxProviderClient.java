@@ -97,6 +97,9 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             faxJob.setStatusString(faxJobId.getStatusString());
             faxJob.setStatus(faxJobId.getStatus());
             return faxJob;
+        } catch (FaxProviderException e) {
+            // Re-throw FaxProviderException as-is to preserve specific error messages
+            throw e;
         } catch (IOException e) {
             throw new FaxProviderException("CANNOT FIND Filepath: " + filePath, e);
         } catch (Exception e) {
@@ -110,7 +113,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
-            HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + File.separator + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
+            HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/" + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
             get.setHeader("accept", "application/json");
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
