@@ -156,6 +156,33 @@ public class SecProviderDaoIntegrationTest extends OpenOTestBase {
             assertThat(result.getFirstName()).isEqualTo("John");
         }
 
+
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find providers by last name via findByProperty path")
+        @SuppressWarnings("unchecked")
+        void shouldFindByLastName() {
+            List<SecProvider> results = secProviderDao.findByLastName("Smith");
+
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(SecProvider::getProviderNo)
+                .contains(uniquePrefix + "01");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return all providers via findAll")
+        @SuppressWarnings("unchecked")
+        void shouldReturnAllProviders() {
+            List<SecProvider> results = secProviderDao.findAll();
+
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(SecProvider::getProviderNo)
+                .contains(uniquePrefix + "01", uniquePrefix + "02", uniquePrefix + "03");
+        }
         @Test
         @Tag("read")
         @DisplayName("should find providers by status")
