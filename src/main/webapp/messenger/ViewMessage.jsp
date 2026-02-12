@@ -86,6 +86,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 
 
@@ -112,8 +113,7 @@
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
-    //String bodyTextAsHTML = Encode.forHtml((String) request.getAttribute("viewMessageMessage"));
-    String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
+    String bodyTextAsHTML = Encode.forHtml((String) session.getAttribute("viewMessageMessage"));
 %>
 <!DOCTYPE html>
 
@@ -318,7 +318,8 @@ font-size:17px;
 </head>
 
 <body class="BodyStyle" >
-<form action="<%=request.getContextPath()%>/messenger/HandleMessages.do">
+<form action="<%=request.getContextPath()%>/messenger/HandleMessages.do" method="post">
+	<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
 		<tr class="MainTableTopRow">
@@ -538,13 +539,13 @@ font-size:17px;
 							<td ></td>
 							<td  colspan="2">
 								<button type="submit" class="btn" name="reply"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/>"/><i class="icon-reply"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/>"><i class="icon-reply"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/></button>
                                 <button type="submit" class="btn" name="replyAll"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/>"/><i class="icon-reply-all"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="icon-reply-all"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
                                 <button type="submit" class="btn" name="forward"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"/><i class="icon-share-alt"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="icon-share-alt"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/></button>
                                 <button type="submit" class="btn" name="delete"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"/><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/></button>
                                 <input type="hidden" name="messageNo" id="messageNo" value="${ viewMessageNo }"/>
 							</td>
 						</tr>
@@ -595,9 +596,9 @@ font-size:17px;
 							<td><input type="text"
 								name="selectedDemo" size="30" readonly
 								style="border: none" value="none" /> <script>
-                                            if ( "<%=demoName%>" != "null" && "<%=demoName%>" != "") {
-                                                document.forms[0].selectedDemo.value = "<%=demoName%>"
-                                                document.forms[0].demographic_no.value = "<%=demographic_no%>"
+                                            if ( "<%=Encode.forJavaScript(demoName)%>" != "null" && "<%=Encode.forJavaScript(demoName)%>" != "") {
+                                                document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
+                                                document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
                                             }
                                         </script>
                                 </td>
@@ -747,7 +748,8 @@ font-size:17px;
 	<!-- Select demographic modal window for the import demographic process -->
 	<div id="selectDemographic" class="modal">
 	  	<div class="modal-content">
-	  		<form id="selectDemographicForm" action="<%= request.getContextPath() %>/oscarMessenger/ImportDemographic.do">
+	  		<form id="selectDemographicForm" action="<%= request.getContextPath() %>/oscarMessenger/ImportDemographic.do" method="post">
+				<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 			<div class="modal-header">
 			  <span id="closeSelectDemographic" class="close">&times;</span>
 			  <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.localMatches" /></h2>
@@ -771,8 +773,8 @@ font-size:17px;
 				 </p>
 			  	<c:forEach items="${ demographicUserSelect }" var="demographicSelect" >
 			  		<div class="demographicOption">
-			  			<input type="radio" name="selectedDemographicNo" id="demographic_${ demographicSelect.demographicNo }" value="${ demographicSelect.demographicNo }" />
-			  			<label for="demographic_${ demographicSelect.demographicNo }">
+			  			<label>
+			  			<input type="radio" name="selectedDemographicNo" value="${ demographicSelect.demographicNo }" />
 			  				<c:out value="${ demographicSelect.lastName }" />, <c:out value="${ demographicSelect.firstName }" /> <br />
 							<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="global.gender" />:</strong> <c:out value="${ demographicSelect.sex }" /><br />
 							<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="global.hin" />:</strong> <c:out value="${ demographicSelect.hin }" /><br />

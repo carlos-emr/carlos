@@ -58,6 +58,8 @@
   @since 2003
 --%>
 
+<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -140,7 +142,7 @@
 </table>
 <div class="alert alert-success" role="alert" style="margin-left:20px; margin-right:20px; margin-top: 20px;">
     <fmt:setBundle basename="oscarResources"/><fmt:message
-					key="messenger.SentMessage.msgMessageSentTo" /> <%= request.getAttribute("SentMessageProvs") %>
+					key="messenger.SentMessage.msgMessageSentTo" /> <%= Encode.forHtml((String) request.getAttribute("SentMessageProvs")) %>
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">

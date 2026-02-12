@@ -210,6 +210,11 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 }
             }
 		} else if (request.getParameter("btnRead") != null){
+			// Quick return if messageNo is null (no message is selected)
+			if (messageNo == null) {
+				MiscUtils.getLogger().info("No messages selected, returning back to page");
+				return findForward;
+			}
 			providerNo = bean.getProviderNo();
 			MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
 			for (int i = 0; i < messageNo.length; i++) {
@@ -220,6 +225,11 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 				}
 			}
 		} else if (request.getParameter("btnUnread") != null){
+			// Quick return if messageNo is null (no message is selected)
+			if (messageNo == null) {
+				MiscUtils.getLogger().info("No messages selected, returning back to page");
+				return findForward;
+			}
 			providerNo = bean.getProviderNo();
 			MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
 			for (int i = 0; i < messageNo.length; i++) {

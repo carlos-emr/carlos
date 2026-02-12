@@ -252,7 +252,7 @@
                         <%      delStyle =  "messengerButtonsD";
                             break;
                             case 3: %>
-                                Messages related to <%=demographic_name%>
+                                Messages related to <%=Encode.forHtml(demographic_name)%>
                         <%      delStyle =  "messengerButtonsD";
                             break;
                         }%>
@@ -261,6 +261,7 @@
 <td style="width:60%; display:flex; align-items:center;">
 
                             <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post">
+								<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 <div class="input-group">
                             <input name="boxType" type="hidden" value="<%=pageType%>">
                             <input name="searchString" type="text" class="form-control h-50"  value="<jsp:getProperty name="DisplayMessagesBeanId" property="filter"/>">
@@ -289,6 +290,7 @@
                     %>
 
                     <form action="<%=strutsAction%>" method="post" id="msgList">
+						<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
        <table  class="MainTable" id="scrollNumber1" style="width: 100%;">
         <tr>
@@ -320,7 +322,7 @@
 
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="javascript:BackToOscar()" class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
+                                        <a class="nav-link" href="javascript:BackToOscar()"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
                                     </li>
                                     </ul>
                         </td>
@@ -388,7 +390,8 @@
                     <tr>
                         <td>
                             <table class="table table-sm table-striped table-hover">
-                                <tr><thead>
+                                <thead>
+                                    <tr>
                                     <th style="text-align: left;">
                                     <%if( pageType!=1 ) {%>
                                        <input type="checkbox" name="checkAll2" onclick="checkAll('msgList')" id="checkA" style="margin-bottom: 10px;" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
@@ -437,8 +440,8 @@
                                                 <i class=" icon-caret-down" ></i>
                                             </a>
                                     </th>
-                                </tr>
-                        </thead>
+                                    </tr>
+                                </thead>
                         <tbody>
                                 <!--   for loop Control Initiliation variabe changed to nextMessage   -->
                                 <%

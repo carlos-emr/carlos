@@ -97,6 +97,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%
     // Security check: Build role string from session attributes for authorization
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -255,13 +256,16 @@ function checkGroup(group) {
             }*/
 
 function validateFields() {
+    // Sync editor content to the hidden textarea before validation
+    writeToMessage();
+
     // Cannot send attachments to remote facilities
     var checkedInputs = document.querySelectorAll('input:checked');
     var attachmentAlert = document.getElementById('attachmentAlert');
     for (var i = 0; i < checkedInputs.length; i++) {
         var idParts = checkedInputs[i].id.split('-');
         // Check if id structure exists and index 2 > 0
-        if (idParts.length > 2 && parseInt(idParts) > 0 && attachmentAlert && attachmentAlert.value) {
+        if (idParts.length > 2 && parseInt(idParts[2]) > 0 && attachmentAlert && attachmentAlert.value) {
             alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.attachmentsNotPermitted"/>');
             return false;
         }
@@ -430,7 +434,8 @@ function validateFields() {
 
 			<tr>
 				<td><!-- colspan -->
-				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validatefields()">
+				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validateFields()">
+					<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 				<table class="well" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
@@ -466,10 +471,11 @@ function validateFields() {
 
 												<c:forEach items="${ group.value }" var="member">
 													<div class="group_member_contact" style="white-space: nowrap;">
+														<c:set var="memberIdSafe" value="${ fn:replace(member.id.compositeId, ' ', '_') }" />
 														<input type="checkbox" name="provider" class="member_group_${ group.key.id }"
-															id="${ group.key.id }-${ member.id.compositeId }" value="${ member.id.compositeId }" >
+															id="${ group.key.id }-${ memberIdSafe }" value="${ member.id.compositeId }" >
 
-														<label for="${ group.key.id }-${ member.id.compositeId }" >
+														<label for="${ group.key.id }-${ memberIdSafe }" >
 															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
 														</label>
 													</div>
@@ -490,12 +496,13 @@ function validateFields() {
 											<summary>
 												<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.remoteMembers" /></strong>
 											</summary>
-											<c:forEach items="${ remoteMembers }" var="location" >
+											<c:forEach items="${ remoteMembers }" var="location" varStatus="locationStatus">
 												<details>
 													<summary>
-														<input type="checkbox" name="tableDFR" id="remote_group_${ location.key }"
+														<c:set var="locationKeySafe" value="${ fn:replace(location.key, ' ', '_') }" />
+														<input type="checkbox" name="tableDFR" id="remote_group_${ locationKeySafe }"
 																value="${ location.key }" onchange="checkGroup(this)" />
-														<label for="remote_group_${ location.key }" >${ location.key }</label>
+														<label for="remote_group_${ locationKeySafe }" >${ location.key }</label>
 													</summary>
 
 													<c:forEach items="${ location.value }" var="member">
