@@ -178,9 +178,6 @@
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.title"/></title>
-
-        <link rel="stylesheet" type="text/css" href="encounterStyles.css">
-
         <style>
 
             summary {
@@ -201,9 +198,8 @@
         </style>
 
         <script src="<%=request.getContextPath()%>/js/jquery-1.12.3.js"></script>
-        <script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css"> -->
+        <!--<script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>-->
+
 
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
 
@@ -219,15 +215,24 @@
         font-size: 17px;
     }
  </style>
-        <script>
 
-            function checkGroup(group) {
-                $.each($("input." + group.id), function () {
-                    $(this).attr("checked", $(group).attr("checked") ? "checked" : false);
-                })
-            }
+<script>
 
-            function validatefields() {
+function checkGroup(group) {
+    // 1. Find all input elements that have the same class as the group's ID
+    const inputs = document.querySelectorAll("input." + group.id);
+
+    // 2. Determine if the main group checkbox is checked
+    const isChecked = group.checked;
+
+    // 3. Loop through them and set their checked status
+    inputs.forEach(function (input) {
+        input.checked = isChecked;
+    });
+}
+
+
+/*            function validatefields() {
 
                 // cannot send attachments to remote facilities
                 $("input:checked").each(function () {
@@ -247,111 +252,138 @@
                     return false;
                 }
                 return true
-            }
+            }*/
 
-            function validateCheckBoxes(form) {
-                var retval = "0";
-                for (var i = 0; i < form.provider.length; i++)
-                    if (form.provider[i].checked)
-                        retval = "1";
-                return retval
-            }
+function validateFields() {
+    // Cannot send attachments to remote facilities
+    var checkedInputs = document.querySelectorAll('input:checked');
+    var attachmentAlert = document.getElementById('attachmentAlert');
+    for (var i = 0; i < checkedInputs.length; i++) {
+        var idParts = checkedInputs[i].id.split('-');
+        // Check if id structure exists and index 2 > 0
+        if (idParts.length > 2 && parseInt(idParts) > 0 && attachmentAlert && attachmentAlert.value) {
+            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.attachmentsNotPermitted"/>');
+            return false;
+        }
+    }
+    // Check if message body is empty
+    if (document.forms[0].message.value.length === 0) {
+        alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>');
+        return false;
+    }
+    // Validate check boxes
+    var val = validateCheckBoxes(document.forms[0]);
+    if (val === 0) {
+        alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgNoProvider"/>');
+        return false;
+    }
+    return true;
+}
+	function validateCheckBoxes(form)
+	{
+	  var retval = "0";
+	  for (var i =0; i < form.provider.length;i++)
+	    if  (form.provider[i].checked)
+	      retval = "1";
+	  return retval
+	}
 
-            function BackToOscar() {
-                if (opener.callRefreshTabAlerts) {
-                    opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
-                } else {
-                    window.close();
-                }
-            }
+	function BackToOscar()
+	{
+	    if (opener.callRefreshTabAlerts) {
+		opener.callRefreshTabAlerts("oscar_new_msg");
+	        setTimeout("window.close()", 100);
+	    } else {
+	        window.close();
+	    }
+	}
 
-            function XMLHttpRequestSendnArch() {
-                var oRequest = new XMLHttpRequest();
-                var theLink = document.referrer;
-                var theLinkComponents = theLink.split('?');
-                var theQueryComponents = theLinkComponents[1].split('&');
+	function XMLHttpRequestSendnArch() {
+		var oRequest = new XMLHttpRequest();
+		var theLink=document.referrer;
+		var theLinkComponents=theLink.split('?');
+		var theQueryComponents=theLinkComponents[1].split('&');
 
-                for (index = 0; index < theQueryComponents.length; ++index) {
-                    var theKeyValue = theQueryComponents[index].split('=');
-                    if (theKeyValue[0] == 'messageID') {
-                        var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do?btnDelete=archive&messageNo=' + theKeyValue[1];
-                    }
-                }
+		for (index = 0; index < theQueryComponents.length; ++index) {
+	    		var theKeyValue=theQueryComponents[index].split('=');
+			if(theKeyValue[0]=='messageID'){
+				var theArchiveLink=theLinkComponents[0].substring(0,theLinkComponents[0].lastIndexOf('/'))+'/DisplayMessages.do?btnDelete=archive&messageNo='+theKeyValue[1];
+			}
+		}
+		oRequest.open('GET', theArchiveLink, false);
+		oRequest.send();
+		document.forms[0].submit();
+	}
 
-                oRequest.open('GET', theArchiveLink, false);
-                oRequest.send();
-                document.forms[0].submit();
-            }
+	function popupSearchDemo(keyword){ // open a new popup window
+	    var vheight = 700;
+	    var vwidth = 980;
+	    windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+	    var page = 'msgSearchDemo.jsp?keyword=' +keyword +'&firstSearch='+true;
+	    var popUp=window.open(page, "msgSearchDemo", windowprops);
+	    if (popUp != null) {
+	        if (popUp.opener == null) {
+	          popUp.opener = self;
+	        }
+	        popUp.focus();
+	    }
+	}
 
-            function popupSearchDemo(keyword) { // open a new popup window
-                var vheight = 700;
-                var vwidth = 980;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-                var page = 'msgSearchDemo.jsp?keyword=' + keyword + '&firstSearch=' + true;
-                var popUp = window.open(page, "msgSearchDemo", windowprops);
-                if (popUp != null) {
-                    if (popUp.opener == null) {
-                        popUp.opener = self;
-                    }
-                    popUp.focus();
-                }
-            }
+	function popupAttachDemo(demographic){ // open a new popup window
+	    var subject = document.forms[0].subject.value;
+	    var message = document.forms[0].message.value;
+	    var formData = "subject=" + subject + "&message=" + message;
 
-            function popupAttachDemo(demographic) { // open a new popup window
-                var subject = document.forms[0].subject.value;
-                var message = document.forms[0].message.value;
-                var formData = "subject=" + subject + "&message=" + message;
+	    $.ajax({
+	    	type: "post",
+	    	data : formData,
+	    	success: function(data){
+	    		console.log(data);
+	    	},
+	    	error: function (jqXHR, textStatus, errorThrown){
+	 			console.log("Error: " + textStatus);
+	    	}
+		});
 
-                $.ajax({
-                    type: "post",
-                    data: formData,
-                    success: function (data) {
-                        console.log(data);
-                    },
-                    error: function (jqXHR, textStatus, errorThrown) {
-                        alert("Error: " + textStatus);
-                    }
-                });
-
-                var vheight = 700;
-                var vwidth = 900;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
-                var page = 'attachmentFrameset.jsp?demographic_no=' + demographic;
-                var demo_no = demographic;
+	    var vheight = 700;
+	    var vwidth = 900;
+	    windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
+	    var page = 'attachmentFrameset.jsp?demographic_no=' +demographic;
+	    var demo_no  = demographic;
 
 
-                if (demographic == "" || !demographic || demographic == null || demographic == "null") {
-                    alert("Please select a demographic.");
-                } else {
-                    var popUp = window.open(page, "msgAttachDemo", windowprops);
-                    if (popUp != null) {
-                        if (popUp.opener == null) {
-                            popUp.opener = self;
-                        }
-                        popUp.focus();
-                    }
-                }
+	    if ( demographic == "" || !demographic || demographic == null || demographic == "null") {
+	        alert("Please select a demographic.");
+	    }
+	    else {
+	        var popUp=window.open(page, "msgAttachDemo", windowprops);
+	        if (popUp != null) {
+	            if (popUp.opener == null) {
+	              popUp.opener = self;
+	            }
+	            popUp.focus();
+	        }
+	    }
 
-            }
+	}
 
-            /*
-             * Throw an error returned from the action
-             */
-            $(document).ready(function () {
-                var submissionerror = '${createMessageError}';
-                if (submissionerror) {
-                    alert(submissionerror);
-                }
+	/*
+	 * Throw an error returned from the action
+	 */
+	$(document).ready(function(){
+		var submissionerror = '${createMessageError}';
+		if(submissionerror)
+		{
+			alert(submissionerror);
+		}
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
         editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
         editor.moveCursorToStart();
 
-        disableArchive();
+        //disableArchive();
 	})
-
-        </script>
+</script>
 </head>
 <body class="BodyStyle" >
 <table style="width:100%;">
@@ -381,13 +413,13 @@
 			<tr>
 
 						<td>
-						    <a class="btn btn-light" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
+						    <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
 								<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
-                            <a class="btn btn-light" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
+                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
 								<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
-                            <a href="javascript:BackToOscar()" class="btn btn-light">
+                            <a href="javascript:BackToOscar()">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnExit" />
                             </a>
                             <br>&nbsp;
@@ -397,7 +429,7 @@
 			</tr>
 
 			<tr>
-				<td colspan="3">
+				<td><!-- colspan -->
 				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validatefields()">
 				<table class="well" style="width:100%">
 						<tr class="subheader">
@@ -525,11 +557,11 @@
 						</div> <!-- end ChooseRecipientsBox -->
 					</td>
 					<td style="vertical-align:top;" colspan="2"><!--Message and Subject Cell-->
-                    <br>
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject" /> :
-					<input type="text" name="subject" class="form-control " value="${messageSubject}"> <br>
-					<br>
-                    <div id="messagediv"></div>
+                    <div class="row"><div class="col-auto">
+					<label for="subject" class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
+                    </div><div class="col">
+					<input type="text" name="subject" id="subject" class="form-control w-75" value="${messageSubject}"> </div>
+                    <div id="messagediv"></div></div>
 					<textarea name="message" rows="15" style="min-width: 100%">${messageBody}</textarea>
 							<table>
 								<tr>
@@ -613,23 +645,14 @@
 		</form>
 			</td>
 		</tr>
-		<tr>
-			<td>
-			<script>
-                 document.forms[0].message.focus();
-            </script>
-            </td>
-		</tr>
-
 	</table>
 	</td>
 	</tr>
-	<tr>
-		<td class="MainTableBottomRowLeftColumn">&nbsp;</td>
-		<td class="MainTableBottomRowRightColumn">&nbsp;</td>
-	</tr>
-</table>
 
+</table>
+<script>
+                 document.forms[0].message.focus();
+</script>
 <script>
 
     // note that global.language.code != global.i18nLanguagecode
