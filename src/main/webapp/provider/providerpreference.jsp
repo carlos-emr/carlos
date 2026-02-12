@@ -154,10 +154,6 @@
                 return checkin;
             }
 
-            function popupPage(vheight, vwidth, varpage) {
-                window.location.href = varpage;
-            }
-
             function isNumeric(strString) {
                 var validNums = "0123456789";
                 var strChar;
