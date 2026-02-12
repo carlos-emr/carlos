@@ -77,6 +77,8 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.title"/></title>
         <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
         <script language="JavaScript">
 
             function setfocus() {
@@ -152,15 +154,8 @@
                 return checkin;
             }
 
-            function popupPage(vheight, vwidth, varpage) { //open a new popup window
-                var page = "" + varpage;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=5,left=5";//360,680
-                var popup = window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.titlePopup"/>", windowprops);
-                if (popup != null) {
-                    if (popup.opener == null) {
-                        popup.opener = self;
-                    }
-                }
+            function popupPage(vheight, vwidth, varpage) {
+                window.location.href = varpage;
             }
 
             function isNumeric(strString) {
@@ -188,34 +183,19 @@
             }
         </script>
         <style type="text/css">
-            .preferenceTable td {
-                border: solid white 2px;
-            }
-
-            .preferenceLabel {
-                text-align: right;
-                width: 25%;
-                padding-right: 8px;
-                font-size: 13px;
-                font-weight: bold;
-                vertical-align: top;
-            }
-
-            .preferenceUnits {
-                font-size: 9px;
-                font-weight: normal;
-            }
-
-            .preferenceValue {
-                font-size: 12px;
-            }
-
-            table.eRxTableCenter {
-                width: 50%;
-                margin-left: 25%;
-                margin-right: 25%;
-            }
-
+            body { background: #f3f6fb; }
+            .pref-shell { max-width: 1100px; margin: 1.5rem auto; }
+            .pref-card { border: 0; border-radius: .85rem; box-shadow: 0 0.35rem 1rem rgba(15, 23, 42, .08); }
+            .pref-header { background: linear-gradient(135deg, #5f73c8, #7f91de); color: #fff; border-radius: .85rem .85rem 0 0; }
+            .preferenceTable td { border: 0; padding: .5rem .75rem; }
+            .preferenceLabel { width: 35%; font-size: .92rem; font-weight: 600; color: #334155; vertical-align: top; }
+            .preferenceUnits { font-size: .72rem; font-weight: 500; color: #64748b; }
+            .preferenceValue { font-size: .92rem; color: #0f172a; }
+            .preferenceValue input[type='text'], .preferenceValue input[type='password'], .preferenceValue select,
+            .eRxTableCenter input[type='text'], .eRxTableCenter input[type='password'] { border: 1px solid #cbd5e1; border-radius: .375rem; padding: .25rem .5rem; }
+            .pref-link-btn { display: inline-block; text-decoration: none; padding: .4rem .75rem; border-radius: .375rem; background: #e2e8f0; color: #1e293b; font-weight: 600; }
+            .pref-link-btn:hover { background: #cbd5e1; color: #0f172a; }
+            table.eRxTableCenter { width: 100%; margin: 0; }
         </style>
     </head>
 
@@ -239,15 +219,15 @@
         // String defaultBillingLocation = providerPreference.getDefaultBillingLocation()!=null?providerPreference.getDefaultBillingLocation():"no";
     %>
 
-    <body bgproperties="fixed" onLoad="setfocus();showHideBillPref();showHideERxPref();" topmargin="0" leftmargin="0"
-          rightmargin="0" style="font-family:sans-serif">
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providerupdatepreference.jsp" onSubmit="return(checkTypeInAll())">
+    <body onLoad="setfocus();showHideBillPref();showHideERxPref();">
+    <div class="container-fluid pref-shell">
+    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providerupdatepreference.jsp" onSubmit="return(checkTypeInAll())" class="card pref-card">
 
-        <div style="background-color:<%=deepcolor%>;text-align:center;font-weight:bold">
+        <div class="card-header text-center fw-bold pref-header">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.description"/>
         </div>
 
-        <table class="preferenceTable" style="width:100%;border-collapse:collapse;background-color:<%=weakcolor%>;">
+        <div class="card-body bg-white"><table class="preferenceTable table align-middle" style="width:100%;border-collapse:separate;">
             <tr>
                 <td class="preferenceLabel">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.preference.formStartHour"/>
@@ -281,8 +261,7 @@
                 </td>
                 <td class="preferenceValue">
                     <INPUT TYPE="TEXT" NAME="mygroup_no" VALUE='<%=myGroupNo%>' size="12" maxlength="10">
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.viewedit"/>"
-                           onClick="popupPage(360,680,'providerdisplaymygroup.jsp' );return false;"/>
+                    <a href="providerdisplaymygroup.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.viewedit"/></a>
                 </td>
             </tr>
             <!-- ticklerPlus removed -->
@@ -506,7 +485,7 @@
             </script>
         </table>
 
-        <div style="background-color:<%=deepcolor%>;text-align:center;font-weight:bold">
+        <div class="card-header text-center fw-bold pref-header">
             <INPUT TYPE="submit" VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.btnSubmit"/>' SIZE="7">
             <INPUT TYPE="RESET" VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>' onClick="window.close();">
         </div>
@@ -519,32 +498,27 @@
             <caisi:isModuleLoad moduleName="NEW_CME_SWITCH">
                 <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="no">
                     <tr>
-                        <TD align="center"><a href=#
-                                              onClick="popupPage(230,600,'<%= request.getContextPath() %>/casemgmt/newCaseManagementEnable.jsp');return false;">Enable
+                        <TD align="center"><a href="<%= request.getContextPath() %>/casemgmt/newCaseManagementEnable.jsp" class="pref-link-btn">Enable
                             OSCAR CME UI</a> &nbsp;&nbsp;&nbsp;
                     </tr>
                 </oscar:oscarPropertiesCheck>
             </caisi:isModuleLoad>
 
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,600,'providerDefaultDxCode.jsp?provider_no=<%=request.getParameter("provider_no") %>');return false;">Edit
+                <td align="center"><a href="providerDefaultDxCode.jsp?provider_no=<%=request.getParameter("provider_no") %>" class="pref-link-btn">Edit
                     Default Billing Diagnostic Code</a>&nbsp;&nbsp;&nbsp;
                 </td>
             </tr>
             <tr>
 
-                <TD align="center"><a href=#
-                                      onClick="popupPage(370,700,'providerchangepassword.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnChangePassword"/></a> &nbsp;&nbsp;&nbsp;
+                <TD align="center"><a href="providerchangepassword.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnChangePassword"/></a> &nbsp;&nbsp;&nbsp;
                 </td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDefaultSex');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDefaultSex"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDefaultSex" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDefaultSex"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'providerSignature.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSignature"/></a>
+                <td align="center"><a href="providerSignature.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSignature"/></a>
                 </td>
             </tr>
             <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="no" defaultVal="true">
@@ -553,10 +527,9 @@
                         <td align="center">
                             <% String br = OscarProperties.getInstance().getProperty("billregion");
                                 if (br.equals("BC")) { %>
-                            <a href=#
-                               onClick="popupPage(900,500,'<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=providerNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnBillPreference"/></a>
+                            <a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=providerNo%>" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnBillPreference"/></a>
                             <% } else { %>
-                            <a href=# onClick="showHideBillPref();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnBillPreference"/></a>
+                            <a href="#" class="pref-link-btn" onClick="showHideBillPref();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnBillPreference"/></a>
                             <% } %>
                         </td>
                     </tr>
@@ -593,139 +566,111 @@
                     </tr>
                 </security:oscarSec>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(400,860,'providerAddress.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditAddress"/></a></td>
+                    <td align="center"><a href="providerAddress.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditAddress"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(400,860,'providerPhone.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditPhoneNumber"/></a></td>
+                    <td align="center"><a href="providerPhone.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditPhoneNumber"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(400,860,'providerFax.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditFaxNumber"/></a></td>
+                    <td align="center"><a href="providerFax.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditFaxNumber"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'providerColourPicker.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditColour"/></a></td>
+                    <td align="center"><a href="providerColourPicker.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditColour"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(500,860,'providerPrinter.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDefaultPrinter"/></a></td>
+                    <td align="center"><a href="providerPrinter.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDefaultPrinter"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewRxPageSize');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetRxPageSize"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewRxPageSize" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetRxPageSize"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewUseRx3');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetRx3"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewUseRx3" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetRx3"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewCppSingleLine');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetCppSingleLine"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewCppSingleLine" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetCppSingleLine"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewShowPatientDOB');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetShowPatientDOB"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewShowPatientDOB" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetShowPatientDOB"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDefaultQuantity');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.SetDefaultPrescriptionQuantity"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDefaultQuantity" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.SetDefaultPrescriptionQuantity"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=view&provider_no=<%=providerNo%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditStaleDate"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=view&provider_no=<%=providerNo%>" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditStaleDate"/></a></td>
                 </tr>
 
 
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultationRequestCuffOffDate');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultationCutoffTimePeriod"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultationRequestCuffOffDate" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultationCutoffTimePeriod"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultationRequestTeamWarning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultationTeam"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultationRequestTeamWarning" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultationTeam"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewWorkLoadManagement');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetWorkLoadManagement"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewWorkLoadManagement" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetWorkLoadManagement"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultPasteFmt');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultPasteFmt"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultPasteFmt" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultPasteFmt"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewFavouriteEformGroup');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEformGroup"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewFavouriteEformGroup" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEformGroup"/></a></td>
                 </tr>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewHCType');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetHCType"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewHCType" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetHCType"/></a></td>
                 </tr>
                 <% if (OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
                 <tr>
-                    <td align="center"><a href=#
-                                          onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewOntarioMDId');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetmyOntarioMD"/></a></td>
+                    <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewOntarioMDId" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetmyOntarioMD"/></a></td>
                 </tr>
                 <%}%>
             </oscar:oscarPropertiesCheck>
 
             <tr>
-                <td align="center"><a href=# onClick="popupPage(400,860,'<%=request.getContextPath()%>/provider/CppPreferences.do');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.cppPrefs"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.cppPrefs"/></a></td>
             </tr>
 
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewCommentLab');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnDisableAckCommentLab"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewCommentLab" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnDisableAckCommentLab"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnLabRecallSettings"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnLabRecallSettings"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEncounterWindowSize');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditDefaultEncounterWindowSize"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEncounterWindowSize" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditDefaultEncounterWindowSize"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewQuickChartSize');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditDefaultQuickChartSize"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewQuickChartSize" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditDefaultQuickChartSize"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEDocBrowserInDocumentReport');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEDocBrowserInDocumentReport"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEDocBrowserInDocumentReport" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEDocBrowserInDocumentReport"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEDocBrowserInMasterFile');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEDocBrowserInMasterFile"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEDocBrowserInMasterFile" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEDocBrowserInMasterFile"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewPatientNameLength');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSetPatientNameLength"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewPatientNameLength" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSetPatientNameLength"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDocumentDescriptionTemplate"/></a></td>
+                <td align="center"><a href="<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDocumentDescriptionTemplate"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=# onClick="popupPage(500,900,'clients.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditClients"/></a></td>
+                <td align="center"><a href="clients.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditClients"/></a></td>
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDisplayDocumentAs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDisplayDocumentAs"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDisplayDocumentAs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDisplayDocumentAs"/></a></td>
             </tr>
             <tr>
                 <td align="center"><a href=#
             </tr>
             <tr>
-                <td align="center"><a href=#
-                                      onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewAppointmentCardPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSetAppointmentCardPrefs"/></a></td>
+                <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewAppointmentCardPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSetAppointmentCardPrefs"/></a></td>
             </tr>
 
             <oscar:oscarPropertiesCheck property="util.erx.enabled" value="true">
             <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r">
             <tr>
                 <td align="center">
-                    <a href=# onClick="showHideERxPref();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.btnPrefLink"/></a>
+                    <a href="#" class="pref-link-btn" onClick="showHideERxPref();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.btnPrefLink"/></a>
                 </td>
             </tr>
             <tr>
@@ -799,24 +744,21 @@
         </security:oscarSec>
         </oscar:oscarPropertiesCheck>
         <tr>
-            <td align="center"><a href=#
-                                  onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDashboardPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewDashboardPrefs"/></a></td>
+            <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDashboardPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewDashboardPrefs"/></a></td>
         </tr>
         <tr>
-            <td align="center"><a href=#
-                                  onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewPreventionPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewPreventionPrefs"/></a></td>
+            <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewPreventionPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewPreventionPrefs"/></a></td>
         </tr>
 
         <tr>
-            <td align="center"><a href=#
-                                  onClick="popupPage(700,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewLabMacroPrefs"/></a></td>
+            <td align="center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewLabMacroPrefs"/></a></td>
         </tr>
         <tr>
-            <td align="center"><a href=#
-                                  onClick="popupPage(280,730,'<%=request.getContextPath()%>/setTicklerPreferences.do?method=viewTicklerTaskAssignee');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewTicklerPreferences"/></a></td>
+            <td align="center"><a href="<%=request.getContextPath()%>/setTicklerPreferences.do?method=viewTicklerTaskAssignee" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewTicklerPreferences"/></a></td>
         </tr>
-        </table>
+        </table></div>
     </FORM>
+    </div>
 
     </body>
 </html>
