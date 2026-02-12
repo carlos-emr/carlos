@@ -171,6 +171,12 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
         }
 
+        // Ensure we have a valid session bean before processing actions that depend on it
+        if (bean == null) {
+            MiscUtils.getLogger().info("MsgSessionBean is null; possible session timeout or invalid access. Returning to page without processing action.");
+            return findForward;
+        }
+
         // Process user actions based on button clicks
         if (request.getParameter("btnSearch") != null) {
             // Apply search filter to message list
