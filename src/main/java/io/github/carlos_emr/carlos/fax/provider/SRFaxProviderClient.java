@@ -36,8 +36,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import org.apache.cxf.common.util.Base64Utility;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.logging.log4j.Logger;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -277,14 +280,44 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
     /**
      * Posts a URL-encoded form request and parses a JSON response body.
+     * 
+     * <p>Configures explicit timeouts to prevent hung sockets from stalling fax processing:
+     * <ul>
+     *   <li>Connection timeout: 30 seconds</li>
+     *   <li>Socket timeout: 60 seconds</li>
+     *   <li>Connection request timeout: 30 seconds</li>
+     * </ul>
      */
     private JsonNode postForm(String endpoint, List<NameValuePair> params) throws FaxProviderException {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(30_000)           // Connection establishment timeout
+                .setSocketTimeout(60_000)            // Socket read timeout
+                .setConnectionRequestTimeout(30_000) // Connection pool timeout
+                .build();
+
         HttpPost httpPost = new HttpPost(endpoint);
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
+        httpPost.setConfig(requestConfig);
+
+        try (CloseableHttpClient client = HttpClients.custom()
+                .setDefaultRequestConfig(requestConfig)
+                .build()) {
             httpPost.setEntity(new UrlEncodedFormEntity(params));
 
             try (CloseableHttpResponse response = client.execute(httpPost)) {
-                String payload = EntityUtils.toString(response.getEntity());
+                // Validate HTTP status code
+                int statusCode = response.getStatusLine().getStatusCode();
+                if (statusCode != HttpStatus.SC_OK) {
+                    throw new FaxProviderException("SRFax API returned HTTP " + statusCode + 
+                            ": " + response.getStatusLine().getReasonPhrase());
+                }
+
+                // Validate entity is not null
+                HttpEntity entity = response.getEntity();
+                if (entity == null) {
+                    throw new FaxProviderException("SRFax API returned null response entity");
+                }
+
+                String payload = EntityUtils.toString(entity);
                 return objectMapper.readTree(payload);
             }
         } catch (IOException e) {
