@@ -120,18 +120,38 @@ public class FaxSender {
 
     private Path resolveFilePath(String filename, String documentDir) {
         // ALWAYS validate paths using PathValidationUtils to prevent path traversal attacks
-        // Do not bypass validation even if the file exists
+        if (filename == null || filename.trim().isEmpty()) {
+            throw new IllegalArgumentException("Fax job filename must not be null or empty");
+        }
+
+        Path path = Paths.get(filename);
+
+        // If an absolute path is provided, validate the existing file path first.
+        if (path.isAbsolute()) {
+            File absoluteFile = path.toFile();
+            try {
+                // Prefer files that are under DOCUMENT_DIR and already exist
+                PathValidationUtils.validateExistingPath(absoluteFile, new File(documentDir));
+                return absoluteFile.toPath();
+            } catch (SecurityException e) {
+                // Allow absolute paths in an explicitly allowed temp directory
+                if (PathValidationUtils.isInAllowedTempDirectory(absoluteFile)) {
+                    return absoluteFile.toPath();
+                }
+
+                // Do NOT silently substitute a different file; fail the job instead.
+                log.error("Invalid absolute fax job path: {}", filename, e);
+                throw e;
+            }
+        }
+
+        // For relative filenames, resolve safely under DOCUMENT_DIR using PathValidationUtils.
         try {
             File validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
             return validatedFile.toPath();
         } catch (SecurityException e) {
-            log.error("Path validation failed for filename: {}", filename, e);
-            // Fall back to document dir with just the base filename
-            Path baseFilename = Paths.get(filename).getFileName();
-            if (baseFilename != null) {
-                return Paths.get(documentDir, baseFilename.toString());
-            }
-            // If we can't extract a base filename, throw the security exception
+            log.error("Path validation failed for relative fax job filename: {}", filename, e);
+            // Do not fall back to a different file; propagate the failure.
             throw e;
         }
     }
