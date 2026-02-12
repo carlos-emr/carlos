@@ -83,7 +83,7 @@ public class FaxSender {
             }
 
             List<FaxJob> faxJobList = faxJobDao.getReadyToSendFaxes(faxConfig.getFaxNumber());
-            log.info("SENDING " + faxJobList.size() + " faxes from fax account " + faxConfig.getSiteUser());
+            log.info("SENDING {} faxes from fax account {}", faxJobList.size(), faxConfig.getSiteUser());
 
             for (FaxJob faxJob : faxJobList) {
                 FaxClientLog faxClientLog = faxClientLogDao.findClientLogbyFaxId(faxJob.getId());
@@ -91,7 +91,7 @@ public class FaxSender {
                 faxJob.setSenderEmail(faxConfig.getSenderEmail());
 
                 Path filePath = resolveFilePath(faxJob.getFile_name(), documentDir);
-                log.info("sending fax from file path " + filePath);
+                log.info("sending fax from file path {}", filePath);
 
                 try {
                     FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
@@ -100,14 +100,14 @@ public class FaxSender {
                 } catch (FaxProviderException e) {
                     String statusMessage = e.getMessage() == null ? "PROBLEM COMMUNICATING WITH WEB SERVICE" : e.getMessage();
                     faxJob.setStatusString(statusMessage);
-                    log.error("Fax send failed for fax id " + faxJob.getId() + " using provider " + faxConfig.getProviderType(), e);
+                    log.error("Fax send failed for fax id {} using provider {}", faxJob.getId(), faxConfig.getProviderType(), e);
                     if (statusMessage.contains("Connection error")) {
                         faxStatus = FaxJob.STATUS.WAITING;
                     }
                 } finally {
                     faxJob.setStatus(faxStatus);
                     faxJobDao.merge(faxJob);
-                    log.info("Updated Fax with jobid " + faxJob.getJobId() + " and status " + faxJob.getStatus());
+                    log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
                     if (faxClientLog != null) {
                         faxClientLog.setResult(faxStatus.name());
                         faxClientLog.setEndTime(new Date(System.currentTimeMillis()));

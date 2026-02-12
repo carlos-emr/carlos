@@ -193,14 +193,14 @@ public class FaxImporter {
 
             queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
 
-            log.info("Saved file " + filename + " to filesystem at " + DOCUMENT_DIR + " as document ID " + docNum);
+            log.info("Saved file {} to filesystem at {} as document ID {}", filename, DOCUMENT_DIR, docNum);
 
             newDoc.setDocId(doc_no);
 
             return newDoc;
         }
 
-        log.debug("Failed to save file " + filename + " to filesystem at " + DOCUMENT_DIR);
+        log.debug("Failed to save file {} to filesystem at {}", filename, DOCUMENT_DIR);
 
         return null;
 
@@ -235,7 +235,7 @@ public class FaxImporter {
 
         Integer id = providerLabRouting.getId();
         if (id == null || id < 1) {
-            log.warn("Failed to add Fax document id " + providerLabRouting.getLabNo() + " to provider lab routing.");
+            log.warn("Failed to add Fax document id {} to provider lab routing.", providerLabRouting.getLabNo());
         }
     }
 

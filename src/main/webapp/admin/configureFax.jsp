@@ -367,13 +367,13 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax.restart" rights="r"
                                    reverse="<%=false%>">
                     <div class="row">
-                        <div class="span12" style="display: ruby">
+                        <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
                             <label class="status-label"><i class="fas fa-heartbeat"></i> Fax Server Connection Status:</label><label id="faxStatusDetails"></label>
                         </div>
-                        <div class="span12" style="display: ruby">
+                        <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
                             <label class="status-label"><i class="fas fa-clock"></i> Last Successful Poll:</label><label id="faxLastRunDetails">Never</label>
                         </div>
-                        <div class="span12" style="display: ruby">
+                        <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
                             <label class="status-label"><i class="fas fa-exclamation-triangle"></i> Last Error:</label><label id="faxLastErrorDetails">None</label>
                         </div>
                         <div class="span12">
