@@ -131,6 +131,9 @@
     </style>
 
     <script type="text/javascript">
+        // CSRF token for AJAX requests
+        var csrfParameterName = '${_csrf.parameterName}';
+        var csrfToken = '${_csrf.token}';
 
         $(document).keypress(function () {
             $("#submit").prop("disabled", false);
@@ -281,7 +284,7 @@
             $.ajax({
                 url: "<%=request.getContextPath() %>/admin/ManageFax.do",
                 method: 'POST',
-                data: 'method=getFaxSchedularStatus',
+                data: 'method=getFaxSchedularStatus&' + csrfParameterName + '=' + csrfToken,
                 success: function (data) {
                     $('#restartFaxSchedulerBtn').prop('disabled', data.isRunning);
                     $("#faxStatusDetails").text(data.faxSchedularStatus).css("color", data.isRunning ? "black" : "red");
@@ -301,7 +304,7 @@
             $.ajax({
                 url: "<%=request.getContextPath() %>/admin/ManageFax.do",
                 method: 'POST',
-                data: 'method=restartFaxScheduler',
+                data: 'method=restartFaxScheduler&' + csrfParameterName + '=' + csrfToken,
                 success: function (data) {
                     console.log("Fax scheduler restarted successfully");
                     ShowSpin(true);
