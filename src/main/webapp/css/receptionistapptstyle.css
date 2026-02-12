@@ -39,12 +39,6 @@ tr#ivoryBar, table#monthScheduleNavigation tr td {
     padding-right: 5px;
 }
 
-#caseloadTable {
-    margin-top: 25px;
-    left: 0;
-    right: 0;
-}
-
 .hideReason {
     display: none;
 }
@@ -142,7 +136,7 @@ table#scheduleNavigation tr td.title {
 
 tr td.infirmaryView {
     position: sticky;
-    top: 50px;
+    top: 56px;
     left: 0;
     height: 25px;
     padding: 0 5px;
@@ -155,7 +149,7 @@ td#group {
 
 table#scheduleNavigation, table#monthScheduleNavigation {
     position: fixed;
-    top: 25px;
+    top: 31px;
     right: 0;
     left: 0;
     height: 25px;

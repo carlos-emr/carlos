@@ -259,7 +259,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @Override
     public List<CaseManagementNote> getNotesByDemographicSince(String demographic_no, Date date) {
 
-        String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?0 and cmn.update_date > ?1 and cmn.locked != '1' and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
+        String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?0 and cmn.update_date > ?1 and cmn.locked = false and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
         return (List<CaseManagementNote>) getHibernateTemplate().find(hql, demographic_no, date);
     }
 
@@ -769,7 +769,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         }
         String hql = "select distinct cmn.demographic_no from CaseManagementNote cmn where cmn.program_no in ("
                 + sb.toString()
-                + ") and cmn.update_date > ?0 and cmn.locked != '1' and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
+                + ") and cmn.update_date > ?0 and cmn.locked = false and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
         List<String> results = (List<String>) getHibernateTemplate().find(hql, date);
 
         List<Integer> results2 = new ArrayList<Integer>();

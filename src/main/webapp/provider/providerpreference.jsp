@@ -676,10 +676,6 @@
 
             <tr>
                 <td align="center"><a href=#
-                                      onClick="popupPage(400,860,'<%=request.getContextPath()%>/provider/OlisPreferences.do');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.olisPrefs"/></a></td>
-            </tr>
-            <tr>
-                <td align="center"><a href=#
                                       onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewCommentLab');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnDisableAckCommentLab"/></a></td>
             </tr>
             <tr>

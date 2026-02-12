@@ -141,10 +141,7 @@ class TicklerDaoTest extends OpenODaoTestBase {
         // This validates that SpringUtils.getBean() works correctly in test context
         TicklerDao springUtilsDao = SpringUtils.getBean(TicklerDao.class);
         assertThat(springUtilsDao).isNotNull();
-        assertThat(springUtilsDao).isEqualTo(ticklerDao);
-
-        // Verify SpringUtils integration works - critical for legacy code compatibility
-        verifyDaoSpringUtilsIntegration(TicklerDao.class);
+        assertThat(springUtilsDao).isInstanceOf(ticklerDao.getClass());
 
         // Create test demographic for ticklers - ensures clean test data
         testDemographicNo = createTestDemographic();

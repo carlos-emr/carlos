@@ -6,9 +6,12 @@
 All test methods follow BDD (Behavior-Driven Development) naming for self-documenting tests:
 
 ```java
-// Pattern 1: should<ExpectedBehavior>_when<Condition> (PREFERRED - camelCase with ONE underscore)
+// Pattern 1: should<Action>_<preposition><Condition> (PREFERRED - camelCase with ONE underscore)
+// Preposition can be _when, _by, _for, _with, _to, _from - whichever reads most naturally
 @Test
 void shouldReturnActiveTicklers_whenDemographicNumberProvided() { }
+void shouldReturnSpecialists_byServiceName() { }
+void shouldPersistMeasurement_withBloodPressureData() { }
 
 // Pattern 2: <methodName>_<scenario>_<expectedOutcome>
 @Test

@@ -408,16 +408,6 @@ public class ProviderManager2 {
             settings.setDisableCommentOnAck("yes".equals(map.get("lab_ack_comment").getValue()) ? true : false);
         }
 
-        if (map.get("olis_reportingLab") != null) {
-            settings.setOlisDefaultReportingLab(map.get("olis_reportingLab").getValue());
-        }
-        if (map.get("olis_exreportingLab") != null) {
-            settings.setOlisDefaultExcludeReportingLab(map.get("olis_exreportingLab").getValue());
-        }
-
-
-
-
         if (map.get("disable_born_prompts") != null) {
         }
 
@@ -684,10 +674,6 @@ public class ProviderManager2 {
         p.setValue(settings.isDisableCommentOnAck() ? "yes" : "no");
 
 
-        p = getMappedOrNewProperty(map, "olis_reportingLab", providerNo);
-        p.setValue(settings.getOlisDefaultReportingLab());
-        p = getMappedOrNewProperty(map, "olis_exreportingLab", providerNo);
-        p.setValue(settings.getOlisDefaultExcludeReportingLab());
         p = getMappedOrNewProperty(map, "disable_born_prompts", providerNo);
         p = getMappedOrNewProperty(map, "dashboard_share", providerNo);
         p.setValue(String.valueOf(settings.isDashboardShare()));

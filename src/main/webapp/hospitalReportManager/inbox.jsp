@@ -64,7 +64,7 @@
         <link rel="stylesheet"
               href="${ pageContext.request.contextPath }/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css">
         <link rel="stylesheet" href="${ pageContext.request.contextPath }/hospitalReportManager/inbox.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
@@ -74,9 +74,6 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script> var lang = '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>';</script>
         <script src="${ pageContext.request.contextPath }/hospitalReportManager/inbox.js?<%=(int)(Math.random()*100000)%>"></script>
-
-        <script src="${ pageContext.request.contextPath }/js/jquery.ui.widget.js"></script>
-        <script src="${ pageContext.request.contextPath }/js/jquery.fileupload.js"></script>
 
     </head>
     <body>
@@ -95,23 +92,13 @@
                             <span class="icon-bar"></span>
                         </button>
                         <b>
-                            <a class="navbar-brand" href="#"><i class="icon-hospital"></i>&nbsp;Health Report
+                            <a class="navbar-brand" href="#"><i class="fa-solid fa-hospital"></i>&nbsp;Health Report
                                 Manager</a>
                         </b>
                     </div>
                     <div id="navbar" class="navbar-collapse collapse">
                         <ul class="nav navbar-nav">
 
-                        </ul>
-                        <ul class="nav navbar-nav navbar-right">
-                            <li><a href="javascript:void(0)"><b>Status:<span id="hrm_status"></span></b></a></li>
-                            <li><a href="javascript:void(0)" onClick="fetchNewData()">Fetch New Data</a></li>
-                            <li><a id="uploadHRM" href="javascript:void(0);">Upload</a></li>
-                            <li><a href="log.jsp">Log</a></li>
-                            <li><a href="prefs.jsp">Prefs</a></li>
-                            <%if (isAdmin) { %>
-                            <li><a href="configure.jsp">Configure</a></li>
-                            <% } %>
                         </ul>
                     </div><!--/.nav-collapse -->
                 </div>
@@ -204,40 +191,6 @@
             </div>
 
 
-            <div id="uploadHRMDialog" class="modal fade" role="dialog">
-                <div class="modal-dialog">
-
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <button type="button" class="close" data-dismiss="modal">&times;</button>
-                            <h4 class="modal-title">
-                                Upload HRM File
-                            </h4>
-                        </div>
-
-                        <form id="uploadHRMForm">
-
-                            <div class="modal-body">
-
-                                <div class="row">
-                                    <label for="hrm_file">HRM XML File: </label>
-                                    <input id="hrm_file" type="file" name="hrm_file"
-                                           data-url="<%=request.getContextPath()%>/hospitalReportManager/hrm.do?method=uploadReport">
-                                </div>
-
-
-                            </div>
-                            <div class="modal-footer">
-
-                                <button type="button" class="btn btn-default" data-dismiss="modal">
-                                    Close
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                </div>
-            </div> <!-- end modal window -->
         </div>
     </div> <!-- end container -->
     </body>

@@ -201,6 +201,7 @@
                 text-align: right;
             }
         </style>
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     </head>
 
@@ -833,19 +834,6 @@
                     <li><a href="<%=request.getContextPath()%>/lab/CA/ALL/sendOruR01.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmPreferences.jsp");return false;'>Hospital Report
-                        Manager (HRM) Preferences</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmShowMapping.jsp");return false;'>Hospital Report
-                        Manager (HRM) Class Mappings</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmCategories.jsp");return false;'>Hospital Report
-                        Manager (HRM) Categories</a></li>
-
-                    <%
-                        String olisKeystore = OscarProperties.getInstance().getProperty("olis_keystore", "");
-                        if (olisKeystore.length() > 0) {
-                    %>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/olis/Preferences.jsp");return false;'>OLIS Preferences</a></li>
-                    <% } %>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/updateDrugref.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
                 </ul>

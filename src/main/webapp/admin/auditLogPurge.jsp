@@ -67,7 +67,7 @@
         <title>Audit Log Purge Tool</title>
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css" type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" type="text/css">
         <link rel="stylesheet"
               href="<%=request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"

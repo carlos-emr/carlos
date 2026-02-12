@@ -37,11 +37,7 @@
   */
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-
-<%
-
-%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
@@ -66,6 +62,8 @@
 %>
 <html>
 <head>
+    <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>CALENDAR</title>
     <% if (session.getAttribute("mobileOptimized") != null) { %>
@@ -86,11 +84,11 @@
             <%
                 if (param.startsWith("&formdatebox=")) {
             %>
-            opener.<%=param.substring("&formdatebox=".length())%> = year1 + "-" + month1 + "-" + day1;
+            opener.<%=Encode.forJavaScript(param.substring("&formdatebox=".length()))%> = year1 + "-" + month1 + "-" + day1;
             <%
                 } else {
             %>
-            opener.location.href = "<%=urlfrom%>" + "?year=" + year1 + "&month=" + month1 + "&day=" + day1 + "<%=param%>";
+            opener.location.href = "<%=Encode.forJavaScript(urlfrom)%>" + "?year=" + year1 + "&month=" + month1 + "&day=" + day1 + "<%=Encode.forJavaScript(param)%>";
             <%  }  %>
             self.close();
         }
@@ -124,31 +122,24 @@
 %>
 
 <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
-    <tr BGCOLOR="#CCCCFF">
-        <td width="5%" align="center" nowrap><a
-                href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
-            <img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9" BORDER="0"
-                 ALT="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextYear"/>"
-                 vspace="2"> <img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10"
-                                  HEIGHT="9" BORDER="0"
-                                  ALT="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastYear"/>"
-                                  vspace="2"> </a></td>
-        <td align="center" nowrap><a
-                href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
-            <img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9" BORDER="0"
-                 ALT="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"
-                 vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastMonth"/> </a> <b><span CLASS=title><%=year%>-<%=month%></span></b>
-            <a
-                    href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextMonth"/> <img
-                    src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
-                    ALT="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextMonth"/>"
-                    vspace="2"></a></td>
-        <td align='right'><a
-                href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
-            <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
-                 ALT="Next Year" vspace="2"> <img src="<%= request.getContextPath() %>/images/next.gif"
-                                                  WIDTH="10" HEIGHT="9" BORDER="0" ALT="Next Year" vspace="2"></a></td>
+    <tr>
+        <td align="left">
+            <h2>&nbsp;<%=arrayMonth[month-1]%>&nbsp;<%=year%>&nbsp;</h2>
+        </td>
+        <td align="right"><h2>
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
+                <i class="fa-solid fa-angles-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
+            </a>
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
+                <i class="fa-solid fa-angle-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"></i>
+            </a>
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
+                <i class="fa-solid fa-angle-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextMonth"/>"></i>
+            </a>
+            <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
+                <i class="fa-solid fa-angles-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextYear"/>"></i>
+            </a>&nbsp;</h2>
+        </td>
     </tr>
 </table>
 
@@ -158,8 +149,8 @@
             <%
                 for (int i = 0; i < 12; i++) {
             %> <a
-                href="CalendarPopup.jsp?urlfrom=<%=urlfrom%>&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"><font
-                SIZE="2" <%=(i+1)==month?"color='red'":"color='blue'"%>><%=arrayMonth[i]%>
+                href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"><font
+                SIZE="2" <%=(i+1)==month?"color='red'":""%>><%=arrayMonth[i]%>
         </a>
             <% } %>
         </th>
@@ -167,8 +158,8 @@
 </table>
 
 <table width="100%" border="0" cellspacing="1" cellpadding="2"
-       bgcolor="silver">
-    <tr bgcolor="#CCCCFF" align="center">
+       class="table">
+    <tr align="center">
         <th width="14%"><font color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSun"/></font>
             </td>
         <th width="14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgMon"/></font>
@@ -192,11 +183,13 @@
             for (int j = 0; j < 7; j++) {
                 if (dateGrid[i][j] == 0) out.println("<td></td>");
                 else {
+                    bTodayDate = false;
                     now.add(now.DATE, 1);
-                    if (todayDate == now.get(Calendar.DATE)) bTodayDate = true;
-                    else bTodayDate = false;
+                    if ( (todayDate == now.get(Calendar.DATE)) && ( (month - 1) == (cal.get(Calendar.MONTH)) ) && ( year == cal.get(Calendar.YEAR) ) ) {
+                        bTodayDate = true;
+                    }
     %>
-    <td align="center" bgcolor='<%=bTodayDate?"gold":"#EEEEFF"%>'><a
+    <td align="center" bgcolor='<%=bTodayDate?"gold":"white"%>'><a
             href="#"
             onClick="typeInDate(<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
         <%= dateGrid[i][j] %>
@@ -212,8 +205,8 @@
 
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr>
-        <td bgcolor="#CCCCFF" align="center"><input type="button"
-                                                    name="Cancel" value=" Exit " onClick="window.close()"></td>
+        <td align="right"><input type="button" class="btn btn-link"
+                                 name="Cancel" value="Cancel" onClick="window.close()"></td>
     </tr>
 </table>
 

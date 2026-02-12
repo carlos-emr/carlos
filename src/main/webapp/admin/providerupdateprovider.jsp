@@ -504,27 +504,6 @@
                                    value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME))) %>"
                                    maxlength="255"></td>
                     </tr>
-                    <tr>
-                        <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialOlisIdentifierType"/>:</td>
-                        <td><select name="officialOlisIdtype">
-                            <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialOlisIdentifierType.option.notset"/></option>
-                            <option value="MDL" <%="MDL".equals(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_OLIS_IDTYPE)) ? "SELECTED" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialOlisIdentifierType.option.mdl"/>
-                            </option>
-                            <option value="DDSL" <%="DDSL".equals(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_OLIS_IDTYPE)) ? "SELECTED" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialOlisIdentifierType.option.ddsl"/>
-                            </option>
-                            <option value="NPL" <%="NPL".equals(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_OLIS_IDTYPE)) ? "SELECTED" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialOlisIdentifierType.option.npl"/>
-                            </option>
-                            <option value="ML" <%="ML".equals(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_OLIS_IDTYPE)) ? "SELECTED" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formOfficialOlisIdentifierType.option.ml"/>
-                            </option>
-                        </select>
-                        </td>
-                    </tr>
-
-
                     <% if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <tr>
                         <td align="right">Default Clinic NBR:</td>

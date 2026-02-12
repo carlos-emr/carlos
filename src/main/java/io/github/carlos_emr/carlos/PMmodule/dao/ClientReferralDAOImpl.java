@@ -141,9 +141,11 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             } else {
                 // get program from table admission
                 List<Admission> lr = getAdmissions(Integer.parseInt(cr.getClientId().toString()));
-                Admission admission = lr.get(lr.size() - 1);
-                completionNotes = admission.getProgramName();
-                notes = isExternalProgram(Integer.parseInt(admission.getProgramId().toString())) ? "Yes" : "No";
+                if (!lr.isEmpty()) {
+                    Admission admission = lr.get(lr.size() - 1);
+                    completionNotes = admission.getProgramName();
+                    notes = isExternalProgram(Integer.parseInt(admission.getProgramId().toString())) ? "Yes" : "No";
+                }
             }
 
             // set the values for added report fields
@@ -282,8 +284,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
     @SuppressWarnings("unchecked")
     public List<ClientReferral> search(ClientReferral referral) {
-        //Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
+        Session session = getSessionFactory().getCurrentSession();
         try {
             Criteria criteria = session.createCriteria(ClientReferral.class);
 

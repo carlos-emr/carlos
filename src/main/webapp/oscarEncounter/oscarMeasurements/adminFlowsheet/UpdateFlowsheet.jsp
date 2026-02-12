@@ -148,6 +148,7 @@ display:inline-block;
                 display: none;
             }
         </style>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     </head>
 
@@ -499,7 +500,7 @@ display:inline-block;
         </div>
     </div>
 
-    <div id="scrollToTop"><a href="#updateFlowsheetBody"><i class="icon-arrow-up"></i>Top</a></div>
+    <div id="scrollToTop"><a href="#updateFlowsheetBody"><i class="fa-solid fa-arrow-up"></i>Top</a></div>
 
 
     <script src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>

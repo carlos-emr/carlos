@@ -237,12 +237,6 @@
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()">
 
-                            <% if (demographicNo != null) { %>
-                            <input type="button" class="smallButton"
-                                   value="Search OLIS"
-                                   onClick="popupStart('1000','1200','<%=request.getContextPath() %>/olis/Search.jsp?demographicNo=<%=demographicNo %>','OLIS_SEARCH')">
-                            <% } %>
-
                             <% if (demographicNo == null && request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnDefaultView"/>"

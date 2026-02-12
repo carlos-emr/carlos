@@ -219,7 +219,6 @@
                             <option value="MDS">MDS/Lifelabs</option>
                             <option value="MEDVUE">MEDVUE</option>
                             <!-- <option value="HL7">HL7</option> -->
-                            <option value="OLIS_HL7">OLIS HL7</option>
                             <option value="OSCAR_TO_OSCAR_HL7_V2">OSCAR_TO_OSCAR_HL7_V2</option>
                             <option value="PFHT">PFHT</option>
                             <option value="SIOUX">SIOUX</option>

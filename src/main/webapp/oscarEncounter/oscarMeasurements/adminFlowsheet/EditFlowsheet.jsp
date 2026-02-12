@@ -335,6 +335,7 @@
             display: none;
         }
     </style>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
 </head>
 
@@ -368,7 +369,7 @@
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%=demographic%>&template=<%=flowsheet%><%=tracker%>"
-               class="btn btn-small" title="go back to <%=flowsheet%> flowsheet"><i class="icon-backward"></i></a>
+               class="btn btn-small" title="go back to <%=flowsheet%> flowsheet"><i class="fa-solid fa-backward"></i></a>
 
             <%}%>
 
@@ -411,7 +412,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                 <li class="list-title">Measurements:</li>
                 <li class="active"><a href="#home" data-toggle="tab">All</a></li>
                 <li><a href="#custom" data-toggle="tab">Custom</a></li>
-                <li><a href="#add" data-toggle="tab"><i class="icon-plus-sign"></i> Add</a></li>
+                <li><a href="#add" data-toggle="tab"><i class="fa-solid fa-circle-plus"></i> Add</a></li>
             </ul>
 
             <% if (request.getAttribute("errorMessage") != null) { %>
@@ -478,9 +479,9 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		         		    // Prevention items cannot be edited on this page.
                             // They are managed in the Preventions module.
 		         		    if(mFlowsheet.getFlowSheetItem(mstring).getPreventionType()!=null){ %>
-		         		<i class="icon-lock action-icon" style="opacity:0.6;" title="Prevention item - managed in Prevention module"></i>
+		         		<i class="fa-solid fa-lock action-icon" style="opacity:0.6;" title="Prevention item - managed in Prevention module"></i>
 		                <%} else {%>
-		                <a href="UpdateFlowsheet.jsp?flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+scope%>" title="Edit" class="action-icon"><i class="icon-pencil"></i></a>
+		                <a href="UpdateFlowsheet.jsp?flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+scope%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
 		                <%}%>
 		               <%
 		                boolean isHidden = mFlowsheet.getFlowSheetItem(mstring).isHide();
@@ -489,17 +490,17 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		                if (isHidden && isInherited) {
 		                    // Read-only closed eye for inherited hides (from clinic or provider level)
 		               %>
-		                   <i class="icon-eye-close action-icon" style="opacity:0.4;" title="Hidden at clinic or provider level"></i>
+		                   <i class="fa-solid fa-eye-slash action-icon" style="opacity:0.4;" title="Hidden at clinic or provider level"></i>
 		               <%
 		                } else if (isHidden) {
 		                    // Clickable restore for same-level hides
 		               %>
-		                   <a href="FlowSheetCustomAction.do?method=restore&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=scope==null?"":"&scope="+scope%>" title="Show this measurement" class="action-icon"><i class="icon-eye-close"></i></a>
+		                   <a href="FlowSheetCustomAction.do?method=restore&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=scope==null?"":"&scope="+scope%>" title="Show this measurement" class="action-icon"><i class="fa-solid fa-eye-slash"></i></a>
 		               <%
 		                } else {
 		                    // Clickable hide
 		               %>
-		                   <a href="FlowSheetCustomAction.do?method=hide&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=scope==null?"":"&scope="+scope%>" title="Hide this measurement" class="action-icon"><i class="icon-eye-open"></i></a>
+		                   <a href="FlowSheetCustomAction.do?method=hide&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=scope==null?"":"&scope="+scope%>" title="Hide this measurement" class="action-icon"><i class="fa-solid fa-eye"></i></a>
 		               <% } %>
 		               <%
 		                // Show Revert button if current scope has an UPDATE customization
@@ -508,7 +509,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		               %>
 		                   <a href="FlowSheetCustomAction.do?method=revertUpdate&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+scope%>"
 		                      title="Revert to settings from higher scope" class="action-icon"
-		                      onclick="return confirm('Revert this measurement to settings from higher scope?');"><i class="icon-refresh"></i></a>
+		                      onclick="return confirm('Revert this measurement to settings from higher scope?');"><i class="fa-solid fa-arrows-rotate"></i></a>
 		               <% } %>
 
 		                </td>
@@ -578,10 +579,10 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                 <tr>
                                     <td>
                                         <% if (isHigherScope) { %>
-                                        <i class="icon-lock action-icon" style="opacity:0.4;" title="Cannot remove - created at <%=custLevel%> level"></i>
+                                        <i class="fa-solid fa-lock action-icon" style="opacity:0.4;" title="Cannot remove - created at <%=custLevel%> level"></i>
                                         <% } else { %>
                                         <a href="FlowSheetCustomAction.do?method=archiveMod&id=<%=cust.getId()%>&flowsheet=<%=flowsheet%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+scope%>"
-                                           class="action-icon"><i class="icon-trash"></i></a>
+                                           class="action-icon"><i class="fa-solid fa-trash"></i></a>
                                         <% } %>
                                     </td>
 
@@ -759,7 +760,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
     </div><!-- container -->
 
 
-    <div id="scrollToTop"><a href="#editFlowsheetBody"><i class="icon-arrow-up"></i>Top</a></div>
+    <div id="scrollToTop"><a href="#editFlowsheetBody"><i class="fa-solid fa-arrow-up"></i>Top</a></div>
 
     <!-- flowsheet xml output -->
     <textarea style="display:none;" cols="200" rows="200">
@@ -813,7 +814,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                 }
             });
 
-            //$('<a href="#" class="btn" id="add-new" title="Add Measurement" style="margin-left:15px"><i class="icon-plus"></i> Add</a>').appendTo('div.dataTables_filter label');
+            //$('<a href="#" class="btn" id="add-new" title="Add Measurement" style="margin-left:15px"><i class="fa-solid fa-plus"></i> Add</a>').appendTo('div.dataTables_filter label');
 
             $("#add-new").click(function () {
                 $('#addModal').modal('show');

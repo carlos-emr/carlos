@@ -372,24 +372,6 @@
         <action name="lab/CA/ALL/UnlinkDemographic" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action">
             <result name="success">/oscarMDS/Close.jsp</result>
         </action>
-        <action name="lab/CA/ALL/PrintOLIS" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.PrintOLISLabs2Action">
-            <result name="error">/lab/CA/ALL/labDisplay.jsp</result>
-        </action>
-        <action name="lab/CA/ALL/PrintOLISLab" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.PrintOLISLab2Action">
-            <result name="error">/lab/CA/ALL/labDisplay.jsp</result>
-        </action>
-        <action name="olis/Search" class="io.github.carlos_emr.carlos.olis.OLISSearch2Action">
-            <result name="results">/olis/Results.do</result>
-        </action>
-        <action name="olis/Results" class="io.github.carlos_emr.carlos.olis.OLISResults2Action">
-            <result name="results">/olis/Results.jsp</result>
-        </action>
-        <action name="olis/AddToInbox" class="io.github.carlos_emr.carlos.olis.OLISAddToInbox2Action">
-            <result name="ajax">/olis/ajaxResponse.jsp</result>
-        </action>
-        <action name="olis/UploadSimulationData" class="io.github.carlos_emr.carlos.olis.OLISUploadSimulationData2Action">
-            <result name="success">/olis/Simulate.jsp</result>
-        </action>
         <action name="lab/CA/ON/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
             <result name="failure">/errorpage.jsp</result>
             <result name="success">/lab/CA/ON/CMLDisplay.jsp</result>
@@ -1918,9 +1900,6 @@
             <result name="form">/provider/cpp_preferences.jsp</result>
             <result name="exit">/oscarEncounter/close.jsp</result>
         </action>
-        <action name="provider/OlisPreferences" class="io.github.carlos_emr.carlos.provider.web.OlisPreferences2Action">
-            <result name="form">/provider/olis_preferences.jsp</result>
-        </action>
         <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
         <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
         <action name="demographic/Contact" class="io.github.carlos_emr.carlos.commn.web.Contact2Action">
@@ -1945,9 +1924,6 @@
         </action>
         <action name="admin/ManageClinic" class="io.github.carlos_emr.carlos.commn.web.ClinicManage2Action" method="execute">
             <result name="success">/admin/clinicAdmin.jsp</result>
-        </action>
-        <action name="olis/Preferences" class="io.github.carlos_emr.carlos.olis.OLISPreferences2Action">
-            <result name="success">/olis/Preferences.jsp</result>
         </action>
         <action name="admin/ManageSites" class="io.github.carlos_emr.carlos.commn.web.SitesManage2Action" method="execute">
             <result name="list">/admin/sitesAdmin.jsp</result>
@@ -2028,31 +2004,17 @@
         <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
             <result name="display" type="dispatcher">/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
-        <action name="hospitalReportManager/hrmKeyUploader" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadKey2Action">
-            <result name="success">/hospitalReportManager/hrmPreferences.jsp</result>
-        </action>
-        <action name="hospitalReportManager/UploadLab" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadLab2Action">
-            <interceptor-ref name="defaultStack"/>
-            <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
-        </action>
         <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action">
             <result name="ajax">/hospitalReportManager/ajaxResponse.jsp</result>
         </action>
         <action name="hospitalReportManager/Statement" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action">
             <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
         </action>
-        <action name="hospitalReportManager/Mapping" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMMapping2Action">
-            <result name="success">/hospitalReportManager/hrmShowMapping.jsp</result>
-        </action>
-        <action name="hospitalReportManager/HRMPreferences" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMPreferences2Action">
-            <result name="success">/hospitalReportManager/hrmPreferences.jsp</result>
-        </action>
         <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
         <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>
         <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action">
             <result name="error">/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
-        <action name="caseload/CaseloadContent" class="io.github.carlos_emr.carlos.caseload.CaseloadContent2Action"/>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
             <result name="close">/closenreload.jsp</result>
             <result name="failure">/failure.jsp</result>

@@ -93,7 +93,6 @@
 
     <context:component-scan base-package="io.github.carlos_emr.carlos.fax.core" />
     <context:component-scan base-package="io.github.carlos_emr.carlos.hospitalReportManager.dao" />
-    <context:component-scan base-package="io.github.carlos_emr.carlos.olis.dao" />
     <context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.ON.dao" />
     <context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.BC.dao" />
     <context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.dao" />

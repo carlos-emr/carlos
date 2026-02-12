@@ -124,7 +124,7 @@
     <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
           type="text/css"/>
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script>
         function checkChecked() {
@@ -324,7 +324,7 @@
                             <input type="text" name="xml_vdate" class="form-control" id="xml_vdate"
                                    value="<%=xml_vdate%>" placeholder="yyyy-mm-dd"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                            <span class="input-group-addon"><i class="icon-calendar"></i></span>
+                            <span class="input-group-addon"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div><!--span2-->
                 </div>
@@ -339,7 +339,7 @@
                             <input type="text" class="form-control" name="xml_appointment_date" placeholder="yyyy-mm-dd"
                                    id="xml_appointment_date" value="<%=xml_appointment_date%>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                            <span class="input-group-addon"><i class="icon-calendar"></i></span>
+                            <span class="input-group-addon"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div><!--span3-->
                 </div>

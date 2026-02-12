@@ -137,17 +137,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                     <label class="my-auto pe" for="startDate">Start</label>
                                     <div class="input-group input-group-sm d-inline-flex">
                                         <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="startDate" name="query.startDate" value="${query.startDate}"/>
-                                        <span class="input-group-text" for="startDate" id="startDateIcon"><i class="icon-calendar"></i></span>
+                                        <span class="input-group-text" for="startDate" id="startDateIcon"><i class="fa-solid fa-calendar"></i></span>
                                     </div>
-                                    <i class="icon-remove-sign clear-btn" aria-hidden="true" id="clearStartDate"></i>
+                                    <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearStartDate"></i>
                                 </div>
                                 <div class="inbox-form-datepicker-wrapper d-flex">
                                     <label class="my-auto" for="endDate">End</label>
                                     <div class="input-group input-group-sm d-inline-flex">
                                         <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="endDate" name="query.endDate" value="${query.endDate}"/>
-                                        <span class="input-group-text" for="endDate" id="endDateIcon"><i class="icon-calendar"></i></span>
+                                        <span class="input-group-text" for="endDate" id="endDateIcon"><i class="fa-solid fa-calendar"></i></span>
                                     </div>
-                                    <i class="icon-remove-sign clear-btn" aria-hidden="true" id="clearEndDate"></i>
+                                    <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearEndDate"></i>
                                 </div>
                             </div>
                         </div>

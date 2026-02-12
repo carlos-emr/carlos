@@ -45,6 +45,13 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Log Viewer</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 
 
 <%@page import="java.io.File" %>
@@ -103,7 +110,7 @@
         <div class="control-group">
             <div class="controls">
                 <button type="submit" class="btn btn-primary">
-                    <i class="icon-download-alt icon-white"></i> Get Report
+                    <i class="fa-solid fa-download"></i> Get Report
                 </button>
             </div>
         </div>
@@ -156,3 +163,5 @@
     registerFormSubmit('logForm', 'dynamic-content');
 
 </script>
+</body>
+</html>

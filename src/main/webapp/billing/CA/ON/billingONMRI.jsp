@@ -101,7 +101,7 @@
 
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <%
         GregorianCalendar now = new GregorianCalendar();
@@ -238,7 +238,7 @@
     <div class="row well hidden-print">
 
         <button type='button' name='print' value='Print' class="btn hidden-print" onClick='window.print()'
-                style="position:absolute;top:20px;right:20px;"><i class="icon icon-print"></i> Print
+                style="position:absolute;top:20px;right:20px;"><i class="fa-solid fa-print"></i> Print
         </button>
 
         <div class="dropdown">
@@ -320,7 +320,7 @@
                 <div class="input-append">
                     <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
@@ -330,7 +330,7 @@
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date"
                            value="<%=xml_appointment_date%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 

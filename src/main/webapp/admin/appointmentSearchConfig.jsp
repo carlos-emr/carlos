@@ -53,7 +53,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.surveillanceConfig"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/angular.min.js"></script>
@@ -243,17 +243,17 @@
                                 <h4 class="list-group-item-heading">{{appointmentType.name}}</h4>
                                 <%--
                                <p class="list-group-item-text">
-                                   <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa fa-arrow-up"></i></a>
-                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa fa-arrow-down"></i></a>
-                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa fa-trash"></i></a>
+                                   <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa-solid fa-arrow-up"></i></a>
+                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa-solid fa-arrow-down"></i></a>
+                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa-solid fa-trash"></i></a>
                                </p>
 
                                <md-list ng-cloak>
                               <md-list-item ng-repeat="appointmentType in currentSearchConfig.bookingAppointmentTypes">
                                   <p>{{appointmentType.name}}</p>
-                                  <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa fa-arrow-up"></i></a>
-                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa fa-arrow-down"></i></a>
-                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa fa-trash"></i></a>
+                                  <a style="margin-right:5px;" ng-hide="$first" ng-click="mat.moveUp(appointmentType,$index)"><i class="fa-solid fa-arrow-up"></i></a>
+                                  <a style="margin-right:5px;" ng-hide="$last" ng-click="mat.moveDown(appointmentType,$index)"><i class="fa-solid fa-arrow-down"></i></a>
+                                  <a ng-click="mat.removeFromApptList(appointmentType,$index)"><i class="fa-solid fa-trash"></i></a>
                               </md-list-item>
                           </md-list>
 
@@ -358,7 +358,7 @@
                </thead>
                 <tbody>
                     <tr ng-repeat="exportFile in exportFiles">
-                        <th scope="row"><a ng-click="download(exportFile)">{{exportFile.name}}<i class="icon-download-alt"></i></a></th>
+                        <th scope="row"><a ng-click="download(exportFile)">{{exportFile.name}}<i class="fa-solid fa-download"></i></a></th>
                         <td>{{exportFile.createDate | date}}</td>
                         <td>
                             <button type="button" ng-if="!exportFile.sent" class="btn btn-default btn-xs" ng-click="setAsSent(exportFile)">Set as Sent</button>

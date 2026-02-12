@@ -53,7 +53,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/angular.min.js"></script>
     <script src="<%=request.getContextPath() %>/web/common/preventionReportServices.js"></script>
     <script src="<%=request.getContextPath() %>/js/jquery.js"></script>

@@ -131,15 +131,17 @@
                 <scope>import</scope>
             </dependency>
           
-            <!-- Force secure version of MIME4J to fix header injection CVE -->
-            <!-- Transitive from axis2-transport-http (used for OLIS) -->
-            <dependency>
-                <groupId>org.apache.james</groupId>
-                <artifactId>apache-mime4j-core</artifactId>
-                <version>0.8.10</version>
-             </dependency>
-
             <!-- Transitive Hibernate/JPA dependencies -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>1.17.7</version>
+            </dependency>
+            <dependency>
+               <groupId>net.bytebuddy</groupId>
+               <artifactId>byte-buddy-agent</artifactId>
+               <version>1.17.7</version>
+            </dependency>
             <!-- Hibernate core -->
             <dependency>
                 <groupId>org.hibernate</groupId>
@@ -215,7 +217,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
-            <version>1.13.1</version>
+            <version>1.15.0</version>
         </dependency>
 
         <!--Log4j-2 libraries-->
@@ -250,7 +252,7 @@
         <dependency>
             <groupId>commons-validator</groupId>
             <artifactId>commons-validator</artifactId>
-            <version>1.9.0</version>
+            <version>1.10.1</version>
             <exclusions>
                 <!-- Excluded this low version to avoid triggering security issue -->
                 <exclusion>
@@ -295,7 +297,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.26.0</version>
+            <version>1.28.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -308,7 +310,7 @@
         <dependency>
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
-            <version>3.11.1</version>
+            <version>3.12.0</version>
         </dependency>
         
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
@@ -556,7 +558,7 @@
         <dependency>
             <groupId>com.twelvemonkeys.common</groupId>
             <artifactId>common-lang</artifactId>
-            <version>3.12.0</version>
+            <version>3.13.0</version>
         </dependency>
 
         <!-- Glassfish JSTL 1.2.5 implementation (javax namespace for Servlet 4.0 compatibility) -->
@@ -807,12 +809,12 @@
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>core</artifactId>
-            <version>3.5.3</version>
+            <version>3.5.4</version>
         </dependency>
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>javase</artifactId>
-            <version>3.5.3</version>
+            <version>3.5.4</version>
         </dependency>
 
         <!-- chip / ping libararies -->
@@ -843,63 +845,11 @@
             <version>0.2.19</version>
         </dependency>
 
-        <!-- OLIS -->
-        <dependency>
-            <groupId>ca.ssha.www</groupId>
-            <artifactId>olis-service</artifactId>
-            <version>20111111</version>
-        </dependency>
-
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>1.79</version>
-        </dependency>
-
-        <!-- AXIS2 (for OLIS) -->
-        <!-- 
-            Updated to 1.8.2 for Jakarta EE migration preparation,
-            the higher version 2.0.0 will need when we migrate to jakarta 
-        -->
-        <!-- https://mvnrepository.com/artifact/org.apache.axis2/axis2 -->
-        <dependency>
-            <groupId>org.apache.axis2</groupId>
-            <artifactId>axis2</artifactId>
-            <version>1.8.2</version>
-            <type>pom</type>
-        </dependency>
-        <!-- Detected as "Unused dependency" but don't remove it, caused 404 error after removing -->
-        <dependency>
-            <groupId>org.apache.axis2</groupId>
-            <artifactId>axis2-transport-http</artifactId>
-            <version>1.8.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.ws.commons.schema</groupId>
-                    <artifactId>XmlSchema</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.neethi</groupId>
-                    <artifactId>neethi</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.apache.ant</groupId>
-                    <artifactId>ant</artifactId>
-                </exclusion>
-                <!-- Exclude old JAX-RS API to avoid conflict with jakarta.ws.rs -->
-                <exclusion>
-                    <groupId>javax.ws.rs</groupId>
-                    <artifactId>jsr311-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.axis2/axis2-adb -->
-        <dependency>
-            <groupId>org.apache.axis2</groupId>
-            <artifactId>axis2-adb</artifactId>
-            <version>1.8.2</version>
         </dependency>
 
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
@@ -1166,12 +1116,12 @@
         <dependency>
             <groupId>org.owasp.encoder</groupId>
             <artifactId>encoder-jsp</artifactId>
-            <version>1.2.3</version>
+            <version>1.4.0</version>
         </dependency>
         <dependency>
             <groupId>org.owasp.encoder</groupId>
             <artifactId>encoder</artifactId>
-            <version>1.2.1</version>
+            <version>1.4.0</version>
         </dependency>
 
         <dependency>
@@ -1204,7 +1154,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-exec</artifactId>
-            <version>1.4.0</version>
+            <version>1.5.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.codehaus.jettison/jettison -->
@@ -1217,7 +1167,7 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>24.1.0</version>
+            <version>26.0.2-1</version>
             <scope>compile</scope>
         </dependency>
         
@@ -1267,7 +1217,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.8.0</version>
+            <version>5.21.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -1277,7 +1227,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.24.2</version>
+            <version>3.27.6</version>
             <scope>test</scope>
         </dependency>
 
@@ -1316,7 +1266,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.4.8-jre</version>
+            <version>33.5.0-jre</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.xhtmlrenderer/flying-saucer-pdf -->
@@ -1452,7 +1402,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
+                <version>0.8.14</version>
                 <executions>
                     <execution>
                         <goals>
@@ -1648,30 +1598,30 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.27.0</version>
+                <version>3.28.0</version>
                 <configuration>
                     <!-- Target JDK version -->
                     <targetJdk>21</targetJdk>
-                    
+
                     <!-- Custom ruleset -->
                     <rulesets>
                         <ruleset>utils/pmd_rules.xml</ruleset>
                     </rulesets>
-                    
+
                     <!-- Analysis configuration -->
                     <includeTests>false</includeTests>
                     <minimumTokens>100</minimumTokens>
                     <printFailingErrors>true</printFailingErrors>
                     <linkXRef>false</linkXRef>
-                    
+
                     <!-- Performance settings -->
                     <analysisCache>true</analysisCache>
                     <analysisCacheLocation>${project.build.directory}/pmd/pmd.cache</analysisCacheLocation>
-                    
+
                     <!-- Output formats -->
                     <format>html</format>
                     <outputDirectory>${project.build.directory}/pmd</outputDirectory>
-                    
+
                     <!-- Exclude generated code and known legacy files -->
                     <excludeRoots>
                         <excludeRoot>target/generated-sources</excludeRoot>
@@ -1685,12 +1635,12 @@
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-core</artifactId>
-                        <version>7.10.0</version>
+                        <version>7.20.0</version>
                     </dependency>
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-java</artifactId>
-                        <version>7.10.0</version>
+                        <version>7.20.0</version>
                     </dependency>
                 </dependencies>
             </plugin>
@@ -1698,7 +1648,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.5.4</version>
                 <executions>
                     <!-- Override default test execution -->
                     <execution>
@@ -1724,17 +1674,21 @@
                                 <include>**/test/**/*Tests.java</include>
                                 <include>**/tickler/**/*Test.java</include>
                                 <include>**/managers/**/*Test.java</include>
+                                <include>**/*IntegrationTest.java</include>
+                                <include>**/*UnitTest.java</include>
                             </includes>
                             <excludes>
                                 <!-- Exclude archive tests from modern test run -->
                                 <exclude>**/archive/**/*Test.java</exclude>
                             </excludes>
                             <argLine>
-                                -Xmx2048m
-                                -Dnet.bytebuddy.experimental=true
-                                --add-opens java.base/java.lang=ALL-UNNAMED
-                                --add-opens java.base/java.util=ALL-UNNAMED
-                            </argLine>
+                               -Xmx2048m
+                               -Dnet.bytebuddy.experimental=true
+                               --add-opens java.base/java.lang=ALL-UNNAMED
+                               --add-opens java.base/java.util=ALL-UNNAMED
+                               -Djdk.attach.allowAttachSelf=true
+                               -XX:+EnableDynamicAgentLoading
+                             </argLine>
                             <!-- Test filtering by groups when specified -->
                             <groups>${groups}</groups>
                         </configuration>
@@ -1897,7 +1851,7 @@
                 <dependency>
                     <groupId>org.mockito</groupId>
                     <artifactId>mockito-junit-jupiter</artifactId>
-                    <version>5.8.0</version>
+                    <version>5.21.0</version>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
