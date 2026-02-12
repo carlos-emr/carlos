@@ -90,13 +90,17 @@ public class FaxSender {
                 STATUS faxStatus = STATUS.ERROR;
                 faxJob.setSenderEmail(faxConfig.getSenderEmail());
 
-                Path filePath = resolveFilePath(faxJob.getFile_name(), documentDir);
-                log.info("sending fax from file path {}", filePath);
-
                 try {
+                    Path filePath = resolveFilePath(faxJob.getFile_name(), documentDir);
+                    log.info("sending fax from file path {}", filePath);
+
                     FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
                     FaxJob sentFax = providerClient.sendFax(faxConfig, faxJob, filePath);
                     faxStatus = sentFax.getStatus();
+                } catch (IllegalArgumentException | SecurityException e) {
+                    String statusMessage = "INVALID OR UNSAFE FAX FILE PATH";
+                    faxJob.setStatusString(statusMessage);
+                    log.warn("Skipping fax id {} due to invalid or unsafe file path", faxJob.getId(), e);
                 } catch (FaxProviderException e) {
                     String statusMessage = e.getMessage() == null ? "PROBLEM COMMUNICATING WITH WEB SERVICE" : e.getMessage();
                     faxJob.setStatusString(statusMessage);

@@ -258,7 +258,7 @@ public class ConfigureFax2Action extends ActionSupport {
             MiscUtils.getLogger().error("COULD NOT SAVE FAX CONFIGURATION", ex);
         }
 
-        MiscUtils.getLogger().info("JSON: " + jsonObject);
+        MiscUtils.getLogger().debug("Fax configuration response: success={}", jsonObject.get("success"));
         JSONUtil.jsonResponse(response, jsonObject);
         return null;
     }
