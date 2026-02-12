@@ -118,6 +118,28 @@ public class FaxSender {
         }
     }
 
+    /**
+     * Resolves and validates the file path for a fax document.
+     *
+     * <p>This method handles both absolute and relative file paths with proper security validation:
+     * <ul>
+     *   <li>Absolute paths are validated to ensure they are either under DOCUMENT_DIR or in an
+     *       explicitly allowed temporary directory (e.g., for dynamically generated faxes).</li>
+     *   <li>Relative paths are resolved against DOCUMENT_DIR and validated to prevent path
+     *       traversal attacks.</li>
+     * </ul>
+     *
+     * <p>Note on temporary file support: Some fax jobs may reference files in temporary directories
+     * (outside DOCUMENT_DIR) for ephemeral documents like dynamically generated cover sheets.
+     * These are allowed only if they reside in {@link PathValidationUtils#isInAllowedTempDirectory}.
+     *
+     * @param filename the filename or path from the fax job
+     * @param documentDir the base document directory (DOCUMENT_DIR)
+     * @return a validated Path pointing to the fax document
+     * @throws IllegalArgumentException if filename is null or empty
+     * @throws SecurityException if the path fails validation (path traversal attempt or
+     *         unauthorized absolute path)
+     */
     private Path resolveFilePath(String filename, String documentDir) {
         // ALWAYS validate paths using PathValidationUtils to prevent path traversal attacks
         if (filename == null || filename.trim().isEmpty()) {
@@ -135,6 +157,7 @@ public class FaxSender {
                 return absoluteFile.toPath();
             } catch (SecurityException e) {
                 // Allow absolute paths in an explicitly allowed temp directory
+                // (e.g., for dynamically generated fax cover sheets or attachments)
                 if (PathValidationUtils.isInAllowedTempDirectory(absoluteFile)) {
                     return absoluteFile.toPath();
                 }

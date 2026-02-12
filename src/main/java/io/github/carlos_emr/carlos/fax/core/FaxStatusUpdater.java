@@ -62,23 +62,23 @@ public class FaxStatusUpdater {
 
         List<FaxJob> faxJobList = faxJobDao.getInprogressFaxesByJobId();
 
-        log.info("CHECKING STATUS OF " + faxJobList.size() + " FAXES");
+        log.info("CHECKING STATUS OF {} FAXES", faxJobList.size());
 
         for (FaxJob faxJob : faxJobList) {
             FaxConfig faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
 
             if (faxConfig == null) {
-                log.error("Could not find faxConfig while processing fax id: " + faxJob.getId() + " Has the fax number changed?");
+                log.error("Could not find faxConfig while processing fax id: {} Has the fax number changed?", faxJob.getId());
             } else if (faxConfig.isActive()) {
                 try {
                     FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
                     FaxJob faxJobUpdated = providerClient.fetchFaxStatus(faxConfig, faxJob);
                     faxJob.setStatus(faxJobUpdated.getStatus());
                     faxJob.setStatusString(faxJobUpdated.getStatusString());
-                    log.info("UPDATED FAX JOB ID " + faxJob.getJobId() + " WITH STATUS " + faxJob.getStatus());
+                    log.info("UPDATED FAX JOB ID {} WITH STATUS {}", faxJob.getJobId(), faxJob.getStatus());
                     faxJobDao.merge(faxJob);
                 } catch (FaxProviderException e) {
-                    log.error("Failed to update fax status for fax id " + faxJob.getId(), e);
+                    log.error("Failed to update fax status for fax id {}", faxJob.getId(), e);
                 }
             }
 

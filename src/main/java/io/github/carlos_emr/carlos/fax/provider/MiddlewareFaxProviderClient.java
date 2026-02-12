@@ -25,7 +25,6 @@
  */
 package io.github.carlos_emr.carlos.fax.provider;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.file.Files;
@@ -58,6 +57,8 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 
 /**
@@ -72,6 +73,7 @@ import org.springframework.stereotype.Component;
 public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
     private static final String PATH = "/fax";
+    private static final Logger logger = MiscUtils.getLogger();
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**

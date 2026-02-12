@@ -174,22 +174,28 @@ public class FaxImporter {
         filename = newDoc.getFileName();
 
         // Validate file path to prevent path traversal attacks using PathValidationUtils
+        File validatedFile;
         try {
-            File validatedFile = PathValidationUtils.validatePath(filename, new File(DOCUMENT_DIR));
-            filename = validatedFile.getName(); // Use validated filename
+            validatedFile = PathValidationUtils.validatePath(filename, new File(DOCUMENT_DIR));
         } catch (SecurityException e) {
             log.error("Path validation failed for filename: {}", filename, e);
             return null;
         }
 
-        if (Base64.decodeToFile(faxFile.getDocument(), DOCUMENT_DIR + "/" + filename)) {
+        if (Base64.decodeToFile(faxFile.getDocument(), validatedFile.getAbsolutePath())) {
 
             newDoc.setContentType("application/pdf");
             newDoc.setNumberOfPages(receivedFax.getNumPages());
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
 
             Integer queueId = faxConfig.getQueue();
-            Integer docNum = Integer.parseInt(doc_no);
+            int docNum;
+            try {
+                docNum = Integer.parseInt(doc_no);
+            } catch (NumberFormatException e) {
+                log.error("Invalid document ID returned from addDocumentSQL: {}", doc_no, e);
+                return null;
+            }
 
             queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
 
