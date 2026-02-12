@@ -68,9 +68,6 @@ public class RptDemographicQueryBuilder {
         }
     }
 
-    public RptDemographicQueryBuilder() {
-    }
-
     /**
      * Builds a demographic query without applying a rostering date filter.
      * Delegates to {@link #buildQuery(LoggedInInfo, RptDemographicReport2Form, String)}
