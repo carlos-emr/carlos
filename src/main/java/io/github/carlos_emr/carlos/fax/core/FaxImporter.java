@@ -210,7 +210,6 @@ public class FaxImporter {
      *
      * <p>This method is typically invoked by scheduled job (FaxScheduler) but can also be triggered manually.</p>
      *
-     * @throws FaxProviderException if provider communication fails (logged, not propagated)
      * @since 2026-02-11
      */
     public void poll() {
