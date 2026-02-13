@@ -135,6 +135,7 @@ class FaxProviderClientFactoryTest extends OpenOUnitTestBase {
 
         @Override
         public void deleteFax(FaxConfig faxConfig, FaxJob fax) {
+            // Intentionally left blank: deletion side effects are not needed in this test stub.
         }
 
         @Override
