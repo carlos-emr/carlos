@@ -496,6 +496,7 @@
                     <tr>
                         <TD class="text-center"><a href="<%= request.getContextPath() %>/casemgmt/newCaseManagementEnable.jsp" class="pref-link-btn">Enable
                             OSCAR CME UI</a> &nbsp;&nbsp;&nbsp;
+                        </td>
                     </tr>
                 </oscar:oscarPropertiesCheck>
             </caisi:isModuleLoad>
