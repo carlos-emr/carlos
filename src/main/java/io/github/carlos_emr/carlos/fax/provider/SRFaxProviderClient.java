@@ -143,7 +143,9 @@ public class SRFaxProviderClient implements FaxProviderClient {
             }
 
             faxJob.setStatus(FaxJob.STATUS.SENT);
-            logger.info("SRFax send queued for fileName={} providerJobId={}", faxJob.getFile_name(), faxJob.getJobId());
+            if (logger.isInfoEnabled()) {
+                logger.info("SRFax send queued for fileName={} providerJobId={}", faxJob.getFile_name(), faxJob.getJobId());
+            }
             if (faxJob.getStatusString() == null || faxJob.getStatusString().isEmpty()) {
                 faxJob.setStatusString("Queued with SRFax");
             }
