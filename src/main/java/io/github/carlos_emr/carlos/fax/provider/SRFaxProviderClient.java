@@ -201,7 +201,9 @@ public class SRFaxProviderClient implements FaxProviderClient {
             }
         }
 
-        logger.info("SRFax inbox listed unreadCount={}", result.size());
+        if (logger.isInfoEnabled()) {
+            logger.info("SRFax inbox listed unreadCount={}", result.size());
+        }
         return result;
     }
 
