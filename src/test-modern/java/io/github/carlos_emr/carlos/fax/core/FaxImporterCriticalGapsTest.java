@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
-import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
