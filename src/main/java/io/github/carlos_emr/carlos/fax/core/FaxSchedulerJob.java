@@ -1,30 +1,27 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2017-2024. Juno EMR. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Portions contributed by Juno EMR.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.fax.core;
 
@@ -99,10 +96,25 @@ public class FaxSchedulerJob {
             lastSuccessfulRunEpochMs.set(System.currentTimeMillis());
             lastError.set("");
             running.set(true);
-        } catch (Exception e) {
+        } catch (OutOfMemoryError e) {
+            // DO NOT attempt restart for OOM - system is in bad state
+            cancelTask();
+            lastError.set("OUT OF MEMORY - manual intervention required");
+            logger.error("CRITICAL: Fax scheduler stopped due to out of memory - DO NOT RESTART AUTOMATICALLY", e);
+            running.set(false);
+            // Do NOT schedule automatic restart for OOM
+        } catch (RuntimeException e) {
+            // Programming errors - restart might help if transient
             cancelTask();
             lastError.set(e.getClass().getSimpleName() + ": " + e.getMessage());
-            logger.error("URGENT: Fax scheduler has been stopped due to an unexpected error", e);
+            logger.error("URGENT: Fax scheduler stopped due to runtime exception - attempting automatic restart", e);
+            running.set(false);
+            scheduleAutomaticRestart();
+        } catch (Exception e) {
+            // Checked exceptions (shouldn't happen in this flow, but catch anyway)
+            cancelTask();
+            lastError.set(e.getClass().getSimpleName() + ": " + e.getMessage());
+            logger.error("URGENT: Fax scheduler stopped due to unexpected checked exception - attempting automatic restart", e);
             running.set(false);
             scheduleAutomaticRestart();
         }
@@ -111,7 +123,18 @@ public class FaxSchedulerJob {
     /**
      * Schedules an automatic restart attempt after a fatal scheduler failure.
      *
-     * <p>If restart fails, the scheduler re-queues another attempt after the same delay.</p>
+     * <p><strong>Design Rationale:</strong> The scheduler is critical infrastructure for fax
+     * operations. Rather than requiring manual admin intervention for transient failures
+     * (database connection drops, network glitches), this method automatically retries after
+     * {@link #FAILURE_RESTART_DELAY_MS} (5 minutes). If restart fails, it re-queues another
+     * attempt indefinitely until successful or manually stopped.</p>
+     *
+     * <p>Admin visibility: Failure state is exposed via {@link #getLastError()} and
+     * {@link #isRunning()} for monitoring dashboards.</p>
+     *
+     * <p><strong>Note:</strong> OutOfMemoryError failures do NOT trigger automatic restart
+     * (see exception handling in {@code runCycle()}) because the system is in a bad state
+     * requiring manual intervention.</p>
      */
     private synchronized void scheduleAutomaticRestart() {
         if (timer == null) {
@@ -186,7 +209,7 @@ public class FaxSchedulerJob {
      * Cancels timer resources during bean shutdown or restart.
      */
     @PreDestroy
-    private synchronized void cancelTask() {
+    synchronized void cancelTask() {
         if (timerTask != null) {
             timerTask.cancel();
             timerTask = null;

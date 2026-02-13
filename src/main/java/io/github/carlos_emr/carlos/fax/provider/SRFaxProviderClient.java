@@ -94,6 +94,10 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.SRFAX) {
+            throw new IllegalArgumentException("SRFax client requires SRFAX provider type, but got: " + faxConfig.getProviderType());
+        }
+
         try {
             if (Files.exists(filePath) && Files.isReadable(filePath)) {
                 faxJob.setDocument(Base64Utility.encode(Files.readAllBytes(filePath)));
@@ -103,7 +107,11 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 throw new FaxProviderException("Fatal error locating document. Not found in filesystem or database backup");
             }
 
-            logger.info("SRFax send requested for fileName={} destination={}", faxJob.getFile_name(), faxJob.getDestination());
+            // Log at DEBUG level with masked destination to avoid PHI exposure
+            String maskedDestination = faxJob.getDestination() != null && faxJob.getDestination().length() > 4
+                    ? "***" + faxJob.getDestination().substring(faxJob.getDestination().length() - 4)
+                    : "****";
+            logger.debug("SRFax send requested for fileName={} destination={}", faxJob.getFile_name(), maskedDestination);
 
             List<NameValuePair> params = createAuthParams(faxConfig);
             params.add(new BasicNameValuePair("action", ACTION_QUEUE_FAX));
@@ -146,9 +154,23 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
     /**
      * Lists inbound fax headers available in SRFax inbox.
+     *
+     * <p><strong>Duplicate Prevention Strategy:</strong> This method pulls only unread faxes
+     * (sIncludeRead=false, sUnreadOnly=true) to avoid re-importing documents. Faxes are marked
+     * as read during download (see {@link #downloadFax}). This prevents duplicates without
+     * deleting faxes from the SRFax server, allowing the server to retain faxes for
+     * compliance and backup purposes.</p>
+     *
+     * @param faxConfig SRFax account configuration with authentication credentials
+     * @return list of unread fax jobs available for import
+     * @throws FaxProviderException if authentication fails or API request fails
      */
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.SRFAX) {
+            throw new IllegalArgumentException("SRFax client requires SRFAX provider type, but got: " + faxConfig.getProviderType());
+        }
+
         List<NameValuePair> params = createAuthParams(faxConfig);
         params.add(new BasicNameValuePair("action", ACTION_GET_INBOX));
         // Pull only unread faxes to avoid duplicates.
@@ -184,12 +206,18 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.SRFAX) {
+            throw new IllegalArgumentException("SRFax client requires SRFAX provider type, but got: " + faxConfig.getProviderType());
+        }
+
         logger.info("SRFax download requested for fileName={}", fax.getFile_name());
         List<NameValuePair> params = createAuthParams(faxConfig);
         params.add(new BasicNameValuePair("action", ACTION_RETRIEVE_FAX));
         params.add(new BasicNameValuePair("sFaxFileName", fax.getFile_name()));
+        params.add(new BasicNameValuePair("sDirection", "IN"));  // Required: "IN" for received faxes, "OUT" for sent
+        params.add(new BasicNameValuePair("sFaxFormat", "PDF")); // Explicit format request (API defaults to PDF)
         // Mark fax as read at source after a successful pull to prevent re-import duplicates.
-        params.add(new BasicNameValuePair("sMarkAsRead", "true"));
+        params.add(new BasicNameValuePair("sMarkasViewed", "Y")); // Correct parameter name and value format
 
         JsonNode root = postForm(faxConfig.getUrl(), params);
         ensureSuccess(root, "Failed to download SRFax document");
@@ -218,6 +246,10 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public void deleteFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.SRFAX) {
+            throw new IllegalArgumentException("SRFax client requires SRFAX provider type, but got: " + faxConfig.getProviderType());
+        }
+
         // Intentionally no-op for SRFax.
         logger.debug("SRFax delete skipped for fileName={} (using unread/read semantics)", fax == null ? null : fax.getFile_name());
     }
@@ -227,10 +259,14 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.SRFAX) {
+            throw new IllegalArgumentException("SRFax client requires SRFAX provider type, but got: " + faxConfig.getProviderType());
+        }
+
         logger.debug("SRFax status requested for providerJobId={}", faxJob.getJobId());
         List<NameValuePair> params = createAuthParams(faxConfig);
         params.add(new BasicNameValuePair("action", ACTION_GET_STATUS));
-        params.add(new BasicNameValuePair("sFaxId", String.valueOf(faxJob.getJobId())));
+        params.add(new BasicNameValuePair("sFaxDetailsID", String.valueOf(faxJob.getJobId()))); // Correct parameter name from Queue_Fax response
 
         JsonNode root = postForm(faxConfig.getUrl(), params);
         ensureSuccess(root, "Failed to fetch SRFax fax status");
@@ -249,6 +285,26 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
     /**
      * Maps SRFax status text into local {@link FaxJob.STATUS} values.
+     */
+    /**
+     * Maps SRFax provider status strings to internal {@link FaxJob.STATUS} enumeration values.
+     *
+     * <p><strong>Status Mapping Tolerance:</strong> This method uses fuzzy matching (contains checks)
+     * because SRFax status text varies across API versions and account configurations. Status strings
+     * are normalized to lowercase for case-insensitive matching. This defensive approach prevents
+     * status mapping failures when the SRFax API returns status strings in different formats.</p>
+     *
+     * <p>Mapping rules:</p>
+     * <ul>
+     *   <li>SUCCESS/COMPLETE/SENT → {@code COMPLETE}</li>
+     *   <li>QUEUE/PROCESSING/PROGRESS/RETRY → {@code SENT} (in-progress)</li>
+     *   <li>CANCEL → {@code CANCELLED}</li>
+     *   <li>ERROR/FAIL → {@code ERROR}</li>
+     *   <li>null or unrecognized → {@code UNKNOWN}</li>
+     * </ul>
+     *
+     * @param providerStatus raw status text from SRFax API response (may be null)
+     * @return normalized FaxJob.STATUS value, defaulting to UNKNOWN for null/unrecognized values
      */
     FaxJob.STATUS mapStatus(String providerStatus) {
         if (providerStatus == null) {
@@ -346,6 +402,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
         }
 
         if (status == null) {
+            logger.warn("SRFax response missing Status field - response may be malformed or indicate API version mismatch");
             return;
         }
 

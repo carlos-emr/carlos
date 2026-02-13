@@ -48,11 +48,11 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -89,6 +89,10 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
+            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
+        }
+
         try {
             WebClient client = WebClient.create(faxConfig.getUrl());
             client.path(PATH + "/send/" + faxConfig.getFaxUser());
@@ -141,6 +145,10 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
+            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
+        }
+
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
             HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/" + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
             get.setHeader("accept", "application/json");
@@ -148,13 +156,28 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             HttpResponse response = client.execute(get);
-            if (response == null || response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new FaxProviderException("HTTP Status error with HTTP code: " +
-                        (response == null ? "null" : response.getStatusLine().getStatusCode()));
+            int statusCode = response.getStatusLine().getStatusCode();
+
+            if (statusCode != HttpStatus.SC_OK) {
+                throw new FaxProviderException(
+                        "Middleware list faxes failed with HTTP " + statusCode +
+                        ": " + response.getStatusLine().getReasonPhrase() +
+                        ". Check middleware server logs and fax account configuration.");
             }
 
             HttpEntity httpEntity = response.getEntity();
+            if (httpEntity == null) {
+                throw new FaxProviderException(
+                        "Middleware returned HTTP 200 but response body is empty. " +
+                        "This may indicate a middleware server error.");
+            }
+
             String content = EntityUtils.toString(httpEntity);
+            if (content == null || content.trim().isEmpty()) {
+                logger.warn("Middleware returned empty content for fax list - treating as no faxes available");
+                return new java.util.ArrayList<>();
+            }
+
             return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
         } catch (IOException e) {
             throw new FaxProviderException("HTTP WS CLIENT ERROR", e);
@@ -166,6 +189,10 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
+            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
+        }
+
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
             HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/"
                     + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8") + "/"
@@ -175,11 +202,21 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             HttpResponse response = client.execute(get);
-            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new FaxProviderException("Error downloading fax file " + fax.getFile_name());
+            int statusCode = response.getStatusLine().getStatusCode();
+
+            if (statusCode != HttpStatus.SC_OK) {
+                throw new FaxProviderException(
+                        "Middleware download failed for fax " + fax.getFile_name() +
+                        " with HTTP " + statusCode + ": " + response.getStatusLine().getReasonPhrase());
             }
 
-            String content = EntityUtils.toString(response.getEntity());
+            HttpEntity httpEntity = response.getEntity();
+            if (httpEntity == null) {
+                throw new FaxProviderException(
+                        "Middleware returned HTTP 200 but response body is empty for fax " + fax.getFile_name());
+            }
+
+            String content = EntityUtils.toString(httpEntity);
             FaxJob downloaded = mapper.readValue(content, FaxJob.class);
             fax.setStatus(downloaded.getStatus());
             fax.setStatusString(downloaded.getStatusString());
@@ -197,6 +234,10 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public void deleteFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
+            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
+        }
+
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
             HttpDelete delete = new HttpDelete(faxConfig.getUrl() + PATH + "/"
                     + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8") + "/"
@@ -219,41 +260,57 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {
-        DefaultHttpClient client = new DefaultHttpClient();
-        try {
-            Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
-            client.getCredentialsProvider().setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
+        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
+            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
+        }
 
+        try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
             HttpGet get = new HttpGet(faxConfig.getUrl() + "/" + faxJob.getJobId());
             get.setHeader("accept", "application/json");
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             HttpResponse response = client.execute(get);
-            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new FaxProviderException("WEB SERVICE RESPONDED WITH " + response.getStatusLine().getStatusCode());
+            int statusCode = response.getStatusLine().getStatusCode();
+
+            if (statusCode != HttpStatus.SC_OK) {
+                throw new FaxProviderException(
+                        "Middleware status check failed for job " + faxJob.getJobId() +
+                        " with HTTP " + statusCode + ": " + response.getStatusLine().getReasonPhrase());
             }
 
-            String content = EntityUtils.toString(response.getEntity());
+            HttpEntity httpEntity = response.getEntity();
+            if (httpEntity == null) {
+                throw new FaxProviderException(
+                        "Middleware returned HTTP 200 but response body is empty for job " + faxJob.getJobId());
+            }
+
+            String content = EntityUtils.toString(httpEntity);
             return mapper.readValue(content, FaxJob.class);
         } catch (IOException e) {
             throw new FaxProviderException("HTTP WS CLIENT ERROR", e);
-        } finally {
-            try {
-                client.close();
-            } catch (IOException e) {
-                // ignore close exception
-            }
         }
     }
 
     /**
-     * Creates authenticated HTTP client for middleware pull endpoints.
+     * Creates authenticated HTTP client for middleware pull endpoints with timeout configuration.
+     *
+     * <p>Configures 30-second connection timeout and 60-second socket timeout to prevent
+     * hung connections from stalling fax processing.</p>
      */
     private CloseableHttpClient createDownloadClient(FaxConfig faxConfig) {
         Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
-        return HttpClientBuilder.create().setDefaultCredentialsProvider(credentialsProvider).build();
+
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(30000)  // 30 seconds connection timeout
+                .setSocketTimeout(60000)    // 60 seconds socket read timeout
+                .build();
+
+        return HttpClientBuilder.create()
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .setDefaultRequestConfig(requestConfig)
+                .build();
     }
 }

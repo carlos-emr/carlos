@@ -45,7 +45,7 @@ class FaxProviderClientFactoryTest extends OpenOUnitTestBase {
 
     @Test
     @DisplayName("should return middleware client when config defaults to MIDDLEWARE")
-    void shouldReturnMiddlewareClient_whenConfigDefaultsToMiddleware() {
+    void shouldReturnMiddlewareClient_whenConfigDefaultsToMiddleware() throws FaxProviderException {
         // Given
         FaxProviderClient middlewareClient = new TestClient(FaxConfig.ProviderType.MIDDLEWARE);
         FaxProviderClientFactory factory = new FaxProviderClientFactory(Collections.singletonList(middlewareClient));
@@ -61,7 +61,7 @@ class FaxProviderClientFactoryTest extends OpenOUnitTestBase {
 
     @Test
     @DisplayName("should return correct client when provider type is configured")
-    void shouldReturnCorrectClient_whenProviderTypeIsConfigured() {
+    void shouldReturnCorrectClient_whenProviderTypeIsConfigured() throws FaxProviderException {
         // Given
         FaxProviderClient middlewareClient = new TestClient(FaxConfig.ProviderType.MIDDLEWARE);
         FaxProviderClient srfaxClient = new TestClient(FaxConfig.ProviderType.SRFAX);
