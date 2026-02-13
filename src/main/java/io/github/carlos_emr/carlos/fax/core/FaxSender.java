@@ -196,7 +196,9 @@ public class FaxSender {
      * <p>This method is typically invoked by scheduled job (FaxScheduler) but can also be
      * triggered manually via admin UI or management console.</p>
      *
-     * @throws FaxProviderException propagated from provider client (logged, not thrown)
+     * <p>Note: {@link FaxProviderException} instances thrown by the underlying provider client
+     * are caught and logged within this method; they are not propagated to callers.</p>
+     *
      * @see FaxJobDao#getReadyToSendFaxes
      * @see FaxProviderClient#sendFax
      * @see #resolveFilePath
