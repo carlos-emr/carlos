@@ -101,7 +101,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.title"/></title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
 
         <link rel="stylesheet" type="text/css" media="all"
@@ -166,7 +166,7 @@
         </h4>
     </div>
     <form name='report'>
-        <table class="table table-condensed table-striped" id="reportsTbl" style="width:100%">
+        <table class="table table-sm table-striped" id="reportsTbl" style="width:100%">
             <%int j = 1; %>
             <tr>
                 <td width="2"><%=j%>
@@ -174,7 +174,7 @@
                 </td>
                 <td width="1"></td>
                 <td width="300"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formDaySheet"/></td>
-                <td><select name="provider_no" class="form-control input-sm" style="width:auto;display:inline-block">
+                <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         ResultSet rsgroup = reportMainBean.queryResults(mygroup_dboperation);
 
@@ -212,11 +212,11 @@
                 </td>
                 <td><a HREF="#"
                        onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
-                                                                       VALUE="<%=today%>" class="form-control input-sm" style="width:auto;display:inline-block"></td>
+                                                                       VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
                 <td><a HREF="#"
                        onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/report/reportindex.jsp&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
-                                                                      VALUE="<%=today%>" class="form-control input-sm" style="width:auto;display:inline-block"></td>
-                <td><select name="sTime" class="form-control input-sm" style="width:auto;display:inline-block">
+                                                                      VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
+                <td><select name="sTime" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         for (int i = 0; i < 24; i++) {
                             String timeString = i < 12 && i >= 0 ? (i + " am") : ((i == 12 ? i : i - 12) + " pm");
@@ -224,7 +224,7 @@
                     <option value="<%=""+i%>" <%=i == 8 ? "selected" : ""%>><%=timeString%>
                     </option>
                     <% } %>
-                </select> - <select name="eTime" class="form-control input-sm" style="width:auto;display:inline-block">
+                </select> - <select name="eTime" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         for (int i = 0; i < 24; i++) {
                             String timeString = i < 12 && i >= 0 ? (i + " am") : ((i == 12 ? i : i - 12) + " pm");
