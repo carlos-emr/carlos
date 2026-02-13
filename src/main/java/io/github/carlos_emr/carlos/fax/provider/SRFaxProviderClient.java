@@ -285,7 +285,9 @@ public class SRFaxProviderClient implements FaxProviderClient {
         FaxJob updated = new FaxJob(faxJob);
         updated.setStatus(mapStatus(providerStatus));
         updated.setStatusString(providerStatus == null ? "Unknown SRFax status" : providerStatus);
-        logger.debug("SRFax status response providerJobId={} status={}", faxJob.getJobId(), updated.getStatusString());
+        if (logger.isDebugEnabled()) {
+            logger.debug("SRFax status response providerJobId={} status={}", faxJob.getJobId(), updated.getStatusString());
+        }
         return updated;
     }
 
