@@ -22,83 +22,284 @@
     Hamilton
     Ontario, Canada
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
-    https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+    setLabMacroPrefs.jsp
+    Purpose: Manages lab macro preferences for providers in CARLOS EMR.
+    Features: Bootstrap UI for creating/editing/deleting lab macros stored as JSON.
+    Parameters: method (POST) - "saveLabMacroPrefs" triggers save.
+    `@since` 2026-02-13
 --%>
 
-<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@page import="java.util.*" %>
-<%@ page import="java.util.ResourceBundle"%>
+<%@page import="org.apache.commons.lang.StringUtils"%>
+<%@page import="org.apache.logging.log4j.Logger"%>
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
+<%@page import="io.github.carlos_emr.carlos.util.SpringUtils"%>
+<%@page import="io.github.carlos_emr.carlos.common.model.Provider"%>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao"%>
+<%@page import="io.github.carlos_emr.carlos.common.dao.UserPropertyDAO"%>
+<%@page import="io.github.carlos_emr.carlos.common.model.UserProperty"%>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils"%>
+
+
+<%@page import="com.fasterxml.jackson.databind.JsonNode"%>
+<%@page import="com.fasterxml.jackson.databind.ObjectMapper"%>
+
+<%@page import="org.owasp.encoder.Encode"%>
+
+<%@taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
+
 <%
-    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-    String providertitle = (String) request.getAttribute("providertitle");
-    String providermsgPrefs = (String) request.getAttribute("providermsgPrefs");
-    String providerbtnCancel = (String) request.getAttribute("providerbtnCancel");
-    String providerbtnClose = (String) request.getAttribute("providerbtnClose");
-    String providerbtnSubmit = (String) request.getAttribute("providerbtnSubmit");
-    String providermsgSuccess = (String) request.getAttribute("providermsgSuccess");
+String curProviderNo = (String) session.getAttribute("user");
+
+if (curProviderNo == null || curProviderNo.isEmpty()) {
+    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+    return;
+}
+ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+
+List<Provider> providerList = providerDao.getActiveProviders();
+
+ObjectMapper mapper = new ObjectMapper();
+
 %>
+<!DOCTYPE HTML>
 <html>
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><%=bundle.getString(providertitle)%></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
-        <script>
-            // Remove the blank space in the textarea
-            document.addEventListener("DOMContentLoaded", function() {
-                const textarea = document.querySelector("textarea[name='labMacroJSON.value']");
-                textarea.value = textarea.value.trim();
-            });
-        </script>
-    </head>
+<head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">
-                <%=bundle.getString(providermsgPrefs)%>
-            </td>
-            <td style="color: white" class="MainTableTopRowRightColumn"></td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn"></td>
-            <td class="MainTableRightColumn">
-                <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+<title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>
 
-                    <textarea name="labMacroJSON.value" style="width:80%;height:80%" rows="25">
-                        <c:out value='${prefs.value}'/>
-                    </textarea>
+<!-- Bootstrap -->
+<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
 
-                    <br/>
+<script>
+function assembleJSON() {
+    let macros = [];
+    const elements = document.querySelectorAll('[id^="macro_"]');
 
-                    <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>
-                    <input type="button" value="<%=bundle.getString(providerbtnCancel)%>"
-                           onclick="window.close();"/>
-                </form>
-                <%} else {%>
-                <%=bundle.getString(providermsgSuccess)%>
-                <br/><br/>
-                <input type="button" value="<%=bundle.getString(providerbtnClose)%>" onclick="window.close();"/>
-                <%}%>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
-    </body>
+    elements.forEach(el => {
+        // Check if element is visible
+        if (window.getComputedStyle(el).display !== 'none') {
+            let suffix = el.id.split('_')[1];
+            let nameField = document.getElementById('name_' + suffix);
+
+            // Check if name field exists and has length > 0
+            if (nameField && nameField.value.length > 0) {
+                let commentField = document.getElementById('comment_' + suffix);
+                let ticklerTo = document.getElementById('ticklerTo_' + suffix);
+                let messageField = document.getElementById('message_' + suffix);
+                let quantityField = document.getElementById('quantity_' + suffix);
+                let timeUnitsField = document.getElementById('timeUnits_' + suffix);
+
+                let macroObj = {
+                    name: nameField.value,
+                    acknowledge: {
+                        comment: commentField ? commentField.value : ''
+                    },
+                    closeOnSuccess: true
+                };
+
+                // Add tickler if it exists
+                if (ticklerTo && ticklerTo.value.length > 0) {
+                    macroObj.tickler = {
+                        taskAssignedTo: ticklerTo.value,
+                        message: messageField ? messageField.value : ''
+                    };
+
+                    if (quantityField && parseInt(quantityField.value) > 0) {
+                        macroObj.tickler.quantity = quantityField.value;
+                        macroObj.tickler.timeUnits = timeUnitsField ? timeUnitsField.value : '';
+                    }
+                }
+                macros.push(macroObj);
+            }
+        }
+    });
+
+    let jsonStr = macros.length > 0 ? JSON.stringify(macros) : '';
+    let jsonOutput = document.getElementById('macroJSON');
+    if (jsonOutput) {
+        jsonOutput.value = jsonStr;
+    }
+}
+
+function toggleMe(el){
+    el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+}
+
+</script>
+<style>
+    .MainTableTopRow {
+        background-color: gainsboro;
+    }
+</style>
+
+</head>
+<body>
+
+<table style="width:100%" id="scrollNumber1">
+	<tr class="MainTableTopRow">
+		<td class="MainTableTopRowLeftColumn"><H4>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.msgPrefs" /></H4></td>
+		<td style="text-align:center;" class="MainTableTopRowRightColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.title" /></td>
+	</tr>
+</table>
+			<!-- form starts here -->
+
+<form name="setProviderNoteStaleDateForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do">
+<input type="hidden" name="method" value="saveLabMacroPrefs">
+<div class="container"><br>
+
+<%
+String method = request.getParameter("method");
+if ("saveLabMacroPrefs".equals(method)) {
+%>
+    <div class="alert alert-success"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.msgSuccess" /></div>
+<% } %>
+<%
+    UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
+    UserProperty up = upDao.getProp(curProviderNo,UserProperty.LAB_MACRO_JSON);
+    if(up != null && !StringUtils.isEmpty(up.getValue())) {
+
+    %>
+<%
+    try {
+//[{"name":"APT","acknowledge":{"comment":"APT"},"tickler":{"taskAssignedTo":"101","message":"APT"},"closeOnSuccess":true},{"name":"TBS","acknowledge":{"comment":"TBS"},"tickler":{"taskAssignedTo":"101","message":"TBS"},"closeOnSuccess":true}]
+        JsonNode macros = mapper.readTree(up.getValue());
+            if(macros != null && macros.isArray()) {
+                int x = 0;
+                for(JsonNode macro : macros) {
+                String name = macro.path("name").asText("");
+                String comment = "";
+                String ticklerTo = "";
+                String message = "";
+                String quantity = "0";
+                String timeUnits = "1";
+
+                JsonNode acknowledge = macro.path("acknowledge");
+                if(!acknowledge.isMissingNode()){
+                    comment = Encode.forHtmlAttribute(acknowledge.path("comment").asText(""));
+                }
+
+                // Tickler block
+                JsonNode tickler = macro.path("tickler");
+                if(!tickler.isMissingNode()){
+                    ticklerTo = Encode.forHtmlAttribute(tickler.path("taskAssignedTo").asText(""));
+                    message = Encode.forHtmlAttribute(tickler.path("message").asText(""));
+                    if(tickler.has("quantity") && tickler.has("timeUnits")){
+                        quantity = Encode.forHtmlAttribute(tickler.path("quantity").asText(""));
+                        timeUnits = Encode.forHtmlAttribute(tickler.path("timeUnits").asText(""));
+                    }
+                }
+                boolean closeOnSuccess = macro.path("closeOnSuccess").asBoolean(false);
+
+%>
+
+ <div class="form-group row" id="macro_<%=x%>">
+
+    <div class="col-sm-2">
+     <label for="name_<%=x%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="name" />" style="width:90px;" value="<%=Encode.forHtmlAttribute(name)%>">
+    </div>
+
+    <div class="col-sm-3">
+     <label for="comment_<%=x%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLab" />&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="" style="width:95%;" value="<%=comment%>" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+    </div>
+
+    <div class="col-sm-2">
+      <%
+        String val1 = ticklerTo;
+        if(val1 == null) val1 = "";
+        %>
+		    <label for="ticklerTo_<%=x%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-control input-sm" style="width:95%;">
+            <option value="" <%=(val1.equals("")?" selected=\"selected\"":"") %> >-</option>
+			<%for(Provider p: providerList) {%>
+				<option value="<%=p.getProviderNo()%>"<%=(val1.equals(p.getProviderNo())?" selected=\"selected\"":"") %>><%=Encode.forHtmlAttribute(p.getFullName())%></option>
+						<%}%>
+			</select>
+    </div>
+    <div class="col-sm-2 ">
+     <label for="message_<%=x%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="" style="width:95%;" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=message%>">
+    </div>
+    <div class="col-sm-3 ">
+     <label for="quantity_<%=x%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_<%=x%>" class="" style="width:50px;" value="<%=quantity%>"><select id="timeUnits_<%=x%>"  style="width:80px;">
+            <option value="1" <%=(timeUnits.equals("1")?" selected=\"selected\"":"") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="global.days" /></option>
+            <option value="7" <%=(timeUnits.equals("7")?" selected=\"selected\"":"") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="global.weeks" /></option>
+            <option value="30" <%=(timeUnits.equals("30")?" selected=\"selected\"":"") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="global.months" /></option>
+            <option value="365" <%=(timeUnits.equals("365")?" selected=\"selected\"":"") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="global.years" /></option>
+        </select>
+    </div>
+    <div class="col-sm-2">
+     &nbsp;<input type="button" id="delete_<%=x%>" class="btn btn-link" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete" />" onclick="document.getElementById('macro_<%=x%>').style.display = 'none';">
+    </div>
+ </div>
+
+        <%      x++;
+                }
+            }
+        }catch(Exception e ) { // Jackson throws IOException/JsonProcessingException
+            MiscUtils.getLogger().error("Invalid JSON for lab macros",e);
+%>
+    <div class="alert alert-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="error.msgException" /></div>
+<%
+		}
+}
+%>
+
+ <div class="form-group row" id="macro_new">
+
+    <div class="col-sm-2">
+     <label for="name_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.macro" /></label><br><input type="text" id="name_new" class="" style="width:90px;" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="name" />" value="">
+    </div>
+
+    <div class="col-sm-3">
+     <label for="comment_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgLab" />&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_new" class="" style="width:95%;" value="" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+    </div>
+
+    <div class="col-sm-2">
+
+					<label for="ticklerTo_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><select id="ticklerTo_new" name="ticklerTo_new" class="form-control input-sm" style="width:95%;">
+					<option value="" selected="selected">-</option>
+					<%for(Provider p: providerList) {%>
+						<option value="<%=p.getProviderNo()%>"><%=Encode.forHtmlAttribute(p.getFullName())%></option>
+						<%}%>
+					</select>
+    </div>
+    <div class="col-sm-2">
+     <label for="message_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler" /></label><br><input type="text" id="message_new" class="" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgMessage" />" style="width:95%;" value="">
+    </div>
+    <div class="col-sm-3 ">
+     <label for="schedule_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_new" class="" style="width:50px;" value="0"><select id="schedule_new">
+            <option value="1"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.days" /></option>
+            <option value="7"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.weeks" /></option>
+            <option value="30"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.months" /></option>
+            <option value="365"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.years" /></option>
+        </select>
+    </div>
+    <div class="col-sm-2">
+        &nbsp;<input type="button" id="add_new" class="btn btn-link" value="Add" style="visibility:hidden;">
+    </div>
+</div>
+
+
+  <div class="form-group row">
+<br>
+    <div class="col-sm-5 col-sm-offset-1">
+        <input type="submit" class="btn btn-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave" />" onclick="assembleJSON();"/>
+<input type="button" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose" />" onclick="window.close();"/>
+<a href="javascript:void(0);" onclick="toggleMe(document.getElementById('raw'));" style="color:grey">Show macro JSON</a>
+    </div>
+    <div class="col-sm-5 ">
+
+    </div>
+  </div>
+<div>
+</div>
+  <div class="form-group row" style="display:none;" id="raw">
+  <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><%=Encode.forHtml((up != null)?up.getValue():"")%></textarea>
+  <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave" />" />
+  </div>
+</div>
+</form>
+</body>
 </html>
