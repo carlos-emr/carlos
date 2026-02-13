@@ -415,7 +415,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
         }
 
         String normalized = status.trim().toLowerCase();
-        if (normalized.contains("fail") || normalized.contains("error") || normalized.equals("0")) {
+        if (normalized.contains("fail") || normalized.contains("error") || "0".equals(normalized)) {
             String message = textAt(root, "Result", "Result");
             throw new FaxProviderException(errorMessage + (message == null ? "" : (": " + message)));
         }
