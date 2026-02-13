@@ -22,8 +22,8 @@ introduced in CARLOS, with emphasis on SRFax behavior and admin configuration UX
 
 ## SRFax Duplicate Management Policy
 - SRFax inbound duplicates are controlled via provider read-state semantics:
-  - pull unread-only inbox items (`sUnreadOnly` / `sIncludeRead=false`)
-  - mark as read on successful retrieve (`sMarkAsRead=true`)
+  - pull unread-only inbox items (e.g., `sUnreadOnly=Y` / `sIncludeRead=N`)
+  - mark as viewed on successful retrieve via SRFax API (`sMarkasViewed=Y`, treated as "read" in CARLOS EMR)
 - Do **not** delete inbound SRFax files server-side as part of duplicate management.
 
 ## Configuration Expectations
