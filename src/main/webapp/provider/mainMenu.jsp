@@ -170,7 +170,7 @@
                                     </li>
                                 </security:oscarSec>
 
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink"
+                                <security:oscarSec roleName="<%=roleName$%>" objectName="_lab"
                                                    rights="r">
                                     <li>
                                         <a HREF="#" id="inboxLink"

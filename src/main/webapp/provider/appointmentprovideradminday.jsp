@@ -446,7 +446,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
     <c:set var="billingRights" value="true" scope="page"/>
 </security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r">
     <c:set var="doctorLinkRights" value="true" scope="page"/>
 </security:oscarSec>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_masterLink" rights="r">
