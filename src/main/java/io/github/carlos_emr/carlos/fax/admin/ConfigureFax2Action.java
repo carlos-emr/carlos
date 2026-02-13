@@ -142,13 +142,20 @@ public class ConfigureFax2Action extends ActionSupport {
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
                     validateConfigRow(providerType, faxUrl, siteUser, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
 
+                    // Apply default SRFax URL after validation for SRFAX mode (middleware URL is validated as required above)
+                    String resolvedFaxUrl = faxUrl;
+                    if (providerType == FaxConfig.ProviderType.SRFAX && StringUtils.isBlank(faxUrl)) {
+                        resolvedFaxUrl = "https://www.srfax.com/SRF_SecWebSvc.php";
+                        MiscUtils.getLogger().debug("Using default SRFax API URL for config id {}", id);
+                    }
+
                     faxConfig = new FaxConfig();
                     faxConfig.setId(id);
 
                     savedidx = savedFaxConfigList.indexOf(faxConfig);
                     if (savedidx > -1) {
                         savedFaxConfig = savedFaxConfigList.get(savedidx);
-                        savedFaxConfig.setUrl(faxUrl);
+                        savedFaxConfig.setUrl(resolvedFaxUrl);
                         savedFaxConfig.setSiteUser(siteUser);
 
                         if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
@@ -157,7 +164,7 @@ public class ConfigureFax2Action extends ActionSupport {
 
                         savedFaxConfig.setFaxUser(faxUsers[idx]);
 
-                        if (faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
 
@@ -186,10 +193,10 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxConfig.setPasswd(masterFaxConfig.getPasswd());
                         }
 
-                        faxConfig.setUrl(faxUrl);
+                        faxConfig.setUrl(resolvedFaxUrl);
                         faxConfig.setFaxUser(faxUsers[idx]);
 
-                        if (faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
 
@@ -283,18 +290,21 @@ public class ConfigureFax2Action extends ActionSupport {
      * @return resolved provider type, defaulting to {@link FaxConfig.ProviderType#MIDDLEWARE} when absent/invalid
      */
     private FaxConfig.ProviderType resolveProviderType(String[] providerTypes, int idx, Integer faxConfigId) {
-        FaxConfig.ProviderType providerType = FaxConfig.ProviderType.MIDDLEWARE;
-
-        if (providerTypes != null && idx < providerTypes.length && providerTypes[idx] != null) {
-            try {
-                providerType = FaxConfig.ProviderType.valueOf(providerTypes[idx]);
-            } catch (IllegalArgumentException ex) {
-                MiscUtils.getLogger().warn("Invalid provider type '{}' for fax config id {}. Falling back to MIDDLEWARE.",
-                        providerTypes[idx], faxConfigId);
-            }
+        // Default to MIDDLEWARE only if provider type is not specified (null or missing)
+        if (providerTypes == null || idx >= providerTypes.length || providerTypes[idx] == null) {
+            MiscUtils.getLogger().info("Provider type not specified for fax config id {}. Using default MIDDLEWARE.", faxConfigId);
+            return FaxConfig.ProviderType.MIDDLEWARE;
         }
 
-        return providerType;
+        // Validate and parse provider type - throw exception for invalid values to notify user
+        try {
+            return FaxConfig.ProviderType.valueOf(providerTypes[idx]);
+        } catch (IllegalArgumentException ex) {
+            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX",
+                    providerTypes[idx], faxConfigId);
+            MiscUtils.getLogger().error(errorMsg, ex);
+            throw new IllegalArgumentException(errorMsg); // Propagate to user via catch block at line 249
+        }
     }
 
     /**
@@ -315,11 +325,14 @@ public class ConfigureFax2Action extends ActionSupport {
     private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser,
                                    String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
                                    String[] inboxQueues, int idx, Integer faxConfigId) {
-        if (StringUtils.isBlank(faxUrl)) {
-            throw new IllegalArgumentException("Fax server URL is required.");
-        }
-        if (StringUtils.isBlank(siteUser)) {
-            throw new IllegalArgumentException("Fax server username is required.");
+        // Middleware mode requires URL and credentials; SRFax mode can use default URL
+        if (providerType == FaxConfig.ProviderType.MIDDLEWARE) {
+            if (StringUtils.isBlank(faxUrl)) {
+                throw new IllegalArgumentException("Middleware relay URL is required for Middleware mode.");
+            }
+            if (StringUtils.isBlank(siteUser)) {
+                throw new IllegalArgumentException("Middleware server username is required for Middleware mode.");
+            }
         }
         if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
             throw new IllegalArgumentException("Fax user is required for account row " + (idx + 1) + ".");

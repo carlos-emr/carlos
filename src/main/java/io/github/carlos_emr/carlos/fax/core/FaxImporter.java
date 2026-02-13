@@ -218,6 +218,21 @@ public class FaxImporter {
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
 
+        if (faxConfigList.isEmpty()) {
+            log.warn("No fax accounts configured - scheduler running but nothing to poll");
+            return;
+        }
+
+        // Count active configs with download enabled
+        long activeDownloadCount = faxConfigList.stream()
+                .filter(fc -> fc.isActive() && fc.isDownload())
+                .count();
+
+        if (activeDownloadCount == 0) {
+            log.warn("No active fax accounts with download enabled - scheduler running but nothing to poll");
+            return;
+        }
+
         for (FaxConfig faxConfig : faxConfigList) {
             if (!faxConfig.isActive() || !faxConfig.isDownload()) {
                 continue;

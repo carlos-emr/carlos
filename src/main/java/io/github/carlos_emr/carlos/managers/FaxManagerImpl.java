@@ -254,20 +254,28 @@ public class FaxManagerImpl implements FaxManager {
                 Path faxDocument = Paths.get(faxJobObject.getFile_name());
                 try {
                     faxDocument = addCoverPage(loggedInInfo, comments, faxJobObject.getFaxRecipient(), faxJobObject.getFaxAccount(), faxDocument);
-                    faxJob.setNumPages(faxJobObject.getNumPages() + 1);
-                } catch (IOException e) {
-                    logger.error("failed to add cover page ", e);
-                    faxJobObject.setStatus(STATUS.ERROR);
-                } finally {
-                    /*
-                     * set the final document retrieval path.
-                     */
+                    faxJobObject.setNumPages(faxJobObject.getNumPages() + 1);
                     faxJobObject.setFile_name(faxDocument.getFileName().toString());
+                } catch (IOException e) {
+                    logger.error("CRITICAL: Failed to add cover page for fax job to {} - Fax will NOT be sent without cover page",
+                            faxJobObject.getRecipient(), e);
+                    faxJobObject.setStatus(STATUS.ERROR);
+                    faxJobObject.setStatusString("Cover page creation failed. Fax not sent. Check disk space and logs.");
+                    // Do NOT set file_name - leave job in ERROR state and do not transmit
                 }
             }
         }
 
-        return saveFaxJob(loggedInInfo, faxJobList);
+        // Filter out ERROR jobs before saving (they won't be transmitted)
+        List<FaxJob> validJobs = faxJobList.stream()
+                .filter(job -> job.getStatus() != STATUS.ERROR)
+                .collect(java.util.stream.Collectors.toList());
+
+        if (validJobs.isEmpty()) {
+            throw new RuntimeException("All fax jobs failed validation. No faxes will be sent. Check logs for details.");
+        }
+
+        return saveFaxJob(loggedInInfo, validJobs);
     }
 
     /**
@@ -371,6 +379,8 @@ public class FaxManagerImpl implements FaxManager {
     public List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, String[] faxRecipients) {
 
         List<FaxRecipient> faxRecipientArray = new ArrayList<FaxRecipient>();
+        List<String> failedRecipients = new ArrayList<String>();
+
         for (String copytoRecipient : faxRecipients) {
             /*
              *  assumes that the recipient entry is a JSONObject
@@ -381,8 +391,22 @@ public class FaxManagerImpl implements FaxManager {
                 FaxRecipient faxRecipient = new FaxRecipient(copytoRecipientJson);
                 faxRecipientArray.add(faxRecipient);
             } catch (Exception e) {
-                logger.error("failed to parse fax recipient json: " + copytoRecipient, e);
+                logger.error("Failed to parse fax recipient JSON: {} - Recipient will be SKIPPED", copytoRecipient, e);
+                failedRecipients.add(copytoRecipient);
             }
+        }
+
+        // Fail fast if any recipients couldn't be parsed - don't send partial fax
+        if (!failedRecipients.isEmpty()) {
+            int displayCount = Math.min(3, failedRecipients.size());
+            String preview = String.join(", ", failedRecipients.subList(0, displayCount));
+            if (failedRecipients.size() > 3) {
+                preview += " (and " + (failedRecipients.size() - 3) + " more)";
+            }
+            throw new IllegalArgumentException(
+                    String.format("Failed to parse %d recipient(s). Fax not sent. Contact support if this persists. Failed entries: %s",
+                            failedRecipients.size(), preview)
+            );
         }
         return addRecipients(loggedInInfo, faxJob, faxRecipientArray);
     }
@@ -756,9 +780,9 @@ public class FaxManagerImpl implements FaxManager {
         long lastRun = faxSchedulerJob.getLastSuccessfulRunEpochMs();
         String lastError = faxSchedulerJob.getLastError();
 
-        String status = "Uncaught Exception - connection is likely down";
+        String status = "Scheduler Stopped (Fatal Error)";
         if (running) {
-            status = "No uncaught exception - connection is likely up";
+            status = "Scheduler Running";
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();

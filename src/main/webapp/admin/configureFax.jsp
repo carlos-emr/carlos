@@ -54,6 +54,16 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
+<%
+    // Declare Java variables at page scope before any HTML/JavaScript
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
+    List<FaxConfig> faxConfigList = faxManager.getFaxConfigurationAccounts(loggedInInfo);
+
+    QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
+    HashMap<Integer,String> queueMap = queueDao.getHashMapOfQueues();
+%>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -135,6 +145,31 @@
         var csrfParameterName = '${_csrf.parameterName}';
         var csrfToken = '${_csrf.token}';
 
+        // Warn user if they try to leave with unsaved changes
+        window.addEventListener('beforeunload', function (e) {
+            if (!$("#submit").prop("disabled")) {
+                e.preventDefault();
+                e.returnValue = ''; // Chrome requires returnValue to be set
+                return 'You have unsaved changes. Are you sure you want to leave?';
+            }
+        });
+
+        // Clear the unsaved changes flag after successful save
+        var originalAjaxSuccess = function(data) {
+            if (data.success) {
+                $("#submit").prop("disabled", true); // Re-disable submit button after save
+                $("#msg").text(data.message || "Configuration saved!");
+                $('.alert').removeClass('alert-error');
+                $('.alert').addClass('alert-success');
+                $('.alert').show();
+            } else {
+                $("#msg").text(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
+                $('.alert').removeClass('alert-success');
+                $('.alert').addClass('alert-error');
+                $('.alert').show();
+            }
+        };
+
         $(document).keypress(function () {
             $("#submit").prop("disabled", false);
             $(this).off();
@@ -145,13 +180,17 @@
 
             $("select").change(function () {
                 $("#submit").prop("disabled", false);
+                // Check if this is a provider type dropdown
+                if ($(this).attr("name") === "providerType") {
+                    updateMiddlewareFieldsVisibility();
+                }
                 $(this).off();
             });
 
             $("#submit").click(function (e) {
                 e.preventDefault();
 
-                var url = "<%=request.getContextPath() %>/admin/ManageFax.do?method=configure";
+                var url = "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do?method=configure";
                 var data = $("#configFrm").serialize();
 
                 $.ajax({
@@ -159,20 +198,7 @@
                     method: 'POST',
                     data: data,
                     dataType: "json",
-                    success: function (data) {
-
-                        if (data.success) {
-                            $("#msg").text(data.message || "Configuration saved!");
-                            $('.alert').removeClass('alert-error');
-                            $('.alert').addClass('alert-success');
-                            $('.alert').show();
-                        } else {
-                            $("#msg").text(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
-                            $('.alert').removeClass('alert-success');
-                            $('.alert').addClass('alert-error');
-                            $('.alert').show();
-                        }
-                    }
+                    success: originalAjaxSuccess
                 });
 
             });
@@ -183,106 +209,43 @@
             });
 
             getFaxSchedularStatus();
+            updateMiddlewareFieldsVisibility();
 
         });
 
-        <%
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
-        List<FaxConfig> faxConfigList = faxManager.getFaxConfigurationAccounts(loggedInInfo);
+        function updateMiddlewareFieldsVisibility() {
+            var providerType = $("#providerType").val();
 
-        Integer count = 0;
-
-        QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
-        HashMap<Integer,String>queueMap = queueDao.getHashMapOfQueues();
-
-        %>
-
-
-        var userCount = <%=faxConfigList.isEmpty() ? "0" : faxConfigList.size()%>;
-
-        function addUser() {
-            ++userCount;
-
-            var userDivId = "user" + userCount;
-            var div = $("#user").clone(true, true);
-
-            $(div).attr("id", userDivId);
-            $(div).find("#faxUser").attr("id", "faxUser" + userCount);
-            $(div).find("#faxPasswd").attr("id", "faxPasswd" + userCount);
-            $(div).find("#senderEmail").attr("id", "senderEmail" + userCount);
-            $(div).find("#accountName").attr("id", "accountName" + userCount);
-            $(div).find("#faxNumber").attr("id", "faxNumber" + userCount);
-
-            $(div).find("#remove").attr("id", "r" + userCount);
-            $(div).find("#r" + userCount).attr("onclick", "removeUser(" + userCount + ");return false;");
-            $(div).find('input[type="text"], input[type="password"], input[type="email"]').val("");
-            $(div).find('input[type="radio"]').prop('checked', false);
-            $(div).find("#on").attr("name", "active" + userCount);
-            $(div).find("#of").attr("name", "active" + userCount);
-            $(div).find("#on").attr("id", "on" + userCount);
-            $(div).find("#of").attr("id", "of" + userCount);
-            $(div).find("#activeState").val("");
-            $(div).find("#activeState").attr("id", "activeState" + userCount);
-            $(div).find("#download_on").attr("name", "download" + userCount);
-            $(div).find("#download_of").attr("name", "download" + userCount);
-            $(div).find("#download_on").attr("id", "download_on" + userCount);
-            $(div).find("#download_of").attr("id", "download_of" + userCount);
-            $(div).find("#downloadState").val("");
-            $(div).find("#downloadState").attr("id", "downloadState" + userCount);
-            $(div).find("#providerType").attr("id", "providerType" + userCount);
-            $(div).find("#providerType" + userCount).val("MIDDLEWARE");
-            $(div).find("#id").val("-1");
-            $(div).find("#id").attr("id", "id" + userCount);
-
-
-            $(div).find("#id").val("-1");
-            $(div).find("select[name='inboxQueue']").val("-1");
-
-            var theSpan = document.createElement("span");
-            //<div class="span12">
-            theSpan.setAttribute("class", "span12");
-            $(div).appendTo(theSpan);
-
-            $("#content").append(theSpan);
-
-            //$(div).appendTo("#content");
-            $("#faxUser" + userCount).focus();
-            $("#submit").prop("disabled", false);
-        }
-
-        function removeUser(divCount) {
-            var divId;
-
-            $("#submit").prop("disabled", false);
-
-            if (divCount > 0) {
-                divId = "user" + divCount;
-                $("#" + divId).remove();
+            if (providerType === "MIDDLEWARE") {
+                // Show middleware fields and make them required
+                $("#middlewareFields").show();
+                $("#faxServiceUser").prop("required", true);
+                $("#faxServicePasswd").prop("required", true);
+                $("#faxUrl").prop("required", true);
             } else {
-                divId = "user";
-                $('#' + divId + ' input[type="text"]').val("");
-                $('#' + divId + ' input[type="password"]').val("");
-                $('#' + divId + ' input[type="email"]').val("");
-                $('#' + divId + ' input[type="radio"]').attr("checked", false);
-                $('#' + divId + ' input[type="hidden"]').val("");
-                $('#' + divId + ' select').val("-1");
+                // Hide middleware fields and remove required validation
+                $("#middlewareFields").hide();
+                $("#faxServiceUser").prop("required", false);
+                $("#faxServicePasswd").prop("required", false);
+                $("#faxUrl").prop("required", false);
+
+                // Clear middleware URL for SRFax mode (backend will use SRFax URL)
+                $("#faxUrl").val("");
             }
         }
 
         function setState(elem) {
-            var id;
+            // Update hidden state fields when radio buttons change
             if (elem.id.startsWith("download")) {
-                id = "#downloadState" + elem.id.substring(11);
+                $("#downloadState").val($(elem).val());
             } else {
-                id = "#activeState" + elem.id.substring(2);
+                $("#activeState").val($(elem).val());
             }
-            $(id).val($(elem).val());
         }
 
         function getFaxSchedularStatus() {
             $.ajax({
-                url: "<%=request.getContextPath() %>/admin/ManageFax.do",
+                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
                 method: 'POST',
                 data: 'method=getFaxSchedularStatus&' + csrfParameterName + '=' + csrfToken,
                 success: function (data) {
@@ -302,7 +265,7 @@
 
         function rebootFaxSchedular() {
             $.ajax({
-                url: "<%=request.getContextPath() %>/admin/ManageFax.do",
+                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
                 method: 'POST',
                 data: 'method=restartFaxScheduler&' + csrfParameterName + '=' + csrfToken,
                 success: function (data) {
@@ -325,212 +288,201 @@
     <form id="configFrm" method="post">
         <input type="hidden" name="method" value="configure"/>
         <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-        <div id="bodyrow" class="row">
 
-            <legend class="fax-section-title"><i class="fas fa-server"></i> Fax Server Credentials</legend>
-            <div class="span12">
-
-                <div class="row">
-                    <div class="span12">
-                        <label for="faxUrl"><i class="fas fa-link"></i> Fax Server URL</label>
-                        <input class="span12" id="faxUrl" type="text" name="faxUrl" placeholder="fax web service URL"
-                               value="<%=Encode.forHtmlAttribute( ! faxConfigList.isEmpty() ? faxConfigList.get(0).getUrl() : "")%>"/>
-                        <small class="muted">For middleware mode use relay service URL. For SRFax mode use SRFax API endpoint URL.</small>
-                    </div>
+        <!-- Scheduler Health Status - Top of Page -->
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax.restart" rights="r" reverse="<%=false%>">
+            <div class="row">
+                <div class="span12">
+                    <legend class="fax-section-title"><i class="fas fa-heartbeat"></i> Scheduler Health Status</legend>
+                    <small class="fax-muted" style="display: block; margin-bottom: 12px;">
+                        The fax scheduler polls for inbound/outbound faxes at regular intervals. These metrics show scheduler health, not fax gateway connectivity.
+                    </small>
                 </div>
-
-                <div class="row">
-                    <div class="span6">
-                        <label for="faxServiceUser"><i class="fas fa-user"></i> Fax Server Username</label>
-                        <input class="span6" id="faxServiceUser" type="text" name="siteUser"
-                               value="<%=Encode.forHtmlAttribute( ! faxConfigList.isEmpty() ? faxConfigList.get(0).getSiteUser() : "" )%>"/>
-                    </div>
-
-                    <div class="span6">
-                        <%
-                            String faxServicePassword = "";
-
-                            if (!faxConfigList.isEmpty() && faxConfigList.get(count) != null && faxConfigList.get(count).getPasswd() != null
-                                    && faxConfigList.get(count).getPasswd().length() > 0) {
-                                faxServicePassword = "**********";
-                            }
-
-                        %>
-                        <label for="faxServicePasswd"><i class="fas fa-key"></i> Fax Server Password</label>
-                        <input class="span6" id="faxServicePasswd" type="password" name="sitePasswd"
-                               value="<%=Encode.forHtmlAttribute( faxServicePassword )%>"/>
-                    </div>
-
+                <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
+                    <label class="status-label"><i class="fas fa-heartbeat"></i> Scheduler Status:</label><label id="faxStatusDetails"></label>
                 </div>
-
-                <!-- #Fax Status -->
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax.restart" rights="r"
-                                   reverse="<%=false%>">
-                    <div class="row">
-                        <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
-                            <label class="status-label"><i class="fas fa-heartbeat"></i> Fax Server Connection Status:</label><label id="faxStatusDetails"></label>
-                        </div>
-                        <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
-                            <label class="status-label"><i class="fas fa-clock"></i> Last Successful Poll:</label><label id="faxLastRunDetails">Never</label>
-                        </div>
-                        <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
-                            <label class="status-label"><i class="fas fa-exclamation-triangle"></i> Last Error:</label><label id="faxLastErrorDetails">None</label>
-                        </div>
-                        <div class="span12">
-                            <button id="restartFaxSchedulerBtn" class="btn btn-warning" type="button" onclick="rebootFaxSchedular()" disabled>
-                                <i class="fas fa-sync-alt"></i> Restart Connection
-                            </button>
-                        </div>
-                    </div>
-                </security:oscarSec>
-
+                <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
+                    <label class="status-label"><i class="fas fa-clock"></i> Last Poll Cycle:</label><label id="faxLastRunDetails">Never</label>
+                    <small class="fax-muted" style="margin-left: 8px;">(scheduler ran, may have had nothing to process)</small>
+                </div>
+                <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
+                    <label class="status-label"><i class="fas fa-exclamation-triangle"></i> Last Scheduler Error:</label><label id="faxLastErrorDetails">None</label>
+                </div>
+                <div class="span12" style="margin-bottom: 20px;">
+                    <button id="restartFaxSchedulerBtn" class="btn btn-warning" type="button" onclick="rebootFaxSchedular()" disabled>
+                        <i class="fas fa-sync-alt"></i> Restart Scheduler
+                    </button>
+                </div>
             </div>
-        </div>
-        <div id="content" class="row">
-            <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> Fax Gateway Accounts <a class="pull-right btn btn-mini btn-primary" style="margin-right:20px;" href="" onclick="addUser();return false;"><i class="fas fa-plus"></i> Add Account</a></legend>
+        </security:oscarSec>
 
+        <!-- Fax Gateway Configuration -->
+        <div class="row">
             <div class="span12">
+                <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> Fax Gateway Configuration</legend>
 
-                <% do { %>
-                <div class="row fax-card" id="user<%=count == 0 ? "" : count%>">
+                <div class="row fax-card">
                     <div class="span12">
+                        <%
+                            // Get first config or create defaults for empty config
+                            // Note: "config" is a JSP implicit object (ServletConfig), so use "faxCfg" instead
+                            FaxConfig faxCfg = faxConfigList.isEmpty() ? null : faxConfigList.get(0);
+                            String configId = faxCfg != null ? String.valueOf(faxCfg.getId()) : "-1";
+                            String faxUser = faxCfg != null ? faxCfg.getFaxUser() : "";
+                            String faxPassword = (faxCfg != null && faxCfg.getFaxPasswd() != null && !faxCfg.getFaxPasswd().isEmpty()) ? "**********" : "";
+                            String faxNumber = faxCfg != null ? faxCfg.getFaxNumber() : "";
+                            String senderEmail = faxCfg != null ? faxCfg.getSenderEmail() : "";
+                            String accountName = faxCfg != null ? faxCfg.getAccountName() : "";
+                            Integer queueId = faxCfg != null ? faxCfg.getQueue() : -1;
+                            FaxConfig.ProviderType providerType = faxCfg != null ? faxCfg.getProviderType() : FaxConfig.ProviderType.MIDDLEWARE;
+                            boolean isActive = faxCfg != null && faxCfg.isActive();
+                            boolean isDownload = faxCfg != null && faxCfg.isDownload();
+                            String faxUrl = faxCfg != null ? faxCfg.getUrl() : "";
+                            String siteUser = faxCfg != null ? faxCfg.getSiteUser() : "";
+                            String sitePasswd = (faxCfg != null && faxCfg.getPasswd() != null && !faxCfg.getPasswd().isEmpty()) ? "**********" : "";
+                        %>
 
+                        <!-- Provider Type Selection -->
                         <div class="row">
                             <div class="span6">
-                                <label for="faxUser<%=count == 0 ? "" : count%>">User</label>
-                                <input class="span6" type="text" id="faxUser<%=count == 0 ? "" : count%>" name="faxUser"
-                                       value="<%=Encode.forHtmlAttribute( faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getFaxUser() )%>"/>
-                                <input type="hidden" id="id<%=count == 0 ? "" : count%>" name="id"
-                                       value="<%=faxConfigList.isEmpty() ? "-1" : faxConfigList.get(count).getId()%>"/>
-
+                                <label for="providerType">Fax Provider</label>
+                                <select class="span6" id="providerType" name="providerType">
+                                    <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>>Middleware Relay (faxws)</option>
+                                    <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>>SRFax Direct API</option>
+                                </select>
+                                <small class="fax-muted"><i class="fas fa-info-circle"></i> Choose how to connect: via middleware relay server or directly to SRFax API</small>
                             </div>
+                        </div>
 
+                        <!-- Middleware Relay Fields (shown only for Middleware provider) -->
+                        <div id="middlewareFields" style="display:none;">
+                            <div class="row">
+                                <div class="span12">
+                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">Middleware Relay Server</h6>
+                                    <small class="fax-muted" style="display: block; margin-bottom: 12px;">
+                                        <i class="fas fa-info-circle"></i> Configure the relay server that will forward faxes to/from SRFax
+                                    </small>
+                                </div>
+                                <div class="span12">
+                                    <label for="faxUrl"><i class="fas fa-link"></i> Middleware Relay URL</label>
+                                    <input class="span12" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
+                                           value="<%=Encode.forHtmlAttribute(faxUrl)%>"/>
+                                    <small class="fax-muted">URL of your middleware relay server</small>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="span6">
+                                    <label for="faxServiceUser"><i class="fas fa-user"></i> Middleware Username</label>
+                                    <input class="span6" id="faxServiceUser" type="text" name="siteUser"
+                                           value="<%=Encode.forHtmlAttribute(siteUser)%>"/>
+                                    <small class="fax-muted">Username for middleware relay server</small>
+                                </div>
+                                <div class="span6">
+                                    <label for="faxServicePasswd"><i class="fas fa-key"></i> Middleware Password</label>
+                                    <input class="span6" id="faxServicePasswd" type="password" name="sitePasswd"
+                                           value="<%=Encode.forHtmlAttribute(sitePasswd)%>"/>
+                                    <small class="fax-muted">Password for middleware relay server</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SRFax Account Credentials (always shown) -->
+                        <div class="row">
+                            <div class="span12">
+                                <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax Account Credentials</h6>
+                                <small class="fax-muted" style="display: block; margin-bottom: 12px;">
+                                    <i class="fas fa-info-circle"></i> Required for both provider types - your SRFax account details
+                                </small>
+                            </div>
                             <div class="span6">
-                                <label for="faxPasswd<%=count == 0 ? "" : count%>">Password</label>
-                                <%
-                                    String faxPassword = "";
+                                <label for="faxUser">SRFax Username</label>
+                                <input class="span6" type="text" id="faxUser" name="faxUser"
+                                       value="<%=Encode.forHtmlAttribute(faxUser)%>"/>
+                                <input type="hidden" id="id" name="id" value="<%=configId%>"/>
+                            </div>
+                            <div class="span6">
+                                <label for="faxPasswd">SRFax Password</label>
+                                <input class="span6" type="password" id="faxPasswd" name="faxPassword"
+                                       value="<%=Encode.forHtmlAttribute(faxPassword)%>"/>
+                            </div>
+                        </div>
 
-                                    if (!faxConfigList.isEmpty() && faxConfigList.get(count) != null && faxConfigList.get(count).getFaxPasswd() != null
-                                            && faxConfigList.get(count).getFaxPasswd().length() > 0) {
-                                        faxPassword = "**********";
-                                    }
-
-                                %>
-                                <input class="span6" type="password" id="faxPasswd<%=count == 0 ? "" : count%>"
-                                       name="faxPassword" value="<%=Encode.forHtmlAttribute( faxPassword )%>"/>
+                        <!-- Account Details -->
+                        <div class="row">
+                            <div class="span6">
+                                <label for="faxNumber">Fax Number</label>
+                                <input class="span6" type="text" id="faxNumber" name="faxNumber"
+                                       value="<%=Encode.forHtmlAttribute(faxNumber)%>"/>
+                            </div>
+                            <div class="span6">
+                                <label for="senderEmail">Email</label>
+                                <input class="span6" type="email" id="senderEmail" name="senderEmail"
+                                       placeholder="Account email"
+                                       value="<%=Encode.forHtmlAttribute(senderEmail)%>"/>
                             </div>
                         </div>
                         <div class="row">
                             <div class="span6">
-
-                                <label for="faxNumber<%=count == 0 ? "" : count%>">Fax Number</label>
-                                <input class="span6" type="text" id="faxNumber<%=count == 0 ? "" : count%>"
-                                       name="faxNumber"
-                                       value="<%=Encode.forHtmlAttribute( faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getFaxNumber() )%>"/>
-                            </div>
-
-                            <div class="span6">
-                                <label for="senderEmail<%=count == 0 ? "" : count%>">Email</label>
-
-                                <input class="span6" type="email" id="senderEmail<%=count == 0 ? "" : count%>"
-                                       name="senderEmail" placeholder="Account email"
-                                       value="<%=Encode.forHtmlAttribute(faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getSenderEmail())%>"/>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="span6">
-                                <label for="inBoxQueue<%=count == 0 ? "" : count%>">Inbox Queue</label>
-                                <select class="span6" id="inBoxQueue<%=count == 0 ? "" : count%>" name="inboxQueue">
+                                <label for="inBoxQueue">Inbox Queue</label>
+                                <select class="span6" id="inBoxQueue" name="inboxQueue">
                                     <option value="-1">-</option>
                                     <%
-                                        for (Integer queueId : queueMap.keySet()) {
-
-                                            out.print("<option value='" + queueId + "'");
-
-                                            if (!faxConfigList.isEmpty()) {
-
-                                                if (faxConfigList.get(count).getQueue().compareTo(queueId) == 0) {
-                                                    out.print(" selected");
-                                                }
+                                        for (Integer qId : queueMap.keySet()) {
+                                            out.print("<option value='" + qId + "'");
+                                            if (qId.equals(queueId)) {
+                                                out.print(" selected");
                                             }
-
-                                            out.print(">" + Encode.forHtml(queueMap.get(queueId)) + "</option>");
+                                            out.print(">" + Encode.forHtml(queueMap.get(qId)) + "</option>");
                                         }
                                     %>
                                 </select>
-
                             </div>
                             <div class="span6">
-                                <label for="accountName<%= count == 0 ? "" : count %>">Account Name</label>
-                                <input type="text" name="accountName" id='accountName<%= count == 0 ? "" : count %>'
-                                       value='<%= Encode.forHtmlAttribute(faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getAccountName()) %>'/>
+                                <label for="accountName">Account Name</label>
+                                <input class="span6" type="text" name="accountName" id="accountName"
+                                       value="<%=Encode.forHtmlAttribute(accountName)%>"/>
                             </div>
                         </div>
+
+                        <!-- Enable/Disable Toggle -->
                         <div class="row">
                             <div class="span6">
-                                <label for="providerType<%=count == 0 ? "" : count%>">Provider Type</label>
-                                <select class="span6" id="providerType<%=count == 0 ? "" : count%>" name="providerType">
-                                    <option value="MIDDLEWARE" <%=faxConfigList.isEmpty() || faxConfigList.get(count).getProviderType() == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>>Middleware Relay</option>
-                                    <option value="SRFAX" <%=!faxConfigList.isEmpty() && faxConfigList.get(count).getProviderType() == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>>SRFax Direct API</option>
-                                </select>
-                                <small class="fax-muted"><i class="fas fa-info-circle"></i> SRFax inbound duplicate control uses unread-only fetch and mark-as-read after download.</small>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="span6">
-                                <label>Enable/Disable Gateway</label>
-
+                                <label>Enable Fax Gateway</label>
                                 <label class="radio inline control-label">
-                                    <input type="radio" id="on<%=count == 0 ? "" : count %>"
-                                           name="active<%=count == 0 ? "" : count%>"
-                                           value="true" <%=faxConfigList.isEmpty() ? "" : faxConfigList.get(count).isActive() ? "checked" : ""%>  />
-                                    On</label>
+                                    <input type="radio" id="on" name="active" value="true" <%=isActive ? "checked" : ""%> />
+                                    Enabled
+                                </label>
                                 <label class="radio inline control-label">
-                                    <input type="radio" id="of<%=count == 0 ? "" : count %>"
-                                           name="active<%=count == 0 ? "" : count%>"
-                                           value="false" <%=faxConfigList.isEmpty() ? "" : faxConfigList.get(count).isActive() ? "" : "checked"%> />
-                                    Off</label>
-
-                                <input type="hidden" id="activeState<%=count == 0 ? "" : count%>" name="activeState"
-                                       value="<%=faxConfigList.isEmpty() ? "" : faxConfigList.get(count).isActive()%>"/>
+                                    <input type="radio" id="of" name="active" value="false" <%=!isActive ? "checked" : ""%> />
+                                    Disabled
+                                </label>
+                                <input type="hidden" id="activeState" name="activeState" value="<%=isActive%>"/>
+                                <br/>
+                                <small class="fax-muted"><i class="fas fa-info-circle"></i> Turn the selected fax gateway on or off for sending and receiving</small>
                             </div>
                             <div class="span6">
-                                <label>Enable/Disable Receiving Faxes (If Gateway Enabled)</label>
-
-                                <label class="radio inline control-label">
-                                    <input type="radio" id="download_on<%=count == 0 ? "" : count %>"
-                                           name="download<%=count == 0 ? "" : count%>"
-                                           value="true" <%=faxConfigList.isEmpty() ? "" : faxConfigList.get(count).isDownload() ? "checked" : ""%>  />
-                                    On</label>
-                                <label class="radio inline control-label">
-                                    <input type="radio" id="download_of<%=count == 0 ? "" : count %>"
-                                           name="download<%=count == 0 ? "" : count%>"
-                                           value="false" <%=faxConfigList.isEmpty() ? "" : faxConfigList.get(count).isDownload() ? "" : "checked"%> />
-                                    Off</label>
-                                <input type="hidden" id="downloadState<%=count == 0 ? "" : count%>" name="downloadState"
-                                       value="<%=faxConfigList.isEmpty() ? "" : faxConfigList.get(count).isDownload()%>"/>
+                                <label>
+                                    <input type="checkbox" id="downloadCheckbox" <%=isDownload ? "checked" : ""%> onchange="$('#download_on').prop('checked', this.checked); $('#download_of').prop('checked', !this.checked); $('#downloadState').val(this.checked); $('#submit').prop('disabled', false);" />
+                                    Poll for incoming faxes
+                                </label>
+                                <input type="radio" id="download_on" name="download" value="true" style="display:none;" <%=isDownload ? "checked" : ""%> />
+                                <input type="radio" id="download_of" name="download" value="false" style="display:none;" <%=!isDownload ? "checked" : ""%> />
+                                <input type="hidden" id="downloadState" name="downloadState" value="<%=isDownload%>"/>
+                                <br/>
+                                <small class="fax-muted"><i class="fas fa-info-circle"></i> When checked, scheduler will automatically download incoming faxes. SRFax uses unread-only fetch with mark-as-read.</small>
                             </div>
                         </div>
 
-                        <% if (count <= faxConfigList.size()) { %>
-                        <div class="row">
-                            <div class="span12">
-                                <a class="pull-right btn btn-mini btn-danger" id="remove" href="" onclick="removeUser(<%=count%>);return false;"><i class="fas fa-trash-alt"></i> Delete</a>
-                            </div>
-                        </div>
-                        <%} %>
-                    </div> <!--  end master column -->
-                </div>    <!-- end account row -->
-                <%
-                        ++count;
-                    } while (count < faxConfigList.size());
-                %>
-
-            </div> <!-- end master column -->
-        </div> <!-- end content -->
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="row">
-            <input class="btn" id="submit" type="submit" disabled value="Save Configuration"/>
+            <input class="btn btn-primary" id="submit" type="submit" disabled value="Save Configuration"/>
+            <small class="fax-muted" style="margin-left: 12px; display: inline-block; line-height: 30px;">
+                <i class="fas fa-info-circle"></i> Changes are not saved until you click "Save Configuration"
+            </small>
         </div>
     </form>
 
