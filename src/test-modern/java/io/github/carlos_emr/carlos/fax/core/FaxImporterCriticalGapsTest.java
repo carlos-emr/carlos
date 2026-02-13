@@ -122,16 +122,13 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
         faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
                 providerLabRoutingDao, faxProviderClientFactory);
 
-        // Use reflection to access private methods for targeted testing
+        // Use reflection to access methods for targeted testing
         generateUniqueFilenameMethod = FaxImporter.class.getDeclaredMethod("generateUniqueFilename", String.class);
-        generateUniqueFilenameMethod.setAccessible(true);
 
         validateAndCountPagesMethod = FaxImporter.class.getDeclaredMethod("validateAndCountPages", File.class);
-        validateAndCountPagesMethod.setAccessible(true);
 
         saveAndInsertIntoQueueMethod = FaxImporter.class.getDeclaredMethod("saveAndInsertIntoQueue",
                 FaxConfig.class, FaxJob.class, FaxJob.class);
-        saveAndInsertIntoQueueMethod.setAccessible(true);
     }
 
     /**
