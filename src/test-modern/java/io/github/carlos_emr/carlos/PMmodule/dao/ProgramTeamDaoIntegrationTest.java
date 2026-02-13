@@ -73,11 +73,19 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
         void shouldReturnTrueOnlyWhenBothMatch() {
             Program p1 = createProgram("PT-Program-1");
             Program p2 = createProgram("PT-Program-2");
-            createTeam(p1.getId(), "Alpha Team");
-            createTeam(p2.getId(), "Alpha Team");
+            createTeam(p1.getId(), "Team For P1");
+            createTeam(p2.getId(), "Team For P2");
             hibernateTemplate.flush();
 
-            assertThat(programTeamDAO.teamNameExists(p1.getId(), "Alpha Team")).isTrue();
+            // Assert team exists in the correct program
+            assertThat(programTeamDAO.teamNameExists(p1.getId(), "Team For P1")).isTrue();
+            assertThat(programTeamDAO.teamNameExists(p2.getId(), "Team For P2")).isTrue();
+
+            // Assert team does not exist in the wrong program
+            assertThat(programTeamDAO.teamNameExists(p1.getId(), "Team For P2")).isFalse();
+            assertThat(programTeamDAO.teamNameExists(p2.getId(), "Team For P1")).isFalse();
+
+            // Assert non-existent team is false
             assertThat(programTeamDAO.teamNameExists(p1.getId(), "Missing Team")).isFalse();
         }
     }
