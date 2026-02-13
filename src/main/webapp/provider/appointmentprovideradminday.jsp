@@ -2509,6 +2509,12 @@
     const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
     const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
 
-    document.getElementById("inboxLink").setAttribute("onclick", inboxLinkClickEvent);
-    document.getElementById("unclaimedLabLink").setAttribute("onclick", unclaimedLabLinkClickEvent);
+    const inboxLink = document.getElementById("inboxLink");
+    if (inboxLink) {
+        inboxLink.setAttribute("onclick", inboxLinkClickEvent);
+    }
+    const unclaimedLabLink = document.getElementById("unclaimedLabLink");
+    if (unclaimedLabLink) {
+        unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
+    }
 </script>

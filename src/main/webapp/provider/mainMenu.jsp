@@ -371,11 +371,17 @@
         src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
 <script>
     const contextPath = document.getElementById("contextPath").value;
-    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/www/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
-    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/www/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
+    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
+    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
 
-    document.getElementById("inboxLink").setAttribute("onclick", inboxLinkClickEvent);
-    document.getElementById("unclaimedLabLink").setAttribute("onclick", unclaimedLabLinkClickEvent);
+    const inboxLink = document.getElementById("inboxLink");
+    if (inboxLink) {
+        inboxLink.setAttribute("onclick", inboxLinkClickEvent);
+    }
+    const unclaimedLabLink = document.getElementById("unclaimedLabLink");
+    if (unclaimedLabLink) {
+        unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
+    }
 
     function openPreferences(providerNumber) {
         const $div = jQuery('<div />').appendTo('body');

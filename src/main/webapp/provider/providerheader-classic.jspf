@@ -85,10 +85,11 @@ window.onload=function(){
 }
 
 
-function popupInboxManager(varpage){
+function popupInboxManager(varpage, vheight){
+    vheight = typeof(vheight) != 'undefined' ? vheight : 700;
     var page = "" + varpage;
     var windowname="apptProviderInbox";
-    windowprops = "height=700,width=1215,location=no,"
+    windowprops = "height="+vheight+",width=1215,location=no,"
     + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=10,left=0";
     var popup = window.open(page, windowname, windowprops);
     if (popup != null) {
@@ -207,7 +208,7 @@ function popupPage2(varpage) {
 </li>
 </security:oscarSec>
 
-<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r">
    <li>
        <a HREF="#" ONCLICK ="popupInboxManager('<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>
 	   <span id="oscar_new_lab"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/></span>
