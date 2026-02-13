@@ -108,10 +108,12 @@ public class SRFaxProviderClient implements FaxProviderClient {
             }
 
             // Log at DEBUG level with masked destination to avoid PHI exposure
-            String maskedDestination = faxJob.getDestination() != null && faxJob.getDestination().length() > 4
-                    ? "***" + faxJob.getDestination().substring(faxJob.getDestination().length() - 4)
-                    : "****";
-            logger.debug("SRFax send requested for fileName={} destination={}", faxJob.getFile_name(), maskedDestination);
+            if (logger.isDebugEnabled()) {
+                String maskedDestination = faxJob.getDestination() != null && faxJob.getDestination().length() > 4
+                        ? "***" + faxJob.getDestination().substring(faxJob.getDestination().length() - 4)
+                        : "****";
+                logger.debug("SRFax send requested for fileName={} destination={}", faxJob.getFile_name(), maskedDestination);
+            }
 
             List<NameValuePair> params = createAuthParams(faxConfig);
             params.add(new BasicNameValuePair("action", ACTION_QUEUE_FAX));
