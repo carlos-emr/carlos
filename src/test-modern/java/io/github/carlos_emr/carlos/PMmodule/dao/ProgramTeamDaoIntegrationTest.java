@@ -19,10 +19,10 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.PMmodule.dao;
+package io.github.carlos_emr.carlos.pmmodule.dao;
 
-import io.github.carlos_emr.carlos.PMmodule.model.Program;
-import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
+import io.github.carlos_emr.carlos.pmmodule.model.Program;
+import io.github.carlos_emr.carlos.pmmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
