@@ -29,6 +29,26 @@
 
 --%>
 
+<%--
+    reportindex.jsp - Report Index Page
+
+    Purpose: Main entry point for CARLOS EMR reporting features.
+             Displays available reports and provides navigation to each report tool.
+
+    Features:
+      - Day Sheet report with provider/date/time filtering
+      - Demographic Report Tool
+      - Prevention Reporting
+      - Chronic Disease Management
+      - Waiting List
+      - Clinical Reports
+
+    Parameters:
+      Session: userrole, user, logged-in provider preference
+
+    @since 2026-02-13
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -46,6 +66,7 @@
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%
@@ -136,8 +157,8 @@
                 var y = document.getElementsByName("sTime")[0].value;
                 var z = document.getElementsByName("eTime")[0].value;
                 var ro = document.getElementById("rosteredOnly").checked;
-                var x = 'reportdaysheet.jsp?dsmode=' + r + '&provider_no=' + s + '&sdate=' + u + '&edate=' + v + '&sTime=' + y + '&eTime=' + z;
-                var x2 = 'reportdaysheet.jsp?dsmode=' + r + '&provider_no=' + s + '&sdate=' + u + '&edate=' + v + '&sTime=' + y + '&eTime=' + z + '&rosteredStatus=true';
+                var x = 'reportdaysheet.jsp?dsmode=' + encodeURIComponent(r) + '&provider_no=' + encodeURIComponent(s) + '&sdate=' + encodeURIComponent(u) + '&edate=' + encodeURIComponent(v) + '&sTime=' + encodeURIComponent(y) + '&eTime=' + encodeURIComponent(z);
+                var x2 = x + '&rosteredStatus=true';
 
                 if (ro == true) {
                     popupPageNew(600, 750, x2);
@@ -166,6 +187,7 @@
         </h4>
     </div>
     <form name='report'>
+        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <table class="table table-sm table-striped" id="reportsTbl" style="width:100%">
             <%int j = 1; %>
             <tr>
@@ -182,8 +204,8 @@
                             if (isTeamAccessPrivacy)
                                 continue;    //skip mygroup display if user have TeamAccessPrivacy
                     %>
-                    <option value="<%="_grp_"+rsgroup.getString("mygroup_no")%>"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><%="GRP: " + rsgroup.getString("mygroup_no")%>
+                    <option value="<%=Encode.forHtmlAttribute("_grp_"+rsgroup.getString("mygroup_no"))%>"
+                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><%=Encode.forHtml("GRP: " + rsgroup.getString("mygroup_no"))%>
                     </option>
                     <%
                         }
@@ -192,8 +214,8 @@
                         rsgroup = reportMainBean.queryResults(provider_dboperation);
                         while (rsgroup.next()) {
                     %>
-                    <option value="<%=rsgroup.getString("provider_no")%>"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><%=rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name")%>
+                    <option value="<%=Encode.forHtmlAttribute(rsgroup.getString("provider_no"))%>"
+                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><%=Encode.forHtml(rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name"))%>
                     </option>
                     <%
                         }
