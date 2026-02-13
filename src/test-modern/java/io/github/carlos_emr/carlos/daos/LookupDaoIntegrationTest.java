@@ -83,8 +83,8 @@ public class LookupDaoIntegrationTest extends OpenOTestBase {
     @Tag("query")
     @DisplayName("should bind tableId in GetLookupTableDef")
     void shouldBindTableIdInGetLookupTableDef() {
-        createLookupTableDef("LKP_A_" + System.nanoTime(), "lkp_a");
-        String wantedId = "LKP_B_" + System.nanoTime();
+        createLookupTableDef("LKP_A_" + java.util.UUID.randomUUID(), "lkp_a");
+        String wantedId = "LKP_B_" + java.util.UUID.randomUUID();
         createLookupTableDef(wantedId, "lkp_b");
         hibernateTemplate.flush();
 
