@@ -5,21 +5,7 @@
            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
 
-	<!-- Define the scheduled task (FaxSchedulerJob) -->
+	<!-- FaxSchedulerJob is self-scheduling via @PostConstruct initialize() - starts automatically on bean creation -->
 	<bean id="faxSchedulerJob" class="io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob" />
-
-	<!-- Define the scheduled executor factory bean -->
-	<bean id="scheduledExecutorFactoryBean" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
-		<property name="scheduledExecutorTasks">
-			<list>
-				<!-- Configure the scheduled task -->
-				<bean class="org.springframework.scheduling.concurrent.ScheduledExecutorTask">
-					<property name="delay" value="5000" />
-					<property name="period" value="${faxPollInterval}" />
-					<property name="runnable" ref="faxSchedulerJob" />
-				</bean>
-			</list>
-		</property>
-	</bean>
 
 </beans>

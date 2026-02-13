@@ -20,6 +20,5 @@ DEALLOCATE PREPARE stmt;
 -- Backfill existing rows to preserve current middleware behavior.
 -- This is safe to run multiple times
 UPDATE `fax_config`
-SET `providerType` = 'MIDDLEWARE',
-    `lastUpdateDate` = NOW()
+SET `providerType` = 'MIDDLEWARE'
 WHERE `providerType` IS NULL OR `providerType` = '';
