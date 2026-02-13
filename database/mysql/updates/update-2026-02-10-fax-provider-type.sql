@@ -9,9 +9,9 @@ WHERE TABLE_SCHEMA = DATABASE()
   AND TABLE_NAME = 'fax_config' 
   AND COLUMN_NAME = 'providerType';
 
--- Add column only if it doesn't exist
+-- Add column only if it doesn't exist (positioned after 'download' column for schema consistency)
 SET @sql = IF(@col_exists = 0,
-    'ALTER TABLE `fax_config` ADD COLUMN `providerType` varchar(25) DEFAULT ''MIDDLEWARE''',
+    'ALTER TABLE `fax_config` ADD COLUMN `providerType` varchar(25) DEFAULT ''MIDDLEWARE'' AFTER `download`',
     'SELECT ''Column providerType already exists in fax_config'' AS message');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
