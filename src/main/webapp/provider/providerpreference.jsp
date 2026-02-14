@@ -56,7 +56,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ page import="io.github.carlos_emr.util.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
