@@ -773,12 +773,12 @@ font-size:17px;
 				 </p>
 			  	<c:forEach items="${ demographicUserSelect }" var="demographicSelect" >
 			  		<div class="demographicOption">
-			  			<input type="radio" name="selectedDemographicNo" id="demographic_${ fn:replace(demographicSelect.demographicNo, ' ', '') }" value="${ demographicSelect.demographicNo }" />
-			  			<label for="demographic_${ fn:replace(demographicSelect.demographicNo, ' ', '') }">
+			  			<input type="radio" name="selectedDemographicNo" id="demographic_${ fn:replace(fn:replace(fn:replace(demographicSelect.demographicNo, ' ', ''), '\"', ''), \"'\", '') }" value="${ demographicSelect.demographicNo }" />
+			  			<label for="demographic_${ fn:replace(fn:replace(fn:replace(demographicSelect.demographicNo, ' ', ''), '\"', ''), \"'\", '') }">
 			  				<c:out value="${ demographicSelect.lastName }" />, <c:out value="${ demographicSelect.firstName }" /> <br />
 							<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="global.gender" />:</strong> <c:out value="${ demographicSelect.sex }" /><br />
 							<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="global.hin" />:</strong> <c:out value="${ demographicSelect.hin }" /><br />
-							<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="dob" />:</strong> <c:out value="${ demographicSelect.birthDayAsString }" />
+							<strong><fmt:setBundle basename="dob" />:</strong> <c:out value="${ demographicSelect.birthDayAsString }" />
 			  			</label>
 			  		</div>
 			  	</c:forEach>
