@@ -28,731 +28,1424 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%
-    String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    String providerNo = loggedInInfo.getLoggedInProviderNo();
+<%--
+    Provider Preferences - Consolidated Single-Page View
 
+    Displays all provider preferences in a single Bootstrap 5 accordion layout,
+    themed to match the CARLOS EMR schedule page (navy blue #486ebd header, clean
+    clinical styling). Uses FontAwesome icons for visual clarity.
 
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-%>
+    Previously, most settings required navigating to ~35 separate sub-pages via
+    setProviderStaleDate.do. Now they are all inlined with a single Save button.
+    Only items that truly require a separate page (password change, signature edit,
+    printer setup, etc.) remain as external links.
 
+    Data flow:
+      - Reads: ProviderPreference entity + UserProperty map (bulk-loaded)
+      - Saves: POST to providerupdatepreference.jsp which calls both
+               ProviderPreferencesUIBean.updateOrCreateProviderPreferences() and
+               ProviderPropertyAction.updateOrCreateProviderProperties()
+      - Two fields auto-save via AJAX: rxInteractionWarningLevel, reviewMsg
+
+    @since 2001 (original), redesigned 2026-02-14 for consolidated single-page view
+--%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.util.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.EncounterForm" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="java.util.List" %>
-<%@page import="java.util.ArrayList" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EncounterForm" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page errorPage="/errorpage.jsp" %>
 <%!
+    // Spring-managed DAOs - declared at class level for reuse across requests
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
     UserPropertyDAO propertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 %>
+<%
+    // ── Authentication & provider context ──────────────────────────────────
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (loggedInInfo == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
+    String providerNo = loggedInInfo.getLoggedInProviderNo();
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
-<html>
+    // ── Load the main ProviderPreference entity (schedule, billing, eRx) ──
+    ProviderPreference providerPreference = ProviderPreferencesUIBean.getProviderPreference(providerNo);
+    if (providerPreference == null) {
+        providerPreference = new ProviderPreference();
+    }
 
-    <head>
-        <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.title"/></title>
-        <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-        <link rel="stylesheet" href="${ctx}/library/bootstrap/5.0.2/css/bootstrap.min.css">
-        <script src="${ctx}/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js"></script>
-        <script language="JavaScript">
+    // Schedule fields - use request params as override if present (e.g. from redirect)
+    String startHour = request.getParameter("start_hour") != null
+            ? request.getParameter("start_hour") : providerPreference.getStartHour().toString();
+    String endHour = request.getParameter("end_hour") != null
+            ? request.getParameter("end_hour") : providerPreference.getEndHour().toString();
+    String everyMin = request.getParameter("every_min") != null
+            ? request.getParameter("every_min") : providerPreference.getEveryMin().toString();
+    String myGroupNo = request.getParameter("mygroup_no") != null
+            ? request.getParameter("mygroup_no") : providerPreference.getMyGroupNo();
 
-            function setfocus() {
-                this.focus();
-                document.UPDATEPRE.mygroup_no.focus();
-                document.UPDATEPRE.mygroup_no.select();
+    // ── Bulk-load all UserProperty values into a map for efficient access ──
+    Map<String, String> props = propertyDao.getProviderPropertiesAsMap(providerNo);
+
+    // Prescription preferences
+    String rxPageSize = props.getOrDefault(UserProperty.RX_PAGE_SIZE, "");
+    boolean rxUseRx3 = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.RX_USE_RX3, "no"));
+    boolean rxShowDOB = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.RX_SHOW_PATIENT_DOB, "no"));
+    String rxDefaultQty = props.getOrDefault(UserProperty.RX_DEFAULT_QUANTITY, "");
+    if (rxDefaultQty.isEmpty()) {
+        // Fallback: the action historically stored under an alternate key
+        rxDefaultQty = props.getOrDefault("rxDefaultQuantityProperty", "");
+    }
+    boolean qrChecked = PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(providerNo);
+    String warningLevel = props.getOrDefault("rxInteractionWarningLevel", "0");
+
+    // Clinical preferences
+    String defaultSex = props.getOrDefault(UserProperty.DEFAULT_SEX, "");
+    String hcType = props.getOrDefault(UserProperty.HC_TYPE, "");
+    boolean cppSingleLine = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.CPP_SINGLE_LINE, "no"));
+    String staleNoteDate = props.getOrDefault(UserProperty.STALE_NOTEDATE, "A");
+    String staleFormat = props.getOrDefault(UserProperty.STALE_FORMAT, "No");
+
+    // Consultation preferences
+    String consultCutoff = props.getOrDefault(UserProperty.CONSULTATION_TIME_PERIOD_WARNING, "");
+    String consultTeam = props.getOrDefault(UserProperty.CONSULTATION_TEAM_WARNING, "");
+    String workloadMgmt = props.getOrDefault(UserProperty.WORKLOAD_MANAGEMENT, "");
+    String consultPasteFmt = props.getOrDefault(UserProperty.CONSULTATION_REQ_PASTE_FMT, "");
+    String eformGroup = props.getOrDefault(UserProperty.EFORM_FAVOURITE_GROUP, "");
+
+    // Lab & messaging preferences
+    boolean labAckComment = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.LAB_ACK_COMMENT, "no"));
+    String patientNameLen = props.getOrDefault(UserProperty.PATIENT_NAME_LENGTH, "");
+    String displayDocAs = props.getOrDefault(UserProperty.DISPLAY_DOCUMENT_AS, "");
+    boolean eDocInReport = "yes".equalsIgnoreCase(
+            props.getOrDefault(UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT, "no"));
+    boolean eDocInMaster = "yes".equalsIgnoreCase(
+            props.getOrDefault(UserProperty.EDOC_BROWSER_IN_MASTER_FILE, "no"));
+
+    // Encounter window preferences
+    String encWinWidth = props.getOrDefault("encounterWindowWidth", "");
+    String encWinHeight = props.getOrDefault("encounterWindowHeight", "");
+    boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
+    String quickChartSize = props.getOrDefault("quickChartSize", "");
+
+    // Contact info (used on prescriptions and consult letters)
+    String rxAddress = props.getOrDefault("rxAddress", "");
+    String rxCity = props.getOrDefault("rxCity", "");
+    String rxProvince = props.getOrDefault("rxProvince", "");
+    String rxPostal = props.getOrDefault("rxPostal", "");
+    String rxPhone = props.getOrDefault("rxPhone", "");
+    String faxNum = props.getOrDefault("faxnumber", "");
+
+    // Display preferences
+    String colour = props.getOrDefault(UserProperty.COLOUR, "");
+    boolean dashboardShare = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.DASHBOARD_SHARE, "no"));
+
+    // Appointment card preferences
+    String apptCardName = props.getOrDefault("appointmentCardName", "");
+    String apptCardPhone = props.getOrDefault("appointmentCardPhone", "");
+    String apptCardFax = props.getOrDefault("appointmentCardFax", "");
+
+    // Prevention warning preferences (use "true"/"false" unlike most prefs)
+    boolean prevSSO = "true".equalsIgnoreCase(
+            props.getOrDefault(UserProperty.PREVENTION_SSO_WARNING, "false"));
+    boolean prevISPA = "true".equalsIgnoreCase(
+            props.getOrDefault(UserProperty.PREVENTION_ISPA_WARNING, "false"));
+    boolean prevNonISPA = "true".equalsIgnoreCase(
+            props.getOrDefault(UserProperty.PREVENTION_NON_ISPA_WARNING, "false"));
+
+    // Schedule week view weekends (uses boolean parsing, not yes/no)
+    boolean weekendsEnabled = true;
+    UserProperty showWeekendsProp = propertyDao.getProp(providerNo, UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS);
+    if (showWeekendsProp != null) {
+        weekendsEnabled = Boolean.parseBoolean(showWeekendsProp.getValue());
+    }
+
+    // Review messages time - stored as "HH:mm" string in OSCAR_MSG_RECVD property.
+    // Parsed into separate hour/minute integers for the dropdown selection logic.
+    // Default is 0:00 if no preference has been saved or value is malformed.
+    Integer reviewH = 0;
+    Integer reviewMins = 0;
+    UserProperty reviewMsgProp = propertyDao.getProp(providerNo, UserProperty.OSCAR_MSG_RECVD);
+    if (reviewMsgProp != null && reviewMsgProp.getValue() != null) {
+        try {
+            String[] tmp = reviewMsgProp.getValue().split(":");
+            if (tmp.length >= 2) {
+                reviewH = Integer.valueOf(tmp[0]);
+                reviewMins = Integer.valueOf(tmp[1]);
             }
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Malformed review message time for provider "
+                    + providerNo + ": '" + reviewMsgProp.getValue() + "', defaulting to 0:00");
+        }
+    }
 
-            function upCaseCtrl(ctrl) {
-                ctrl.value = ctrl.value.toUpperCase();
-            }
+    // eForm groups for the favourite group dropdown
+    ArrayList<HashMap<String, String>> eformGroups = EFormUtil.getEFormGroups();
 
-            function checkTypeNum(typeIn) {
-                var typeInOK = true;
-                var i = 0;
-                var length = typeIn.length;
-                var ch;
-                // walk through a string and find a number
-                if (length >= 1) {
-                    while (i < length) {
-                        ch = typeIn.substring(i, i + 1);
-                        if (ch == ".") {
-                            i++;
-                            continue;
-                        }
-                        if ((ch < "0") || (ch > "9")) {
-                            typeInOK = false;
-                            break;
-                        }
-                        i++;
-                    }
-                } else typeInOK = false;
-                return typeInOK;
-            }
+    // eRx (electronic prescribing) preferences from the ProviderPreference entity
+    boolean erxEnabled = providerPreference.isERxEnabled();
+    boolean erxTraining = providerPreference.isERxTrainingMode();
+    String erxUsername = providerPreference.getERxUsername() != null ? providerPreference.getERxUsername() : "";
+    String erxFacility = providerPreference.getERxFacility() != null ? providerPreference.getERxFacility() : "";
+    String erxSsoUrl = providerPreference.getERx_SSO_URL() != null ? providerPreference.getERx_SSO_URL() : "";
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <c:set var="ctx" value="${pageContext.request.contextPath}"/>
+    <title>Provider Preferences</title>
 
-            function checkTypeIn(obj) {
-                if (!checkTypeNum(obj.value)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.msgMustBeNumber"/>");
-                }
-            }
+    <!-- CARLOS global scripts -->
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
-            function checkTypeInAll() {
-                var checkin = false;
-                var s = 0;
-                var e = 0;
-                var i = 0;
-                if (isNumeric(document.UPDATEPRE.start_hour.value) && isNumeric(document.UPDATEPRE.end_hour.value) && isNumeric(document.UPDATEPRE.every_min.value)) {
-                    s = eval(document.UPDATEPRE.start_hour.value);
-                    e = eval(document.UPDATEPRE.end_hour.value);
-                    i = eval(document.UPDATEPRE.every_min.value);
-                    if (e < 24) {
-                        if (s < e) {
-                            if (i <= (e - s) * 60 && i > 0) {
-                                checkin = true;
-                            } else {
-                                alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.msgPositivePeriod"/>");
-                                this.focus();
-                                document.UPDATEPRE.every_min.focus();
-                            }
-                        } else {
-                            alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.msgStartHourErlierEndHour"/>");
-                            this.focus();
-                            document.UPDATEPRE.start_hour.focus();
-                        }
-                    } else {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.msgHourLess24"/>");
-                        this.focus();
-                        document.UPDATEPRE.end_hour.focus();
-                    }
-                } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.msgTypeNumbers"/>");
-                }
-                return checkin;
-            }
+    <!-- Bootstrap 5 (CDN) + FontAwesome (local bundle) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
-            function isNumeric(strString) {
-                var validNums = "0123456789";
-                var strChar;
-                var retval = true;
-                if (strString.length == 0) {
-                    retval = false;
-                }
-                for (i = 0; i < strString.length && retval == true; i++) {
-                    strChar = strString.charAt(i);
-                    if (validNums.indexOf(strChar) == -1) {
-                        retval = false;
-                    }
-                }
-                return retval;
-            }
-
-            function showHideBillPref() {
-                $("billingONpref").toggle();
-            }
-
-            function showHideERxPref() {
-                //$("eRxPref").toggle();
-            }
-        </script>
-        <style type="text/css">
-            body { background: #f3f6fb; }
-            .pref-shell { max-width: 1100px; margin: 1.5rem auto; }
-            .pref-card { border: 0; border-radius: .85rem; box-shadow: 0 0.35rem 1rem rgba(15, 23, 42, .08); }
-            .pref-header { background: linear-gradient(135deg, #5f73c8, #7f91de); color: #fff; border-radius: .85rem .85rem 0 0; }
-            .preferenceTable td { border: 0; padding: .5rem .75rem; }
-            .preferenceLabel { width: 35%; font-size: .92rem; font-weight: 600; color: #334155; vertical-align: top; }
-            .preferenceUnits { font-size: .72rem; font-weight: 500; color: #64748b; }
-            .preferenceValue { font-size: .92rem; color: #0f172a; }
-            .preferenceValue input[type='text'], .preferenceValue input[type='password'], .preferenceValue select,
-            .eRxTableCenter input[type='text'], .eRxTableCenter input[type='password'] { border: 1px solid #cbd5e1; border-radius: .375rem; padding: .25rem .5rem; }
-            .pref-link-btn { display: inline-block; text-decoration: none; padding: .4rem .75rem; border-radius: .375rem; background: #e2e8f0; color: #1e293b; font-weight: 600; }
-            .pref-link-btn:hover { background: #cbd5e1; color: #0f172a; }
-            table.eRxTableCenter { width: 100%; margin: 0; }
-        </style>
-    </head>
-
-    <%
-        ProviderPreference providerPreference = ProviderPreferencesUIBean.getProviderPreference(providerNo);
-
-        if (providerPreference == null) {
-            providerPreference = new ProviderPreference();
+    <style>
+        /* ─── Colour palette matched to CARLOS schedule page ─── */
+        :root {
+            --carlos-navy: #486ebd;          /* Primary brand colour from schedule header */
+            --carlos-navy-dark: #3a5a9e;     /* Darker shade for hover/active states */
+            --carlos-navy-light: #5a7ec8;    /* Lighter shade for gradients */
+            --carlos-blue: #3EA4E1;          /* Accent blue from schedule time slots */
+            --carlos-teal: #00A488;          /* Teal accent from schedule */
+            --carlos-text: #00283c;          /* Dark blue text from schedule links */
+            --carlos-text-secondary: #475569;
+            --carlos-bg: #f0f4f8;            /* Light cool grey page background */
+            --carlos-input-bg: #F4EaD7;      /* Cream input background from schedule */
+            --carlos-input-border: #0097cf;  /* Cyan border from schedule inputs */
+            --carlos-border: #d5dce6;
+            --carlos-card-bg: #ffffff;
         }
 
-        String startHour = request.getParameter("start_hour") != null ? request.getParameter("start_hour") : providerPreference.getStartHour().toString();
-        String endHour = request.getParameter("end_hour") != null ? request.getParameter("end_hour") : providerPreference.getEndHour().toString();
-        String everyMin = request.getParameter("every_min") != null ? request.getParameter("every_min") : providerPreference.getEveryMin().toString();
-        String myGroupNo = request.getParameter("mygroup_no") != null ? request.getParameter("mygroup_no") : providerPreference.getMyGroupNo();
-        String newTicklerWarningWindow = request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : providerPreference.getNewTicklerWarningWindow();
-        String ticklerProviderNo = request.getParameter("tklerproviderno");
-        String defaultPMM = request.getParameter("default_pmm") != null ? request.getParameter("default_pmm") : providerPreference.getDefaultCaisiPmm();
-        String caisiBillingNotDelete = request.getParameter("caisiBillingPreferenceNotDelete") != null ? request.getParameter("caisiBillingPreferenceNotDelete") : String.valueOf(providerPreference.getDefaultDoNotDeleteBilling());
+        /* ─── Base layout ─── */
+        body {
+            background: var(--carlos-bg);
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-size: 13px;
+            color: var(--carlos-text);
+            margin: 0;
+            padding: 0;
+        }
 
-        //TODO add proper user interface for this billing setting in Ontario?
-        // String defaultBillingLocation = providerPreference.getDefaultBillingLocation()!=null?providerPreference.getDefaultBillingLocation():"no";
-    %>
+        /* ─── Sticky header bar ─── */
+        .pref-header {
+            background: var(--carlos-navy);
+            color: #fff;
+            padding: 10px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,.15);
+        }
+        .pref-header h1 {
+            font-size: 15px;
+            margin: 0;
+            font-weight: 600;
+            letter-spacing: .3px;
+        }
+        .pref-header h1 i { margin-right: 8px; opacity: .85; }
+        .pref-header .header-hint {
+            font-size: 11px;
+            opacity: .7;
+        }
 
-    <body onLoad="setfocus();showHideBillPref();showHideERxPref();">
-    <div class="container-fluid pref-shell">
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providerupdatepreference.jsp" onSubmit="return(checkTypeInAll())" class="card pref-card">
+        /* ─── Main scrollable body ─── */
+        .pref-body {
+            padding: 12px 14px 80px 14px;
+            max-width: 100%;
+        }
 
-        <div class="card-header text-center fw-bold pref-header">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.description"/>
-        </div>
+        /* ─── Accordion styling (matching schedule page feel) ─── */
+        .accordion-item {
+            border: 1px solid var(--carlos-border);
+            margin-bottom: 6px;
+            border-radius: 6px !important;
+            overflow: hidden;
+        }
+        .accordion-button {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 16px;
+            color: var(--carlos-text);
+            background: var(--carlos-card-bg);
+        }
+        .accordion-button i.section-icon {
+            width: 22px;
+            text-align: center;
+            margin-right: 10px;
+            color: var(--carlos-navy);
+            font-size: 14px;
+        }
+        .accordion-button:not(.collapsed) {
+            background: #e8eef7;
+            color: var(--carlos-navy-dark);
+            box-shadow: none;
+        }
+        .accordion-button:not(.collapsed) i.section-icon {
+            color: var(--carlos-navy-dark);
+        }
+        .accordion-button:focus {
+            box-shadow: 0 0 0 2px rgba(72, 110, 189, .25);
+        }
+        .accordion-button::after {
+            /* Bootstrap default chevron - tinted navy */
+            filter: hue-rotate(200deg) brightness(0.7);
+        }
+        .accordion-body {
+            padding: 10px 16px 14px 16px;
+            background: var(--carlos-card-bg);
+        }
 
-        <div class="card-body bg-white"><table class="preferenceTable table align-middle" style="width:100%;border-collapse:separate;">
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.preference.formStartHour"/>
-                    <span class="preferenceUnits">(0-23)</span>
-                </td>
-                <td class="preferenceValue">
-                    <INPUT TYPE="TEXT" NAME="start_hour" VALUE='<%=startHour%>' size="2" maxlength="2">
-                </td>
-            </tr>
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.preference.formEndHour"/>
-                    <span class="preferenceUnits">(0-23)</span>
-                </td>
-                <td class="preferenceValue">
-                    <INPUT TYPE="TEXT" NAME="end_hour" VALUE='<%=endHour%>' size="2" maxlength="2">
-                </td>
-            </tr>
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.preference.formPeriod"/>
-                    <span class="preferenceUnits"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.preference.min"/></span>
-                </td>
-                <td class="preferenceValue">
-                    <INPUT TYPE="TEXT" NAME="every_min" VALUE='<%=everyMin%>' size="2" maxlength="2">
-                </td>
-            </tr>
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.preference.formGroupNo"/>
-                </td>
-                <td class="preferenceValue">
-                    <INPUT TYPE="TEXT" NAME="mygroup_no" VALUE='<%=myGroupNo%>' size="12" maxlength="10">
-                    <a href="providerdisplaymygroup.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.viewedit"/></a>
-                </td>
-            </tr>
-            <!-- ticklerPlus removed -->
+        /* ─── Preference rows (label + value pairs) ─── */
+        .pref-row {
+            display: flex;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f3f7;
+            gap: 10px;
+        }
+        .pref-row:last-child { border-bottom: 0; }
+        .pref-row.align-top { align-items: flex-start; padding-top: 8px; }
 
-            <!-- QR Code on prescriptions setting -->
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.qrCodeOnPrescriptions"/>
-                </td>
-                <td class="preferenceValue">
-                    <%
-                        boolean checked = PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(providerNo);
-                    %>
-                    <input type="checkbox" name="prescriptionQrCodes" <%=checked ? "checked=\"checked\"" : ""%> />
-                </td>
-            </tr>
+        .pref-label {
+            flex: 0 0 42%;
+            font-weight: 500;
+            color: var(--carlos-text);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .pref-value { flex: 1; }
 
-                <%-- links to display on the appointment screen --%>
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.appointmentScreenLinkNameDisplayLength"/>
-                </td>
-                <td class="preferenceValue">
+        /* ─── Form inputs (schedule page cream style) ─── */
+        .pref-input {
+            font-size: 12px;
+            padding: 4px 8px;
+            background: var(--carlos-input-bg);
+            border: 1px solid var(--carlos-input-border);
+            border-radius: 4px;
+            color: var(--carlos-text);
+            width: 100%;
+            max-width: 280px;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .pref-input:focus {
+            border-color: var(--carlos-navy);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(72, 110, 189, .2);
+            background: #fff;
+        }
+        select.pref-input { cursor: pointer; }
+
+        /* Size variants */
+        .input-xs { max-width: 70px !important; }
+        .input-sm { max-width: 120px !important; }
+        .input-md { max-width: 200px !important; }
+
+        /* ─── Toggle switches ─── */
+        .form-check-input {
+            width: 2.4em;
+            height: 1.2em;
+            cursor: pointer;
+            border: 1px solid #b0bec5;
+        }
+        .form-check-input:checked {
+            background-color: var(--carlos-navy);
+            border-color: var(--carlos-navy);
+        }
+        .form-check-input:focus {
+            box-shadow: 0 0 0 2px rgba(72, 110, 189, .25);
+        }
+
+        /* ─── Colour picker ─── */
+        input[type="color"] {
+            width: 44px;
+            height: 30px;
+            padding: 2px;
+            border: 1px solid var(--carlos-input-border);
+            border-radius: 4px;
+            cursor: pointer;
+            background: var(--carlos-input-bg);
+        }
+
+        /* ─── Scrollable checkbox lists (encounter forms, eForms) ─── */
+        .scroll-box {
+            max-height: 140px;
+            overflow-y: auto;
+            border: 1px solid var(--carlos-border);
+            border-radius: 4px;
+            padding: 6px 8px;
+            background: #fafbfc;
+        }
+        .scroll-box label {
+            display: block;
+            font-size: 12px;
+            padding: 2px 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            border-radius: 3px;
+        }
+        .scroll-box label:hover { background: #e8eef7; }
+        .scroll-box input[type="checkbox"] { margin-right: 6px; }
+
+        /* ─── External link chips (Account & Advanced) ─── */
+        .pref-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .pref-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: #e8eef7;
+            border: 1px solid var(--carlos-border);
+            border-radius: 4px;
+            color: var(--carlos-navy);
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+        .pref-link:hover {
+            background: var(--carlos-navy);
+            color: #fff;
+            border-color: var(--carlos-navy);
+        }
+        .pref-link i { font-size: 11px; }
+
+        /* ─── Quick links table ─── */
+        .ql-table { width: 100%; }
+        .ql-table td {
+            padding: 3px 6px;
+            border: none;
+            font-size: 12px;
+            vertical-align: middle;
+        }
+
+        /* ─── Sticky footer bar ─── */
+        .footer-bar {
+            position: sticky;
+            bottom: 0;
+            background: #fff;
+            border-top: 2px solid var(--carlos-navy);
+            padding: 10px 20px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 -2px 6px rgba(0,0,0,.08);
+        }
+        .btn-save {
+            background: var(--carlos-navy);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            padding: 7px 28px;
+            border-radius: 4px;
+            font-size: 13px;
+            letter-spacing: .3px;
+        }
+        .btn-save:hover { background: var(--carlos-navy-dark); color: #fff; }
+        .btn-save i { margin-right: 6px; }
+        .btn-close-pref {
+            background: #e2e8f0;
+            border: none;
+            color: var(--carlos-text-secondary);
+            font-weight: 500;
+            padding: 7px 20px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .btn-close-pref:hover { background: #cbd5e1; color: var(--carlos-text); }
+        .btn-close-pref i { margin-right: 6px; }
+
+        /* ─── Utility classes ─── */
+        .hint { font-size: 11px; color: #94a3b8; font-weight: 400; }
+        .section-note {
+            font-size: 11.5px;
+            color: #64748b;
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+        .section-note i { margin-right: 4px; }
+        .badge-auto {
+            display: inline-block;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            background: var(--carlos-teal);
+            color: #fff;
+            font-weight: 500;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+<form name="UPDATEPRE" method="post" action="providerupdatepreference.jsp" onsubmit="return checkTypeInAll()">
+<input type="hidden" name="color_template" value="deepblue">
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     HEADER BAR - Sticky navy header matching the schedule page top bar
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="pref-header">
+    <h1><i class="fas fa-cog"></i> Provider Preferences</h1>
+    <span class="header-hint"><i class="fas fa-info-circle"></i> Click "Save All Preferences" to apply changes</span>
+</div>
+
+<div class="pref-body">
+<div class="accordion" id="prefAccordion">
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 1: SCHEDULE & APPOINTMENTS
+     Core scheduling parameters: hours, interval, groups, encounter forms
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secSchedule">
+            <i class="fas fa-calendar-alt section-icon"></i> Schedule &amp; Appointments
+        </button>
+    </h2>
+    <div id="secSchedule" class="accordion-collapse collapse show" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+
+            <%-- Schedule time range --%>
+            <div class="pref-row">
+                <div class="pref-label">Start Hour <span class="hint">(0-23)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="start_hour" value="<%=Encode.forHtmlAttribute(startHour)%>"
+                           class="pref-input input-xs" maxlength="2">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">End Hour <span class="hint">(0-23)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="end_hour" value="<%=Encode.forHtmlAttribute(endHour)%>"
+                           class="pref-input input-xs" maxlength="2">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Period <span class="hint">(minutes per slot)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="every_min" value="<%=Encode.forHtmlAttribute(everyMin)%>"
+                           class="pref-input input-xs" maxlength="2">
+                </div>
+            </div>
+
+            <%-- Provider group assignment --%>
+            <div class="pref-row">
+                <div class="pref-label">Group No</div>
+                <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
+                    <input type="text" name="mygroup_no" value="<%=Encode.forHtmlAttribute(myGroupNo != null ? myGroupNo : "")%>"
+                           class="pref-input input-sm" maxlength="10">
+                    <a href="providerdisplaymygroup.jsp" class="pref-link" target="_blank">
+                        <i class="fas fa-users"></i> View Groups
+                    </a>
+                </div>
+            </div>
+
+            <%-- Week view weekend toggle --%>
+            <div class="pref-row">
+                <div class="pref-label">Show Weekends in Week View</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="<%=UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS%>"
+                           value="true" <%=weekendsEnabled ? "checked" : ""%>>
+                </div>
+            </div>
+
+            <%-- Link name display length on appointment screen --%>
+            <div class="pref-row">
+                <div class="pref-label">Link Name Display Length</div>
+                <div class="pref-value">
                     <input type="text" name="appointmentScreenFormsNameDisplayLength"
-                           value='<%=providerPreference.getAppointmentScreenLinkNameDisplayLength()%>' size="2">
-                </td>
-            </tr>
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.formsToDisplayOnAppointmentScreen"/>
-                </td>
-                <td class="preferenceValue">
-                    <div style="height:10em;border:solid grey 1px;overflow:auto;white-space:nowrap;width:45em">
-                        <%
-                            List<EncounterForm> encounterForms = ProviderPreferencesUIBean.getAllEncounterForms();
-                            Collection<String> checkedEncounterFormNames = ProviderPreferencesUIBean.getCheckedEncounterFormNames(providerNo);
-                            for (EncounterForm encounterForm : encounterForms) {
-                                String nameEscaped = StringEscapeUtils.escapeHtml4(encounterForm.getFormName());
-                                String checkedString = (checkedEncounterFormNames.contains(encounterForm.getFormName()) ? "checked=\"checked\"" : "");
-                        %>
-                        <input type="checkbox" name="encounterFormName"
-                               value="<%=nameEscaped%>" <%=checkedString%> /> <%=nameEscaped%>
-                        <br/>
-                        <%
-                            }
-                        %>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.eFormsToDisplayOnAppointmentScreen"/>
-                </td>
-                <td class="preferenceValue">
-                    <div style="height:10em;border:solid grey 1px;overflow:auto;white-space:nowrap;width:45em">
-                        <%
-                            List<EForm> eforms = ProviderPreferencesUIBean.getAllEForms();
-                            Collection<ProviderPreference.EformLink> checkedEFormIds = ProviderPreferencesUIBean.getCheckedEFormIds(providerNo);
-                            for (EForm eform : eforms) {
-                                String checkedString = "";
-                                inner:
-                                for (ProviderPreference.EformLink eformLink : checkedEFormIds) {
-                                    if (eform.getId().equals(eformLink.getAppointmentScreenEForm())) {
-                                        checkedString = "checked";
-                                        break inner;
-                                    }
-                                }
+                           value="<%=Encode.forHtmlAttribute(String.valueOf(providerPreference.getAppointmentScreenLinkNameDisplayLength()))%>"
+                           class="pref-input input-xs">
+                </div>
+            </div>
 
-                        %>
-                        <input type="checkbox" name="eformId"
-                               value="<%=eform.getId()%>" <%=checkedString%> /> <%=StringEscapeUtils.escapeHtml4(eform.getFormName())%>
-                        <br/>
-                        <%
+            <%-- Encounter forms available on appointment screen --%>
+            <div class="pref-row align-top">
+                <div class="pref-label">Encounter Forms on Appointments</div>
+                <div class="pref-value">
+                    <div class="scroll-box"><%
+                        List<EncounterForm> encounterForms = ProviderPreferencesUIBean.getAllEncounterForms();
+                        Collection<String> checkedEncounterFormNames =
+                                ProviderPreferencesUIBean.getCheckedEncounterFormNames(providerNo);
+                        for (EncounterForm ef : encounterForms) {
+                            String chk = checkedEncounterFormNames.contains(ef.getFormName()) ? "checked" : "";
+                    %><label><input type="checkbox" name="encounterFormName"
+                                    value="<%=Encode.forHtmlAttribute(ef.getFormName())%>" <%=chk%>> <%=Encode.forHtml(ef.getFormName())%></label><%
+                        }
+                    %></div>
+                </div>
+            </div>
+
+            <%-- eForms available on appointment screen.
+                 Unlike encounter forms (which match by name), eForms match by numeric ID
+                 against the provider's saved EformLink collection. --%>
+            <div class="pref-row align-top">
+                <div class="pref-label">eForms on Appointments</div>
+                <div class="pref-value">
+                    <div class="scroll-box"><%
+                        List<EForm> eforms = ProviderPreferencesUIBean.getAllEForms();
+                        Collection<ProviderPreference.EformLink> checkedEFormIds =
+                                ProviderPreferencesUIBean.getCheckedEFormIds(providerNo);
+                        for (EForm eform : eforms) {
+                            // Check if this eForm ID exists in the provider's saved links
+                            String chk = "";
+                            for (ProviderPreference.EformLink el : checkedEFormIds) {
+                                if (eform.getId().equals(el.getAppointmentScreenEForm())) {
+                                    chk = "checked";
+                                    break;
+                                }
                             }
-                        %>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.quickLinksToDisplayOnAppointmentScreen"/>
-                </td>
-                <td class="preferenceValue">
-                    <div style="height:10em;border:solid grey 1px;overflow:auto;white-space:nowrap;width:45em">
-                        <%
-                            Collection<ProviderPreference.QuickLink> quickLinks = ProviderPreferencesUIBean.getQuickLinks(providerNo);
-                            for (ProviderPreference.QuickLink quickLink : quickLinks) {
-                        %>
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="REMOVE"/>"
-                               onclick="document.location='providerPreferenceQuickLinksAction.jsp?action=remove&name='+escape('<%=StringEscapeUtils.escapeHtml4(quickLink.getName())%>')"/>
-                        <%=StringEscapeUtils.escapeHtml4(quickLink.getName())%>
-                        : <%=StringEscapeUtils.escapeHtml4(quickLink.getUrl())%>
-                        <br/>
-                        <%
-                            }
-                        %>
-                    </div>
-                    <table style="border:none;border-collapse:collapse">
+                    %><label><input type="checkbox" name="eformId"
+                                    value="<%=eform.getId()%>" <%=chk%>>
+                        <%=Encode.forHtml(eform.getFormName())%></label><%
+                        }
+                    %></div>
+                </div>
+            </div>
+
+            <%-- Quick links shown on the appointment screen --%>
+            <div class="pref-row align-top">
+                <div class="pref-label">Quick Links</div>
+                <div class="pref-value">
+                    <div class="scroll-box" style="max-height:100px; margin-bottom:6px"><%
+                        Collection<ProviderPreference.QuickLink> quickLinks =
+                                ProviderPreferencesUIBean.getQuickLinks(providerNo);
+                        for (ProviderPreference.QuickLink ql : quickLinks) {
+                    %><div style="padding:2px 0">
+                        <input type="button" value="Remove"
+                               class="btn btn-sm btn-outline-danger"
+                               style="font-size:10px; padding:1px 6px"
+                               onclick="document.location='providerPreferenceQuickLinksAction.jsp?action=remove&name='+encodeURIComponent('<%=Encode.forJavaScriptAttribute(ql.getName())%>')">
+                        <strong><%=Encode.forHtml(ql.getName())%></strong>:
+                        <%=Encode.forHtml(ql.getUrl())%>
+                    </div><%
+                        }
+                    %></div>
+                    <table class="ql-table">
                         <tr>
-                            <td style="border:none;text-align:right"><fmt:setBundle basename="oscarResources"/><fmt:message key="NAME"/></td>
-                            <td style="border:none"><input type="text" name="quickLinkName"/></td>
+                            <td style="width:50px">Name</td>
+                            <td><input type="text" name="quickLinkName" class="pref-input" style="max-width:200px"></td>
                         </tr>
                         <tr>
-                            <td style="border:none;text-align:right;vertical-align:top"><fmt:setBundle basename="oscarResources"/><fmt:message key="URL"/></td>
-                            <td style="border:none">
-                                <input type="text" name="quickLinkUrl"/>
-                                <div style="font-size:9px">(expanded tokens in the url are ${contextPath}
-                                    and ${demographicId})
-                                </div>
+                            <td>URL</td>
+                            <td>
+                                <input type="text" name="quickLinkUrl" class="pref-input" style="max-width:200px">
+                                <span class="hint">(tokens: ${contextPath} ${demographicId})</span>
                             </td>
                         </tr>
                         <tr>
-                            <td style="border:none"></td>
-                            <td style="border:none">
-                                <script type="text/javascript">
-                                    function addQuickLink() {
-                                        name = escape(document.UPDATEPRE.quickLinkName.value);
-                                        url = escape(document.UPDATEPRE.quickLinkUrl.value);
-                                        document.location = "providerPreferenceQuickLinksAction.jsp?action=add&name=" + name + "&url=" + url;
-                                    }
-                                </script>
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/>" onclick="addQuickLink()"/>
+                            <td></td>
+                            <td>
+                                <button type="button" class="btn btn-sm mt-1"
+                                        style="background:var(--carlos-navy); color:#fff; font-size:11px"
+                                        onclick="addQuickLink()">
+                                    <i class="fas fa-plus"></i> Add Link
+                                </button>
                             </td>
                         </tr>
                     </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="preferenceLabel">
-                    Show Weekends in Week View:
-                </td>
-                <td class="preferenceValue">
-                    <%
-                        UserProperty showWeekendsProp = propertyDao.getProp(providerNo, UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS);
-                        boolean weekendsEnabled = showWeekendsProp == null || Boolean.parseBoolean(showWeekendsProp.getValue());
-                    %>
-                    <input type="checkbox" name="schedule.week_view_weekends"
-                           value="true" <%=weekendsEnabled ? "checked=\"checked\"" : ""%> />
-                </td>
-            </tr>
-            <tr>
-                <%
+                </div>
+            </div>
 
-                    UserProperty prop = propertyDao.getProp(providerNo, "rxInteractionWarningLevel");
-                    String warningLevel = "0";
-                    if (prop != null) {
-                        warningLevel = prop.getValue();
-                    }
-                %>
-                <td class="preferenceLabel">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.rxInteractionWarningLevel"/>
-                </td>
-                <td class="preferenceValue">
-                    <select id="rxInteractionWarningLevel">
-                        <option value="0" <%=(warningLevel.equals("0") ? "selected=\"selected\"" : "") %>>Not
-                            Specified
-                        </option>
-                        <option value="1" <%=(warningLevel.equals("1") ? "selected=\"selected\"" : "") %>>Low</option>
-                        <option value="2" <%=(warningLevel.equals("2") ? "selected=\"selected\"" : "") %>>Medium
-                        </option>
-                        <option value="3" <%=(warningLevel.equals("3") ? "selected=\"selected\"" : "") %>>High</option>
-                        <option value="4" <%=(warningLevel.equals("4") ? "selected=\"selected\"" : "") %>>None</option>
-                    </select>
-                </td>
-                <script>
-                    Event.observe('rxInteractionWarningLevel', 'change', function (event) {
-                        var value = $('rxInteractionWarningLevel').getValue();
-
-                        new Ajax.Request('<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do?method=update&value=' + value, {
-                            method: 'get',
-                            onSuccess: function (transport) {
-                            }
-                        });
-
-                    });
-
-                </script>
-            </tr>
-
-            <tr>
-                <%
-                    Integer h = 0;
-                    Integer mins = 0;
-                    prop = propertyDao.getProp(providerNo, UserProperty.OSCAR_MSG_RECVD);
-                    if (prop != null) {
-                        String[] tmp = prop.getValue().split(":");
-                        h = Integer.valueOf(tmp[0]);
-                        mins = Integer.valueOf(tmp[1]);
-                    }
-                %>
-                <td class="preferenceLabel">
-                    Select when you want to receive Review Messages
-
-                </td>
-                <td preferenceValue>
-                    <select id="reviewMsg" name="reviewMsg">
-                        <%
-                            for (int hr = 0; hr < 24; ++hr) {
-                                for (int min = 0; min < 60; min += 30) {
-                        %>
-                        <option value="<%=String.valueOf(hr)+":"+String.valueOf(min) %>" <%= hr == h && min == mins ? "selected" : ""%> ><%=String.valueOf(hr) + " : " + String.valueOf(min) + (min == 0 ? "0" : "") %>
-                        </option>
-                        <%
-                                }
-                            }
-                        %>
-                    </select>
-                </td>
-            </tr>
-            <script>
-                Event.observe('reviewMsg', 'change', function (event) {
-                    var value = $('reviewMsg').getValue();
-
-                    new Ajax.Request('<c:out value="${ctx}"/>/setProviderStaleDate.do?method=OscarMsgRecvd&value=' + value + '&provider_no=<%=providerNo%>', {
-                        method: 'get',
-                        onSuccess: function (transport) {
-                        }
-                    });
-
-                });
-            </script>
-        </table>
-
-        <div class="card-header text-center fw-bold pref-header">
-            <INPUT TYPE="submit" VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.btnSubmit"/>' SIZE="7">
-            <INPUT TYPE="button" VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>' onClick="history.back();">
         </div>
-
-        <INPUT TYPE="hidden" NAME="color_template" VALUE='deepblue'>
-
-
-        <table width="100%" BGCOLOR="eeeeee">
-
-            <caisi:isModuleLoad moduleName="NEW_CME_SWITCH">
-                <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="no">
-                    <tr>
-                        <TD class="text-center"><a href="<%= request.getContextPath() %>/casemgmt/newCaseManagementEnable.jsp" class="pref-link-btn">Enable
-                            OSCAR CME UI</a> &nbsp;&nbsp;&nbsp;
-                        </td>
-                    </tr>
-                </oscar:oscarPropertiesCheck>
-            </caisi:isModuleLoad>
-
-            <tr>
-                <td class="text-center"><a href="providerDefaultDxCode.jsp?provider_no=<%=providerNo%>" class="pref-link-btn">Edit
-                    Default Billing Diagnostic Code</a>&nbsp;&nbsp;&nbsp;
-                </td>
-            </tr>
-            <tr>
-
-                <TD class="text-center"><a href="providerchangepassword.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnChangePassword"/></a> &nbsp;&nbsp;&nbsp;
-                </td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDefaultSex" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDefaultSex"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="providerSignature.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSignature"/></a>
-                </td>
-            </tr>
-            <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="no" defaultVal="true">
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
-                    <tr>
-                        <td class="text-center">
-                            <% String br = OscarProperties.getInstance().getProperty("billregion");
-                                if (br.equals("BC")) { %>
-                            <a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=providerNo%>" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnBillPreference"/></a>
-                            <% } else { %>
-                            <a href="#" class="pref-link-btn" onClick="showHideBillPref();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnBillPreference"/></a>
-                            <% } %>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-center">
-                            <div id="billingONpref">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labelDefaultBillForm"/>:
-                                <select name="default_servicetype">
-                                    <option value="no">-- no --</option>
-                                    <%
-                                        if (providerPreference != null) {
-                                            String def = providerPreference.getDefaultServiceType();
-                                            for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
-
-                                    %>
-                                    <option value="<%=(String)result[0]%>"
-                                            <%=((String) result[0]).equals(def) ? "selected" : ""%>>
-                                        <%=(String) result[1]%>
-                                    </option>
-                                    <%
-                                        }
-                                    } else {
-                                        for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
-                                    %>
-                                    <option value="<%=(String)result[0]%>"><%=(String) result[1]%>
-                                    </option>
-                                    <%
-                                            }
-                                        }
-                                    %>
-                                </select>
-                            </div>
-                        </td>
-                    </tr>
-                </security:oscarSec>
-                <tr>
-                    <td class="text-center"><a href="providerAddress.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditAddress"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="providerPhone.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditPhoneNumber"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="providerFax.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditFaxNumber"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="providerColourPicker.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditColour"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="providerPrinter.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDefaultPrinter"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewRxPageSize" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetRxPageSize"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewUseRx3" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetRx3"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewCppSingleLine" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetCppSingleLine"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewShowPatientDOB" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetShowPatientDOB"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDefaultQuantity" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.SetDefaultPrescriptionQuantity"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=view&provider_no=<%=providerNo%>" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditStaleDate"/></a></td>
-                </tr>
-
-
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultationRequestCuffOffDate" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultationCutoffTimePeriod"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultationRequestTeamWarning" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultationTeam"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewWorkLoadManagement" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetWorkLoadManagement"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewConsultPasteFmt" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetConsultPasteFmt"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewFavouriteEformGroup" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEformGroup"/></a></td>
-                </tr>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewHCType" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetHCType"/></a></td>
-                </tr>
-                <% if (OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
-                <tr>
-                    <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewOntarioMDId" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetmyOntarioMD"/></a></td>
-                </tr>
-                <%}%>
-            </oscar:oscarPropertiesCheck>
-
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.cppPrefs"/></a></td>
-            </tr>
-
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewCommentLab" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnDisableAckCommentLab"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnLabRecallSettings"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEncounterWindowSize" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditDefaultEncounterWindowSize"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewQuickChartSize" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditDefaultQuickChartSize"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEDocBrowserInDocumentReport" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEDocBrowserInDocumentReport"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewEDocBrowserInMasterFile" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetEDocBrowserInMasterFile"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewPatientNameLength" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSetPatientNameLength"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDocumentDescriptionTemplate"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="clients.jsp" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditClients"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDisplayDocumentAs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetDisplayDocumentAs"/></a></td>
-            </tr>
-            <tr>
-                <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewAppointmentCardPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSetAppointmentCardPrefs"/></a></td>
-            </tr>
-
-            <oscar:oscarPropertiesCheck property="util.erx.enabled" value="true">
-            <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r">
-            <tr>
-                <td class="text-center">
-                    <a href="#" class="pref-link-btn" onClick="showHideERxPref();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.btnPrefLink"/></a>
-                </td>
-            </tr>
-            <tr>
-                <td class="text-center">
-                    <div id="eRxPref">
-                                <%
-            	String eRxEnabledChecked="unchecked";
-                String eRxTrainingModeChecked="unchecked";
-                                        
-				boolean eRxEnabled = false;
-                String eRx_SSO_URL = "";
-                String eRxUsername = "";
-                String eRxPassword = "";
-                String eRxFacility = "";
-                boolean eRxTrainingMode = false;
-                                                        
-                if (providerPreference != null){                                       
-                	eRxEnabled = providerPreference.isERxEnabled();
-                    if(eRxEnabled) eRxEnabledChecked = "checked";
-                                
-                    eRx_SSO_URL = providerPreference.getERx_SSO_URL();
-                    eRxUsername = providerPreference.getERxUsername();
-                    eRxPassword = providerPreference.getERxPassword();
-                    eRxFacility = providerPreference.getERxFacility();
-                                
-                    eRxTrainingMode = providerPreference.isERxTrainingMode();
-                    if(eRxTrainingMode) eRxTrainingModeChecked = "checked";
-                                
-                    if(eRx_SSO_URL==null || "null".equalsIgnoreCase(eRx_SSO_URL)) eRx_SSO_URL=OscarProperties.getInstance().getProperty("util.erx.oscarerx_sso_url");
-                    if(eRxUsername==null || "null".equalsIgnoreCase(eRxUsername)) eRxUsername="";
-                    if(eRxPassword==null || "null".equalsIgnoreCase(eRxPassword)) eRxPassword="";
-                    if(eRxFacility==null || "null".equalsIgnoreCase(eRxFacility)) eRxFacility="";
-                }
-                %>
-                        <table class="eRxTableCenter">
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelEnable"/>:</td>
-                                <td><input name="erx_enable" title="Enable the External Prescriber"
-                                           type="checkbox" <%=eRxEnabledChecked%> /></td>
-                            </tr>
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelUser"/>:</td>
-                                <td><input name="erx_username" type="text" value="<%=eRxUsername%>"
-                                           title="Username to access the External Prescriber"/></td>
-                            </tr>
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelPassword"/>:</td>
-                                <td><input name="erx_password" type="password" value="<%=eRxPassword%>"
-                                           title="Password to access the External Prescriber"/></td>
-                            <tr>
-                            </tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelFacility"/>:</td>
-                            <td><input name="erx_facility" type="text" value="<%=eRxFacility%>"
-                                       title="The Facility ID assigned to you by the External Prescriber"/><br></td>
-                            <tr>
-                            </tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelTrainingMode"/>:</td>
-                            <td><input name="erx_training_mode" type="checkbox"
-                                       title="Enable Training Mode" <%=eRxTrainingModeChecked%> /></td>
-            </tr>
-            <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelURL"/>:</td>
-                <td><input name="erx_sso_url" type="text" value="<%=eRx_SSO_URL%>"
-                           title="The URL to access the Web Interface from OSCAR Rx"/></td>
-            </tr>
-
-        </table>
-        </div>
-        </td>
-        </tr>
-        </security:oscarSec>
-        </oscar:oscarPropertiesCheck>
-        <tr>
-            <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDashboardPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewDashboardPrefs"/></a></td>
-        </tr>
-        <tr>
-            <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewPreventionPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewPreventionPrefs"/></a></td>
-        </tr>
-
-        <tr>
-            <td class="text-center"><a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewLabMacroPrefs"/></a></td>
-        </tr>
-        <tr>
-            <td class="text-center"><a href="<%=request.getContextPath()%>/setTicklerPreferences.do?method=viewTicklerTaskAssignee" class="pref-link-btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewTicklerPreferences"/></a></td>
-        </tr>
-        </table></div>
-    </FORM>
     </div>
+</div>
 
-    </body>
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 2: CONTACT INFORMATION
+     Address and phone for prescriptions and consult letters
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secContact">
+            <i class="fas fa-address-card section-icon"></i> Contact Information
+        </button>
+    </h2>
+    <div id="secContact" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="section-note">
+                <i class="fas fa-info-circle"></i>
+                Address and phone used on prescriptions and consult letters.
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Address</div>
+                <div class="pref-value">
+                    <input type="text" name="rxAddress" class="pref-input"
+                           value="<%=Encode.forHtmlAttribute(rxAddress)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">City</div>
+                <div class="pref-value">
+                    <input type="text" name="rxCity" class="pref-input"
+                           value="<%=Encode.forHtmlAttribute(rxCity)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Province</div>
+                <div class="pref-value">
+                    <input type="text" name="rxProvince" class="pref-input input-sm"
+                           value="<%=Encode.forHtmlAttribute(rxProvince)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Postal Code</div>
+                <div class="pref-value">
+                    <input type="text" name="rxPostal" class="pref-input input-sm"
+                           value="<%=Encode.forHtmlAttribute(rxPostal)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Phone Number <span class="hint">(XXX-XXX-XXXX)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="rxPhone" class="pref-input input-md"
+                           value="<%=Encode.forHtmlAttribute(rxPhone)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Fax Number <span class="hint">(XXX-XXX-XXXX)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="faxnumber" class="pref-input input-md"
+                           value="<%=Encode.forHtmlAttribute(faxNum)%>">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 3: PRESCRIPTIONS
+     Rx page size, QR codes, interaction warnings, default quantities
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secRx">
+            <i class="fas fa-prescription-bottle-alt section-icon"></i> Prescriptions
+        </button>
+    </h2>
+    <div id="secRx" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="pref-row">
+                <div class="pref-label">Print QR Codes on Prescriptions</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="prescriptionQrCodes" <%=qrChecked ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Rx Page Size</div>
+                <div class="pref-value">
+                    <select name="rx_page_size" class="pref-input input-sm">
+                        <option value="">Default</option>
+                        <option value="PageSize.A4" <%="PageSize.A4".equals(rxPageSize)?"selected":""%>>A4</option>
+                        <option value="PageSize.A6" <%="PageSize.A6".equals(rxPageSize)?"selected":""%>>A6</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Use Rx3</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="rx_use_rx3" value="yes" <%=rxUseRx3 ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Show Patient DOB on Rx</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="rx_show_patient_dob" value="yes" <%=rxShowDOB ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Default Rx Quantity</div>
+                <div class="pref-value">
+                    <input type="text" name="rx_default_quantity"
+                           value="<%=Encode.forHtmlAttribute(rxDefaultQty)%>"
+                           class="pref-input input-xs">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">
+                    Rx Interaction Warning Level
+                    <span class="badge-auto">auto-save</span>
+                </div>
+                <div class="pref-value">
+                    <select id="rxInteractionWarningLevel" class="pref-input input-md">
+                        <option value="0" <%="0".equals(warningLevel)?"selected":""%>>Not Specified</option>
+                        <option value="1" <%="1".equals(warningLevel)?"selected":""%>>Low</option>
+                        <option value="2" <%="2".equals(warningLevel)?"selected":""%>>Medium</option>
+                        <option value="3" <%="3".equals(warningLevel)?"selected":""%>>High</option>
+                        <option value="4" <%="4".equals(warningLevel)?"selected":""%>>None</option>
+                    </select>
+                </div>
+            </div>
+
+            <%-- eRx (electronic prescribing) fields saved via ProviderPreferencesUIBean --%>
+            <div class="pref-row">
+                <div class="pref-label">Enable eRx</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="erx_enable" <%=erxEnabled ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">eRx Training Mode</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="erx_training_mode" <%=erxTraining ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">eRx Username</div>
+                <div class="pref-value">
+                    <input type="text" name="erx_username" class="pref-input input-md"
+                           value="<%=Encode.forHtmlAttribute(erxUsername)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">eRx Password</div>
+                <div class="pref-value">
+                    <input type="password" name="erx_password" class="pref-input input-md"
+                           placeholder="(unchanged if blank)">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">eRx Facility</div>
+                <div class="pref-value">
+                    <input type="text" name="erx_facility" class="pref-input input-md"
+                           value="<%=Encode.forHtmlAttribute(erxFacility)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">eRx SSO URL</div>
+                <div class="pref-value">
+                    <input type="text" name="erx_sso_url" class="pref-input"
+                           value="<%=Encode.forHtmlAttribute(erxSsoUrl)%>">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 4: CLINICAL SETTINGS
+     Default sex, HC type, billing Dx, CPP, stale note dates
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secClinical">
+            <i class="fas fa-stethoscope section-icon"></i> Clinical Settings
+        </button>
+    </h2>
+    <div id="secClinical" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="pref-row">
+                <div class="pref-label">Default Sex</div>
+                <div class="pref-value">
+                    <select name="default_sex" class="pref-input input-xs">
+                        <option value="">--</option>
+                        <option value="M" <%="M".equals(defaultSex)?"selected":""%>>M</option>
+                        <option value="F" <%="F".equals(defaultSex)?"selected":""%>>F</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Default HC Type</div>
+                <div class="pref-value">
+                    <select name="HC_Type" class="pref-input input-md">
+                        <option value="">--</option>
+                        <option value="AB" <%="AB".equals(hcType)?"selected":""%>>Alberta</option>
+                        <option value="BC" <%="BC".equals(hcType)?"selected":""%>>British Columbia</option>
+                        <option value="MB" <%="MB".equals(hcType)?"selected":""%>>Manitoba</option>
+                        <option value="NB" <%="NB".equals(hcType)?"selected":""%>>New Brunswick</option>
+                        <option value="NL" <%="NL".equals(hcType)?"selected":""%>>Newfoundland</option>
+                        <option value="NT" <%="NT".equals(hcType)?"selected":""%>>Northwest Territory</option>
+                        <option value="NS" <%="NS".equals(hcType)?"selected":""%>>Nova Scotia</option>
+                        <option value="NU" <%="NU".equals(hcType)?"selected":""%>>Nunavut</option>
+                        <option value="ON" <%="ON".equals(hcType)?"selected":""%>>Ontario</option>
+                        <option value="PE" <%="PE".equals(hcType)?"selected":""%>>Prince Edward Island</option>
+                        <option value="QC" <%="QC".equals(hcType)?"selected":""%>>Quebec</option>
+                        <option value="SK" <%="SK".equals(hcType)?"selected":""%>>Saskatchewan</option>
+                        <option value="YT" <%="YT".equals(hcType)?"selected":""%>>Yukon</option>
+                        <option value="US" <%="US".equals(hcType)?"selected":""%>>US Resident</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Default Billing Dx Code</div>
+                <div class="pref-value">
+                    <input type="text" name="dxCode"
+                           value="<%=Encode.forHtmlAttribute(providerPreference.getDefaultDxCode() != null ? providerPreference.getDefaultDxCode() : "")%>"
+                           class="pref-input input-xs" maxlength="5">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Enable CPP Single Line</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="cpp_single_line" value="yes" <%=cppSingleLine ? "checked" : ""%>>
+                </div>
+            </div>
+
+            <%-- Stale date controls for CME case notes.
+                 "A" means show all notes; negative numbers (e.g., "-6") mean show only
+                 notes from the last N months. Values 0-36 generate options "-0" to "-36". --%>
+            <div class="pref-row">
+                <div class="pref-label">Stale Date for Case Notes</div>
+                <div class="pref-value">
+                    <select name="cme_note_date" class="pref-input input-md">
+                        <option value="A" <%="A".equals(staleNoteDate)?"selected":""%>>All</option><%
+                        for (int i = 0; i <= 36; i++) {
+                    %><option value="-<%=i%>" <%=("-"+i).equals(staleNoteDate)?"selected":""%>><%=i%> months</option><%
+                        }
+                    %></select>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Stale Date Format (show date)</div>
+                <div class="pref-value">
+                    <select name="cme_note_format" class="pref-input input-xs">
+                        <option value="No" <%="No".equals(staleFormat)?"selected":""%>>No</option>
+                        <option value="Yes" <%="Yes".equals(staleFormat)?"selected":""%>>Yes</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 5: CONSULTATION
+     Cutoff times, team warnings, paste format
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secConsult">
+            <i class="fas fa-user-md section-icon"></i> Consultation
+        </button>
+    </h2>
+    <div id="secConsult" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="pref-row">
+                <div class="pref-label">Consultation Cutoff Time <span class="hint">(days)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="consultation_time_period_warning"
+                           value="<%=Encode.forHtmlAttribute(consultCutoff)%>"
+                           class="pref-input input-xs">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Consultation Team Warning</div>
+                <div class="pref-value">
+                    <input type="text" name="consultation_team_warning"
+                           value="<%=Encode.forHtmlAttribute(consultTeam)%>"
+                           class="pref-input input-md">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Workload Management</div>
+                <div class="pref-value">
+                    <input type="text" name="workload_management"
+                           value="<%=Encode.forHtmlAttribute(workloadMgmt)%>"
+                           class="pref-input input-md">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Consultation Paste Format</div>
+                <div class="pref-value">
+                    <select name="consultation_req_paste_fmt" class="pref-input input-md">
+                        <option value="">Default</option>
+                        <option value="single" <%="single".equals(consultPasteFmt)?"selected":""%>>Single Line</option>
+                        <option value="multi" <%="multi".equals(consultPasteFmt)?"selected":""%>>Multi Line</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 6: DISPLAY & UI
+     Provider colour, encounter window, document display, eDoc settings
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secDisplay">
+            <i class="fas fa-desktop section-icon"></i> Display &amp; UI
+        </button>
+    </h2>
+    <div id="secDisplay" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+
+            <%-- Provider colour shown on schedule grid.
+                 HTML color inputs require "#RRGGBB" format, so we normalize stored values:
+                 - Already has "#": use as-is
+                 - Has hex without "#": prepend "#"
+                 - Empty: default to navy blue #3366cc --%>
+            <div class="pref-row">
+                <div class="pref-label"><i class="fas fa-palette" style="margin-right:4px"></i> Provider Colour</div>
+                <div class="pref-value">
+                    <input type="color" name="colour"
+                           value="<%=Encode.forHtmlAttribute(colour.startsWith("#") ? colour : (!colour.isEmpty() ? "#" + colour : "#3366cc"))%>">
+                </div>
+            </div>
+
+            <%-- Encounter window sizing --%>
+            <div class="pref-row">
+                <div class="pref-label">Encounter Window Width <span class="hint">(px)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="encounterWindowWidth"
+                           value="<%=Encode.forHtmlAttribute(encWinWidth)%>"
+                           class="pref-input input-xs" placeholder="px">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Encounter Window Height <span class="hint">(px)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="encounterWindowHeight"
+                           value="<%=Encode.forHtmlAttribute(encWinHeight)%>"
+                           class="pref-input input-xs" placeholder="px">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Maximize Encounter Window</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="encounterWindowMaximize" value="yes" <%=encWinMax ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Quick Chart Size <span class="hint">(px)</span></div>
+                <div class="pref-value">
+                    <input type="text" name="quickChartSize"
+                           value="<%=Encode.forHtmlAttribute(quickChartSize)%>"
+                           class="pref-input input-xs" placeholder="px">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Max Patient Name Length</div>
+                <div class="pref-value">
+                    <input type="text" name="patient_name_length"
+                           value="<%=Encode.forHtmlAttribute(patientNameLen)%>"
+                           class="pref-input input-xs">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Display Document As</div>
+                <div class="pref-value">
+                    <select name="display_document_as" class="pref-input input-sm">
+                        <option value="">Default</option>
+                        <option value="PDF" <%="PDF".equals(displayDocAs)?"selected":""%>>PDF</option>
+                        <option value="Image" <%="Image".equals(displayDocAs)?"selected":""%>>Image</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">eDoc Browser in Document Report</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="edoc_browser_in_document_report" value="yes" <%=eDocInReport ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">eDoc Browser in Master Record</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="edoc_browser_in_master_file" value="yes" <%=eDocInMaster ? "checked" : ""%>>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 7: LAB, PREVENTION & MESSAGING
+     Lab acknowledgement, prevention warnings, review messages, dashboard
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secLab">
+            <i class="fas fa-flask section-icon"></i> Lab, Prevention &amp; Messaging
+        </button>
+    </h2>
+    <div id="secLab" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+
+            <%-- Lab acknowledgement --%>
+            <div class="pref-row">
+                <div class="pref-label">Disable Comment Box on Lab Acknowledge</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="lab_ack_comment" value="yes" <%=labAckComment ? "checked" : ""%>>
+                </div>
+            </div>
+
+            <%-- Review messages time - auto-saved via AJAX --%>
+            <div class="pref-row">
+                <div class="pref-label">
+                    Review Messages Time
+                    <span class="badge-auto">auto-save</span>
+                </div>
+                <div class="pref-value">
+                    <select id="reviewMsg" name="reviewMsg" class="pref-input input-sm"><%
+                        for (int hr = 0; hr < 24; ++hr) {
+                            for (int min = 0; min < 60; min += 30) {
+                                String sel = (hr == reviewH && min == reviewMins) ? "selected" : "";
+                                String lbl = hr + ":" + (min == 0 ? "00" : String.valueOf(min));
+                    %><option value="<%=hr%>:<%=min%>" <%=sel%>><%=lbl%></option><%
+                            }
+                        }
+                    %></select>
+                </div>
+            </div>
+
+            <%-- Dashboard sharing --%>
+            <div class="pref-row">
+                <div class="pref-label"><i class="fas fa-share-alt" style="margin-right:4px"></i> Share Dashboard</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="dashboard_share" value="yes" <%=dashboardShare ? "checked" : ""%>>
+                </div>
+            </div>
+
+            <%-- Prevention warning toggles (stored as "true"/"false") --%>
+            <div class="pref-row">
+                <div class="pref-label">Prevention SSO Warning</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="prevention_sso_warning" value="true" <%=prevSSO ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Prevention ISPA Warning</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="prevention_ispa_warning" value="true" <%=prevISPA ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Prevention Non-ISPA Warning</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="prevention_non_ispa_warning" value="true" <%=prevNonISPA ? "checked" : ""%>>
+                </div>
+            </div>
+
+            <%-- Favourite eForm group dropdown --%>
+            <div class="pref-row">
+                <div class="pref-label">Favourite eForm Group</div>
+                <div class="pref-value">
+                    <select name="favourite_eform_group" class="pref-input input-md">
+                        <option value="">None</option><%
+                        for (HashMap<String, String> grp : eformGroups) {
+                            String gName = grp.get("groupName") != null ? grp.get("groupName") : "";
+                            String sel = gName.equals(eformGroup) ? "selected" : "";
+                    %><option value="<%=Encode.forHtmlAttribute(gName)%>" <%=sel%>><%=Encode.forHtml(gName)%></option><%
+                        }
+                    %></select>
+                </div>
+            </div>
+
+            <%-- External links for complex lab settings UIs --%>
+            <div class="pref-row">
+                <div class="pref-label">Lab Recall &amp; Macros</div>
+                <div class="pref-value pref-links">
+                    <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall"
+                       class="pref-link" target="_blank">
+                        <i class="fas fa-redo"></i> Lab Recall Settings
+                    </a>
+                    <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs"
+                       class="pref-link" target="_blank">
+                        <i class="fas fa-code"></i> Lab Macros
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 8: APPOINTMENT CARD
+     Clinic name, phone, fax printed on appointment reminder cards
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secApptCard">
+            <i class="fas fa-id-card section-icon"></i> Appointment Card
+        </button>
+    </h2>
+    <div id="secApptCard" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="section-note">
+                <i class="fas fa-info-circle"></i>
+                Info printed on appointment reminder cards for patients.
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Clinic Name</div>
+                <div class="pref-value">
+                    <input type="text" name="appointmentCardName" class="pref-input"
+                           value="<%=Encode.forHtmlAttribute(apptCardName)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Phone Number</div>
+                <div class="pref-value">
+                    <input type="text" name="appointmentCardPhone" class="pref-input input-md"
+                           value="<%=Encode.forHtmlAttribute(apptCardPhone)%>">
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Fax Number</div>
+                <div class="pref-value">
+                    <input type="text" name="appointmentCardFax" class="pref-input input-md"
+                           value="<%=Encode.forHtmlAttribute(apptCardFax)%>">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 9: BILLING (conditional)
+     Only rendered when:
+       1) TORONTO_RFQ property is "no" or unset (Toronto RFQ hides billing UI)
+       2) The logged-in user has read ("r") access to the "_billing" security object
+     The billing form dropdown is populated from ctl_billingservice table.
+     BC-specific billing preferences link is shown if billregion=BC.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="no" defaultVal="true">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secBilling">
+            <i class="fas fa-file-invoice-dollar section-icon"></i> Billing
+        </button>
+    </h2>
+    <div id="secBilling" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="pref-row">
+                <div class="pref-label">Default Billing Form</div>
+                <div class="pref-value">
+                    <select name="default_servicetype" class="pref-input input-md">
+                        <option value="no">-- none --</option><%
+                        String def = providerPreference.getDefaultServiceType();
+                        for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
+                    %><option value="<%=Encode.forHtmlAttribute((String)result[0])%>"
+                              <%=((String)result[0]).equals(def)?"selected":""%>><%=Encode.forHtml((String)result[1])%></option><%
+                        }
+                    %></select>
+                </div>
+            </div>
+            <%-- BC-specific billing preferences link --%>
+            <div class="pref-row">
+                <div class="pref-label">Regional Billing Settings</div>
+                <div class="pref-value pref-links"><%
+                    String br = OscarProperties.getInstance().getProperty("billregion");
+                    if ("BC".equals(br)) {
+                %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=Encode.forUriComponent(providerNo)%>"
+                     class="pref-link" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> BC Billing Preferences
+                </a><%
+                    }
+                %></div>
+            </div>
+        </div>
+    </div>
+</div>
+</security:oscarSec>
+</oscar:oscarPropertiesCheck>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 10: ACCOUNT & ADVANCED
+     External links for password, signature, printer, API clients, etc.
+     These truly require separate pages due to their complex UIs.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secAccount">
+            <i class="fas fa-user-cog section-icon"></i> Account &amp; Advanced
+        </button>
+    </h2>
+    <div id="secAccount" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="section-note">
+                <i class="fas fa-external-link-alt"></i>
+                These settings open in a separate window due to their complexity.
+            </div>
+            <div class="pref-links">
+                <a href="providerchangepassword.jsp" class="pref-link" target="_blank">
+                    <i class="fas fa-key"></i> Change Password
+                </a>
+                <a href="providerSignature.jsp" class="pref-link" target="_blank">
+                    <i class="fas fa-signature"></i> Edit Signature
+                </a>
+                <a href="providerPrinter.jsp" class="pref-link" target="_blank">
+                    <i class="fas fa-print"></i> Set Default Printer
+                </a>
+                <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank">
+                    <i class="fas fa-columns"></i> Configure eChart CPP
+                </a>
+                <a href="clients.jsp" class="pref-link" target="_blank">
+                    <i class="fas fa-plug"></i> Manage API Clients
+                </a>
+                <a href="<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp"
+                   class="pref-link" target="_blank">
+                    <i class="fas fa-file-alt"></i> Document Description Template
+                </a>
+                <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewTicklerTaskAssignee"
+                   class="pref-link" target="_blank">
+                    <i class="fas fa-tasks"></i> Tickler Preferences
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div><%-- end accordion --%>
+</div><%-- end pref-body --%>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     STICKY FOOTER BAR - Save/Close buttons always visible at bottom
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="footer-bar">
+    <button type="submit" class="btn btn-save">
+        <i class="fas fa-save"></i> Save All Preferences
+    </button>
+    <button type="button" class="btn btn-close-pref ms-2" onclick="try{window.close();}catch(e){} setTimeout(function(){history.back();},100);">
+        <i class="fas fa-times"></i> Close
+    </button>
+</div>
+
+</form>
+
+<!-- Bootstrap 5 JS bundle (includes Popper for accordion) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Prototype.js for Ajax auto-save (legacy dependency) -->
+<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+
+<script>
+/**
+ * Sets initial focus on the group number field for quick editing.
+ */
+function setfocus() {
+    document.UPDATEPRE.mygroup_no.focus();
+    document.UPDATEPRE.mygroup_no.select();
+}
+
+/**
+ * Validates schedule parameters before form submission.
+ * Ensures start < end, values are numeric, and period fits within the range.
+ * @returns {boolean} true if validation passes, false to prevent submission
+ */
+function checkTypeInAll() {
+    var s = parseInt(document.UPDATEPRE.start_hour.value);
+    var e = parseInt(document.UPDATEPRE.end_hour.value);
+    var i = parseInt(document.UPDATEPRE.every_min.value);
+
+    // All three schedule fields must be valid numbers
+    if (isNaN(s) || isNaN(e) || isNaN(i)) {
+        alert("Schedule values must be numbers.");
+        return false;
+    }
+    // End hour must be within 24-hour range
+    if (e >= 24) {
+        alert("End hour must be less than 24.");
+        return false;
+    }
+    // Start must come before end
+    if (s >= e) {
+        alert("Start hour must be earlier than end hour.");
+        return false;
+    }
+    // Period must be positive and fit within the hour range
+    if (i <= 0 || i > (e - s) * 60) {
+        alert("Period must be positive and fit within the hour range.");
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Adds a quick link by navigating to the quick links action JSP.
+ * Quick links appear on the appointment screen for fast access to URLs.
+ */
+function addQuickLink() {
+    var name = encodeURIComponent(document.UPDATEPRE.quickLinkName.value);
+    var url = encodeURIComponent(document.UPDATEPRE.quickLinkUrl.value);
+    document.location = "providerPreferenceQuickLinksAction.jsp?action=add&name=" + name + "&url=" + url;
+}
+
+// ── Auto-save listeners ───────────────────────────────────────────────
+// These two fields save immediately on change without requiring the main
+// form submission, using Prototype.js Ajax.Request for backward compat.
+
+function flashAutoSave(el, success) {
+    el.style.borderColor = success ? '#00A488' : '#dc3545';
+    setTimeout(function() { el.style.borderColor = ''; }, 1500);
+}
+
+// Rx Interaction Warning Level - saves via dedicated endpoint
+document.getElementById('rxInteractionWarningLevel').addEventListener('change', function() {
+    var el = this;
+    new Ajax.Request(
+        '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do?method=update&value=' + encodeURIComponent(this.value),
+        { method: 'get',
+          onSuccess: function() { flashAutoSave(el, true); },
+          onFailure: function(r) { console.error('Failed to save rx interaction warning level: ' + r.status); flashAutoSave(el, false); } }
+    );
+});
+
+// Review Messages Time - saves via setProviderStaleDate.do
+document.getElementById('reviewMsg').addEventListener('change', function() {
+    var el = this;
+    new Ajax.Request(
+        '<c:out value="${ctx}"/>/setProviderStaleDate.do?method=OscarMsgRecvd&value=' + encodeURIComponent(this.value)
+            + '&provider_no=<%=Encode.forJavaScript(providerNo)%>',
+        { method: 'get',
+          onSuccess: function() { flashAutoSave(el, true); },
+          onFailure: function(r) { console.error('Failed to save review message time: ' + r.status); flashAutoSave(el, false); } }
+    );
+});
+</script>
+</body>
 </html>
