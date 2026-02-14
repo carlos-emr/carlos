@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
 %>
@@ -102,8 +103,8 @@
 %>
     <script type="text/javascript">
         if (window.opener && !window.opener.closed) {
-            <%if(action.equals("visitreport")){%>
-            window.opener.location.href = "<%=request.getContextPath() %>/administration/?show=<%=action%>";
+            <%if("visitreport".equals(action)){%>
+            window.opener.location.href = "<%=request.getContextPath() %>/administration/?show=<%=Encode.forJavaScript(action)%>";
             <%} else {%>
             window.opener.location.reload();
             <%}%>

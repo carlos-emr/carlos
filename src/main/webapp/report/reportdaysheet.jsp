@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -147,7 +148,6 @@
         String eTime = request.getParameter("eTime") != null ? (request.getParameter("eTime") + ":00:00") : "24:00:00";
         String provider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "175";
         ResultSet rsdemo = null;
-        boolean bodd = false;
 
         //initial myGroupBean if neccessary
         if (provider_no.startsWith("_grp_")) {
@@ -251,7 +251,6 @@
                 if (providerMap.get(rsdemo.getString("provider_no")) == null) continue;
             }
 
-            bodd = bodd ? false : true;
             if (!strTemp.equals(rsdemo.getString("provider_no")) || !dateTemp.equals(rsdemo.getString("appointment_date"))) { //new providers for a new table
                 strTemp = rsdemo.getString("provider_no");
                 dateTemp = rsdemo.getString("appointment_date");
@@ -260,23 +259,27 @@
             }
             if (bFistL) {
                 bFistL = false;
-                bodd = false;
+                String encodedProviderNo = Encode.forUriComponent(provider_no);
+                String encodedSdate = Encode.forUriComponent(sdate);
+                String encodedEdate = Encode.forUriComponent(edate);
+                String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + Encode.forUriComponent(request.getParameter("dsmode")) : "";
+                String sortBaseUrl = "reportdaysheet.jsp?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
-        <%=providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>
+        <%=Encode.forHtml(providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "")) %>
     </div>
     <table class="table table-condensed table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
         <tr>
-            <th style="width:6%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=start_time<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
-            <th style="width:15%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=name<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
-            <th style="width:10%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=phone<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">Phone</a></th>
-            <th style="width:3%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=sex<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">Gender</a></th>
-            <th style="width:9%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=hin<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">Health Card</a></th>
-            <th style="width:5%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=ver<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">Version</a></th>
-            <th style="width:6%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=chart_no<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
+            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
+            <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%=encodedDsmode%>">Phone</a></th>
+            <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%=encodedDsmode%>">Gender</a></th>
+            <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%=encodedDsmode%>">Health Card</a></th>
+            <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%=encodedDsmode%>">Version</a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
             <% if (!bDob) {%>
-            <th style="width:6%"><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=roster_status<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
             <% } else {%>
             <th style="width:10%">DOB</th>
             <% }%>
@@ -290,19 +293,19 @@
             count++;
         %>
         <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
-            <td title="<%="End Time: "+rsdemo.getString("end_time")%>"><%=rsdemo.getString("start_time").substring(0, 5)%></td>
-            <td><%=rsdemo.getString("name") == null ? "." : ""%><%=Misc.toUpperLowerCase(rsdemo.getString("name"))%></td>
-            <td><%=rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone")%></td>
-            <td><%=rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex")%></td>
-            <td><%=rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin")%></td>
-            <td><%=rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver")%></td>
-            <td><%=rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no")%></td>
+            <td title="<%=Encode.forHtmlAttribute("End Time: "+rsdemo.getString("end_time"))%>"><%=Encode.forHtml(rsdemo.getString("start_time").substring(0, 5))%></td>
+            <td><%=rsdemo.getString("name") == null ? "." : ""%><%=Encode.forHtml(Misc.toUpperLowerCase(rsdemo.getString("name")))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no"))%></td>
             <% if (!bDob) {%>
-            <td><%=rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status")%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status"))%></td>
             <% } else {
                 String dob = rsdemo.getString("dob");
             %>
-            <td><%=dob == null ? "" : dob%></td>
+            <td><%=Encode.forHtml(dob == null ? "" : dob)%></td>
             <% }%>
             <td>
                 <%if (rsdemo.getString("bookingSource") == null) {%>

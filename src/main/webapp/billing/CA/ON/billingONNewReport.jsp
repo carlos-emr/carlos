@@ -60,6 +60,7 @@
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.login.DBHelp" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -362,6 +363,7 @@
 
     <script>
         function selectprovider(s) {
+            var a;
             if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
             else a = self.location.href;
             self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
@@ -409,6 +411,7 @@
     </div>
 
     <form name="serviceform" method="post" action="billingONReport.jsp">
+        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <div class="form-inline" style="margin-bottom:10px;">
             <label class="radio-inline">
                 <input type="radio" name="reportAction" value="unbilled" <%="unbilled".equals(action)? "checked" : "" %>> Unbilled
@@ -436,12 +439,12 @@
                     Set<Provider> siteProviders = sites.get(i).getProviders();
                     List<Provider> siteProvidersList = new ArrayList<Provider>(siteProviders);
                     Collections.sort(siteProvidersList,(new Provider()).ComparatorName()); %>
-                _providers["<%= sites.get(i).getName() %>"] = [
+                _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = [
                     <% Iterator<Provider> iter = siteProvidersList.iterator();
                     while (iter.hasNext()) {
                         Provider p = iter.next();
                         if (reporters.contains(p.getProviderNo())) { %>
-                    {value: '<%= p.getProviderNo() %>', text: '<%= p.getLastName() %>, <%= p.getFirstName() %>'},
+                    {value: '<%= Encode.forJavaScript(p.getProviderNo()) %>', text: '<%= Encode.forJavaScript(p.getLastName() + ", " + p.getFirstName()) %>'},
                     <% }} %>
                 ];
                 <% } %>
@@ -466,9 +469,9 @@
                 <%
                     for (int i = 0; i < sites.size(); i++) {
                 %>
-                <option value="<%= sites.get(i).getName() %>"
-                        style="background-color:<%= sites.get(i).getBgColor() %>"
-                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><%= sites.get(i).getName() %>
+                <option value="<%= Encode.forHtmlAttribute(sites.get(i).getName()) %>"
+                        style="background-color:<%= Encode.forCssString(sites.get(i).getBgColor()) %>"
+                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><%= Encode.forHtml(sites.get(i).getName()) %>
                 </option>
                 <% } %>
             </select>
@@ -476,7 +479,7 @@
             <% if (request.getParameter("providerview") != null) { %>
             <script>
                 changeSite(document.getElementById("site"));
-                document.getElementById("providerview").value = '<%=request.getParameter("providerview")%>';
+                document.getElementById("providerview").value = '<%=Encode.forJavaScript(request.getParameter("providerview"))%>';
             </script>
             <% } // multisite end ==========================================
             } else {
@@ -497,7 +500,7 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<%=proOHIP%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>, <%=proFirst%></option>
+                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast + ", " + proFirst)%></option>
                 <%
                     }
                 %>
@@ -505,10 +508,10 @@
             <% } %>
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" id="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=xml_vdate%>">
+                <input type="date" name="xml_vdate" id="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=xml_appointment_date%>">
+                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

@@ -41,6 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -68,6 +69,7 @@
 
     <script>
         function selectprovider(s) {
+            var a;
             if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
             else a = self.location.href;
             self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
@@ -110,6 +112,7 @@
     </div>
 
     <form name="serviceform" method="post" action="billingReportControl.jsp">
+        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <div class="form-inline" style="margin-bottom:10px;">
             <label class="radio-inline">
                 <input type="radio" name="reportAction" value="unbilled" checked> Unbilled
@@ -144,7 +147,7 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<%=proOHIP%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>, <%=proFirst%></option>
+                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast + ", " + proFirst)%></option>
                 <%
                     }
                 %>
@@ -153,10 +156,10 @@
             <input type="hidden" name="verCode" value="V03">
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=xml_vdate%>">
+                <input type="date" name="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=xml_appointment_date%>">
+                <input type="date" name="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

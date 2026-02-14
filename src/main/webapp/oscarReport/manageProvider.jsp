@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -98,11 +99,12 @@
                     <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
                 </svg>
                 &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgManageProvider"/>
-                <span class="text-info">Billing Report</span>
+                <span class="text-info"><%=Encode.forHtml(action != null ? action.toUpperCase() : "")%></span>
             </h4>
             </div>
 
         <form name="form1" action="dbManageProvider.jsp" method="post">
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <table class="table table-hover table-condensed table-striped">
                 <thead>
                 <tr>
@@ -113,12 +115,9 @@
                 </thead>
                 <tbody>
                 <%
-                    boolean bodd = true;
                     int count1 = 0;
 
                     for (String myGroup : myGroupDao.getGroups()) {
-                        bodd = bodd ? false : true;
-
                         for (MyGroup mg : myGroupDao.getGroupByGroupNo(myGroup)) {
                             Provider p = providerDao.getProvider(mg.getId().getProviderNo());
                             status = "";
@@ -132,12 +131,12 @@
 
                 %>
                 <tr>
-                    <td><%=mg.getId().getMyGroupNo()%></td>
-                    <td><%=p.getLastName()%>, <%=p.getFirstName()%></td>
+                    <td><%=Encode.forHtml(mg.getId().getMyGroupNo())%></td>
+                    <td><%=Encode.forHtml(p.getLastName() + ", " + p.getFirstName())%></td>
                     <td>
                         <input type="checkbox"
                                name="provider<%=count1%>"
-                               value="<%=p.getProviderNo()%>|<%=mg.getId().getMyGroupNo()%>"
+                               value="<%=Encode.forHtmlAttribute(p.getProviderNo() + "|" + mg.getId().getMyGroupNo())%>"
                                 <%=status.equals("A")?"checked":""%>>
                     </td>
                 </tr>
@@ -152,7 +151,7 @@
             </table>
 
             <input type="hidden" name="submit" value="Submit">
-            <input type="hidden" name="action" value="<%=action%>">
+            <input type="hidden" name="action" value="<%=Encode.forHtmlAttribute(action)%>">
             <input type="hidden" name="count" value="<%=count1%>">
             <input class="btn btn-sm btn-primary" type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.btnSubmit"/>">
         </form>
