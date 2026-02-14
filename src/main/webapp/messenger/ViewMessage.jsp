@@ -315,8 +315,9 @@ font-size:17px;
 
 </head>
 
-<body class="BodyStyle" >
+<body class="BodyStyle">
 <form action="<%=request.getContextPath()%>/messenger/HandleMessages.do">
+  <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
 		<tr class="MainTableTopRow">
