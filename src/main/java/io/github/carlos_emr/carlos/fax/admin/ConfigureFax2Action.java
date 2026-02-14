@@ -212,7 +212,8 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxConfig.setPasswd(sitePasswd.trim());
                         }
                         // the password carries over from the last configuration. Usually the first entry
-                        else if ((masterFaxConfig = savedFaxConfigList.get(0)) != null) {
+                        else if (!savedFaxConfigList.isEmpty() &&
+                                 (masterFaxConfig = savedFaxConfigList.get(0)) != null) {
                             faxConfig.setPasswd(masterFaxConfig.getPasswd());
                         }
 
@@ -264,7 +265,8 @@ public class ConfigureFax2Action extends ActionSupport {
                     faxConfig.setPasswd(sitePasswd.trim());
                 }
                 // the password carries over from the last configuration. Usually the first entry
-                else if ((masterFaxConfig = savedFaxConfigList.get(0)) != null) {
+                else if (!savedFaxConfigList.isEmpty() &&
+                         (masterFaxConfig = savedFaxConfigList.get(0)) != null) {
                     faxConfig.setPasswd(masterFaxConfig.getPasswd());
                 }
                 faxConfigDao.saveEntity(faxConfig);

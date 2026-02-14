@@ -39,6 +39,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -556,7 +557,10 @@ public class SRFaxApiConnector {
                 }
             }
         } catch (IOException e) {
-            logger.error("Error", e);
+            logger.error("Failed to parse SRFax API list response", e);
+            result = new ListWrapper<>();
+            result.setStatus("Error");
+            result.setError("JSON parsing failed: " + e.getMessage());
         }
         return result;
     }
@@ -596,7 +600,10 @@ public class SRFaxApiConnector {
                     result.setError(json.getString("Result"));
                 }
             } catch (IOException e) {
-                logger.error("Error", e);
+                logger.error("Failed to parse SRFax API single response", e);
+                result = new SingleWrapper<>();
+                result.setStatus("Error");
+                result.setError("JSON parsing failed: " + e.getMessage());
             }
         }
         return result;
@@ -636,8 +643,18 @@ public class SRFaxApiConnector {
      */
     private String postRequest(Map<String, String> postVariables) {
         String result = "";
+
+        // Configure HTTP timeouts to prevent indefinite hangs
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(30000)           // 30s connection timeout
+                .setSocketTimeout(60000)            // 60s read timeout
+                .setConnectionRequestTimeout(10000) // 10s pool timeout
+                .build();
+
         // Auto-close the HTTP client after the request completes
-        try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create()
+                .setDefaultRequestConfig(requestConfig)
+                .build()) {
             logger.debug("POST URL: {}", SERVER_URL);
             HttpPost httpPost = new HttpPost(SERVER_URL);
 

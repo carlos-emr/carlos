@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.fax.core;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -233,6 +234,10 @@ public class FaxImporter {
         try {
             // Query the remote API for unread incoming faxes
             List<FaxInboundResult> inboundFaxes = connector.pollIncomingFaxes(faxConfig);
+
+            if (inboundFaxes == null) {
+                inboundFaxes = Collections.emptyList();
+            }
 
             log.info("Direct API poll returned {} incoming faxes for account {}",
                     inboundFaxes.size(), faxConfig.getAccountName());
