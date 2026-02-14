@@ -29,6 +29,24 @@
 
 --%>
 
+<%--
+    ManageDemographicQueryFavourites.jsp - Manage Saved Demographic Queries
+
+    Purpose: Allows users to view and delete saved demographic search queries.
+             Provides a simple interface for managing the user's collection of
+             reusable demographic report queries.
+
+    Features:
+    - Display list of all saved demographic queries for the current user
+    - Checkbox selection for bulk deletion
+    - Delete selected queries via POST to DeleteDemographicReport.do
+    - Bootstrap-based responsive layout
+
+    Parameters: None (uses session authentication)
+
+    @since 2026-02-14
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -47,18 +65,20 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     RptSearchData searchData = new RptSearchData();
     java.util.ArrayList queryArray = searchData.getQueryTypes();
 %>
 
+<!DOCTYPE html>
 <html>
     <head>
         <title>Manage Saved Demographic Queries</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
     </head>
 
@@ -76,6 +96,7 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/report/DeleteDemographicReport.do" method="post">
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <table class="table table-condensed table-striped" style="font-size:13px;">
                 <%
                     for (int i = 0; i < queryArray.size(); i++) {
@@ -84,8 +105,8 @@
                         String qName = sc.queryName;
                 %>
                 <tr>
-                    <td style="width:30px;"><input type="checkbox" name="queryFavourite" value="<%=qId%>"/></td>
-                    <td><%=qName%></td>
+                    <td style="width:30px;"><input type="checkbox" name="queryFavourite" value="<%=Encode.forHtmlAttribute(qId)%>"/></td>
+                    <td><%=Encode.forHtml(qName)%></td>
                 </tr>
                 <%}%>
             </table>

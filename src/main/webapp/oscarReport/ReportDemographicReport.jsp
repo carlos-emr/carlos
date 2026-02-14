@@ -29,6 +29,26 @@
 
 --%>
 
+<%--
+    ReportDemographicReport.jsp - Demographic Report Tool
+
+    Purpose: Allows querying patient demographics by various criteria (age, roster status,
+             provider, patient status, etc.) and displaying/exporting results.
+
+    Features:
+    - Saved query support (load/save demographic search queries)
+    - Multiple search criteria: age, sex, roster status, provider, patient status, etc.
+    - Flexible column selection for result display
+    - Patient set export functionality
+    - "Add to Study" workflow support via studyId parameter
+    - Bootstrap-based responsive UI
+
+    Parameters:
+    - studyId (optional): Study identifier for "Add to Study" workflow
+
+    @since 2026-02-14
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -90,13 +110,14 @@
     }
 %>
 
+<!DOCTYPE html>
 <html>
     <head>
         <title>Demographic Report Tool</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -175,7 +196,8 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/report/DemographicReport.do" method="post" onsubmit="return checkQuery();">
-            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : studyId%>'/>
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : Encode.forHtmlAttribute(studyId)%>'/>
 
             <div style="margin-bottom:10px; padding:5px 10px; background:#fafafa; border:1px solid #eee; border-radius:3px;">
                 <select name="savedQuery" id="savedQuery" class="form-control input-sm" style="width:auto;display:inline-block">
@@ -184,7 +206,7 @@
                             RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
                             String qId = sc.id;
                             String qName = sc.queryName;%>
-                    <option value="<%=qId%>"><%=qName%></option>
+                    <option value="<%=Encode.forHtmlAttribute(qId)%>"><%=Encode.forHtml(qName)%></option>
                     <%}%>
                 </select>
                 <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-default"/>
@@ -339,7 +361,7 @@
                                     <option value="0" <%= "0".equals(formBean.getAge()) || formBean.getAge() == null ? "selected" : "" %>>---NO AGE SPECIFIED---</option>
                                     <option value="1" <%= "1".equals(formBean.getAge()) ? "selected" : "" %>>younger than</option>
                                     <option value="2" <%= "2".equals(formBean.getAge()) ? "selected" : "" %>>older than</option>
-                                    <option value="3" <%= "3".equals(formBean.getAge()) ? "selected" : "" %>>equal too</option>
+                                    <option value="3" <%= "3".equals(formBean.getAge()) ? "selected" : "" %>>equal to</option>
                                     <option value="4" <%= "4".equals(formBean.getAge()) ? "selected" : "" %>>ages between</option>
                                 </select>
                                 <input type="text" name="startYear" size="4" class="form-control input-sm" style="width:60px;display:inline-block" value="<%= safeValue(formBean.getStartYear()) %>"/>
@@ -370,7 +392,7 @@
                                     for (int i = 0; i < rosterArray.size(); i++) {
                                         String ros = (String) rosterArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="rosterStatus" value="<%=ros%>" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <%=ros%>
+                                    <input type="checkbox" name="rosterStatus" value="<%=Encode.forHtmlAttribute(ros)%>" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <%=Encode.forHtml(ros)%>
                                 </label>
                                 <%}%>
                             </td>
@@ -394,8 +416,8 @@
                                             String pro = (String) providerArray.get(i);
                                             if (pro != null && !"".equals(pro)) {
                                     %>
-                                    <li><%=providerBean.getProperty(pro, pro)%>
-                                        <input type="checkbox" name="providerNo" value="<%=pro%>" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
+                                    <li><%=Encode.forHtml(providerBean.getProperty(pro, pro))%>
+                                        <input type="checkbox" name="providerNo" value="<%=Encode.forHtmlAttribute(pro)%>" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
                                     </li>
                                     <%
                                             }
@@ -411,7 +433,7 @@
                                     for (int i = 0; i < patientArray.size(); i++) {
                                         String pat = (String) patientArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="patientStatus" value="<%=pat%>" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <%=pat%>
+                                    <input type="checkbox" name="patientStatus" value="<%=Encode.forHtmlAttribute(pat)%>" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <%=Encode.forHtml(pat)%>
                                 </label>
                                 <%}%>
                             </td>
@@ -488,7 +510,7 @@
             <table class="table table-condensed table-striped table-bordered" style="font-size:13px;">
                 <tr>
                     <%for (int i = 0; i < selectArray.length; i++) {%>
-                    <th><%=dcn.getColumnTitle(selectArray[i])%></th>
+                    <th><%=Encode.forHtml(dcn.getColumnTitle(selectArray[i]))%></th>
                     <%}%>
                 </tr>
                 <%
@@ -500,11 +522,16 @@
                         for (int j = 0; j < al.size(); j++) {
                             String str = (String) al.get(j);
                             if (str == null || str.equals("")) {
-                                str = "&nbsp;";
-                            }
                     %>
-                    <td><%=str%></td>
-                    <%}%>
+                    <td>&nbsp;</td>
+                    <%
+                            } else {
+                    %>
+                    <td><%=Encode.forHtml(str)%></td>
+                    <%
+                            }
+                        }
+                    %>
                 </tr>
                 <%}%>
             </table>

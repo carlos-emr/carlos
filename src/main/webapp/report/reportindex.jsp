@@ -29,6 +29,26 @@
 
 --%>
 
+<%--
+    reportindex.jsp - Report Index Page
+
+    Purpose: Main report navigation index page for CARLOS EMR. Provides access to various
+             reporting tools including Day Sheet, Demographic Report Tool, and Prevention
+             Reporting.
+
+    Features:
+    - Day Sheet report generation with date range and provider selection
+    - Demographic Report Tool access
+    - Prevention Reporting access
+    - Provider/group filtering with site/team access privacy support
+    - Date range selection with calendar picker
+    - Bootstrap-based responsive layout
+
+    Parameters: None (uses session-based authentication and provider preferences)
+
+    @since 2026-02-14
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,6 +68,7 @@
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String country = request.getLocale().getCountry();
 
@@ -96,12 +117,13 @@
 
 </security:oscarSec>
 
+<!DOCTYPE html>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.title"/></title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
 
         <link rel="stylesheet" type="text/css" media="all"
@@ -166,6 +188,7 @@
         </h4>
     </div>
     <form name='report'>
+        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <table class="table table-condensed table-striped" id="reportsTbl" style="width:100%">
             <%int j = 1; %>
             <tr>
@@ -182,8 +205,8 @@
                             if (isTeamAccessPrivacy)
                                 continue;    //skip mygroup display if user have TeamAccessPrivacy
                     %>
-                    <option value="<%="_grp_"+rsgroup.getString("mygroup_no")%>"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><%="GRP: " + rsgroup.getString("mygroup_no")%>
+                    <option value="<%=Encode.forHtmlAttribute("_grp_"+rsgroup.getString("mygroup_no"))%>"
+                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><%=Encode.forHtml("GRP: " + rsgroup.getString("mygroup_no"))%>
                     </option>
                     <%
                         }
@@ -192,8 +215,8 @@
                         rsgroup = reportMainBean.queryResults(provider_dboperation);
                         while (rsgroup.next()) {
                     %>
-                    <option value="<%=rsgroup.getString("provider_no")%>"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><%=rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name")%>
+                    <option value="<%=Encode.forHtmlAttribute(rsgroup.getString("provider_no"))%>"
+                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><%=Encode.forHtml(rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name"))%>
                     </option>
                     <%
                         }
