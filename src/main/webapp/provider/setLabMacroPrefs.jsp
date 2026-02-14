@@ -129,21 +129,22 @@ function toggleMe(el){
 }
 
 </script>
-<style>
-    .MainTableTopRow {
-        background-color: gainsboro;
-    }
-</style>
 
 </head>
 <body>
 
-<table style="width:100%" id="scrollNumber1">
-	<tr class="MainTableTopRow">
-		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<fmt:message key="provider.labMacroPrefs.msgPrefs" /></h4></td>
-		<td style="text-align:center;" class="MainTableTopRowRightColumn"><fmt:message key="provider.labMacroPrefs.title" /></td>
-	</tr>
-</table>
+<div class="card mb-3">
+    <div class="card-header bg-light">
+        <div class="row">
+            <div class="col-sm-6">
+                <h4 class="mb-0"><fmt:message key="provider.labMacroPrefs.msgPrefs" /></h4>
+            </div>
+            <div class="col-sm-6 text-center">
+                <fmt:message key="provider.labMacroPrefs.title" />
+            </div>
+        </div>
+    </div>
+</div>
 			<!-- form starts here -->
 
 <form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do">
@@ -198,17 +199,17 @@ if ("saveLabMacroPrefs".equals(status)) {
 
  <div class="form-group row" id="macro_<%=x%>">
     <div class="col-sm-2">
-     <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="" placeholder="<fmt:message key="name" />" style="width:90px;" value="<%=Encode.forHtmlAttribute(name)%>">
+     <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" style="width:90px;" value="<%=Encode.forHtmlAttribute(name)%>">
     </div>
     <div class="col-sm-3">
-     <label for="comment_<%=x%>"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="" style="width:95%;" value="<%=Encode.forHtmlAttribute(comment)%>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+     <label for="comment_<%=x%>"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="form-control form-control-sm w-100" value="<%=Encode.forHtmlAttribute(comment)%>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
       <%
         String val1 = ticklerTo;
         if(val1 == null) val1 = "";
         %>
-		    <label for="ticklerTo_<%=x%>"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-control input-sm" style="width:95%;">
+		    <label for="ticklerTo_<%=x%>"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-control form-control-sm w-100">
             <option value="" <%=(val1.equals("")?" selected=\"selected\"":"") %> >-</option>
 			<%for(Provider p: providerList) {%>
 				<option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"<%=(val1.equals(p.getProviderNo())?" selected=\"selected\"":"") %>><%=Encode.forHtml(p.getFullName())%></option>
@@ -216,10 +217,10 @@ if ("saveLabMacroPrefs".equals(status)) {
 			</select>
     </div>
     <div class="col-sm-2 ">
-     <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="" style="width:95%;" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=Encode.forHtmlAttribute(message)%>">
+     <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=Encode.forHtmlAttribute(message)%>">
     </div>
     <div class="col-sm-3 ">
-     <label for="quantity_<%=x%>"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_<%=x%>" class="" style="width:50px;" value="<%=Encode.forHtmlAttribute(quantity)%>"><select id="timeUnits_<%=x%>"  style="width:80px;">
+     <label for="quantity_<%=x%>"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_<%=x%>" class="form-control form-control-sm" style="width:50px;" value="<%=Encode.forHtmlAttribute(quantity)%>"><select id="timeUnits_<%=x%>" class="form-control form-control-sm" style="width:80px;">
             <option value="1" <%=(timeUnits.equals("1")?" selected=\"selected\"":"") %>><fmt:message key="global.days" /></option>
             <option value="7" <%=(timeUnits.equals("7")?" selected=\"selected\"":"") %>><fmt:message key="global.weeks" /></option>
             <option value="30" <%=(timeUnits.equals("30")?" selected=\"selected\"":"") %>><fmt:message key="global.months" /></option>
@@ -245,13 +246,13 @@ if ("saveLabMacroPrefs".equals(status)) {
 
  <div class="form-group row" id="macro_new">
     <div class="col-sm-2">
-     <label for="name_new"><fmt:message key="global.macro" /></label><br><input type="text" id="name_new" class="" style="width:90px;" placeholder="<fmt:message key="name" />" value="">
+     <label for="name_new"><fmt:message key="global.macro" /></label><br><input type="text" id="name_new" class="form-control form-control-sm" style="width:90px;" placeholder="<fmt:message key="name" />" value="">
     </div>
     <div class="col-sm-3">
-     <label for="comment_new"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_new" class="" style="width:95%;" value="" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+     <label for="comment_new"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_new" class="form-control form-control-sm w-100" value="" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
-					<label for="ticklerTo_new"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><select id="ticklerTo_new" name="ticklerTo_new" class="form-control input-sm" style="width:95%;">
+					<label for="ticklerTo_new"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><select id="ticklerTo_new" name="ticklerTo_new" class="form-control form-control-sm w-100">
 					<option value="" selected="selected">-</option>
 					<%for(Provider p: providerList) {%>
 						<option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFullName())%></option>
@@ -259,10 +260,10 @@ if ("saveLabMacroPrefs".equals(status)) {
 					</select>
     </div>
     <div class="col-sm-2">
-     <label for="message_new"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_new" class="" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" style="width:95%;" value="">
+     <label for="message_new"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_new" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="">
     </div>
     <div class="col-sm-3 ">
-     <label for="timeUnits_new"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_new" class="" style="width:50px;" value="0"><select id="timeUnits_new">
+     <label for="timeUnits_new"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_new" class="form-control form-control-sm" style="width:50px;" value="0"><select id="timeUnits_new" class="form-control form-control-sm" style="width:80px;">
             <option value="1"><fmt:message key="global.days" /></option>
             <option value="7"><fmt:message key="global.weeks" /></option>
             <option value="30"><fmt:message key="global.months" /></option>
@@ -270,7 +271,7 @@ if ("saveLabMacroPrefs".equals(status)) {
         </select>
     </div>
     <div class="col-sm-2">
-        &nbsp;<input type="button" id="add_new" class="btn btn-link" value="Add" style="visibility:hidden;">
+        &nbsp;<input type="button" id="add_new" class="btn btn-link d-none" value="Add">
     </div>
 </div>
 
