@@ -137,14 +137,9 @@
     Map<Integer, LookupListItem> reasonCodesMap = new HashMap<>();
     OscarProperties oscarVariables = OscarProperties.getInstance();
     AppManager appManager = SpringUtils.getBean(AppManager.class);
-    String resourcehelpHtml = "";
-    UserProperty rbuHtml = userPropertyDao.getProp("resource_helpHtml");
     io.github.carlos_emr.carlos.managers.PreventionManager providerPreventionManager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.PreventionManager.class);
 %>
 <%
-    if (rbuHtml != null) {
-        resourcehelpHtml = rbuHtml.getValue();
-    }
     LookupList reasonCodes = lookupListManager.findLookupListByName(loggedInInfo1, "reasonCode");
     for (LookupListItem lli : reasonCodes.getItems()) {
         reasonCodesMap.put(lli.getId(), lli);
@@ -919,16 +914,6 @@
                         <% } %>
                     </c:if>
 
-                    <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
-                            <li>
-                                <a href="#" ONCLICK="popupPage2('<%=resourcebaseurl%>');return false;"
-                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"
-                                   onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.clinicalResources"/></a>
-                            </li>
-                        </security:oscarSec>
-                    </caisi:isModuleLoad>
-
                     <%
                         if (isMobileOptimized) {
                     %>
@@ -966,25 +951,7 @@
                             </security:oscarSec>
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
-                                    <li>
-                                        <a HREF="#"
-                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
-                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>'
-                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.report"/></a>
-                                    </li>
-                                </security:oscarSec>
                                 <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
-
-                                    <c:if test="${billingRights}">
-                                        <li>
-                                            <a HREF="#"
-                                               ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');return false;"
-                                               TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>'
-                                               onMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a>
-                                        </li>
-                                    </c:if>
-
                                     <c:if test="${doctorLinkRights}">
                                         <li>
                                        <a HREF="#" id="inboxLink">
@@ -997,10 +964,16 @@
                                         </li>
                                     </c:if>
                                 </oscar:oscarPropertiesCheck>
-
                             </caisi:isModuleLoad>
 
-                                <%-- K2A link block removed --%>
+                            <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
+                                <li>
+                                    <a HREF="#"
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>');return false;"
+                                       TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>'>
+                                        <span id="oscar_new_tickler"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btntickler"/></span></a>
+                                </li>
+                            </security:oscarSec>
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
@@ -1042,14 +1015,30 @@
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
-                            <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
-                                <li>
-                                    <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>');return false;"
-                                       TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>'>
-                                        <span id="oscar_new_tickler"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btntickler"/></span></a>
-                                </li>
-                            </security:oscarSec>
+
+                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                                <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                    <li>
+                                        <a HREF="#"
+                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
+                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>'
+                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.report"/></a>
+                                    </li>
+                                </security:oscarSec>
+                            </caisi:isModuleLoad>
+
+                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                                <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
+                                    <c:if test="${billingRights}">
+                                        <li>
+                                            <a HREF="#"
+                                               ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');return false;"
+                                               TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>'
+                                               onMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a>
+                                        </li>
+                                    </c:if>
+                                </oscar:oscarPropertiesCheck>
+                            </caisi:isModuleLoad>
 
                             <oscar:oscarPropertiesCheck property="referral_menu" value="yes">
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r">
@@ -1116,29 +1105,16 @@
                                 </li>
 
                             </security:oscarSec>
-                            <li id="helpLink">
-                                <%if (resourcehelpHtml == "") { %>
-                                <a href="javascript:void(0)"
-                                   onClick="popupPage(600,750,'<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
-                                <%} else {%>
-                                <div id="help-link">
-                                    <a href="javascript:void(0)"
-                                       onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
 
-                                    <div id="helpHtml">
-                                        <div class="help-title">Help</div>
+                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                                <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
+                                    <li>
+                                        <a href="https://www.oscargalaxy.org" target="_blank"
+                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.clinicalResources"/></a>
+                                    </li>
+                                </security:oscarSec>
+                            </caisi:isModuleLoad>
 
-                                        <div class="help-body">
-
-                                            <%=resourcehelpHtml%>
-                                        </div>
-                                        <a href="javascript:void(0)" class="help-close"
-                                           onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'">(X)</a>
-                                    </div>
-
-                                </div>
-                                <%}%>
-                            </li>
                             <% if (isMobileOptimized) { %>
                         </ul>
                     </li> <!-- end menu list for mobile-->
