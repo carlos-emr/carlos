@@ -401,7 +401,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
   - All 458 *2Action files remain unchanged - no import modifications needed
 - **Apache CXF 3.6.9**: Web services framework for healthcare integrations
 - **JSP/JSTL**: View layer with extensive medical form templates
-- **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
+- **Bootstrap 5.3.3**: Modern UI framework loaded from local library files for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
 - **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
 

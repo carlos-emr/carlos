@@ -36,10 +36,6 @@ input {
     padding-left: 0.5rem !important;
 }
 
-.show {
-    display: block;
-}
-
 .ui-autocomplete {
     position: absolute;
     top: 100%;
