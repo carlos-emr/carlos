@@ -151,7 +151,7 @@
             </table>
 
             <input type="hidden" name="submit" value="Submit">
-            <input type="hidden" name="action" value="<%=Encode.forHtmlAttribute(action)%>">
+            <input type="hidden" name="action" value="<%=Encode.forHtmlAttribute(action != null ? action : "")%>">
             <input type="hidden" name="count" value="<%=count1%>">
             <input class="btn btn-sm btn-primary" type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.btnSubmit"/>">
         </form>

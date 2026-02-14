@@ -322,11 +322,11 @@
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<%=daySheetBean.getString(rsdemo, "doc_last_name")%>, <%=initial%>]
+                [<%=Encode.forHtml(daySheetBean.getString(rsdemo, "doc_last_name"))%>, <%=initial%>]
                 &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
                 String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
                 rd = rd != null ? rd : "";
-            %> [<%=rd%>]&nbsp; <% } %> <%=daySheetBean.getString(rsdemo, "reason")%>&nbsp;
+            %> [<%=Encode.forHtml(rd)%>]&nbsp; <% } %> <%=Encode.forHtml(daySheetBean.getString(rsdemo, "reason"))%>&nbsp;
             </td>
         </tr>
         <%

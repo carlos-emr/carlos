@@ -112,8 +112,8 @@
             prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("appointment_date"));
             prop.setProperty("TIME", rs.getString("start_time").substring(0, 5));
-            prop.setProperty("PATIENT", rs.getString("name"));
-            prop.setProperty("DESCRIPTION", rs.getString("reason"));
+            prop.setProperty("PATIENT", Encode.forHtml(rs.getString("name")));
+            prop.setProperty("DESCRIPTION", Encode.forHtml(rs.getString("reason")));
             String tempStr = "<a href=# onClick='popupPage(700,1000, \"billingOB.jsp?billForm="
                     + URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no="
                     + rs.getString("appointment_no") + "&demographic_name=" + URLEncoder.encode(rs.getString("name"), StandardCharsets.UTF_8)
@@ -147,7 +147,7 @@
             prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("billing_date"));
             prop.setProperty("TIME", rs.getString("billing_time").substring(0, 5));
-            prop.setProperty("PATIENT", rs.getString("demographic_name"));
+            prop.setProperty("PATIENT", Encode.forHtml(rs.getString("demographic_name")));
 
             String apptDoctorNo = rs.getString("apptProvider_no");
             String userno = rs.getString("provider_no");
@@ -168,7 +168,7 @@
             else if (reason.compareTo("H") == 0) reason = "Capitated Bill ";
             else if (reason.compareTo("P") == 0) reason = "Bill Patient";
 
-            prop.setProperty("DESCRIPTION", reason + "(" + note + ")");
+            prop.setProperty("DESCRIPTION", Encode.forHtml(reason + "(" + note + ")"));
             String tempStr = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/billingCorrection.jsp?billing_no="
                     + rs.getString("id") + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
                     + reason + "'>" + rs.getString("id") + "</a>";
@@ -234,7 +234,7 @@
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
                 prop.setProperty("Billing No", strT);
-                prop.setProperty("HIN", rs.getString("hin"));
+                prop.setProperty("HIN", Encode.forHtml(rs.getString("hin")));
                 prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Paid", sAmountpay);
                 prop.setProperty("Billing Date", getFormatDateStr(rs.getString("service_date")));
@@ -258,7 +258,7 @@
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
                 prop.setProperty("Billing No", strT);
-                prop.setProperty("HIN", rs.getString("hin"));
+                prop.setProperty("HIN", Encode.forHtml(rs.getString("hin")));
                 // repeated records
                 //prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Claim", propTotal.getProperty(tempStr));
