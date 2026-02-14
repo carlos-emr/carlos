@@ -212,7 +212,10 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
     @Override
     public Integer messagesTotal(int type, String providerNo, Integer remoteLocation, String searchFilter) {
 
-        searchFilter = "%" + searchFilter + "%";
+        boolean hasFilter = searchFilter != null && !searchFilter.isEmpty();
+        if (hasFilter) {
+            searchFilter = "%" + searchFilter + "%";
+        }
 
         StringBuilder sql = new StringBuilder();
         sql.append("select count(mt) from ");
@@ -234,7 +237,7 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
                 break;
         }
 
-        if (searchFilter != null && !searchFilter.isEmpty()) {
+        if (hasFilter) {
             sql.append(
                     " AND (mt.subject Like ?3 OR mt.message Like ?4 OR mt.sentBy Like ?5 OR mt.sentTo Like ?6)");
         }
@@ -249,7 +252,7 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
             return 0;
         }
 
-        if (searchFilter != null && !searchFilter.isEmpty()) {
+        if (hasFilter) {
             query.setParameter(3, searchFilter);
             query.setParameter(4, searchFilter);
             query.setParameter(5, searchFilter);

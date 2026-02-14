@@ -171,18 +171,12 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
         }
 
+        if (bean == null) {
+            return findForward;
+        }
+
         // Process user actions based on button clicks
-        if (request.getParameter("btnSearch") != null) {
-            // Apply search filter to message list
-            MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
-            displayMsgBean.setFilter(request.getParameter("searchString"));
-            
-        } else if (request.getParameter("btnClearSearch") != null) {
-            // Remove search filter to show all messages
-            MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
-            displayMsgBean.clearFilter();
-            
-        } else if (request.getParameter("btnDelete") != null) {            
+        if (request.getParameter("btnDelete") != null) {
             // Quick return if messageNo is null (no message is selected for deletion)
             if (messageNo == null) {
                 MiscUtils.getLogger().info("No messages selected, returning back to page");
@@ -192,7 +186,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             // Process bulk message deletion
             providerNo = bean.getProviderNo();
             MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
-            
+
             // Iterate through selected messages and mark as deleted
             for (int i = 0; i < messageNo.length; i++) {
                 // Find all instances of this message for the provider
@@ -200,6 +194,32 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 // Soft delete each message instance
                 for (MessageList msg : msgs) {
                     msg.setDeleted(true);
+                    dao.merge(msg);
+                }
+            }
+        } else if (request.getParameter("btnRead") != null) {
+            if (messageNo == null) {
+                return findForward;
+            }
+            providerNo = bean.getProviderNo();
+            MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
+            for (int i = 0; i < messageNo.length; i++) {
+                List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]));
+                for (MessageList msg : msgs) {
+                    msg.setStatus("read");
+                    dao.merge(msg);
+                }
+            }
+        } else if (request.getParameter("btnUnread") != null) {
+            if (messageNo == null) {
+                return findForward;
+            }
+            providerNo = bean.getProviderNo();
+            MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
+            for (int i = 0; i < messageNo.length; i++) {
+                List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]));
+                for (MessageList msg : msgs) {
+                    msg.setStatus("unread");
                     dao.merge(msg);
                 }
             }

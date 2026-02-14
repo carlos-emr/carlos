@@ -147,74 +147,19 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
     private String currentLocationId = "0";
 
     /**
-     * Search filter string for message filtering.
-     * Added in 2006 to support message search functionality.
+     * Search filter - always null since search feature was removed.
+     * Retained for query method compatibility.
      */
-    private String filter;
+    private final String filter = null;
 
     /**
-     * Sets the search filter for message filtering.
-     * 
-     * <p>This method attempts to prevent SQL injection by replacing single quotes,
-     * though the implementation has a bug - replaceAll() returns a new string
-     * rather than modifying in place, so the sanitization doesn't actually work.</p>
-     * 
-     * @param filter String search filter to apply, null to clear filter
-     */
-    public void setFilter(String filter) {
-        if (filter == null || filter.equals("")) {
-            this.filter = null;
-        } else {
-            // BUG: This line doesn't actually sanitize the filter
-            // replaceAll() returns a new string, it doesn't modify in place
-            // Should be: filter = filter.replaceAll("'", "''");
-            filter.replaceAll("'", "''");
-            this.filter = filter;
-        }
-    }
-
-    /**
-     * Clears the current search filter.
-     */
-    public void clearFilter() {
-        filter = null;
-    }
-
-    /**
-     * Gets the current search filter.
-     * 
-     * @return String the current filter, empty string if null
-     */
-    public String getFilter() {
-        if (filter == null) {
-            filter = "";
-        }
-        return filter;
-    }
-
-    /**
-     * Generates parameterized SQL WHERE clause fragment for search filtering.
+     * Returns empty string since search feature was removed.
      *
-     * <p>Creates a SQL condition that searches for the filter string
-     * across multiple specified columns using LIKE operators with a named parameter.
-     * This method is safe from SQL injection as it uses parameterized queries.</p>
-     *
-     * @param colsToSearch String[] array of column names to search (must be safe hardcoded names)
-     * @return String SQL WHERE clause fragment with :filterParam placeholder, empty if no filter
+     * @param colsToSearch String[] unused
+     * @return empty string
      */
     public String getSQLSearchFilterParameterized(String[] colsToSearch) {
-        if (filter == null || filter.isEmpty() || colsToSearch.length == 0) {
-            return "";
-        } else {
-            // Build OR condition across all specified columns using parameterized query
-            String search = " and (";
-            int numOfCols = colsToSearch.length;
-            for (int i = 0; i < numOfCols - 1; i++) {
-                search = search + colsToSearch[i] + " like :filterParam or ";
-            }
-            search = search + colsToSearch[numOfCols - 1] + " like :filterParam) ";
-            return search;
-        }
+        return "";
     }
 
     /**
@@ -497,8 +442,7 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
      * Establishes the inbox view with pagination and ordering.
      * 
      * <p>Retrieves messages for the inbox view, excluding deleted messages.
-     * Supports pagination with 25 messages per page and custom ordering.
-     * Also applies any active search filters.</p>
+     * Supports pagination with 25 messages per page and custom ordering.</p>
      * 
      * @param orderby String the field to order results by
      * @param page int the page number (1-based)

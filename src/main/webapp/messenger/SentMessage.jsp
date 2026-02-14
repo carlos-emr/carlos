@@ -31,30 +31,30 @@
 
 <%--
   SentMessage.jsp - Message sent confirmation page
-  
+
   This JSP page displays a confirmation message after successfully sending
   a message through the messaging system. It provides feedback to the user
   and offers navigation options to continue working.
-  
+
   Main features:
   - Displays success confirmation
   - Shows message details (recipients, subject)
   - Provides navigation options (close window, new message, inbox)
   - Auto-refresh of parent window if in popup mode
-  
+
   Security:
   - Requires "_msg" object with read ("r") permissions
   - Session validation through msgSessionBean
-  
+
   Session dependencies:
   - msgSessionBean: Must be valid for page access
   - Contains sent message details for display
-  
+
   UI elements:
   - Success message with sent details
   - Action buttons for next steps
   - Auto-close timer option (if configured)
-  
+
   @since 2003
 --%>
 
@@ -77,9 +77,12 @@
         return;
     }
 %>
+<!DOCTYPE html>
 <html>
     <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
 
         <c:if test="${empty msgSessionBean}">
             <c:redirect url="index.jsp"/>
@@ -90,104 +93,78 @@
             </c:if>
         </c:if>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.title"/></title>
-        <link rel="stylesheet" type="text/css" href="encounterStyles.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet">
+        <link href="<%=request.getContextPath()%>/css/bootstrap-responsive.css" rel="stylesheet">
+        <link href="<%=request.getContextPath()%>/css/fontawesome-all.min.css" rel="stylesheet">
 
         <script type="text/javascript">
             function BackToOscar() {
-                if (opener.callRefreshTabAlerts) {
+                if (opener && opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
+                    setTimeout(function() { window.close(); }, 100);
                 } else {
                     window.close();
                 }
             }
         </script>
 
-        <style>
-            .TopStatusBar {
-                width: 100% !important;
-                height: 100% !important;
-            }
-        </style>
-
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessenger"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td><h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessageSent"/></h2></td>
-                        <td></td>
-                        <td style="text-align: right">
-                            <a href="javascript:void(0)"
-                               onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
+    <body>
+
+    <table style="width:100%">
         <tr>
-            <td class="MainTableLeftColumn">&nbsp;</td>
-            <td class="MainTableRightColumn">
-                <table>
-                    <tr>
-                        <td>&nbsp;</td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <table cellspacing=3>
-                                <tr>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA"><a
-                                                        href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
-                                                        class="messengerButtons">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.btnCompose"/>
-                                                </a></td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA"><a
-                                                        href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
-                                                        class="messengerButtons">
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessagebtnBack"/>
-                                                </a></td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA"><a
-                                                        href="javascript:BackToOscar()"
-                                                        class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.btnExit"/></a></td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessageSentTo"/> <%= request.getAttribute("SentMessageProvs") %>
-                        </td>
-                    </tr>
-                </table>
+            <td style="width:1%"></td>
+            <td style="width:80%; text-align:left;">
+                <h4>
+                    <i class="fa-solid fa-envelope"></i>&nbsp;
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessageSent"/>
+                </h4>
             </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
+            <td style="width:1%"></td>
         </tr>
     </table>
+
+    <div class="well">
+        <ul class="nav nav-tabs">
+            <li>
+                <a href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.btnCompose"/>
+                </a>
+            </li>
+            <li>
+                <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
+                    <i class="fa-solid fa-inbox"></i>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessagebtnBack"/>
+                </a>
+            </li>
+        </ul>
+
+        <div style="margin-top:15px;">
+            <p>
+                <i class="fa-solid fa-check" style="color:green;"></i>&nbsp;
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.msgMessageSentTo"/> <%= request.getAttribute("SentMessageProvs") %>
+            </p>
+        </div>
+    </div>
+
+    <table style="width:100%">
+        <tr>
+            <td>
+                <a href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp" class="btn btn-link">
+                    <i class="fa-solid fa-inbox"></i>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessagebtnBack"/>
+                </a>
+            </td>
+            <td style="text-align:right;">
+                <a href="javascript:BackToOscar()" class="btn btn-link">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.btnExit"/>
+                </a>
+            </td>
+        </tr>
+    </table>
+
     </body>
 </html>
