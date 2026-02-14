@@ -117,6 +117,7 @@
 
 </security:oscarSec>
 
+<!DOCTYPE html>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
