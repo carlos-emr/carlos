@@ -234,7 +234,7 @@ if ("saveLabMacroPrefs".equals(status)) {
         <%      x++;
                 }
             }
-        }catch(com.fasterxml.jackson.core.JsonProcessingException | java.io.IOException e ) {
+        }catch(java.io.IOException e ) {
             MiscUtils.getLogger().error("Invalid JSON for lab macros",e);
 %>
   <div class="alert alert-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="error.msgException" /></div>
