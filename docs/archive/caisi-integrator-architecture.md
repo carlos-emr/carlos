@@ -331,10 +331,15 @@ io.github.carlos_emr.carlos.PMmodule.caisi_integrator/
     DeleteCachedDemographicPreventionsWrapper.java # 105 lines
     ProgramDeleteIdWrapper.java          # 49 lines
 
+```
+
+### NOT Part of the Integrator (General CAISI/PMModule)
+
+```
 io.github.carlos_emr.carlos.caisi/
-    CaisiUtil.java                       # CAISI utility methods
-    IsModuleLoadTag.java                 # JSP tag library for module detection
-    OscarMenuExtension.java             # Menu extension for CAISI features
+    CaisiUtil.java                       # Generic query-string utility (NOT integrator)
+    IsModuleLoadTag.java                 # Generic JSP module-load tag (NOT integrator)
+    OscarMenuExtension.java             # Generic menu extension interface (NOT integrator)
 ```
 
 ### Supporting Classes in Common Packages
@@ -387,10 +392,11 @@ io.github.carlos_emr.carlos.managers/
 **Location**: `src/main/resources/applicationContextCaisi.xml`
 **Loaded by**: `web.xml` via `classpath:applicationContext*.xml` glob pattern
 
-**CRITICAL NOTE**: This file contains both integrator-specific and non-integrator beans.
-The non-integrator beans MUST be preserved during removal.
+**CRITICAL NOTE**: Despite the name, this file contains **ZERO integrator-specific beans**.
+All beans defined here are PMModule/core functionality. The file must be left intact
+during integrator removal — it does not need to be modified at all.
 
-#### Non-Integrator Beans (MUST PRESERVE)
+#### Beans (ALL are non-integrator, ALL must be preserved)
 
 | Bean ID | Class | Purpose |
 |---------|-------|---------|
