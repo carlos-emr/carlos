@@ -170,7 +170,7 @@
                                     </li>
                                 </security:oscarSec>
 
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink"
+                                <security:oscarSec roleName="<%=roleName$%>" objectName="_lab"
                                                    rights="r">
                                     <li>
                                         <a HREF="#" id="inboxLink"
@@ -371,27 +371,17 @@
         src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
 <script>
     const contextPath = document.getElementById("contextPath").value;
-    const originalInboxLinkClickEvent = "popupInboxManager('" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=curUser_no%>');return false;";
-    const newInboxLinkClickEvent = "popupInboxManager('" + contextPath + "/www/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
+    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
+    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
 
-    const originalUnclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=0&searchProviderNo=0&status=N&lname=&fname=&hnum=&pageNum=1&startIndex=0');return false;";
-    const newUnclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/www/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
-
-     document.getElementById("inboxLink").addEventListener("mouseup", function(event) {
-        if(event.altKey) {
-            document.getElementById("inboxLink").setAttribute("onclick", newInboxLinkClickEvent);
-        } else {
-            document.getElementById("inboxLink").setAttribute("onclick", originalInboxLinkClickEvent);
-        }
-    });
-
-    document.getElementById("unclaimedLabLink").addEventListener("mouseup", function(event) {
-        if(event.altKey) {
-            document.getElementById("unclaimedLabLink").setAttribute("onclick", newUnclaimedLabLinkClickEvent);
-        } else {
-            document.getElementById("unclaimedLabLink").setAttribute("onclick", originalUnclaimedLabLinkClickEvent);
-        }
-    });
+    const inboxLink = document.getElementById("inboxLink");
+    if (inboxLink) {
+        inboxLink.setAttribute("onclick", inboxLinkClickEvent);
+    }
+    const unclaimedLabLink = document.getElementById("unclaimedLabLink");
+    if (unclaimedLabLink) {
+        unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
+    }
 
     function openPreferences(providerNumber) {
         const $div = jQuery('<div />').appendTo('body');
