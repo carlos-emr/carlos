@@ -175,7 +175,8 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/report/DemographicReport.do" method="post" onsubmit="return checkQuery();">
-            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : studyId%>'/>
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : Encode.forHtmlAttribute(studyId)%>'/>
 
             <div style="margin-bottom:10px; padding:5px 10px; background:#fafafa; border:1px solid #eee; border-radius:3px;">
                 <select name="savedQuery" id="savedQuery" class="form-control input-sm" style="width:auto;display:inline-block">
@@ -184,7 +185,7 @@
                             RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
                             String qId = sc.id;
                             String qName = sc.queryName;%>
-                    <option value="<%=qId%>"><%=qName%></option>
+                    <option value="<%=Encode.forHtmlAttribute(qId)%>"><%=Encode.forHtml(qName)%></option>
                     <%}%>
                 </select>
                 <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-default"/>
@@ -370,7 +371,7 @@
                                     for (int i = 0; i < rosterArray.size(); i++) {
                                         String ros = (String) rosterArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="rosterStatus" value="<%=ros%>" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <%=ros%>
+                                    <input type="checkbox" name="rosterStatus" value="<%=Encode.forHtmlAttribute(ros)%>" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <%=Encode.forHtml(ros)%>
                                 </label>
                                 <%}%>
                             </td>
@@ -394,8 +395,8 @@
                                             String pro = (String) providerArray.get(i);
                                             if (pro != null && !"".equals(pro)) {
                                     %>
-                                    <li><%=providerBean.getProperty(pro, pro)%>
-                                        <input type="checkbox" name="providerNo" value="<%=pro%>" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
+                                    <li><%=Encode.forHtml(providerBean.getProperty(pro, pro))%>
+                                        <input type="checkbox" name="providerNo" value="<%=Encode.forHtmlAttribute(pro)%>" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
                                     </li>
                                     <%
                                             }
@@ -411,7 +412,7 @@
                                     for (int i = 0; i < patientArray.size(); i++) {
                                         String pat = (String) patientArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="patientStatus" value="<%=pat%>" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <%=pat%>
+                                    <input type="checkbox" name="patientStatus" value="<%=Encode.forHtmlAttribute(pat)%>" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <%=Encode.forHtml(pat)%>
                                 </label>
                                 <%}%>
                             </td>
@@ -488,7 +489,7 @@
             <table class="table table-condensed table-striped table-bordered" style="font-size:13px;">
                 <tr>
                     <%for (int i = 0; i < selectArray.length; i++) {%>
-                    <th><%=dcn.getColumnTitle(selectArray[i])%></th>
+                    <th><%=Encode.forHtml(dcn.getColumnTitle(selectArray[i]))%></th>
                     <%}%>
                 </tr>
                 <%
@@ -499,11 +500,9 @@
                     <%
                         for (int j = 0; j < al.size(); j++) {
                             String str = (String) al.get(j);
-                            if (str == null || str.equals("")) {
-                                str = "&nbsp;";
-                            }
+                            boolean isEmpty = (str == null || str.equals(""));
                     %>
-                    <td><%=str%></td>
+                    <td><%= isEmpty ? "&nbsp;" : Encode.forHtml(str) %></td>
                     <%}%>
                 </tr>
                 <%}%>

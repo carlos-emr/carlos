@@ -151,7 +151,8 @@
         </div>
 
         <form method="post" action="${pageContext.request.contextPath}/report/ManageLetters.do" enctype="multipart/form-data">
-            <input type="hidden" name="goto" value="<%=request.getParameter("goto")%>"/>
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+            <input type="hidden" name="goto" value="<%=Encode.forHtmlAttribute(request.getParameter("goto"))%>"/>
             <table class="table table-condensed" style="font-size:13px;">
                 <tr>
                     <td style="width:120px; font-weight:bold;">Select Letter:</td>
@@ -202,6 +203,7 @@
                     <td><%= Encode.forHtml(String.valueOf(h.get("date_time"))) %></td>
                     <td>
                         <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter.do" style="display:inline; margin:0;">
+                            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                             <input type="hidden" name="reportID" value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID"))) %>"/>
                             <button type="submit" class="btn btn-xs btn-danger">Delete</button>
                         </form>

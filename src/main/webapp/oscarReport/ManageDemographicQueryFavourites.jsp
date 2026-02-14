@@ -47,6 +47,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     RptSearchData searchData = new RptSearchData();
@@ -76,6 +77,7 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/report/DeleteDemographicReport.do" method="post">
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <table class="table table-condensed table-striped" style="font-size:13px;">
                 <%
                     for (int i = 0; i < queryArray.size(); i++) {
@@ -84,8 +86,8 @@
                         String qName = sc.queryName;
                 %>
                 <tr>
-                    <td style="width:30px;"><input type="checkbox" name="queryFavourite" value="<%=qId%>"/></td>
-                    <td><%=qName%></td>
+                    <td style="width:30px;"><input type="checkbox" name="queryFavourite" value="<%=Encode.forHtmlAttribute(qId)%>"/></td>
+                    <td><%=Encode.forHtml(qName)%></td>
                 </tr>
                 <%}%>
             </table>

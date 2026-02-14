@@ -232,13 +232,14 @@
     %>
     <div style="margin-top:10px;">
         <form name="frmBatchBill" action="" method="post">
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <input type="hidden" name="clinic_view" value="<%=OscarProperties.getInstance().getProperty("clinic_view","")%>">
 
             <div style="background:#f5f5f5; padding:8px 15px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px;">
                 <span style="margin-right:15px;">Total patients: <strong><%=list.size()%></strong></span>
                 <span style="margin-right:15px;">Ineligible: <strong><%=ineligible%></strong></span>
                 <span style="margin-right:15px;">Up to Date: <strong><%=done%> = <%=percentage%>%</strong></span>
-                <span style="margin-right:15px;"><%=request.getAttribute("patientSet")%></span>
+                <span style="margin-right:15px;"><%=Encode.forHtml(String.valueOf(request.getAttribute("patientSet")))%></span>
             </div>
 
             <table id="preventionTable" class="sortable table table-condensed table-bordered" style="font-size:12px;">
@@ -284,7 +285,7 @@
                 <tr>
                     <td><%=i+1%></td>
                     <td>
-                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=dis.demographicNo%>&amp;displaymode=edit&amp;dboperation=search_detail','MasterDemographic')"><%=dis.demographicNo%></a>
+                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forHtmlAttribute(dis.demographicNo.toString())%>&amp;displaymode=edit&amp;dboperation=search_detail','MasterDemographic')"><%=Encode.forHtml(dis.demographicNo.toString())%></a>
                     </td>
                     <td><%=DemographicData.getDob(demo,"-")%></td>
 
@@ -315,9 +316,9 @@ else if ("orange".equals(dis.color)) labelClass = "label-warning";
 else if ("pink".equals(dis.color)) labelClass = "label-info";
 else if ("Magenta".equals(dis.color)) labelClass = "label-info";
 else labelClass = "label-default";
-%><span class="label <%=labelClass%>"><%=dis.state%></span></td>
-                    <td><%=dis.numMonths%></td>
-                    <td><%=dis.lastDate%></td>
+%><span class="label <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
+                    <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
+                    <td><%=Encode.forHtml(dis.lastDate)%></td>
 
                     <% } else {
                         Demographic demoSDM = demoData.getSubstituteDecisionMaker(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());%>
@@ -339,17 +340,17 @@ else if ("orange".equals(dis.color)) labelClass = "label-warning";
 else if ("pink".equals(dis.color)) labelClass = "label-info";
 else if ("Magenta".equals(dis.color)) labelClass = "label-info";
 else labelClass = "label-default";
-%><span class="label <%=labelClass%>"><%=dis.state%></span></td>
-                    <td><%=dis.numShots%></td>
-                    <td><%=dis.numMonths%></td>
-                    <td><%=dis.lastDate%></td>
+%><span class="label <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
+                    <td><%=Encode.forHtml(String.valueOf(dis.numShots))%></td>
+                    <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
+                    <td><%=Encode.forHtml(dis.lastDate)%></td>
 
                     <%}%>
                     <%
                         String providerName=providerBean.getProperty(demo.getProviderNo());
                         providerName=StringUtils.trimToEmpty(providerName);
                     %>
-                    <td><%=providerName%></td>
+                    <td><%=Encode.forHtml(providerName)%></td>
                 </tr>
                 <%}%>
                 </tbody>
