@@ -475,9 +475,9 @@ font-size:17px;
 							<td colspan="2" class="Printable"><p>&nbsp;</p>
 
                             <div id="viewer" class="DoNotPrint"></div>
-								<textarea id="msgBody" name="Message" wrap="hard" readonly rows="18" cols="80" class="DoNotPrint" style="display:none; min-width: 100%"><%=bodyTextAsHTML%></textarea>
+								<textarea id="msgBody" name="Message" wrap="hard" readonly rows="18" cols="80" class="DoNotPrint" style="display:none; min-width: 100%"><%=Encode.forHtml(bodyTextAsHTML)%></textarea>
 
-                            <div id="print_helper"><%=bodyTextAsHTML%></div>
+                            <div id="print_helper"><%=Encode.forHtml(bodyTextAsHTML)%></div>
 							</td>
 						</tr>
 
