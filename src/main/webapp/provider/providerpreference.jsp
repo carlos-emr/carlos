@@ -218,8 +218,8 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
-    <!-- Bootstrap 5 (CDN) + FontAwesome (local bundle) -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap 5 (local bundle) + FontAwesome (local bundle) -->
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
     <style>
@@ -1359,7 +1359,7 @@
 </form>
 
 <!-- Bootstrap 5 JS bundle (includes Popper for accordion) -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js"></script>
 <!-- Prototype.js for Ajax auto-save (legacy dependency) -->
 <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 
