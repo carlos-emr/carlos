@@ -111,7 +111,6 @@
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
-    //String bodyTextAsHTML = Encode.forHtml((String) request.getAttribute("viewMessageMessage"));
     String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
 %>
 <!DOCTYPE html>
@@ -544,7 +543,7 @@ font-size:17px;
                                     title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"/><i class="icon-share-alt"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/></button>
                                 <button type="submit" class="btn" name="delete"
                                     title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"/><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/></button>
-                                <input type="hidden" name="messageNo" id="messageNo" value="${ viewMessageNo }"/>
+                                <input type="hidden" name="messageNo" id="messageNo" value="${ fn:escapeXml(viewMessageNo) }"/>
 							</td>
 						</tr>
 						<tr class="subheader DoNotPrint">
@@ -635,8 +634,13 @@ font-size:17px;
 										<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.fileLocation" />:</strong> <c:out value="${ demographicLocation }" />
 									</td>
 									<td>
+										<c:url var="importUrl" value="/oscarMessenger/ImportDemographic.do">
+											<c:param name="remoteFacilityId" value="${ unlinkedDemographic.integratorFacilityId }" />
+											<c:param name="remoteDemographicNo" value="${ unlinkedDemographic.caisiDemographicId }" />
+											<c:param name="messageID" value="${ viewMessageNo }" />
+										</c:url>
 										<a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.import" />"
-											href="<%= request.getContextPath() %>/oscarMessenger/ImportDemographic.do?remoteFacilityId=${ unlinkedDemographic.integratorFacilityId }&remoteDemographicNo=${ unlinkedDemographic.caisiDemographicId }&messageID=${ viewMessageNo }" >
+											href="${ importUrl }" >
 										<fmt:setBundle basename="oscarResources"/><fmt:message key="global.import" />
 										</a>
 									</td>
@@ -654,7 +658,7 @@ font-size:17px;
 									value="${ demographic.value }" />
 								</td>
 								<td class="DoNotPrint">
-								<a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&displaymode=edit&dboperation=search_detail')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.M" /></a>
+								<a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=${ fn:escapeXml(demographic.key) }&displaymode=edit&dboperation=search_detail')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.M" /></a>
 
 								<!--<a href="javascript:void(0)" onclick="window.opener.location.href='../web/#/record/${ demographic.key }/summary'">E2</a> -->
 								<%
@@ -702,10 +706,10 @@ font-size:17px;
 
 
 	                                                        %>
-	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=${ demographic.key }&curProviderNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.E" /></a>
+	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=${ fn:escapeXml(demographic.key) }&curProviderNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.E" /></a>
 								<%} %>
 
-								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>&demographicNo=${ demographic.key }')">Rx</a>
+								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>&demographicNo=${ fn:escapeXml(demographic.key) }')">Rx</a>
 
 
 
@@ -713,13 +717,13 @@ font-size:17px;
 
 								<input type="button" class="btn DoNotPrint"
 									name="writeEncounter" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.writeToE" />"
-									onclick="popup( '${ demographic.key }','<%=Encode.forJavaScript((String)request.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>','writeToEncounter')" />
+									onclick="popup( '${ fn:escapeXml(demographic.key) }','<%=Encode.forJavaScript((String)request.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>','writeToEncounter')" />
 								</td>
 							</tr>
 							<tr>
 								<td></td>
 								<td><a
-									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&last_name=<%=Encode.forUriComponent(demoLastName)%>&first_name=<%=Encode.forUriComponent(demoFirstName)%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=${ fn:escapeXml(demographic.key) }&last_name=<%=Encode.forUriComponent(demoLastName)%>&first_name=<%=Encode.forUriComponent(demoFirstName)%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
 									title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNextAppt" />:    <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>
@@ -785,7 +789,7 @@ font-size:17px;
 			  		</label>
 			  	</div>
 
-			  	<input type="hidden" id="messageID" name="messageID" value="${ viewMessageId }" />
+			  	<input type="hidden" id="messageID" name="messageID" value="${ fn:escapeXml(viewMessageId) }" />
 			  </c:if>
 			</div>
 		</form>
