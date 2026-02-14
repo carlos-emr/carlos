@@ -86,8 +86,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -173,7 +172,7 @@ function popup(demographicNo, msgId, providerNo, action) { //open a new popup wi
       windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
       var page = "";
       var win;
-      var today = "<%=request.getAttribute("today")%>";
+      var today = "<%=Encode.forJavaScript((String)request.getAttribute("today"))%>";
       var header = "oscarMessenger";
       var encType = "oscarMessenger";
       var txt;
@@ -331,7 +330,7 @@ font-size:17px;
             <i class=" icon-question-sign"></i>
             <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger view')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
             <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about" /></a>
+            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about" /></a>
         </td>
 		</tr>
 			</table>
@@ -450,7 +449,7 @@ font-size:17px;
 						<tr>
 							<td><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=id%>')">
+								href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
 							<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -463,7 +462,7 @@ font-size:17px;
 						<tr>
 							<td><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=id%>')">
+								href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
 							<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -507,7 +506,7 @@ font-size:17px;
 
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
-													onclick="javascript:popup('${ demographic_no }', '${ messageID }', '${ providerNo }');"
+													onclick="javascript:popup('${ fn:escapeXml(demographic_no) }', '${ fn:escapeXml(messageID) }', '${ fn:escapeXml(providerNo) }');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
 													value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.writeToE" />">
                                                 <!-- refers to non existant function <input
@@ -587,7 +586,7 @@ font-size:17px;
                                                 if (demo != null) {
                                                     demoName = demo.getLastName() + ", " + demo.getFirstName();
                                                     demoLastName = demo.getLastName();
-                                                    demoFirstName = demo.getLastName();
+                                                    demoFirstName = demo.getFirstName();
 
                                                 } %>
 						<tr class="DoNotPrint">
@@ -595,9 +594,9 @@ font-size:17px;
 							<td><input type="text"
 								name="selectedDemo" size="30" readonly
 								style="border: none" value="none" /> <script>
-                                            if ( "<%=demoName%>" != "null" && "<%=demoName%>" != "") {
-                                                document.forms[0].selectedDemo.value = "<%=demoName%>"
-                                                document.forms[0].demographic_no.value = "<%=demographic_no%>"
+                                            if ( "<%=Encode.forJavaScript(demoName)%>" != "null" && "<%=Encode.forJavaScript(demoName)%>" != "") {
+                                                document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
+                                                document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
                                             }
                                         </script>
                                 </td>
@@ -606,7 +605,7 @@ font-size:17px;
                                         <input type="button"
 								class="btn" name="linkDemo"
 								value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.linkToDemo" />"
-								onclick="popup(document.forms[0].demographic_no.value,'<%=request.getAttribute("viewMessageId")%>','<%=request.getAttribute("providerNo")%>','linkToDemographic')" />
+								onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript((String)request.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>','linkToDemographic')" />
 
 							<input type="button" class="btn"
 								name="clearDemographic" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.clearDemo" />"
@@ -629,7 +628,7 @@ font-size:17px;
 								<tr id="unlinkedDemographicDetails" >
 									<td></td>
 									<td>
-										<input type="hidden" name="unlinkedIntegratorDemographicName" value="${ unlinkedDemographic.lastName }, ${ unlinkedDemographic.firstName }" />
+										<input type="hidden" name="unlinkedIntegratorDemographicName" value="${ fn:escapeXml(unlinkedDemographic.lastName) }, ${ fn:escapeXml(unlinkedDemographic.firstName) }" />
 										<c:out value="${ unlinkedDemographic.lastName }" />, <c:out value="${ unlinkedDemographic.firstName }" /> <br />
 										<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="global.gender" />:</strong> <c:out value="${ unlinkedDemographic.gender }" /><br />
 										<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="global.hin" />:</strong> <c:out value="${ unlinkedDemographic.hin }" /><br />
@@ -703,10 +702,10 @@ font-size:17px;
 
 
 	                                                        %>
-	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=${ demographic.key }&curProviderNo=<%=request.getAttribute("providerNo")%><%=params%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.E" /></a>
+	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=${ demographic.key }&curProviderNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.E" /></a>
 								<%} %>
 
-								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=request.getAttribute("providerNo")%>&demographicNo=${ demographic.key }')">Rx</a>
+								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>&demographicNo=${ demographic.key }')">Rx</a>
 
 
 
@@ -714,13 +713,13 @@ font-size:17px;
 
 								<input type="button" class="btn DoNotPrint"
 									name="writeEncounter" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.writeToE" />"
-									onclick="popup( '${ demographic.key }','<%=request.getAttribute("viewMessageId")%>','<%=request.getAttribute("providerNo")%>','writeToEncounter')" />
+									onclick="popup( '${ demographic.key }','<%=Encode.forJavaScript((String)request.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>','writeToEncounter')" />
 								</td>
 							</tr>
 							<tr>
 								<td></td>
 								<td><a
-									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&last_name=<%=demoLastName%>&first_name=<%=demoFirstName%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&last_name=<%=Encode.forUriComponent(demoLastName)%>&first_name=<%=Encode.forUriComponent(demoFirstName)%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
 									title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNextAppt" />:    <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>
@@ -742,7 +741,6 @@ font-size:17px;
 		</tr>
 	</table>
 </form>
-<!--<p > <%=bodyTextAsHTML%> </p>-->
 
 	<!-- Select demographic modal window for the import demographic process -->
 	<div id="selectDemographic" class="modal">
