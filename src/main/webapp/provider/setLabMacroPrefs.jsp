@@ -140,19 +140,20 @@ function toggleMe(el){
 
 <table style="width:100%" id="scrollNumber1">
 	<tr class="MainTableTopRow">
-		<td class="MainTableTopRowLeftColumn"><H4>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.msgPrefs" /></H4></td>
+		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.msgPrefs" /></h4></td>
 		<td style="text-align:center;" class="MainTableTopRowRightColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.title" /></td>
 	</tr>
 </table>
 			<!-- form starts here -->
 
-<form name="setProviderNoteStaleDateForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do">
+<form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do">
+<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 <input type="hidden" name="method" value="saveLabMacroPrefs">
 <div class="container"><br>
 
 <%
-String method = request.getParameter("method");
-if ("saveLabMacroPrefs".equals(method)) {
+String status = (String) request.getAttribute("status");
+if ("saveLabMacroPrefs".equals(status)) {
 %>
     <div class="alert alert-success"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.labMacroPrefs.msgSuccess" /></div>
 <% } %>
@@ -210,7 +211,7 @@ if ("saveLabMacroPrefs".equals(method)) {
 		    <label for="ticklerTo_<%=x%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-control input-sm" style="width:95%;">
             <option value="" <%=(val1.equals("")?" selected=\"selected\"":"") %> >-</option>
 			<%for(Provider p: providerList) {%>
-				<option value="<%=p.getProviderNo()%>"<%=(val1.equals(p.getProviderNo())?" selected=\"selected\"":"") %>><%=Encode.forHtmlAttribute(p.getFullName())%></option>
+				<option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"<%=(val1.equals(p.getProviderNo())?" selected=\"selected\"":"") %>><%=Encode.forHtml(p.getFullName())%></option>
 						<%}%>
 			</select>
     </div>
@@ -233,7 +234,7 @@ if ("saveLabMacroPrefs".equals(method)) {
         <%      x++;
                 }
             }
-        }catch(Exception e ) { // Jackson throws IOException/JsonProcessingException
+        }catch(com.fasterxml.jackson.core.JsonProcessingException | java.io.IOException e ) {
             MiscUtils.getLogger().error("Invalid JSON for lab macros",e);
 %>
   <div class="alert alert-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="error.msgException" /></div>
@@ -253,7 +254,7 @@ if ("saveLabMacroPrefs".equals(method)) {
 					<label for="ticklerTo_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><select id="ticklerTo_new" name="ticklerTo_new" class="form-control input-sm" style="width:95%;">
 					<option value="" selected="selected">-</option>
 					<%for(Provider p: providerList) {%>
-						<option value="<%=p.getProviderNo()%>"><%=Encode.forHtmlAttribute(p.getFullName())%></option>
+						<option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFullName())%></option>
 						<%}%>
 					</select>
     </div>
@@ -287,7 +288,7 @@ if ("saveLabMacroPrefs".equals(method)) {
 <div>
 </div>
   <div class="form-group row" style="display:none;" id="raw">
-  <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><%=Encode.forHtml((up != null)?up.getValue():"")%></textarea>
+  <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><%=Encode.forHtml((up != null && up.getValue() != null)?up.getValue():"")%></textarea>
   <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave" />" />
   </div>
 </div>
