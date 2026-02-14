@@ -4,8 +4,11 @@
 	   xsi:schemaLocation="
            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-
-	<!-- FaxSchedulerJob is self-scheduling via @PostConstruct initialize() - starts automatically on bean creation -->
-	<bean id="faxSchedulerJob" class="io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob" />
+	<!--
+	    Fax beans (FaxSchedulerJob, FaxImporter, FaxSender, FaxStatusUpdater,
+	    FaxProviderClientFactory, SRFaxProviderClient, MiddlewareFaxProviderClient)
+	    are discovered via component-scan in spring_jpa.xml and spring_managers.xml.
+	    No manual bean definitions needed here.
+	-->
 
 </beans>

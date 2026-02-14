@@ -58,6 +58,7 @@ import com.itextpdf.text.pdf.codec.Base64;
 import com.itextpdf.text.pdf.PdfReader;
 
 import io.github.carlos_emr.OscarProperties;
+import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -97,7 +98,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class FaxImporter {
 
-    private static final String DOCUMENT_DIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    private static final String DOCUMENT_DIR = OscarProperties.getInstance().getDocumentDirectory();
 
     /** Atomic counter for collision-free filename sequencing */
     private static final AtomicLong fileCounter = new AtomicLong(0);
@@ -120,6 +121,20 @@ public class FaxImporter {
         this.queueDocumentLinkDao = queueDocumentLinkDao;
         this.providerLabRoutingDao = providerLabRoutingDao;
         this.faxProviderClientFactory = faxProviderClientFactory;
+    }
+
+    /**
+     * Validates that DOCUMENT_DIR is configured at startup.
+     *
+     * @throws IllegalStateException if DOCUMENT_DIR is null or empty after fallback resolution
+     */
+    @PostConstruct
+    public void validateDocumentDirectory() {
+        if (DOCUMENT_DIR == null || DOCUMENT_DIR.trim().isEmpty()) {
+            throw new IllegalStateException(
+                    "DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "
+                    + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in oscar_mcmaster.properties.");
+        }
     }
 
     /**
@@ -189,28 +204,37 @@ public class FaxImporter {
 
 
     /**
-     * Polls all active fax provider accounts for inbound faxes and imports them into EMR.
+     * Polls all active fax provider accounts for inbound faxes and imports them into CARLOS EMR.
      *
-     * <p><strong>Process:</strong></p>
+     * <p><strong>PHI Protection During Import:</strong> The two-phase strategy (download first,
+     * mark-as-read second) ensures faxes containing Protected Health Information are never lost
+     * due to import failures. If local persistence fails after download, the fax remains unread
+     * on the remote server for retry on the next poll cycle.</p>
+     *
+     * <p><strong>Two-Phase Import Strategy:</strong></p>
      * <ol>
      *   <li>Iterate through all active FaxConfig accounts with download enabled</li>
-     *   <li>List inbound faxes from provider (unread only for duplicate prevention)</li>
-     *   <li>Download each fax document</li>
+     *   <li>List inbound faxes from provider (using provider-specific duplicate prevention)</li>
+     *   <li>Download each fax document (without marking as read on provider)</li>
      *   <li>Validate PDF and save with collision-free filename</li>
      *   <li>Register in EMR document system and provider routing</li>
-     *   <li>Acknowledge/delete remote fax based on provider policy</li>
+     *   <li>Mark fax as read on provider (phase 2 -- only after successful local import)</li>
+     *   <li>Acknowledge remote fax per provider policy (middleware: delete from server; SRFax: no-op)</li>
      *   <li>Save FaxJob status for tracking</li>
      * </ol>
      *
      * <p><strong>Error Handling:</strong> Errors at any stage are logged and recorded in FaxJob status.
-     * Failed faxes are marked as ERROR but not deleted from remote provider (allows retry).</p>
+     * Failed faxes are marked as ERROR. For both middleware and SRFax, the fax remains available on
+     * the remote server for retry on the next poll if import fails before mark-as-read.</p>
      *
-     * <p><strong>Duplicate Prevention:</strong> Uses provider-specific strategies (e.g., SRFax unread-only
-     * pull with mark-as-read on download).</p>
+     * <p><strong>Duplicate Prevention:</strong> Uses provider-specific strategies. SRFax pulls only
+     * unread faxes, and mark-as-read is deferred until after successful local persistence. If
+     * mark-as-read fails, the fax may be re-downloaded on the next poll, but duplicate detection
+     * in the import pipeline will handle it gracefully.</p>
      *
-     * <p>This method is typically invoked by scheduled job (FaxScheduler) but can also be triggered manually.</p>
+     * <p>This method is typically invoked by {@link FaxSchedulerJob} but can also be triggered manually.</p>
      *
-     * @since 2026-02-11
+     * @since 2014-08-29
      */
     public void poll() {
 
@@ -282,6 +306,22 @@ public class FaxImporter {
                             saveFaxJob(new FaxJob(receivedFax));
                             // DO NOT delete remote fax - leave for potential retry
                             continue; // Skip to next fax
+                        } catch (RuntimeException e) {
+                            log.error("Provider routing failed for fax {} (doc_no={}) - document exists but is not routed to any provider inbox",
+                                    receivedFax.getFile_name(), edoc.getDocId(), e);
+                            receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                            receivedFax.setStatusString("IMPORTED BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
+                            // Fall through to markFaxAsRead, deleteFax, and saveFaxJob below
+                        }
+
+                        // Phase 2: Mark fax as read on the provider after successful local import.
+                        // If this fails, the fax will be re-downloaded on next poll -- duplicate
+                        // detection in the import pipeline handles it gracefully.
+                        try {
+                            providerClient.markFaxAsRead(faxConfig, receivedFax);
+                        } catch (FaxProviderException e) {
+                            log.warn("Failed to mark fax {} as read on provider - fax may be re-downloaded on next poll (duplicate detection will handle it)",
+                                    receivedFax.getFile_name(), e);
                         }
 
                         try {
@@ -293,7 +333,10 @@ public class FaxImporter {
                             // Note: fileName is already set, fax will be saved below
                         }
                     } else {
-                        fileName = FaxJob.STATUS.ERROR.name();
+                        receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                        if (receivedFax.getStatusString() == null) {
+                            receivedFax.setStatusString("Import failed - see server logs for details");
+                        }
                     }
 
                     receivedFax.setFile_name(fileName);
@@ -301,7 +344,11 @@ public class FaxImporter {
                 }
 
             } catch (FaxProviderException e) {
-                log.error("HTTP WS CLIENT ERROR", e);
+                log.error("Fax provider error for account {} ({}): {}",
+                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
+            } catch (RuntimeException e) {
+                log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account: {}",
+                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
             }
         }
 
@@ -365,13 +412,13 @@ public class FaxImporter {
 
             // Step 7: Atomic move to final location
             Files.move(tempFile.toPath(), finalFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
-            log.info("Fax file moved to final location: {}", finalFile.getAbsolutePath());
+            log.debug("Fax file moved to final location");
             tempFile = null; // Successfully moved, don't delete in finally
 
             // Step 8: Create EDoc and register with EMR
             EDoc newDoc = new EDoc("Received Fax", "Received Fax", uniqueFilename, "",
                     DEFAULT_USER, DEFAULT_USER, "", 'A',
-                    DateFormatUtils.format(receivedFax.getStamp(), "yyyy-MM-dd"),
+                    DateFormatUtils.format(receivedFax.getStamp() != null ? receivedFax.getStamp() : new Date(), "yyyy-MM-dd"),
                     "", "", "demographic", DEFAULT_USER, numberOfPages);
             newDoc.setDocPublic("0");
             newDoc.setContentType("application/pdf");
@@ -379,11 +426,26 @@ public class FaxImporter {
 
             // Step 9: Register document in database
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            log.info("Registered fax in EMR: doc_id={}, filename={}, pages={}",
-                    doc_no, uniqueFilename, numberOfPages);
+            if (doc_no == null || doc_no.trim().isEmpty()) {
+                log.error("Failed to create document record for fax {} - file may be orphaned at: {}",
+                          receivedFax.getFile_name(), finalFile.getAbsolutePath());
+                receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                receivedFax.setStatusString("FAILED TO CREATE DOCUMENT RECORD");
+                try {
+                    Files.deleteIfExists(finalFile.toPath());
+                } catch (IOException cleanupEx) {
+                    log.warn("Could not clean up orphaned fax file: {}", finalFile.getAbsolutePath(), cleanupEx);
+                }
+                return null;
+            }
+            log.info("Registered fax in EMR: doc_id={}, pages={}", doc_no, numberOfPages);
 
             // Step 10: Add to document queue (for staff review)
             Integer queueId = faxConfig.getQueue();
+            if (queueId == null || queueId < 1) {
+                queueId = 1; // Default queue
+                log.warn("FaxConfig has no valid queue ID, defaulting to queue 1");
+            }
             int docNum;
             try {
                 docNum = Integer.parseInt(doc_no);
@@ -442,12 +504,14 @@ public class FaxImporter {
      *
      * <p><strong>Example:</strong> {@code 20260212-143025-00042-referral.pdf}</p>
      *
-     * @param originalFilename Original filename from SRFax (may not be unique)
+     * @param originalFilename Original filename from fax provider (may not be unique)
      * @return Guaranteed unique filename
      * @since 2026-02-12
      */
     private String generateUniqueFilename(String originalFilename) {
         String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
+        // AtomicLong guarantees collision-free sequencing across concurrent threads.
+        // Even if multiple faxes arrive in the same second, each gets a unique sequence number.
         long sequence = fileCounter.incrementAndGet();
         String sanitized = sanitizeFilename(originalFilename);
 
@@ -466,8 +530,9 @@ public class FaxImporter {
             return "fax-" + System.currentTimeMillis() + ".pdf";
         }
 
-        // Remove dangerous characters
+        // Remove path traversal sequences and dangerous characters
         String sanitized = filename.trim()
+            .replace("..", "")
             .replace("|", "-")
             .replace("\\", "-")
             .replace("/", "-")
@@ -492,8 +557,8 @@ public class FaxImporter {
     /**
      * Validates PDF and counts pages using iTextPDF.
      *
-     * @param pdfFile PDF file to validate
-     * @return Number of pages if valid PDF
+     * @param pdfFile File PDF file to validate
+     * @return int number of pages if valid PDF
      * @throws FaxProviderException if PDF is corrupted, password-protected, or has 0 pages
      * @since 2026-02-12
      */
@@ -564,7 +629,7 @@ public class FaxImporter {
      * </ul>
      *
      * <p><strong>Database Table:</strong> {@code providerLabRouting}</p>
-     * <p>Despite the name "Lab" routing, this table handles both labs (lab_type="LAB") and documents
+     * <p>Despite the name "Lab" routing, this table handles both HL7 labs (lab_type="HL7") and documents
      * (lab_type="DOC"). The confusing naming is historical - the table is actually a general provider
      * inbox routing system.</p>
      *
@@ -572,7 +637,7 @@ public class FaxImporter {
      * <ul>
      *   <li><strong>"N"</strong> - New/unread (triggers red indicator in provider UI)</li>
      *   <li><strong>"A"</strong> - Acknowledged (provider viewed the document)</li>
-     *   <li><strong>"F"</strong> - Filed (document filed to patient chart)</li>
+     *   <li><strong>"D"</strong> - Done/filed (document filed to patient chart)</li>
      *   <li><strong>"X"</strong> - Deleted (soft delete, not used for faxes)</li>
      * </ul>
      *
@@ -602,7 +667,8 @@ public class FaxImporter {
 
         Integer id = providerLabRouting.getId();
         if (id == null || id < 1) {
-            log.warn("Failed to add Fax document id {} to provider lab routing.", providerLabRouting.getLabNo());
+            log.error("Failed to add Fax document id {} to provider lab routing - fax will not appear in provider inbox",
+                    providerLabRouting.getLabNo());
         }
     }
 

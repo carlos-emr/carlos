@@ -1,6 +1,4 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
- * Copyright (c) 2017-2024. Juno EMR. All Rights Reserved.
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
@@ -18,9 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * Originally written for the Department of Family Medicine, McMaster University.
- * Portions contributed by Juno EMR.
- * Now maintained by the CARLOS EMR Project.
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.fax.provider;
@@ -31,6 +27,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import javax.ws.rs.ProcessingException;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -89,12 +87,12 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
-        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
-            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
-        }
+        requireMatchingProviderType(faxConfig);
+        validateMiddlewareConfig(faxConfig);
 
+        WebClient client = null;
         try {
-            WebClient client = WebClient.create(faxConfig.getUrl());
+            client = WebClient.create(faxConfig.getUrl());
             client.path(PATH + "/send/" + faxConfig.getFaxUser());
             client.type(MediaType.APPLICATION_XML);
             client.accept(MediaType.APPLICATION_XML);
@@ -111,7 +109,13 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             policy.setReceiveTimeout(60000);
             conduit.setClient(policy);
 
-            if (Files.exists(filePath) && Files.isReadable(filePath)) {
+            if (filePath != null) {
+                if (!Files.exists(filePath)) {
+                    throw new FaxProviderException("Fax document file not found");
+                }
+                if (!Files.isReadable(filePath)) {
+                    throw new FaxProviderException("Fax document file is not readable (check permissions)");
+                }
                 faxJob.setDocument(Base64Utility.encode(Files.readAllBytes(filePath)));
             }
 
@@ -120,23 +124,31 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             }
 
             Response httpResponse = client.post(faxJob);
+            // Free memory after POST serialization
+            faxJob.setDocument(null);
             if (httpResponse.getStatus() != HttpStatus.SC_OK) {
                 throw new FaxProviderException("WEB SERVICE RESPONDED WITH " + httpResponse.getStatus());
             }
 
-            FaxJob faxJobId = httpResponse.readEntity(FaxJob.class);
-            faxJob.setDocument(null);
-            faxJob.setJobId(faxJobId.getJobId());
-            faxJob.setStatusString(faxJobId.getStatusString());
-            faxJob.setStatus(faxJobId.getStatus());
-            return faxJob;
+            FaxJob result = httpResponse.readEntity(FaxJob.class);
+            return result;
         } catch (FaxProviderException e) {
             // Re-throw FaxProviderException as-is to preserve specific error messages
             throw e;
         } catch (IOException e) {
-            throw new FaxProviderException("CANNOT FIND Filepath: " + filePath, e);
-        } catch (Exception e) {
+            throw new FaxProviderException("Failed to read fax document file: " + e.getMessage(), e);
+        } catch (ProcessingException e) {
             throw new FaxProviderException("PROBLEM COMMUNICATING WITH WEB SERVICE", e);
+        } catch (WebApplicationException e) {
+            throw new FaxProviderException("WEB SERVICE RESPONDED WITH ERROR: " + e.getMessage(), e);
+        } finally {
+            if (client != null) {
+                try {
+                    client.close();
+                } catch (Exception e) {
+                    logger.debug("WebClient close failed during fax send cleanup: {}", e.getMessage());
+                }
+            }
         }
     }
 
@@ -145,9 +157,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {
-        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
-            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
-        }
+        requireMatchingProviderType(faxConfig);
+        validateMiddlewareConfig(faxConfig);
 
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
             HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/" + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
@@ -189,9 +200,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
-        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
-            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
-        }
+        requireMatchingProviderType(faxConfig);
+        validateMiddlewareConfig(faxConfig);
 
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
             HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/"
@@ -218,10 +228,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
             String content = EntityUtils.toString(httpEntity);
             FaxJob downloaded = mapper.readValue(content, FaxJob.class);
-            fax.setStatus(downloaded.getStatus());
-            fax.setStatusString(downloaded.getStatusString());
             if (FaxJob.STATUS.ERROR.equals(downloaded.getStatus())) {
-                throw new FaxProviderException("Downloaded fax is in ERROR status");
+                throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
             }
             return downloaded;
         } catch (IOException e) {
@@ -234,9 +242,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public void deleteFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
-        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
-            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
-        }
+        requireMatchingProviderType(faxConfig);
+        validateMiddlewareConfig(faxConfig);
 
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
             HttpDelete delete = new HttpDelete(faxConfig.getUrl() + PATH + "/"
@@ -260,12 +267,11 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     @Override
     public FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {
-        if (faxConfig.getProviderType() != FaxConfig.ProviderType.MIDDLEWARE) {
-            throw new IllegalArgumentException("Middleware client requires MIDDLEWARE provider type, but got: " + faxConfig.getProviderType());
-        }
+        requireMatchingProviderType(faxConfig);
+        validateMiddlewareConfig(faxConfig);
 
         try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
-            HttpGet get = new HttpGet(faxConfig.getUrl() + "/" + faxJob.getJobId());
+            HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/" + faxJob.getJobId());
             get.setHeader("accept", "application/json");
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
@@ -289,6 +295,22 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             return mapper.readValue(content, FaxJob.class);
         } catch (IOException e) {
             throw new FaxProviderException("HTTP WS CLIENT ERROR", e);
+        }
+    }
+
+    /**
+     * Validates that middleware connection parameters are configured.
+     * Called before any API operation to fail fast with a clear message.
+     */
+    private void validateMiddlewareConfig(FaxConfig faxConfig) throws FaxProviderException {
+        if (faxConfig.getUrl() == null || faxConfig.getUrl().trim().isEmpty()) {
+            throw new FaxProviderException("Middleware URL is not configured for this fax account");
+        }
+        if (faxConfig.getSiteUser() == null || faxConfig.getSiteUser().trim().isEmpty()) {
+            throw new FaxProviderException("Middleware site user is not configured for this fax account");
+        }
+        if (faxConfig.getFaxUser() == null || faxConfig.getFaxUser().trim().isEmpty()) {
+            throw new FaxProviderException("Middleware fax user is not configured for this fax account");
         }
     }
 

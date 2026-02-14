@@ -67,45 +67,6 @@ import org.springframework.stereotype.Service;
  *   <li><strong>Temp File Support:</strong> Allows ephemeral files in approved temp directories</li>
  * </ul>
  *
- * <p><strong>Fax Sending Process:</strong></p>
- * <ol>
- *   <li>Query all active FaxConfig accounts with provider credentials</li>
- *   <li>Retrieve queued faxes with status READY or WAITING (via FaxJobDao.getReadyToSendFaxes)</li>
- *   <li>Validate and resolve file path (DOCUMENT_DIR or approved temp directory)</li>
- *   <li>Send fax via provider client (SRFaxProviderClient or middleware)</li>
- *   <li>Update FaxJob status (SENT, ERROR, or WAITING for retry)</li>
- *   <li>Record audit trail in FaxClientLog with timestamps and results</li>
- * </ol>
- *
- * <p><strong>Error Handling Strategies:</strong></p>
- * <ul>
- *   <li><strong>Invalid File Path:</strong> Marks fax as ERROR with detailed status message</li>
- *   <li><strong>Connection Errors:</strong> Reverts to WAITING status to allow retry on next poll</li>
- *   <li><strong>Provider Errors:</strong> Marks as ERROR with provider error message for investigation</li>
- *   <li><strong>Security Violations:</strong> Logs security warnings and prevents send (path traversal attempt)</li>
- * </ul>
- *
- * <p><strong>File Path Security:</strong></p>
- * <p>All file paths are validated using {@link PathValidationUtils} to prevent path traversal attacks.
- * The service accepts both:</p>
- * <ul>
- *   <li><strong>Relative paths:</strong> Resolved against DOCUMENT_DIR (standard document storage)</li>
- *   <li><strong>Absolute paths:</strong> Validated to be under DOCUMENT_DIR or in allowed temp directories
- *       (for dynamically generated cover sheets)</li>
- * </ul>
- *
- * <p><strong>Configuration Properties:</strong></p>
- * <pre>
- * # oscar_mcmaster.properties
- * DOCUMENT_DIR=/path/to/documents  # Required, primary fax document storage
- * </pre>
- *
- * <p><strong>Usage Example:</strong></p>
- * <pre>
- * // Typically invoked by scheduled job (FaxScheduler) or manually via admin UI
- * faxSender.send();  // Processes all queued faxes across all active accounts
- * </pre>
- *
  * @see FaxProviderClient
  * @see FaxProviderClientFactory
  * @see FaxConfig
@@ -140,7 +101,7 @@ public class FaxSender {
      * <ol>
      *   <li>Retrieves all FaxConfig accounts from database (active and inactive)</li>
      *   <li>Iterates through active accounts only (skip inactive to prevent send attempts)</li>
-     *   <li>For each active account, retrieves ready-to-send faxes (status READY or WAITING)</li>
+     *   <li>For each active account, retrieves faxes with WAITING status (ready to send)</li>
      *   <li>For each fax:
      *     <ul>
      *       <li>Validates file path using PathValidationUtils (prevent path traversal)</li>
@@ -154,9 +115,9 @@ public class FaxSender {
      *
      * <p><strong>Status Transitions:</strong></p>
      * <ul>
-     *   <li><strong>READY/WAITING → SENT:</strong> Provider successfully accepted fax</li>
-     *   <li><strong>READY/WAITING → ERROR:</strong> Invalid file path, provider error, or validation failure</li>
-     *   <li><strong>READY/WAITING → WAITING:</strong> Connection error (retry on next poll)</li>
+     *   <li><strong>WAITING → SENT:</strong> Provider successfully accepted fax</li>
+     *   <li><strong>WAITING → ERROR:</strong> Invalid file path, provider error, or validation failure</li>
+     *   <li><strong>WAITING → WAITING:</strong> Transient network error (retry on next poll)</li>
      * </ul>
      *
      * <p><strong>Error Handling:</strong></p>
@@ -165,16 +126,20 @@ public class FaxSender {
      * <ul>
      *   <li><strong>IllegalArgumentException/SecurityException:</strong> Invalid or unsafe file path
      *       (path traversal attempt). Fax marked as ERROR with detailed status message.</li>
-     *   <li><strong>FaxProviderException:</strong> Provider communication failure. If error message
-     *       contains "Connection error", fax reverted to WAITING for retry; otherwise marked ERROR.</li>
+     *   <li><strong>FaxProviderException:</strong> Provider communication failure. If the cause chain
+     *       contains a transient network error (ConnectException, SocketTimeoutException,
+     *       UnknownHostException, NoRouteToHostException), fax reverted to WAITING for retry;
+     *       otherwise marked ERROR.</li>
      *   <li><strong>Finally Block:</strong> Ensures FaxJob status and FaxClientLog are ALWAYS updated
      *       regardless of success or failure.</li>
      * </ul>
      *
      * <p><strong>Connection Error Retry Logic:</strong></p>
-     * <p>When provider throws FaxProviderException with "Connection error" message, the fax is
-     * reverted to WAITING status rather than ERROR. This allows automatic retry on next scheduled
-     * poll, handling transient network issues without manual intervention.</p>
+     * <p>When a FaxProviderException's cause chain contains a transient network error
+     * ({@link java.net.ConnectException}, {@link java.net.SocketTimeoutException},
+     * {@link java.net.UnknownHostException}, or {@link java.net.NoRouteToHostException}), the fax
+     * is reverted to WAITING status rather than ERROR. This allows automatic retry on next
+     * scheduled poll, handling transient network issues without manual intervention.</p>
      *
      * <p><strong>Audit Trail:</strong></p>
      * <p>FaxClientLog entries are updated with:</p>
@@ -193,7 +158,7 @@ public class FaxSender {
      * consider implementing batch processing or async execution. Current implementation logs
      * fax count per account to aid monitoring: "SENDING N faxes from fax account X".</p>
      *
-     * <p>This method is typically invoked by scheduled job (FaxScheduler) but can also be
+     * <p>This method is typically invoked by {@link FaxSchedulerJob} but can also be
      * triggered manually via admin UI or management console.</p>
      *
      * <p>Note: {@link FaxProviderException} instances thrown by the underlying provider client
@@ -207,51 +172,88 @@ public class FaxSender {
     public void send() {
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
-        String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String documentDir = OscarProperties.getInstance().getDocumentDirectory();
+        if (documentDir == null || documentDir.trim().isEmpty()) {
+            log.error("DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "
+                    + "Skipping fax send cycle. Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in oscar_mcmaster.properties.");
+            return;
+        }
 
         for (FaxConfig faxConfig : faxConfigList) {
             if (!faxConfig.isActive()) {
                 continue;
             }
 
-            List<FaxJob> faxJobList = faxJobDao.getReadyToSendFaxes(faxConfig.getFaxNumber());
-            log.info("SENDING {} faxes from fax account {}", faxJobList.size(), faxConfig.getSiteUser());
+            try {
+                List<FaxJob> faxJobList = faxJobDao.getReadyToSendFaxes(faxConfig.getFaxNumber());
+                log.info("SENDING {} faxes from fax account {}", faxJobList.size(), faxConfig.getSiteUser());
 
-            for (FaxJob faxJob : faxJobList) {
-                FaxClientLog faxClientLog = faxClientLogDao.findClientLogbyFaxId(faxJob.getId());
-                STATUS faxStatus = STATUS.ERROR;
-                faxJob.setSenderEmail(faxConfig.getSenderEmail());
+                for (FaxJob faxJob : faxJobList) {
+                    FaxClientLog faxClientLog = faxClientLogDao.findClientLogbyFaxId(faxJob.getId());
+                    STATUS faxStatus = STATUS.ERROR;
+                    faxJob.setSenderEmail(faxConfig.getSenderEmail());
 
-                try {
-                    Path filePath = resolveFilePath(faxJob.getFile_name(), documentDir);
-                    log.info("sending fax from file path {}", filePath);
+                    try {
+                        Path filePath = resolveFilePath(faxJob.getFile_name(), documentDir);
+                        log.debug("Sending fax id {} via {}", faxJob.getId(), faxConfig.getProviderType());
 
-                    FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
-                    FaxJob sentFax = providerClient.sendFax(faxConfig, faxJob, filePath);
-                    faxStatus = sentFax.getStatus();
-                } catch (IllegalArgumentException | SecurityException e) {
-                    String statusMessage = "INVALID OR UNSAFE FAX FILE PATH";
-                    faxJob.setStatusString(statusMessage);
-                    log.warn("Skipping fax id {} due to invalid or unsafe file path", faxJob.getId(), e);
-                } catch (FaxProviderException e) {
-                    String statusMessage = e.getMessage() == null ? "PROBLEM COMMUNICATING WITH WEB SERVICE" : e.getMessage();
-                    faxJob.setStatusString(statusMessage);
-                    log.error("Fax send failed for fax id {} using provider {}", faxJob.getId(), faxConfig.getProviderType(), e);
-                    if (statusMessage.contains("Connection error")) {
-                        faxStatus = FaxJob.STATUS.WAITING;
-                    }
-                } finally {
-                    faxJob.setStatus(faxStatus);
-                    faxJobDao.merge(faxJob);
-                    log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
-                    if (faxClientLog != null) {
-                        faxClientLog.setResult(faxStatus.name());
-                        faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
-                        faxClientLogDao.merge(faxClientLog);
+                        FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
+                        FaxJob sentFax = providerClient.sendFax(faxConfig, faxJob, filePath);
+                        faxStatus = sentFax.getStatus();
+                        faxJob.setJobId(sentFax.getJobId());
+                        if (sentFax.getStatusString() != null) {
+                            faxJob.setStatusString(sentFax.getStatusString());
+                        }
+                    } catch (IllegalArgumentException | SecurityException e) {
+                        String statusMessage = "INVALID OR UNSAFE FAX FILE PATH";
+                        faxJob.setStatusString(statusMessage);
+                        log.warn("Skipping fax id {} due to invalid or unsafe file path", faxJob.getId(), e);
+                    } catch (FaxProviderException e) {
+                        String statusMessage = e.getMessage() == null ? "PROBLEM COMMUNICATING WITH WEB SERVICE" : e.getMessage();
+                        faxJob.setStatusString(statusMessage);
+                        log.error("Fax send failed for fax id {} using provider {}", faxJob.getId(), faxConfig.getProviderType(), e);
+                        if (isTransientNetworkError(e)) {
+                            faxStatus = FaxJob.STATUS.WAITING;
+                        }
+                    } finally {
+                        faxJob.setStatus(faxStatus);
+                        faxJobDao.merge(faxJob);
+                        log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
+                        if (faxClientLog != null) {
+                            faxClientLog.setResult(faxStatus.name());
+                            faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
+                            faxClientLogDao.merge(faxClientLog);
+                        } else {
+                            log.warn("No FaxClientLog found for fax id {} - audit trail incomplete", faxJob.getId());
+                        }
                     }
                 }
+            } catch (RuntimeException e) {
+                log.error("Unexpected error sending faxes for account {} ({}) - continuing with next account: {}",
+                        faxConfig.getSiteUser(), faxConfig.getProviderType(), e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * Checks if a FaxProviderException was caused by a transient network error that
+     * warrants automatic retry (WAITING status) rather than permanent failure (ERROR).
+     *
+     * @param e the provider exception to inspect
+     * @return true if any cause in the exception chain is a transient network error
+     */
+    private boolean isTransientNetworkError(FaxProviderException e) {
+        Throwable cause = e.getCause();
+        while (cause != null) {
+            if (cause instanceof java.net.ConnectException
+                    || cause instanceof java.net.SocketTimeoutException
+                    || cause instanceof java.net.UnknownHostException
+                    || cause instanceof java.net.NoRouteToHostException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     /**

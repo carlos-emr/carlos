@@ -42,6 +42,7 @@ public interface FaxProviderClient {
      * Gets the provider type implemented by this client.
      *
      * @return FaxConfig.ProviderType the provider type enumeration value
+     * @since 2026-02-11
      */
     FaxConfig.ProviderType getProviderType();
 
@@ -49,10 +50,11 @@ public interface FaxProviderClient {
      * Sends an outbound fax.
      *
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
-     * @param faxJob FaxJob logical fax job to send with destination and metadata
+     * @param faxJob FaxJob logical fax job with destination and metadata (should not be mutated by implementations)
      * @param filePath Path resolved path to document payload on local filesystem
-     * @return FaxJob updated fax job with provider response status fields
+     * @return FaxJob new fax job containing provider response fields (jobId, status, statusString)
      * @throws FaxProviderException when send operation fails
+     * @since 2026-02-11
      */
     FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException;
 
@@ -62,6 +64,7 @@ public interface FaxProviderClient {
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
      * @return List&lt;FaxJob&gt; list of inbound fax metadata available for download
      * @throws FaxProviderException when listing operation fails
+     * @since 2026-02-11
      */
     List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException;
 
@@ -72,15 +75,40 @@ public interface FaxProviderClient {
      * @param fax FaxJob fax metadata identifying which document to download
      * @return FaxJob fax job with downloaded document content populated
      * @throws FaxProviderException when download operation fails
+     * @since 2026-02-11
      */
     FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException;
 
     /**
-     * Deletes a remote inbound fax after successful local persistence.
+     * Marks a remote inbound fax as read/processed after successful local import.
+     *
+     * <p>This is the second phase of the two-phase import strategy: download first
+     * (without marking as read), then mark as read only after successful local persistence.
+     * This prevents fax loss if import fails after download.</p>
+     *
+     * <p>Default implementation is a no-op. Providers that use read/unread semantics
+     * for duplicate prevention (e.g., SRFax) must override this method.</p>
      *
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
-     * @param fax FaxJob fax metadata identifying which document to delete
-     * @throws FaxProviderException when delete operation fails
+     * @param fax FaxJob fax metadata identifying which fax to mark as read
+     * @throws FaxProviderException when the mark-as-read operation fails
+     * @since 2026-02-11
+     */
+    default void markFaxAsRead(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
+        // No-op by default. Providers using read/unread semantics override this.
+    }
+
+    /**
+     * Acknowledges or deletes a remote inbound fax after successful local persistence.
+     *
+     * <p>Behavior is provider-specific: middleware deletes the fax from the relay server,
+     * while SRFax is a no-op (SRFax duplicate prevention uses read/unread semantics via
+     * {@link #markFaxAsRead(FaxConfig, FaxJob)}).</p>
+     *
+     * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
+     * @param fax FaxJob fax metadata identifying which document to acknowledge or delete
+     * @throws FaxProviderException when the operation fails
+     * @since 2026-02-11
      */
     void deleteFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException;
 
@@ -91,6 +119,22 @@ public interface FaxProviderClient {
      * @param faxJob FaxJob fax job with jobId to check status for
      * @return FaxJob updated fax job with current status information
      * @throws FaxProviderException when status check operation fails
+     * @since 2026-02-11
      */
     FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException;
+
+    /**
+     * Validates that the given fax configuration matches this client's provider type.
+     *
+     * @param faxConfig FaxConfig to validate
+     * @throws IllegalArgumentException if the provider type does not match
+     * @since 2026-02-11
+     */
+    default void requireMatchingProviderType(FaxConfig faxConfig) {
+        FaxConfig.ProviderType expected = getProviderType();
+        if (faxConfig.getProviderType() != expected) {
+            throw new IllegalArgumentException(
+                    expected + " client requires " + expected + " provider type, but got: " + faxConfig.getProviderType());
+        }
+    }
 }

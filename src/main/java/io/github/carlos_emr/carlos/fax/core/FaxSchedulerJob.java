@@ -25,9 +25,11 @@
  */
 package io.github.carlos_emr.carlos.fax.core;
 
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -40,6 +42,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
+import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 
 /**
  * Spring-managed scheduler for fax polling and status processing cycles.
@@ -54,13 +58,16 @@ public class FaxSchedulerJob {
     private static final String FAX_POLL_INTERVAL_KEY = "faxPollInterval";
     private static final long DEFAULT_PERIOD_MS = 60000L;
     private static final long FAILURE_RESTART_DELAY_MS = 300000L;
+    private static final int MAX_AUTO_RESTART_ATTEMPTS = 10;
 
     private final FaxImporter faxImporter;
     private final FaxSender faxSender;
     private final FaxStatusUpdater faxStatusUpdater;
+    private final FaxConfigDao faxConfigDao;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong lastSuccessfulRunEpochMs = new AtomicLong(0L);
     private final AtomicReference<String> lastError = new AtomicReference<>("");
+    private final AtomicInteger autoRestartAttempts = new AtomicInteger(0);
 
     private Timer timer;
     private TimerTask timerTask;
@@ -69,23 +76,46 @@ public class FaxSchedulerJob {
     /**
      * Creates scheduler job with injected fax workflow services.
      *
-     * @param faxImporter inbound import service
-     * @param faxSender outbound send service
-     * @param faxStatusUpdater outbound status polling service
+     * @param faxImporter FaxImporter inbound import service
+     * @param faxSender FaxSender outbound send service
+     * @param faxStatusUpdater FaxStatusUpdater outbound status polling service
+     * @param faxConfigDao FaxConfigDao DAO for checking active fax configurations
      */
     @Autowired
-    public FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater) {
+    public FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater,
+            FaxConfigDao faxConfigDao) {
         this.faxImporter = faxImporter;
         this.faxSender = faxSender;
         this.faxStatusUpdater = faxStatusUpdater;
+        this.faxConfigDao = faxConfigDao;
     }
 
     /**
-     * Starts scheduler polling after bean initialization.
+     * Starts scheduler polling after bean initialization if active fax configs exist.
      */
     @PostConstruct
     public void initialize() {
-        startTask();
+        if (hasActiveFaxConfigs()) {
+            startTask();
+        } else {
+            logger.info("No active fax accounts configured - scheduler will start when a fax account is activated");
+        }
+    }
+
+    /**
+     * Checks whether any active fax configurations exist in the database.
+     *
+     * @return true if at least one FaxConfig has active=true
+     */
+    private boolean hasActiveFaxConfigs() {
+        try {
+            List<FaxConfig> configs = faxConfigDao.findAll(null, null);
+            return configs.stream().anyMatch(FaxConfig::isActive);
+        } catch (Exception e) {
+            logger.error("Failed to check fax configurations at startup - scheduler will NOT start. "
+                    + "It will start automatically when a fax account is activated via admin UI.", e);
+            return false;
+        }
     }
 
     private void runCycle() {
@@ -97,12 +127,22 @@ public class FaxSchedulerJob {
             lastError.set("");
             running.set(true);
         } catch (OutOfMemoryError e) {
-            // DO NOT attempt restart for OOM - system is in bad state
+            // DO NOT attempt restart for OOM - system is in bad state.
+            // Auto-restart would likely trigger another OOM, creating a crash loop.
+            // Require manual intervention to investigate root cause (memory leak,
+            // undersized heap, excessively large fax documents).
             cancelTask();
             lastError.set("OUT OF MEMORY - manual intervention required");
             logger.error("CRITICAL: Fax scheduler stopped due to out of memory - DO NOT RESTART AUTOMATICALLY", e);
             running.set(false);
             // Do NOT schedule automatic restart for OOM
+        } catch (Error e) {
+            // Non-OOM JVM errors (StackOverflowError, NoClassDefFoundError, etc.)
+            // Treat as non-recoverable like OOM - do not attempt automatic restart
+            cancelTask();
+            lastError.set(e.getClass().getSimpleName() + " - manual intervention required");
+            logger.error("CRITICAL: Fax scheduler stopped due to JVM error - DO NOT RESTART AUTOMATICALLY", e);
+            running.set(false);
         } catch (RuntimeException e) {
             // Programming errors - restart might help if transient
             cancelTask();
@@ -126,8 +166,9 @@ public class FaxSchedulerJob {
      * <p><strong>Design Rationale:</strong> The scheduler is critical infrastructure for fax
      * operations. Rather than requiring manual admin intervention for transient failures
      * (database connection drops, network glitches), this method automatically retries after
-     * {@link #FAILURE_RESTART_DELAY_MS} (5 minutes). If restart fails, it re-queues another
-     * attempt indefinitely until successful or manually stopped.</p>
+     * {@link #FAILURE_RESTART_DELAY_MS} (5 minutes). If restart fails, it attempts to schedule
+     * another retry. If scheduling itself fails, it logs a CRITICAL error and updates
+     * {@link #getLastError()} so the admin UI can surface the failure state.</p>
      *
      * <p>Admin visibility: Failure state is exposed via {@link #getLastError()} and
      * {@link #isRunning()} for monitoring dashboards.</p>
@@ -137,6 +178,13 @@ public class FaxSchedulerJob {
      * requiring manual intervention.</p>
      */
     private synchronized void scheduleAutomaticRestart() {
+        if (autoRestartAttempts.incrementAndGet() > MAX_AUTO_RESTART_ATTEMPTS) {
+            logger.error("CRITICAL: Max restart attempts ({}) exceeded - fax scheduler requires manual restart via admin UI",
+                    MAX_AUTO_RESTART_ATTEMPTS);
+            lastError.set("Max restart attempts (" + MAX_AUTO_RESTART_ATTEMPTS + ") exceeded - manual restart required");
+            return;
+        }
+
         if (timer == null) {
             timer = new Timer("FaxSchedulerJob Recovery Timer", true);
         }
@@ -151,8 +199,14 @@ public class FaxSchedulerJob {
                     logger.error("URGENT: attempting automatic fax scheduler restart after failure");
                     restartTask();
                 } catch (Exception ex) {
-                    logger.error("URGENT: automatic fax scheduler restart attempt failed", ex);
-                    scheduleAutomaticRestart();
+                    logger.error("URGENT: automatic fax scheduler restart attempt failed - will retry in {} ms",
+                            FAILURE_RESTART_DELAY_MS, ex);
+                    try {
+                        scheduleAutomaticRestart();
+                    } catch (Exception schedulingEx) {
+                        logger.error("CRITICAL: Failed to schedule automatic restart - fax scheduler requires manual restart", schedulingEx);
+                        lastError.set("Auto-restart scheduling failed - manual restart required");
+                    }
                 }
             }
         };
@@ -168,6 +222,17 @@ public class FaxSchedulerJob {
         startTask();
     }
 
+    /**
+     * Starts the scheduler if it is not already running. Called by admin actions
+     * when a fax account is activated for the first time.
+     */
+    public synchronized void startIfNotRunning() {
+        if (!running.get()) {
+            logger.info("Starting fax scheduler on demand (triggered by fax account activation)");
+            startTask();
+        }
+    }
+
     private synchronized void startTask() {
         if (timerTask != null && running.get()) {
             return;
@@ -177,9 +242,9 @@ public class FaxSchedulerJob {
         long period = DEFAULT_PERIOD_MS;
         try {
             period = Long.parseLong(faxPollInterval);
-        } catch (Exception e) {
-            logger.error("FaxSchedulerJob period is missing or invalid in properties file: {}: {}", FAX_POLL_INTERVAL_KEY, faxPollInterval, e);
-            logger.error("Setting period to default: {} ms", DEFAULT_PERIOD_MS);
+        } catch (NumberFormatException e) {
+            logger.warn("FaxSchedulerJob period is missing or invalid in properties file: {}={} - using default: {} ms",
+                    FAX_POLL_INTERVAL_KEY, faxPollInterval, DEFAULT_PERIOD_MS);
         }
         if (period <= 0) {
             logger.error("FaxSchedulerJob period must be positive, got {}. Using default: {} ms", period, DEFAULT_PERIOD_MS);
@@ -203,6 +268,7 @@ public class FaxSchedulerJob {
 
         timer.schedule(timerTask, 3000, period);
         running.set(true);
+        autoRestartAttempts.set(0);
     }
 
     /**
@@ -226,7 +292,13 @@ public class FaxSchedulerJob {
     }
 
     /**
-     * @return true when scheduler timer task is currently active.
+     * Returns whether the scheduler timer task is currently active.
+     *
+     * <p>Note: Returns true as soon as the timer is scheduled, even before the first
+     * cycle completes. Check {@link #getLastSuccessfulRunEpochMs()} to confirm at least
+     * one cycle has completed successfully.</p>
+     *
+     * @return true when scheduler timer task is currently active
      */
     public boolean isRunning() {
         return running.get();

@@ -212,6 +212,8 @@ public interface FaxManager {
 
     public void restartFaxScheduler(LoggedInInfo loggedInInfo);
 
+    void startFaxSchedulerIfNotRunning(LoggedInInfo loggedInInfo);
+
     public ObjectNode getFaxSchedularStatus(LoggedInInfo loggedInInfo);
 
     /**

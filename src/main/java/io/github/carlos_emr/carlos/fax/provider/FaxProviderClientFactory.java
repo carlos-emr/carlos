@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.fax.provider;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -50,15 +51,19 @@ public class FaxProviderClientFactory {
      */
     @Autowired
     public FaxProviderClientFactory(List<FaxProviderClient> providerClients) {
-        providersByType = new EnumMap<>(FaxConfig.ProviderType.class);
+        EnumMap<FaxConfig.ProviderType, FaxProviderClient> mutable = new EnumMap<>(FaxConfig.ProviderType.class);
         for (FaxProviderClient providerClient : providerClients) {
             FaxConfig.ProviderType providerType = providerClient.getProviderType();
             // Fail-fast on duplicate provider beans to avoid ambiguous runtime routing.
-            if (providersByType.containsKey(providerType)) {
+            if (mutable.containsKey(providerType)) {
                 throw new IllegalStateException("Duplicate FaxProviderClient beans configured for provider type: " + providerType);
             }
-            providersByType.put(providerType, providerClient);
+            mutable.put(providerType, providerClient);
         }
+        if (mutable.isEmpty()) {
+            throw new IllegalStateException("No FaxProviderClient implementations found - check Spring component scanning");
+        }
+        providersByType = Collections.unmodifiableMap(mutable);
     }
 
     /**

@@ -22,13 +22,14 @@ introduced in CARLOS, with emphasis on SRFax behavior and admin configuration UX
 
 ## SRFax Duplicate Management Policy
 - SRFax inbound duplicates are controlled via provider read-state semantics:
-  - pull unread-only inbox items (e.g., `sUnreadOnly=Y` / `sIncludeRead=N`)
+  - pull unread-only inbox items (`sUnreadOnly=true` / `sIncludeRead=false`)
   - mark as viewed on successful retrieve via SRFax API (`sMarkasViewed=Y`, treated as "read" in CARLOS EMR)
 - Do **not** delete inbound SRFax files server-side as part of duplicate management.
 
 ## Configuration Expectations
 When provider type is `SRFAX`:
-- `faxUrl` should point to SRFax API endpoint.
+- `faxUrl` is ignored for SRFax; the fixed API endpoint (`https://www.srfax.com/SRF_SecWebSvc.php`)
+  is used automatically. Override via `srfax.api.url` in oscar_mcmaster.properties if needed.
 - `faxUser` maps to `sFaxUserName`.
 - `faxPassword` maps to `sFaxPassword`.
 

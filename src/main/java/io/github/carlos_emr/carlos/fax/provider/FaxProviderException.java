@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.fax.provider;
  */
 public class FaxProviderException extends Exception {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Creates a provider exception with message only.
      */

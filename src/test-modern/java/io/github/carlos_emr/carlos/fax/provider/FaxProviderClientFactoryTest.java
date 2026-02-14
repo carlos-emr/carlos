@@ -1,6 +1,7 @@
-/*
- * Copyright (c) 2026. CARLOS EMR contributors and others.
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
+ * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.fax.provider;
 
@@ -88,6 +92,30 @@ class FaxProviderClientFactoryTest extends OpenOUnitTestBase {
         assertThatThrownBy(() -> factory.getClient(null))
             .isInstanceOf(FaxProviderException.class)
             .hasMessage("Fax configuration is required to resolve provider client");
+    }
+
+    @Test
+    @DisplayName("should throw FaxProviderException when provider type is not registered")
+    void shouldThrowFaxProviderException_whenProviderTypeNotRegistered() {
+        // Given - factory only has MIDDLEWARE, not SRFAX
+        FaxProviderClient middlewareClient = new TestClient(FaxConfig.ProviderType.MIDDLEWARE);
+        FaxProviderClientFactory factory = new FaxProviderClientFactory(Collections.singletonList(middlewareClient));
+        FaxConfig faxConfig = new FaxConfig();
+        faxConfig.setProviderType(FaxConfig.ProviderType.SRFAX);
+
+        // When/Then
+        assertThatThrownBy(() -> factory.getClient(faxConfig))
+            .isInstanceOf(FaxProviderException.class)
+            .hasMessageContaining("No fax provider client configured for provider type: SRFAX");
+    }
+
+    @Test
+    @DisplayName("should throw IllegalStateException when no provider clients are provided")
+    void shouldThrowIllegalStateException_whenNoProviderClients() {
+        // When/Then
+        assertThatThrownBy(() -> new FaxProviderClientFactory(Collections.emptyList()))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("No FaxProviderClient implementations found");
     }
 
     @Test

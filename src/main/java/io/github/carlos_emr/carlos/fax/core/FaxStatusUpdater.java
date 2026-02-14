@@ -43,13 +43,14 @@ import org.springframework.stereotype.Service;
  * Service responsible for polling remote fax providers for status updates on in-progress outbound faxes.
  *
  * <p>This service tracks the delivery status of faxes that have been submitted to providers but
- * have not yet reached a terminal state (SENT or ERROR). It periodically polls the provider APIs
+ * have not yet reached a terminal state (such as COMPLETE, ERROR, or CANCELLED). It periodically polls the provider APIs
  * to update local FaxJob records with the latest delivery status, enabling real-time tracking
  * and troubleshooting of fax transmission.</p>
  *
  * <p><strong>Key Features:</strong></p>
  * <ul>
- *   <li><strong>In-Progress Polling:</strong> Only queries faxes with provider job IDs (not WAITING/READY)</li>
+ *   <li><strong>In-Progress Polling:</strong> Only queries faxes in SENT or WAITING status
+ *       with a non-null provider job ID</li>
  *   <li><strong>Multi-Account Support:</strong> Handles status updates across multiple FaxConfig accounts</li>
  *   <li><strong>Provider Abstraction:</strong> Works with any FaxProviderClient (MIDDLEWARE, SRFAX)</li>
  *   <li><strong>Orphaned Fax Detection:</strong> Identifies faxes with deleted FaxConfig accounts</li>
@@ -57,72 +58,14 @@ import org.springframework.stereotype.Service;
  *   <li><strong>Status Synchronization:</strong> Updates both status enum and human-readable statusString</li>
  * </ul>
  *
- * <p><strong>Status Update Process:</strong></p>
- * <ol>
- *   <li>Query FaxJobDao for in-progress faxes (those with provider job IDs, not terminal status)</li>
- *   <li>For each in-progress fax:
- *     <ul>
- *       <li>Look up FaxConfig by fax_line (sender account)</li>
- *       <li>Handle orphaned faxes (deleted account) by marking ERROR</li>
- *       <li>Skip inactive accounts (no polling if account disabled)</li>
- *       <li>Fetch current status from provider API (SRFax Get_Fax_Outbox, etc.)</li>
- *       <li>Update FaxJob with latest status and status message</li>
- *       <li>Persist updated FaxJob to database</li>
- *     </ul>
- *   </li>
- * </ol>
- *
  * <p><strong>Terminal vs In-Progress States:</strong></p>
  * <ul>
- *   <li><strong>In-Progress (polled by this service):</strong> Faxes with provider job IDs that
- *       may still change status (e.g., "Queued", "Sending", "Retrying")</li>
- *   <li><strong>Terminal (not polled):</strong> SENT (delivered), ERROR (permanent failure),
- *       WAITING (local queue), READY (local queue)</li>
+ *   <li><strong>In-Progress (polled by this service):</strong> Faxes with provider job IDs in
+ *       SENT or WAITING status (queued with provider, awaiting delivery confirmation)</li>
+ *   <li><strong>Terminal (not polled):</strong> COMPLETE (delivered), ERROR (permanent failure),
+ *       CANCELLED (cancelled by user or system), RECEIVED (inbound import), RESOLVED (manually resolved),
+ *       UNKNOWN (unrecognized provider status), RESENT (superseded by resend)</li>
  * </ul>
- *
- * <p><strong>Orphaned Fax Handling:</strong></p>
- * <p>When a FaxConfig account is deleted while faxes are in-progress, those faxes become
- * "orphaned" with no configuration to poll. This service detects orphaned faxes and marks
- * them ERROR with message: "Fax account configuration was deleted - cannot check status".
- * This prevents infinite polling attempts and alerts administrators to the orphaned state.</p>
- *
- * <p><strong>Inactive Account Behavior:</strong></p>
- * <p>Faxes from inactive accounts (FaxConfig.active=false) are NOT polled for status updates.
- * This allows administrators to temporarily disable polling for specific accounts without
- * marking all in-progress faxes as ERROR. When account is reactivated, polling resumes.</p>
- *
- * <p><strong>Error Handling:</strong></p>
- * <ul>
- *   <li><strong>FaxProviderException:</strong> Provider communication failures are logged at
- *       ERROR level but do NOT stop processing of remaining faxes. This ensures one failing
- *       provider does not block status updates for all faxes.</li>
- *   <li><strong>No Status Change on Error:</strong> If provider fetch fails, FaxJob status
- *       remains unchanged (not marked ERROR). This allows retry on next poll.</li>
- * </ul>
- *
- * <p><strong>Performance Considerations:</strong></p>
- * <p>Status updates are synchronous and may involve multiple HTTP requests to provider APIs.
- * For high-volume deployments, monitor execution time and consider:</p>
- * <ul>
- *   <li>Increasing poll interval to reduce API load</li>
- *   <li>Implementing batch status queries if provider supports it</li>
- *   <li>Adding timeout configuration to prevent blocking on slow provider responses</li>
- * </ul>
- *
- * <p><strong>Logging:</strong></p>
- * <p>Service logs status update counts and individual fax updates:</p>
- * <ul>
- *   <li><strong>INFO:</strong> "CHECKING STATUS OF N FAXES" (start of poll)</li>
- *   <li><strong>INFO:</strong> "UPDATED FAX JOB ID X WITH STATUS Y" (successful update)</li>
- *   <li><strong>ERROR:</strong> "Failed to update fax status for fax id X" (provider failure)</li>
- *   <li><strong>ERROR:</strong> "Could not find faxConfig for fax id X" (orphaned fax)</li>
- * </ul>
- *
- * <p><strong>Usage Example:</strong></p>
- * <pre>
- * // Typically invoked by scheduled job (FaxScheduler) or manually via admin UI
- * faxStatusUpdater.updateStatus();  // Polls all in-progress faxes across all active accounts
- * </pre>
  *
  * @see FaxProviderClient#fetchFaxStatus
  * @see FaxProviderClientFactory
@@ -152,7 +95,7 @@ public class FaxStatusUpdater {
      *
      * <p><strong>Process Flow:</strong></p>
      * <ol>
-     *   <li>Query FaxJobDao for faxes with provider job IDs (in-progress, not terminal status)</li>
+     *   <li>Query FaxJobDao for faxes with SENT or WAITING status and a non-null provider job ID</li>
      *   <li>Log total number of faxes to check (INFO level for monitoring)</li>
      *   <li>For each in-progress fax:
      *     <ul>
@@ -184,7 +127,7 @@ public class FaxStatusUpdater {
      * <p><strong>Provider API Calls:</strong></p>
      * <p>For each in-progress fax, the service makes one API call to the provider:
      * <ul>
-     *   <li><strong>SRFax:</strong> Get_Fax_Outbox with sFaxDetailsID parameter</li>
+     *   <li><strong>SRFax:</strong> Get_Fax_Status with sFaxDetailsID parameter</li>
      *   <li><strong>Middleware:</strong> Provider-specific status endpoint</li>
      * </ul>
      * Provider responses include status code (e.g., "Success", "Failed") and human-readable
@@ -193,14 +136,14 @@ public class FaxStatusUpdater {
      * <p><strong>Status Update Strategy:</strong></p>
      * <p>Both FaxJob fields are updated from provider response:</p>
      * <ul>
-     *   <li><strong>status (enum):</strong> Machine-readable state (SENT, ERROR, IN_PROGRESS)</li>
+     *   <li><strong>status (enum):</strong> Machine-readable state (SENT, ERROR, COMPLETE, UNKNOWN)</li>
      *   <li><strong>statusString:</strong> Human-readable message for UI display</li>
      * </ul>
      * <p>Example provider responses:</p>
      * <pre>
-     * Status: SENT,       statusString: "Delivered to recipient"
+     * Status: COMPLETE,   statusString: "Delivered to recipient"
      * Status: ERROR,      statusString: "Invalid fax number"
-     * Status: IN_PROGRESS, statusString: "Busy - will retry (attempt 2 of 3)"
+     * Status: SENT,       statusString: "Queued - awaiting delivery confirmation"
      * </pre>
      *
      * <p><strong>Error Handling:</strong></p>
@@ -217,7 +160,7 @@ public class FaxStatusUpdater {
      * </ul>
      *
      * <p><strong>Concurrency Considerations:</strong></p>
-     * <p>This method is designed to be called from a single-threaded scheduler (FaxScheduler).
+     * <p>This method is designed to be called from a single-threaded scheduler ({@link FaxSchedulerJob}).
      * If invoked concurrently from multiple threads/nodes, race conditions may occur during
      * status updates. For distributed deployments, ensure only one instance polls status at
      * a time, or implement optimistic locking on FaxJob.</p>
@@ -230,10 +173,11 @@ public class FaxStatusUpdater {
      *   <li>Orphaned fax errors - Indicates improper FaxConfig deletion workflow</li>
      * </ul>
      *
-     * <p>This method is typically invoked by scheduled job (FaxScheduler) every 5-15 minutes,
-     * but can also be triggered manually via admin UI for immediate status refresh.</p>
+     * <p>This method is typically invoked by {@link FaxSchedulerJob} at the configured poll interval
+     * (default: 60 seconds, configurable via faxPollInterval property), but can also be triggered
+     * manually via admin UI for immediate status refresh.</p>
      *
-     * @throws FaxProviderException propagated from provider client (caught and logged, not thrown)
+     * @see FaxJob.STATUS
      * @see FaxJobDao#getInprogressFaxesByJobId
      * @see FaxConfigDao#getConfigByNumber
      * @see FaxProviderClient#fetchFaxStatus
@@ -246,30 +190,40 @@ public class FaxStatusUpdater {
         log.info("CHECKING STATUS OF {} FAXES", faxJobList.size());
 
         for (FaxJob faxJob : faxJobList) {
-            FaxConfig faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
+            try {
+                FaxConfig faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
 
-            if (faxConfig == null) {
-                log.error("Could not find faxConfig for fax id {} with fax_line {} - marking as ERROR. Has the fax account been deleted?",
-                        faxJob.getId(), faxJob.getFax_line());
-                faxJob.setStatus(FaxJob.STATUS.ERROR);
-                faxJob.setStatusString("Fax account configuration was deleted - cannot check status");
-                faxJobDao.merge(faxJob);
-                continue;
-            }
-
-            if (faxConfig.isActive()) {
-                try {
-                    FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
-                    FaxJob faxJobUpdated = providerClient.fetchFaxStatus(faxConfig, faxJob);
-                    faxJob.setStatus(faxJobUpdated.getStatus());
-                    faxJob.setStatusString(faxJobUpdated.getStatusString());
-                    log.info("UPDATED FAX JOB ID {} WITH STATUS {}", faxJob.getJobId(), faxJob.getStatus());
+                if (faxConfig == null) {
+                    log.error("Could not find faxConfig for fax id {} with fax_line {} - marking as ERROR. Has the fax account been deleted?",
+                            faxJob.getId(), faxJob.getFax_line());
+                    faxJob.setStatus(FaxJob.STATUS.ERROR);
+                    faxJob.setStatusString("Fax account configuration was deleted - cannot check status");
                     faxJobDao.merge(faxJob);
-                } catch (FaxProviderException e) {
-                    log.error("Failed to update fax status for fax id {}", faxJob.getId(), e);
+                    continue;
                 }
-            }
 
+                if (faxConfig.isActive()) {
+                    try {
+                        FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
+                        FaxJob faxJobUpdated = providerClient.fetchFaxStatus(faxConfig, faxJob);
+                        faxJob.setStatus(faxJobUpdated.getStatus());
+                        faxJob.setStatusString(faxJobUpdated.getStatusString());
+                        log.info("UPDATED FAX JOB ID {} WITH STATUS {}", faxJob.getJobId(), faxJob.getStatus());
+                        faxJobDao.merge(faxJob);
+                    } catch (FaxProviderException e) {
+                        log.error("Failed to update fax status for fax id {}", faxJob.getId(), e);
+                        String current = faxJob.getStatusString() != null ? faxJob.getStatusString() : "";
+                        faxJob.setStatusString(current + " [Status check failed: " + e.getMessage() + "]");
+                        faxJobDao.merge(faxJob);
+                    }
+                } else {
+                    log.debug("Skipping status update for fax id {} - account {} is inactive",
+                            faxJob.getId(), faxJob.getFax_line());
+                }
+            } catch (RuntimeException e) {
+                log.error("Unexpected error updating status for fax id {} - continuing with remaining faxes: {}",
+                        faxJob.getId(), e.getMessage(), e);
+            }
         }
     }
 

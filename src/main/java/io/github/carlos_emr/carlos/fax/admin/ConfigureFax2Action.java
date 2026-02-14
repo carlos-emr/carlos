@@ -32,6 +32,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -138,16 +139,18 @@ public class ConfigureFax2Action extends ActionSupport {
                     if (StringUtils.trimToNull(faxConfigIds[idx]) == null) {
                         continue;
                     }
-                    id = Integer.parseInt(faxConfigIds[idx]);
+                    try {
+                        id = Integer.parseInt(faxConfigIds[idx]);
+                    } catch (NumberFormatException e) {
+                        throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
+                    }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
                     validateConfigRow(providerType, faxUrl, siteUser, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
 
-                    // Apply default SRFax URL after validation for SRFAX mode (middleware URL is validated as required above)
-                    String resolvedFaxUrl = faxUrl;
-                    if (providerType == FaxConfig.ProviderType.SRFAX && StringUtils.isBlank(faxUrl)) {
-                        resolvedFaxUrl = "https://www.srfax.com/SRF_SecWebSvc.php";
-                        MiscUtils.getLogger().debug("Using default SRFax API URL for config id {}", id);
-                    }
+                    // SRFax always uses the fixed API URL; middleware uses the user-provided URL
+                    String resolvedFaxUrl = providerType == FaxConfig.ProviderType.SRFAX
+                            ? SRFaxProviderClient.DEFAULT_SRFAX_API_URL
+                            : faxUrl;
 
                     faxConfig = new FaxConfig();
                     faxConfig.setId(id);
@@ -200,7 +203,11 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
 
-                        faxConfig.setFaxNumber(faxNumbers[idx]);
+                        String newFaxNumber = faxNumbers[idx];
+                        if (newFaxNumber != null) {
+                            newFaxNumber = newFaxNumber.trim().replaceAll("\\D", "");
+                        }
+                        faxConfig.setFaxNumber(newFaxNumber);
                         faxConfig.setSenderEmail(senderEmails[idx]);
                         faxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
                         faxConfig.setAccountName(accountNames[idx]);
@@ -248,12 +255,30 @@ public class ConfigureFax2Action extends ActionSupport {
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
             jsonObject.put("message", "Configuration saved!");
+
+            // Auto-start scheduler if any active config exists and scheduler isn't running
+            try {
+                boolean hasActive = faxConfigList.stream().anyMatch(FaxConfig::isActive);
+                if (hasActive) {
+                    faxManager.startFaxSchedulerIfNotRunning(loggedInInfo);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save", e);
+                jsonObject.put("message", "Configuration saved, but fax scheduler failed to start. "
+                        + "Use the Restart button to start it manually.");
+            }
         } catch (IllegalArgumentException ex) {
             // Validation errors - safe to expose message
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
             jsonObject.put("message", ex.getMessage() == null ? DEFAULT_ERROR_MESSAGE : ex.getMessage());
             MiscUtils.getLogger().error("Fax configuration validation failed: {}", ex.getMessage(), ex);
+        } catch (javax.persistence.PersistenceException ex) {
+            // Database errors - do not leak details
+            jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", DEFAULT_ERROR_MESSAGE);
+            MiscUtils.getLogger().error("Database error saving fax configuration", ex);
         } catch (Exception ex) {
             // System errors - do not leak details
             jsonObject = objectMapper.createObjectNode();
@@ -272,22 +297,23 @@ public class ConfigureFax2Action extends ActionSupport {
      * Resolves provider type selection from request arrays with safe middleware fallback.
      *
      * <p><strong>Backward Compatibility:</strong> Middleware is the legacy default provider.
-     * This method falls back to MIDDLEWARE when providerTypes array is missing, empty, or
-     * contains invalid enum values. This ensures existing fax configurations continue working
-     * after the provider abstraction refactor (PR #345) without requiring manual updates.</p>
+     * This method falls back to MIDDLEWARE when providerTypes array is missing or the value
+     * at the given index is null. Throws {@link IllegalArgumentException} for invalid provider
+     * type names. This ensures existing fax configurations continue working after the provider
+     * abstraction refactor (PR #345) without requiring manual updates.</p>
      *
      * <p>The fallback prevents configuration errors when:
      * <ul>
      *   <li>Legacy configurations are loaded (no providerType field)</li>
      *   <li>UI form submissions omit provider type selection</li>
-     *   <li>Invalid/typo provider type names are submitted</li>
      * </ul>
      * </p>
      *
      * @param providerTypes provider type request values (may be null for legacy configs)
      * @param idx row index currently being processed
      * @param faxConfigId persisted identifier for logging context
-     * @return resolved provider type, defaulting to {@link FaxConfig.ProviderType#MIDDLEWARE} when absent/invalid
+     * @return resolved provider type, defaulting to {@link FaxConfig.ProviderType#MIDDLEWARE} when absent
+     * @throws IllegalArgumentException if the provider type value is present but not a valid enum constant
      */
     private FaxConfig.ProviderType resolveProviderType(String[] providerTypes, int idx, Integer faxConfigId) {
         // Default to MIDDLEWARE only if provider type is not specified (null or missing)
@@ -300,10 +326,12 @@ public class ConfigureFax2Action extends ActionSupport {
         try {
             return FaxConfig.ProviderType.valueOf(providerTypes[idx]);
         } catch (IllegalArgumentException ex) {
+            // Sanitize user input before including in error message to prevent XSS
+            String sanitizedInput = providerTypes[idx].replaceAll("[^a-zA-Z0-9_]", "");
             String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX",
-                    providerTypes[idx], faxConfigId);
-            MiscUtils.getLogger().error(errorMsg, ex);
-            throw new IllegalArgumentException(errorMsg); // Propagate to user via catch block at line 249
+                    sanitizedInput, faxConfigId);
+            MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId, providerTypes[idx], ex);
+            throw new IllegalArgumentException(errorMsg);
         }
     }
 
@@ -332,6 +360,12 @@ public class ConfigureFax2Action extends ActionSupport {
             }
             if (StringUtils.isBlank(siteUser)) {
                 throw new IllegalArgumentException("Middleware server username is required for Middleware mode.");
+            }
+            // For new middleware configs, site password is required for Basic auth
+            String passwd = request.getParameter("sitePasswd");
+            boolean isNewConfig = faxConfigId == null || faxConfigId <= 0;
+            if (isNewConfig && StringUtils.isBlank(passwd)) {
+                throw new IllegalArgumentException("Middleware site password is required for new Middleware accounts.");
             }
         }
         if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
@@ -364,10 +398,6 @@ public class ConfigureFax2Action extends ActionSupport {
             if (isNewConfigRow && missingPassword) {
                 throw new IllegalArgumentException("SRFax password is required for new SRFax account row " + (idx + 1) + ".");
             }
-
-            if (!faxUrl.toLowerCase().contains("srfax")) {
-                MiscUtils.getLogger().warn("SRFax provider selected for row {} but URL does not appear to be an SRFax endpoint: {}", idx + 1, faxUrl);
-            }
         }
     }
 
@@ -375,28 +405,59 @@ public class ConfigureFax2Action extends ActionSupport {
      * Restarts fax scheduler thread/task via manager layer.
      */
     public void restartFaxScheduler() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("No valid session found");
+        try {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (loggedInInfo == null) {
+                throw new SecurityException("No valid session found");
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "w", null)) {
+                throw new SecurityException("missing required sec object (_admin.fax.restart)");
+            }
+            faxManager.restartFaxScheduler(loggedInInfo);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", true);
+            JSONUtil.jsonResponse(response, jsonObject);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Fax scheduler restart denied: {}", e.getMessage());
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Insufficient privileges to restart fax scheduler.");
+            JSONUtil.jsonResponse(response, jsonObject);
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Fax scheduler restart failed: {}", e.getMessage(), e);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Fax scheduler restart failed unexpectedly.");
+            JSONUtil.jsonResponse(response, jsonObject);
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax.restart)");
-        }
-        faxManager.restartFaxScheduler(loggedInInfo);
     }
 
     /**
      * Returns scheduler health/status payload for admin UI polling.
      */
     public void getFaxSchedularStatus() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("No valid session found");
+        try {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (loggedInInfo == null) {
+                throw new SecurityException("No valid session found");
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "r", null)) {
+                throw new SecurityException("missing required sec object (_admin.fax.restart)");
+            }
+            JSONUtil.jsonResponse(response, faxManager.getFaxSchedularStatus(loggedInInfo));
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Fax scheduler status check denied: {}", e.getMessage());
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Insufficient privileges to view fax scheduler status.");
+            JSONUtil.jsonResponse(response, jsonObject);
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Fax scheduler status check failed: {}", e.getMessage(), e);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Fax scheduler status check failed unexpectedly.");
+            JSONUtil.jsonResponse(response, jsonObject);
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax.restart)");
-        }
-        JSONUtil.jsonResponse(response, faxManager.getFaxSchedularStatus(loggedInInfo));
     }
 
 }

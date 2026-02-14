@@ -1,30 +1,27 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2017-2024. Juno EMR. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Portions contributed by Juno EMR.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.model;
 
@@ -34,6 +31,27 @@ import org.apache.logging.log4j.Logger;
 
 import javax.persistence.*;
 
+/**
+ * JPA entity representing fax gateway account configuration.
+ *
+ * <p>Supports multiple fax provider types (MIDDLEWARE, SRFAX) with encrypted credential storage.
+ * Each configuration defines connection parameters, authentication credentials, inbox routing,
+ * and active/download flags for scheduler control.</p>
+ *
+ * <p><strong>Security:</strong> Password fields (passwd, faxPasswd) are automatically encrypted
+ * on write and decrypted on read using {@link io.github.carlos_emr.carlos.utility.EncryptionUtils}.
+ * Legacy unencrypted passwords are auto-migrated on first access.</p>
+ *
+ * <p><strong>Provider Types:</strong></p>
+ * <ul>
+ *   <li><strong>MIDDLEWARE:</strong> Relay server intermediary (faxws) - requires url, siteUser, passwd</li>
+ *   <li><strong>SRFAX:</strong> Direct SRFax API integration - uses fixed endpoint, requires faxUser, faxPasswd</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.carlos.fax.provider.FaxProviderClient
+ * @see io.github.carlos_emr.carlos.utility.EncryptionUtils
+ * @since 2014-08-29
+ */
 @Entity
 @Table(name = "fax_config")
 public class FaxConfig extends AbstractModel<Integer> {
@@ -172,24 +190,28 @@ public class FaxConfig extends AbstractModel<Integer> {
 
     /**
      * Shared helper method to decrypt a password field.
-     * Handles legacy unencrypted passwords and decryption failures gracefully.
+     * Handles legacy unencrypted passwords transparently.
      *
      * @param value the field value (may be encrypted or legacy plain text)
      * @param fieldLabel descriptive label for error messages
-     * @return decrypted plain text password, or empty string if decryption fails
+     * @return decrypted plain text password, or empty string if value is null/empty
+     * @return decrypted plain text password, or empty string if value is null/empty or decryption fails
      */
     private String decryptField(String value, String fieldLabel) {
-        try {
-            if (value != null && !value.isEmpty()) {
+        if (value != null && !value.isEmpty()) {
+            try {
                 if (EncryptionUtils.isEncrypted(value)) {
                     return EncryptionUtils.decrypt(value);
                 }
                 // Legacy plain text - return as-is, caller decides whether to re-encrypt
                 return value;
+            } catch (Exception e) {
+                logger.error("Failed to decrypt {} - possible key rotation or data corruption. " +
+                        "Downstream operations will see 'not configured' errors because the decrypted value " +
+                        "will be empty. Re-enter the password in Administration > Faxes > Configure Fax to " +
+                        "re-encrypt with the current key.", fieldLabel, e);
+                return "";
             }
-        } catch (Exception e) {
-            logger.error("Failed to decrypt " + fieldLabel + " - possible key rotation or corruption", e);
-            return "";
         }
         return "";
     }
@@ -285,7 +307,7 @@ public class FaxConfig extends AbstractModel<Integer> {
      * Sets configured fax provider type for this account.
      */
     public void setProviderType(ProviderType providerType) {
-        this.providerType = providerType;
+        this.providerType = (providerType != null) ? providerType : ProviderType.MIDDLEWARE;
     }
 
 

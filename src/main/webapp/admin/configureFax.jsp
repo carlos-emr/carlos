@@ -1,6 +1,9 @@
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    Copyright (c) 2017-2024. Juno EMR. All Rights Reserved.
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +19,36 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    Originally written for the Department of Family Medicine, McMaster University.
+    Portions contributed by Juno EMR.
+    Now maintained by the CARLOS EMR Project.
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
 
+--%>
+
+<%--
+/**
+ * Fax Gateway Configuration Administration Interface
+ *
+ * <p><strong>Purpose:</strong> Provides admin UI for configuring fax provider accounts,
+ * scheduler health monitoring, and gateway enable/disable controls.</p>
+ *
+ * <p><strong>Features:</strong></p>
+ * <ul>
+ *   <li>Multi-provider support (Middleware relay, SRFax direct API)</li>
+ *   <li>Real-time scheduler health status polling</li>
+ *   <li>Encrypted credential storage with auto-migration from legacy plain text</li>
+ *   <li>Provider-specific field visibility (middleware vs SRFax)</li>
+ *   <li>Unsaved changes warning on page navigation</li>
+ * </ul>
+ *
+ * <p><strong>Security:</strong> Requires `_admin.fax` write privilege for configuration;
+ * `_admin.fax.restart` read/write for scheduler controls.</p>
+ *
+ * <p><strong>Parameters:</strong> None (uses session-based LoggedInInfo)</p>
+ *
+ * @since 2014-08-29 (original), 2026-02-11 (multi-provider refactor)
+ */
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -53,6 +75,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
 
 <%
     // Declare Java variables at page scope before any HTML/JavaScript
@@ -62,6 +85,8 @@
 
     QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     HashMap<Integer,String> queueMap = queueDao.getHashMapOfQueues();
+    // Default to the first available queue (typically "default", id=1)
+    Integer defaultQueueId = queueMap.isEmpty() ? 1 : queueMap.keySet().iterator().next();
 %>
 
 <!DOCTYPE html>
@@ -198,7 +223,13 @@
                     method: 'POST',
                     data: data,
                     dataType: "json",
-                    success: originalAjaxSuccess
+                    success: originalAjaxSuccess,
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        $("#msg").text("Failed to save configuration. Server returned: " + (errorThrown || textStatus));
+                        $('.alert').removeClass('alert-success');
+                        $('.alert').addClass('alert-error');
+                        $('.alert').show();
+                    }
                 });
 
             });
@@ -217,19 +248,17 @@
             var providerType = $("#providerType").val();
 
             if (providerType === "MIDDLEWARE") {
-                // Show middleware fields and make them required
                 $("#middlewareFields").show();
+                $("#srfaxUrlInfo").hide();
                 $("#faxServiceUser").prop("required", true);
                 $("#faxServicePasswd").prop("required", true);
                 $("#faxUrl").prop("required", true);
             } else {
-                // Hide middleware fields and remove required validation
                 $("#middlewareFields").hide();
+                $("#srfaxUrlInfo").show();
                 $("#faxServiceUser").prop("required", false);
                 $("#faxServicePasswd").prop("required", false);
                 $("#faxUrl").prop("required", false);
-
-                // Clear middleware URL for SRFax mode (backend will use SRFax URL)
                 $("#faxUrl").val("");
             }
         }
@@ -259,6 +288,10 @@
                     $("#faxLastRunDetails").text(lastRunText);
                     $("#faxLastErrorDetails").text(data.lastError && data.lastError.length > 0 ? data.lastError : "None");
                     HideSpin();
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    $("#faxStatusDetails").text("Unable to retrieve status").css("color", "red");
+                    HideSpin();
                 }
             });
         }
@@ -272,6 +305,9 @@
                     console.log("Fax scheduler restarted successfully");
                     ShowSpin(true);
                     setTimeout(getFaxSchedularStatus, 3000);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    $("#faxStatusDetails").text("Failed to restart scheduler: " + (errorThrown || textStatus)).css("color", "red");
                 }
             });
         }
@@ -324,6 +360,9 @@
                 <div class="row fax-card">
                     <div class="span12">
                         <%
+                            // Current UI supports configuring one fax account at a time.
+                            // Backend array-based save infrastructure is preserved for potential future multi-account support.
+
                             // Get first config or create defaults for empty config
                             // Note: "config" is a JSP implicit object (ServletConfig), so use "faxCfg" instead
                             FaxConfig faxCfg = faxConfigList.isEmpty() ? null : faxConfigList.get(0);
@@ -333,7 +372,7 @@
                             String faxNumber = faxCfg != null ? faxCfg.getFaxNumber() : "";
                             String senderEmail = faxCfg != null ? faxCfg.getSenderEmail() : "";
                             String accountName = faxCfg != null ? faxCfg.getAccountName() : "";
-                            Integer queueId = faxCfg != null ? faxCfg.getQueue() : -1;
+                            Integer queueId = (faxCfg != null && faxCfg.getQueue() != null && faxCfg.getQueue() > 0) ? faxCfg.getQueue() : defaultQueueId;
                             FaxConfig.ProviderType providerType = faxCfg != null ? faxCfg.getProviderType() : FaxConfig.ProviderType.MIDDLEWARE;
                             boolean isActive = faxCfg != null && faxCfg.isActive();
                             boolean isDownload = faxCfg != null && faxCfg.isDownload();
@@ -386,6 +425,20 @@
                             </div>
                         </div>
 
+                        <!-- SRFax API Endpoint (read-only, shown only for SRFax provider) -->
+                        <div id="srfaxUrlInfo" style="display:none;">
+                            <div class="row">
+                                <div class="span12">
+                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax API Endpoint</h6>
+                                    <label><i class="fas fa-link"></i> API URL</label>
+                                    <input class="span12" type="text" readonly
+                                           value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
+                                           style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
+                                    <small class="fax-muted"><i class="fas fa-lock"></i> Fixed endpoint &mdash; not configurable</small>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- SRFax Account Credentials (always shown) -->
                         <div class="row">
                             <div class="span12">
@@ -398,7 +451,7 @@
                                 <label for="faxUser">SRFax Username</label>
                                 <input class="span6" type="text" id="faxUser" name="faxUser"
                                        value="<%=Encode.forHtmlAttribute(faxUser)%>"/>
-                                <input type="hidden" id="id" name="id" value="<%=configId%>"/>
+                                <input type="hidden" id="id" name="id" value="<%=Encode.forHtmlAttribute(configId)%>"/>
                             </div>
                             <div class="span6">
                                 <label for="faxPasswd">SRFax Password</label>
@@ -423,19 +476,12 @@
                         </div>
                         <div class="row">
                             <div class="span6">
-                                <label for="inBoxQueue">Inbox Queue</label>
-                                <select class="span6" id="inBoxQueue" name="inboxQueue">
-                                    <option value="-1">-</option>
-                                    <%
-                                        for (Integer qId : queueMap.keySet()) {
-                                            out.print("<option value='" + qId + "'");
-                                            if (qId.equals(queueId)) {
-                                                out.print(" selected");
-                                            }
-                                            out.print(">" + Encode.forHtml(queueMap.get(qId)) + "</option>");
-                                        }
-                                    %>
-                                </select>
+                                <label>Inbox Queue</label>
+                                <input class="span6" type="text" readonly
+                                       value="<%=Encode.forHtmlAttribute(queueMap.getOrDefault(queueId, "default"))%>"
+                                       style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
+                                <input type="hidden" name="inboxQueue" value="<%=queueId%>"/>
+                                <small class="fax-muted">Incoming faxes are routed to this document review queue</small>
                             </div>
                             <div class="span6">
                                 <label for="accountName">Account Name</label>

@@ -122,11 +122,11 @@ build_and_deploy() {
   snapshot_src_dir="carlos-$version"
   snapshot_dest_dir="carlos"
 
-  # Create a symlink from the exploded WAR directory to the Tomcat webapps directory.
+  # Deploy the exploded WAR to the Tomcat webapps directory.
   # This ensures the app is deployed with the context path `/carlos`.
-  if [ -d "target/$snapshot_src_dir" ] && [ ! -L "target/$snapshot_src_dir" ]; then
-    mv "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
-    ln -s "/usr/local/tomcat/webapps/$snapshot_dest_dir" "target/$snapshot_src_dir"
+  if [ -d "target/$snapshot_src_dir" ]; then
+    rm -rf "/usr/local/tomcat/webapps/$snapshot_dest_dir"
+    cp -a "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
   fi
 
   # Setup hot reload for fast JSP/HTML/CSS updates when refreshing the browser.
