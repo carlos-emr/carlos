@@ -101,10 +101,13 @@
     }
 %>
     <script type="text/javascript">
-        <%if(action.equals("visitreport")){%>
-        window.opener.location.href = "<%=request.getContextPath() %>/administration/?show=<%=action%>";
-        <%}%>
-
+        if (window.opener && !window.opener.closed) {
+            <%if(action.equals("visitreport")){%>
+            window.opener.location.href = "<%=request.getContextPath() %>/administration/?show=<%=action%>";
+            <%} else {%>
+            window.opener.location.reload();
+            <%}%>
+        }
         window.close();
     </script>
     <%

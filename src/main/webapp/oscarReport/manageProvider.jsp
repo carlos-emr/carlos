@@ -66,7 +66,6 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 
     String nowDate = String.valueOf(curYear) + "-" + String.valueOf(curMonth) + "-" + String.valueOf(curDay);
-//String nowDate = "2002-08-21";
     int dob_yy = 0, dob_dd = 0, dob_mm = 0, age = 0;
     String demo_no = "", demo_sex = "", provider_no = "", roster = "", patient_status = "", status = "";
     String demographic_dob = "1800";
@@ -77,61 +76,48 @@
 
 <html>
     <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.title"/></title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
-        <script language="JavaScript">
-            <!--
 
-            function selectprovider(s) {
-                if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
-                else a = self.location.href;
-                self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
-            }
+        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/searchBox.css">
 
-            function openBrWindow(theURL, winName, features) {
-                window.open(theURL, winName, features);
-            }
+        <script src="${pageContext.request.contextPath}/js/global.js"></script>
 
-            function refresh() {
-                var u = self.location.href;
-                if (u.lastIndexOf("view=1") > 0) {
-                    self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
-                } else {
-                    history.go(0);
-                }
-            }
-
-            //-->
-        </script>
-
-
+        <style type="text/css" media="print">
+            .searchBox { display: none; }
+        </style>
     </head>
     <body>
+    <div class="container">
+    <div class="searchBox">
 
-    <div class="container-fluid">
+        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+            <h4 style="margin:0; font-size:18px; display:inline-block;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgManageProvider"/>
+                <span class="text-info">Billing Report</span>
+            </h4>
+            </div>
+
         <form name="form1" action="dbManageProvider.jsp" method="post">
-
-            <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgManageProvider"/> <span
-                    class="text-info"><%=action.toUpperCase()%></span></h3>
-
-            <table class="table table-hover table-condensed">
-
+            <table class="table table-hover table-condensed table-striped">
                 <thead>
                 <tr>
-                    <td width="40%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgTeam"/></td>
-                    <td width="50%" align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgProviderName"/></td>
-                    <td width="10%" align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgCheck"/></td>
+                    <th width="40%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgTeam"/></th>
+                    <th width="50%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgProviderName"/></th>
+                    <th width="10%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgCheck"/></th>
                 </tr>
                 </thead>
-
                 <tbody>
                 <%
                     boolean bodd = true;
                     int count1 = 0;
 
                     for (String myGroup : myGroupDao.getGroups()) {
-                        bodd = bodd ? false : true; //for the color of rows
-
+                        bodd = bodd ? false : true;
 
                         for (MyGroup mg : myGroupDao.getGroupByGroupNo(myGroup)) {
                             Provider p = providerDao.getProvider(mg.getId().getProviderNo());
@@ -145,13 +131,9 @@
                             }
 
                 %>
-
-                <tr class="<%=bodd?"info":" "%>">
-                    <td width="40%"><%=mg.getId().getMyGroupNo()%>
-                    </td>
-                    <td width="50%" align="left">
-                        <%=p.getLastName()%>, <%=p.getFirstName()%>
-                    </td>
+                <tr>
+                    <td><%=mg.getId().getMyGroupNo()%></td>
+                    <td><%=p.getLastName()%>, <%=p.getFirstName()%></td>
                     <td>
                         <input type="checkbox"
                                name="provider<%=count1%>"
@@ -159,7 +141,6 @@
                                 <%=status.equals("A")?"checked":""%>>
                     </td>
                 </tr>
-
                 <%
                             count1 = count1 + 1;
                         }
@@ -170,12 +151,13 @@
                 </tbody>
             </table>
 
-            <input class="btn" type='button' name='print' value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>'
-                   onClick='window.print()'>
             <input type="hidden" name="submit" value="Submit">
-            <input class="btn btn-primary" type=submit value=<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.btnSubmit"/>>
-            <input type=hidden name=action value=<%=action%>> <input type=hidden name=count value=<%=count1%>>
+            <input type="hidden" name="action" value="<%=action%>">
+            <input type="hidden" name="count" value="<%=count1%>">
+            <input class="btn btn-sm btn-primary" type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.btnSubmit"/>">
         </form>
+
+    </div>
     </div>
     </body>
 </html>
