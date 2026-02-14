@@ -172,7 +172,8 @@ public class ProviderPropertyAction {
     /**
      * Saves a property even if the value is empty string (for text fields that can be cleared).
      * Unlike {@link #saveIfPresent}, this persists blank values so users can clear previously
-     * set text (e.g., appointment card name/phone/fax).
+     * set text (e.g., appointment card name/phone/fax). If the form parameter is entirely
+     * absent from the request (not submitted), no change is made.
      *
      * @param request   {@link HttpServletRequest} containing form parameters
      * @param dao       {@link UserPropertyDAO} for database persistence
@@ -222,10 +223,12 @@ public class ProviderPropertyAction {
     }
 
     /**
-     * Saves a boolean-parsed property using a create-or-update pattern.
-     * Unlike the other helpers, this method loads the existing {@link UserProperty} entity
-     * (or creates a new one) before setting the value, preserving the entity lifecycle.
-     * Used for the schedule weekends preference which follows a different storage pattern.
+     * Saves a boolean-parsed property using {@code Boolean.parseBoolean()}.
+     * Unlike {@link #saveIfPresent} and {@link #saveAllowEmpty} which store the raw form value, this method parses
+     * the value as a boolean first, coercing {@code null} or non-boolean strings
+     * to {@code "false"}. Uses a load-or-create pattern with the entity API
+     * ({@link UserPropertyDAO#saveProp(UserProperty)}) rather than the three-argument
+     * convenience method. Used for the schedule weekends preference.
      *
      * @param request   {@link HttpServletRequest} containing form parameters
      * @param dao       {@link UserPropertyDAO} for database persistence

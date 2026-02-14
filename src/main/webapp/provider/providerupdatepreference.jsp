@@ -71,17 +71,23 @@
                 session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
             }
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (loggedInInfo == null) {
+                response.sendRedirect(request.getContextPath() + "/logout.jsp");
+                return;
+            }
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
             String ticklerforproviderno = request.getParameter("ticklerforproviderno");
-            UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-            UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
-            if (prop == null) {
-                prop = new UserProperty();
-                prop.setProviderNo(curUser_providerno);
-                prop.setName(UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+            if (ticklerforproviderno != null) {
+                UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+                UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+                if (prop == null) {
+                    prop = new UserProperty();
+                    prop.setProviderNo(curUser_providerno);
+                    prop.setName(UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+                }
+                prop.setValue(ticklerforproviderno);
+                propDao.saveProp(prop);
             }
-            prop.setValue(ticklerforproviderno);
-            propDao.saveProp(prop);
 
             ProviderPreference providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
             ProviderPropertyAction.updateOrCreateProviderProperties(request);

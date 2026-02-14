@@ -35,7 +35,7 @@
     themed to match the CARLOS EMR schedule page (navy blue #486ebd header, clean
     clinical styling). Uses FontAwesome icons for visual clarity.
 
-    Previously, most settings required navigating to ~35 separate sub-pages via
+    Previously, most settings required navigating to many separate sub-pages via
     setProviderStaleDate.do. Now they are all inlined with a single Save button.
     Only items that truly require a separate page (password change, signature edit,
     printer setup, etc.) remain as external links.
@@ -47,11 +47,10 @@
                ProviderPropertyAction.updateOrCreateProviderProperties()
       - Two fields auto-save via AJAX: rxInteractionWarningLevel, reviewMsg
 
-    @since 2001 (original), redesigned 2026-02-14 for consolidated single-page view
+    @since 2002 (original), redesigned 2026-02-14 for consolidated single-page view
 --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page import="java.util.*" %>
@@ -71,7 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page errorPage="/errorpage.jsp" %>
 <%!
-    // Spring-managed DAOs - declared at class level for reuse across requests
+    // DAOs declared at class level (<%! %>) -- thread-safe Spring singletons shared across all requests
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
     UserPropertyDAO propertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 %>
@@ -91,13 +90,18 @@
         providerPreference = new ProviderPreference();
     }
 
-    // Schedule fields - use request params as override if present (e.g. from redirect)
+    // Schedule fields - use request params as override if present (e.g. from redirect).
+    // ProviderPreference initializes defaults (startHour=8, endHour=18, everyMin=15) but
+    // getters may return null if loaded from a database row with NULL columns.
     String startHour = request.getParameter("start_hour") != null
-            ? request.getParameter("start_hour") : providerPreference.getStartHour().toString();
+            ? request.getParameter("start_hour")
+            : String.valueOf(providerPreference.getStartHour() != null ? providerPreference.getStartHour() : 8);
     String endHour = request.getParameter("end_hour") != null
-            ? request.getParameter("end_hour") : providerPreference.getEndHour().toString();
+            ? request.getParameter("end_hour")
+            : String.valueOf(providerPreference.getEndHour() != null ? providerPreference.getEndHour() : 18);
     String everyMin = request.getParameter("every_min") != null
-            ? request.getParameter("every_min") : providerPreference.getEveryMin().toString();
+            ? request.getParameter("every_min")
+            : String.valueOf(providerPreference.getEveryMin() != null ? providerPreference.getEveryMin() : 15);
     String myGroupNo = request.getParameter("mygroup_no") != null
             ? request.getParameter("mygroup_no") : providerPreference.getMyGroupNo();
 
@@ -177,9 +181,9 @@
         weekendsEnabled = Boolean.parseBoolean(showWeekendsProp.getValue());
     }
 
-    // Review messages time - stored as "HH:mm" string in OSCAR_MSG_RECVD property.
-    // Parsed into separate hour/minute integers for the dropdown selection logic.
-    // Default is 0:00 if no preference has been saved or value is malformed.
+    // Review messages time - stored as "H:m" string (e.g., "9:0", "14:30") in
+    // OSCAR_MSG_RECVD property. Parsed into separate hour/minute integers for the
+    // dropdown selection logic. Default is 0:00 if no preference is saved or malformed.
     Integer reviewH = 0;
     Integer reviewMins = 0;
     UserProperty reviewMsgProp = propertyDao.getProp(providerNo, UserProperty.OSCAR_MSG_RECVD);
@@ -199,12 +203,6 @@
     // eForm groups for the favourite group dropdown
     ArrayList<HashMap<String, String>> eformGroups = EFormUtil.getEFormGroups();
 
-    // eRx (electronic prescribing) preferences from the ProviderPreference entity
-    boolean erxEnabled = providerPreference.isERxEnabled();
-    boolean erxTraining = providerPreference.isERxTrainingMode();
-    String erxUsername = providerPreference.getERxUsername() != null ? providerPreference.getERxUsername() : "";
-    String erxFacility = providerPreference.getERxFacility() != null ? providerPreference.getERxFacility() : "";
-    String erxSsoUrl = providerPreference.getERx_SSO_URL() != null ? providerPreference.getERx_SSO_URL() : "";
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -313,7 +311,7 @@
             box-shadow: 0 0 0 2px rgba(72, 110, 189, .25);
         }
         .accordion-button::after {
-            /* Bootstrap default chevron - tinted navy */
+            /* Adjust chevron icon to approximate brand colour */
             filter: hue-rotate(200deg) brightness(0.7);
         }
         .accordion-body {
@@ -813,49 +811,6 @@
                 </div>
             </div>
 
-            <%-- eRx (electronic prescribing) fields saved via ProviderPreferencesUIBean --%>
-            <div class="pref-row">
-                <div class="pref-label">Enable eRx</div>
-                <div class="pref-value">
-                    <input type="checkbox" class="form-check-input" role="switch"
-                           name="erx_enable" <%=erxEnabled ? "checked" : ""%>>
-                </div>
-            </div>
-            <div class="pref-row">
-                <div class="pref-label">eRx Training Mode</div>
-                <div class="pref-value">
-                    <input type="checkbox" class="form-check-input" role="switch"
-                           name="erx_training_mode" <%=erxTraining ? "checked" : ""%>>
-                </div>
-            </div>
-            <div class="pref-row">
-                <div class="pref-label">eRx Username</div>
-                <div class="pref-value">
-                    <input type="text" name="erx_username" class="pref-input input-md"
-                           value="<%=Encode.forHtmlAttribute(erxUsername)%>">
-                </div>
-            </div>
-            <div class="pref-row">
-                <div class="pref-label">eRx Password</div>
-                <div class="pref-value">
-                    <input type="password" name="erx_password" class="pref-input input-md"
-                           placeholder="(unchanged if blank)">
-                </div>
-            </div>
-            <div class="pref-row">
-                <div class="pref-label">eRx Facility</div>
-                <div class="pref-value">
-                    <input type="text" name="erx_facility" class="pref-input input-md"
-                           value="<%=Encode.forHtmlAttribute(erxFacility)%>">
-                </div>
-            </div>
-            <div class="pref-row">
-                <div class="pref-label">eRx SSO URL</div>
-                <div class="pref-value">
-                    <input type="text" name="erx_sso_url" class="pref-input"
-                           value="<%=Encode.forHtmlAttribute(erxSsoUrl)%>">
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -907,10 +862,13 @@
             </div>
             <div class="pref-row">
                 <div class="pref-label">Default Billing Dx Code</div>
-                <div class="pref-value">
-                    <input type="text" name="dxCode"
+                <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
+                    <input type="text" name="dxCode" id="dxCode"
                            value="<%=Encode.forHtmlAttribute(providerPreference.getDefaultDxCode() != null ? providerPreference.getDefaultDxCode() : "")%>"
                            class="pref-input input-xs" maxlength="5">
+                    <button type="button" class="pref-link" data-bs-toggle="modal" data-bs-target="#dxSearchModal">
+                        <i class="fas fa-search"></i> Search
+                    </button>
                 </div>
             </div>
             <div class="pref-row">
@@ -923,7 +881,8 @@
 
             <%-- Stale date controls for CME case notes.
                  "A" means show all notes; negative numbers (e.g., "-6") mean show only
-                 notes from the last N months. Values 0-36 generate options "-0" to "-36". --%>
+                 notes from the last N months. Values 0-36 generate options "-0" to "-36"
+                 ("-0" effectively shows no notes; "A" is typically the preferred default). --%>
             <div class="pref-row">
                 <div class="pref-label">Stale Date for Case Notes</div>
                 <div class="pref-value">
@@ -1351,12 +1310,33 @@
     <button type="submit" class="btn btn-save">
         <i class="fas fa-save"></i> Save All Preferences
     </button>
-    <button type="button" class="btn btn-close-pref ms-2" onclick="try{window.close();}catch(e){} setTimeout(function(){history.back();},100);">
+    <button type="button" class="btn btn-close-pref ms-2" onclick="closePreferences()">
         <i class="fas fa-times"></i> Close
     </button>
 </div>
 
 </form>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     DX CODE SEARCH MODAL - Inline search for billing diagnostic codes
+     Loads billingDigSearch.jsp in an iframe, overrides its CodeAttach()
+     to write back to the dxCode input and close the modal.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="modal fade" id="dxSearchModal" tabindex="-1" aria-labelledby="dxSearchLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--carlos-navy);color:#fff;padding:8px 16px">
+                <h5 class="modal-title" id="dxSearchLabel" style="font-size:14px;margin:0">
+                    <i class="fas fa-search" style="margin-right:6px"></i> Search Diagnostic Codes
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding:0;height:450px">
+                <iframe id="dxSearchFrame" style="width:100%;height:100%;border:none" title="Diagnostic Code Search"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Bootstrap 5 JS bundle (includes Popper for accordion) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1410,9 +1390,34 @@ function checkTypeInAll() {
  * Quick links appear on the appointment screen for fast access to URLs.
  */
 function addQuickLink() {
-    var name = encodeURIComponent(document.UPDATEPRE.quickLinkName.value);
-    var url = encodeURIComponent(document.UPDATEPRE.quickLinkUrl.value);
-    document.location = "providerPreferenceQuickLinksAction.jsp?action=add&name=" + name + "&url=" + url;
+    var name = document.UPDATEPRE.quickLinkName.value.trim();
+    var url = document.UPDATEPRE.quickLinkUrl.value.trim();
+    if (!name || !url) {
+        alert('Please enter both a name and URL for the quick link.');
+        return;
+    }
+    if (!confirm('Adding a quick link will navigate away from this page. Any unsaved preference changes will be lost. Continue?')) {
+        return;
+    }
+    document.location = "providerPreferenceQuickLinksAction.jsp?action=add&name="
+        + encodeURIComponent(name) + "&url=" + encodeURIComponent(url);
+}
+
+/**
+ * Closes the preferences window/tab. Tries window.close() first (works when
+ * opened as a popup), falls back to browser history, then to the main provider page.
+ */
+function closePreferences() {
+    try { window.close(); } catch(e) { console.warn('Could not close window:', e.message); }
+    setTimeout(function() {
+        if (!window.closed) {
+            if (history.length > 1) {
+                history.back();
+            } else {
+                location.href = '<%= request.getContextPath() %>/provider/providercontrol.jsp';
+            }
+        }
+    }, 150);
 }
 
 // ── Auto-save listeners ───────────────────────────────────────────────
@@ -1421,30 +1426,111 @@ function addQuickLink() {
 
 function flashAutoSave(el, success) {
     el.style.borderColor = success ? '#00A488' : '#dc3545';
-    setTimeout(function() { el.style.borderColor = ''; }, 1500);
+    if (success) {
+        setTimeout(function() { el.style.borderColor = ''; }, 1500);
+    }
+    // On failure the red border stays until the user interacts with the field again
+}
+
+/**
+ * Checks whether an AJAX response looks like a valid save response (not a
+ * session-expired login redirect page). Returns false if the response body
+ * contains HTML that looks like a full page (e.g., a login redirect).
+ */
+function isValidAutoSaveResponse(transport) {
+    if (!transport || transport.status !== 200) return false;
+    var body = (transport.responseText || '').trim();
+    if (body.indexOf('<html') !== -1 || body.indexOf('login') !== -1) return false;
+    return true;
 }
 
 // Rx Interaction Warning Level - saves via dedicated endpoint
-document.getElementById('rxInteractionWarningLevel').addEventListener('change', function() {
-    var el = this;
-    new Ajax.Request(
-        '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do?method=update&value=' + encodeURIComponent(this.value),
-        { method: 'get',
-          onSuccess: function() { flashAutoSave(el, true); },
-          onFailure: function(r) { console.error('Failed to save rx interaction warning level: ' + r.status); flashAutoSave(el, false); } }
-    );
-});
+(function() {
+    var el = document.getElementById('rxInteractionWarningLevel');
+    var previousValue = el.value;
+    el.addEventListener('focus', function() { previousValue = this.value; });
+    el.addEventListener('change', function() {
+        var self = this;
+        new Ajax.Request(
+            '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do?method=update&value=' + encodeURIComponent(self.value),
+            { method: 'get',
+              onSuccess: function(r) {
+                  if (isValidAutoSaveResponse(r)) {
+                      flashAutoSave(self, true);
+                      previousValue = self.value;
+                  } else {
+                      console.error('Rx interaction warning level: unexpected response (possible session expiry)');
+                      self.value = previousValue;
+                      flashAutoSave(self, false);
+                      alert('Failed to save Rx Interaction Warning Level. Your session may have expired.');
+                  }
+              },
+              onFailure: function(r) {
+                  console.error('Failed to save rx interaction warning level: HTTP ' + r.status);
+                  self.value = previousValue;
+                  flashAutoSave(self, false);
+                  alert('Failed to save Rx Interaction Warning Level (HTTP ' + r.status + '). Please try again.');
+              }
+            }
+        );
+    });
+})();
 
 // Review Messages Time - saves via setProviderStaleDate.do
-document.getElementById('reviewMsg').addEventListener('change', function() {
-    var el = this;
-    new Ajax.Request(
-        '<c:out value="${ctx}"/>/setProviderStaleDate.do?method=OscarMsgRecvd&value=' + encodeURIComponent(this.value)
-            + '&provider_no=<%=Encode.forJavaScript(providerNo)%>',
-        { method: 'get',
-          onSuccess: function() { flashAutoSave(el, true); },
-          onFailure: function(r) { console.error('Failed to save review message time: ' + r.status); flashAutoSave(el, false); } }
-    );
+(function() {
+    var el = document.getElementById('reviewMsg');
+    var previousValue = el.value;
+    el.addEventListener('focus', function() { previousValue = this.value; });
+    el.addEventListener('change', function() {
+        var self = this;
+        new Ajax.Request(
+            '<c:out value="${ctx}"/>/setProviderStaleDate.do?method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
+                + '&provider_no=<%=Encode.forJavaScript(providerNo)%>',
+            { method: 'get',
+              onSuccess: function(r) {
+                  if (isValidAutoSaveResponse(r)) {
+                      flashAutoSave(self, true);
+                      previousValue = self.value;
+                  } else {
+                      console.error('Review message time: unexpected response (possible session expiry)');
+                      self.value = previousValue;
+                      flashAutoSave(self, false);
+                      alert('Failed to save Review Messages Time. Your session may have expired.');
+                  }
+              },
+              onFailure: function(r) {
+                  console.error('Failed to save review message time: HTTP ' + r.status);
+                  self.value = previousValue;
+                  flashAutoSave(self, false);
+                  alert('Failed to save Review Messages Time (HTTP ' + r.status + '). Please try again.');
+              }
+            }
+        );
+    });
+})();
+
+// ── Dx Code Search Modal ─────────────────────────────────────────────
+// Loads billingDigSearch.jsp in an iframe when the modal opens.
+// Overrides the iframe's CodeAttach() so selecting a code writes back
+// to the dxCode input and closes the modal (no popup needed).
+
+document.getElementById('dxSearchModal').addEventListener('show.bs.modal', function() {
+    var code = document.getElementById('dxCode').value;
+    var frame = document.getElementById('dxSearchFrame');
+    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name='
+        + encodeURIComponent(code) + '&search=';
+    frame.onload = function() {
+        try {
+            frame.contentWindow.CodeAttach = function(file) {
+                document.getElementById('dxCode').value = file.substring(0, 3);
+                bootstrap.Modal.getInstance(document.getElementById('dxSearchModal')).hide();
+            };
+        } catch(e) { /* cross-origin guard */ }
+    };
+});
+
+document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('dxSearchFrame').src = 'about:blank';
 });
 </script>
 </body>

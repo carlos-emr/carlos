@@ -130,7 +130,13 @@ public final class ProviderPreferencesUIBean {
         // rest
 
         temp = StringUtils.trimToNull(request.getParameter("every_min"));
-        if (temp != null) providerPreference.setEveryMin(Integer.parseInt(temp));
+        if (temp != null) {
+            try {
+                providerPreference.setEveryMin(Integer.parseInt(temp));
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("Invalid every_min value: '{}'", temp);
+            }
+        }
 
         temp = StringUtils.trimToNull(request.getParameter("mygroup_no"));
         if (temp != null) providerPreference.setMyGroupNo(temp);
@@ -149,7 +155,13 @@ public final class ProviderPreferencesUIBean {
 
         // get encounterForms for appointment screen
         temp = StringUtils.trimToNull(request.getParameter("appointmentScreenFormsNameDisplayLength"));
-        if (temp != null) providerPreference.setAppointmentScreenLinkNameDisplayLength(Integer.parseInt(temp));
+        if (temp != null) {
+            try {
+                providerPreference.setAppointmentScreenLinkNameDisplayLength(Integer.parseInt(temp));
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("Invalid appointmentScreenFormsNameDisplayLength value: '{}'", temp);
+            }
+        }
 
         String[] formNames = request.getParameterValues("encounterFormName");
         Collection<String> formNamesList = providerPreference.getAppointmentScreenForms();
@@ -173,12 +185,16 @@ public final class ProviderPreferencesUIBean {
         eFormsIdsList.clear();
         if (formIds != null) {
             for (String formId : formIds) {
-                Integer formIdInteger = Integer.parseInt(formId);
-                EForm eForm = eFormDao.find(formIdInteger);
-                if (eForm != null) {
-                    eFormsIdsList.add(new ProviderPreference.EformLink(formIdInteger, eForm.getFormName()));
-                } else {
-                    MiscUtils.getLogger().warn("EForm not found for id of:" + formIdInteger);
+                try {
+                    Integer formIdInteger = Integer.parseInt(formId);
+                    EForm eForm = eFormDao.find(formIdInteger);
+                    if (eForm != null) {
+                        eFormsIdsList.add(new ProviderPreference.EformLink(formIdInteger, eForm.getFormName()));
+                    } else {
+                        MiscUtils.getLogger().warn("EForm not found for id of:" + formIdInteger);
+                    }
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId);
                 }
             }
         }
