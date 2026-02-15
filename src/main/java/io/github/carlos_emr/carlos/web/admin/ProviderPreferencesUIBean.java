@@ -53,7 +53,7 @@ public final class ProviderPreferencesUIBean {
     private static final EFormDao eFormDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
     private static final EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
 
-    public static final ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
+    public static ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             throw new SecurityException("Session expired: cannot save preferences without an authenticated session");
