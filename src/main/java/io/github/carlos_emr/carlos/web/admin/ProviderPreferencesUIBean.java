@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -55,6 +56,16 @@ public final class ProviderPreferencesUIBean {
 
     public static final ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("Session expired: cannot save preferences without an authenticated session");
+        }
+
+        // Security check: verify user has write access to preferences
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object: _pref");
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         ProviderPreference providerPreference = getProviderPreference(providerNo);
