@@ -112,12 +112,14 @@
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
 
             try {
-                // Save tickler provider number if provided
+                // Validate tickler provider number before proceeding with any saves
+                boolean ticklerValid = true;
                 String ticklerforproviderno = request.getParameter("ticklerforproviderno");
                 if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
                     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
 
                     if (!providerDao.providerExists(ticklerforproviderno.trim())) {
+                        ticklerValid = false;
                         String correlationId = UUID.randomUUID().toString();
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                             "Invalid provider number for tickler warning. Correlation ID: {}. Provider: {}",
@@ -125,7 +127,13 @@
                             org.owasp.encoder.Encode.forJava(ticklerforproviderno)
                         );
                         errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
-                    } else {
+                    }
+                }
+
+                // Only proceed with saves if tickler validation passed
+                if (ticklerValid) {
+                    // Save tickler provider number if validation passed
+                    if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
                         UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
                         UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
                         if (prop == null) {
@@ -136,20 +144,20 @@
                         prop.setValue(ticklerforproviderno.trim());
                         propDao.saveProp(prop);
                     }
+
+                    providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
+                    ProviderPropertyAction.updateOrCreateProviderProperties(request);
+
+                    // IMPORTANT: Only update session after all saves succeed to avoid inconsistent state
+                    session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
+                    session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
+                    session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
+                    session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
+                    session.setAttribute("caisiBillingPreferenceNotDelete", providerPreference.getDefaultDoNotDeleteBilling());
+                    session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
+
+                    saveSuccess = true;
                 }
-
-                providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
-                ProviderPropertyAction.updateOrCreateProviderProperties(request);
-
-                // IMPORTANT: Only update session after all saves succeed to avoid inconsistent state
-                session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
-                session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
-                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
-                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
-                session.setAttribute("caisiBillingPreferenceNotDelete", providerPreference.getDefaultDoNotDeleteBilling());
-                session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
-
-                saveSuccess = true;
             } catch (IllegalArgumentException e) {
                 io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Validation errors for provider {}: {}", curUser_providerno, e.getMessage());
                 errorDetails = e.getMessage();
