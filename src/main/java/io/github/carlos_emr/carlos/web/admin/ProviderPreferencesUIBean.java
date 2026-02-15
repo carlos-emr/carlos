@@ -175,11 +175,17 @@ public final class ProviderPreferencesUIBean {
         if (temp != null) {
             try {
                 int everyMinValue = Integer.parseInt(temp);
-                if (everyMinValue > 0 && everyMinValue <= 120) {
-                    providerPreference.setEveryMin(everyMinValue);
-                } else {
-                    MiscUtils.getLogger().warn("every_min value {} out of valid range (1-120) for provider {}", everyMinValue, providerNo);
+                int normalizedEveryMin = everyMinValue;
+
+                if (everyMinValue < 1) {
+                    normalizedEveryMin = 1;
+                    MiscUtils.getLogger().warn("every_min value {} below minimum; clamping to 1 for provider {}", everyMinValue, providerNo);
+                } else if (everyMinValue > 120) {
+                    normalizedEveryMin = 120;
+                    MiscUtils.getLogger().warn("every_min value {} above maximum; clamping to 120 for provider {}", everyMinValue, providerNo);
                 }
+
+                providerPreference.setEveryMin(normalizedEveryMin);
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().warn("Invalid every_min value: '{}' for provider {}", temp, providerNo, e);
             }
