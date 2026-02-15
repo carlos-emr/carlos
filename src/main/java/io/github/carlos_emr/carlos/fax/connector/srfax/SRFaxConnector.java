@@ -159,7 +159,7 @@ public class SRFaxConnector implements FaxConnector {
                             logger.warn("Could not parse epoch time '{}' for fax {}", inboxItem.getEpochTime(), inboxItem.getFileName());
                         }
                     }
-                    fir.setReceivedDate(receivedDate != null ? receivedDate : new Date());
+                    fir.setReceivedDate(receivedDate);
 
                     try {
                         fir.setPageCount(Integer.parseInt(inboxItem.getPages()));
