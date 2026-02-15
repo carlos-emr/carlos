@@ -35,24 +35,53 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jfree.util.Log;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 
+/**
+ * UI bean for managing the {@link ProviderPreference} entity (schedule, billing, eRx fields)
+ * as part of the consolidated provider preferences page.
+ *
+ * <p>This bean is the first half of a two-part preference save mechanism:
+ * <ol>
+ *   <li><strong>This class</strong> loads and persists the {@code ProviderPreference} entity
+ *       (schedule hours, billing defaults, encounter forms, eRx settings)</li>
+ *   <li>{@link io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction} saves all
+ *       remaining preferences stored as {@code UserProperty} key-value pairs</li>
+ * </ol>
+ *
+ * <p>Called from {@code providerupdatepreference.jsp} on form submission, and from
+ * {@code providerpreference.jsp} for read-only data loading.
+ *
+ * @see io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction
+ * @see ProviderPreference
+ * @since 2010-09-05
+ */
 public final class ProviderPreferencesUIBean {
 
     private static final ProviderPreferenceDao providerPreferenceDao = (ProviderPreferenceDao) SpringUtils.getBean(ProviderPreferenceDao.class);
     private static final EFormDao eFormDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
     private static final EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
 
+    /**
+     * Updates or creates a {@link ProviderPreference} entity from the submitted form parameters.
+     * Handles schedule hours, billing defaults, encounter/eForm selections, and eRx settings.
+     *
+     * @param request {@link HttpServletRequest} containing form parameters from the
+     *                preferences page POST submission
+     * @return ProviderPreference the persisted preference entity
+     * @throws SecurityException if the session has expired (null loggedInInfo) or if the
+     *         provider lacks write ("w") access to the "_pref" security object
+     */
     public static ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -111,7 +140,7 @@ public final class ProviderPreferencesUIBean {
                 try {
                     defBilling = Integer.parseInt(temp);
                 } catch (NumberFormatException e) {
-                    Log.warn("warning", e);
+                    MiscUtils.getLogger().warn("Invalid caisiBillingPreferenceNotDelete value from session: '{}'", temp, e);
                 }
                 providerPreference.setDefaultDoNotDeleteBilling(defBilling);
             }
@@ -121,30 +150,38 @@ public final class ProviderPreferencesUIBean {
         temp = StringUtils.trimToNull(request.getParameter("dxCode"));
         if (temp != null) providerPreference.setDefaultDxCode(temp);
 
-        try {
-            Integer startHour = Integer.parseInt(StringUtils.trimToNull(request.getParameter("start_hour")));
-            Integer endHour = Integer.parseInt(StringUtils.trimToNull(request.getParameter("end_hour")));
-            if (startHour < endHour) {
-                if (startHour >= 0 && startHour <= 23) {
-                    providerPreference.setStartHour(startHour);
+        String startHourStr = StringUtils.trimToNull(request.getParameter("start_hour"));
+        String endHourStr = StringUtils.trimToNull(request.getParameter("end_hour"));
+        if (startHourStr != null && endHourStr != null) {
+            try {
+                int startHour = Integer.parseInt(startHourStr);
+                int endHour = Integer.parseInt(endHourStr);
+                if (startHour >= 0 && startHour <= 23 && endHour >= 0 && endHour <= 23) {
+                    if (startHour < endHour) {
+                        providerPreference.setStartHour(startHour);
+                        providerPreference.setEndHour(endHour);
+                    } else {
+                        MiscUtils.getLogger().warn("start_hour {} must be less than end_hour {} for provider {}", startHour, endHour, providerNo);
+                    }
+                } else {
+                    MiscUtils.getLogger().warn("Schedule hours out of valid range 0-23: start_hour={}, end_hour={} for provider {}", startHour, endHour, providerNo);
                 }
-                if (endHour >= 0 && endHour <= 23) {
-                    providerPreference.setEndHour(endHour);
-                }
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("Invalid schedule hour values: start_hour='{}', end_hour='{}' for provider {}", startHourStr, endHourStr, providerNo, e);
             }
-
-
-        } catch (Exception e) {
-            MiscUtils.getLogger().warn("user entered invalid values");
         }
-        // rest
 
         temp = StringUtils.trimToNull(request.getParameter("every_min"));
         if (temp != null) {
             try {
-                providerPreference.setEveryMin(Integer.parseInt(temp));
+                int everyMinValue = Integer.parseInt(temp);
+                if (everyMinValue > 0 && everyMinValue <= 120) {
+                    providerPreference.setEveryMin(everyMinValue);
+                } else {
+                    MiscUtils.getLogger().warn("every_min value {} out of valid range (1-120) for provider {}", everyMinValue, providerNo);
+                }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().warn("Invalid every_min value: '{}'", temp);
+                MiscUtils.getLogger().warn("Invalid every_min value: '{}' for provider {}", temp, providerNo, e);
             }
         }
 

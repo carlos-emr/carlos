@@ -25,10 +25,12 @@
 
 package io.github.carlos_emr.carlos.provider.web;
 
+import javax.persistence.PersistenceException;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
@@ -74,7 +76,8 @@ public class ProviderPropertyAction {
      *
      * @param request {@link HttpServletRequest} containing form parameters from the
      *                preferences page POST submission
-     * @throws SecurityException if the logged-in session has expired or is invalid
+     * @throws SecurityException if the session has expired (null loggedInInfo) or if the
+     *         provider lacks write ("w") access to the "_pref" security object
      */
     public static void updateOrCreateProviderProperties(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -136,9 +139,11 @@ public class ProviderPropertyAction {
         saveAllowEmpty(request, propertyDAO, providerNo, "rxPhone", "rxPhone");
         saveAllowEmpty(request, propertyDAO, providerNo, "faxnumber", "faxnumber");
 
-        // Provider colour is managed via setProviderColour.do / ProviderColourUpdater
-        // and stored in the Property table under "ProviderColour". Do not persist here
-        // to avoid conflicting sources of truth.
+        // Provider colour is managed exclusively via setProviderColour.do / ProviderColourUpdater,
+        // which writes to the property table under "ProviderColour" via PropertyDao.
+        // Both PropertyDao and UserPropertyDAO read from the same underlying property table,
+        // so providerpreference.jsp can read it via UserPropertyDAO for display.
+        // Do not persist colour here to maintain a single write path.
 
         // eForm group (has "None" empty option, so use saveAllowEmpty)
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.EFORM_FAVOURITE_GROUP, "favourite_eform_group");
@@ -171,7 +176,11 @@ public class ProviderPropertyAction {
                                       String providerNo, String propName, String paramName) {
         String value = StringUtils.trimToNull(request.getParameter(paramName));
         if (value != null) {
-            dao.saveProp(providerNo, propName, value);
+            try {
+                dao.saveProp(providerNo, propName, value);
+            } catch (PersistenceException e) {
+                MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+            }
         }
     }
 
@@ -191,7 +200,11 @@ public class ProviderPropertyAction {
                                        String providerNo, String propName, String paramName) {
         String value = request.getParameter(paramName);
         if (value != null) {
-            dao.saveProp(providerNo, propName, value.trim());
+            try {
+                dao.saveProp(providerNo, propName, value.trim());
+            } catch (PersistenceException e) {
+                MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+            }
         }
     }
 
@@ -208,7 +221,11 @@ public class ProviderPropertyAction {
     private static void saveCheckbox(HttpServletRequest request, UserPropertyDAO dao,
                                      String providerNo, String propName, String paramName) {
         String value = request.getParameter(paramName);
-        dao.saveProp(providerNo, propName, value != null ? "yes" : "no");
+        try {
+            dao.saveProp(providerNo, propName, value != null ? "yes" : "no");
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+        }
     }
 
     /**
@@ -225,7 +242,11 @@ public class ProviderPropertyAction {
     private static void saveBooleanCheckbox(HttpServletRequest request, UserPropertyDAO dao,
                                             String providerNo, String propName, String paramName) {
         String value = request.getParameter(paramName);
-        dao.saveProp(providerNo, propName, value != null ? "true" : "false");
+        try {
+            dao.saveProp(providerNo, propName, value != null ? "true" : "false");
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+        }
     }
 
     /**
@@ -251,6 +272,10 @@ public class ProviderPropertyAction {
             property.setName(propName);
         }
         property.setValue(String.valueOf(Boolean.parseBoolean(value)));
-        dao.saveProp(property);
+        try {
+            dao.saveProp(property);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+        }
     }
 }

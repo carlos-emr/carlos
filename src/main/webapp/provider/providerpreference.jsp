@@ -646,7 +646,7 @@
                                 }
                             }
                     %><label><input type="checkbox" name="eformId"
-                                    value="<%=eform.getId()%>" <%=chk%>>
+                                    value="<%=Encode.forHtmlAttribute(String.valueOf(eform.getId()))%>" <%=chk%>>
                         <%=Encode.forHtml(eform.getFormName())%></label><%
                         }
                     %></div>
@@ -1531,9 +1531,16 @@ document.getElementById('dxSearchModal').addEventListener('show.bs.modal', funct
         try {
             frame.contentWindow.CodeAttach = function(file) {
                 document.getElementById('dxCode').value = file.substring(0, 3);
-                bootstrap.Modal.getInstance(document.getElementById('dxSearchModal')).hide();
+                var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
+                if (modal) { modal.hide(); }
             };
-        } catch(e) { /* cross-origin guard */ }
+        } catch(e) {
+            if (e.name === 'SecurityError') {
+                console.warn('Dx code search: cross-origin iframe, code selection may not work automatically.');
+            } else {
+                console.error('Dx code search: failed to attach code handler:', e);
+            }
+        }
     };
 });
 
