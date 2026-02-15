@@ -226,7 +226,7 @@ public final class ProviderPreferencesUIBean {
                     validationErrors.add("Appointment screen link name display length must be zero or greater");
                     MiscUtils.getLogger().warn("appointmentScreenFormsNameDisplayLength value {} below minimum; rejected for provider {}", displayLength, providerNo);
                 } else {
-                    providerPreference.setAppointmentScreenFormsNameDisplayLength(displayLength);
+                    providerPreference.setAppointmentScreenLinkNameDisplayLength(displayLength);
                 }
             } catch (NumberFormatException e) {
                 validationErrors.add("Appointment screen link name display length must be a valid number");
