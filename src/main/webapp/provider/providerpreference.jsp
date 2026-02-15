@@ -70,7 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page errorPage="/errorpage.jsp" %>
 <%!
-    // DAOs declared at class level (<%! %>) -- thread-safe Spring singletons shared across all requests
+    // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
     UserPropertyDAO propertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 %>
