@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.fax.connector.FaxConnector;
 import io.github.carlos_emr.carlos.fax.connector.FaxInboundResult;
+import io.github.carlos_emr.carlos.fax.connector.FaxIntegrationType;
 import io.github.carlos_emr.carlos.fax.connector.FaxSendResult;
 import io.github.carlos_emr.carlos.fax.connector.FaxStatusCheckResult;
 
@@ -32,7 +33,7 @@ import java.util.List;
  * This connector is a marker/passthrough that indicates fax accounts using
  * the legacy external CXF REST gateway. The actual send/receive/status logic
  * remains in {@code FaxSender}, {@code FaxImporter}, and {@code FaxStatusUpdater}
- * for backward compatibility. When the integration type is "LEGACY_GATEWAY",
+ * for backward compatibility. When the integration type is {@link FaxIntegrationType#LEGACY_GATEWAY},
  * the existing code path is used unchanged.
  * <p>
  * This ensures zero disruption to existing deployments using the external
@@ -43,7 +44,7 @@ import java.util.List;
 public class LegacyGatewayConnector implements FaxConnector {
 
     /** Integration type constant for the legacy external gateway. */
-    public static final String INTEGRATION_TYPE = "LEGACY_GATEWAY";
+    public static final String INTEGRATION_TYPE = FaxIntegrationType.LEGACY_GATEWAY;
 
     /**
      * {@inheritDoc}

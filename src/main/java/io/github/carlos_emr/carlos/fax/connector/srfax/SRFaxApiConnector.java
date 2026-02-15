@@ -77,8 +77,8 @@ public class SRFaxApiConnector {
     private static final String SERVER_URL = "https://www.srfax.com/SRF_SecWebSvc.php";
 
     // -- SRFax API parameter names --
-    private static final String ACCESS_ID = "access_id";
-    private static final String ACCESS_PW = "access_pwd";
+    private static final String ACCESS_ID = "accessId";
+    private static final String ACCESS_PW = "accessPwd";
     private static final String ACTION = "action";
     private static final String ACTION_QUEUE_FAX = "Queue_Fax";
     private static final String ACTION_GET_FAX_STATUS = "Get_FaxStatus";
@@ -148,9 +148,9 @@ public class SRFaxApiConnector {
             Arrays.asList(RESPONSE_STATUS_SENT, RESPONSE_STATUS_FAILED));
 
     /** SRFax account login ID (typically the fax number or email). */
-    private final String access_id;
+    private final String accessId;
     /** SRFax account password. */
-    private final String access_pwd;
+    private final String accessPwd;
 
     /**
      * Constructs a new SRFaxApiConnector with the given credentials.
@@ -159,8 +159,8 @@ public class SRFaxApiConnector {
      * @param password String the SRFax account password
      */
     public SRFaxApiConnector(String username, String password) {
-        this.access_id = username;
-        this.access_pwd = password;
+        this.accessId = username;
+        this.accessPwd = password;
     }
 
     // -- Queue Fax --
@@ -627,10 +627,10 @@ public class SRFaxApiConnector {
         Map<String, String> postVariables = preparePostVariables(requiredFields, optionalFields, parameters);
 
         postVariables.put(ACTION, action);
-        postVariables.put(ACCESS_ID, access_id);
-        postVariables.put(ACCESS_PW, access_pwd);
+        postVariables.put(ACCESS_ID, accessId);
+        postVariables.put(ACCESS_PW, accessPwd);
 
-        // SECURITY NOTE: postVariables contains credentials (access_id, access_pwd)
+        // SECURITY NOTE: postVariables contains credentials (accessId, accessPwd)
         // Do NOT log this map at any level - credentials must not appear in logs
         return postRequest(postVariables);
     }

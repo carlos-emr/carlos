@@ -141,7 +141,7 @@ public class FaxInboundResult {
      * @return Date the reception timestamp of the fax, or null if not yet set
      */
     public Date getReceivedDate() {
-        return receivedDate;
+        return receivedDate != null ? new Date(receivedDate.getTime()) : null;
     }
 
     /**
@@ -150,7 +150,7 @@ public class FaxInboundResult {
      * @param receivedDate Date the date and time when this fax was received by the external system
      */
     public void setReceivedDate(Date receivedDate) {
-        this.receivedDate = receivedDate;
+        this.receivedDate = receivedDate != null ? new Date(receivedDate.getTime()) : null;
     }
 
     /**

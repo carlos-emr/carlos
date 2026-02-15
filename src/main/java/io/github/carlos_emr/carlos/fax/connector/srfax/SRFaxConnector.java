@@ -24,6 +24,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.fax.connector.FaxConnector;
 import io.github.carlos_emr.carlos.fax.connector.FaxInboundResult;
+import io.github.carlos_emr.carlos.fax.connector.FaxIntegrationType;
 import io.github.carlos_emr.carlos.fax.connector.FaxSendResult;
 import io.github.carlos_emr.carlos.fax.connector.FaxStatusCheckResult;
 import io.github.carlos_emr.carlos.fax.connector.srfax.result.GetFaxInboxResult;
@@ -33,6 +34,7 @@ import io.github.carlos_emr.carlos.fax.connector.srfax.resultWrapper.SingleWrapp
 import io.github.carlos_emr.carlos.fax.exception.FaxApiConnectionException;
 import io.github.carlos_emr.carlos.fax.exception.FaxApiValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.OscarProperties;
 import org.apache.logging.log4j.Logger;
 
 import java.time.LocalDate;
@@ -59,7 +61,12 @@ import java.util.Map;
 public class SRFaxConnector implements FaxConnector {
 
     /** Integration type constant registered with {@link io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory}. */
-    public static final String INTEGRATION_TYPE = "SRFAX";
+    public static final String INTEGRATION_TYPE = FaxIntegrationType.SRFAX;
+
+    /** Property key for configuring the fax inbox polling lookback window in days. */
+    private static final String FAX_POLL_WINDOW_DAYS_KEY = "faxPollWindowDays";
+    /** Default lookback window in days for polling the fax inbox. */
+    private static final int DEFAULT_POLL_WINDOW_DAYS = 5;
 
     private static final Logger logger = MiscUtils.getLogger();
     /** Date formatter matching the SRFax API date format (yyyyMMdd). */
@@ -122,7 +129,8 @@ public class SRFaxConnector implements FaxConnector {
     /**
      * {@inheritDoc}
      * <p>
-     * Polls the SRFax inbox for unread faxes received in the last 24 hours.
+     * Polls the SRFax inbox for unread faxes received in the configured lookback window
+     * (default 5 days, configurable via {@code faxPollWindowDays} property).
      * Each inbox item is mapped to a {@link FaxInboundResult} with the received
      * date parsed from the SRFax epoch time field.
      */
@@ -131,8 +139,23 @@ public class SRFaxConnector implements FaxConnector {
         try {
             SRFaxApiConnector api = createApiConnector(faxConfig);
 
-            // Query for unread faxes from yesterday through today
-            String startDate = LocalDate.now().minusDays(1).format(DATE_FMT);
+            // Get configurable lookback window from oscar.properties (default 5 days)
+            int pollWindowDays = DEFAULT_POLL_WINDOW_DAYS;
+            String pollWindowProperty = OscarProperties.getInstance().getProperty(FAX_POLL_WINDOW_DAYS_KEY);
+            if (pollWindowProperty != null && !pollWindowProperty.trim().isEmpty()) {
+                try {
+                    pollWindowDays = Integer.parseInt(pollWindowProperty.trim());
+                    if (pollWindowDays < 1) {
+                        logger.warn("Invalid faxPollWindowDays value '{}', using default {}", pollWindowProperty, DEFAULT_POLL_WINDOW_DAYS);
+                        pollWindowDays = DEFAULT_POLL_WINDOW_DAYS;
+                    }
+                } catch (NumberFormatException e) {
+                    logger.warn("Could not parse faxPollWindowDays '{}', using default {}", pollWindowProperty, DEFAULT_POLL_WINDOW_DAYS);
+                }
+            }
+
+            // Query for unread faxes from N days ago through today
+            String startDate = LocalDate.now().minusDays(pollWindowDays).format(DATE_FMT);
             String endDate = LocalDate.now().format(DATE_FMT);
 
             ListWrapper<GetFaxInboxResult> listResult = api.getFaxInbox(

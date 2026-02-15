@@ -175,7 +175,12 @@ public class ConfigureFax2Action extends ActionSupport {
                     if (StringUtils.trimToNull(faxConfigIds[idx]) == null) {
                         continue;
                     }
-                    id = Integer.parseInt(faxConfigIds[idx]);
+                    try {
+                        id = Integer.parseInt(faxConfigIds[idx]);
+                    } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().error("Invalid fax config ID at index {}: {}", idx, faxConfigIds[idx]);
+                        throw new IllegalArgumentException("Invalid fax configuration ID: " + faxConfigIds[idx]);
+                    }
                     faxConfig = new FaxConfig();
                     faxConfig.setId(id);
 
@@ -207,7 +212,12 @@ public class ConfigureFax2Action extends ActionSupport {
                         }
                         savedFaxConfig.setFaxNumber(faxNumber);
                         savedFaxConfig.setSenderEmail(senderEmails[idx]);
-                        savedFaxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
+                        try {
+                            savedFaxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().error("Invalid inbox queue at index {}: {}", idx, inboxQueues[idx]);
+                            throw new IllegalArgumentException("Invalid inbox queue ID: " + inboxQueues[idx]);
+                        }
                         savedFaxConfig.setAccountName(accountNames[idx]);
                         savedFaxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         savedFaxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
@@ -244,7 +254,12 @@ public class ConfigureFax2Action extends ActionSupport {
                         }
                         faxConfig.setFaxNumber(newFaxNumber);
                         faxConfig.setSenderEmail(senderEmails[idx]);
-                        faxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
+                        try {
+                            faxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().error("Invalid inbox queue at index {}: {}", idx, inboxQueues[idx]);
+                            throw new IllegalArgumentException("Invalid inbox queue ID: " + inboxQueues[idx]);
+                        }
                         faxConfig.setAccountName(accountNames[idx]);
                         faxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         faxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
@@ -337,6 +352,9 @@ public class ConfigureFax2Action extends ActionSupport {
      */
     public void getFaxSchedularStatus() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("user session expired or not found");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "r", null)) {
             throw new SecurityException("missing required sec object (_admin.fax.restart)");
         }

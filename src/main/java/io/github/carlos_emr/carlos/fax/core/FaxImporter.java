@@ -443,7 +443,10 @@ public class FaxImporter {
 
         filename = newDoc.getFileName();
 
-        if (Base64.decodeToFile(faxFile.getDocument(), DOCUMENT_DIR + "/" + filename)) {
+        File documentDir = new File(DOCUMENT_DIR);
+        File validatedPath = PathValidationUtils.validatePath(filename, documentDir);
+
+        if (Base64.decodeToFile(faxFile.getDocument(), validatedPath.getAbsolutePath())) {
 
             newDoc.setContentType("application/pdf");
             newDoc.setNumberOfPages(receivedFax.getNumPages());
