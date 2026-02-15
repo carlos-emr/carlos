@@ -48,7 +48,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.AppManager" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -171,7 +170,7 @@
                                     </li>
                                 </security:oscarSec>
 
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink"
+                                <security:oscarSec roleName="<%=roleName$%>" objectName="_lab"
                                                    rights="r">
                                     <li>
                                         <a HREF="#" id="inboxLink"
@@ -342,7 +341,7 @@
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute("providerpreference.jsp?provider_no=" + Encode.forUriComponent(curUser_no)) %>')"
+                       onClick="popupPage(715,680,'providerpreference.jsp?provider_no=<%=curUser_no%>')"
                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>

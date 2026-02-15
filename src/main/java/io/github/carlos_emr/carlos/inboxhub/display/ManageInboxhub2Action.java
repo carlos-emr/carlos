@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.mds.data.CategoryData;
  * determines which display mode to invoke.
  * </p>
  * <p>
- * <strong>Security:</strong> All methods enforce read-level access to the "_appointment.doctorLink" security object
+ * <strong>Security:</strong> All methods enforce read-level access to the "_lab" security object
  * using {@link SecurityInfoManager}. Unauthorized access returns the "unauthorized" result.
  * </p>
  * <p>
@@ -65,11 +65,6 @@ import io.github.carlos_emr.carlos.mds.data.CategoryData;
  * @see io.github.carlos_emr.carlos.lab.ca.on.LabResultData
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
  * @since 2026-01-24
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
- * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 public class ManageInboxhub2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -130,14 +125,14 @@ public class ManageInboxhub2Action extends ActionSupport {
      *   <li>Sets request attributes for JSP rendering</li>
      * </ol>
      * <p>
-     * <strong>Security:</strong> Requires "_appointment.doctorLink" read privilege. Returns "unauthorized" if access denied.
+     * <strong>Security:</strong> Requires "_lab" read privilege. Returns "unauthorized" if access denied.
      * </p>
      *
      * @return String "success" if authorized and data retrieved successfully, "unauthorized" if access denied
      */
     public String displayInboxForm() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.doctorLink", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
 
@@ -167,14 +162,14 @@ public class ManageInboxhub2Action extends ActionSupport {
      * page size, demographic filters, and type filters.
      * </p>
      * <p>
-     * <strong>Security:</strong> Requires "_appointment.doctorLink" read privilege. Returns "unauthorized" if access denied.
+     * <strong>Security:</strong> Requires "_lab" read privilege. Returns "unauthorized" if access denied.
      * </p>
      *
      * @return String "displayList" if authorized and data retrieved successfully, "unauthorized" if access denied
      */
     public String displayInboxList() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.doctorLink", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
 
@@ -191,14 +186,14 @@ public class ManageInboxhub2Action extends ActionSupport {
      * on current query parameters.
      * </p>
      * <p>
-     * <strong>Security:</strong> Requires "_appointment.doctorLink" read privilege. Returns "unauthorized" if access denied.
+     * <strong>Security:</strong> Requires "_lab" read privilege. Returns "unauthorized" if access denied.
      * </p>
      *
      * @return String "displayView" if authorized and data retrieved successfully, "unauthorized" if access denied
      */
     public String displayInboxView() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.doctorLink", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
 
@@ -253,13 +248,13 @@ public class ManageInboxhub2Action extends ActionSupport {
         try {
             pageNum = Integer.parseInt(page);
         } catch (NumberFormatException e) {
-            logger.error("Setting default page number of: " + defaultPage + " due to an error parsing page parameter:", e);
+            logger.error("Setting default page number of: {} due to an error parsing page parameter:", defaultPage, e);
             pageNum = defaultPage;
         }
         try {
             pageSizeNum = Integer.parseInt(pageSize);
         } catch (NumberFormatException e) {
-            logger.error("Setting default page size of: " + defaultPageSize + " due to an error parsing pageSize parameter:", e);
+            logger.error("Setting default page size of: {} due to an error parsing pageSize parameter:", defaultPageSize, e);
             pageSizeNum = defaultPageSize;
         }
 

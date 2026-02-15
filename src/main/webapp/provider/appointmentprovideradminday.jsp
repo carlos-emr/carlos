@@ -446,7 +446,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
     <c:set var="billingRights" value="true" scope="page"/>
 </security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r">
     <c:set var="doctorLinkRights" value="true" scope="page"/>
 </security:oscarSec>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_masterLink" rights="r">
@@ -1164,7 +1164,7 @@
                     </li>
                     <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
-                           onClick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute("providerpreference.jsp?provider_no=" + Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo())) %>')"
+                           onClick="popupPage(715,680,'providerpreference.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>')"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
                             <span class="glyphicon">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"

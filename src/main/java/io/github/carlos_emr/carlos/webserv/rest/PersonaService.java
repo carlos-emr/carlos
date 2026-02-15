@@ -379,11 +379,10 @@ public class PersonaService extends AbstractServiceImpl {
     }
 
     /**
-     * REST endpoint for retrieving groups of provider preferences.
+     * This will be a REST based way to get access to groups of preferences. It's not fully implemented yet
      *
-     * @param obj ObjectNode JSON object. May contain a "type" field for future preference
-     *            group filtering, but this is currently unused -- all calls return dashboard preferences.
-     * @return PersonaResponse containing dashboard preferences
+     * @param obj ObjectNode JSON object containing the preference type to retrieve
+     * @return PersonaResponse containing dashboard preferences and other user-specific settings
      */
     @POST
     @Path("/preferences")

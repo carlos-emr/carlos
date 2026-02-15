@@ -4,7 +4,7 @@
 # Configuration - Use environment variables with sensible defaults
 # ============================================================================
 SOURCE_DIR="${SOURCE_DIR:-/workspace/src/main/webapp}"
-DEPLOY_DIR="${DEPLOY_DIR:-/usr/local/tomcat/webapps/carlos}"
+DEPLOY_DIR="${DEPLOY_DIR:-/usr/local/tomcat/webapps/oscar}"
 LOG_FILE="${LOG_FILE:-/tmp/webapp-watcher.log}"
 PID_FILE="${PID_FILE:-/tmp/webapp-watcher.pid}"
 
