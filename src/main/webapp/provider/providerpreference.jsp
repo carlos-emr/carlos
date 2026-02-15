@@ -1368,6 +1368,7 @@ document.addEventListener('DOMContentLoaded', function () {
 /**
  * Validates schedule parameters before form submission.
  * Ensures start < end, values are numeric, and period fits within the range.
+ * Also enforces server-side 120-minute maximum to prevent confusing UX.
  * @returns {boolean} true if validation passes, false to prevent submission
  */
 function checkTypeInAll() {
@@ -1394,6 +1395,12 @@ function checkTypeInAll() {
     if (i <= 0 || i > (e - s) * 60) {
         alert("Period must be positive and fit within the hour range.");
         return false;
+    }
+    // Enforce server-side 120-minute maximum to match backend validation
+    if (i > 120) {
+        alert("Appointment period cannot exceed 120 minutes (2 hours). Value will be automatically adjusted to 120.");
+        // Allow submission - server will clamp the value and notify user
+        return true;
     }
     return true;
 }

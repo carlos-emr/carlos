@@ -27,6 +27,7 @@
 
 package io.github.carlos_emr.carlos.web.admin;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -81,6 +82,7 @@ public final class ProviderPreferencesUIBean {
      * @return ProviderPreference the persisted preference entity
      * @throws SecurityException if the session has expired (null loggedInInfo) or if the
      *         provider lacks write ("w") access to the "_pref" security object
+     * @throws IllegalArgumentException if validation errors occur (message contains user-friendly error details)
      */
     public static ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -95,6 +97,9 @@ public final class ProviderPreferencesUIBean {
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+        
+        // Collect validation errors to provide user feedback
+        List<String> validationErrors = new ArrayList<>();
 
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 
@@ -161,12 +166,18 @@ public final class ProviderPreferencesUIBean {
                         providerPreference.setStartHour(startHour);
                         providerPreference.setEndHour(endHour);
                     } else {
+                        String errorMsg = "Start hour (" + startHour + ") must be less than end hour (" + endHour + ")";
+                        validationErrors.add(errorMsg);
                         MiscUtils.getLogger().warn("start_hour {} must be less than end_hour {} for provider {}", startHour, endHour, providerNo);
                     }
                 } else {
+                    String errorMsg = "Schedule hours must be in valid range 0-23 (start: " + startHour + ", end: " + endHour + ")";
+                    validationErrors.add(errorMsg);
                     MiscUtils.getLogger().warn("Schedule hours out of valid range 0-23: start_hour={}, end_hour={} for provider {}", startHour, endHour, providerNo);
                 }
             } catch (NumberFormatException e) {
+                String errorMsg = "Schedule hours must be valid numbers (start: '" + startHourStr + "', end: '" + endHourStr + "')";
+                validationErrors.add(errorMsg);
                 MiscUtils.getLogger().warn("Invalid schedule hour values: start_hour='{}', end_hour='{}' for provider {}", startHourStr, endHourStr, providerNo, e);
             }
         }
@@ -179,14 +190,20 @@ public final class ProviderPreferencesUIBean {
 
                 if (everyMinValue < 1) {
                     normalizedEveryMin = 1;
+                    String errorMsg = "Appointment period (" + everyMinValue + " min) was adjusted to minimum of 1 minute";
+                    validationErrors.add(errorMsg);
                     MiscUtils.getLogger().warn("every_min value {} below minimum; clamping to 1 for provider {}", everyMinValue, providerNo);
                 } else if (everyMinValue > 120) {
                     normalizedEveryMin = 120;
+                    String errorMsg = "Appointment period (" + everyMinValue + " min) was adjusted to maximum of 120 minutes";
+                    validationErrors.add(errorMsg);
                     MiscUtils.getLogger().warn("every_min value {} above maximum; clamping to 120 for provider {}", everyMinValue, providerNo);
                 }
 
                 providerPreference.setEveryMin(normalizedEveryMin);
             } catch (NumberFormatException e) {
+                String errorMsg = "Appointment period must be a valid number ('" + temp + "')";
+                validationErrors.add(errorMsg);
                 MiscUtils.getLogger().warn("Invalid every_min value: '{}' for provider {}", temp, providerNo, e);
             }
         }
@@ -244,14 +261,10 @@ public final class ProviderPreferencesUIBean {
                     if (eForm != null) {
                         eFormsIdsList.add(new ProviderPreference.EformLink(formIdInteger, eForm.getFormName()));
                     } else {
-                        if (MiscUtils.getLogger().isWarnEnabled()) {
-                            MiscUtils.getLogger().warn("EForm not found for id of: {}", formIdInteger);
-                        }
+                        MiscUtils.getLogger().warn("EForm not found for id of: {}", formIdInteger);
                     }
                 } catch (NumberFormatException e) {
-                    if (MiscUtils.getLogger().isWarnEnabled()) {
-                        MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId, e);
-                    }
+                    MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId, e);
                 }
             }
         }
@@ -272,6 +285,12 @@ public final class ProviderPreferencesUIBean {
 
         temp = StringUtils.trimToNull(request.getParameter("erx_sso_url"));
         if (temp != null) providerPreference.setERx_SSO_URL(temp);
+
+        // If validation errors occurred, throw them to the caller for display
+        if (!validationErrors.isEmpty()) {
+            String errorMessage = "Validation errors occurred: " + String.join("; ", validationErrors);
+            throw new IllegalArgumentException(errorMessage);
+        }
 
         providerPreferenceDao.merge(providerPreference);
 
