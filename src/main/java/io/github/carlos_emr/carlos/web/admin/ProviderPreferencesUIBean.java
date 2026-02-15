@@ -201,10 +201,14 @@ public final class ProviderPreferencesUIBean {
                     if (eForm != null) {
                         eFormsIdsList.add(new ProviderPreference.EformLink(formIdInteger, eForm.getFormName()));
                     } else {
-                        MiscUtils.getLogger().warn("EForm not found for id of:" + formIdInteger);
+                        if (MiscUtils.getLogger().isWarnEnabled()) {
+                            MiscUtils.getLogger().warn("EForm not found for id of: {}", formIdInteger);
+                        }
                     }
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId);
+                    if (MiscUtils.getLogger().isWarnEnabled()) {
+                        MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId);
+                    }
                 }
             }
         }
