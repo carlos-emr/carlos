@@ -183,9 +183,6 @@
                 $("billingONpref").toggle();
             }
 
-            function showHideERxPref() {
-                //$("eRxPref").toggle();
-            }
         </script>
         <style type="text/css">
             .preferenceTable td {
@@ -210,11 +207,6 @@
                 font-size: 12px;
             }
 
-            table.eRxTableCenter {
-                width: 50%;
-                margin-left: 25%;
-                margin-right: 25%;
-            }
 
         </style>
     </head>
@@ -239,7 +231,7 @@
         // String defaultBillingLocation = providerPreference.getDefaultBillingLocation()!=null?providerPreference.getDefaultBillingLocation():"no";
     %>
 
-    <body bgproperties="fixed" onLoad="setfocus();showHideBillPref();showHideERxPref();" topmargin="0" leftmargin="0"
+    <body bgproperties="fixed" onLoad="setfocus();showHideBillPref();" topmargin="0" leftmargin="0"
           rightmargin="0" style="font-family:sans-serif">
     <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providerupdatepreference.jsp" onSubmit="return(checkTypeInAll())">
 
@@ -721,83 +713,6 @@
                                       onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewAppointmentCardPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnEditSetAppointmentCardPrefs"/></a></td>
             </tr>
 
-            <oscar:oscarPropertiesCheck property="util.erx.enabled" value="true">
-            <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r">
-            <tr>
-                <td align="center">
-                    <a href=# onClick="showHideERxPref();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.btnPrefLink"/></a>
-                </td>
-            </tr>
-            <tr>
-                <td align="center">
-                    <div id="eRxPref">
-                                <%
-            	String eRxEnabledChecked="unchecked";
-                String eRxTrainingModeChecked="unchecked";
-                                        
-				boolean eRxEnabled = false;
-                String eRx_SSO_URL = "";
-                String eRxUsername = "";
-                String eRxPassword = "";
-                String eRxFacility = "";
-                boolean eRxTrainingMode = false;
-                                                        
-                if (providerPreference != null){                                       
-                	eRxEnabled = providerPreference.isERxEnabled();
-                    if(eRxEnabled) eRxEnabledChecked = "checked";
-                                
-                    eRx_SSO_URL = providerPreference.getERx_SSO_URL();
-                    eRxUsername = providerPreference.getERxUsername();
-                    eRxPassword = providerPreference.getERxPassword();
-                    eRxFacility = providerPreference.getERxFacility();
-                                
-                    eRxTrainingMode = providerPreference.isERxTrainingMode();
-                    if(eRxTrainingMode) eRxTrainingModeChecked = "checked";
-                                
-                    if(eRx_SSO_URL==null || "null".equalsIgnoreCase(eRx_SSO_URL)) eRx_SSO_URL=OscarProperties.getInstance().getProperty("util.erx.oscarerx_sso_url");
-                    if(eRxUsername==null || "null".equalsIgnoreCase(eRxUsername)) eRxUsername="";
-                    if(eRxPassword==null || "null".equalsIgnoreCase(eRxPassword)) eRxPassword="";
-                    if(eRxFacility==null || "null".equalsIgnoreCase(eRxFacility)) eRxFacility="";
-                }
-                %>
-                        <table class="eRxTableCenter">
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelEnable"/>:</td>
-                                <td><input name="erx_enable" title="Enable the External Prescriber"
-                                           type="checkbox" <%=eRxEnabledChecked%> /></td>
-                            </tr>
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelUser"/>:</td>
-                                <td><input name="erx_username" type="text" value="<%=eRxUsername%>"
-                                           title="Username to access the External Prescriber"/></td>
-                            </tr>
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelPassword"/>:</td>
-                                <td><input name="erx_password" type="password" value="<%=eRxPassword%>"
-                                           title="Password to access the External Prescriber"/></td>
-                            <tr>
-                            </tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelFacility"/>:</td>
-                            <td><input name="erx_facility" type="text" value="<%=eRxFacility%>"
-                                       title="The Facility ID assigned to you by the External Prescriber"/><br></td>
-                            <tr>
-                            </tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelTrainingMode"/>:</td>
-                            <td><input name="erx_training_mode" type="checkbox"
-                                       title="Enable Training Mode" <%=eRxTrainingModeChecked%> /></td>
-            </tr>
-            <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.eRx.labelURL"/>:</td>
-                <td><input name="erx_sso_url" type="text" value="<%=eRx_SSO_URL%>"
-                           title="The URL to access the Web Interface from OSCAR Rx"/></td>
-            </tr>
-
-        </table>
-        </div>
-        </td>
-        </tr>
-        </security:oscarSec>
-        </oscar:oscarPropertiesCheck>
         <tr>
             <td align="center"><a href=#
                                   onClick="popupPage(230,860,'<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewDashboardPrefs');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnViewDashboardPrefs"/></a></td>

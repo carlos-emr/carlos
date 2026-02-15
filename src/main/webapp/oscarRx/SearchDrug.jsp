@@ -39,8 +39,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 
 
 <%
@@ -88,27 +86,6 @@
     String[] d_route = ("Oral," + drugref_route).split(",");
 
     String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
-
-    //This checks if the providers has the ExternalPresriber feature enabled, if so then a link appear for the providers to access the ExternalPrescriber
-    ProviderPreference providerPreference = ProviderPreferencesUIBean.getProviderPreference(loggedInInfo.getLoggedInProviderNo());
-
-    boolean eRxEnabled = false;
-    String eRx_SSO_URL = null;
-    String eRxUsername = null;
-    String eRxPassword = null;
-    String eRxFacility = null;
-    String eRxTrainingMode = "0"; //not in training mode
-
-    if (providerPreference != null) {
-        eRxEnabled = providerPreference.isERxEnabled();
-        eRx_SSO_URL = providerPreference.getERx_SSO_URL();
-        eRxUsername = providerPreference.getERxUsername();
-        eRxPassword = providerPreference.getERxPassword();
-        eRxFacility = providerPreference.getERxFacility();
-
-        boolean eRxTrainingModeTemp = providerPreference.isERxTrainingMode();
-        if (eRxTrainingModeTemp) eRxTrainingMode = "1";
-    }
 
 %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -602,9 +579,6 @@
                                     %> <a href="javascript:goOMD();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a> <%
                                         }
                                     %>
-                                        <%if (eRxEnabled) {%>
-                                        <a href="<%=eRx_SSO_URL%>User=<%=eRxUsername%>&Password=<%=eRxPassword%>&Clinic=<%=eRxFacility%>&PatientIdPMIS=<%=patient.getDemographicNo()%>&IsTraining=<%=eRxTrainingMode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.eRx.msgExternalPrescriber"/></a>
-                                        <%}%>
 
                                     </td>
                                     <td><oscar:oscarPropertiesCheck property="drugref_route_search" value="on">
