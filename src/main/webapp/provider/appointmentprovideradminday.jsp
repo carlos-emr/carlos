@@ -1162,6 +1162,7 @@
 						</span>
                         </a>
                     </li>
+                    <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
                            onClick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute("providerpreference.jsp?provider_no=" + Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo())) %>')"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>

@@ -919,8 +919,8 @@
                 <div class="pref-label">Stale Date Format (show date)</div>
                 <div class="pref-value">
                     <select name="cme_note_format" class="pref-input input-xs">
-                        <option value="No" <%="No".equals(staleFormat)?"selected":""%>>No</option>
-                        <option value="Yes" <%="Yes".equals(staleFormat)?"selected":""%>>Yes</option>
+                        <option value="no" <%="no".equals(staleFormat)?"selected":""%>>No</option>
+                        <option value="yes" <%="yes".equals(staleFormat)?"selected":""%>>Yes</option>
                     </select>
                 </div>
             </div>
