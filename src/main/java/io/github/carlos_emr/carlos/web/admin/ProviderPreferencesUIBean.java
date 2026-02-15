@@ -206,7 +206,7 @@ public final class ProviderPreferencesUIBean {
             try {
                 providerPreference.setAppointmentScreenLinkNameDisplayLength(Integer.parseInt(temp));
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().warn("Invalid appointmentScreenFormsNameDisplayLength value: '{}'", temp);
+                MiscUtils.getLogger().warn("Invalid appointmentScreenFormsNameDisplayLength value: '{}'", temp, e);
             }
         }
 
