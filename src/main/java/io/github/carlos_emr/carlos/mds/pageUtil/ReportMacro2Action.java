@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
 import java.io.IOException;
+import java.util.Calendar;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -139,7 +140,26 @@ public class ReportMacro2Action extends ActionSupport {
                 t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
                 t.setDemographicNo(Integer.parseInt(demographicNo));
                 t.setMessage(jTickler.get("message").asText());
-                t.setCreator(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                if(jTickler.has("quantity") && jTickler.has("timeUnits")) {
+                    Calendar cal = (Calendar) Calendar.getInstance();
+                    Integer qty = Integer.parseInt(jTickler.getString("quantity"));
+                    Integer code = Integer.parseInt(jTickler.getString("timeUnits"));
+                    switch(code) {
+                        case 1:
+                            cal.add((Calendar.DATE),qty);
+                            break;
+                        case 7:
+                            cal.add((Calendar.WEEK_OF_YEAR),qty);
+                            break;
+                        case 30:
+                            cal.add((Calendar.MONTH),qty);
+                            break;
+                        case 365:
+                            cal.add((Calendar.YEAR),qty);
+                            break;
+                    }
+                    t.setServiceDate(cal.getTime());
+                }
                 ticklerDao.persist(t);
 
                 TicklerLink tl = new TicklerLink();
