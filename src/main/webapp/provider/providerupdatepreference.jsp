@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="java.util.UUID" %>
 
 <html>
     <head>
@@ -110,11 +111,13 @@
                 
                 saveSuccess = true;
             } catch (javax.persistence.PersistenceException e) {
-                errorDetails = e.getMessage();
-                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Database error saving provider preferences for provider " + curUser_providerno, e);
+                String correlationId = UUID.randomUUID().toString();
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Database error saving provider preferences for provider " + curUser_providerno + " [Correlation ID: " + correlationId + "]", e);
+                errorDetails = "A database error occurred while saving preferences. Please contact support with reference ID: " + correlationId;
             } catch (Exception e) {
-                errorDetails = e.getMessage();
-                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Unexpected error saving provider preferences for provider " + curUser_providerno, e);
+                String correlationId = UUID.randomUUID().toString();
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Unexpected error saving provider preferences for provider " + curUser_providerno + " [Correlation ID: " + correlationId + "]", e);
+                errorDetails = "An unexpected error occurred while saving preferences. Please contact support with reference ID: " + correlationId;
             }
         %>
         <% if (saveSuccess) { %>
