@@ -93,7 +93,7 @@
             }
 
             boolean saveSuccess = false;
-            String errorMessage = null;
+            String errorDetails = null;
             ProviderPreference providerPreference = null;
             
             try {
@@ -109,9 +109,12 @@
                 session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
                 
                 saveSuccess = true;
+            } catch (javax.persistence.PersistenceException e) {
+                errorDetails = e.getMessage();
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Database error saving provider preferences for provider " + curUser_providerno, e);
             } catch (Exception e) {
-                errorMessage = "Failed to save preferences: " + e.getMessage();
-                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error saving provider preferences for provider " + curUser_providerno, e);
+                errorDetails = e.getMessage();
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Unexpected error saving provider preferences for provider " + curUser_providerno, e);
             }
         %>
         <% if (saveSuccess) { %>
@@ -124,7 +127,9 @@
         <% } else { %>
         <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
             <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerupdatepreference.error"/></p>
-            <p><%= org.owasp.encoder.Encode.forHtml(errorMessage) %></p>
+            <% if (errorDetails != null && !errorDetails.isEmpty()) { %>
+            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <%= org.owasp.encoder.Encode.forHtml(errorDetails) %></p>
+            <% } %>
             <p><fmt:message key="provider.providerupdatepreference.error.retry"/></p>
         </div>
         <% } %>

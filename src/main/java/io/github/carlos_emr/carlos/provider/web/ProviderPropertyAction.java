@@ -81,7 +81,7 @@ public class ProviderPropertyAction {
      * @throws PersistenceException if any preference fails to save to the database,
      *         preventing silent partial saves
      */
-    public static void updateOrCreateProviderProperties(HttpServletRequest request) {
+    public static void updateOrCreateProviderProperties(HttpServletRequest request) throws PersistenceException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             throw new SecurityException("Session expired: cannot save preferences without an authenticated session");
