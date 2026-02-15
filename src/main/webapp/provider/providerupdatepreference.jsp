@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="java.util.UUID" %>
 
 <html>
@@ -79,23 +80,36 @@
                 throw new SecurityException("missing required sec object: _pref (write access required)");
             }
 
-            String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
-            String ticklerforproviderno = request.getParameter("ticklerforproviderno");
-            if (ticklerforproviderno != null) {
-                UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-                UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
-                if (prop == null) {
-                    prop = new UserProperty();
-                    prop.setProviderNo(curUser_providerno);
-                    prop.setName(UserProperty.PROVIDER_FOR_TICKLER_WARNING);
-                }
-                prop.setValue(ticklerforproviderno);
-                propDao.saveProp(prop);
-            }
-
             boolean saveSuccess = false;
             String errorDetails = null;
             ProviderPreference providerPreference = null;
+
+            String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
+            String ticklerforproviderno = request.getParameter("ticklerforproviderno");
+            if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
+                // Validate provider number before persisting
+                ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
+                
+                if (!providerDao.providerExists(ticklerforproviderno.trim())) {
+                    String correlationId = java.util.UUID.randomUUID().toString();
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                        "Invalid provider number for tickler warning. Correlation ID: {}. Provider: {}", 
+                        correlationId, 
+                        org.owasp.encoder.Encode.forJava(ticklerforproviderno)
+                    );
+                    errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
+                } else {
+                    UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+                    UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+                    if (prop == null) {
+                        prop = new UserProperty();
+                        prop.setProviderNo(curUser_providerno);
+                        prop.setName(UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+                    }
+                    prop.setValue(ticklerforproviderno.trim());
+                    propDao.saveProp(prop);
+                }
+            }
             
             try {
                 providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
