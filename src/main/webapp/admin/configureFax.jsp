@@ -147,6 +147,9 @@
 
             getFaxSchedularStatus();
 
+            // Set initial visibility of legacy credentials section
+            onIntegrationTypeChange();
+
         });
 
         <%

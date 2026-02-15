@@ -630,6 +630,8 @@ public class SRFaxApiConnector {
         postVariables.put(ACCESS_ID, access_id);
         postVariables.put(ACCESS_PW, access_pwd);
 
+        // SECURITY NOTE: postVariables contains credentials (access_id, access_pwd)
+        // Do NOT log this map at any level - credentials must not appear in logs
         return postRequest(postVariables);
     }
 

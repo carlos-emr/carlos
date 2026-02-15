@@ -262,6 +262,11 @@ public class FaxImporter {
     private void processDirectApiInboundFax(FaxConnector connector, FaxConfig faxConfig, FaxInboundResult inbound) {
 
         String faxReference = inbound.getExternalReference();
+        if (faxReference == null || faxReference.isEmpty()) {
+            log.warn("Inbound fax has no external reference; skipping.");
+            saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.ERROR, "Missing external reference");
+            return;
+        }
 
         // Download the fax content as base64
         String base64Content = connector.downloadFax(faxConfig, faxReference);
@@ -423,7 +428,7 @@ public class FaxImporter {
 
         filename = filename.replace(".tif", ".pdf");
 
-        if (!filename.endsWith(".pdf") || !filename.endsWith(".PDF")) {
+        if (!filename.toLowerCase().endsWith(".pdf")) {
             filename = filename + ".pdf";
         }
 

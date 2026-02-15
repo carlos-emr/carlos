@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -121,7 +123,11 @@ public class ConfigureFax2Action extends ActionSupport {
     public String configure() {
         ObjectNode jsonObject;
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("user session expired or not found");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
@@ -144,6 +150,13 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] accountNames = request.getParameterValues("accountName");
             String[] downloadState = request.getParameterValues("downloadState");
             String[] integrationTypes = request.getParameterValues("integrationType");
+
+            // Validate that all required parameter arrays are present
+            if (faxConfigIds != null && (faxUsers == null || faxPasswds == null
+                    || inboxQueues == null || faxNumbers == null || senderEmails == null
+                    || accountNames == null || activeState == null || downloadState == null)) {
+                throw new IllegalArgumentException("Incomplete fax configuration form submission");
+            }
 
             Integer id;
             int savedidx;
@@ -224,7 +237,12 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
 
-                        faxConfig.setFaxNumber(faxNumbers[idx]);
+                        // Strip non-digit characters from fax number for consistency
+                        String newFaxNumber = faxNumbers[idx];
+                        if (newFaxNumber != null) {
+                            newFaxNumber = newFaxNumber.trim().replaceAll("\\D", "");
+                        }
+                        faxConfig.setFaxNumber(newFaxNumber);
                         faxConfig.setSenderEmail(senderEmails[idx]);
                         faxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
                         faxConfig.setAccountName(accountNames[idx]);
@@ -240,12 +258,21 @@ public class ConfigureFax2Action extends ActionSupport {
 
                 // Persist all submitted accounts (creates or updates as appropriate)
                 for (FaxConfig faxConfig1 : faxConfigList) {
+                    boolean isNew = (faxConfig1.getId() == null);
                     faxConfigDao.saveEntity(faxConfig1);
+                    // Log account creation or update
+                    String action = isNew ? LogConst.ADD : LogConst.UPDATE;
+                    String data = "Fax account: " + faxConfig1.getAccountName()
+                                + " (integration type: " + faxConfig1.getIntegrationType() + ")";
+                    LogAction.addLogSynchronous(loggedInInfo, action, data);
                 }
 
                 // Remove any saved accounts that were not in the submitted form (user deleted them)
                 for (FaxConfig faxConfig2 : savedFaxConfigList) {
                     if (!faxConfigList.contains(faxConfig2)) {
+                        // Log account deletion
+                        String data = "Fax account: " + faxConfig2.getAccountName();
+                        LogAction.addLogSynchronous(loggedInInfo, LogConst.DELETE, data);
                         faxConfigDao.remove(faxConfig2.getId());
                     }
                 }
@@ -292,10 +319,14 @@ public class ConfigureFax2Action extends ActionSupport {
      * @throws SecurityException if the logged-in user lacks the required privilege
      */
     public void restartFaxScheduler() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax.restart", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("user session expired or not found");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.fax.restart)");
         }
-        faxManager.restartFaxScheduler(LoggedInInfo.getLoggedInInfoFromSession(request));
+        faxManager.restartFaxScheduler(loggedInInfo);
     }
 
     /**
