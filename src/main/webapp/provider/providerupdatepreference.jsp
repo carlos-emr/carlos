@@ -92,23 +92,42 @@
                 propDao.saveProp(prop);
             }
 
-            ProviderPreference providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
-            ProviderPropertyAction.updateOrCreateProviderProperties(request);
+            boolean saveSuccess = false;
+            String errorMessage = null;
+            ProviderPreference providerPreference = null;
+            
+            try {
+                providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
+                ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
-            //---
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
-            session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
-            session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
-            session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
-            session.setAttribute("caisiBillingPreferenceNotDelete", providerPreference.getDefaultDoNotDeleteBilling());
-            session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
+                //---
+                session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
+                session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
+                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
+                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
+                session.setAttribute("caisiBillingPreferenceNotDelete", providerPreference.getDefaultDoNotDeleteBilling());
+                session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
+                
+                saveSuccess = true;
+            } catch (Exception e) {
+                errorMessage = "Failed to save preferences: " + e.getMessage();
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error saving provider preferences for provider " + curUser_providerno, e);
+            }
         %>
+        <% if (saveSuccess) { %>
         <script LANGUAGE="JavaScript">
             if (self.opener && typeof self.opener.refresh1 === 'function') {
                 self.opener.refresh1();
             }
             self.close();
         </script>
+        <% } else { %>
+        <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
+            <p><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerupdatepreference.error"/></p>
+            <p><%= org.owasp.encoder.Encode.forHtml(errorMessage) %></p>
+            <p><fmt:message key="provider.providerupdatepreference.error.retry"/></p>
+        </div>
+        <% } %>
         <p></p>
         <hr width="90%"/>
         <form><input type="button"
