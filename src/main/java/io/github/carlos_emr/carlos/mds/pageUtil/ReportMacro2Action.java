@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.log.LogAction;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -121,15 +122,22 @@ public class ReportMacro2Action extends ActionSupport {
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
         logger.info("running macro " + macro.get("name").asText());
         String segmentID = request.getParameter("segmentID");
-        String providerNo = request.getParameter("providerNo");
         String labType = request.getParameter("labType");
         String demographicNo = request.getParameter("demographicNo");
+
+        // Use session-derived provider ID for security (prevent impersonation)
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (macro.has("acknowledge")) {
             logger.info("Acknowledging lab " + labType + ":" + segmentID);
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
-            CommonLabResultData.updateReportStatus(Integer.parseInt(segmentID), providerNo, 'A', comment, labType, skipComment(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()));
+            CommonLabResultData.updateReportStatus(Integer.parseInt(segmentID), providerNo, 'A', comment, labType, skipComment(providerNo));
+
+            // Audit log for lab acknowledgment
+            LogAction.addLogSynchronous(loggedInInfo, "ReportMacro.acknowledgeLab",
+                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo);
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
             ObjectNode jTickler = (ObjectNode) macro.get("tickler");
@@ -140,7 +148,7 @@ public class ReportMacro2Action extends ActionSupport {
                 t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
                 t.setDemographicNo(Integer.parseInt(demographicNo));
                 t.setMessage(jTickler.get("message").asText());
-                t.setCreator(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                t.setCreator(providerNo);
 
                 // Set future service date if quantity and timeUnits are provided
                 if(jTickler.has("quantity") && jTickler.has("timeUnits")) {
@@ -191,6 +199,10 @@ public class ReportMacro2Action extends ActionSupport {
                     }
                 }
                 ticklerDao.persist(t);
+
+                // Audit log for tickler creation
+                LogAction.addLogSynchronous(loggedInInfo, "ReportMacro.createTickler",
+                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo);
 
                 TicklerLink tl = new TicklerLink();
                 tl.setTableId(Long.valueOf(segmentID));
