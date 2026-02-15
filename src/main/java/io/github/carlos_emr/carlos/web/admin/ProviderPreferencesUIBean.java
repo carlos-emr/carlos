@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
