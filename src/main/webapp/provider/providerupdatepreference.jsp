@@ -23,6 +23,32 @@
     https://github.com/carlos-emr/carlos
 
 --%>
+<%--
+    Provider Preference Update Processor
+
+    Processes and persists provider preference form submissions from providerpreference.jsp.
+    Validates inputs, handles security checks, and provides user feedback on success/failure.
+
+    Features:
+    - Validates tickler provider number before persistence
+    - Enforces _pref write privilege via SecurityInfoManager
+    - Dual persistence: ProviderPreference entity + UserProperty map
+    - Session attribute refresh after successful save
+    - Correlation ID tracking for error reporting
+    - User-friendly error messages with retry guidance
+
+    Parameters:
+    - ticklerforproviderno: optional provider number for tickler warning preference
+    - case_program_id: program ID for CME
+    - site: selected site identifier
+    - Additional parameters consumed by ProviderPreferencesUIBean and ProviderPropertyAction
+
+    Security:
+    - Requires authenticated session (LoggedInInfo)
+    - Requires _pref write privilege
+
+    @since 2002 (original), enhanced 2026-02-15 with validation and correlation ID tracking
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

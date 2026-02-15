@@ -263,9 +263,8 @@ public class ProviderPropertyAction {
      * Saves a boolean-parsed property using {@code Boolean.parseBoolean()}.
      * Unlike {@link #saveIfPresent} and {@link #saveAllowEmpty} which store the raw form value, this method parses
      * the value as a boolean first, coercing {@code null} or non-boolean strings
-     * to {@code "false"}. Uses a load-or-create pattern with the entity API
-     * ({@link UserPropertyDAO#saveProp(UserProperty)}) rather than the three-argument
-     * convenience method. Used for the schedule weekends preference.
+     * to {@code "false"}. Uses the three-argument convenience method which handles
+     * the load-or-create pattern internally. Used for the schedule weekends preference.
      *
      * @param request   {@link HttpServletRequest} containing form parameters
      * @param dao       {@link UserPropertyDAO} for database persistence
@@ -276,15 +275,9 @@ public class ProviderPropertyAction {
     private static void saveBoolean(HttpServletRequest request, UserPropertyDAO dao,
                                     String providerNo, String propName) throws PersistenceException {
         String value = StringUtils.trimToNull(request.getParameter(propName));
-        UserProperty property = dao.getProp(providerNo, propName);
-        if (property == null) {
-            property = new UserProperty();
-            property.setProviderNo(providerNo);
-            property.setName(propName);
-        }
-        property.setValue(String.valueOf(Boolean.parseBoolean(value)));
+        String booleanValue = String.valueOf(Boolean.parseBoolean(value));
         try {
-            dao.saveProp(property);
+            dao.saveProp(providerNo, propName, booleanValue);
         } catch (PersistenceException e) {
             MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
             throw e;  // Propagate to caller
