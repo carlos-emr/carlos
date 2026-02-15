@@ -343,6 +343,17 @@ public class FaxImporter {
         faxJob.setStamp(inbound.getReceivedDate() != null ? inbound.getReceivedDate() : new Date());
         faxJob.setNumPages(inbound.getPageCount());
         faxJob.setStatusString(inbound.getCallerNumber());
+
+        // Store external reference for status tracking and deduplication
+        String externalRef = inbound.getExternalReference();
+        if (externalRef != null && !externalRef.isEmpty()) {
+            try {
+                faxJob.setJobId(Long.parseLong(externalRef));
+            } catch (NumberFormatException e) {
+                log.warn("Invalid external reference format for inbound fax: {}", externalRef);
+            }
+        }
+
         faxJobDao.persist(faxJob);
     }
 
