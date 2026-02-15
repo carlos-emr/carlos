@@ -244,7 +244,7 @@ public final class ProviderPreferencesUIBean {
                     }
                 } catch (NumberFormatException e) {
                     if (MiscUtils.getLogger().isWarnEnabled()) {
-                        MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId);
+                        MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId, e);
                     }
                 }
             }
