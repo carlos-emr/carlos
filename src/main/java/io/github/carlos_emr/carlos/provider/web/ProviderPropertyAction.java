@@ -45,7 +45,7 @@ import javax.servlet.http.HttpServletRequest;
  *   <li>{@code ProviderPreferencesUIBean.updateOrCreateProviderPreferences()} saves the
  *       {@code ProviderPreference} entity (schedule, billing, eRx fields)</li>
  *   <li><strong>This class</strong> saves all remaining preferences stored as individual
- *       {@link UserProperty} key-value pairs in the {@code user_property} table</li>
+ *       {@link UserProperty} key-value pairs in the {@code property} table</li>
  * </ol>
  *
  * <p>Preferences are organized into logical groups (schedule, prescriptions, clinical,
@@ -72,7 +72,7 @@ public class ProviderPropertyAction {
      * {@code ProviderPreference} entity is saved by {@code ProviderPreferencesUIBean}.
      *
      * <p>Each preference group uses the appropriate save strategy based on the HTML
-     * form element type and the expected storage format in the {@code user_property} table.
+     * form element type and the expected storage format in the {@code property} table.
      *
      * @param request {@link HttpServletRequest} containing form parameters from the
      *                preferences page POST submission
@@ -169,7 +169,7 @@ public class ProviderPropertyAction {
      * @param request   {@link HttpServletRequest} containing form parameters
      * @param dao       {@link UserPropertyDAO} for database persistence
      * @param providerNo String provider number identifying the user
-     * @param propName  String property key stored in the {@code user_property} table
+     * @param propName  String property key stored in the {@code property} table
      * @param paramName String HTML form parameter name to read from the request
      */
     private static void saveIfPresent(HttpServletRequest request, UserPropertyDAO dao,
@@ -193,7 +193,7 @@ public class ProviderPropertyAction {
      * @param request   {@link HttpServletRequest} containing form parameters
      * @param dao       {@link UserPropertyDAO} for database persistence
      * @param providerNo String provider number identifying the user
-     * @param propName  String property key stored in the {@code user_property} table
+     * @param propName  String property key stored in the {@code property} table
      * @param paramName String HTML form parameter name to read from the request
      */
     private static void saveAllowEmpty(HttpServletRequest request, UserPropertyDAO dao,
@@ -215,7 +215,7 @@ public class ProviderPropertyAction {
      * @param request   {@link HttpServletRequest} containing form parameters
      * @param dao       {@link UserPropertyDAO} for database persistence
      * @param providerNo String provider number identifying the user
-     * @param propName  String property key stored in the {@code user_property} table
+     * @param propName  String property key stored in the {@code property} table
      * @param paramName String HTML form parameter name to read from the request
      */
     private static void saveCheckbox(HttpServletRequest request, UserPropertyDAO dao,
@@ -236,7 +236,7 @@ public class ProviderPropertyAction {
      * @param request   {@link HttpServletRequest} containing form parameters
      * @param dao       {@link UserPropertyDAO} for database persistence
      * @param providerNo String provider number identifying the user
-     * @param propName  String property key stored in the {@code user_property} table
+     * @param propName  String property key stored in the {@code property} table
      * @param paramName String HTML form parameter name to read from the request
      */
     private static void saveBooleanCheckbox(HttpServletRequest request, UserPropertyDAO dao,
