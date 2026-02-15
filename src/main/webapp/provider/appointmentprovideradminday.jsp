@@ -16,16 +16,11 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    Originally written for the Department of Family Medicine, McMaster University.
+    Now maintained by the CARLOS EMR Project.
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
+
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 <!DOCTYPE html>
