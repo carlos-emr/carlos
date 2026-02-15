@@ -342,7 +342,7 @@
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(800,1000,'<%= Encode.forJavaScriptAttribute("providerpreference.jsp?provider_no=" + Encode.forUriComponent(curUser_no)) %>')"
+                       onClick="popupPage(800,1000,'providerpreference.jsp?provider_no=<%= Encode.forUriComponent(curUser_no) %>')"
                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
