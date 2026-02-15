@@ -41,7 +41,6 @@
             ? ""
             : request.getParameter("providerview");
     String asstProvider_no = "";
-    String color = "";
     String premiumFlag = "";
     String service_form = "";
 %>

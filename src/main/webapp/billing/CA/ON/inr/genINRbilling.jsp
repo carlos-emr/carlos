@@ -59,8 +59,6 @@
     String demono = "", demo_name = "", demo_dob = "", demo_hin = "", billinginr_no = "", provider_no = "";
     String provider_ohip_no = "", provider_rma_no = "", diagnostic_code = "", service_desc = "", service_code = "", billing_amount = "";
     String billing_unit = "";
-    int colorCount = 0;
-    String color = "";
     int Count1 = 0;
 
     for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {

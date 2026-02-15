@@ -66,7 +66,6 @@
     String providerview = request.getParameter("providerview") == null ? "" : request
             .getParameter("providerview");
     String asstProvider_no = "";
-    String color = "";
     String premiumFlag = "";
     String service_form = "";
 %>

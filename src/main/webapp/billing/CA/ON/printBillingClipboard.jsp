@@ -29,7 +29,6 @@
     String user_no;
     user_no = (String) session.getAttribute("user");
     String asstProvider_no = "";
-    String color = "";
     String premiumFlag = "";
     String service_form = "", service_name = "";
 %>
