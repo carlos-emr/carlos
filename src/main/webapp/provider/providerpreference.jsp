@@ -557,7 +557,7 @@
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="mygroup_no" value="<%=Encode.forHtmlAttribute(myGroupNo != null ? myGroupNo : "")%>"
                            class="pref-input input-sm" maxlength="10">
-                    <a href="providerdisplaymygroup.jsp" class="pref-link" target="_blank">
+                    <a href="providerdisplaymygroup.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-users"></i> View Groups
                     </a>
                 </div>
