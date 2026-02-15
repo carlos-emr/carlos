@@ -140,25 +140,42 @@ public class ReportMacro2Action extends ActionSupport {
                 t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
                 t.setDemographicNo(Integer.parseInt(demographicNo));
                 t.setMessage(jTickler.get("message").asText());
+                t.setCreator(providerNo);
+
+                // Set future service date if quantity and timeUnits are provided
                 if(jTickler.has("quantity") && jTickler.has("timeUnits")) {
-                    Calendar cal = (Calendar) Calendar.getInstance();
-                    Integer qty = Integer.parseInt(jTickler.getString("quantity"));
-                    Integer code = Integer.parseInt(jTickler.getString("timeUnits"));
-                    switch(code) {
-                        case 1:
-                            cal.add((Calendar.DATE),qty);
-                            break;
-                        case 7:
-                            cal.add((Calendar.WEEK_OF_YEAR),qty);
-                            break;
-                        case 30:
-                            cal.add((Calendar.MONTH),qty);
-                            break;
-                        case 365:
-                            cal.add((Calendar.YEAR),qty);
-                            break;
+                    // Validate that quantity and timeUnits are not null
+                    if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
+                        try {
+                            Calendar cal = Calendar.getInstance();
+                            int qty = Integer.parseInt(jTickler.get("quantity").asText());
+                            int code = Integer.parseInt(jTickler.get("timeUnits").asText());
+
+                            // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
+                            switch(code) {
+                                case 1:  // days
+                                    cal.add(Calendar.DATE, qty);
+                                    break;
+                                case 7:  // weeks
+                                    cal.add(Calendar.WEEK_OF_YEAR, qty);
+                                    break;
+                                case 30:  // months
+                                    cal.add(Calendar.MONTH, qty);
+                                    break;
+                                case 365:  // years
+                                    cal.add(Calendar.YEAR, qty);
+                                    break;
+                                default:
+                                    logger.warn("Invalid timeUnits code. Valid values are 1 (days), 7 (weeks), 30 (months), 365 (years). Received: {}", code);
+                                    return true;
+                            }
+                            t.setServiceDate(cal.getTime());
+                        } catch (NumberFormatException e) {
+                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro", e);
+                        }
+                    } else {
+                        logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
                     }
-                    t.setServiceDate(cal.getTime());
                 }
                 ticklerDao.persist(t);
 
