@@ -46,9 +46,10 @@
   - Following delegate selection (updates delegate info)
   
   Technical notes:
-  - top.opener refers to the window that opened this popup
+  - Works in both frame-in-popup and direct popup contexts
+  - Safely resolves opener from window.top or window
   - Refresh happens before close to ensure it executes
-  - Requires popup to be opened via window.open()
+  - Null-safe: handles cases where opener is absent or closed
   
   @since 2003
 --%>
@@ -59,10 +60,27 @@
 <body>
 
 <script>
-    // Refresh the parent window to show updated data
-    top.opener.location.reload();
-    // Close this popup window
-    top.window.close();
+    // Refresh the opener and close, handling both frame-in-popup and direct popup contexts.
+    (function() {
+        var targetWindow = window.top || window;
+        // Find the opener from the top-level window or current window
+        var opener = targetWindow.opener || window.opener;
+
+        // Refresh the parent window if available
+        if (opener && !opener.closed) {
+            try {
+                opener.location.reload();
+            } catch(e) {
+                // Opener may be cross-origin or inaccessible
+            }
+        }
+
+        // Close the window
+        targetWindow.close();
+        if (!targetWindow.closed && targetWindow !== window) {
+            window.close();
+        }
+    })();
 </script>
 
 </body>

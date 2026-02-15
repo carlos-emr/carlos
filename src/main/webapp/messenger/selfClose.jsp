@@ -41,9 +41,10 @@
   - Following successful attachment upload
   - After delegate selection or cancellation
   
-  Technical note:
-  - Uses top.window.close() to ensure the topmost window is closed
-  - Works in popup windows opened via JavaScript
+  Technical notes:
+  - Works in both frame-in-popup and direct popup contexts
+  - Uses window.top to reach the popup when running inside a frame
+  - Falls back to window.close() for direct popup windows
   - May be blocked by browser security in regular tabs
   
   @since 2003
@@ -55,8 +56,17 @@
 <body>
 
 <script>
-    // Close the current popup window
-    top.window.close();
+    // Close the current window, handling both frame-in-popup and direct popup contexts.
+    // When in a frame: window.top gets the popup window, close() closes it.
+    // When IS the popup: window.top === window, close() still works.
+    (function() {
+        var targetWindow = window.top || window;
+        targetWindow.close();
+        // Fallback for direct popup context where top might not equal window
+        if (!targetWindow.closed && targetWindow !== window) {
+            window.close();
+        }
+    })();
 </script>
 
 </body>

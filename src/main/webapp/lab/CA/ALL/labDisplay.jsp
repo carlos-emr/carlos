@@ -993,7 +993,10 @@ request.setAttribute("missingTests", missingTests);
             .then(function(data) {
                 if (data.success) {
                     // refresh the opening page with new results
-                    top.opener.location.reload();
+                    var opener = (window.top && window.top.opener) || window.opener;
+                    if (opener && !opener.closed) {
+                        try { opener.location.reload(); } catch(e) { /* cross-origin */ }
+                    }
                     // refresh the lab display page and offer dialog to rematch.
                     window.location.reload();
                 }

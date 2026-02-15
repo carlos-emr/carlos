@@ -176,7 +176,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                     if (validFaxNumber) {
                         LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "PRESCRIPTION " + pdfFile);
-						writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + Encode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(() => window.top.close(), 3000);</script>");
+						writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + Encode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(function() { (window.top || window).close(); }, 3000);</script>");
                     }
                 }
             } else {
