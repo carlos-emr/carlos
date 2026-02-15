@@ -1542,7 +1542,11 @@ document.getElementById('dxSearchModal').addEventListener('show.bs.modal', funct
     frame.onload = function() {
         try {
             frame.contentWindow.CodeAttach = function(file) {
-                document.getElementById('dxCode').value = file.substring(0, 3);
+                if (typeof file === 'string' && file.length >= 3) {
+                    document.getElementById('dxCode').value = file.substring(0, 3);
+                } else if (typeof file === 'string' && file.length > 0) {
+                    document.getElementById('dxCode').value = file;
+                }
                 var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
                 if (modal) { modal.hide(); }
             };

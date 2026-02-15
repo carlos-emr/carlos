@@ -53,7 +53,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
@@ -111,56 +110,56 @@
             ProviderPreference providerPreference = null;
 
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
-            String ticklerforproviderno = request.getParameter("ticklerforproviderno");
-            if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
-                // Validate provider number before persisting
-                ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-                
-                if (!providerDao.providerExists(ticklerforproviderno.trim())) {
-                    String correlationId = java.util.UUID.randomUUID().toString();
-                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                        "Invalid provider number for tickler warning. Correlation ID: {}. Provider: {}", 
-                        correlationId, 
-                        org.owasp.encoder.Encode.forJava(ticklerforproviderno)
-                    );
-                    errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
-                } else {
-                    UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-                    UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
-                    if (prop == null) {
-                        prop = new UserProperty();
-                        prop.setProviderNo(curUser_providerno);
-                        prop.setName(UserProperty.PROVIDER_FOR_TICKLER_WARNING);
-                    }
-                    prop.setValue(ticklerforproviderno.trim());
-                    propDao.saveProp(prop);
-                }
-            }
-            
+
             try {
+                // Save tickler provider number if provided
+                String ticklerforproviderno = request.getParameter("ticklerforproviderno");
+                if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
+                    ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
+
+                    if (!providerDao.providerExists(ticklerforproviderno.trim())) {
+                        String correlationId = UUID.randomUUID().toString();
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                            "Invalid provider number for tickler warning. Correlation ID: {}. Provider: {}",
+                            correlationId,
+                            org.owasp.encoder.Encode.forJava(ticklerforproviderno)
+                        );
+                        errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
+                    } else {
+                        UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+                        UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+                        if (prop == null) {
+                            prop = new UserProperty();
+                            prop.setProviderNo(curUser_providerno);
+                            prop.setName(UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+                        }
+                        prop.setValue(ticklerforproviderno.trim());
+                        propDao.saveProp(prop);
+                    }
+                }
+
                 providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                 ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
-                // IMPORTANT: Only update session after both saves succeed to avoid inconsistent state
+                // IMPORTANT: Only update session after all saves succeed to avoid inconsistent state
                 session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
                 session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
                 session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
                 session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
                 session.setAttribute("caisiBillingPreferenceNotDelete", providerPreference.getDefaultDoNotDeleteBilling());
                 session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
-                
+
                 saveSuccess = true;
             } catch (IllegalArgumentException e) {
-                // Validation errors - show user-friendly message from exception
                 io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Validation errors for provider {}: {}", curUser_providerno, e.getMessage());
                 errorDetails = e.getMessage();
             } catch (javax.persistence.PersistenceException e) {
                 String correlationId = UUID.randomUUID().toString();
-                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Database error saving provider preferences for provider " + curUser_providerno + " [Correlation ID: " + correlationId + "]", e);
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Database error saving provider preferences for provider {} [Correlation ID: {}]", curUser_providerno, correlationId, e);
                 errorDetails = "A database error occurred while saving preferences. Please contact support with reference ID: " + correlationId;
             } catch (Exception e) {
                 String correlationId = UUID.randomUUID().toString();
-                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Unexpected error saving provider preferences for provider " + curUser_providerno + " [Correlation ID: " + correlationId + "]", e);
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Unexpected error saving provider preferences for provider {} [Correlation ID: {}]", curUser_providerno, correlationId, e);
                 errorDetails = "An unexpected error occurred while saving preferences. Please contact support with reference ID: " + correlationId;
             }
         %>
