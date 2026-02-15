@@ -524,7 +524,7 @@
     </style>
 </head>
 <body>
-<form name="UPDATEPRE" method="post" action="providerupdatepreference.jsp" onsubmit="return checkTypeInAll()">
+<form name="UPDATEPRE" method="post" action="providerupdatepreference.jsp" class="needs-validation" novalidate onsubmit="return checkTypeInAll()">
 <input type="hidden" name="color_template" value="deepblue">
 <input type="hidden" name="ticklerforproviderno" value="<%=Encode.forHtmlAttribute(props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, ""))%>">
 
@@ -569,10 +569,11 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Period <span class="hint">(minutes per slot)</span></div>
+                <div class="pref-label">Period <span class="hint">(1-120 minutes per slot)</span></div>
                 <div class="pref-value">
-                    <input type="text" name="every_min" value="<%=Encode.forHtmlAttribute(everyMin)%>"
-                           class="pref-input input-xs" maxlength="2">
+                    <input type="number" name="every_min" value="<%=Encode.forHtmlAttribute(everyMin)%>"
+                           class="pref-input input-xs" min="1" max="120" step="1" required>
+                    <div class="invalid-feedback">Must be between 1 and 120 minutes.</div>
                 </div>
             </div>
 
@@ -1372,9 +1373,18 @@ document.addEventListener('DOMContentLoaded', function () {
  * @returns {boolean} true if validation passes, false to prevent submission
  */
 function checkTypeInAll() {
-    var s = parseInt(document.UPDATEPRE.start_hour.value);
-    var e = parseInt(document.UPDATEPRE.end_hour.value);
-    var i = parseInt(document.UPDATEPRE.every_min.value);
+    var form = document.UPDATEPRE;
+    // Trigger Bootstrap validation feedback display
+    form.classList.add('was-validated');
+
+    // Check HTML5 constraint validity (type="number" min/max/required)
+    if (!form.checkValidity()) {
+        return false;
+    }
+
+    var s = parseInt(form.start_hour.value);
+    var e = parseInt(form.end_hour.value);
+    var i = parseInt(form.every_min.value);
 
     // All three schedule fields must be valid numbers
     if (isNaN(s) || isNaN(e) || isNaN(i)) {
@@ -1391,16 +1401,15 @@ function checkTypeInAll() {
         alert("Start hour must be earlier than end hour.");
         return false;
     }
-    // Period must be positive and fit within the hour range
-    if (i <= 0 || i > (e - s) * 60) {
-        alert("Appointment period must be a positive number that fits within the scheduled hours (start to end).");
+    // Period must be between 1 and 120 minutes
+    if (i < 1 || i > 120) {
+        alert("Appointment interval must be between 1 and 120 minutes.");
         return false;
     }
-    // Enforce server-side 120-minute maximum to match backend validation
-    if (i > 120) {
-        alert("Appointment period cannot exceed 120 minutes (2 hours). Value will be automatically adjusted to 120.");
-        // Allow submission - server will clamp the value and notify user
-        return true;
+    // Period must fit within the hour range
+    if (i > (e - s) * 60) {
+        alert("Appointment period must fit within the scheduled hours (start to end).");
+        return false;
     }
     return true;
 }

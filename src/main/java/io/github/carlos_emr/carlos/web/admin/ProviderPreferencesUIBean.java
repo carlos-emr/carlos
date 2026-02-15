@@ -183,21 +183,15 @@ public final class ProviderPreferencesUIBean {
         if (temp != null) {
             try {
                 int everyMinValue = Integer.parseInt(temp);
-                int normalizedEveryMin = everyMinValue;
 
-                if (everyMinValue < 1) {
-                    normalizedEveryMin = 1;
-                    validationErrors.add("Appointment period was adjusted to minimum of 1 minute");
-                    MiscUtils.getLogger().warn("every_min value {} below minimum; clamping to 1 for provider {}", everyMinValue, providerNo);
-                } else if (everyMinValue > 120) {
-                    normalizedEveryMin = 120;
-                    validationErrors.add("Appointment period was adjusted to maximum of 120 minutes");
-                    MiscUtils.getLogger().warn("every_min value {} above maximum; clamping to 120 for provider {}", everyMinValue, providerNo);
+                if (everyMinValue < 1 || everyMinValue > 120) {
+                    validationErrors.add("Appointment interval must be between 1 and 120 minutes");
+                    MiscUtils.getLogger().warn("every_min value {} out of range (1-120) for provider {}", everyMinValue, providerNo);
+                } else {
+                    providerPreference.setEveryMin(everyMinValue);
                 }
-
-                providerPreference.setEveryMin(normalizedEveryMin);
             } catch (NumberFormatException e) {
-                validationErrors.add("Appointment period must be a valid number");
+                validationErrors.add("Appointment interval must be a valid number");
                 MiscUtils.getLogger().warn("Invalid every_min value: '{}' for provider {}", temp, providerNo, e);
             }
         }
