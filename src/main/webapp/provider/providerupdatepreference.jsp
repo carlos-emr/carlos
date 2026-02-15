@@ -138,18 +138,21 @@
                     }
                 }
 
-                providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
-                ProviderPropertyAction.updateOrCreateProviderProperties(request);
+                // Only proceed with other preference saves if there were no validation errors above
+                if (errorDetails == null) {
+                    providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
+                    ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
-                // IMPORTANT: Only update session after all saves succeed to avoid inconsistent state
-                session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
-                session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
-                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
-                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
-                session.setAttribute("caisiBillingPreferenceNotDelete", providerPreference.getDefaultDoNotDeleteBilling());
-                session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
+                    // IMPORTANT: Only update session after all saves succeed to avoid inconsistent state
+                    session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
+                    session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
+                    session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
+                    session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
+                    session.setAttribute("caisiBillingPreferenceNotDelete", providerPreference.getDefaultDoNotDeleteBilling());
+                    session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
 
-                saveSuccess = true;
+                    saveSuccess = true;
+                }
             } catch (IllegalArgumentException e) {
                 io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Validation errors for provider {}: {}", curUser_providerno, e.getMessage());
                 errorDetails = e.getMessage();
