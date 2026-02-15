@@ -77,9 +77,29 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProgramProviderTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
+/**
+ * REST service providing persona-related endpoints for the CARLOS EMR web UI.
+ *
+ * <p>The persona service exposes the authenticated provider's identity, security rights,
+ * navigation menus, patient lists, dashboard preferences, and user settings. It serves
+ * as the primary backend for the single-page application (SPA) navigation layer, powering
+ * the top navbar, patient list sidebar, and user preference management.
+ *
+ * <p>All endpoints require an authenticated session via the parent
+ * {@link AbstractServiceImpl} which provides {@code getLoggedInInfo()} and
+ * {@code getCurrentProvider()} helpers.
+ *
+ * <p><strong>Security:</strong> Preference-write endpoints enforce "_pref" privilege
+ * via {@link SecurityInfoManager}. Read-only endpoints rely on session authentication.
+ *
+ * @see AbstractServiceImpl
+ * @see SecurityInfoManager
+ * @since 2012-01-19
+ */
 @Path("/persona")
 @Consumes(MediaType.APPLICATION_JSON)
 public class PersonaService extends AbstractServiceImpl {
+    /** Logger instance for this service class. */
     protected Logger logger = MiscUtils.getLogger();
 
 
@@ -105,6 +125,11 @@ public class PersonaService extends AbstractServiceImpl {
     private DashboardManager dashboardManager;
 
 
+    /**
+     * Returns the security roles and object privileges for the currently authenticated provider.
+     *
+     * @return PersonaRightsResponse containing the provider's roles and security object privileges
+     */
     @GET
     @Path("/rights")
     @Produces("application/json")
@@ -120,6 +145,15 @@ public class PersonaService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Checks whether the current provider has a specific privilege on a security object,
+     * optionally scoped to a particular patient (demographic).
+     *
+     * @param objectName String the security object name (e.g., "_appointment", "_pref")
+     * @param privilege String the privilege level to check (e.g., "r", "w", "u")
+     * @param demographicNo String optional patient demographic number to scope the check
+     * @return GenericRESTResponse with {@code success=true} if the privilege is granted
+     */
     @GET
     @Path("/hasRight")
     @Produces("application/json")
@@ -130,6 +164,15 @@ public class PersonaService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Batch privilege check: evaluates multiple security privilege queries in a single request.
+     * Each item in the JSON array specifies an objectName, privilege, and optional demographicNo.
+     *
+     * @param json ObjectNode containing an "items" array of privilege check objects, each with
+     *             "objectName" (String), "privilege" (String), and optional "demographicNo" (Integer)
+     * @return AbstractSearchResponse&lt;Boolean&gt; with one boolean result per input item,
+     *         in the same order as the request array
+     */
     @POST
     @Path("/hasRights")
     @Consumes("application/json")
@@ -153,6 +196,13 @@ public class PersonaService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Checks whether the current provider is allowed to access a specific patient record,
+     * based on program-based access restrictions and circle-of-care rules.
+     *
+     * @param json ObjectNode containing "demographicNo" (Integer) identifying the patient
+     * @return AbstractSearchResponse&lt;Boolean&gt; with a single boolean indicating access permission
+     */
     @POST
     @Path("/isAllowedAccessToPatientRecord")
     @Consumes("application/json")
@@ -168,6 +218,16 @@ public class PersonaService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Builds the complete navigation bar structure for the current provider's session.
+     *
+     * <p>The navbar includes program domain selection, message counts, patient search,
+     * schedule/inbox/consult/billing/tickler menus, dashboard links, and user settings.
+     * Menu items are constructed dynamically based on the provider's program domain,
+     * enabled consultation features, billing region, and available dashboards.
+     *
+     * @return NavbarResponse containing program domain, current program, and all menu structures
+     */
     @GET
     @Path("/navbar")
     @Produces("application/json")
@@ -177,7 +237,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         NavbarResponse result = new NavbarResponse();
 
-        /* program domain, current program */
+        // Build the provider's program domain list (programs they are enrolled in)
         List<ProgramProvider> ppList = programManager2.getProgramDomain(getLoggedInInfo(), provider.getProviderNo());
         ProgramProviderConverter ppConverter = new ProgramProviderConverter();
         List<ProgramProviderTo1> programDomain = new ArrayList<ProgramProviderTo1>();
@@ -187,6 +247,7 @@ public class PersonaService extends AbstractServiceImpl {
         }
         result.setProgramDomain(programDomain);
 
+        // Determine the currently active program; fall back to first program in domain if unset
         ProgramProvider pp = programManager2.getCurrentProgramInDomain(getLoggedInInfo(), provider.getProviderNo());
         if (pp != null) {
             ProgramProviderTo1 ppTo = ppConverter.getAsTransferObject(getLoggedInInfo(), pp);
@@ -197,8 +258,7 @@ public class PersonaService extends AbstractServiceImpl {
             }
         }
 
-        /* counts */
-
+        // Messenger badge counts: unread demo messages and patient messages
         int messageCount = messagingManager.getMyInboxMessageCount(getLoggedInInfo(), provider.getProviderNo(), false);
         int ptMessageCount = messagingManager.getMyInboxMessageCount(getLoggedInInfo(), provider.getProviderNo(), true);
         MenuTo1 messengerMenu = new MenuTo1();
@@ -207,29 +267,30 @@ public class PersonaService extends AbstractServiceImpl {
         messengerMenu.add(menuItemCounter++, bundle.getString("navbar.newOscarMessages"), "" + ptMessageCount, "classic");
 
 
-        /* this is manual right now. Need to have this generated from some kind
-         * of user data
-         */
+        // Assemble the main navigation menu structure
         NavBarMenuTo1 navBarMenu = new NavBarMenuTo1();
         navBarMenu.setMessengerMenu(messengerMenu);
 
+        // Patient search menu with new patient and advanced search options
         MenuTo1 patientSearchMenu = new MenuTo1().add(0, bundle.getString("navbar.menu.newPatient"), null, "#/newpatient")
                 .add(1, bundle.getString("navbar.menu.advancedSearch"), null, "#/search");
         navBarMenu.setPatientSearchMenu(patientSearchMenu);
 
         int idCounter = 0;
 
+        // Core menu items: schedule and inbox are always present
         MenuTo1 menu = new MenuTo1()
                 .add(idCounter++, bundle.getString("navbar.menu.schedule"), null, "../provider/providercontrol.jsp")
                 .add(idCounter++, bundle.getString("navbar.menu.inbox"), null, "../web/inboxhub/Inboxhub.do?method=displayInboxForm", "inbox");
 
+        // Consultation menu: show single item or dropdown depending on which consult types are enabled
         if (!consultationManager.isConsultResponseEnabled()) {
             menu.addWithState(idCounter++, bundle.getString("navbar.menu.consults"), null, "consultRequests");
         } else if (!consultationManager.isConsultRequestEnabled()) {
             menu.addWithState(idCounter++, bundle.getString("navbar.menu.consultResponses"), null, "consultResponses");
         }
 
-        //consult menu
+        // When both request and response consults are enabled, show a dropdown with both options
         if (consultationManager.isConsultRequestEnabled() && consultationManager.isConsultResponseEnabled()) {
             MenuItemTo1 consultMenu = new MenuItemTo1(idCounter++, bundle.getString("navbar.menu.consults"), null);
             consultMenu.setDropdown(true);
@@ -239,13 +300,13 @@ public class PersonaService extends AbstractServiceImpl {
             consultMenu.setDropdownItems(consultMenuList.getItems());
             menu.getItems().add(consultMenu);
         }
+        // Billing, tickler, and admin links - billing URL is province-specific
         String billingRegion = OscarProperties.getInstance().getProperty("billregion", "");
         menu.add(idCounter++, bundle.getString("navbar.menu.billing"), null, "../billing/CA/" + billingRegion + "/billingReportCenter.jsp?displaymode=billreport", "billing")
                 .addWithState(idCounter++, bundle.getString("navbar.menu.tickler"), null, "ticklers")
-
-                //.add(0,"K2A",null,"#/k2a")
                 .add(idCounter++, bundle.getString("navbar.menu.admin"), null, "../administration/", "admin");
 
+        // "More" dropdown: reports, documents, and any configured dashboards
         MenuItemTo1 moreMenu = new MenuItemTo1(idCounter++, bundle.getString("navbar.menu.more"), null);
         moreMenu.setDropdown(true);
 
@@ -253,7 +314,7 @@ public class PersonaService extends AbstractServiceImpl {
                 .addWithState(idCounter++, bundle.getString("navbar.menu.reports"), null, "reports")
                 .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/documentReport.jsp?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
 
-
+        // Dynamically add dashboard menu items if any are configured
         List<Dashboard> dashboards = dashboardManager.getDashboards(getLoggedInInfo());
 
         if (dashboards != null) {
@@ -269,6 +330,7 @@ public class PersonaService extends AbstractServiceImpl {
         menu.getItems().add(moreMenu);
         navBarMenu.setMenu(menu);
 
+        // User account menu: settings, support, help
         MenuTo1 userMenu = new MenuTo1()
                 .addWithState(0, bundle.getString("navbar.menu.settings"), null, "settings")
                 .addWithState(1, bundle.getString("navbar.menu.support"), null, "support")
@@ -280,6 +342,13 @@ public class PersonaService extends AbstractServiceImpl {
         return result;
     }
 
+    /**
+     * Sets the provider's active program within their program domain. This controls
+     * which program context is used for clinical operations (e.g., case management).
+     *
+     * @param programId Integer the program ID to set as the current active program
+     * @return GenericRESTResponse confirming the operation
+     */
     @GET
     @Path("/setDefaultProgramInDomain")
     public GenericRESTResponse setDefaultProgram(@QueryParam("programId") Integer programId) {
@@ -287,6 +356,13 @@ public class PersonaService extends AbstractServiceImpl {
         return new GenericRESTResponse();
     }
 
+    /**
+     * Returns the patient list tab configuration for the provider's sidebar.
+     * Includes the appointments tab (today's schedule), recent patients tab
+     * (if enabled), and demographic sets for patient grouping.
+     *
+     * @return PersonaResponse containing patient list tab items and their data source URLs
+     */
     @GET
     @Path("/patientLists")
     @Produces("application/json")
@@ -294,6 +370,7 @@ public class PersonaService extends AbstractServiceImpl {
         Provider provider = getCurrentProvider();
         ResourceBundle bundle = getResourceBundle();
 
+        // Default to showing 8 recent patients; override from provider preference if set
         String itemsToReturn = "8";
         String recentPatients = preferenceManager.getProviderPreference(getLoggedInInfo(), "recentPatients");
         if (recentPatients != null) {
@@ -302,15 +379,24 @@ public class PersonaService extends AbstractServiceImpl {
 
         PersonaResponse response = new PersonaResponse();
 
+        // Today's appointments tab is always shown
         response.getPatientListTabItems().add(new PatientList(0, bundle.getString("patientList.tab.appts"), "../ws/rs/schedule/day/today", "patientlist/patientList1.jsp", "GET"));
 
+        // Recent patients tab can be disabled via system property
         if (!OscarProperties.getInstance().getBooleanProperty("disable.patientList.tab.recent", "true")) {
             response.getPatientListTabItems().add(new PatientList(1, bundle.getString("patientList.tab.recent"), "../ws/rs/providerService/getRecentDemographicsViewed?startIndex=0&itemsToReturn=" + itemsToReturn, "patientlist/recent.jsp", "GET"));
         }
+        // Patient sets tab available under "More" for demographic group management
         response.getPatientListMoreTabItems().add(new PatientList(0, bundle.getString("patientList.tab.patientSets"), "../ws/rs/reporting/demographicSets/patientList", "patientlist/demographicSets.jsp", "POST"));
         return response;
     }
 
+    /**
+     * Retrieves the provider's patient list display configuration, including
+     * the number of appointments to show and whether appointment reasons are visible.
+     *
+     * @return PatientListConfigTo1 containing the provider's patient list display settings
+     */
     @GET
     @Path("/patientList/config")
     @Produces("application/json")
@@ -339,6 +425,14 @@ public class PersonaService extends AbstractServiceImpl {
         return patientListConfigTo1;
     }
 
+    /**
+     * Saves the provider's patient list display configuration. Creates the
+     * {@link UserProperty} records if they do not yet exist, or updates existing ones.
+     *
+     * @param patientListConfigTo1 PatientListConfigTo1 containing the settings to persist
+     *        (numberOfApptsToShow, showReason)
+     * @return PatientListConfigTo1 the same configuration object echoed back to confirm the save
+     */
     @POST
     @Path("/patientList/config")
     @Produces("application/json")
@@ -349,6 +443,7 @@ public class PersonaService extends AbstractServiceImpl {
         UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         Integer numberOfApptsToShow = patientListConfigTo1.getNumberOfApptstoShow();
 
+        // Upsert numberOfApptsToShow: update existing property or create new one
         if (numberOfApptsToShow != null && numberOfApptsToShow > 0) {
             UserProperty prop = propDao.getProp(provider.getProviderNo(), "patientListConfig.numberOfApptsToShow");
             if (prop != null) {
@@ -362,6 +457,7 @@ public class PersonaService extends AbstractServiceImpl {
             propDao.saveProp(prop);
         }
 
+        // Upsert showReason: update existing property or create new one
         boolean showReason = patientListConfigTo1.isShowReason();
         UserProperty prop = propDao.getProp(provider.getProviderNo(), "patientListConfig.showReason");
         if (prop != null) {
@@ -393,13 +489,13 @@ public class PersonaService extends AbstractServiceImpl {
     public PersonaResponse getPreferences(ObjectNode obj) {
         Provider provider = getCurrentProvider();
 
-        //not yet used..need a way to just load specific groups of properties.
+        // Reserved for future preference group filtering (e.g., "dashboard", "schedule")
         String type = obj.get("type") != null ? obj.get("type").asText() : null;
 
         PersonaResponse response = new PersonaResponse();
         DashboardPreferences prefs = new DashboardPreferences();
 
-        //this needs to be more structured after the alpha. Create a manager a way to load with defaults
+        // Load dashboard tickler filter preference; default to showing expired-only if unset
         UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         String strVal = propDao.getStringValue(provider.getProviderNo(), "dashboard.expiredTicklersOnly");
         if (strVal == null) {
@@ -413,6 +509,14 @@ public class PersonaService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Updates a single {@link UserProperty} preference by key. Requires "_pref" update privilege.
+     * Only updates existing properties; does not create new ones.
+     *
+     * @param json ObjectNode containing "key" (String property name) and "value" (String new value)
+     * @return GenericRESTResponse with {@code success=true} if the property was found and updated
+     * @throws RuntimeException if the provider lacks "_pref" update privilege
+     */
     @POST
     @Path("/updatePreference")
     @Produces("application/json")
@@ -421,10 +525,12 @@ public class PersonaService extends AbstractServiceImpl {
         Provider provider = getCurrentProvider();
         GenericRESTResponse response = new GenericRESTResponse();
 
+        // Enforce preference update privilege before any write operation
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
             throw new RuntimeException("Access Denied");
         }
 
+        // Only update existing properties; silently return success=false if property not found
         UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty up = userPropertyDao.getProp(provider.getProviderNo(), json.get("key") != null ? json.get("key").asText() : null);
         if (up != null) {
@@ -436,6 +542,15 @@ public class PersonaService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Updates dashboard-related preferences for the current provider. Currently supports
+     * the "expiredTicklersOnly" boolean preference. Requires "_pref" update privilege.
+     *
+     * @param json ObjectNode containing "expiredTicklersOnly" (Boolean) dashboard filter setting
+     * @return GenericRESTResponse with {@code success=true} if the preference was saved,
+     *         {@code false} if no recognized preference field was provided
+     * @throws RuntimeException if the provider lacks "_pref" update privilege
+     */
     @POST
     @Path("/updatePreferences")
     @Produces("application/json")
@@ -444,18 +559,20 @@ public class PersonaService extends AbstractServiceImpl {
         Provider provider = getCurrentProvider();
         GenericRESTResponse response = new GenericRESTResponse();
 
+        // Enforce preference update privilege before any write operation
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
             throw new RuntimeException("Access Denied");
         }
 
         Boolean value = null;
 
+        // Extract the expiredTicklersOnly flag from the request JSON
         if (json.has("expiredTicklersOnly")) {
             value = json.get("expiredTicklersOnly").asBoolean();
         }
 
         if (value != null) {
-
+            // Upsert the dashboard filter property: update existing or create new
             UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
             UserProperty prop = propDao.getProp(provider.getProviderNo(), "dashboard.expiredTicklersOnly");
             if (prop != null) {
@@ -480,6 +597,14 @@ public class PersonaService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Returns the dashboard navigation menu for the current provider. Builds a dropdown
+     * menu structure containing all dashboards the provider has access to, with links
+     * to the dashboard display action.
+     *
+     * @return NavbarResponse containing the dashboard menu structure, or an empty response
+     *         if no dashboards are available
+     */
     @GET
     @Path("/dashboardMenu")
     @Produces("application/json")

@@ -171,6 +171,7 @@
                                     </li>
                                 </security:oscarSec>
 
+                                <%-- Uses _appointment.doctorLink (not _lab) to match InboxHub action security --%>
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink"
                                                    rights="r">
                                     <li>
@@ -339,6 +340,7 @@
                        onClick="popup(700,1024,'<%= request.getContextPath() %>/scratch/index.jsp','scratch')"><span
                             class="glyphicon glyphicon-list-alt"></span></a>
                 </li>
+                <%-- Preferences popup: sized 800x1000 for the consolidated single-page layout --%>
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"

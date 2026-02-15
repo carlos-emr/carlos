@@ -329,7 +329,8 @@ label.error {
 			   <li><a href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/oscarWorkflow/WorkFlowList.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflow"/>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnworkflow"/></a></li>
 			</oscar:oscarPropertiesCheck>
 
-			 <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">			
+			 <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
+			 <%-- Uses _appointment.doctorLink (not _lab) to match InboxHub action security --%>
 			 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
 			   <li>
 			       <a HREF="#" style="display:inline-block;padding-right:0px" onclick="popupInboxManager('<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>

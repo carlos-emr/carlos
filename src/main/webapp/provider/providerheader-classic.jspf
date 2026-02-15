@@ -208,6 +208,7 @@ function popupPage2(varpage) {
 </li>
 </security:oscarSec>
 
+<%-- Uses _appointment.doctorLink (not _lab) to match InboxHub action security --%>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
    <li>
        <a HREF="#" ONCLICK ="popupInboxManager('<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>

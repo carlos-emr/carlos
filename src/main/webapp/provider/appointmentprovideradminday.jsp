@@ -446,6 +446,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
     <c:set var="billingRights" value="true" scope="page"/>
 </security:oscarSec>
+<%-- Uses _appointment.doctorLink (not _lab) to match the InboxHub action's security check --%>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
     <c:set var="doctorLinkRights" value="true" scope="page"/>
 </security:oscarSec>
@@ -1162,6 +1163,7 @@
 						</span>
                         </a>
                     </li>
+                    <%-- Preferences popup: sized 800x1000 for the new consolidated single-page layout --%>
                     <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
                            onClick="popupPage(800,1000,'providerpreference.jsp?provider_no=<%= Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo()) %>')"

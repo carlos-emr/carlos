@@ -156,6 +156,8 @@ public final class ProviderPreferencesUIBean {
         temp = StringUtils.trimToNull(request.getParameter("dxCode"));
         if (temp != null) providerPreference.setDefaultDxCode(temp);
 
+        // Schedule hours validation: both start and end must be provided together,
+        // must be valid 0-23 range, and start must precede end
         String startHourStr = StringUtils.trimToNull(request.getParameter("start_hour"));
         String endHourStr = StringUtils.trimToNull(request.getParameter("end_hour"));
         if (startHourStr != null && endHourStr != null) {
@@ -180,6 +182,8 @@ public final class ProviderPreferencesUIBean {
             }
         }
 
+        // Appointment slot duration (minutes): clamp silently to 1-120 range rather
+        // than rejecting, since a reasonable default is better than blocking the save
         temp = StringUtils.trimToNull(request.getParameter("every_min"));
         if (temp != null) {
             try {
@@ -202,6 +206,7 @@ public final class ProviderPreferencesUIBean {
             }
         }
 
+        // Schedule group and billing defaults - simple text fields, no validation needed
         temp = StringUtils.trimToNull(request.getParameter("mygroup_no"));
         if (temp != null) providerPreference.setMyGroupNo(temp);
 
@@ -211,13 +216,14 @@ public final class ProviderPreferencesUIBean {
         temp = StringUtils.trimToNull(request.getParameter("default_location"));
         if (temp != null) providerPreference.setDefaultBillingLocation(temp);
 
-
+        // Display and printing preferences
         temp = StringUtils.trimToNull(request.getParameter("color_template"));
         if (temp != null) providerPreference.setColourTemplate(temp);
 
         providerPreference.setPrintQrCodeOnPrescriptions(WebUtils.isChecked(request, "prescriptionQrCodes"));
 
-        // get encounterForms for appointment screen
+        // Appointment screen form display length: controls how many characters of
+        // form names are shown in the appointment screen shortcut links
         temp = StringUtils.trimToNull(request.getParameter("appointmentScreenFormsNameDisplayLength"));
         if (temp != null) {
             try {
@@ -234,6 +240,7 @@ public final class ProviderPreferencesUIBean {
             }
         }
 
+        // Rebuild encounter form list from multi-select: clear existing and repopulate
         String[] formNames = request.getParameterValues("encounterFormName");
         Collection<String> formNamesList = providerPreference.getAppointmentScreenForms();
 
@@ -270,7 +277,8 @@ public final class ProviderPreferencesUIBean {
             }
         }
 
-        // external prescriber prefs
+        // External prescriber (eRx) settings: enable/disable flag, credentials,
+        // facility, training mode toggle, and SSO URL for external prescription integration
         providerPreference.setERxEnabled(WebUtils.isChecked(request, "erx_enable"));
 
         temp = StringUtils.trimToNull(request.getParameter("erx_username"));
@@ -299,13 +307,20 @@ public final class ProviderPreferencesUIBean {
     }
 
     /**
-     * Some day we'll fix this so preferences are created when providers are created, it was suppose to be that way
-     * but something got missed somewhere.
+     * Retrieves the {@link ProviderPreference} for the given provider, creating a new default
+     * record if none exists.
+     *
+     * <p>Ideally, preferences would be created when providers are first created, but this
+     * lazy-initialization pattern ensures every provider always has a preference entity.
+     *
+     * @param providerNo String the provider number to look up
+     * @return ProviderPreference the existing preference, or a newly persisted default if none found
      */
     public static ProviderPreference getProviderPreference(String providerNo) {
 
         ProviderPreference providerPreference = providerPreferenceDao.find(providerNo);
 
+        // Auto-create default preference record if provider has never saved preferences
         if (providerPreference == null) {
             providerPreference = new ProviderPreference();
             providerPreference.setProviderNo(providerNo);
@@ -315,38 +330,88 @@ public final class ProviderPreferencesUIBean {
         return providerPreference;
     }
 
+    /**
+     * Retrieves all active eForms, sorted alphabetically by form name.
+     * Used by the preferences page to populate the eForm selection list for
+     * appointment screen shortcuts.
+     *
+     * @return List&lt;EForm&gt; all active eForms sorted by {@link EForm#FORM_NAME_COMPARATOR}
+     */
     public static List<EForm> getAllEForms() {
         List<EForm> results = eFormDao.findAll(true);
         Collections.sort(results, EForm.FORM_NAME_COMPARATOR);
         return (results);
     }
 
+    /**
+     * Retrieves all encounter forms, sorted alphabetically by form name.
+     * Used by the preferences page to populate the encounter form selection list
+     * for appointment screen shortcuts.
+     *
+     * @return List&lt;EncounterForm&gt; all encounter forms sorted by {@link EncounterForm#FORM_NAME_COMPARATOR}
+     */
     public static List<EncounterForm> getAllEncounterForms() {
         List<EncounterForm> results = encounterFormDao.findAll();
         Collections.sort(results, EncounterForm.FORM_NAME_COMPARATOR);
         return (results);
     }
 
+    /**
+     * Returns the collection of encounter form names selected by the provider
+     * for display on their appointment screen.
+     *
+     * @param providerNo String the provider number to look up
+     * @return Collection&lt;String&gt; encounter form names configured for the provider's appointment screen
+     */
     public static Collection<String> getCheckedEncounterFormNames(String providerNo) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
         return (providerPreference.getAppointmentScreenForms());
     }
 
+    /**
+     * Returns the collection of eForm links (ID + name pairs) selected by the provider
+     * for display on their appointment screen.
+     *
+     * @param providerNo String the provider number to look up
+     * @return Collection&lt;ProviderPreference.EformLink&gt; eForm links configured for the provider's appointment screen
+     */
     public static Collection<ProviderPreference.EformLink> getCheckedEFormIds(String providerNo) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
         return (providerPreference.getAppointmentScreenEForms());
     }
 
+    /**
+     * Retrieves the {@link ProviderPreference} directly from the database without
+     * auto-creating a default. Returns {@code null} if no preference record exists.
+     *
+     * @param providerNo String the provider number to look up
+     * @return ProviderPreference the preference entity, or {@code null} if not found
+     */
     public static ProviderPreference getProviderPreferenceByProviderNo(String providerNo) {
         return providerPreferenceDao.find(providerNo);
     }
 
+    /**
+     * Returns the collection of quick links configured for the provider's appointment screen.
+     * Quick links provide one-click access to frequently used external URLs.
+     *
+     * @param providerNo String the provider number to look up
+     * @return Collection&lt;ProviderPreference.QuickLink&gt; the provider's configured quick links
+     */
     public static Collection<ProviderPreference.QuickLink> getQuickLinks(String providerNo) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 
         return (providerPreference.getAppointmentScreenQuickLinks());
     }
 
+    /**
+     * Adds a new quick link to the provider's appointment screen configuration and
+     * persists the change immediately.
+     *
+     * @param providerNo String the provider number to update
+     * @param name String the display name for the quick link
+     * @param url String the URL the quick link navigates to
+     */
     public static void addQuickLink(String providerNo, String name, String url) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 
@@ -361,6 +426,17 @@ public final class ProviderPreferencesUIBean {
         providerPreferenceDao.merge(providerPreference);
     }
 
+    /**
+     * Removes a quick link by name from the provider's appointment screen configuration
+     * and persists the change immediately. If no link with the given name exists, no
+     * change is made.
+     *
+     * <p>Note: Modifies the collection during iteration but immediately breaks out of the
+     * loop after the first match, which is safe for single removal.
+     *
+     * @param providerNo String the provider number to update
+     * @param name String the display name of the quick link to remove
+     */
     public static void removeQuickLink(String providerNo, String name) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 
@@ -368,7 +444,7 @@ public final class ProviderPreferencesUIBean {
 
         for (ProviderPreference.QuickLink quickLink : quickLinks) {
             if (name.equals(quickLink.getName())) {
-                // it should be okay to modify the list while we're iterating through it, as long as we don't touch it after it's modified.
+                // Safe to modify during iteration because we break immediately after removal
                 quickLinks.remove(quickLink);
                 break;
             }
