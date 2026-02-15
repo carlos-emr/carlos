@@ -166,18 +166,15 @@ public final class ProviderPreferencesUIBean {
                         providerPreference.setStartHour(startHour);
                         providerPreference.setEndHour(endHour);
                     } else {
-                        String errorMsg = "Start hour (" + startHour + ") must be less than end hour (" + endHour + ")";
-                        validationErrors.add(errorMsg);
+                        validationErrors.add("Start hour must be less than end hour");
                         MiscUtils.getLogger().warn("start_hour {} must be less than end_hour {} for provider {}", startHour, endHour, providerNo);
                     }
                 } else {
-                    String errorMsg = "Schedule hours must be in valid range 0-23 (start: " + startHour + ", end: " + endHour + ")";
-                    validationErrors.add(errorMsg);
+                    validationErrors.add("Schedule hours must be in valid range (0-23)");
                     MiscUtils.getLogger().warn("Schedule hours out of valid range 0-23: start_hour={}, end_hour={} for provider {}", startHour, endHour, providerNo);
                 }
             } catch (NumberFormatException e) {
-                String errorMsg = "Schedule hours must be valid numbers (start: '" + startHourStr + "', end: '" + endHourStr + "')";
-                validationErrors.add(errorMsg);
+                validationErrors.add("Schedule hours must be valid numbers");
                 MiscUtils.getLogger().warn("Invalid schedule hour values: start_hour='{}', end_hour='{}' for provider {}", startHourStr, endHourStr, providerNo, e);
             }
         }
@@ -190,20 +187,17 @@ public final class ProviderPreferencesUIBean {
 
                 if (everyMinValue < 1) {
                     normalizedEveryMin = 1;
-                    String errorMsg = "Appointment period (" + everyMinValue + " min) was adjusted to minimum of 1 minute";
-                    validationErrors.add(errorMsg);
+                    validationErrors.add("Appointment period was adjusted to minimum of 1 minute");
                     MiscUtils.getLogger().warn("every_min value {} below minimum; clamping to 1 for provider {}", everyMinValue, providerNo);
                 } else if (everyMinValue > 120) {
                     normalizedEveryMin = 120;
-                    String errorMsg = "Appointment period (" + everyMinValue + " min) was adjusted to maximum of 120 minutes";
-                    validationErrors.add(errorMsg);
+                    validationErrors.add("Appointment period was adjusted to maximum of 120 minutes");
                     MiscUtils.getLogger().warn("every_min value {} above maximum; clamping to 120 for provider {}", everyMinValue, providerNo);
                 }
 
                 providerPreference.setEveryMin(normalizedEveryMin);
             } catch (NumberFormatException e) {
-                String errorMsg = "Appointment period must be a valid number ('" + temp + "')";
-                validationErrors.add(errorMsg);
+                validationErrors.add("Appointment period must be a valid number");
                 MiscUtils.getLogger().warn("Invalid every_min value: '{}' for provider {}", temp, providerNo, e);
             }
         }
