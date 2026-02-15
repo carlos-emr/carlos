@@ -1377,7 +1377,7 @@ function checkTypeInAll() {
 
     // All three schedule fields must be valid numbers
     if (isNaN(s) || isNaN(e) || isNaN(i)) {
-        alert("Schedule values must be numbers.");
+        alert("Schedule hours must be numbers between 0 and 23.");
         return false;
     }
     // End hour must be within 24-hour range
