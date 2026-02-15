@@ -144,7 +144,7 @@
     String hcType = props.getOrDefault(UserProperty.HC_TYPE, "");
     boolean cppSingleLine = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.CPP_SINGLE_LINE, "no"));
     String staleNoteDate = props.getOrDefault(UserProperty.STALE_NOTEDATE, "A");
-    String staleFormat = props.getOrDefault(UserProperty.STALE_FORMAT, "No");
+    String staleFormat = props.getOrDefault(UserProperty.STALE_FORMAT, "no");
 
     // Consultation preferences
     String consultCutoff = props.getOrDefault(UserProperty.CONSULTATION_TIME_PERIOD_WARNING, "");
