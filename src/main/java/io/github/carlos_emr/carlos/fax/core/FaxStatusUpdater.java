@@ -168,7 +168,7 @@ public class FaxStatusUpdater {
         try {
             // Guard against null jobId to prevent NPE during Long-to-long unboxing
             if (faxJob.getJobId() == null) {
-                log.warn("Fax job {} has null jobId, cannot check status via direct API", faxJob.getId());
+                log.error("Fax job {} has null jobId, cannot check status via direct API", faxJob.getId());
                 return;
             }
             FaxStatusCheckResult result = connector.checkFaxStatus(faxConfig, faxJob.getJobId());
