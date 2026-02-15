@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -136,8 +137,9 @@ public class ReportMacro2Action extends ActionSupport {
             CommonLabResultData.updateReportStatus(Integer.parseInt(segmentID), providerNo, 'A', comment, labType, skipComment(providerNo));
 
             // Audit log for lab acknowledgment
-            LogAction.addLogSynchronous(loggedInInfo, "ReportMacro.acknowledgeLab",
-                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo);
+            LogAction.addLogSynchronous(providerNo, LogConst.ACK,
+                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
+                LogConst.CON_MDS_LAB, loggedInInfo.getIp());
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
             ObjectNode jTickler = (ObjectNode) macro.get("tickler");
@@ -201,8 +203,9 @@ public class ReportMacro2Action extends ActionSupport {
                 ticklerDao.persist(t);
 
                 // Audit log for tickler creation
-                LogAction.addLogSynchronous(loggedInInfo, "ReportMacro.createTickler",
-                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo);
+                LogAction.addLogSynchronous(providerNo, LogConst.ADD,
+                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
+                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
 
                 TicklerLink tl = new TicklerLink();
                 tl.setTableId(Long.valueOf(segmentID));
