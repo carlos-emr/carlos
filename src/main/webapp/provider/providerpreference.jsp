@@ -1359,6 +1359,12 @@ function setfocus() {
     document.UPDATEPRE.mygroup_no.select();
 }
 
+// Ensure initial focus is applied once the DOM is ready
+document.addEventListener('DOMContentLoaded', function () {
+    if (document.UPDATEPRE && document.UPDATEPRE.mygroup_no) {
+        setfocus();
+    }
+});
 /**
  * Validates schedule parameters before form submission.
  * Ensures start < end, values are numeric, and period fits within the range.
