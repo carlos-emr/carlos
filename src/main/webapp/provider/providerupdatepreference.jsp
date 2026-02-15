@@ -86,13 +86,6 @@
             </tr>
         </table>
         <%
-            String programId_forCME = request.getParameter("case_program_id");
-            request.getSession().setAttribute("case_program_id", programId_forCME);
-
-            String selected_site = (String) request.getParameter("site");
-            if (selected_site != null) {
-                session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
-            }
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             if (loggedInInfo == null) {
                 response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -105,6 +98,14 @@
                 throw new SecurityException("missing required sec object: _pref (write access required)");
             }
 
+            String programId_forCME = request.getParameter("case_program_id");
+            request.getSession().setAttribute("case_program_id", programId_forCME);
+
+            String selected_site = (String) request.getParameter("site");
+            if (selected_site != null) {
+                session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
+            }
+
             boolean saveSuccess = false;
             String errorDetails = null;
             ProviderPreference providerPreference = null;
@@ -112,11 +113,10 @@
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
 
             try {
-                // Save tickler provider number if provided
+                // Validate tickler provider number if provided (but don't save yet)
                 String ticklerforproviderno = request.getParameter("ticklerforproviderno");
                 if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
-                    ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-
+                    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
                     if (!providerDao.providerExists(ticklerforproviderno.trim())) {
                         String correlationId = UUID.randomUUID().toString();
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
@@ -125,8 +125,18 @@
                             org.owasp.encoder.Encode.forJava(ticklerforproviderno)
                         );
                         errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
-                    } else {
-                        UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+                    }
+                }
+
+                // Only proceed with saves if there were no validation errors
+                if (errorDetails == null) {
+                    // Save all preferences atomically - if any fail, all fail
+                    providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
+                    ProviderPropertyAction.updateOrCreateProviderProperties(request);
+
+                    // Save tickler provider number after other preferences succeed
+                    if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
+                        UserPropertyDAO propDao = SpringUtils.getBean(UserPropertyDAO.class);
                         UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
                         if (prop == null) {
                             prop = new UserProperty();
@@ -136,12 +146,6 @@
                         prop.setValue(ticklerforproviderno.trim());
                         propDao.saveProp(prop);
                     }
-                }
-
-                // Only proceed with other preference saves if there were no validation errors above
-                if (errorDetails == null) {
-                    providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
-                    ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
                     // IMPORTANT: Only update session after all saves succeed to avoid inconsistent state
                     session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);

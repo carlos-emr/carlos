@@ -83,6 +83,7 @@ public final class ProviderPreferencesUIBean {
      * @throws SecurityException if the session has expired (null loggedInInfo) or if the
      *         provider lacks write ("w") access to the "_pref" security object
      * @throws IllegalArgumentException if validation errors occur (message contains user-friendly error details)
+     * @since 2026-02-10
      */
     public static ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -185,13 +186,12 @@ public final class ProviderPreferencesUIBean {
                 int everyMinValue = Integer.parseInt(temp);
                 int normalizedEveryMin = everyMinValue;
 
+                // Clamp to valid range without adding validation errors (silent normalization)
                 if (everyMinValue < 1) {
                     normalizedEveryMin = 1;
-                    validationErrors.add("Appointment period was adjusted to minimum of 1 minute");
                     MiscUtils.getLogger().warn("every_min value {} below minimum; clamping to 1 for provider {}", everyMinValue, providerNo);
                 } else if (everyMinValue > 120) {
                     normalizedEveryMin = 120;
-                    validationErrors.add("Appointment period was adjusted to maximum of 120 minutes");
                     MiscUtils.getLogger().warn("every_min value {} above maximum; clamping to 120 for provider {}", everyMinValue, providerNo);
                 }
 
@@ -221,10 +221,11 @@ public final class ProviderPreferencesUIBean {
         temp = StringUtils.trimToNull(request.getParameter("appointmentScreenFormsNameDisplayLength"));
         if (temp != null) {
             try {
+                int displayLength = Integer.parseInt(temp);
+                providerPreference.setAppointmentScreenFormsNameDisplayLength(displayLength);
             } catch (NumberFormatException e) {
                 validationErrors.add("Appointment screen link name display length must be a valid number");
                 MiscUtils.getLogger().warn("Invalid appointmentScreenFormsNameDisplayLength value: '{}' for provider {}", temp, providerNo, e);
-            }
             }
         }
 

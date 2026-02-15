@@ -80,6 +80,7 @@ public class ProviderPropertyAction {
      *         provider lacks write ("w") access to the "_pref" security object
      * @throws PersistenceException if any preference fails to save to the database,
      *         preventing silent partial saves
+     * @since 2026-02-10
      */
     public static void updateOrCreateProviderProperties(HttpServletRequest request) throws PersistenceException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

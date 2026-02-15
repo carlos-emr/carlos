@@ -384,6 +384,7 @@ public class PersonaService extends AbstractServiceImpl {
      * @param obj ObjectNode JSON object. May contain a "type" field for future preference
      *            group filtering, but this is currently unused -- all calls return dashboard preferences.
      * @return PersonaResponse containing dashboard preferences
+     * @since 2026-02-10
      */
     @POST
     @Path("/preferences")
