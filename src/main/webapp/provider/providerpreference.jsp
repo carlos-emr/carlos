@@ -153,7 +153,7 @@
     String faxNum = props.getOrDefault("faxnumber", "");
 
     // Display preferences
-    String colour = props.getOrDefault(UserProperty.COLOUR, "");
+    String colour = props.getOrDefault("ProviderColour", "");
     boolean dashboardShare = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.DASHBOARD_SHARE, "no"));
 
     // Appointment card preferences
