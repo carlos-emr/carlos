@@ -1378,12 +1378,12 @@ function checkTypeInAll() {
 
     // All three schedule fields must be valid numbers
     if (isNaN(s) || isNaN(e) || isNaN(i)) {
-        alert("Schedule hours must be numbers between 0 and 23.");
+        alert("Schedule values must be valid numbers. Start/end hours: 0-23, period: 1-120 minutes.");
         return false;
     }
     // End hour must be within 24-hour range
     if (e >= 24) {
-        alert("End hour must be less than 24.");
+        alert("End hour must be between 0 and 23.");
         return false;
     }
     // Start must come before end
@@ -1393,7 +1393,7 @@ function checkTypeInAll() {
     }
     // Period must be positive and fit within the hour range
     if (i <= 0 || i > (e - s) * 60) {
-        alert("Period must be positive and fit within the hour range.");
+        alert("Appointment period must be a positive number that fits within the scheduled hours (start to end).");
         return false;
     }
     // Enforce server-side 120-minute maximum to match backend validation
