@@ -115,7 +115,7 @@
                 providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                 ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
-                //---
+                // IMPORTANT: Only update session after both saves succeed to avoid inconsistent state
                 session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
                 session.setAttribute("default_servicetype", providerPreference.getDefaultServiceType());
                 session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
@@ -124,6 +124,10 @@
                 session.setAttribute("defaultDxCode", providerPreference.getDefaultDxCode());
                 
                 saveSuccess = true;
+            } catch (IllegalArgumentException e) {
+                // Validation errors - show user-friendly message from exception
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Validation errors for provider {}: {}", curUser_providerno, e.getMessage());
+                errorDetails = e.getMessage();
             } catch (javax.persistence.PersistenceException e) {
                 String correlationId = UUID.randomUUID().toString();
                 io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Database error saving provider preferences for provider " + curUser_providerno + " [Correlation ID: " + correlationId + "]", e);
