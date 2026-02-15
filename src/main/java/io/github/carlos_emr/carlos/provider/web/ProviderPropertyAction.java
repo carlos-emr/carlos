@@ -115,16 +115,16 @@ public class ProviderPropertyAction {
         saveIfPresent(request, propertyDAO, providerNo, UserProperty.STALE_FORMAT, "cme_note_format");
 
         // Consultation preferences
-        saveIfPresent(request, propertyDAO, providerNo, UserProperty.CONSULTATION_TIME_PERIOD_WARNING, "consultation_time_period_warning");
-        saveIfPresent(request, propertyDAO, providerNo, UserProperty.CONSULTATION_TEAM_WARNING, "consultation_team_warning");
-        saveIfPresent(request, propertyDAO, providerNo, UserProperty.WORKLOAD_MANAGEMENT, "workload_management");
+        saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.CONSULTATION_TIME_PERIOD_WARNING, "consultation_time_period_warning");
+        saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.CONSULTATION_TEAM_WARNING, "consultation_team_warning");
+        saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.WORKLOAD_MANAGEMENT, "workload_management");
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.CONSULTATION_REQ_PASTE_FMT, "consultation_req_paste_fmt");
 
         // Lab preferences
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.LAB_ACK_COMMENT, "lab_ack_comment");
 
         // Display preferences
-        saveIfPresent(request, propertyDAO, providerNo, UserProperty.PATIENT_NAME_LENGTH, "patient_name_length");
+        saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.PATIENT_NAME_LENGTH, "patient_name_length");
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.DISPLAY_DOCUMENT_AS, "display_document_as");
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT, "edoc_browser_in_document_report");
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.EDOC_BROWSER_IN_MASTER_FILE, "edoc_browser_in_master_file");
