@@ -167,6 +167,9 @@ public class ConfigureFax2Action extends ActionSupport {
             // If no account IDs were submitted, all accounts have been removed
             if (faxConfigIds == null) {
                 for (FaxConfig sfaxConfig : savedFaxConfigList) {
+                    // Log account deletion
+                    String data = "Fax account: " + sfaxConfig.getAccountName();
+                    LogAction.addLogSynchronous(loggedInInfo, LogConst.DELETE, data);
                     faxConfigDao.remove(sfaxConfig.getId());
                 }
             } else {

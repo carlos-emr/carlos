@@ -556,7 +556,7 @@ public class SRFaxApiConnector {
                     result.setError(json.getString("Result"));
                 }
             }
-        } catch (IOException e) {
+        } catch (IOException | org.json.JSONException e) {
             logger.error("Failed to parse SRFax API list response", e);
             result = new ListWrapper<>();
             result.setStatus("Error");
@@ -588,9 +588,9 @@ public class SRFaxApiConnector {
             result.setStatus("Error");
             result.setError("Account is Blocked at this IP");
         } else {
-            JSONObject json = new JSONObject(response);
-            String status = json.getString("Status");
             try {
+                JSONObject json = new JSONObject(response);
+                String status = json.getString("Status");
                 if (SingleWrapper.STATUS_SUCCESS.equals(status)) {
                     result = OBJECT_MAPPER.readValue(response, typeReference);
                 } else {
@@ -599,7 +599,7 @@ public class SRFaxApiConnector {
                     result.setStatus(status);
                     result.setError(json.getString("Result"));
                 }
-            } catch (IOException e) {
+            } catch (IOException | org.json.JSONException e) {
                 logger.error("Failed to parse SRFax API single response", e);
                 result = new SingleWrapper<>();
                 result.setStatus("Error");
