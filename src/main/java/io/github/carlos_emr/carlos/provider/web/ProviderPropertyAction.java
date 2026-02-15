@@ -176,10 +176,15 @@ public class ProviderPropertyAction {
      * @throws PersistenceException if the save operation fails
      */
     private static void saveIfPresent(HttpServletRequest request, UserPropertyDAO dao,
-                                      String providerNo, String propName, String paramName) {
+                                      String providerNo, String propName, String paramName) throws PersistenceException {
         String value = StringUtils.trimToNull(request.getParameter(paramName));
         if (value != null) {
-            dao.saveProp(providerNo, propName, value);
+            try {
+                dao.saveProp(providerNo, propName, value);
+            } catch (PersistenceException e) {
+                MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+                throw e;  // Propagate to caller
+            }
         }
     }
 
@@ -197,10 +202,15 @@ public class ProviderPropertyAction {
      * @throws PersistenceException if the save operation fails
      */
     private static void saveAllowEmpty(HttpServletRequest request, UserPropertyDAO dao,
-                                       String providerNo, String propName, String paramName) {
+                                       String providerNo, String propName, String paramName) throws PersistenceException {
         String value = request.getParameter(paramName);
         if (value != null) {
-            dao.saveProp(providerNo, propName, value.trim());
+            try {
+                dao.saveProp(providerNo, propName, value.trim());
+            } catch (PersistenceException e) {
+                MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+                throw e;  // Propagate to caller
+            }
         }
     }
 
@@ -216,9 +226,14 @@ public class ProviderPropertyAction {
      * @throws PersistenceException if the save operation fails
      */
     private static void saveCheckbox(HttpServletRequest request, UserPropertyDAO dao,
-                                     String providerNo, String propName, String paramName) {
+                                     String providerNo, String propName, String paramName) throws PersistenceException {
         String value = request.getParameter(paramName);
-        dao.saveProp(providerNo, propName, value != null ? "yes" : "no");
+        try {
+            dao.saveProp(providerNo, propName, value != null ? "yes" : "no");
+        } catch (PersistenceException e) {
+            MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+            throw e;  // Propagate to caller
+        }
     }
 
     /**
@@ -234,9 +249,14 @@ public class ProviderPropertyAction {
      * @throws PersistenceException if the save operation fails
      */
     private static void saveBooleanCheckbox(HttpServletRequest request, UserPropertyDAO dao,
-                                            String providerNo, String propName, String paramName) {
+                                            String providerNo, String propName, String paramName) throws PersistenceException {
         String value = request.getParameter(paramName);
-        dao.saveProp(providerNo, propName, value != null ? "true" : "false");
+        try {
+            dao.saveProp(providerNo, propName, value != null ? "true" : "false");
+        } catch (PersistenceException e) {
+            MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+            throw e;  // Propagate to caller
+        }
     }
 
     /**
@@ -254,7 +274,7 @@ public class ProviderPropertyAction {
      * @throws PersistenceException if the save operation fails
      */
     private static void saveBoolean(HttpServletRequest request, UserPropertyDAO dao,
-                                    String providerNo, String propName) {
+                                    String providerNo, String propName) throws PersistenceException {
         String value = StringUtils.trimToNull(request.getParameter(propName));
         UserProperty property = dao.getProp(providerNo, propName);
         if (property == null) {
@@ -263,6 +283,11 @@ public class ProviderPropertyAction {
             property.setName(propName);
         }
         property.setValue(String.valueOf(Boolean.parseBoolean(value)));
-        dao.saveProp(property);
+        try {
+            dao.saveProp(property);
+        } catch (PersistenceException e) {
+            MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
+            throw e;  // Propagate to caller
+        }
     }
 }
