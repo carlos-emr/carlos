@@ -140,7 +140,7 @@ public class ReportMacro2Action extends ActionSupport {
                 t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
                 t.setDemographicNo(Integer.parseInt(demographicNo));
                 t.setMessage(jTickler.get("message").asText());
-                t.setCreator(providerNo);
+                t.setCreator(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
 
                 // Set future service date if quantity and timeUnits are provided
                 if(jTickler.has("quantity") && jTickler.has("timeUnits")) {
