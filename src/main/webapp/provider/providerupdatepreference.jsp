@@ -36,6 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 
 <html>
     <head>
@@ -70,6 +71,13 @@
                 response.sendRedirect(request.getContextPath() + "/logout.jsp");
                 return;
             }
+
+            // Security check - require write access to _pref security object
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+                throw new SecurityException("missing required sec object: _pref (write access required)");
+            }
+
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
             String ticklerforproviderno = request.getParameter("ticklerforproviderno");
             if (ticklerforproviderno != null) {

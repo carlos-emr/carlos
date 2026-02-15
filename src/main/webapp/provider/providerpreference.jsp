@@ -88,17 +88,42 @@
     // Schedule fields - use request params as override if present (e.g. from redirect).
     // ProviderPreference initializes defaults (startHour=8, endHour=18, everyMin=15) but
     // getters may return null if loaded from a database row with NULL columns.
-    String startHour = request.getParameter("start_hour") != null
-            ? request.getParameter("start_hour")
-            : String.valueOf(providerPreference.getStartHour() != null ? providerPreference.getStartHour() : 8);
-    String endHour = request.getParameter("end_hour") != null
-            ? request.getParameter("end_hour")
-            : String.valueOf(providerPreference.getEndHour() != null ? providerPreference.getEndHour() : 18);
-    String everyMin = request.getParameter("every_min") != null
-            ? request.getParameter("every_min")
-            : String.valueOf(providerPreference.getEveryMin() != null ? providerPreference.getEveryMin() : 15);
-    String myGroupNo = request.getParameter("mygroup_no") != null
-            ? request.getParameter("mygroup_no") : providerPreference.getMyGroupNo();
+    // IMPORTANT: Validate request parameters before using them to prevent malformed values.
+    String startHourParam = request.getParameter("start_hour");
+    String startHour;
+    if (startHourParam != null && startHourParam.matches("^(?:[0-9]|1[0-9]|2[0-3])$")) {
+        // Valid hour in range 0-23
+        startHour = startHourParam;
+    } else {
+        startHour = String.valueOf(providerPreference.getStartHour() != null ? providerPreference.getStartHour() : 8);
+    }
+
+    String endHourParam = request.getParameter("end_hour");
+    String endHour;
+    if (endHourParam != null && endHourParam.matches("^(?:[0-9]|1[0-9]|2[0-3])$")) {
+        // Valid hour in range 0-23
+        endHour = endHourParam;
+    } else {
+        endHour = String.valueOf(providerPreference.getEndHour() != null ? providerPreference.getEndHour() : 18);
+    }
+
+    String everyMinParam = request.getParameter("every_min");
+    String everyMin;
+    if (everyMinParam != null && everyMinParam.matches("^[1-9][0-9]*$")) {
+        // Valid positive integer for minutes
+        everyMin = everyMinParam;
+    } else {
+        everyMin = String.valueOf(providerPreference.getEveryMin() != null ? providerPreference.getEveryMin() : 15);
+    }
+
+    String myGroupNoParam = request.getParameter("mygroup_no");
+    String myGroupNo;
+    if (myGroupNoParam != null && myGroupNoParam.matches("^[0-9]+$")) {
+        // Valid numeric group number
+        myGroupNo = myGroupNoParam;
+    } else {
+        myGroupNo = providerPreference.getMyGroupNo();
+    }
 
     // ── Bulk-load all UserProperty values into a map for efficient access ──
     Map<String, String> props = propertyDao.getProviderPropertiesAsMap(providerNo);
@@ -502,6 +527,7 @@
 <body>
 <form name="UPDATEPRE" method="post" action="providerupdatepreference.jsp" onsubmit="return checkTypeInAll()">
 <input type="hidden" name="color_template" value="deepblue">
+<input type="hidden" name="ticklerforproviderno" value="<%=Encode.forHtmlAttribute(props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, ""))%>">
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      HEADER BAR - Sticky navy header matching the schedule page top bar
@@ -967,19 +993,6 @@
     <div id="secDisplay" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
 
-            <%-- Provider colour shown on schedule grid.
-                 HTML color inputs require "#RRGGBB" format, so we normalize stored values:
-                 - Already has "#": use as-is
-                 - Has hex without "#": prepend "#"
-                 - Empty: default to navy blue #3366cc --%>
-            <div class="pref-row">
-                <div class="pref-label"><i class="fas fa-palette" style="margin-right:4px"></i> Provider Colour</div>
-                <div class="pref-value">
-                    <input type="color" name="colour"
-                           value="<%=Encode.forHtmlAttribute(colour.startsWith("#") ? colour : (!colour.isEmpty() ? "#" + colour : "#3366cc"))%>">
-                </div>
-            </div>
-
             <%-- Encounter window sizing --%>
             <div class="pref-row">
                 <div class="pref-label">Encounter Window Width <span class="hint">(px)</span></div>
@@ -1142,11 +1155,11 @@
                 <div class="pref-label">Lab Recall &amp; Macros</div>
                 <div class="pref-value pref-links">
                     <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall"
-                       class="pref-link" target="_blank">
+                       class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-redo"></i> Lab Recall Settings
                     </a>
                     <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs"
-                       class="pref-link" target="_blank">
+                       class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-code"></i> Lab Macros
                     </a>
                 </div>
@@ -1236,7 +1249,7 @@
                     String br = OscarProperties.getInstance().getProperty("billregion");
                     if ("BC".equals(br)) {
                 %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=Encode.forUriComponent(providerNo)%>"
-                     class="pref-link" target="_blank">
+                     class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-external-link-alt"></i> BC Billing Preferences
                 </a><%
                     }
@@ -1267,27 +1280,27 @@
                 These settings open in a separate window due to their complexity.
             </div>
             <div class="pref-links">
-                <a href="providerchangepassword.jsp" class="pref-link" target="_blank">
+                <a href="providerchangepassword.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> Change Password
                 </a>
-                <a href="providerSignature.jsp" class="pref-link" target="_blank">
+                <a href="providerSignature.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-signature"></i> Edit Signature
                 </a>
-                <a href="providerPrinter.jsp" class="pref-link" target="_blank">
+                <a href="providerPrinter.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> Set Default Printer
                 </a>
-                <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank">
+                <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-columns"></i> Configure eChart CPP
                 </a>
-                <a href="clients.jsp" class="pref-link" target="_blank">
+                <a href="clients.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-plug"></i> Manage API Clients
                 </a>
                 <a href="<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp"
-                   class="pref-link" target="_blank">
+                   class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> Document Description Template
                 </a>
                 <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewTicklerTaskAssignee"
-                   class="pref-link" target="_blank">
+                   class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-tasks"></i> Tickler Preferences
                 </a>
             </div>

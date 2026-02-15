@@ -94,11 +94,11 @@ public class ProviderPropertyAction {
         // Schedule preferences
         saveBoolean(request, propertyDAO, providerNo, UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS);
 
-        // Prescription preferences (rx_page_size has a "Default" empty option, so use saveAllowEmpty)
+        // Prescription preferences (rx_page_size and rx_default_quantity can be cleared, so use saveAllowEmpty)
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.RX_PAGE_SIZE, "rx_page_size");
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.RX_USE_RX3, "rx_use_rx3");
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.RX_SHOW_PATIENT_DOB, "rx_show_patient_dob");
-        saveIfPresent(request, propertyDAO, providerNo, UserProperty.RX_DEFAULT_QUANTITY, "rx_default_quantity");
+        saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.RX_DEFAULT_QUANTITY, "rx_default_quantity");
 
         // Clinical preferences (dropdowns with "--" empty option, so use saveAllowEmpty)
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.DEFAULT_SEX, "default_sex");
@@ -136,8 +136,9 @@ public class ProviderPropertyAction {
         saveAllowEmpty(request, propertyDAO, providerNo, "rxPhone", "rxPhone");
         saveAllowEmpty(request, propertyDAO, providerNo, "faxnumber", "faxnumber");
 
-        // Provider colour
-        saveIfPresent(request, propertyDAO, providerNo, UserProperty.COLOUR, "colour");
+        // Provider colour is managed via setProviderColour.do / ProviderColourUpdater
+        // and stored in the Property table under "ProviderColour". Do not persist here
+        // to avoid conflicting sources of truth.
 
         // eForm group (has "None" empty option, so use saveAllowEmpty)
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.EFORM_FAVOURITE_GROUP, "favourite_eform_group");
