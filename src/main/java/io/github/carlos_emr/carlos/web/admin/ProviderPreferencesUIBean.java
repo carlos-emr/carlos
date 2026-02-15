@@ -222,7 +222,12 @@ public final class ProviderPreferencesUIBean {
         if (temp != null) {
             try {
                 int displayLength = Integer.parseInt(temp);
-                providerPreference.setAppointmentScreenFormsNameDisplayLength(displayLength);
+                if (displayLength < 0) {
+                    validationErrors.add("Appointment screen link name display length must be zero or greater");
+                    MiscUtils.getLogger().warn("appointmentScreenFormsNameDisplayLength value {} below minimum; rejected for provider {}", displayLength, providerNo);
+                } else {
+                    providerPreference.setAppointmentScreenFormsNameDisplayLength(displayLength);
+                }
             } catch (NumberFormatException e) {
                 validationErrors.add("Appointment screen link name display length must be a valid number");
                 MiscUtils.getLogger().warn("Invalid appointmentScreenFormsNameDisplayLength value: '{}' for provider {}", temp, providerNo, e);
