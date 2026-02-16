@@ -28,66 +28,67 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="com.fasterxml.jackson.databind.JsonNode" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
+<%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 
-<%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
-<%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
-<%@page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
-<%@page import="com.fasterxml.jackson.databind.JsonNode" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
-
-<%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
-<%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="org.w3c.dom.Document" %>
-<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
-<%@ page import="java.time.format.DateTimeFormatter" %>
-<%@ page import="java.time.LocalDate" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.LabRequestReportLink" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextMessage" %>
-<jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
-<%@    page import="javax.swing.text.rtf.RTFEditorKit" %>
-<%@    page import="java.io.ByteArrayInputStream" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.LabRequestReportLink" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
+<%@ page import="java.io.ByteArrayInputStream" %>
+<%@ page import="java.net.URLEncoder" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="java.time.LocalDate" %>
+<%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.util.*" %>
+<%@ page import="javax.swing.text.rtf.RTFEditorKit" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.w3c.dom.Document" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -114,7 +115,7 @@
     String demographicID = request.getParameter("demographicId");
     String showAllstr = request.getParameter("all");
 
-String showLatest = request.getParameter("showLatest");
+    String showLatest = request.getParameter("showLatest");
 
     List<String> allLicenseNames = new ArrayList<String>();
     String lastLicenseNo = null, currentLicenseNo = null;
@@ -150,7 +151,7 @@ String showLatest = request.getParameter("showLatest");
 
     Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
     MeasurementMapDao measurementMapDao = SpringUtils.getBean(MeasurementMapDao.class);
-Hl7TextMessage hl7TextMessage = null;
+    Hl7TextMessage hl7TextMessage = null;
     if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
         hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
     }
@@ -180,8 +181,8 @@ Hl7TextMessage hl7TextMessage = null;
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
 
-String duplicateOfLab = null;
-Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
+    String duplicateOfLab = null;
+    Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
 
     if (remoteFacilityIdString == null) // local lab
     {
@@ -347,7 +348,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/javascript/jquery/jquery.form.js"></script>
 
-    <script type="text/javascript" charset="utf-8">
+    <script>
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
     </script>
@@ -442,6 +443,7 @@ div.Title2 a:hover { color: black }
 div.Title2 a:visited { color: black }
 div.Title2 a:active { color: black }
 .Cell        { background-color: silver; border-left: thin solid grey;
+               text-align: center;
                border-right: thin solid black;
                border-top: thin solid grey;
                border-bottom: thin solid black }
@@ -730,7 +732,6 @@ input[id^='acklabel_']{
                 window.location.reload();
             });
         }
-
         function submitLabel(lblval, segmentID) {
             var ackForm = document.forms['acknowledgeForm_' + segmentID];
             var tdisForm = document.forms['TDISLabelForm_' + segmentID];
@@ -741,6 +742,7 @@ input[id^='acklabel_']{
                 }
             }
         }
+
     </script>
 
 </head>
@@ -863,43 +865,43 @@ input[id^='acklabel_']{
 
 
     <form name="reassignForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" action="<%= request.getContextPath() %>/lab/CA/ALL/Forward.do">
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-        <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
-        <input type="hidden" name="selectedProviders" value=""/>
-        <input type="hidden" name="favorites" value=""/>
-        <input type="hidden" name="labType" value="HL7"/>
-        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull"/>
+        <input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
+        <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>">
+        <input type="hidden" name="selectedProviders" value="">
+        <input type="hidden" name="favorites" value="">
+        <input type="hidden" name="labType" value="HL7">
+        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull">
         <input type="hidden" id="providerNo_<%= Encode.forHtmlAttribute(segmentID) %>" name="providerNo"
-               value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
+               value="<%= Encode.forHtmlAttribute(providerNo) %>">
     </form>
 
     <form name="TDISLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
           action="<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do">
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-        <input type="hidden" id="labNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
+        <input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
+        <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
         <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%=label%>">
     </form>
 
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
           id="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+        <input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
 
-        <table width="100%" height="100%">
+        <table style="width:100%;">
             <tr>
-                <td valign="top">
-                    <table class="MainTableTopRowRightColumn" width="100%">
+                <td style="vertical-align:top;">
+                    <table class="MainTableTopRowRightColumn" style="width:100%;">
                         <tr>
                             <td>
                                 <input type="hidden" name="segmentID"
-                                       value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
-                                <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(multiLabId) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(segmentID) %>">
+                                <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(multiLabId) %>">
                                 <input type="hidden" name="providerNo" id="providerNo"
-                                       value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(providerNo) %>">
                                 <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(labStatus)%>"
-                                       id="labStatus_<%=Encode.forHtmlAttribute(segmentID)%>"/>
-                                <input type="hidden" name="comment" value=""/>
-                                <input type="hidden" name="labType" value="HL7"/>
+                                       id="labStatus_<%=Encode.forHtmlAttribute(segmentID)%>">
+                                <input type="hidden" name="comment" value="">
+                                <input type="hidden" name="labType" value="HL7">
                                 <%
                                     if (!ackFlag) {
                                 %>
@@ -955,27 +957,27 @@ input[id^='acklabel_']{
                                        onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
 
                                 <input type="button" class="btn btn-sm" value="Msg"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');"/>
+                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');">
                                 <input type="button" class="btn btn-sm" value="Tickler"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');"/>
+                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');">
                                 <input type="button" class="btn btn-sm" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
-                                       onclick="unlinkDemographic(<%=Encode.forJavaScript(segmentID)%>)"/>
+                                       onclick="unlinkDemographic(<%=Encode.forJavaScript(segmentID)%>)">
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
                                 <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
                                 <% } %>
                                 <input type="button" class="btn btn-sm" value="Req# <%=reqTableID%>" title="Link to Requisition"
-                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');"/>
+                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');">
 
 
                                 <% if (bShortcutForm) { %>
                                 <input type="button" class="btn btn-sm" value="<%=formNameShort%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=formNameShort%>')"/>
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=formNameShort%>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
                                 <input type="button" class="btn btn-sm" value="<%=formName2Short%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=formName2Short%>')"/>
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=formName2Short%>')">
                                 <% } %>
 
                                 <% if (recall) {%>
@@ -1003,7 +1005,7 @@ input[id^='acklabel_']{
                                 <input type="hidden" id="labNum_<%=Encode.forHtmlAttribute(segmentID) %>" name="lab_no"
                                        value="<%=lab_no%>">
                                 <input type="text" class="form-control form-control-sm" style="width: 140px; margin-top: 0px;" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
-                                       value=""/>
+                                       value="">
 
                                 <% String labelval = "";
                                     if (label != "" && label != null) {
@@ -1013,7 +1015,7 @@ input[id^='acklabel_']{
 
                                     } %>
                                 <span id="labelspan_<%= Encode.forHtmlAttribute(segmentID) %>"
-                                      class="Field2"><i><%= Encode.forHtml(labelval) %> </i></span>
+                                      ><i><%= Encode.forHtml(labelval) %> </i></span>
 
                                 <% } %>
 </div>
@@ -1027,15 +1029,14 @@ input[id^='acklabel_']{
 
                         </tr>
                     </table>
-                    <table width="100%" style="background-color:#9999CC;"
-                           bordercolordark="#bfcbe3">
+                    <table style="width:100%; background-color:#9999CC;">
                         <%
                             if (multiLabId != null) {
                                 String[] multiID = multiLabId.split(",");
                                 if (multiID.length > 1) {
                         %>
                         <tr>
-                            <td class="Cell" colspan="2" align="middle">
+                            <td class="Cell" colspan="2" >
                                 <div class="Field2">
                                     Version:&#160;&#160;
                                     <%
@@ -1068,36 +1069,36 @@ input[id^='acklabel_']{
                             }
                         %>
                         <tr>
-                            <td width="66%" align="middle" class="Cell">
+                            <td style="width:66%;"  class="Cell">
                                 <div class="Field2">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/>
                                 </div>
                             </td>
-                            <td width="33%" align="middle" class="Cell">
+                            <td style="width:33%;"  class="Cell">
                                 <div class="Field2">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResultsInfo"/>
                                 </div>
                             </td>
                         </tr>
                         <tr>
-                            <td style="background-color:white;" valign="top">
-                                <table valign="top" width="100%">
-                                    <tr valign="top">
-                                        <td valign="top" width="33%" align="left">
-                                            <table width="100%"                                                   valign="top"  <% if (!isLinkedToDemographic) { %>
-                                                   style="background-color:orange;" <% } %>
+                            <td style="background-color:white; vertical-align:top; ">
+                                <table style="width:100%; vertical-align:top;">
+                                    <tr style="vertical-align:top; ">
+                                        <td style="width:33%; text-align:left; vertical-align:top; ">
+                                            <table style="width:100%; vertical-align:top; <% if (!isLinkedToDemographic) { %>
+                                                   background-color:orange;<% } %>"
                                                    id="DemoTable<%= Encode.forHtmlAttribute(segmentID) %>">
                                                 <tr>
-                                                    <td valign="top" align="left">
-                                                        <table valign="top"                                                               width="100%">
+                                                    <td style="vertical-align:top;  text-align:left;">
+                                                        <table style="width:100%; vertical-align:top; ">
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div class="FieldData" nowrap="nowrap">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <% if (searchProviderNo == null) { // we were called from e-chart%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
@@ -1110,25 +1111,25 @@ input[id^='acklabel_']{
                                                                 <td colspan="2"></td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div class="FieldData" nowrap="nowrap">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <%=handler.getDOB()%>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <%=handler.getAge()%>
                                                                     </div>
@@ -1136,15 +1137,15 @@ input[id^='acklabel_']{
 
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong>
                                                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHealthNumber"/>
                                                                         </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div class="FieldData" nowrap="nowrap">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <%=handler.getHealthNum()%>
                                                                     </div>
                                                                 </td>
@@ -1152,47 +1153,47 @@ input[id^='acklabel_']{
                                                             </tr>
                                                         </table>
                                                     </td>
-                                                    <td width="33%" valign="top">
-                                                        <table valign="top"                                                               width="100%">
+                                                    <td style="width:33%;vertical-align:top; ">
+                                                        <table style="width:100%;vertical-align:top; ">
                                                             <tr>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHomePhone"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData" nowrap="nowrap">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <%=handler.getHomePhone()%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formWorkPhone"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData" nowrap="nowrap">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <%=handler.getWorkPhone()%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td align="left" nowrap>
+                                                                <td style="text-align:left; white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <%=handler.getSex()%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
                                                                         <strong>Reported by:</strong>
                                                                         <% } else { %>
@@ -1200,8 +1201,8 @@ input[id^='acklabel_']{
                                                                         <% } %>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData" nowrap="nowrap">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <%=handler.getPatientLocation()%>
                                                                     </div>
                                                                 </td>
@@ -1214,8 +1215,8 @@ input[id^='acklabel_']{
                                     </tr>
                                 </table>
                             </td>
-                            <td style="background-color:white;" valign="top">
-                                <table width="100%">
+                            <td style="background-color:white; vertical-align:top; ">
+                                <table style="width:100%;">
                                     <tr>
                                         <td>
                                             <div class="FieldData">
@@ -1227,7 +1228,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= handler.getServiceDate() %>
                                             </div>
                                         </td>
@@ -1241,7 +1242,7 @@ input[id^='acklabel_']{
                                                 </div>
                                             </td>
                                             <td>
-                                                <div class="FieldData" nowrap="nowrap">
+                                                <div class="FieldData">
                                                     <%= ((ExcellerisOntarioHandler) handler).getReportStatusChangeDate() %>
                                                 </div>
                                             </td>
@@ -1256,7 +1257,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= handler.getRequestDate(0) %>
                                             </div>
                                         </td>
@@ -1269,7 +1270,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= dateLabReceived %>
                                             </div>
                                         </td>
@@ -1281,7 +1282,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%=handler.getOrderStatus()%>
                                             </div>
                                         </td>
@@ -1290,13 +1291,13 @@ input[id^='acklabel_']{
                                         <td></td>
                                     </tr>
                                     <tr>
-                                        <td nowrap>
+                                        <td style="white-space:nowrap;">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formClientRefer"/>:</strong>
                                             </div>
                                         </td>
-                                        <td nowrap>
-                                            <div class="FieldData" nowrap="nowrap">
+                                        <td style="white-space:nowrap;">
+                                            <div class="FieldData">
                                                 <%= handler.getClientRef()%>
                                             </div>
                                         </td>
@@ -1308,7 +1309,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= handler.getAccessionNum()%>
                                             </div>
                                         </td>
@@ -1321,7 +1322,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= ((ExcellerisOntarioHandler) handler).getAlternativePatientIdentifier()%>
                                             </div>
                                         </td>
@@ -1335,7 +1336,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= handler.getEncounterId() %>
                                             </div>
                                         </td>
@@ -1350,7 +1351,7 @@ input[id^='acklabel_']{
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= comment %>
                                             </div>
                                         </td>
@@ -1361,7 +1362,7 @@ input[id^='acklabel_']{
                         </tr>
                         <tr>
                             <td style="background-color:white;" colspan="2">
-                                <table width="100%" bordercolor="#CCCCCC">
+                                <table style="width:100%; border-color:#CCCCCC;">
                                     <tr>
                                         <td style="background-color:white;">
                                             <div class="FieldData">
@@ -1375,7 +1376,7 @@ input[id^='acklabel_']{
                                         <%= No admitting Doctor for CML messages%>
                                 </div>
                             </td> --%>
-                                        <td style="background-color:white;" align="right">
+                                        <td style="background-color:white; text-align:right">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong>
                                                 <%= handler.getCCDocs()%>
@@ -1387,7 +1388,7 @@ input[id^='acklabel_']{
                             </td>
                         </tr>
                         <tr>
-                            <td align="center" style="background-color:white;" colspan="2" style="padding:0px;" >
+                            <td style="background-color:white; padding:0px; text-align:center;" colspan="2">
                                 <%
                                     String[] multiID = multiLabId.split(",");
                                     boolean isTickler = false;
@@ -1433,7 +1434,7 @@ input[id^='acklabel_']{
                                         %>
                                         <div style="text-align:left;background-color:#fff;padding:5px; width:600px;"
                                              class="<%=ticklerClass%>">
-                                            <table width="100%">
+                                            <table style="width:100%;">
                                                 <tr>
                                                     <td><b>Priority:</b> <%=flag%> <%=tickler.getPriority()%>
                                                     </td>
@@ -1442,7 +1443,7 @@ input[id^='acklabel_']{
                                                     <td><b>Assigned
                                                         To:</b> <%=tickler.getAssignee() != null ? Encode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
                                                     </td>
-                                                    <td width="90px">
+                                                    <td style="width:90px;">
                                                         <b>Status:</b> <%=ticklerStatus.equals("C") ? "Completed" : "Active" %>
                                                     </td>
                                                 </tr>
@@ -1503,17 +1504,17 @@ input[id^='acklabel_']{
                                         if (startFlag) {
                                             //if (ackList.size() > 0){{
                                 %>
-                                <table width="100%" height="20" >
+                                <table style="width:100%" >
                                     <tr>
                                         <% if (multiID.length > 1) { %>
-                                        <td align="center" style="background-color:white;" width="20%" valign="top">
+                                        <td style="background-color:white; text-align:center; width:20%">
                                             <div class="FieldData">
                                                 <b>Version:</b> v<%= j + 1 %>
                                             </div>
                                         </td>
-                                        <td align="left" style="background-color:white;" width="80%" valign="top">
+                                        <td style="background-color:white; text-align:left; width:80%;" >
                                                 <% }else{ %>
-                                        <td align="center" style="background-color:white;">
+                                        <td style="background-color:white; text-align:center;">
                                             <% } %>
                                             <div class="FieldData">
                                                 <!--center-->
@@ -1530,8 +1531,8 @@ input[id^='acklabel_']{
                                                         ackStatus = "Not Acknowledged";
                                                     }
                                                 %>
-                                                <font color="red"><%= ackStatus %>
-                                                </font>
+                                                <span style="color:red"><%= ackStatus %>
+                                                </span>
                                                 <% if (ackStatus.equals("Acknowledged")) { %>
                                                 <%= report.getTimestamp() %>,
                                                 <% } %>
@@ -1540,7 +1541,7 @@ input[id^='acklabel_']{
                                                 <br>
                                                 <% }
                                                     if (ackList.size() == 0) {
-                                                %><font color="red">N/A</font><%
+                                                %><span style="color:red">N/A</span><%
                                                 }
                                             %>
                                                 <!--/center-->
@@ -1571,48 +1572,48 @@ input[id^='acklabel_']{
 
                         if (handler.getMsgType().equals("MEDVUE")) { %>
                     <%-- MEDVUE Redirect. --%>
-                    <table style="page-break-inside:avoid;" class="darkBkg"                           width="100%">
+                    <table style="page-break-inside:avoid; width:100%">
                         <tr>
-                            <td colspan="4" height="7">&nbsp;</td>
+                            <td colspan="4">&nbsp;</td>
                         </tr>
                         <tr>
-                            <td style="background-color:#FFCC00;" width="300" valign="bottom">
+                            <td style="background-color:#FFCC00; width:300px; vertical-align:bottom">
                                 <div class="Title2">
                                     <%=headers.get(0)%>
                                 </div>
                             </td>
-                            <%--<td align="right" style="background-color:#FFCC00;" width="100">&nbsp;</td>--%>
-                            <td width="9">&nbsp;</td>
-                            <td width="9">&nbsp;</td>
-                            <td width="*">&nbsp;</td>
+                            <%--<td style="text-align:right" style="background-color:#FFCC00; width:100">&nbsp;</td>--%>
+                            <td style="width:9px">&nbsp;</td>
+                            <td style="width:9px">&nbsp;</td>
+                            <td>&nbsp;</td>
                         </tr>
                     </table>
-                    <table width="100%"                           bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+                    <table style="width:100%" id="tblDiscs1">
                         <tr class="Field2">
-                            <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                            <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                            <td width="10%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                            <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                            <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
+                            <td style="width:25%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:5%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
+                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
+                            <td style="width:10%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
+                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:6%"  class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                            <td style="width:6%"  class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                         </tr>
                         <tr class="TDISRes">
-                            <td valign="top" align="left" colspan="8">
+                            <td style="vertical-align:top;  text-align:left;"> colspan="9">
                                 <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=handler.getRadiologistInfo()%></b></pre>
                             </td>
                 </td>
             </tr>
             <tr class="TDISRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;"> colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><b><%=handler.getOBXComment(1, 1, 1)%></b></pre>
                 </td>
                 </td>
-                <td align="center" valign="top">
+                <td style="text-align:center; vertical-align:top; ">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
-                        <img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16" width="13"/>
+                        <img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16" style="width:13"/>
                     </a>
                 </td>
             </tr>
@@ -1644,94 +1645,94 @@ input[id^='acklabel_']{
                     isUnstructuredDoc = ((MEDITECHHandler) handler).isUnstructured();
                 } %>
 
-        <table style="page-break-inside:avoid;" class="darkBkg"               width="100%">
+        <table style="page-break-inside:avoid; width:100%;" class="darkBkg">
             <tr>
-                <td colspan="4" height="7">&nbsp;</td>
+                <td colspan="4">&nbsp;</td>
             </tr>
             <tr>
-                <td style="background-color:#FFCC00;" width="300" valign="bottom">
+                <td style="background-color:#FFCC00; width:300px; vertical-align: bottom">
                     <div class="Title2">
                         <%=headers.get(i)%>
                     </div>
                 </td>
-                <%--<td align="right" style="background-color:#FFCC00;" width="100">&nbsp;</td>--%>
-                <td width="9">&nbsp;</td>
-                <td width="9">&nbsp;</td>
-                <td width="*">&nbsp;</td>
+                <%--<td style="text-align:right" style="background-color:#FFCC00; width:100px">&nbsp;</td>--%>
+                <td style="width:9px">&nbsp;</td>
+                <td style="width:9px">&nbsp;</td>
+                <td>&nbsp;</td>
             </tr>
         </table>
         <% if ((handler.getMsgType().equals("MEDITECH") && isUnstructuredDoc) ||
                 (handler.getMsgType().equals("MEDITECH") && ((MEDITECHHandler) handler).isReportData())) { %>
-        <table style="width:100%;border-collapse:collapse;"  bordercolor="#9966FF"
-               bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+        <table style="width:100%;border-collapse:collapse; border-color:#9966FF;"
+               id="tblDiscs2">
             <tr>
                 <td colspan="4" style="padding-left:10px;">
 
                         <%} else if( isUnstructuredDoc){%>
-                    <table width="100%"                           bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+                    <table style="width:100%; border-color:#9966FF;" id="tblDiscs3">
 
                         <tr class="Field2">
 
-                            <td width="20%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td width="60%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:60%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
                             <% if ("CLS".equals(handler.getMsgType())) { %>
-                            <td width="20%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
                             <% } else { %>
-                            <td width="20%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                             <% } %>
 
-                            <td width="31%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td width="31%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                            <td width="31%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
 
                         </tr>
                             <%
 						} else {%>
-                        <table width="100%"                               bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+                        <table style="width:100%; border-color:#9966FF;" id="tblDiscs4">
 
                                 <% if( handler instanceof MEDITECHHandler && "MIC".equals( ((MEDITECHHandler) handler).getSendingApplication() ) ) { %>
                             <tr>
-                                <td colspan="8"></td>
+                                <td colspan="9"></td>
                             </tr>
                             <tr>
-                                <td valign="top" align="left" style="padding-left:20px;font-weight:bold;">SPECIMEN
+                                <td style="padding-left:20px;font-weight:bold; vertical-align:top; text-align:left;">SPECIMEN
                                     SOURCE:
                                 </td>
-                                <td valign="top" align="left" style="font-weight:bold;"
+                                <td style="font-weight:bold;vertical-align:top;text-align:left;"
                                     colspan="7"><%= ((MEDITECHHandler) handler).getSpecimenSource(i) %>
                                 </td>
                             </tr>
                             <tr>
-                                <td valign="top" align="left" style="padding-left:20px;font-weight:bold;">SPECIMEN
+                                <td style="padding-left:20px;font-weight:bold;vertical-align:top;">SPECIMEN
                                     DESCRIPTION:
                                 </td>
-                                <td valign="top" align="left" style="font-weight:bold;"
+                                <td style="font-weight:bold;vertical-align:top;text-align:left;"
                                     colspan="7"><%= ((MEDITECHHandler) handler).getSpecimenDescription(i) %>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="8"></td>
+                                <td colspan="9"></td>
                             </tr>
                                 <% }%>
 
                             <tr class="Field2">
-                                <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                                <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                                <td width="10%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
+                                <td style="width:25%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                                <td style="width:5%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
+                                <td style="width:10%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
                                 <% if ("CLS".equals(handler.getMsgType())) { %>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
                                 <% } else { %>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                                 <% } %>
-                                <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                                <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
+                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                                 <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
-                                <td width="6%" align="middle" valign="bottom" class="Cell">License #</td>
+                                <td style="width:6%;  vertical-align:bottom" class="Cell">License #</td>
                             </tr>
                                 <% } %>
-            </tr>
+            <!--</tr>-->
 
             <%
                 } // end else / if isUnstructured
@@ -1751,7 +1752,7 @@ input[id^='acklabel_']{
                             obrFlag = true;
                             %>
                                 <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" >
-                                    <td valign="top" align="left"><span style="font-size:16px;font-weight: bold;"><%=handler.getOBRName(j)%></span></td>
+                                    <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=handler.getOBRName(j)%></span></td>
                                     <td colspan="1"><%=orderRequestStatus%></td>
                                 </tr>
                             <%
@@ -1807,7 +1808,7 @@ input[id^='acklabel_']{
                             if (b1 && b2 && b3 && !handler.getMsgType().equals("ExcellerisON")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
-                <td valign="top" align="left"><span style="font-size:16px;font-weight: bold;"><%=obrName%></span></td>
+                <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=obrName%></span></td>
                 <td colspan="6">&nbsp;</td>
             </tr>
             <%
@@ -1848,7 +1849,7 @@ input[id^='acklabel_']{
             %>
 
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
@@ -1856,23 +1857,23 @@ input[id^='acklabel_']{
                         info</a>
                     <%} %>
                 </td>
-                <td align="right">
+                <td style="text-align:right">
                     <%= handler.getOBXResult(j, k) %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
-                <td align="center">
+                <td style="text-align:center">
                     <%= handler.getOBXAbnormalFlag(j, k)%>
                 </td>
-                <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
                 </td>
-                <td align="left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
                 </td>
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
                 </td>
-                <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%= handler.getOBXResultStatus(j, k) %>
                 </td>
-                <td align="center" valign="top">
+                <td style="text-align:center; vertical-align:top;  ">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
@@ -1884,7 +1885,7 @@ input[id^='acklabel_']{
             </tr>
             <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
@@ -1894,7 +1895,7 @@ input[id^='acklabel_']{
             } else if (handler.getMsgType().equals("PFHT") || handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML")) {
                 if (!obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                     &nbsp;
@@ -1902,23 +1903,23 @@ input[id^='acklabel_']{
                     <a href="javascript:popupStart('660','1000','http://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%=loincCode%>&informationRecipient.languageCode.c=en')">
                         info</a>
                     <%} %></td>
-                <td align="right">
+                <td style="text-align:right">
                     <%= handler.getOBXResult(j, k) %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
-                <td align="center">
+                <td style="text-align:center">
                     <%= handler.getOBXAbnormalFlag(j, k)%>
                 </td>
-                <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
                 </td>
-                <td align="left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
                 </td>
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
                 </td>
-                <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%= handler.getOBXResultStatus(j, k) %>
                 </td>
-                <td align="center" valign="top">
+                <td style="vertical-align:center; text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
@@ -1931,7 +1932,7 @@ input[id^='acklabel_']{
 
             <%} else { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
@@ -1941,14 +1942,14 @@ input[id^='acklabel_']{
                 if (!handler.getNteForOBX(j, k).equals("") && handler.getNteForOBX(j, k) != null) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=handler.getNteForOBX(j, k)%></pre>
                 </td>
             </tr>
             <% }
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
                 </td>
             </tr>
@@ -1958,7 +1959,7 @@ input[id^='acklabel_']{
             } else if ((!handler.getOBXResultStatus(j, k).equals("TDIS") && handler.getMsgType().equals("Spire"))) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
@@ -1968,7 +1969,7 @@ input[id^='acklabel_']{
                 <% if (handler.getOBXResult(j, k).length() > 20) {
                 %>
 
-                <td align="left" colspan="4">
+                <td style="text-align:left" colspan="4">
                     <%= handler.getOBXResult(j, k) %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
@@ -1976,7 +1977,7 @@ input[id^='acklabel_']{
                 <% String abnormalFlag = handler.getOBXAbnormalFlag(j, k);
                     if (abnormalFlag != null && abnormalFlag.length() > 0) {
                 %>
-                <td align="center">
+                <td style="text-align:center">
                     <%= abnormalFlag%>
                 </td>
                 <% } %>
@@ -1984,39 +1985,39 @@ input[id^='acklabel_']{
                 <% String refRange = handler.getOBXReferenceRange(j, k);
                     if (refRange != null && refRange.length() > 0) {
                 %>
-                <td align="left"><%=refRange%>
+                <td style="text-align:left"><%=refRange%>
                 </td>
                 <% } %>
 
                 <% String units = handler.getOBXUnits(j, k);
                     if (units != null && units.length() > 0) {
                 %>
-                <td align="left"><%=units %>
+                <td style="text-align:left"><%=units %>
                 </td>
                 <% } %>
                 <%
                 } else {
                 %>
-                <td align="right" colspan="1">
+                <td style="text-align:right" colspan="1">
                     <%= handler.getOBXResult(j, k) %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
-                <td align="center"><%= handler.getOBXAbnormalFlag(j, k)%>
+                <td style="text-align:center"><%= handler.getOBXAbnormalFlag(j, k)%>
                 </td>
-                <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
                 </td>
-                <td align="left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
                 </td>
                 <%
                     }
                 %>
 
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
                 </td>
-                <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%= handler.getOBXResultStatus(j, k) %>
                 </td>
 
-                <td align="center" valign="top">
+                <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
@@ -2029,7 +2030,7 @@ input[id^='acklabel_']{
 
             <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
                 </td>
             </tr>
@@ -2043,10 +2044,10 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%="NarrativeRes"%>"><%
                                    			if(handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (obxCount>1) && ! handler.getMsgType().equals("MEDITECH") ){%>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8")%>')"></a><%
                                    			}else if(! handler.getMsgType().equals("MEDITECH") ) {%>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                         <%}%>
@@ -2062,18 +2063,18 @@ input[id^='acklabel_']{
 										    	rtfParser.read(rtfStream, doc, 0);
 										    	String rtfText = doc.getText(0, doc.getLength()).replaceAll("\n", "<br>");
 										    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
-                <td align="left"><%= rtfText + disclaimer %>
+                <td style="text-align:left"><%= rtfText + disclaimer %>
                 </td>
                     <%}else{%>
-                <td align="left">
+                <td style="text-align:left">
                     <span><%= handler.getOBXResult(j, k) %><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
                 </td>
                     <%} %>
 
                     <% if(handler.getTimeStamp(j, k).equals(handler.getTimeStamp(j, k-1)) && (obxCount>1)){ %>
-                <td align="center"></td>
+                <td style="text-align:center"></td>
                     <%} else {%>
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
                 </td>
                     <%}
 
@@ -2082,7 +2083,7 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
 
                     <% if(handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount>1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))){%>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"></a><%
                                    			} else {
 
@@ -2091,7 +2092,7 @@ input[id^='acklabel_']{
 								%>
                 <td></td>
                     <% } else { %>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
 
@@ -2137,7 +2138,7 @@ input[id^='acklabel_']{
                                            		//CLS textual results - use 4 columns.
                                            		if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
                                            	%>
-                <td align="left" colspan="4">
+                <td style="text-align:left" colspan="4">
                     <%= handler.getOBXResult(j, k) %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
@@ -2174,13 +2175,13 @@ input[id^='acklabel_']{
                     }
 
             %>
-            <td align="<%=align%>"><a
+            <td style="text-align:<%=align%>"><a
                     href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forHtmlAttribute(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
                 Report</a></td>
             <%
             } else {
             %>
-            <td align="<%=align%>">
+            <td style="text-align:<%=align%>">
                 <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                 <em><%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %></em>
                 <% } else { %>
@@ -2190,19 +2191,19 @@ input[id^='acklabel_']{
             </td>
 
             <% } %>
-            <td align="center">
+            <td style="text-align:center">
                 <%= handler.getOBXAbnormalFlag(j, k)%>
             </td>
-            <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+            <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
             </td>
-            <td align="left"><%=handler.getOBXUnits(j, k) %>
+            <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
             </td>
 
             <%}%>
 
-            <td align="center"><%= handler.getTimeStamp(j, k) %>
+            <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
             </td>
-            <td align="center">
+            <td style="text-align:center">
                 <%
                     String status = handler.getOBXResultStatus(j, k);
                     if ("GDML".equals(handler.getMsgType()) && ((GDMLHandler) handler).isTestResultBlocked(j, k)) {
@@ -2215,7 +2216,7 @@ input[id^='acklabel_']{
                 <%=status %>
 
             </td>
-            <td align="center" valign="top"><a href="javascript:void(0);" title="Annotation"
+            <td style="vertical-align:top;  text-align:left;"><a href="javascript:void(0);" title="Annotation"
                                                onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                 <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                   width="13"/><%} else { %><img
@@ -2242,7 +2243,7 @@ input[id^='acklabel_']{
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
                 </td>
             </tr>
@@ -2257,10 +2258,10 @@ input[id^='acklabel_']{
                     if (!handler.getOBXComment(j, k, l).equals("")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="TDISRes">
-                <td valign="top" align="left" colspan="8">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
                 </td>
-                <td align="center" valign="top">
+                <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
@@ -2293,7 +2294,7 @@ input[id^='acklabel_']{
                     if (!obrFlag && handler.getOBXName(j, 0).equals("")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
-                <td valign="top" align="left"><%=handler.getOBRName(j)%>
+                <td style="vertical-align:top;  text-align:left;"><%=handler.getOBRName(j)%>
                 </td>
                 <td colspan="6">&nbsp;</td>
             </tr>
@@ -2302,8 +2303,8 @@ input[id^='acklabel_']{
                 }
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
-                <td valign="top" align="left" colspan="1"></td>
-                <td valign="top" align="left" colspan="7">
+                <td style="vertical-align:top;  text-align:left;" colspan="1"></td>
+                <td style="vertical-align:top;  text-align:left;" colspan="7">
                     <pre style="margin:0px 0px 0px 0px;"><%=handler.getOBRComment(j, k)%></pre>
                 </td>
             </tr>
@@ -2311,7 +2312,7 @@ input[id^='acklabel_']{
                 if (handler.getOBXName(j, k).equals("")) {
                     String result = handler.getOBXResult(j, k);%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
-                <td colspan="7" valign="top" align="left"><%=result%>
+                <td colspan="7" style="vertical-align:top; text-align:left;"><%=result%>
                 </td>
             </tr>
             <%
@@ -2336,11 +2337,11 @@ input[id^='acklabel_']{
                     if (numZDS > 0) {
             %>
             <tr class="Field2">
-                <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formProvider"/></td>
-                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                <td width="25%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formProvider"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                <td width="6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
             </tr>
             <%
                 }
@@ -2348,15 +2349,15 @@ input[id^='acklabel_']{
                 for (int m = 0; m < numZDS; m++) {
             %>
             <tr style="background-color:<%=(lineNumber % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
-                <td valign="top" align="left"><%=((SpireHandler) handler).getZDSName(m)%>
+                <td style="vertical-align:top;  text-align:left;"><%=((SpireHandler) handler).getZDSName(m)%>
                 </td>
-                <td align="right"><%= ((SpireHandler) handler).getZDSResult(m) %>
+                <td style="text-align:right"><%= ((SpireHandler) handler).getZDSResult(m) %>
                 </td>
-                <td align="center"><%= ((SpireHandler) handler).getZDSProvider(m) %>
+                <td style="text-align:center"><%= ((SpireHandler) handler).getZDSProvider(m) %>
                 </td>
-                <td align="center"><%= ((SpireHandler) handler).getZDSTimeStamp(m) %>
+                <td style="text-align:center"><%= ((SpireHandler) handler).getZDSTimeStamp(m) %>
                 </td>
-                <td align="center"><%= ((SpireHandler) handler).getZDSResultStatus(m) %>
+                <td style="text-align:center"><%= ((SpireHandler) handler).getZDSResultStatus(m) %>
                 </td>
             </tr>
             <%
@@ -2372,9 +2373,9 @@ input[id^='acklabel_']{
 
         %>
         <%-- FOOTER --%>
-        <table width="100%" class="MainTableBottomRowRightColumn darkBkg">
+        <table style="width:100%" class="MainTableBottomRowRightColumn darkBkg">
             <tr>
-                <td align="left" width="50%">
+                <td style="text-align:left; width:50%">
                     <% if (!ackFlag) { %>
                     <input type="button" class="btn btn-sm" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                            onclick="<%=ackLabFunc%>">
@@ -2392,7 +2393,7 @@ input[id^='acklabel_']{
 
                     <% } %>
                 </td>
-                <td width="50%" valign="center" align="left">
+                <td style="vertical-align:top; text-align:left; width:50%;">
                     <% if ("CLS".equals(handler.getMsgType())) { %>
                     <span class="Field2"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgReportEndCLS"/></i></span>
                     <% } else { %>
