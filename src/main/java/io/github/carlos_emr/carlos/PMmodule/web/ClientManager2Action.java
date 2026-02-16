@@ -77,7 +77,6 @@ import io.github.carlos_emr.carlos.PMmodule.wlservice.WaitListService;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
-import io.github.carlos_emr.carlos.commn.dao.IntegratorConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -108,7 +107,6 @@ public class ClientManager2Action extends ActionSupport {
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     private ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
     private ProgramQueueManager programQueueManager = SpringUtils.getBean(ProgramQueueManager.class);
-    private IntegratorConsentDao integratorConsentDao = SpringUtils.getBean(IntegratorConsentDao.class);
     private CdsClientFormDao cdsClientFormDao = SpringUtils.getBean(CdsClientFormDao.class);
     private static AdmissionDao admissionDao = SpringUtils.getBean(AdmissionDao.class);
     private static ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -117,11 +115,6 @@ public class ClientManager2Action extends ActionSupport {
     private VacancyTemplateDao vacancyTemplateDao = SpringUtils.getBean(VacancyTemplateDao.class);
     private MatchingManager matchingManager = new MatchingManager();
 
-
-
-    public void setIntegratorConsentDao(IntegratorConsentDao integratorConsentDao) {
-        this.integratorConsentDao = integratorConsentDao;
-    }
 
 
     public void setCdsClientFormDao(CdsClientFormDao cdsClientFormDao) {
@@ -881,20 +874,7 @@ public class ClientManager2Action extends ActionSupport {
 
 
             /* consent forms */
-            int clientId = Integer.parseInt(demographicNo);
-            List<IntegratorConsent> consentTemp = integratorConsentDao.findByFacilityAndDemographic(facilityId, clientId);
-            TreeMap<Date, HashMap<String, Object>> consents = new TreeMap<Date, HashMap<String, Object>>(Collections.reverseOrder());
-            for (IntegratorConsent x : consentTemp) {
-                HashMap<String, Object> map = new HashMap<String, Object>();
-                map.put("createdDate", DateFormatUtils.ISO_DATETIME_FORMAT.format(x.getCreatedDate()).replace('T', ' '));
-                Provider provider = providerDao.getProvider(x.getProviderNo());
-                map.put("providers", provider.getFormattedName());
-                map.put("consentId", x.getId());
-
-                consents.put(x.getCreatedDate(), map);
-            }
-
-            request.setAttribute("consents", consents.values());
+            request.setAttribute("consents", new ArrayList<>());
 
             // CDS forms
             List<CdsClientForm> cdsForms = cdsClientFormDao.findByFacilityClient(facilityId, clientId);

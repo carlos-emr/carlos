@@ -39,10 +39,8 @@ import java.util.Map;
 import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.MsgDemoMapDao;
-import io.github.carlos_emr.carlos.commn.dao.MsgIntegratorDemoMapDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
-import io.github.carlos_emr.carlos.commn.model.MsgIntegratorDemoMap;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -56,8 +54,6 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
     private DemographicManager demographicManager;
     @Autowired
     private MsgDemoMapDao msgDemoMapDao;
-    @Autowired
-    private MsgIntegratorDemoMapDao msgIntegratorDemoMapDao;
 
     /**
      * Get all the demographic details that are attached to this message.
@@ -102,23 +98,6 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
             throw new SecurityException("missing required sec object (_msg)");
         }
         return msgDemoMapDao.findByMessageId(messageId);
-    }
-
-    /**
-     * Retreive demographics from a remote Integrated facility that have not been linked with a local demographic.
-     * The demographic number exists only in the remote facility until the user chooses to import it.
-     * Once imported, the demographic number from the local AND remote facility will be attached.
-     *
-     * @param loggedInInfo
-     * @param messageId
-     * @return
-     */
-    public List<MsgIntegratorDemoMap> getUnlinkedIntegratedDemographicList(LoggedInInfo loggedInInfo, int messageId) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
-        }
-
-        return msgIntegratorDemoMapDao.findByMessageIdandMsgDemoMapId(messageId, 0L);
     }
 
     /**
