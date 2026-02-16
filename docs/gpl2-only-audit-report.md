@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-**108 files** carry GPL-2-only license headers (no "or later" language), all originating from **Indivica Inc. (2008-2012)**. Of these:
+**108 files** carry GPL-2-only license headers (no "or later" language). Of these:
 
 | Category | Files | Description |
 |----------|------:|-------------|
@@ -23,10 +23,19 @@
 | **MEDIUM** (rewrite needed) | 30 | Active but small scope; straightforward to rewrite under GPL-2+ |
 | **LOW** (core infrastructure) | 48 | Deeply integrated; requires significant refactoring to replace |
 
-### License Header Pattern
+### Copyright Holders
 
-All 108 files share the identical Indivica Inc. GPL-2-only header:
+Three distinct copyright holders use the GPL-2-only header pattern:
 
+| Copyright Holder | Java Files | JSP Files | Total | Notes |
+|-----------------|----------:|----------:|------:|-------|
+| **Indivica Inc. (2008-2012)** | 63 | 29 | 92 | Original author of all GPL-2-only code |
+| **Magenta Health (2024-2025) + Indivica Inc.** | 13 | 0 | 13 | Dual copyright; modifications of Indivica files that retained GPL-2-only header |
+| **WELL EMR Group Inc. (2021)** | 3 | 0 | 3 | Independent authorship using same GPL-2-only template |
+
+### License Header Patterns
+
+**Template 1 -- Indivica Inc. (92 files):**
 ```
 Copyright (c) 2008-2012 Indivica Inc.
 
@@ -36,7 +45,30 @@ License details are available via "indivica.ca/gplv2"
 and "gnu.org/licenses/gpl-2.0.html".
 ```
 
-This is GPL-2-only because it references "Version 2, 1991 (GPLv2)" specifically with **no** "or later", "or (at your option) any later version", or similar upgrade language.
+**Template 2 -- Magenta Health + Indivica dual copyright (13 files):**
+```
+Copyright (c) 2024. Magenta Health. All Rights Reserved.
+Copyright (c) 2008-2012 Indivica Inc.
+
+This software is made available under the terms of the
+GNU General Public License, Version 2, 1991 (GPLv2).
+License details are available via "indivica.ca/gplv2"
+and "gnu.org/licenses/gpl-2.0.html".
+
+Modifications made by Magenta Health in 2024.
+```
+
+**Template 3 -- WELL EMR Group Inc. (3 files):**
+```
+Copyright (c) 2021 WELL EMR Group Inc.
+This software is made available under the terms of the
+GNU General Public License, Version 2, 1991 (GPLv2).
+License details are available via "gnu.org/licenses/gpl-2.0.html".
+```
+
+All three templates are GPL-2-only because they reference "Version 2, 1991 (GPLv2)" specifically with **no** "or later", "or (at your option) any later version", or similar upgrade language. No SPDX identifiers were found in any file.
+
+The remaining ~3,989 Java files with GPL references all use the standard GPL-2+ formulation: "either version 2 of the License, or (at your option) any later version."
 
 ---
 
@@ -479,3 +511,35 @@ Plus 3 more HRM JSPs listed in other tiers.
 
 #### signature_pad/ (1 file)
 - `tabletSignature.jsp` -- LOW
+
+---
+
+## Appendix B: Files by Copyright Holder
+
+### Magenta Health (2024-2025) + Indivica Inc. Dual Copyright (13 Java files)
+
+These files were modified by Magenta Health but retained the GPL-2-only header:
+
+| File | Removability |
+|------|-------------|
+| `commn/dao/ClinicNbrDao.java` | LOW |
+| `commn/dao/ClinicNbrDaoImpl.java` | LOW |
+| `commn/dao/HL7HandlerMSHMappingDao.java` | MEDIUM |
+| `commn/dao/HL7HandlerMSHMappingDaoImpl.java` | MEDIUM |
+| `commn/dao/InboxResultsDao.java` | LOW |
+| `commn/dao/InboxResultsDaoImpl.java` | LOW |
+| `commn/dao/InboxResultsRepository.java` | MEDIUM |
+| `commn/dao/InboxResultsRepositoryImpl.java` | MEDIUM |
+| `commn/dao/ProviderLabRoutingDao.java` | LOW |
+| `commn/dao/ProviderLabRoutingDaoImpl.java` | LOW |
+| `commn/dao/ReadLabDao.java` | HIGH (dead code) |
+| `commn/dao/ReadLabDaoImpl.java` | HIGH (dead code) |
+| `hospitalReportManager/model/HRMReportCriteria.java` | HIGH (internal only) |
+
+### WELL EMR Group Inc. (2021) Sole Copyright (3 Java files)
+
+| File | Removability |
+|------|-------------|
+| `commn/dao/EReferAttachmentDataDaoImpl.java` | LOW |
+| `commn/model/enumerator/DemographicExtKey.java` | LOW |
+| `form/model/FormBooleanValuePK.java` | HIGH (dead code) |
