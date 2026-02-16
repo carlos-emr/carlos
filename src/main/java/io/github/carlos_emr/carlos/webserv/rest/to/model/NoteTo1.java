@@ -75,7 +75,7 @@ public class NoteTo1 implements Serializable {
     private ArrayList<String> issueDescriptions;
 
     //not controlled by note attributes / business logic like "editable".
-    //use this for a category of notes - like group notes, etc
+    //use this for a category of notes - like group notes
     private boolean isReadOnly;
     private boolean isGroupNote;
     private boolean isCpp;

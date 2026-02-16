@@ -138,7 +138,7 @@ public interface NoteDisplay {
     public ArrayList<String> getIssueDescriptions();
 
     //not controlled by note attributes / business logic like "editable".
-    //use this for a category of notes - like integrator, group notes, etc
+    //use this for a category of notes - like group notes
     public boolean isReadOnly();
 
     public boolean isGroupNote();

@@ -59,9 +59,8 @@ public class ClientReferral implements Serializable {
     private String _providerFirstName;
     private String _programName;
     private String _programType;
-    //transient
     private String selectVacancy; //vacancy name
-    private String vacancyTemplateName;
+    private String vacancyTemplateName; // not mapped in HBM
 
     public Integer getVacancyId() {
         return vacancyId;
