@@ -78,7 +78,7 @@
     String providerNo = loggedInInfo.getLoggedInProviderNo();
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
-    // ── Load the main ProviderPreference entity (schedule, billing, eRx) ──
+    // ── Load the main ProviderPreference entity (schedule, billing) ──
     ProviderPreference providerPreference = ProviderPreferencesUIBean.getProviderPreference(providerNo);
     if (providerPreference == null) {
         providerPreference = new ProviderPreference();
@@ -1565,4 +1565,5 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
 });
 </script>
 </body>
+
 </html>

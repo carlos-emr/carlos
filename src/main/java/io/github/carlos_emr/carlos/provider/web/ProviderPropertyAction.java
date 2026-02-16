@@ -43,7 +43,7 @@ import javax.servlet.http.HttpServletRequest;
  * <p>This action class is the second half of the two-part preference save mechanism:
  * <ol>
  *   <li>{@code ProviderPreferencesUIBean.updateOrCreateProviderPreferences()} saves the
- *       {@code ProviderPreference} entity (schedule, billing, eRx fields)</li>
+ *       {@code ProviderPreference} entity (schedule, billing fields)</li>
  *   <li><strong>This class</strong> saves all remaining preferences stored as individual
  *       {@link UserProperty} key-value pairs in the {@code property} table</li>
  * </ol>

@@ -44,8 +44,6 @@
 <%@page import="java.util.List"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -167,27 +165,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
   prescribedDrugs = patient.getPrescribedDrugScripts(); //this function only returns drugs which have an entry in prescription and drugs table
                         String script_no = "";
                         
-    //This checks if the providers has the ExternalPresriber feature enabled, if so then a link appear for the providers to access the ExternalPrescriber
-            ProviderPreference providerPreference=ProviderPreferencesUIBean.getProviderPreference(loggedInInfo.getLoggedInProviderNo());
-            
-            boolean eRxEnabled= false;
-            String eRx_SSO_URL = null;
-            String eRxUsername = null;
-            String eRxPassword = null;
-            String eRxFacility = null;
-            String eRxTrainingMode="0"; //not in training mode
-            
-            if(providerPreference!=null){
-            	eRxEnabled = providerPreference.isERxEnabled();
-                eRx_SSO_URL = providerPreference.getERx_SSO_URL();
-                eRxUsername = providerPreference.getERxUsername();
-                eRxPassword = providerPreference.getERxPassword();
-                eRxFacility = providerPreference.getERxFacility();
-                	                
-                boolean eRxTrainingModeTemp = providerPreference.isERxTrainingMode();
-                if(eRxTrainingModeTemp) eRxTrainingMode="1";
-             }
-
             CaseManagementManager cmgmtMgr = SpringUtils.getBean(CaseManagementManager.class);
             List<Issue> issues = cmgmtMgr.getIssueInfoByCode(loggedInInfo.getLoggedInProviderNo(),"OMeds");
             String[] issueIds = new String[issues.size()];
@@ -882,9 +859,6 @@ function renderRxStage() {
 <%--                                                        <input id="completeMedRecButton" class="ControlPushButton" type="button"  onclick="completeMedRec();" value="Complete Med Rec" />--%>
 <%--                                                    <% } %>--%>
 
-<%--                                                    <% if(eRxEnabled) { %>--%>
-<%--                                                        <a href="<%=eRx_SSO_URL%>User=<%=eRxUsername%>&Password=<%=eRxPassword%>&Clinic=<%=eRxFacility%>&PatientIdPMIS=<%=patient.getDemographicNo()%>&IsTraining=<%=eRxTrainingMode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.eRx.msgExternalPrescriber"/></a>--%>
-<%--                                                    <% } %>--%>
                                                 </div>
                                             </td>
 

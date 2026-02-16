@@ -49,13 +49,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 
 /**
- * UI bean for managing the {@link ProviderPreference} entity (schedule, billing, eRx fields)
+ * UI bean for managing the {@link ProviderPreference} entity (schedule, billing fields)
  * as part of the consolidated provider preferences page.
  *
  * <p>This bean is the first half of a two-part preference save mechanism:
  * <ol>
  *   <li><strong>This class</strong> loads and persists the {@code ProviderPreference} entity
- *       (schedule hours, billing defaults, encounter forms, eRx settings)</li>
+ *       (schedule hours, billing defaults, encounter forms)</li>
  *   <li>{@link io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction} saves all
  *       remaining preferences stored as {@code UserProperty} key-value pairs</li>
  * </ol>
@@ -75,7 +75,7 @@ public final class ProviderPreferencesUIBean {
 
     /**
      * Updates or creates a {@link ProviderPreference} entity from the submitted form parameters.
-     * Handles schedule hours, billing defaults, encounter/eForm selections, and eRx settings.
+     * Handles schedule hours, billing defaults, and encounter/eForm selections.
      *
      * @param request {@link HttpServletRequest} containing form parameters from the
      *                preferences page POST submission
@@ -269,23 +269,6 @@ public final class ProviderPreferencesUIBean {
                 }
             }
         }
-
-        // external prescriber prefs
-        providerPreference.setERxEnabled(WebUtils.isChecked(request, "erx_enable"));
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_username"));
-        if (temp != null) providerPreference.setERxUsername(temp);
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_password"));
-        if (temp != null) providerPreference.setERxPassword(temp);
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_facility"));
-        if (temp != null) providerPreference.setERxFacility(temp);
-
-        providerPreference.setERxTrainingMode(WebUtils.isChecked(request, "erx_training_mode"));
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_sso_url"));
-        if (temp != null) providerPreference.setERx_SSO_URL(temp);
 
         // If validation errors occurred, throw them to the caller for display
         if (!validationErrors.isEmpty()) {
