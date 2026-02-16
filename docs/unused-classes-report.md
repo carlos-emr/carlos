@@ -2,36 +2,65 @@
 
 **Date**: 2026-02-16
 **Scope**: All Java source files under `src/main/java/`
-**Verified unused count**: 208 classes
+**Verified unused count**: 149 classes
 
 ## Methodology
 
-Classes were identified as unused through a multi-layered analysis:
+Classes were identified as unused through a comprehensive multi-layered analysis:
 
-1. **Java source cross-reference**: Each public/package-private class was checked for references from other `.java` files (excluding self-references and test files)
-2. **Struts XML configuration**: Checked `struts.xml`, `struts-config.xml` for action/form mappings
-3. **Spring XML configuration**: Checked all `applicationContext*.xml`, `spring_ws.xml`, `cxf.xml` for bean definitions and endpoint declarations
-4. **Hibernate/JPA configuration**: Checked all `*.hbm.xml`, `persistence.xml`, `ehcache.xml`
-5. **JSP scriptlet references**: Searched all `*.jsp` and `*.jspf` files for class imports and usage
-6. **Spring component scanning**: Cross-referenced `@Component`/`@Service`/`@Repository` annotations with component-scan base packages, then checked for consumers of their interfaces
-7. **Reflection and dynamic lookup**: Searched for `Class.forName()`, `SpringUtils.getBean()` string-based lookups, and `@Aspect` AOP pointcuts
-8. **Scheduler/job configurations**: Checked `applicationContextJobs.xml` and properties files
-9. **Web service deployment**: Checked JAXWS endpoint declarations in `spring_ws.xml`
+### Layer 1: Java Source Cross-Reference
+Each public/package-private class was checked for import statements and type references from other `.java` files (excluding self-references and test files).
 
-### False Positives Caught by Framework Analysis
+### Layer 2: Framework Configuration Files
+- **Struts XML**: `struts.xml`, `struts-config.xml` for action/form mappings
+- **Spring XML**: All `applicationContext*.xml`, `spring_ws.xml`, `spring_managers.xml`, `spring_jpa.xml`, `cxf.xml`
+- **Hibernate/JPA**: All `*.hbm.xml`, `persistence.xml`, `ehcache.xml`, `OscarDatabaseBase.xml`
+- **Web deployment**: `web.xml` for servlets, filters, listeners
+- **All XML files**: 196 XML files searched with FQCN variants (new, old, oscar.* namespaces)
 
-22 classes initially flagged as unused were rescued by the framework-level checks:
+### Layer 3: Non-Java File References
+- **JSP/JSPF**: 1,364 files searched for scriptlet imports and useBean directives
+- **JavaScript**: 453 `.js` and `.Js.jsp` files
+- **Properties/Config**: 34 `.properties` files, all `.txt` config files
+- **JSON/YAML**: 61 `.json` files, all `.yml`/`.yaml` files
+- **SQL**: 11,000+ `.sql` files for database-driven class loading references
+- **Other**: `.html`, `.css`, `.tld`, `.tag`, `.wsdl`, `.xsd`, `.xsl`, `.sh` files
 
-| Class | Reason Not Unused |
-|-------|-------------------|
-| `AppointmentProviderAdminDayUIBean` | Used in 2 JSP files via scriptlet import |
-| `CaisiUtil` | Used in JSP file (`infirmaryviewprogramlist.jspf`) |
-| `VisitReportData` | Used in JSP file (`oscarReportVisit_vr.jspf`) |
+### Layer 4: Dynamic Loading Patterns
+- `Class.forName()` across all Java source (found `FrmRecordFactory`, `FrmGraphicFactory`, `OscarJobUtils`)
+- `SpringUtils.getBean()` with string arguments and type-based injection
+- `request.getAttribute/setAttribute`, `session.getAttribute/setAttribute`
+- URL-parameter-driven factory patterns (`Frm` + `which` + `Record`)
+- Database-driven class loading (`OscarJobType` table via `OscarJobUtils`)
+- Config-file-driven class loading (`__className` property in `.txt` files)
+
+### Layer 5: Spring Component Scan + Annotation Analysis
+- Cross-referenced `@Component`/`@Service`/`@Repository` annotations with `component-scan` base packages
+- For each scanned class, traced whether its interface has any active consumers
+- Checked inheritance chains (e.g., `MergedDemographic*DaoImpl` extending parent DAOs that are the sole `@Repository` bean)
+- Checked `@Entity`, `@Embeddable`, `@MappedSuperclass` against active persistence contexts
+- Checked `@XmlRootElement`/`@XmlType` against active JAXB contexts
+
+### Layer 6: Runtime Lifecycle Annotations
+Checked all 230 candidate classes for 30+ annotation patterns:
+`@PostConstruct`, `@PreDestroy`, `@Scheduled`, `@Async`, `@EventListener`, `@TransactionalEventListener`, `@Aspect`, `@Around`/`@Before`/`@After`, `@Controller`/`@RestController`, `@RequestMapping`, `@WebServlet`, `@WebFilter`, `@WebListener`, `@ServerEndpoint`, `@EntityListeners`, `@Interceptor`, `@ManagedBean`, `@Singleton`, `@Startup`, `@MessageDriven`, `@Provider`, plus `implements ApplicationListener`, `InitializingBean`, `DisposableBean`, `BeanPostProcessor`, `BeanFactoryPostProcessor`, `HandlerInterceptor`, `Filter`
+
+---
+
+## False Positives Caught (81 classes rescued across 3 rounds)
+
+### Round 1: Framework Configuration (22 classes)
+
+| Class | Detection Method |
+|-------|-----------------|
+| `AppointmentProviderAdminDayUIBean` | JSP scriptlet import in 2 files |
+| `CaisiUtil` | JSP scriptlet import (`infirmaryviewprogramlist.jspf`) |
+| `VisitReportData` | JSP scriptlet import (`oscarReportVisit_vr.jspf`) |
 | `BatchBillingDaoImpl` | `@Repository` - interface consumed by `BatchBill2Action` |
 | `CSSStylesDaoImpl` | `@Repository` - interface consumed by `ManageCSS2Action` |
 | `DefaultNoteService` | `@Component` - sole impl of `NoteService` (4 consumers) |
 | `DrugLookUpManager` | `@Service` - sole impl of `DrugLookUp` (3 consumers) |
-| `MyDemographicEventListener` | `@Component` - Spring ApplicationListener for demographic events |
+| `MyDemographicEventListener` | `@Component` implementing `ApplicationListener` for demographic events |
 | `WebServiceLoggingAdvice` | `@Aspect` + `@Component` - AOP pointcut on REST services |
 | `AllergyWs` | `@WebService` - JAXWS endpoint in `spring_ws.xml` |
 | `BookingWs` | `@WebService` - JAXWS endpoint in `spring_ws.xml` |
@@ -47,91 +76,56 @@ Classes were identified as unused through a multi-layered analysis:
 | `PreventionsSummary` | `@Component` - string-based bean lookup from `RecordUxService` |
 | `RxSummary` | `@Component` - string-based bean lookup from `RecordUxService` |
 
+### Round 2: Dynamic Loading Patterns (55 classes)
+
+**52 `Frm*Record` classes** - loaded via `FrmRecordFactory.java:41-45`:
+```java
+String fullName = "io.github.carlos_emr.carlos.form.Frm" + which + "Record";
+Class classDefinition = Class.forName(fullName);
+```
+The `which` parameter comes from URL/form parameters, making all `Frm*Record` classes potentially reachable at runtime.
+
+| Class | Dynamic Loading Mechanism |
+|-------|--------------------------|
+| `Frm2MinWalkRecord` through `FrmchfRecord` (52 classes) | `FrmRecordFactory` URL-parameter-driven `Class.forName()` |
+| `FrmPdfGraphicRourke` | Config-driven `Class.forName()` via `__className` in 16 GrowthChart `.txt` files, loaded by `FrmGraphicFactory.create()` |
+| `OscarMsgReviewSender` | Database-driven `Class.forName()` via `OscarJobType` table, loaded by `OscarJobUtils.java:122` |
+| `OscarOnCallClinic` | Database-driven `Class.forName()` via `OscarJobType` table, loaded by `OscarJobUtils.java:122` |
+
+### Round 3: Annotation-Based Inheritance (4 classes)
+
+These `*MergedDemographicDaoImpl` classes extend parent DAOs that have NO `@Repository` annotation. The child class is the **sole Spring bean** providing the parent's DAO interface, making them active at runtime via `SpringUtils.getBean(XxxDao.class)`.
+
+| Class | `@Repository` Name | Interface Provided | Active Consumers |
+|-------|--------------------|--------------------|-----------------|
+| `ConsultationRequestMergedDemographicDaoImpl` | `consultationRequestDao` | `ConsultationRequestDao` | `EFormUtil`, `ConsultationAttach`, `EctConsultationFormRequest2Action` |
+| `DocumentResultsMergedDemographicDaoImpl` | `documentResultsDao` | `DocumentResultsDao` | `CommonLabResultData`, `InboxManagerImpl` |
+| `DrugMergedDemographicDaoImpl` | `drugDao` | `DrugDao` | `CaisiIntegratorUpdateTask`, `CaseManagementManagerImpl` |
+| `PreventionMergedDemographicDaoImpl` | `preventionDaoImpl` | `PreventionDao` | `CaisiIntegratorUpdateTask`, `OscarChartPrinter`, `CihiExport2Action`, `PreventionData`, `AddPrevention2Action` |
+
 ---
 
 ## Summary by Category
 
 | Category | Count | Risk Level | Notes |
 |----------|-------|------------|-------|
-| Form Records (`Frm*Record`) | 53 | Low | Legacy medical form data classes |
-| Form Utilities | 1 | Low | `FormBooleanValuePK`, `FrmPdfGraphicRourke` |
-| Encounter Data Records (`Ect*Record`) | 10 | Low | Legacy encounter form data |
-| DAO Implementations (no consumers) | 24 | Medium | `@Repository` beans with zero interface consumers |
-| CAISI Integrator | 12 | Low | Integrator WS clients and data objects |
-| PMmodule | 11 | Low | Legacy program management classes |
-| REST Transfer Objects | 12 | Low | Unused REST DTOs and converters |
+| Encounter Data Records (`Ect*Record`) | 10 | Low | No dynamic factory, no references anywhere |
+| DAO Implementations (zombie beans) | 20 | Medium | `@Repository` with zero interface consumers |
+| CAISI Integrator | 12 | Low | WS clients and data objects |
+| PMmodule | 11 | Low | Legacy program management |
+| REST Transfer Objects | 12 | Low | Unused DTOs and converters |
 | Billing | 7 | Low | Legacy billing data/handler classes |
-| Jobs/Schedulers | 6 | Low | Unconfigured job classes |
-| Other (misc utilities, actions, etc.) | 72 | Low-Medium | Mixed bag of utilities and legacy code |
+| Jobs/Schedulers | 4 | Low | Unconfigured job classes |
+| Other (misc utilities, actions, etc.) | 73 | Low-Medium | Mixed bag of utilities and legacy code |
+| **TOTAL** | **149** | | |
 
 ---
 
 ## Detailed Unused Class List
 
-### 1. Form Records (54 classes) - LOW RISK
+### 1. Encounter Data Records (10 classes) - LOW RISK
 
-Legacy medical form data record classes. None are referenced from any Java source, JSP, or configuration file.
-
-| Class | File |
-|-------|------|
-| `Frm2MinWalkRecord` | `src/main/java/io/github/carlos_emr/carlos/form/Frm2MinWalkRecord.java` |
-| `FrmARRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmARRecord.java` |
-| `FrmAdfRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmAdfRecord.java` |
-| `FrmAdfV2Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmAdfV2Record.java` |
-| `FrmAnnualRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmAnnualRecord.java` |
-| `FrmAnnualV2Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmAnnualV2Record.java` |
-| `FrmBCAR2007Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR2007Record.java` |
-| `FrmBCAR2012Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR2012Record.java` |
-| `FrmBCARRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCARRecord.java` |
-| `FrmBCBirthSumMo2008Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCBirthSumMo2008Record.java` |
-| `FrmBCBrithSumMoRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCBrithSumMoRecord.java` |
-| `FrmBCClientChartChecklistRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCClientChartChecklistRecord.java` |
-| `FrmBCHPRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCHPRecord.java` |
-| `FrmBCNewBorn2008Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCNewBorn2008Record.java` |
-| `FrmBCNewBornRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmBCNewBornRecord.java` |
-| `FrmCESDRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmCESDRecord.java` |
-| `FrmCaregiverRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmCaregiverRecord.java` |
-| `FrmCostQuestionnaireRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmCostQuestionnaireRecord.java` |
-| `FrmCounselingRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmCounselingRecord.java` |
-| `FrmCounsellorAssessmentRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmCounsellorAssessmentRecord.java` |
-| `FrmDischargeSummaryRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmDischargeSummaryRecord.java` |
-| `FrmFallsRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmFallsRecord.java` |
-| `FrmGripStrengthRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmGripStrengthRecord.java` |
-| `FrmGrowth0_36Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmGrowth0_36Record.java` |
-| `FrmGrowthChartRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmGrowthChartRecord.java` |
-| `FrmHomeFallsRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmHomeFallsRecord.java` |
-| `FrmImmunAllergyRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmImmunAllergyRecord.java` |
-| `FrmIntakeHxRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmIntakeHxRecord.java` |
-| `FrmIntakeInfoRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmIntakeInfoRecord.java` |
-| `FrmInternetAccessRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmInternetAccessRecord.java` |
-| `FrmInvoiceRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmInvoiceRecord.java` |
-| `FrmLateLifeFDIDisabilityRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmLateLifeFDIDisabilityRecord.java` |
-| `FrmLateLifeFDIFunctionRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmLateLifeFDIFunctionRecord.java` |
-| `FrmMMSERecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmMMSERecord.java` |
-| `FrmONARRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmONARRecord.java` |
-| `FrmOvulationRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmOvulationRecord.java` |
-| `FrmPalliativeCareRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmPalliativeCareRecord.java` |
-| `FrmPeriMenopausalRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmPeriMenopausalRecord.java` |
-| `FrmPolicyRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmPolicyRecord.java` |
-| `FrmPositionHazardRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmPositionHazardRecord.java` |
-| `FrmReceptionAssessmentRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmReceptionAssessmentRecord.java` |
-| `FrmRhImmuneGlobulinRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmRhImmuneGlobulinRecord.java` |
-| `FrmSF36CaregiverRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmSF36CaregiverRecord.java` |
-| `FrmSF36Record` | `src/main/java/io/github/carlos_emr/carlos/form/FrmSF36Record.java` |
-| `FrmSatisfactionScaleRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmSatisfactionScaleRecord.java` |
-| `FrmSelfAdministeredRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmSelfAdministeredRecord.java` |
-| `FrmSelfAssessmentRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmSelfAssessmentRecord.java` |
-| `FrmSelfEfficacyRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmSelfEfficacyRecord.java` |
-| `FrmSelfManagementRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmSelfManagementRecord.java` |
-| `FrmTreatmentPrefRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmTreatmentPrefRecord.java` |
-| `FrmType2DiabeteRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmType2DiabeteRecord.java` |
-| `FrmchfRecord` | `src/main/java/io/github/carlos_emr/carlos/form/FrmchfRecord.java` |
-| `FrmPdfGraphicRourke` | `src/main/java/io/github/carlos_emr/carlos/form/graphic/FrmPdfGraphicRourke.java` |
-| `FormBooleanValuePK` | `src/main/java/io/github/carlos_emr/carlos/form/model/FormBooleanValuePK.java` |
-
-### 2. Encounter Data Records (10 classes) - LOW RISK
-
-Legacy encounter form data record classes with no references anywhere.
+Legacy encounter form data record classes. Confirmed NO dynamic factory exists for `Ect*Record` (unlike `Frm*Record` which has `FrmRecordFactory`).
 
 | Class | File |
 |-------|------|
@@ -146,9 +140,9 @@ Legacy encounter form data record classes with no references anywhere.
 | `EctRourkeRecord` | `src/main/java/io/github/carlos_emr/carlos/encounter/data/EctRourkeRecord.java` |
 | `EctType2DiabetesRecord` | `src/main/java/io/github/carlos_emr/carlos/encounter/data/EctType2DiabetesRecord.java` |
 
-### 3. DAO Implementations with No Consumers (24 classes) - MEDIUM RISK
+### 2. DAO Implementations - Zombie Beans (20 classes) - MEDIUM RISK
 
-These are `@Repository`-annotated Spring beans. Spring will instantiate them at startup, but no code ever injects or looks up their interfaces. Removing these should also remove their corresponding interface files.
+These are `@Repository`-annotated Spring beans with zero interface consumers. Spring instantiates them at startup, but nothing injects or uses them. When removing, also remove the corresponding interface.
 
 | Class | File |
 |-------|------|
@@ -158,9 +152,6 @@ These are `@Repository`-annotated Spring beans. Spring will instantiate them at 
 | `CaisiFormInstanceDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/CaisiFormInstanceDaoImpl.java` |
 | `CaisiFormInstanceTmpSaveDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/CaisiFormInstanceTmpSaveDaoImpl.java` |
 | `CaisiFormQuestionDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/CaisiFormQuestionDaoImpl.java` |
-| `ConsultationRequestMergedDemographicDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/ConsultationRequestMergedDemographicDaoImpl.java` |
-| `DocumentResultsMergedDemographicDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentResultsMergedDemographicDaoImpl.java` |
-| `DrugMergedDemographicDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugMergedDemographicDaoImpl.java` |
 | `DxAssociationDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/DxAssociationDaoImpl.java` |
 | `GroupNoteLinkDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/GroupNoteLinkDaoImpl.java` |
 | `IntegratorConsentComplexExitInterviewDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/IntegratorConsentComplexExitInterviewDaoImpl.java` |
@@ -171,15 +162,14 @@ These are `@Repository`-annotated Spring beans. Spring will instantiate them at 
 | `OscarCodeDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarCodeDaoImpl.java` |
 | `OscarMsgTypeDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarMsgTypeDaoImpl.java` |
 | `PrescribeDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/PrescribeDaoImpl.java` |
-| `PreventionMergedDemographicDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionMergedDemographicDaoImpl.java` |
 | `ProgramAccessRolesDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/ProgramAccessRolesDaoImpl.java` |
 | `ReadLabDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/ReadLabDaoImpl.java` |
 | `RecycleBinBillingDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/RecycleBinBillingDaoImpl.java` |
 | `RemoteDataLogDaoImpl` | `src/main/java/io/github/carlos_emr/carlos/commn/dao/RemoteDataLogDaoImpl.java` |
 
-### 4. CAISI Integrator Classes (12 classes) - LOW RISK
+### 3. CAISI Integrator (12 classes) - LOW RISK
 
-Web service client stubs and data objects for the CAISI integrator system. No consumers found.
+Web service client stubs and data objects for the CAISI integrator system.
 
 | Class | File |
 |-------|------|
@@ -196,7 +186,7 @@ Web service client stubs and data objects for the CAISI integrator system. No co
 | `ProviderWs_ProviderWsPort_Client` | `src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/ProviderWs_ProviderWsPort_Client.java` |
 | `ReferralWs_ReferralWsPort_Client` | `src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/ReferralWs_ReferralWsPort_Client.java` |
 
-### 5. PMmodule Classes (11 classes) - LOW RISK
+### 4. PMmodule (11 classes) - LOW RISK
 
 Legacy program management actions, form beans, and utilities.
 
@@ -214,9 +204,9 @@ Legacy program management actions, form beans, and utilities.
 | `IntegratorPausedException` | `src/main/java/io/github/carlos_emr/carlos/PMmodule/web/forms/IntegratorPausedException.java` |
 | `CustomReportDataSource` | `src/main/java/io/github/carlos_emr/carlos/PMmodule/web/reports/custom/CustomReportDataSource.java` |
 
-### 6. REST Web Service Classes (12 classes) - LOW RISK
+### 5. REST Transfer Objects (12 classes) - LOW RISK
 
-Unused REST DTOs, converters, and response objects.
+Unused REST DTOs, converters, and response objects. Not referenced by any active endpoint.
 
 | Class | File |
 |-------|------|
@@ -233,7 +223,7 @@ Unused REST DTOs, converters, and response objects.
 | `NotificationTo1` | `src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/NotificationTo1.java` |
 | `ProviderSearchResults` | `src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/ProviderSearchResults.java` |
 
-### 7. Billing Classes (7 classes) - LOW RISK
+### 6. Billing (7 classes) - LOW RISK
 
 Legacy billing data classes and handlers.
 
@@ -247,18 +237,22 @@ Legacy billing data classes and handlers.
 | `BillingClaimHeader2Data` | `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/data/BillingClaimHeader2Data.java` |
 | `BillingStatusData` | `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/data/BillingStatusData.java` |
 
-### 8. Jobs and Schedulers (6 classes) - LOW RISK
+### 7. Jobs and Schedulers (4 classes) - LOW RISK
 
-Job classes not configured in any scheduler or Spring job context.
+Job classes not configured in any scheduler, Spring job context, or database `OscarJobType` table.
 
 | Class | File |
 |-------|------|
 | `AuditLogPurgeJob` | `src/main/java/io/github/carlos_emr/carlos/admin/job/AuditLogPurgeJob.java` |
 | `OutcomesDashboardMetricSenderJob` | `src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboardMetricSenderJob.java` |
-| `OscarMsgReviewSender` | `src/main/java/io/github/carlos_emr/carlos/jobs/OscarMsgReviewSender.java` |
-| `OscarOnCallClinic` | `src/main/java/io/github/carlos_emr/carlos/jobs/OscarOnCallClinic.java` |
 | `MatchManagerScheduler` | `src/main/java/io/github/carlos_emr/carlos/match/MatchManagerScheduler.java` |
 | `AutoTickler` | `src/main/java/io/github/carlos_emr/carlos/tickler/AutoTickler.java` |
+
+### 8. Form Utilities (1 class) - LOW RISK
+
+| Class | File | Notes |
+|-------|------|-------|
+| `FormBooleanValuePK` | `src/main/java/io/github/carlos_emr/carlos/form/model/FormBooleanValuePK.java` | `@Embeddable` but not used by any active `@Entity` |
 
 ### 9. Other Unused Classes (72 classes) - LOW-MEDIUM RISK
 
@@ -339,27 +333,46 @@ Job classes not configured in any scheduler or Spring job context.
 
 ---
 
+## Annotations Present But Inactive
+
+These annotations were found on unused classes but do NOT make them active:
+
+| Annotation | Classes | Why Still Unused |
+|-----------|---------|------------------|
+| `@Entity` | `BillingONCHeader2`, `CachedDemographicImage`, `EventLog`, `HomelessPopulationReport` | Not in `persistence.xml` or HBM, not registered in any ORM context |
+| `@Embeddable` | `MsgDemoMapPK`, `FormBooleanValuePK` | Not referenced by any active `@Entity` |
+| `@XmlRootElement` | 9 REST transfer objects | Not used by any active web service endpoint |
+| `@XmlType` | `AuditFormat`, `MedicalSurgicalFlag`, `PreferredMethodOfContact` | HRM XSD types, not in active JAXB context |
+| `@Repository` | 20 DAO implementations | Scanned by Spring but zero interface consumers (zombie beans) |
+| `@Service` | `WaitListManager` | Scanned by Spring but never injected |
+| `@Component` | `TicklerService` | Scanned by Spring but never injected |
+| `@WebService` | `HCValidationImpl1` | Not deployed in any CXF/JAXWS endpoint config |
+| `@WebServiceClient` | `WaitListService_Service` | Generated client class, never used |
+| `implements Serializable` | 11 classes | Passive interface, no active deserialization paths |
+| `implements MethodInterceptor` | `MergedDemographicInterceptor` | Not registered in any Spring AOP config |
+| `extends AbstractPhaseInterceptor` | `RawXmlLoggingInInterceptor` | Not registered in any CXF bus config |
+| `extends WSS4JInInterceptor` | `WSS4JInNonValidatingActionInterceptor` | Not registered in any CXF config |
+
+---
+
 ## Recommended Removal Order
 
-For safe, incremental removal:
-
-1. **Phase 1 - Lowest risk** (64 classes): Form Records + Encounter Data Records
-   - Self-contained data classes with no dependencies
+1. **Phase 1 - Lowest risk** (11 classes): Encounter Data Records + FormBooleanValuePK
+   - Self-contained data classes with no dependencies or annotations
    - Zero risk of runtime impact
 
-2. **Phase 2 - Low risk** (37 classes): CAISI Integrator + PMmodule + REST DTOs
-   - Isolated subsystem classes
-   - No framework wiring
+2. **Phase 2 - Low risk** (46 classes): CAISI Integrator + PMmodule + REST DTOs + Billing
+   - Isolated subsystem classes with no framework wiring
 
-3. **Phase 3 - Low risk** (13 classes): Billing + Jobs/Schedulers
-   - Unconfigured jobs, legacy billing data classes
+3. **Phase 3 - Low risk** (4 classes): Jobs/Schedulers
+   - Not configured in any job system
 
-4. **Phase 4 - Medium risk** (24 classes): DAO Implementations
-   - Remove both `*DaoImpl` and their corresponding interfaces
+4. **Phase 4 - Medium risk** (20 classes): Zombie DAO Implementations
+   - Remove both `*DaoImpl` and corresponding interfaces
    - Spring will no longer instantiate these beans
    - Build after each removal to catch compile errors
 
-5. **Phase 5 - Remaining** (70 classes): Other utilities, actions, helpers
+5. **Phase 5 - Remaining** (68 classes): Other utilities, actions, helpers
    - Remove in small batches, build-test after each batch
 
 ---
@@ -371,13 +384,32 @@ Before removing any class, verify:
 - [ ] No references in Java source files (excluding self and tests)
 - [ ] No references in Struts XML configuration
 - [ ] No references in Spring XML configuration (applicationContext*.xml, spring_ws.xml)
-- [ ] No references in Hibernate mapping files (*.hbm.xml)
-- [ ] No references in JSP/JSPF files
-- [ ] No `@Component`/`@Service`/`@Repository` with active consumers
-- [ ] No reflection-based loading (Class.forName, string-based bean lookup)
-- [ ] No AOP pointcut interception
-- [ ] No Spring event listener registration
+- [ ] No references in Hibernate mapping files (*.hbm.xml) or persistence.xml
+- [ ] No references in JSP/JSPF files (scriptlet imports, useBean directives)
+- [ ] No `@Component`/`@Service`/`@Repository` with active interface consumers
+- [ ] No `@Repository` subclass providing a parent's DAO interface to active callers
+- [ ] No reflection-based loading (Class.forName, FrmRecordFactory, FrmGraphicFactory, OscarJobUtils)
+- [ ] No database-driven class loading (OscarJobType table)
+- [ ] No config-file-driven class loading (__className properties)
+- [ ] No string-based Spring bean lookup (SpringUtils.getBean("name"))
+- [ ] No AOP pointcut interception (@Aspect)
+- [ ] No Spring event listener registration (ApplicationListener, @EventListener)
+- [ ] No lifecycle annotations (@PostConstruct, @Scheduled, @Async)
 - [ ] Build succeeds after removal (`make install`)
+
+---
+
+## Dynamic Loading Mechanisms (reference for future audits)
+
+These are the `Class.forName()` patterns discovered during analysis. Any future class additions matching these patterns will be loaded at runtime even without explicit Java references:
+
+| Factory | Pattern | Location |
+|---------|---------|----------|
+| `FrmRecordFactory` | `"io.github.carlos_emr.carlos.form.Frm" + which + "Record"` | `FrmRecordFactory.java:41-45` |
+| `FrmGraphicFactory` | `Class.forName(className)` from `__className` config | `FrmGraphicFactory.java:44` |
+| `OscarJobUtils` | `Class.forName(oscarJobType.getClassName())` from DB | `OscarJobUtils.java:122` |
+| `FrmPDFServlet` | `Class.forName("...form.pdfservlet." + param)` | `FrmPDFServlet.java` |
+| `DSGuidelineDrools` | `Class.forName(dsp.getStrClass())` from decision support | `DSGuidelineDrools.java` |
 
 Generated with Claude Code
 
