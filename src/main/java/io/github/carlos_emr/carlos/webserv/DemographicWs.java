@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer;
@@ -65,18 +66,30 @@ public class DemographicWs extends AbstractWs {
     @Autowired
     private PatientConsentManager patientConsentManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     public DemographicTransfer getDemographic(Integer demographicId) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", (demographicId != null) ? demographicId.toString() : null)) {
+            throw new SecurityException("missing required security object (_demographic)");
+        }
         Demographic demographic = demographicManager.getDemographicWithExt(getLoggedInInfo(), demographicId);
         return (DemographicTransfer.toTransfer(demographic));
     }
 
     public DemographicTransfer2 getDemographic2(Integer demographicId) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", (demographicId != null) ? demographicId.toString() : null)) {
+            throw new SecurityException("missing required security object (_demographic)");
+        }
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicId);
         return (DemographicTransfer2.toTransfer(demographic));
     }
 
 
     public DemographicTransfer[] searchDemographicByName(String searchString, int startIndex, int itemsToReturn) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new SecurityException("missing required security object (_demographic)");
+        }
         List<Demographic> demographics = demographicManager.searchDemographicByName(getLoggedInInfo(), searchString, startIndex, itemsToReturn);
         return (DemographicTransfer.toTransfers(demographics));
     }

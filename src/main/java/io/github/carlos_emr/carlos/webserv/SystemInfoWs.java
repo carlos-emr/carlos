@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -29,46 +29,30 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.TimeZone;
-
 import javax.jws.WebService;
 
 import org.apache.cxf.annotations.GZIP;
-import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Component;
 
+/**
+ * Unauthenticated SOAP endpoint for basic health checks only.
+ *
+ * <p>This service is intentionally minimal. Methods that previously exposed
+ * system internals (server time, timezone offset, max list size, timestamps)
+ * have been removed because this endpoint requires no authentication and
+ * that information aids reconnaissance attacks.</p>
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class SystemInfoWs extends AbstractWs {
-    /**
-     * System info www service hello world test method
-     */
-    public String helloWorld() {
-        return ("Hello World! the configuration works! and your client works! :) " + (new java.util.Date()));
-    }
 
+    /**
+     * Basic health check indicating the service is running.
+     *
+     * @return the string "alive"
+     */
     public String isAlive() {
         return ("alive");
-    }
-
-    public int getMaxListReturnSize() {
-        return (AbstractDaoImpl.MAX_LIST_RETURN_SIZE);
-    }
-
-    /**
-     * This returns the time on the oscar server
-     */
-    public Calendar getServerTime() {
-        Calendar cal = new GregorianCalendar();
-        return (cal);
-    }
-
-    public int getServerTimeGmtOffset() {
-        TimeZone timeZone = TimeZone.getDefault();
-        int offset = timeZone.getOffset(System.currentTimeMillis());
-        return (offset);
     }
 }

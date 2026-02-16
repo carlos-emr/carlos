@@ -40,6 +40,7 @@ import org.apache.cxf.annotations.GZIP;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.PrescriptionTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +53,13 @@ public class PrescriptionWs extends AbstractWs {
     @Autowired
     private PrescriptionManager prescriptionManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     public PrescriptionTransfer getPrescription(Integer prescriptionId) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", null)) {
+            throw new SecurityException("missing required security object (_rx)");
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         Prescription prescription = prescriptionManager.getPrescription(loggedInInfo, prescriptionId);
 

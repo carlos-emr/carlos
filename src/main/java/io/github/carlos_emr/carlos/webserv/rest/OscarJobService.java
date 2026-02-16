@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobTypeResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTypeTo1;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.support.CronTrigger;
@@ -69,11 +70,37 @@ public class OscarJobService extends AbstractServiceImpl {
     @Autowired
     OscarJobManager oscarJobManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
+    /**
+     * Verifies that the current user has admin read privileges.
+     *
+     * @throws SecurityException if the user does not have _admin read privilege
+     */
+    private void requireAdminRead() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", "r", null)) {
+            throw new SecurityException("missing required security object (_admin)");
+        }
+    }
+
+    /**
+     * Verifies that the current user has admin write privileges.
+     *
+     * @throws SecurityException if the user does not have _admin write privilege
+     */
+    private void requireAdminWrite() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", "w", null)) {
+            throw new SecurityException("missing required security object (_admin)");
+        }
+    }
+
 
     @GET
     @Path("/types/current")
     @Produces("application/json")
     public OscarJobTypeResponse getCurrentlyAvailableJobTypes() {
+        requireAdminRead();
         List<OscarJobType> results = oscarJobManager.getCurrentlyAvaliableJobTypes();
 
         OscarJobTypeResponse response = new OscarJobTypeResponse();
@@ -89,6 +116,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Path("/types/all")
     @Produces("application/json")
     public OscarJobTypeResponse getAllJobTypes() {
+        requireAdminRead();
         List<OscarJobType> results = oscarJobManager.getAllJobTypes();
 
         OscarJobTypeResponse response = new OscarJobTypeResponse();
@@ -106,6 +134,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Path("/all")
     @Produces("application/json")
     public OscarJobResponse getAllJobs() {
+        requireAdminRead();
         List<OscarJob> results = oscarJobManager.getAllJobs(getLoggedInInfo());
 
         OscarJobResponse response = new OscarJobResponse();
@@ -133,6 +162,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Path("/job/{jobId}")
     @Produces("application/json")
     public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
+        requireAdminRead();
         OscarJob result = oscarJobManager.getJob(getLoggedInInfo(), jobId);
 
         OscarJobResponse response = new OscarJobResponse();
@@ -152,6 +182,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse saveJob(MultivaluedMap<String, String> params) {
+        requireAdminWrite();
         OscarJob job = new OscarJob();
         job.setId(Integer.parseInt(params.getFirst("job.id")));
         job.setDescription(params.getFirst("job.description"));
@@ -195,7 +226,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Path("/cancelJob")
     @Produces("application/json")
     public OscarJobResponse cancelJob(@QueryParam(value = "jobId") Integer jobId) {
-
+        requireAdminWrite();
         ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(jobId);
         if (future != null) {
             future.cancel(true);
@@ -220,7 +251,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse saveCrontabExpression(MultivaluedMap<String, String> params) {
-
+        requireAdminWrite();
         Integer jobId = null;
         try {
             jobId = Integer.parseInt(params.getFirst("scheduleJobId"));
@@ -289,6 +320,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Path("/jobType/{jobTypeId}")
     @Produces("application/json")
     public OscarJobTypeResponse getJobType(@PathParam("jobTypeId") Integer jobTypeId) {
+        requireAdminRead();
         OscarJobType result = oscarJobManager.getJobType(getLoggedInInfo(), jobTypeId);
 
         OscarJobTypeResponse response = new OscarJobTypeResponse();
@@ -305,6 +337,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobTypeResponse saveJobType(MultivaluedMap<String, String> params) {
+        requireAdminWrite();
         OscarJobType job = new OscarJobType();
         job.setId(Integer.parseInt(params.getFirst("jobType.id")));
         job.setName(params.getFirst("jobType.name"));
@@ -338,6 +371,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Path("/enableJob")
     @Produces("application/json")
     public OscarJobResponse enableJob(@QueryParam(value = "jobId") Integer jobId) {
+        requireAdminWrite();
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(true);
@@ -355,6 +389,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Path("/disableJob")
     @Produces("application/json")
     public OscarJobResponse disableJob(@QueryParam(value = "jobId") Integer jobId) {
+        requireAdminWrite();
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(false);
