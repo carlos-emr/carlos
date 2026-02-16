@@ -75,8 +75,7 @@ import io.github.carlos_emr.carlos.managers.NoteManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.web.DemographicSearchHelper;
+
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AllergyConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicContactFewConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;

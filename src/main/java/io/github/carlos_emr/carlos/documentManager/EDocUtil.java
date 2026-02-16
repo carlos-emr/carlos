@@ -43,7 +43,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Calendar;
+
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -88,7 +88,7 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
+
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 // all SQL statements here

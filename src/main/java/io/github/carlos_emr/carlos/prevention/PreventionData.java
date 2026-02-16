@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.time.DateFormatUtils;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
-import io.github.carlos_emr.carlos.util.DateUtils;
+
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class PreventionData {

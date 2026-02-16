@@ -33,9 +33,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.MessagingManagerImpl;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -83,7 +81,6 @@ public class MsgCreateMessage2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static MessengerDemographicManager messengerDemographicManager = SpringUtils.getBean(MessengerDemographicManager.class);
 
@@ -143,7 +140,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
             demographic_no = null;
         }
 
-        java.util.ArrayList<MsgProviderData> providerListing, remoteProviderListing;
+        java.util.ArrayList<MsgProviderData> providerListing;
 
 
         subject.trim();
@@ -156,35 +153,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
         providers = messageData.getDups4(providers);
         providerListing = messageData.getProviderStructure(loggedInInfo, providers);
 
-        //FIXME currently unused - I think...
-        remoteProviderListing = messageData.getRemoteProvidersStructure();
-
-        /*
-         * A demographic that has not consented to the Integrator cannot be sent to remote providers.
-         * This is a short circuit that will return a warning that the patient has not consented.
-         * This message will not send until the non-consenting patient has consented -or- is removed
-         * from the message.
-         */
-        if (demographic_no != null
-                && userPropertyDao.getProp(UserProperty.INTEGRATOR_PATIENT_CONSENT) != null
-                && ("1".equals(userPropertyDao.getProp(UserProperty.INTEGRATOR_PATIENT_CONSENT).getValue())
-                || "1".equals(userPropertyDao.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_CONSENT).getValue()))) {
-            if (MessagingManagerImpl.doesContainRemoteRecipient(loggedInInfo, providerListing)
-                    && !messengerDemographicManager.isPatientConsentedForIntegrator(loggedInInfo, Integer.parseInt(demographic_no))) {
-                return error("messenger.CreateMessage.patientConsentError");
-            }
-        }
-
-        /*
-         * The Integrator does not support attachments at this time.  Stop attachments from being sent externally.
-         */
-        if ((att != null || pdfAtt != null) && MessagingManagerImpl.doesContainRemoteRecipient(loggedInInfo, providerListing)) {
-            return error("messenger.CreateMessage.attachmentsNotPermitted");
-        }
-
         //FIXME remove these deprecated methods and use the Messenger Managers instead
         sentToWho = messageData.createSentToString(providerListing);
-        sentToWho = sentToWho + " " + messageData.getRemoteNames(remoteProviderListing);
         sentToWho = sentToWho.trim();
         messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
 

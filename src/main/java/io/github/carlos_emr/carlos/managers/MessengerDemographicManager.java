@@ -36,7 +36,6 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
-import io.github.carlos_emr.carlos.commn.model.MsgIntegratorDemoMap;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 public interface MessengerDemographicManager {
@@ -59,17 +58,6 @@ public interface MessengerDemographicManager {
      * @return
      */
     public List<MsgDemoMap> getAttachedDemographicList(LoggedInInfo loggedInInfo, int messageId);
-
-    /**
-     * Retreive demographics from a remote Integrated facility that have not been linked with a local demographic.
-     * The demographic number exists only in the remote facility until the user chooses to import it.
-     * Once imported, the demographic number from the local AND remote facility will be attached.
-     *
-     * @param loggedInInfo
-     * @param messageId
-     * @return
-     */
-    public List<MsgIntegratorDemoMap> getUnlinkedIntegratedDemographicList(LoggedInInfo loggedInInfo, int messageId);
 
     /**
      * This will extract a string of names and ages for each demographic attached to the given message id.
