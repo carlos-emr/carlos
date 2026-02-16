@@ -80,7 +80,7 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Get ALL Oscar Messenger Members from ALL locations.
+     * Get all Messenger members from the local clinic.
      * Organize the results in groups of location name.
      *
      * @param loggedInInfo
@@ -135,8 +135,8 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Get all groups that contain all local and remote members.
-     * All members from all local and remote locations sorted alphabetically into groups of assigned groups.
+     * Get all groups that contain all local members.
+     * All members sorted alphabetically into groups of assigned groups.
      *
      * @param loggedInInfo
      * @return
@@ -280,7 +280,7 @@ public class MessengerGroupManager {
      * the Messenger system.
      *
      * @param loggedInInfo
-     * @return Map of provider data grouped by facility
+     * @return Map containing local provider data
      */
     public Map<String, List<MsgProviderData>> getAllMessengerContacts(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)) {
@@ -294,9 +294,9 @@ public class MessengerGroupManager {
     }
 
     /**
-     * All providers contacts (potential Oscar Messenger Members) from the local Oscar server.
+     * All provider contacts (potential Messenger members) from the local server.
      * This list is used in the Messenger Configuration to present potential members that can be enrolled into
-     * the Oscar Messenger system.
+     * the Messenger system.
      *
      * @param loggedInInfo
      * @return List<MsgProviderData>
@@ -328,7 +328,7 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Add a new empty Group for adding Oscar messenger members.
+     * Add a new empty group for adding Messenger members.
      *
      * @param loggedInInfo
      * @param groupName
@@ -348,7 +348,7 @@ public class MessengerGroupManager {
 
     /**
      * Remove all members from the given group and delete it from the database.
-     * Members will still remain Oscar messenger members.
+     * Members will still remain Messenger members.
      *
      * @param loggedInInfo
      * @param groupId
@@ -373,7 +373,7 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Make an Oscar Provider from any location into an Oscar Messenger Member.  Adding to a group is
+     * Make a provider into a Messenger member. Adding to a group is
      * optional
      *
      * @param loggedInInfo
@@ -411,8 +411,8 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Remove a Member - from any location - from Oscar Messenger membership.
-     * Member is also removed from all Groups.
+     * Remove a member from Messenger membership.
+     * Member is also removed from all groups.
      *
      * @param loggedInInfo
      * @param contactIdentifier

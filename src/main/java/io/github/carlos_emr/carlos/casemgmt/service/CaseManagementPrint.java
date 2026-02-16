@@ -23,7 +23,7 @@
  */
 
 /**
- * Case Management Print Service for OpenO EMR.
+ * Case Management Print Service for CARLOS EMR.
  *
  * This service provides comprehensive PDF printing capabilities for patient medical records,
  * including encounter notes, clinical prevention profiles (CPP), prescriptions, laboratory results,
@@ -144,8 +144,7 @@ public class CaseManagementPrint {
      * @param loggedInInfo LoggedInInfo the authenticated session information containing provider and facility context
      * @param demographicNo Integer the patient's unique demographic identifier
      * @param printAllNotes boolean true to print all available notes, false to use noteIds array
-     * @param noteIds String[] array of note IDs to print (ignored if printAllNotes is true); may contain
-     *                         note ID strings to print
+     * @param noteIds String[] array of note IDs to print (ignored if printAllNotes is true)
      * @param printCPP boolean true to include Clinical Prevention Profile sections (OMeds, SocHistory, etc.)
      * @param printRx boolean true to include prescription/medication information
      * @param printLabs boolean true to include laboratory results (HL7 reports)

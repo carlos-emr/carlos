@@ -77,8 +77,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @Deprecated
 public class MsgMessageData {
 
-    boolean areRemotes = false;
-    
     /**
      * Flag indicating if local recipients are included in the message.
      */

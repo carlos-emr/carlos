@@ -215,12 +215,12 @@ public final class RxShowAllergy2Action extends ActionSupport {
     }
 
     /**
-     * Retrieves and processes allergy data for a patient, including local and remote allergy information,
-     * and calculates allergy warnings based on severity. Outputs the resulting data in JSON format.
+     * Retrieves and processes allergy data for a patient and calculates allergy warnings
+     * based on severity. Outputs the resulting data in JSON format.
      *
-     * This method checks system preferences and handles merging allergy lists from local and remote
-     * data sources. It determines the highest severity allergy when the system preference for displaying
-     * the highest allergy warnings is enabled.
+     * This method checks system preferences and handles the allergy list. It determines
+     * the highest severity allergy when the system preference for displaying the highest
+     * allergy warnings is enabled.
      *
      * @param loggedInInfo LoggedInInfo object containing user session details and security information.
      */

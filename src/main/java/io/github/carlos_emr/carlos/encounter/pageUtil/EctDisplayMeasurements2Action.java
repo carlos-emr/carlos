@@ -245,11 +245,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                         date = data.getDateEnteredAsDate();
                     }
 
-                    //Not sure what the standard should be for showing remote data in the left and right hand sides but im not sure this looks right.
-                    //if(data.getRemoteFacility() != null){
-                    //	item.setBgColour("#ffcccc");
-                    //}
-
                     String formattedDate = DateUtils.formatDate(date, request.getLocale());
                     item.setLinkTitle(title + " " + data.getDataField() + " " + formattedDate);
                     title = padd(title, data.getDataField());

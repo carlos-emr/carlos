@@ -29,7 +29,7 @@
 
 --%>
 <%--
-    CreateMessage.jsp - Main message composition interface for the OpenO EMR messaging system
+    CreateMessage.jsp - Main message composition interface for the CARLOS EMR messaging system
     
     Purpose:
     This JSP page provides the primary interface for healthcare providers to compose and send

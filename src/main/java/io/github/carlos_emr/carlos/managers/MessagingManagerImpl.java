@@ -288,8 +288,8 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * Set the message opened by this local provider from new to read. Matching provider numbers from
-     * remote locations will be ignored.
+     * Set the message opened by this local provider from new to read. Only messages with a
+     * local destination are updated.
      *
      * @param loggedInInfo
      * @param messageId
@@ -464,8 +464,7 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * A combined result of both the local reply recipients and recipients located in remote
-     * facilities including the original sender.
+     * Returns all reply recipients for the given message, including the original sender.
      */
     public final List<ContactIdentifier> getAllMessageReplyRecipients(LoggedInInfo loggedInInfo, final MessageTbl messageTbl) {
 
@@ -560,8 +559,7 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * Recipients that were copied in on the message but have an origin in one of the included
-     * remote facilities.
+     * Recipients that were copied in on the message with a non-local destination facility.
      *
      * @param loggedInInfo
      * @param messageId
