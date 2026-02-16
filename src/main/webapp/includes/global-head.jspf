@@ -1,0 +1,28 @@
+<%--
+    CARLOS EMR - Global Head Include
+
+    Purpose:
+    Provides common CSS and JavaScript dependencies shared across all pages.
+    Include this fragment inside the <head> element of any JSP page:
+
+        <%@ include file="/includes/global-head.jspf" %>
+
+    Includes:
+    - Viewport meta tag for responsive design
+    - global.js (legacy focus/refresh helpers)
+    - jQuery 3.6.4
+    - Bootstrap 3.0.0 (JS + CSS) — change version here when upgrading
+    - jQuery UI 1.12.1 CSS
+    - searchBox.css (shared search/form styles)
+    - global.css (CARLOS design tokens and common classes)
+
+    @since 2026-02-16
+--%>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
+<script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+<script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css">
+<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css">
+<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/searchBox.css">
+<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css">
