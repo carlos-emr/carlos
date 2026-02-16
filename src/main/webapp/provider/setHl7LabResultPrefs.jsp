@@ -15,9 +15,9 @@
 <head>
     <title>Set HL7 Lab Result Preferences</title>
 
-    <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-    <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+    <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.js"></script>
 </head>
 <body>
 <jsp:include page="../images/spinner.jsp" flush="true"/>
@@ -35,7 +35,7 @@
                 <label class="form-check-label" for="offerFileForOthers">
                     Automatically offer to file results on behalf of other providers when acknowledging HL7 lab results
                 </label>
-                <div class="form-text text-muted">(default: yes)</div>
+                <div class="form-text text-body-secondary">(default: yes)</div>
             </div>
 
             <div class="form-check form-switch mb-3">
@@ -44,7 +44,7 @@
                 <label class="form-check-label" for="allowOthersFileForYou">
                     Allow other providers to file results on your behalf when they acknowledge HL7 lab results
                 </label>
-                <div class="form-text text-muted">(default: no)</div>
+                <div class="form-text text-body-secondary">(default: no)</div>
             </div>
 
             <div id="successMessage" class="alert alert-success d-none" role="alert">

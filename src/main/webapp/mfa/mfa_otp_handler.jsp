@@ -57,7 +57,7 @@
         </div>
 
         <div class="px-3 mt-3">
-            <span class="text-muted"><small><fmt:message key="mfa.otp.handler.instruction"/></small></span>
+            <span class="text-body-secondary"><small><fmt:message key="mfa.otp.handler.instruction"/></small></span>
         </div>
     </form>
 </div>
