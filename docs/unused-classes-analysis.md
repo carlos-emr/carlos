@@ -2,9 +2,9 @@
 
 **Date**: 2026-02-16
 **Branch**: `claude/identify-unused-classes-Zxx1H`
-**Total Unused Classes Found**: 232 (explicitly unreferenced) + ~230 JAXB stubs (see Section 15)
+**Total Unused Classes Found**: 251 (explicitly unreferenced) + ~230 JAXB stubs (see Section 17)
 **Total Classes in Codebase**: 4,068
-**Percentage Unused**: ~11% including JAXB stubs, ~5.7% excluding them
+**Percentage Unused**: ~11.8% including JAXB stubs, ~6.2% excluding them
 
 ## Methodology
 
@@ -41,17 +41,20 @@ in **any other file** across the entire `src/main/` directory tree, including:
 |----------|-------|------------|-------|
 | Form Records (`form/`) | 52 | Low | Legacy form data holders, likely replaced by eforms |
 | Encounter Data Records | 10 | Low | Legacy encounter record classes |
+| Dead Entity Duplicates (`entities/`) | 12 | Low | Legacy POJOs duplicating `commn.model` + isolated pairs |
+| Dead Model Classes (`commn/model/`) | 1 | Low | Unreferenced JPA entity (Pronoun) |
 | DAO Implementations (`commn/dao/`) | 26 | Medium | Interfaces unused too; safe to remove |
+| Registered-but-Unused Beans | 10 | Medium | Spring XML beans never consumed (incl. DAO pairs) |
 | Web Services (`webserv/`) | 26 | Medium | REST/SOAP endpoints and DTOs |
 | CAISI Integrator (explicit) | 14 | Low | Related to archived CAISI integration |
-| CAISI Integrator JAXB stubs | ~230 | Low | Auto-generated WS stubs (see Section 15) |
-| PMmodule | 13 | Low | Legacy program management classes |
-| Billing | 9 | Medium | Province-specific billing code |
+| CAISI Integrator JAXB stubs | ~230 | Low | Auto-generated WS stubs (see Section 17) |
+| PMmodule | 11 | Low | Legacy program management classes |
+| Billing | 8+3 | Medium | Province-specific billing (3 cross-ref with entities) |
 | Integration | 13 | Medium | External system integrations (incl. dashboard models) |
 | Hospital Report Manager | 3 | Low | HRM XSD enums (HRMAction.java is misnamed, not dead) |
 | Utility/Infrastructure | 13 | Low | Utility classes, config, helpers |
-| Login/Security | 5 | Medium | Auth-related unused code |
-| Other (misc) | 55 | Varies | Various domain-specific unused classes |
+| Login/Security | 6 | Medium | Auth-related unused code |
+| Other (misc) | 39 | Varies | Various domain-specific unused classes |
 
 ---
 
@@ -139,7 +142,54 @@ src/main/java/io/github/carlos_emr/carlos/encounter/data/EctRourkeRecord.java
 src/main/java/io/github/carlos_emr/carlos/encounter/data/EctType2DiabetesRecord.java
 ```
 
-### 3. DAO Implementations (26 classes) - MEDIUM RISK
+### 3. Dead Entity Classes (`entities/` package) (12 classes) - LOW RISK
+
+The `entities/` package contains legacy POJOs that predate the `commn.model` JPA entities.
+Many are duplicates of actively-used classes elsewhere. The package is ~37.5% dead code.
+
+**Duplicate entities** (plain POJOs superseded by JPA-annotated `commn.model` equivalents):
+
+| Class | entities/ File | Active Equivalent |
+|-------|---------------|-------------------|
+| `EChart` | `entities/EChart.java` | `commn.model.EChart` (6 imports) |
+| `Ichppccode` | `entities/Ichppccode.java` | `commn.model.Ichppccode` (2 imports) |
+| `Immunizations` | `entities/Immunizations.java` | `commn.model.Immunizations` (3 imports) |
+| `LabTest` | `entities/LabTest.java` | `commn.model.LabTest` (5 imports) |
+| `Prescription` | `entities/Prescription.java` | `commn.model.Prescription` (13 imports) |
+
+**Legacy POJOs with zero references anywhere:**
+```
+src/main/java/io/github/carlos_emr/carlos/entities/LabData.java
+src/main/java/io/github/carlos_emr/carlos/entities/LabRequest.java
+src/main/java/io/github/carlos_emr/carlos/entities/LoincCodes.java
+src/main/java/io/github/carlos_emr/carlos/entities/Insclaim.java
+```
+
+**Note**: `LabData` (JSP "LabData" matches are JavaScript variable names), `LabRequest`
+(callers use `commn.model.LabRequestReportLink`), `LoincCodes` (1353 lines, massive
+but completely orphaned), and `Insclaim` (732 lines, legacy billing entity never integrated).
+
+**Mutually-isolated pair** (only reference each other, nothing else uses either):
+```
+src/main/java/io/github/carlos_emr/carlos/entities/ClinicalFactor.java
+src/main/java/io/github/carlos_emr/carlos/entities/Condition.java
+```
+
+**Note**: `Billcenter`, `Billingdetail`, and `Insclaim` from this package are also listed
+in Section 7 (Billing) since they relate to billing functionality.
+
+### 4. Dead Model Classes (`commn/model/`) (1 class) - LOW RISK
+
+**`Pronoun`** - Unreferenced JPA entity mapped to `lst_pronoun` table:
+```
+src/main/java/io/github/carlos_emr/carlos/commn/model/enumerator/Pronoun.java
+```
+
+The entity and its `@NamedQuery` are never queried or loaded. JSP files reference
+"Pronouns" as an HTML form label string, not this Java class. The pronoun field on
+demographics uses raw string input, not this entity.
+
+### 5. DAO Implementations (26 classes) - MEDIUM RISK
 
 These `DaoImpl` classes implement DAO interfaces that are **also unused** (the
 interface itself has no references outside its own file and the Impl file). This
@@ -177,7 +227,46 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/RecycleBinBillingDaoImpl.jav
 src/main/java/io/github/carlos_emr/carlos/commn/dao/RemoteDataLogDaoImpl.java
 ```
 
-### 4. Web Services and REST DTOs (26 classes) - MEDIUM RISK
+### 5b. Registered-but-Unused Spring Beans (10 classes) - MEDIUM RISK
+
+These classes are registered as Spring beans (via `applicationContext.xml` or `@Repository`/
+`@Component` annotations) but are **never consumed** - no Java code, JSP, or XML
+configuration references the bean ID or the class/interface.
+
+**Recommendation**: Remove from both Spring XML config and source code. The Spring XML
+bean definitions should be removed first to confirm no runtime errors.
+
+**Service/Bean registered in XML but never consumed:**
+```
+src/main/java/io/github/carlos_emr/carlos/casemgmt/service/MeasurementPrint.java
+src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/data/PrivateBillTransactionsDAO.java
+```
+
+**DAO interface + Impl pairs registered in XML but never consumed:**
+```
+src/main/java/io/github/carlos_emr/carlos/commn/dao/AllergyMergedDemographicDao.java
+src/main/java/io/github/carlos_emr/carlos/commn/dao/AllergyMergedDemographicDaoImpl.java
+src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentMergeDemographicDAO.java
+src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentMergeDemographicDAOImpl.java
+src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxResultsRepository.java
+src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxResultsRepositoryImpl.java
+```
+
+**Note**: `MeasurementPrint` is registered as bean `extPrintMeasurements` in
+`applicationContext.xml` but the bean ID is never referenced anywhere.
+`PrivateBillTransactionsDAO` is similarly registered but never injected.
+The three DAO pairs are registered in `applicationContext.xml`/`spring_jpa.xml`
+(some explicitly excluded from component scanning) and never consumed.
+
+### 5c. False Positives Identified and Excluded
+
+The following classes were initially flagged as unused but are confirmed active:
+
+- **`DrugLookUpManager`**: Implements the `DrugLookUp` interface and is annotated
+  `@Service`. It IS the bean injected when callers request `DrugLookUp` via Spring DI
+  (used by `DrugConverterImpl`, `FavoriteConverterImpl`, `RxLookupService`).
+
+### 6. Web Services and REST DTOs (26 classes) - MEDIUM RISK
 
 Unused REST endpoints, SOAP web services, data transfer objects, and conversion utilities.
 
@@ -213,7 +302,7 @@ src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/ProviderSearchRe
 src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/WebServiceLoggingAdvice.java
 ```
 
-### 5. CAISI Integrator - Explicit Unused (14 classes) - LOW RISK
+### 7. CAISI Integrator - Explicit Unused (14 classes) - LOW RISK
 
 Related to the archived CAISI integration system. Per CLAUDE.md, CAISI integrator
 architecture is being phased out.
@@ -251,7 +340,7 @@ src/main/java/io/github/carlos_emr/carlos/caisi_integrator/util/XmlUtils.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/util/ConfigXmlUtils.java
 ```
 
-### 6. PMmodule (13 classes) - LOW RISK
+### 8. PMmodule (11 classes) - LOW RISK
 
 Legacy program management classes including old web actions, form beans, and
 service classes.
@@ -270,11 +359,12 @@ src/main/java/io/github/carlos_emr/carlos/PMmodule/web/forms/IntegratorPausedExc
 src/main/java/io/github/carlos_emr/carlos/PMmodule/web/reports/custom/CustomReportDataSource.java
 ```
 
-### 7. Billing (9 classes) - MEDIUM RISK
+### 9. Billing (8 + 3 cross-ref classes) - MEDIUM RISK
 
 Province-specific billing classes and third-party integration code.
 
 **Note**: Billing code is critical healthcare infrastructure. Extra care recommended.
+The last 3 files are `entities/` package classes also listed in Section 3.
 
 ```
 src/main/java/io/github/carlos_emr/carlos/billing/CA/ON/model/BillingONCHeader2.java
@@ -290,7 +380,7 @@ src/main/java/io/github/carlos_emr/carlos/entities/Billingdetail.java
 src/main/java/io/github/carlos_emr/carlos/entities/Insclaim.java
 ```
 
-### 8. Integration (13 classes) - MEDIUM RISK
+### 10. Integration (13 classes) - MEDIUM RISK
 
 External system integration classes including DHIR, EBS, FHIR, OBEC, and dashboard.
 
@@ -316,7 +406,7 @@ src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/Name.java
 src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/User.java
 ```
 
-### 9. Hospital Report Manager (3 classes) - LOW RISK
+### 11. Hospital Report Manager (3 classes) - LOW RISK
 
 ```
 src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/AuditFormat.java
@@ -328,7 +418,7 @@ src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/PreferredMet
 is misnamed and actually defines `class ColumnInfo` (not `HRMAction`), which IS used
 by `HRM2Action.java`. The file should be renamed to `ColumnInfo.java` but is not dead code.
 
-### 10. Utility and Infrastructure (11 classes) - LOW RISK
+### 12. Utility and Infrastructure (13 classes) - LOW RISK
 
 ```
 src/main/java/io/github/carlos_emr/carlos/utility/EnumNameComparator.java
@@ -346,7 +436,7 @@ src/main/java/io/github/carlos_emr/carlos/commn/merge/MergedDemographicIntercept
 src/main/java/io/github/carlos_emr/carlos/commn/service/ContactManager.java
 ```
 
-### 11. Login and Security (5 classes) - MEDIUM RISK
+### 13. Login and Security (6 classes) - MEDIUM RISK
 
 **Note**: Security-related code changes should be carefully reviewed.
 
@@ -359,7 +449,7 @@ src/main/java/io/github/carlos_emr/carlos/sec/CookieSecurity.java
 src/main/java/io/github/carlos_emr/carlos/sec/token/StJoesTokenManager.java
 ```
 
-### 12. Encounter Actions and Utils (8 classes) - LOW RISK
+### 14. Encounter Actions and Utils (8 classes) - LOW RISK
 
 The `EctDisplay*Action.java` classes are superseded Struts 1.x actions that have
 been replaced by `EctDisplay*2Action.java` equivalents wired in struts.xml.
@@ -375,7 +465,7 @@ src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayPhotosAct
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayResolvedIssuesAction.java
 ```
 
-### 13. Ontario Health (2 classes) - LOW RISK
+### 15. Ontario Health (2 classes) - LOW RISK
 
 Legacy Ontario health integration implementations. The `HCValidation` interface is
 still used, but `HCValidationImpl1` specifically is never referenced.
@@ -389,7 +479,7 @@ src/main/java/ca/ontario/health/edt/EDTDelegateImpl.java
 integration code. However `EDTDelegateImpl` itself is never instantiated - check
 if `DelegateFactory` creates it via reflection before removing.
 
-### 14. Remaining Miscellaneous (26 classes)
+### 16. Remaining Miscellaneous (39 classes)
 
 ```
 src/main/java/io/github/carlos_emr/carlos/ar2005/impl/ARRecordDocumentImpl.java
@@ -410,7 +500,6 @@ src/main/java/io/github/carlos_emr/carlos/lab/ca/bc/PathNet/PathNetController.ja
 src/main/java/io/github/carlos_emr/carlos/lab/ca/bc/PathNet/PathNetInfo.java
 src/main/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultImport.java
 src/main/java/io/github/carlos_emr/carlos/listeners/MyDemographicEventListener.java
-src/main/java/io/github/carlos_emr/carlos/managers/DrugLookUpManager.java
 src/main/java/io/github/carlos_emr/carlos/managers/WaitListManager.java
 src/main/java/io/github/carlos_emr/carlos/match/MatchManagerScheduler.java
 src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessageBean.java
@@ -434,7 +523,7 @@ src/main/java/io/github/carlos_emr/carlos/wl/prepared/seaton/consultation/Proces
 src/main/java/io/github/carlos_emr/carlos/www/admin/UserSearchFormBean.java
 ```
 
-### 15. CAISI Integrator JAXB-Generated Stubs (~230 classes) - LOW RISK
+### 17. CAISI Integrator JAXB-Generated Stubs (~230 classes) - LOW RISK
 
 The `caisi_integrator/ws/` package contains **~242 files**, of which **~230 are
 auto-generated JAXB web service stubs** (Request/Response pairs, data transfer
@@ -493,9 +582,12 @@ The following packages were verified as fully active and should NOT be removed:
 
 ## Recommended Removal Priority
 
-### Phase 1: Safe to Remove Immediately (LOW RISK - ~80 classes)
+### Phase 1: Safe to Remove Immediately (LOW RISK - ~95 classes)
 - All 52 `Frm*Record` form classes + `FrmPdfGraphicRourke` + `FormBooleanValuePK`
 - All 10 `Ect*Record` encounter data classes
+- 12 dead `entities/` package classes (5 duplicates, 4 orphaned POJOs, 2 isolated pair,
+  `Insclaim` - note: `Billcenter`/`Billingdetail` counted under billing too)
+- `Pronoun.java` (unreferenced JPA entity in `commn/model/enumerator/`)
 - `Dangerous.java` (annotation marker, unused)
 - `LookupTagValue.java`, `DAO.java`, `Pager.java`
 - `FileHolder.java`, `PagerDef.java`
@@ -504,8 +596,9 @@ The following packages were verified as fully active and should NOT be removed:
 - `UserSearchFormBean.java`
 - 6 CAISI `*_*Port_Client.java` generated test stubs
 
-### Phase 2: Remove After Verification (MEDIUM RISK - ~130 classes)
+### Phase 2: Remove After Verification (MEDIUM RISK - ~140 classes)
 - 26 DAO implementations (verify interfaces are also unused)
+- 10 registered-but-unused Spring beans (remove XML config + source together)
 - 26 web service REST/SOAP classes (verify no CXF auto-discovery)
 - CAISI integrator DAO + util classes (8+3 classes)
 - PMmodule legacy classes (13 classes)
