@@ -312,7 +312,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 // check for errors printing
     if (request.getAttribute("printError") != null && (Boolean) request.getAttribute("printError")) {
 %>
-<script language="JavaScript">
+<script>
     alert("The lab could not be printed due to an error. Please see the server logs for more detail.");
 </script>
 <%
@@ -329,7 +329,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 <html>
 <head>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><%=handler.getPatientName() + " Lab Results"%>
+    <title><%=Encode.forHtml(handler.getPatientName()) + " Lab Results"%>
     </title>
 
     <link rel="stylesheet" type="text/css" media="all"
@@ -338,7 +338,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
           href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
-    <script language="javascript" type="text/javascript"
+    <script type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
     <script type="text/javascript"
@@ -354,7 +354,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     </script>
 
 
-    <script language="javascript" type="text/javascript">
+    <script type="text/javascript">
         // alternately refer to this function in oscarMDSindex.js as labDisplayAjax.jsp does
         function updateLabDemoStatus(labno) {
             if (document.getElementById("DemoTable" + labno)) {
@@ -442,6 +442,7 @@ div.Title2 a:link { color: black }
 div.Title2 a:hover { color: black }
 div.Title2 a:visited { color: black }
 div.Title2 a:active { color: black }
+
 .Cell        { background-color: silver; border-left: thin solid grey;
                text-align: center;
                border-right: thin solid black;
@@ -483,7 +484,7 @@ pre {
     white-space: -moz-pre-space;
     margin:0px;
     font-size: x-small;
-    font-weight:600;
+    font-weight:400;
 }
 
 [id^=ticklerWrap]{position:relative;top:0px;background-color:#FF6600;width:100%;}
@@ -495,7 +496,6 @@ input[id^='acklabel_']{
 
 .completedTickler{
     opacity: 0.8;
-    filter: alpha(opacity=80); /* For IE8 and earlier */
 }
 
 @media print {
@@ -533,7 +533,7 @@ input[id^='acklabel_']{
 }
     </style>
 
-    <script language="JavaScript">
+    <script>
         var labNo = '<%=Encode.forJavaScript(segmentID)%>';
         var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
         var demographicNo = '<%=Encode.forJavaScript(isLinkedToDemographic ? demographicID : "")%>';
@@ -967,13 +967,13 @@ input[id^='acklabel_']{
                                 <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
                                 <% } %>
-                                <input type="button" class="btn btn-sm" value="Req# <%=reqTableID%>" title="Link to Requisition"
+                                <input type="button" class="btn btn-sm" value="Req# <%=Encode.forHtmlAttribute(reqTableID)%>" title="Link to Requisition"
                                        onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');">
 
 
                                 <% if (bShortcutForm) { %>
-                                <input type="button" class="btn btn-sm" value="<%=formNameShort%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=formNameShort%>')">
+                                <input type="button" class="btn btn-sm" value="<%=Encode.forHtmlAttribute(formNameShort)%>"
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=Encode.forJavaScript(formNameShort)%>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
                                 <input type="button" class="btn btn-sm" value="<%=formName2Short%>"
@@ -1104,7 +1104,7 @@ input[id^='acklabel_']{
                                                                                 <% } else { // we were called from lab module%>
                                                                             <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                                                                 <% } %>
-                                                                                <%=handler.getPatientName()%>
+                                                                                <%=Encode.forHtml(handler.getPatientName())%>
                                                                             </a>
                                                                     </div>
                                                                 </td>
@@ -1118,7 +1118,7 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getDOB()%>
+                                                                        <%=Encode.forHtml(handler.getDOB())%>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
@@ -1131,7 +1131,7 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getAge()%>
+                                                                        <%=Encode.forHtml(handler.getAge())%>
                                                                     </div>
                                                                 </td>
 
@@ -1146,7 +1146,7 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getHealthNum()%>
+                                                                        <%=Encode.forHtml(handler.getHealthNum())%>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
@@ -1163,7 +1163,7 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getHomePhone()%>
+                                                                        <%=Encode.forHtml(handler.getHomePhone())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1175,7 +1175,7 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getWorkPhone()%>
+                                                                        <%=Encode.forHtml(handler.getWorkPhone())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1187,7 +1187,7 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td style="text-align:left; white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getSex()%>
+                                                                        <%=Encode.forHtml(handler.getSex())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1203,7 +1203,7 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getPatientLocation()%>
+                                                                        <%=Encode.forHtml(handler.getPatientLocation())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1229,7 +1229,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%= handler.getServiceDate() %>
+                                                <%=Encode.forHtml(handler.getServiceDate()) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1258,7 +1258,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%= handler.getRequestDate(0) %>
+                                                <%=Encode.forHtml(handler.getRequestDate(0)) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1283,7 +1283,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%=handler.getOrderStatus()%>
+                                                <%=Encode.forHtml(handler.getOrderStatus())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1298,7 +1298,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td style="white-space:nowrap;">
                                             <div class="FieldData">
-                                                <%= handler.getClientRef()%>
+                                                <%=Encode.forHtml(handler.getClientRef())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1310,7 +1310,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%= handler.getAccessionNum()%>
+                                                <%=Encode.forHtml(handler.getAccessionNum())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1337,12 +1337,12 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%= handler.getEncounterId() %>
+                                                <%=Encode.forHtml(handler.getEncounterId()) %>
                                             </div>
                                         </td>
                                     </tr>
                                     <% }
-                                        String comment = handler.getNteForPID();
+                                        String comment =Encode.forHtml(handler.getNteForPID());
                                         if (comment != null && !comment.equals("")) {%>
                                     <tr>
                                         <td>
@@ -1352,7 +1352,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%= comment %>
+                                                <%=Encode.forHtml(comment) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1367,7 +1367,7 @@ input[id^='acklabel_']{
                                         <td style="background-color:white;">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong>
-                                                <%= handler.getDocName()%>
+                                                <%=Encode.forHtml(handler.getDocName())%>
                                             </div>
                                         </td>
                                         <%-- <td style="background-color:white;">
@@ -1379,7 +1379,7 @@ input[id^='acklabel_']{
                                         <td style="background-color:white; text-align:right">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong>
-                                                <%= handler.getCCDocs()%>
+                                                <%=Encode.forHtml(handler.getCCDocs())%>
 
                                             </div>
                                         </td>
@@ -1601,13 +1601,13 @@ input[id^='acklabel_']{
                         </tr>
                         <tr class="TDISRes">
                             <td style="vertical-align:top;  text-align:left;"> colspan="9">
-                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=handler.getRadiologistInfo()%></b></pre>
+                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=Encode.forJavaScriptBlock(handler.getRadiologistInfo())%></b></pre>
                             </td>
                 </td>
             </tr>
             <tr class="TDISRes">
                 <td style="vertical-align:top;  text-align:left;"> colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><b><%=handler.getOBXComment(1, 1, 1)%></b></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><b><%=Encode.forJavaScriptBlock(handler.getOBXComment(1, 1, 1))%></b></pre>
                 </td>
                 </td>
                 <td style="text-align:center; vertical-align:top; ">
@@ -1645,7 +1645,7 @@ input[id^='acklabel_']{
                     isUnstructuredDoc = ((MEDITECHHandler) handler).isUnstructured();
                 } %>
 
-        <table style="page-break-inside:avoid; width:100%;" class="darkBkg">
+        <table style="page-break-inside:avoid; width:100%;">
             <tr>
                 <td colspan="4">&nbsp;</td>
             </tr>
@@ -1752,7 +1752,7 @@ input[id^='acklabel_']{
                             obrFlag = true;
                             %>
                                 <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" >
-                                    <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=handler.getOBRName(j)%></span></td>
+                                    <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=Encode.forHtml(handler.getOBRName(j))%></span></td>
                                     <td colspan="1"><%=orderRequestStatus%></td>
                                 </tr>
                             <%
@@ -1858,20 +1858,20 @@ input[id^='acklabel_']{
                     <%} %>
                 </td>
                 <td style="text-align:right">
-                    <%= handler.getOBXResult(j, k) %>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
                 <td style="text-align:center">
-                    <%= handler.getOBXAbnormalFlag(j, k)%>
+                    <%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                 </td>
-                <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                 </td>
-                <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                 </td>
-                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
-                <td style="text-align:center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
                 <td style="text-align:center; vertical-align:top;  ">
                     <a href="javascript:void(0);" title="Annotation"
@@ -1886,7 +1886,7 @@ input[id^='acklabel_']{
             <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXResult(j, k))%><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
             </tr>
@@ -1904,20 +1904,20 @@ input[id^='acklabel_']{
                         info</a>
                     <%} %></td>
                 <td style="text-align:right">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
                 <td style="text-align:center">
-                    <%= handler.getOBXAbnormalFlag(j, k)%>
+                    <%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                 </td>
-                <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                 </td>
-                <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                 </td>
-                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
-                <td style="text-align:center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
                 <td style="vertical-align:center; text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
@@ -1933,7 +1933,7 @@ input[id^='acklabel_']{
             <%} else { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forJavaScriptBlock(handler.getOBXResult(j, k))%><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
             </tr>
@@ -1943,14 +1943,14 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getNteForOBX(j, k)%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getNteForOBX(j, k))%></pre>
                 </td>
             </tr>
             <% }
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <%
@@ -1970,11 +1970,11 @@ input[id^='acklabel_']{
                 %>
 
                 <td style="text-align:left" colspan="4">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
-                <% String abnormalFlag = handler.getOBXAbnormalFlag(j, k);
+                <% String abnormalFlag =Encode.forHtml(handler.getOBXAbnormalFlag(j, k));
                     if (abnormalFlag != null && abnormalFlag.length() > 0) {
                 %>
                 <td style="text-align:center">
@@ -1982,14 +1982,14 @@ input[id^='acklabel_']{
                 </td>
                 <% } %>
 
-                <% String refRange = handler.getOBXReferenceRange(j, k);
+                <% String refRange =Encode.forHtml(handler.getOBXReferenceRange(j, k));
                     if (refRange != null && refRange.length() > 0) {
                 %>
                 <td style="text-align:left"><%=refRange%>
                 </td>
                 <% } %>
 
-                <% String units = handler.getOBXUnits(j, k);
+                <% String units =Encode.forHtml(handler.getOBXUnits(j, k));
                     if (units != null && units.length() > 0) {
                 %>
                 <td style="text-align:left"><%=units %>
@@ -1999,22 +1999,22 @@ input[id^='acklabel_']{
                 } else {
                 %>
                 <td style="text-align:right" colspan="1">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
-                <td style="text-align:center"><%= handler.getOBXAbnormalFlag(j, k)%>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                 </td>
-                <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                 </td>
-                <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                 </td>
                 <%
                     }
                 %>
 
-                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
-                <td style="text-align:center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
 
                 <td style="vertical-align:top;  text-align:left;">
@@ -2031,7 +2031,7 @@ input[id^='acklabel_']{
             <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <%
@@ -2067,14 +2067,14 @@ input[id^='acklabel_']{
                 </td>
                     <%}else{%>
                 <td style="text-align:left">
-                    <span><%= handler.getOBXResult(j, k) %><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
+                    <span><%=Encode.forHtml(handler.getOBXResult(j, k)) %><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
                 </td>
                     <%} %>
 
                     <% if(handler.getTimeStamp(j, k).equals(handler.getTimeStamp(j, k-1)) && (obxCount>1)){ %>
                 <td style="text-align:center"></td>
                     <%} else {%>
-                <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
                     <%}
 
@@ -2110,7 +2110,7 @@ input[id^='acklabel_']{
 
                     <% if(handler instanceof AlphaHandler && "FT".equals(handler.getOBXValueType(j, k))) { %>
                 <td colspan="4">
-                    <pre style="font-family:Courier New, monospace;">       <%= handler.getOBXResult(j, k) %><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="font-family:Courier New, monospace;">       <%=Encode.forHtml(handler.getOBXResult(j, k)) %><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
                     <%
                                        			lastObxSetId = ((AlphaHandler)handler).getObxSetId(j,k);
@@ -2118,8 +2118,8 @@ input[id^='acklabel_']{
                                            } else if(handler instanceof PATHL7Handler && "FT".equals(handler.getOBXValueType(j, k)) && (handler.getOBXReferenceRange(j,k).isEmpty() && handler.getOBXUnits(j,k).isEmpty())){
                                         	  %>
                 <td colspan="4">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
                     <%
                                            } else { %>
@@ -2139,8 +2139,8 @@ input[id^='acklabel_']{
                                            		if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
                                            	%>
                 <td style="text-align:left" colspan="4">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
                     <%
@@ -2149,15 +2149,14 @@ input[id^='acklabel_']{
                                            		else if(handler.getMsgType().equals("MEDITECH")  && isUnstructuredDoc ) {
                                            	%>
 
-                <pre>
-					                             		<%= handler.getOBXResult(j, k) %><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <pre> <%=Encode.forHtml(handler.getOBXResult(j, k)) %><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
 					                             		</pre>
 
                     <% } else if(handler.getMsgType().equals("MEDITECH")  && ((MEDITECHHandler) handler).isReportData() ) { %>
             <tr>
                 <td>
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
             </tr>
 
@@ -2185,27 +2184,27 @@ input[id^='acklabel_']{
                 <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                 <em><%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %></em>
                 <% } else { %>
-                <%= handler.getOBXResult(j, k) %>
+                <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
                 <% } %>
-                <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
             </td>
 
             <% } %>
             <td style="text-align:center">
-                <%= handler.getOBXAbnormalFlag(j, k)%>
+                <%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
             </td>
-            <td style="text-align:left"><%=handler.getOBXReferenceRange(j, k)%>
+            <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
             </td>
-            <td style="text-align:left"><%=handler.getOBXUnits(j, k) %>
+            <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
             </td>
 
             <%}%>
 
-            <td style="text-align:center"><%= handler.getTimeStamp(j, k) %>
+            <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
             </td>
             <td style="text-align:center">
                 <%
-                    String status = handler.getOBXResultStatus(j, k);
+                    String status =Encode.forHtml(handler.getOBXResultStatus(j, k));
                     if ("GDML".equals(handler.getMsgType()) && ((GDMLHandler) handler).isTestResultBlocked(j, k)) {
                         if (!StringUtils.isEmpty(status)) {
                             status += "/";
@@ -2244,7 +2243,7 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <%
@@ -2259,7 +2258,7 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="TDISRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
                 <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
@@ -2294,7 +2293,7 @@ input[id^='acklabel_']{
                     if (!obrFlag && handler.getOBXName(j, 0).equals("")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
-                <td style="vertical-align:top;  text-align:left;"><%=handler.getOBRName(j)%>
+                <td style="vertical-align:top;  text-align:left;"><%=Encode.forHtml(handler.getOBRName(j))%>
                 </td>
                 <td colspan="6">&nbsp;</td>
             </tr>
@@ -2305,7 +2304,7 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="1"></td>
                 <td style="vertical-align:top;  text-align:left;" colspan="7">
-                    <pre style="margin:0px 0px 0px 0px;"><%=handler.getOBRComment(j, k)%></pre>
+                    <pre style="margin:0px 0px 0px 0px;"><%=Encode.forHtml(handler.getOBRComment(j, k).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <% if (!handler.getMsgType().equals("HHSEMR") || !handler.getMsgType().equals("TRUENORTH")) {
@@ -2373,7 +2372,7 @@ input[id^='acklabel_']{
 
         %>
         <%-- FOOTER --%>
-        <table style="width:100%" class="MainTableBottomRowRightColumn darkBkg">
+        <table style="width:100%" class="MainTableBottomRowRightColumn">
             <tr>
                 <td style="text-align:left; width:50%">
                     <% if (!ackFlag) { %>
@@ -2406,7 +2405,7 @@ input[id^='acklabel_']{
         <br/>
         <table>
                     <c:if test="${hasMissingTests}">
-                        <tr><td class="alert-block alert-info">
+                        <tr><td class="alert alert-info">
                         <!-- Missing Tests Information Section -->
                         <div class="info-section">
                             <p>&nbsp;&nbsp;<b>Info:</b> The following tests were not included in this version of the lab results:</p>
@@ -2442,7 +2441,7 @@ input[id^='acklabel_']{
     </form>
 
     <%String s = "" + System.currentTimeMillis();%>
-    <a style="color:white;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>
+    <a style="color:lightgrey;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>
     <pre id="rawhl7<%=s%>" style="display:none;"><%=hl7%></pre>
 </div>
 <%} %>
