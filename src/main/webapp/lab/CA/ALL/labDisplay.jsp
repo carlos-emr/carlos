@@ -233,27 +233,6 @@ Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>()
             hl7 = Factory.getHL7Body(segmentID);
         }
 
-    } else // remote lab
-    {
-        CachedDemographicLabResult remoteLabResult = LabDisplayHelper.getRemoteLab(loggedInInfo, Integer.parseInt(remoteFacilityIdString), remoteLabKey, Integer.parseInt(demographicID));
-        MiscUtils.getLogger().debug("retrieved remoteLab:" + ReflectionToStringBuilder.toString(remoteLabResult));
-        isLinkedToDemographic = true;
-
-        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, "segmentId=" + segmentID + ", remoteFacilityId=" + remoteFacilityIdString + ", remoteDemographicId=" + demographicID);
-
-        Document cachedDemographicLabResultXmlData = LabDisplayHelper.getXmlDocument(remoteLabResult);
-        ackList = LabDisplayHelper.getReportStatus(cachedDemographicLabResultXmlData);
-        multiLabId = LabDisplayHelper.getMultiLabId(cachedDemographicLabResultXmlData);
-        handler = LabDisplayHelper.getMessageHandler(cachedDemographicLabResultXmlData);
-        handlers.add(handler);
-        segmentIDs = new String[]{"0"};  //fake segment ID for the for loop below to execute
-        hl7 = LabDisplayHelper.getHl7Body(cachedDemographicLabResultXmlData);
-
-        try {
-            remoteFacilityIdQueryString = "&remoteFacilityId=" + remoteFacilityIdString + "&remoteLabKey=" + URLEncoder.encode(remoteLabKey, "UTF-8");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
     }
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);

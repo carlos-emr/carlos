@@ -92,7 +92,6 @@
     Prevention p = PreventionData.getPrevention(loggedInInfo, Integer.valueOf(demographic_no));
 
     Integer demographicId = Integer.parseInt(demographic_no);
-    PreventionData.addRemotePreventions(loggedInInfo, p, demographicId);
     Date demographicDateOfBirth = PreventionData.getDemographicDateOfBirth(loggedInInfo, Integer.valueOf(demographic_no));
     String demographicDob = UtilDateUtilities.DateToString(demographicDateOfBirth);
 
@@ -838,7 +837,7 @@
                   		HashMap<String,String> h = prevList.get(i);
                         String prevName = h.get("name");
                         ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
-                        PreventionData.addRemotePreventions(loggedInInfo, alist, demographicId,prevName,demographicDateOfBirth);
+
                         boolean show = pdc.display(loggedInInfo, h, demographic_no,alist.size());
                         if(!show){
                             Map<String,Object> h2 = new HashMap<String,Object>();
@@ -1066,7 +1065,7 @@
                                         <%
                                             String prevType = h.get("name");
                                             ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.valueOf(demographic_no));
-                                            PreventionData.addRemotePreventions(loggedInInfo, alist, demographicId, prevType, demographicDateOfBirth);
+
                                             String result;
                                             for (int k = 0; k < alist.size(); k++) {
                                                 Map<String, Object> hdata = alist.get(k);
@@ -1110,7 +1109,7 @@
                     HashMap<String, String> h = prevList.get(i);
                     String prevName = h.get("name");
                     ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
-                    PreventionData.addRemotePreventions(loggedInInfo, alist, demographicId, prevName, demographicDateOfBirth);
+
                     if (alist.size() > 0) { %>
             <input type="hidden" id="preventionHeader<%=i%>"
                    name="preventionHeader<%=i%>" value="<%=h.get("name")%>">

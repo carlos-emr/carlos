@@ -1,6 +1,5 @@
 <%--
 
-
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
@@ -27,39 +26,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.web.ManageLinkedClientsAction" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="java.util.Arrays" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.FacilityDemographicPrimaryKey" %>
-<%@page import="java.util.HashSet" %>
-<%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.web.ManageLinkedClients" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-
 <%
-    int currentDemographicId = Integer.parseInt(request.getParameter("demographicId"));
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    Facility currentFacility = (Facility) request.getSession().getAttribute(SessionConstants.CURRENT_FACILITY);
-    ManageLinkedClientsAction manageLinkedClientsAction = new ManageLinkedClientsAction();
-
-    @SuppressWarnings("unchecked")
-    Enumeration<String> e = request.getParameterNames();
-    while (e.hasMoreElements()) {
-        try {
-            String key = e.nextElement();
-            // must check for "on" because some versions of IE submit "off" or ""
-            if (key.startsWith("linked.") && "on".equals(request.getParameter(key)))
-                manageLinkedClientsAction.addLinkedId(key);
-        } catch (Exception ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-    }
-
-    Provider provider = (Provider) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER);
-    manageLinkedClientsAction.saveLinkedIds(loggedInInfo, currentFacility, provider, currentDemographicId);
-
     response.sendRedirect(request.getContextPath() + "/close.html");
 %>

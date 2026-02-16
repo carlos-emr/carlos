@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action.RemoteQueueEntry" %>
+
 <%@ page import="java.net.URLEncoder" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -129,13 +129,6 @@
         popup("caseManagement" + clientId, "<%=request.getContextPath()%>/oscarEncounter/IncomingEncounter.do?case_program_id=" + programId + "&demographicNo=" + clientId + "&status=B");
     }
 
-
-    function removeFromRemoteQueue(remoteReferralId) {
-        var form = document.programManagerViewForm;
-        form.elements['remoteReferralId'].value = remoteReferralId;
-        form.method.value = 'remove_remote_queue';
-        form.submit();
-    }
 
     //true: date2 <= date1
     function compareDates(date1, date2) {
@@ -432,48 +425,3 @@
     </table>
 </c:if>
 
-<c:if test="${remoteQueue!=null}">
-    <br/>
-    <br/>
-
-    <input type="hidden" name="remoteReferralId"/>
-
-    <div class="tabs" id="tabs">
-        <table cellpadding="3" cellspacing="0" border="0">
-            <tr>
-                <th title="Programs">Remote Queue</th>
-            </tr>
-        </table>
-    </div>
-    <!-- show current clients -->
-    <display:table class="simple" cellspacing="2" cellpadding="3"
-                   id="queue_entry" name="remoteQueue" export="false" pagesize="0"
-                   requestURI="/PMmodule/ProgramManager.do">
-        <display:setProperty name="paging.banner.placement" value="bottom"/>
-        <display:setProperty name="basic.msg.empty_list"
-                             value="Queue is empty."/>
-        <display:column sortable="false" title="">
-            <input type="button" value="Reject"
-                   onclick="removeFromRemoteQueue('<c:out value="${queue_entry.referral.referralId}"/>')"/>
-        </display:column>
-        <display:column property="clientName" sortable="true"
-                        title="Client Name"/>
-        <display:column sortable="true" title="Referral Date">
-            <%
-                RemoteQueueEntry referral = (RemoteQueueEntry) pageContext.getAttribute("queue_entry");
-                java.util.Date referralDate = referral.getReferral().getReferralDate().getTime();
-                java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd");
-                String referralDateStr = formatter.format(referralDate);
-            %>
-            <%=referralDateStr %>
-        </display:column>
-        <display:column property="providerName" sortable="true"
-                        title="Referring Provider"/>
-        <display:column property="vacancyName" sortable="true"
-                        title="Vacancy Name"/>
-        <display:column property="referral.reasonForReferral" sortable="true"
-                        title="Reason for referral"/>
-        <display:column property="referral.presentingProblem" sortable="true"
-                        title="Presenting problems"/>
-    </display:table>
-</c:if>

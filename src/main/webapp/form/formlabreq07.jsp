@@ -91,11 +91,6 @@
                 props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
                 props = ((FrmLabReq07Record) rec).getFormCustRecord(loggedInInfo, loggedInInfo.getCurrentFacility(), props, provNo);
             }
-        } else // it's remote
-        {
-            MiscUtils.getLogger().debug("Getting remote form : " + remoteFacilityIdString + ":" + formId);
-            props = FrmLabReq07Record.getRemoteRecordProperties(loggedInInfo, Integer.parseInt(remoteFacilityIdString), formId, demoNo);
-            FrmRecordHelp.convertBooleanToChecked(props);
         }
 
         MiscUtils.getLogger().debug("properties : " + props);

@@ -77,14 +77,7 @@
     ArrayList list = null;
 
     if (!(demographicNo == null || "null".equals(demographicNo) || "undefined".equals(demographicNo))) {
-        if (remoteFacilityIdString == null) {
-            list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demographicNo), testName, identifier);
-        } else {
-            CachedDemographicLabResult remoteLab = LabDisplayHelper.getRemoteLab(loggedInInfo, Integer.parseInt(remoteFacilityIdString), remoteLabKey, Integer.parseInt(demographicNo));
-            Document labContentsAsXml = LabDisplayHelper.getXmlDocument(remoteLab);
-            HashMap<String, ArrayList<Map<String, Serializable>>> mapOfTestValues = LabDisplayHelper.getMapOfTestValues(labContentsAsXml);
-            list = mapOfTestValues.get(identifier);
-        }
+        list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demographicNo), testName, identifier);
     }
 %>
 <!DOCTYPE html>
