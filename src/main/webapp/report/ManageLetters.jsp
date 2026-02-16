@@ -44,48 +44,34 @@
     }
 %>
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
 <%@page
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*,org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
-
     String demographic_no = request.getParameter("demographic_no");
-
     String[] demos = request.getParameterValues("demo");
-
 %>
 
 <html>
-
     <head>
+        <title>Manage Letters</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title>manage Letters</title>
-        <!-- i18n -->
-
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
-
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
 
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-
-        <SCRIPT type="text/javascript">
+        <script type="text/javascript">
 
             function showHideItem(id) {
                 if (document.getElementById(id).style.display == 'none')
@@ -109,7 +95,6 @@
                     hideItem(id);
                     document.getElementById(nextDate).value = "";
                     document.getElementById(neverWarn).checked = false;
-
                 }
             }
 
@@ -121,13 +106,6 @@
                 }
             }
 
-        </SCRIPT>
-
-
-        <script type="text/javascript">
-
-
-            //Function sends AJAX request to action
             function completedProcedure(idval, followUpType, procedure, demographic) {
                 var comment = prompt('Are you sure you want to added this to patients record \n\nAdd Comment Below ', '');
                 if (comment != null) {
@@ -145,116 +123,99 @@
             }
 
             function followUp(origRequest) {
-                //alert(origRequest.responseText);
                 var hash = origRequest.responseText.parseQuery();
-                //alert( hash['id'] + " " + hash['followupValue']+" "+hash['Date'] );
-                //("id="+id+"&followupValue="+followUpValue+"&Date=
                 var lastFollowupTD = $(hash['id'] + 'lastFollowup');
                 var nextProcedureTD = $(hash['id'] + 'nextSuggestedProcedure');
-                //alert(nextProcedureTD);
-                nextProcedureTD.innerHTML = "----";
-                lastFollowupTD.innerHTML = hash['followupValue'] + " " + hash['Date'];
-
-                //alert(nextProcedureTD.innerText);
-
+                nextProcedureTD.textContent = "----";
+                lastFollowupTD.textContent = hash['followupValue'] + " " + hash['Date'];
             }
+
         </script>
 
-
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-
         <style type="text/css" media="print">
-            .MainTable {
-                display: none;
-            }
-
-            .hiddenInPrint {
-                display: none;
-            }
-
-            .shownInPrint {
-                display: block;
-            }
+            .searchBox { display: none; }
         </style>
-
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="100">manageLetters
-            </td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td>&nbsp;</td>
-                        <td>&nbsp;</td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
-            <td valign="top" class="MainTableRightColumn"><form method="post"
-                    action="${pageContext.request.contextPath}/report/ManageLetters.do" enctype="multipart/form-data">
-                <input type="hidden" name="goto"
-                       value="<%=request.getParameter("goto")%>"/>
-                <div>Select Letter: <input type="file" name="reportFile"
-                                           value="upload"/>
-                    <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
-                          style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                            border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
+    <body>
+    <div class="container">
+    <div class="searchBox">
 
-                    Report Name: <input type="text" name="reportName"/>
+        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+            <h4 style="margin:0; font-size:18px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
+                </svg>
+                &nbsp;Manage Letters
+            </h4>
+        </div>
 
-                </div>
+        <form method="post" action="${pageContext.request.contextPath}/report/ManageLetters.do" enctype="multipart/form-data">
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+            <input type="hidden" name="goto" value="<%=Encode.forHtmlAttribute(request.getParameter("goto"))%>"/>
+            <table class="table table-condensed" style="font-size:13px;">
+                <tr>
+                    <td style="width:120px; font-weight:bold;">Select Letter:</td>
+                    <td>
+                        <input type="file" name="reportFile" value="upload"/>
+                        <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                              style="vertical-align:middle; cursor:pointer;">
+                            <img border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/>
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">Report Name:</td>
+                    <td><input type="text" name="reportName" class="form-control input-sm" style="width:auto; display:inline-block;"/></td>
+                </tr>
+            </table>
+            <div style="padding:5px 0 15px 0;">
+                <input type="submit" value="Upload" class="btn btn-sm btn-primary"/>
+            </div>
+        </form>
 
-                <input type="submit"/>
+        <%
+            ManageLetters mLetter = new ManageLetters();
+            ArrayList list = mLetter.getActiveReportList();
 
-
-            </form> <%
-                ManageLetters mLetter = new ManageLetters();
-                ArrayList list = mLetter.getActiveReportList();
-
-                if (list.size() > 0) {%>
-                <table>
-                    <% for (int i = 0; i < list.size(); i++) {
-                        Hashtable h = (Hashtable) list.get(i);
-                    %>
-                    <tr>
-                        <td><%= Encode.forHtml(String.valueOf(h.get("ID"))) %>
-                        </td>
-                        <td><%= Encode.forHtml(String.valueOf(h.get("provider_no"))) %>
-                        </td>
-                        <td><%= Encode.forHtml(String.valueOf(h.get("report_name"))) %>
-                        </td>
-                        <td><a href="<%= request.getContextPath() %>/report/DownloadLetter.do?reportID=<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%= Encode.forHtml(String.valueOf(h.get("file_name")))%>
-                        </a></td>
-                        <td><%= Encode.forHtml(String.valueOf(h.get("date_time"))) %>
-                        </td>
-                        <td><form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter.do" style="display:inline;margin:0;"><input type="hidden" name="reportID" value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID"))) %>"/><button type="submit" style="background:none;border:none;color:blue;text-decoration:underline;cursor:pointer;padding:0;">del</button></form></td>
-                    </tr>
-                    <%}%>
-                </table>
+            if (list.size() > 0) {
+        %>
+        <table class="table table-condensed table-striped" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Provider</th>
+                    <th>Report Name</th>
+                    <th>File</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <% for (int i = 0; i < list.size(); i++) {
+                    Hashtable h = (Hashtable) list.get(i);
+                %>
+                <tr>
+                    <td><%= Encode.forHtml(String.valueOf(h.get("ID"))) %></td>
+                    <td><%= Encode.forHtml(String.valueOf(h.get("provider_no"))) %></td>
+                    <td><%= Encode.forHtml(String.valueOf(h.get("report_name"))) %></td>
+                    <td><a href="<%= request.getContextPath() %>/report/DownloadLetter.do?reportID=<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"><%= Encode.forHtml(String.valueOf(h.get("file_name")))%></a></td>
+                    <td><%= Encode.forHtml(String.valueOf(h.get("date_time"))) %></td>
+                    <td>
+                        <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter.do" style="display:inline; margin:0;">
+                            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                            <input type="hidden" name="reportID" value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID"))) %>"/>
+                            <button type="submit" class="btn btn-xs btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
                 <%}%>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
-            <td class="MainTableBottomRowRightColumn" valign="top">&nbsp;</td>
-        </tr>
-    </table>
+            </tbody>
+        </table>
+        <%}%>
 
-    <div></div>
-
-    <script type="text/javascript">
-        // Calendar.setup( { inputField : "asofDate", ifFormat : "%Y-%m-%d", showsTime :false, button : "date", singleClick : true, step : 1 } );
-    </script>
-
+    </div>
+    </div>
     </body>
 </html>
 
