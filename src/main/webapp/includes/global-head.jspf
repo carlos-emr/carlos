@@ -13,6 +13,7 @@
     - jQuery 3.6.4
     - Bootstrap 3.0.0 (JS + CSS) — change version here when upgrading
     - jQuery UI 1.12.1 CSS
+    - Font Awesome 6.7.2 (icon library)
     - searchBox.css (shared search/form styles)
     - global.css (CARLOS design tokens and common classes)
 
@@ -24,5 +25,6 @@
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css">
+<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/searchBox.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css">
