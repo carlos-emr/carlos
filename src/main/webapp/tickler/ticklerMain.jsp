@@ -22,40 +22,24 @@
     Hamilton
     Ontario, Canada
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
-    https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
+    Ported from openo-beta/Open-O PR #2268 by LiamStanziani.
+    Server-side DataTables pagination for tickler list.
 
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ViewDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.View" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CustomFilter" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
-<%@ page import="java.text.DateFormat" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.time.ZoneId" %>
-<%@ page import="java.time.LocalDateTime" %>
-<%@ page import="java.time.Duration" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -75,18 +59,15 @@
     }
 %>
 <%!
-    TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-    TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
     ViewDao viewDao = SpringUtils.getBean(ViewDao.class);
 %>
 
 <%
-    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = OscarProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.isEmpty()) {
         labReqVer = "07";
     }
 
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String user_no = (String) session.getAttribute("user");
     String createReport = request.getParameter("Submit");
     boolean doCreateReport = createReport != null && createReport.equals("Create Report");
@@ -135,10 +116,6 @@
     }
 
     String xml_vdate = "";
-//	View beginDateView = ticklerView.get("dateBegin");
-//	if (beginDateView != null && !doCreateReport) {
-//		xml_vdate = beginDateView.getValue();
-//	} else
     if (request.getParameter("xml_vdate") != null) {
         xml_vdate = request.getParameter("xml_vdate");
     }
@@ -149,10 +126,6 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 
     String xml_appointment_date = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-//	View endDateView = ticklerView.get("dateEnd");
-//	else if (endDateView != null && !doCreateReport) {
-//		xml_appointment_date = endDateView.getValue();
-//	}
     if (request.getParameter("xml_appointment_date") != null) {
         xml_appointment_date = request.getParameter("xml_appointment_date");
     }
@@ -228,6 +201,83 @@
 
 
             const ctx = '${pageContext.request.contextPath}';
+            const userNo = '<%=Encode.forJavaScript(user_no)%>';
+
+            function escapeHtml(text) {
+                if (!text) return '';
+                var div = document.createElement('div');
+                div.appendChild(document.createTextNode(text));
+                return div.innerHTML;
+            }
+
+            function renderCheckbox(data, type, row) {
+                return '<input type="checkbox" name="checkbox" value="' + row.id + '" class="noprint">';
+            }
+
+            function renderEditIcon(data, type, row) {
+                return '<a href="javascript:void(0)" title="Edit Tickler" ' +
+                    'onClick="window.open(\'' + ctx + '/tickler/ticklerEdit.jsp?tickler_no=' + row.id +
+                    '\', \'edit_tickler\', \'width=800, height=650\')">' +
+                    '<span class="glyphicon glyphicon-pencil"></span></a>';
+            }
+
+            function renderDemoName(data, type, row) {
+                var name = escapeHtml(row.demoLastName) + ',' + escapeHtml(row.demoFirstName);
+                return '<a href="javascript:void(0)" ' +
+                    'onClick="popupPage(600,800,\'' + ctx +
+                    '/demographic/demographiccontrol.jsp?demographic_no=' +
+                    encodeURIComponent(row.demoNo) +
+                    '&displaymode=edit&dboperation=search_detail\')">' + name + '</a>';
+            }
+
+            function renderText(data) {
+                return escapeHtml(data);
+            }
+
+            function renderMessage(data, type, row) {
+                var html = '<span style="white-space:pre-wrap">' + escapeHtml(row.message) + '</span>';
+                if (row.links) {
+                    for (var i = 0; i < row.links.length; i++) {
+                        html += buildAttachmentLink(row.links[i].tableName, row.links[i].tableId);
+                    }
+                }
+                return html;
+            }
+
+            function renderNoteIcon(data, type, row) {
+                return '<a href="javascript:void(0)" class="noteDialogLink noprint" ' +
+                    'onClick="openNoteDialog(\'' + row.demoNo + '\',\'' + row.id + '\')" ' +
+                    'title="Add Encounter Note">' +
+                    '<span class="glyphicon glyphicon-comment"></span></a>';
+            }
+
+            function buildAttachmentLink(type, tableId) {
+                var uNo = encodeURIComponent(userNo);
+                var safeTableId = encodeURIComponent(tableId);
+                var href;
+                if (type === 'MDS') {
+                    href = "javascript:reportWindow('" + ctx + "/oscarMDS/SegmentDisplay.jsp?segmentID=" + safeTableId +
+                        "&providerNo=" + uNo + "&searchProviderNo=" + uNo + "&status=')";
+                } else if (type === 'CML') {
+                    href = "javascript:reportWindow('" + ctx + "/lab/CA/ON/CMLDisplay.jsp?segmentID=" + safeTableId +
+                        "&providerNo=" + uNo + "&searchProviderNo=" + uNo + "&status=')";
+                } else if (type === 'HL7') {
+                    href = "javascript:reportWindow('" + ctx + "/lab/CA/ALL/labDisplay.jsp?segmentID=" + safeTableId +
+                        "&providerNo=" + uNo + "&searchProviderNo=" + uNo + "&status=')";
+                } else if (type === 'DOC') {
+                    href = "javascript:reportWindow('" + ctx + "/documentManager/ManageDocument.do?method=display&doc_no=" + safeTableId +
+                        "&providerNo=" + uNo + "&searchProviderNo=" + uNo + "&status=')";
+                } else if (type === 'HRM') {
+                    href = "javascript:reportWindow('" + ctx + "/hospitalReportManager/Display.do?id=" + safeTableId +
+                        "&segmentID=" + safeTableId + "')";
+                } else {
+                    href = "javascript:reportWindow('" + ctx + "/lab/CA/BC/labDisplay.jsp?segmentID=" + safeTableId +
+                        "&providerNo=" + uNo + "&searchProviderNo=" + uNo + "&status=')";
+                }
+                return ' <a title="View attachment" href="' + href +
+                    '"><i class="glyphicon glyphicon-paperclip"></i></a>';
+            }
+
             let ticklerResultsTable;
             jQuery(document).ready(function () {
                 jQuery("#note-form").dialog({
@@ -239,74 +289,98 @@
 
                     }
                 });
-                //
-                // const editFormDialog = jQuery( "#edit-form" ).dialog({
-                //     autoOpen: false,
-                //     modal: true,
-                //     close: function() {
-                //
-                //     }
-                // });
-                let groupColumn = 11;
+                let idColumn = 11;
+                let lastComments = {};
                 ticklerResultsTable = jQuery("#ticklerResults").dataTable({
-                    // cache the datatable state to persist through page refreshes
-                    bStateSave: true,
-                    fnStateSave: function (oSettings, oData) {
-                        localStorage.setItem('ticklerDataTable', JSON.stringify(oData));
-                    },
-                    fnStateLoad: function () {
-                        return JSON.parse(localStorage.getItem('ticklerDataTable'));
-                    },
                     "searching": false,
                     "aLengthMenu": [[25, 50, 75, -1], [25, 50, 75, "All"]],
-                    "iDisplayLength": 50,
-                    columns: [
-                        {orderable: false}, //checkbox column, so shouldn't be orderable
-                        {orderable: false}, //edit icon column, so shouldn't be orderable
-                        {orderable: false}, //demographic name column. should not be made orderable until row group is refactored, otherwise tickler comments are not grouped properly
-                        {orderable: false}, //creator column. should not be made orderable until row group is refactored, otherwise tickler comments are not grouped properly
-                        {}, //service date column
-                        {orderable: false}, //update date column
-                        {}, //priority column
-                        {orderable: false}, //assigned to column. should not be made orderable until row group is refactored, otherwise tickler comments are not grouped properly
-                        {orderable: false}, //status column. should not be made orderable until row group is refactored, otherwise tickler comments are not grouped properly
-                        {orderable: false}, //comment column.
-                        {orderable: false}, //note icon column, so shouldn't be orderable
-                        {orderable: false} //hidden group id column, so shouldn't be orderable
+                    "iDisplayLength": parseInt(localStorage.getItem('ticklerPageLength')) || 50,
+                    "serverSide": true,
+                    "ajax": {
+                        "url": ctx + "/tickler/ListTicklers.do",
+                        "data": function (d) {
+                            d.ticklerview = jQuery("#ticklerview").val();
+                            d.providerview = jQuery("#providerview").val() || "all";
+                            d.assignedTo = jQuery("#assignedTo").val() || "all";
+                            d.mrpview = jQuery("#mrpview").val() || "all";
+                            d.xml_vdate = jQuery("#xml_vdate").val() || "";
+                            d.xml_appointment_date = jQuery("#xml_appointment_date").val() || "";
+                            d.demographic_no = jQuery("input[name='demoview']").val() || "0";
+                        },
+                        "dataSrc": function (json) {
+                            lastComments = json.comments || {};
+                            return json.data;
+                        }
+                    },
+                    "columns": [
+                        {data: null, orderable: false, render: renderCheckbox},
+                        {data: null, orderable: false, render: renderEditIcon},
+                        {data: null, orderable: false, render: renderDemoName},
+                        {data: "creator", orderable: false, render: renderText},
+                        {data: "serviceDate"},
+                        {data: "createDate", orderable: false},
+                        {data: "priority", orderable: false},
+                        {data: "assignee", orderable: false, render: renderText},
+                        {data: "status", orderable: false, render: renderText},
+                        {data: null, orderable: false, render: renderMessage},
+                        {data: null, orderable: false, render: renderNoteIcon},
+                        {data: "id", orderable: false}
                     ],
-                    columnDefs: [
-                        {visible: false, targets: groupColumn}
+                    "columnDefs": [
+                        {visible: false, targets: idColumn}
                     ],
-                    drawCallback: function (settings) {
+                    "createdRow": function (row, data, dataIndex) {
+                        if (data.warning === true) {
+                            jQuery(row).addClass('error');
+                        }
+                    },
+                    "drawCallback": function (settings) {
                         let api = this.api();
                         let rows = api.rows({page: 'current'}).nodes();
-                        let last = null;
+                        let numCols = jQuery('#ticklerResults thead th').length;
 
-                        api.column(groupColumn, {page: 'current'}) //TODO: this code reorders the rows on the current page, the global order based on the current sort.
-                            //      this means if a global sort is done that results in the tickler comments to NOT be on the current page
-                            //      they will not be visible.  A workaround has been implemented by adding the service date and priority
-                            //      into the tickler comment rows as well.  The datatables row group plugin might be a better approach,
-                            //      but will require refactoring of this code
+                        jQuery('#ticklerResults tbody tr.comment-row').remove();
+
+                        api.column(idColumn, {page: 'current'})
                             .data()
-                            .each(function (group, i) {
-                                if (last !== group) {
-                                    jQuery(rows)
-                                        .eq(i)
-                                        .after(jQuery(".followup-comment-" + group))
-                                    last = group;
+                            .each(function (ticklerId, i) {
+                                let comments = lastComments[String(ticklerId)];
+                                if (comments) {
+                                    for (var c = comments.length - 1; c >= 0; c--) {
+                                        var tc = comments[c];
+                                        var commentTr = jQuery('<tr class="comment-row no-sort"></tr>');
+                                        commentTr.append('<td></td>');
+                                        commentTr.append('<td></td>');
+                                        commentTr.append('<td>' + escapeHtml(api.row(i).data().demoLastName) + ',' + escapeHtml(api.row(i).data().demoFirstName) + '</td>');
+                                        commentTr.append('<td>' + escapeHtml(tc.creator) + '</td>');
+                                        commentTr.append('<td>' + escapeHtml(api.row(i).data().serviceDate) + '</td>');
+                                        commentTr.append('<td>' + escapeHtml(tc.createDate) + '</td>');
+                                        commentTr.append('<td>' + escapeHtml(api.row(i).data().priority) + '</td>');
+                                        commentTr.append('<td></td>');
+                                        commentTr.append('<td></td>');
+                                        commentTr.append('<td style="white-space:pre-wrap">' + escapeHtml(tc.message) + '</td>');
+                                        commentTr.append('<td></td>');
+                                        jQuery(rows).eq(i).after(commentTr);
+                                    }
                                 }
                             });
                     },
-                    order: [[4, 'desc']]
-
+                    "order": (function() { try { return JSON.parse(localStorage.getItem('ticklerSortOrder')) || [[4, 'desc']]; } catch(e) { return [[4, 'desc']]; } })()
                 })
 
+                ticklerResultsTable.api().on('length.dt', function (e, settings, len) {
+                    localStorage.setItem('ticklerPageLength', len);
+                });
+
+                ticklerResultsTable.api().on('order.dt', function () {
+                    localStorage.setItem('ticklerSortOrder', JSON.stringify(ticklerResultsTable.api().order()));
+                });
+
                 /*
-                 * Reload the search results with the Tickler status is changed.
+                 * Reload the search results when the Tickler status is changed.
                  */
                 jQuery("#ticklerview").change(function () {
-                    document.forms['serviceform'].Submit.value = 'Create Report';
-                    document.forms['serviceform'].submit();
+                    ticklerResultsTable.api().ajax.reload();
                 })
 
             });
@@ -351,7 +425,6 @@
             }
 
             function saveNoteDialog() {
-                //alert('not yet implemented');
                 jQuery.ajax({
                     url: ctx + '/CaseManagementEntry.do',
                     data: {
@@ -417,12 +490,10 @@
 
             function Check(e) {
                 e.checked = true;
-                //Highlight(e);
             }
 
             function Clear(e) {
                 e.checked = false;
-                //Unhighlight(e);
             }
 
             function reportWindow(page) {
@@ -440,7 +511,6 @@
                         Check(e);
                     }
                 }
-                //ml.toggleAll.checked = true;
             }
 
             function ClearAll() {
@@ -452,7 +522,6 @@
                         Clear(e);
                     }
                 }
-                //ml.toggleAll.checked = false;
             }
 
             function Highlight(e) {
@@ -504,55 +573,6 @@
                 ml.submit();
             }
 
-            // function SynchMoves(which) {
-            // var ml=document.messageList;
-            // if(which==1) {
-            //     ml.destBox2.selectedIndex=ml.destBox.selectedIndex;
-            // }
-            // else {
-            //     ml.destBox.selectedIndex=ml.destBox2.selectedIndex;
-            // }
-            // }
-
-            // function SynchFlags(which)
-            // {
-            // var ml=document.messageList;
-            // if (which == 1) {
-            //     ml.flags2.selectedIndex = ml.flags.selectedIndex;
-            // }
-            // else {
-            //     ml.flags.selectedIndex = ml.flags2.selectedIndex;
-            // }
-            // }
-
-            <%--function SetFlags()--%>
-            <%--{--%>
-            <%--var ml = document.messageList;--%>
-            <%--ml.FLG.value = "1";--%>
-            <%--ml.submit();--%>
-            <%--}--%>
-
-            <%--function Move() {--%>
-            <%--var ml = document.messageList;--%>
-            <%--var dbox = ml.destBox;--%>
-            <%--if(dbox.options[dbox.selectedIndex].value == "@NEW") {--%>
-            <%--    nn = window.prompt("<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgFolderName"/>","");--%>
-            <%--    if(nn == null || nn == "null" || nn == "") {--%>
-            <%--	dbox.selectedIndex = 0;--%>
-            <%--	ml.destBox2.selectedIndex = 0;--%>
-            <%--    }--%>
-            <%--    else {--%>
-            <%--	ml.NewFol.value = nn;--%>
-            <%--	ml.MOV.value = "1";--%>
-            <%--	ml.submit();--%>
-            <%--    }--%>
-            <%--}--%>
-            <%--else {--%>
-            <%--    ml.MOV.value = "1";--%>
-            <%--    ml.submit();--%>
-            <%--}--%>
-            <%--}--%>
-
             function saveView() {
                 let url = ctx + "/saveWorkView.do";
                 let params = {
@@ -561,8 +581,6 @@
                     userrole: '${userrole}',
                     providerno: '${user}',
                     ticklerview: document.getElementById('ticklerview').value,
-                    // dateBegin: document.getElementById('xml_vdate').value,
-                    // dateEnd: document.getElementById('xml_appointment_date').value,
                     providerview: document.getElementById('providerview').value,
                     assignedTo: document.getElementById('assignedTo').value,
                     mrpview: document.getElementById('mrpview').value
@@ -612,12 +630,13 @@
                             href="javascript:void(0)" id="dateRange" onClick="allYear()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/></a></label>
                     <div class="form-group">
                         <label for="xml_vdate">From</label>
-                        <input type="date" class="form-control" name="xml_vdate" id="xml_vdate">
+                        <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
+                               value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
                     </div>
                     <div class="form-group">
                         <label for="xml_appointment_date">To</label>
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=xml_appointment_date%>">
+                               value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
                     </div>
 
                     <div class="form-group">
@@ -629,8 +648,8 @@
                                 List<Provider> providers = providerDao.getActiveProviders();
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=p.getProviderNo()%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=p.getLastName()%>
-                                ,<%=p.getFirstName()%>
+                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>
+                                ,<%=Encode.forHtml(p.getFirstName())%>
                             </option>
                             <%
                                 }
@@ -645,8 +664,8 @@
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=p.getProviderNo()%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=p.getLastName()%>
-                                ,<%=p.getFirstName()%>
+                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>
+                                ,<%=Encode.forHtml(p.getFirstName())%>
                             </option>
                             <%
                                 }
@@ -663,11 +682,11 @@
                         <script>
                             let _providers = [];
                             <%for (int i=0; i<sites.size(); i++) {%>
-                            _providers["<%=sites.get(i).getSiteId()%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
+                            _providers["<%=Encode.forJavaScript(sites.get(i).getSiteId().toString())%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
 							while (iter.hasNext()) {
 								Provider p=iter.next();
-								if ("1".equals(p.getStatus())) {%><option value='<%=p.getProviderNo()%>'><%=p.getLastName()%>, <%=p.getFirstName()%></option><%}%>";
-                            <%}}%>
+								if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo()))%>'><%=Encode.forJavaScript(Encode.forHtml(p.getLastName()))%>, <%=Encode.forJavaScript(Encode.forHtml(p.getFirstName()))%><\/option><%}}%>";
+                            <%}%>
 
                             function changeSite(sel) {
                                 sel.form.assignedTo.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
@@ -678,7 +697,7 @@
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
                             %>
-                            <option value="<%=sites.get(i).getSiteId()%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=sites.get(i).getName()%>
+                            <option value="<%=Encode.forHtmlAttribute(sites.get(i).getSiteId().toString())%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=Encode.forHtml(sites.get(i).getName())%>
                             </option>
                             <%
                                 }
@@ -690,7 +709,7 @@
                         %>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("assignedTo").value = '<%=request.getParameter("assignedTo")%>';
+                            document.getElementById("assignedTo").value = '<%=Encode.forJavaScript(request.getParameter("assignedTo"))%>';
                         </script>
                         <%
                             }
@@ -698,7 +717,6 @@
                         %>
                         <select id="assignedTo" class="form-control" name="assignedTo">
                             <%
-                                // Check for property to default assigned providers and if present - default to user logged in
                                 boolean ticklerDefaultAssignedProvier = OscarProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
                                 if (ticklerDefaultAssignedProvier) {
                                     if ("all".equals(assignedTo)) {
@@ -711,8 +729,8 @@
                                 List<Provider> providersActive = providerDao.getActiveProviders();
                                 for (Provider p : providersActive) {
                             %>
-                            <option value="<%=p.getProviderNo()%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=p.getLastName()%>
-                                , <%=p.getFirstName()%>
+                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>
+                                , <%=Encode.forHtml(p.getFirstName())%>
                             </option>
                             <%
                                 }
@@ -748,6 +766,7 @@
                 </div>
 
             </c:if>
+            <c:if test="${not empty param.demoview}">
             <div class="pull-left" style="margin-bottom:10px;">
                 <label for="ticklerview">Filter</label>
                 <select id="ticklerview" class="form-control" name="ticklerview">
@@ -756,10 +775,10 @@
                     <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                 </select>
             </div>
+            </c:if>
         </form>
 
         <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
-            <% Locale locale = request.getLocale();%>
             <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
             <table id="ticklerResults" class="table table-striped table-compact" style="width:100%">
                 <thead>
@@ -798,209 +817,6 @@
                 </tr>
                 </thead>
                 <tbody>
-                <%
-                    String dateBegin = xml_vdate;
-                    String dateEnd = xml_appointment_date;
-
-                    String vGrantdate = "1980-01-07 00:00:00.0";
-                    DateFormat datetimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", locale);
-                    DateFormat dateOnlyFormat = new SimpleDateFormat("yyyy-MM-dd", locale);
-                    DateFormat timeOnlyFormat = new SimpleDateFormat("HH:mm:ss", locale);
-
-                    if (dateEnd.compareTo("") == 0) {
-                        dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-                    }
-
-                    if (dateBegin.compareTo("") == 0) {
-                        dateBegin = "1950-01-01"; // any early start date should suffice for selecting since the beginning
-                    }
-
-                    CustomFilter filter = new CustomFilter();
-                    filter.setPriority(null);
-
-                    filter.setStatus(ticklerview);
-
-                    filter.setStartDateWeb(dateBegin);
-                    filter.setEndDateWeb(dateEnd);
-                    filter.setPriority(null);
-
-                    if (!mrpview.isEmpty() && !mrpview.equals("all")) {
-                        filter.setMrp(mrpview);
-                    }
-
-                    if (!providerview.isEmpty() && !providerview.equals("all")) {
-                        filter.setProvider(providerview);
-                    }
-
-                    if (!assignedTo.isEmpty() && !assignedTo.equals("all")) {
-                        filter.setAssignee(assignedTo);
-                    }
-
-                    filter.setSort_order("desc");
-
-                    int targetDemographic = Integer.parseInt(demographic_no);
-                    List<Tickler> ticklers = Collections.emptyList();
-                    if (targetDemographic > 0) {
-                        ticklers = ticklerManager.search_tickler_bydemo(loggedInInfo, targetDemographic, ticklerview, filter.getStartDate(), filter.getEndDate());
-                    } else {
-                        ticklers = ticklerManager.getTicklers(loggedInInfo, filter);
-                    }
-
-                    String numDaysUntilWarn = OscarProperties.getInstance().getProperty("tickler_warn_period");
-                    if (numDaysUntilWarn == null || numDaysUntilWarn.isEmpty()) {
-                        numDaysUntilWarn = "0";
-                    }
-                    for (Tickler tickler : ticklers) {
-                        Demographic demo = tickler.getDemographic();
-                        LocalDateTime serviceDate = tickler.getServiceDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-                        LocalDateTime currentDate = LocalDateTime.now();
-
-                        long daysDifference = Duration.between(serviceDate, currentDate).toDays();
-                        long ticklerWarnDays = Long.parseLong(numDaysUntilWarn);
-                        boolean ignoreWarning = (ticklerWarnDays <= 0);
-                        boolean warning = false;
-
-                        //Set the colour of the table cell
-                        String warnColour = "";
-                        if (!ignoreWarning && (daysDifference >= ticklerWarnDays)) {
-                            warnColour = "Red";
-                            warning = true;
-                        }
-
-                        String cellColour = warnColour;
-                %>
-
-                <tr <%=warning ? "class='error'" : ""%> >
-                    <td class="<%=cellColour%>"><input type="checkbox" name="checkbox" value="<%=tickler.getId()%>"
-                                                       class="noprint"></td>
-                    <td class="<%=cellColour%>">
-                        <a href="javascript:void(0)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.editTickler"/>"
-                           onClick="window.open('<%= request.getContextPath() %>/tickler/ticklerEdit.jsp?tickler_no=<%=tickler.getId()%>', 'edit_tickler', 'width=800, height=650')">
-                            <span class="glyphicon glyphicon-pencil"></span>
-                        </a>
-                    </td>
-                    <td class="<%=cellColour%>"><a href="javascript:void(0)"
-                                                   onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demo.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')">
-                        <%=Encode.forHtmlContent(demo.getLastName())%>,<%=Encode.forHtmlContent(demo.getFirstName())%>
-                    </a></td>
-                    <td class="<%=cellColour%>"><%=tickler.getProvider() == null ? "N/A" : Encode.forHtmlContent(tickler.getProvider().getFormattedName())%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=dateOnlyFormat.format(tickler.getServiceDate())%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=datetimeFormat.format(tickler.getCreateDate())%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=tickler.getPriority()%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=tickler.getAssignee() != null ? tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName() : "N/A"%>
-                    </td>
-                    <td class="<%=cellColour%>"><%=tickler.getStatusDesc(locale)%>
-                    </td>
-                    <td class="<%=cellColour%>"><span
-                            style="white-space:pre-wrap"><%=Encode.forHtmlContent(tickler.getMessage())%></span>
-
-                        <%
-                            List<TicklerLink> linkList = ticklerLinkDao.getLinkByTickler(tickler.getId().intValue());
-                            if (linkList != null) {
-                                for (TicklerLink tl : linkList) {
-                                    String type = tl.getTableName();
-                        %>
-
-                        <%
-                            if (LabResultData.isMDS(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('SegmentDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isCML(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isHL7TEXT(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isDocument(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument.do?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else if (LabResultData.isHRM(type)) {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display.do?id=<%=tl.getTableId()%>&segmentID=<%=tl.getTableId()%>')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                        } else {
-                        %>
-                        <a title="View attachment"
-                           href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
-                        <%
-                            }
-                        %>
-                        <%
-                                }
-                            }
-                        %>
-
-                    </td>
-                    <td class="<%=cellColour%> noprint">
-                        <a href="javascript:void(0)" class="noteDialogLink"
-                           onClick="openNoteDialog('<%=demo.getDemographicNo() %>','<%=tickler.getId() %>')"
-                           title="Add Encounter Note">
-                            <span class="glyphicon glyphicon-comment"></span>
-                        </a>
-                    </td>
-                    <td><%=tickler.getId()%>
-                    </td>
-                </tr>
-                <% Set<TicklerComment> tcomments = tickler.getComments();
-                    for (TicklerComment tc : tcomments) {
-                        // Ugly and wrong. I know. No time to rewrite the bad part.
-                        Provider commentProvider = tc.getProvider();
-                        String formattedName = "";
-                        if (commentProvider != null) {
-                            formattedName = commentProvider.getFormattedName();
-                        }
-                %>
-
-
-                <tr class="followup-comment-<%=tickler.getId()%> comment-row no-sort">
-                    <td></td>
-                    <td></td>
-                    <td><%=Encode.forHtmlContent(demo.getLastName())%>,<%=Encode.forHtmlContent(demo.getFirstName())%>
-                    </td>
-                    <td class="no-sort"><%=Encode.forHtmlContent(formattedName)%>
-                    </td>
-                    <td><%=dateOnlyFormat.format(tickler.getServiceDate())%>
-                    </td>
-
-                    <td class="no-sort">
-                        <% if (tc.isUpdateDateToday()) { %>
-                        <%=timeOnlyFormat.format(tc.getUpdateDate())%>
-                        <% } else { %>
-                        <%=datetimeFormat.format(tc.getUpdateDate())%>
-                        <% } %>
-                    </td>
-
-                    <td><%=tickler.getPriority()%>
-                    </td>
-                    <td></td>
-                    <td></td>
-                    <td class="no-sort" style="white-space:pre-wrap"><%=Encode.forHtmlContent(tc.getMessage())%>
-                    </td>
-                    <td></td>
-                    <td><%=tickler.getId()%>
-                    </td>
-                </tr>
-                <% }
-                } %>
                 </tbody>
             </table>
 
@@ -1087,7 +903,6 @@
         </div>
 
         <div id="edit-form" title="Edit Tickler">
-                <%--    onclick="editFormDialog.load('${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=<%=t.getId()%>').dialog('open')">--%>
         </div>
 
     </div>

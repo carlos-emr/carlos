@@ -33,15 +33,22 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -414,5 +421,105 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (priority != null && priority.equals("Low"))
             result = Tickler.PRIORITY.Low;
         return result;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Implementation uses JPQL constructor expression for direct DTO projection,
+     * then batch-loads comments and links in separate queries.
+     * All dynamic values use positional parameter placeholders bound via setParameter().
+     * </p>
+     *
+     * @since 2026-01-30
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<TicklerListDTO> getTicklerDTOs(CustomFilter filter, int offset, int limit) {
+        ArrayList<Object> paramList = new ArrayList<Object>();
+        String jpql = TicklerDtoDaoQueryBuilder.buildQuery(paramList, filter, this::convertStatus, this::convertPriority);
+
+        Query query = entityManager.createQuery(jpql, TicklerListDTO.class);
+        for (int x = 0; x < paramList.size(); x++) {
+            query.setParameter(x + 1, paramList.get(x));
+        }
+        query.setFirstResult(offset);
+        if (limit > 0) {
+            setLimit(query, limit);
+        }
+
+        List<TicklerListDTO> ticklerDTOs = query.getResultList();
+
+        loadCommentsForTicklerDTOs(ticklerDTOs);
+        loadLinksForTicklerDTOs(ticklerDTOs);
+
+        return ticklerDTOs;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<TicklerListDTO> getTicklerDTOs(CustomFilter filter) {
+        return getTicklerDTOs(filter, 0, TicklerDao.MAX_LIST_RETURN_SIZE);
+    }
+
+    /**
+     * Batch loads comments for a list of TicklerListDTOs.
+     * Uses a static JPQL template with named parameter binding.
+     */
+    @SuppressWarnings("unchecked")
+    private void loadCommentsForTicklerDTOs(List<TicklerListDTO> ticklerDTOs) {
+        if (ticklerDTOs == null || ticklerDTOs.isEmpty()) {
+            return;
+        }
+
+        List<Integer> ticklerIds = ticklerDTOs.stream()
+                .map(TicklerListDTO::getId)
+                .collect(Collectors.toList());
+
+        List<TicklerCommentDTO> allComments = entityManager
+                .createQuery(TicklerDtoDaoQueryBuilder.COMMENT_QUERY, TicklerCommentDTO.class)
+                .setParameter("ticklerIds", ticklerIds)
+                .getResultList();
+
+        Map<Integer, List<TicklerCommentDTO>> commentsByTickler = allComments.stream()
+                .collect(Collectors.groupingBy(TicklerCommentDTO::getTicklerNo));
+
+        for (TicklerListDTO tickler : ticklerDTOs) {
+            tickler.setComments(
+                    commentsByTickler.getOrDefault(tickler.getId(), Collections.emptyList())
+            );
+        }
+    }
+
+    /**
+     * Batch loads links for a list of TicklerListDTOs.
+     * Uses a static JPQL template with named parameter binding.
+     */
+    @SuppressWarnings("unchecked")
+    private void loadLinksForTicklerDTOs(List<TicklerListDTO> ticklerDTOs) {
+        if (ticklerDTOs == null || ticklerDTOs.isEmpty()) {
+            return;
+        }
+
+        List<Integer> ticklerIds = new ArrayList<>();
+        Map<Integer, TicklerListDTO> ticklerMap = new HashMap<>();
+
+        for (TicklerListDTO dto : ticklerDTOs) {
+            ticklerIds.add(dto.getId());
+            ticklerMap.put(dto.getId(), dto);
+            dto.setLinks(new ArrayList<>());
+        }
+
+        Query linkQuery = entityManager.createQuery(TicklerDtoDaoQueryBuilder.LINK_QUERY);
+        linkQuery.setParameter("ticklerIds", ticklerIds);
+
+        List<TicklerLinkDTO> links = linkQuery.getResultList();
+
+        for (TicklerLinkDTO link : links) {
+            TicklerListDTO tickler = ticklerMap.get(link.getTicklerNo());
+            if (tickler != null) {
+                tickler.getLinks().add(link);
+            }
+        }
     }
 }

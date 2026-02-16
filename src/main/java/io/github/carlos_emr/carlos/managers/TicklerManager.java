@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerCategory;
 import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
@@ -149,4 +150,26 @@ public interface TicklerManager {
     public List<TicklerTextSuggest> getAllTextSuggestions(LoggedInInfo loggedInInfo, int offset, int itemsToReturn);
 
     public List<Tickler> sortTicklerList(Boolean isSortAscending, String sortColumn, List<Tickler> ticklers);
+
+    /**
+     * Returns paginated TicklerListDTOs matching the filter criteria.
+     *
+     * @param loggedInInfo LoggedInInfo the current session info
+     * @param filter CustomFilter the filter criteria
+     * @param offset int the starting position for pagination (0-based)
+     * @param limit int the maximum number of results, or &lt;= 0 for no limit
+     * @return List&lt;TicklerListDTO&gt; matching ticklers with comments and links populated
+     * @since 2026-01-30
+     */
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit);
+
+    /**
+     * Returns TicklerListDTOs matching the filter criteria with default pagination.
+     *
+     * @param loggedInInfo LoggedInInfo the current session info
+     * @param filter CustomFilter the filter criteria
+     * @return List&lt;TicklerListDTO&gt; matching ticklers with comments and links populated
+     * @since 2026-01-30
+     */
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter);
 }
