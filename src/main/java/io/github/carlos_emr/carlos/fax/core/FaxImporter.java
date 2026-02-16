@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.fax.core;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -58,7 +59,11 @@ import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.fax.connector.FaxConnector;
+import io.github.carlos_emr.carlos.fax.connector.FaxConnectorFactory;
+import io.github.carlos_emr.carlos.fax.connector.FaxInboundResult;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.itextpdf.text.pdf.codec.Base64;
@@ -69,10 +74,30 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 
+/**
+ * Polls remote fax services for incoming faxes, downloads them, and saves
+ * them into the CARLOS document management system.
+ * <p>
+ * Supports two integration modes based on each fax account's configuration:
+ * <ul>
+ *   <li><b>Legacy Gateway</b>: Uses HTTP GET calls to the external CXF REST gateway
+ *       to retrieve and delete incoming faxes.</li>
+ *   <li><b>Direct API</b> (e.g. SRFax): Uses the {@link FaxConnector} interface to
+ *       poll, download, and mark faxes as read on the remote service.</li>
+ * </ul>
+ * Downloaded faxes are saved as PDF documents via {@link EDocUtil}, linked to the
+ * configured inbox queue, and routed through provider lab routing for notification.
+ * Called periodically by the {@code FaxSchedulerJob} TimerTask.
+ *
+ * @since 2026-02-09 (refactored for dual-mode fax support)
+ */
 public class FaxImporter {
 
+    /** REST path segment for the legacy fax gateway endpoint. */
     private static String PATH = "/fax";
+    /** Filesystem directory for storing downloaded fax documents. */
     private static String DOCUMENT_DIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    /** Default provider ID for system-generated fax records. */
     private static String DEFAULT_USER = "-1";
     private FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
@@ -80,111 +105,256 @@ public class FaxImporter {
     private ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
     private Logger log = MiscUtils.getLogger();
 
+    /**
+     * Main polling entry point. Iterates all active fax configurations that have
+     * downloading enabled and checks each for incoming faxes.
+     */
     public void poll() {
 
         log.info("CHECKING REMOTE FOR INCOMING FAXES");
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
 
-
         for (FaxConfig faxConfig : faxConfigList) {
             if (faxConfig.isActive() && faxConfig.isDownload()) {
 
-                Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
-                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
-
-                CloseableHttpClient client = HttpClientBuilder.create()
-                        .setDefaultCredentialsProvider(credentialsProvider)
-                        .build();
-
-                HttpGet mGet = null;
-                HttpResponse response = null;
-                int status = HttpStatus.SC_OK;
-
-                try {
-
-                    log.debug("Service Path: " + faxConfig.getUrl() + PATH + File.separator + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
-
-                    mGet = new HttpGet(faxConfig.getUrl() + PATH + File.separator + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
-                    mGet.setHeader("accept", "application/json");
-                    mGet.setHeader("user", faxConfig.getFaxUser());
-                    mGet.setHeader("passwd", faxConfig.getFaxPasswd());
-                    response = client.execute(mGet);
-
-                    if (response != null) {
-                        status = response.getStatusLine().getStatusCode();
-                    }
-
-                    if (status == HttpStatus.SC_OK) {
-
-                        HttpEntity httpEntity = response.getEntity();
-                        String content = EntityUtils.toString(httpEntity);
-
-                        log.debug("CONTENT: " + content);
-
-                        ObjectMapper mapper = new ObjectMapper();
-
-                        List<FaxJob> faxList = mapper.readValue(content, new TypeReference<List<FaxJob>>() {
-                        });
-
-                        for (FaxJob receivedFax : faxList) {
-
-                            String fileName = null;
-                            EDoc edoc = null;
-                            FaxJob faxFile = null;
-
-                            // if this recievedFax Object contains an error
-                            // skip the download step there is no file to download.
-                            if (!FaxJob.STATUS.ERROR.equals(receivedFax.getStatus())) {
-                                faxFile = downloadFax(client, faxConfig, receivedFax);
-                            }
-
-                            // save the received fax to the file system and assign to an inbox Queue
-                            if (faxFile != null) {
-                                edoc = saveAndInsertIntoQueue(faxConfig, receivedFax, faxFile);
-                            }
-
-                            if (edoc != null) {
-                                fileName = edoc.getFileName();
-                            }
-
-                            // The fileName variable will be NULL if the saveAndInsertIntoQueue methods fails
-                            // to fully complete. If NULL, the file will not be deleted from the Host server.
-                            if (fileName != null) {
-
-                                // set the new fax into provider lab routing for tracking it's route.
-                                providerRouting(Integer.parseInt(edoc.getDocId()));
-
-                                // delete the fax on the sever.
-                                deleteFax(client, faxConfig, receivedFax);
-
-                            } else {
-                                fileName = FaxJob.STATUS.ERROR.name();
-                            }
-
-                            // this received fax may contain status errors that the
-                            // end user needs to see. So the job should be saved to the database anyway.
-                            receivedFax.setFile_name(fileName);
-
-                            // save the receivedFax Object regardless of status or fileName.
-                            saveFaxJob(new FaxJob(receivedFax));
-                        }
-
-                    } else {
-                        log.error("HTTP Status error with HTTP code: " + status);
-                    }
-
-                } catch (IOException e) {
-                    log.error("HTTP WS CLIENT ERROR", e);
-                } finally {
-                    if (mGet != null) {
-                        mGet.reset();
-                    }
+                // Dispatch to the appropriate code path based on integration type
+                if (FaxConnectorFactory.isLegacyGateway(faxConfig)) {
+                    pollViaLegacyGateway(faxConfig);
+                } else {
+                    pollViaDirectApi(faxConfig);
                 }
             }
         }
 
+    }
+
+    /**
+     * Poll for incoming faxes using the legacy external gateway server.
+     * This preserves the original code path for backward compatibility.
+     */
+    private void pollViaLegacyGateway(FaxConfig faxConfig) {
+
+        Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
+        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
+
+        HttpGet mGet = null;
+
+        try (CloseableHttpClient client = HttpClientBuilder.create()
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .build()) {
+
+            HttpResponse response = null;
+            int status = HttpStatus.SC_OK;
+
+            log.debug("Service Path: {}{}{}{}", faxConfig.getUrl(), PATH, File.separator, faxConfig.getFaxUser());
+
+            mGet = new HttpGet(faxConfig.getUrl() + PATH + File.separator + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
+            mGet.setHeader("accept", "application/json");
+            mGet.setHeader("user", faxConfig.getFaxUser());
+            mGet.setHeader("passwd", faxConfig.getFaxPasswd());
+            response = client.execute(mGet);
+
+            if (response != null) {
+                status = response.getStatusLine().getStatusCode();
+            }
+
+            if (status == HttpStatus.SC_OK) {
+
+                HttpEntity httpEntity = response.getEntity();
+                String content = EntityUtils.toString(httpEntity);
+
+                log.debug("CONTENT: {}", content);
+
+                ObjectMapper mapper = new ObjectMapper();
+
+                List<FaxJob> faxList = mapper.readValue(content, new TypeReference<List<FaxJob>>() {
+                });
+
+                for (FaxJob receivedFax : faxList) {
+
+                    String fileName = null;
+                    EDoc edoc = null;
+                    FaxJob faxFile = null;
+
+                    // if this receivedFax Object contains an error
+                    // skip the download step there is no file to download.
+                    if (!FaxJob.STATUS.ERROR.equals(receivedFax.getStatus())) {
+                        faxFile = downloadFax(client, faxConfig, receivedFax);
+                    }
+
+                    // save the received fax to the file system and assign to an inbox Queue
+                    if (faxFile != null) {
+                        edoc = saveAndInsertIntoQueue(faxConfig, receivedFax, faxFile);
+                    }
+
+                    if (edoc != null) {
+                        fileName = edoc.getFileName();
+                    }
+
+                    if (fileName != null) {
+                        try {
+                            providerRouting(Integer.parseInt(edoc.getDocId()));
+                            deleteFax(client, faxConfig, receivedFax);
+                        } catch (NumberFormatException nfe) {
+                            log.error("Invalid document ID '{}' for received fax; skipping provider routing and delete.", edoc.getDocId(), nfe);
+                            fileName = FaxJob.STATUS.ERROR.name();
+                        }
+                    } else {
+                        fileName = FaxJob.STATUS.ERROR.name();
+                    }
+
+                    receivedFax.setFile_name(fileName);
+                    saveFaxJob(new FaxJob(receivedFax));
+                }
+
+            } else {
+                log.error("HTTP Status error with HTTP code: {}", status);
+            }
+
+        } catch (IOException e) {
+            log.error("HTTP WS CLIENT ERROR", e);
+        } finally {
+            if (mGet != null) {
+                mGet.reset();
+            }
+        }
+    }
+
+    /**
+     * Poll for incoming faxes using a direct API connector (e.g. SRFax).
+     * Downloads each fax, saves to the document system, and marks as read on the remote service.
+     */
+    private void pollViaDirectApi(FaxConfig faxConfig) {
+
+        // Resolve the connector implementation based on the account's integration type
+        FaxConnector connector = FaxConnectorFactory.getConnector(faxConfig);
+
+        try {
+            // Query the remote API for unread incoming faxes
+            List<FaxInboundResult> inboundFaxes = connector.pollIncomingFaxes(faxConfig);
+
+            if (inboundFaxes == null) {
+                inboundFaxes = Collections.emptyList();
+            }
+
+            log.info("Direct API poll returned {} incoming faxes for account {}",
+                    inboundFaxes.size(), faxConfig.getAccountName());
+
+            // Process each inbound fax individually; errors on one fax don't block others
+            for (FaxInboundResult inbound : inboundFaxes) {
+                try {
+                    processDirectApiInboundFax(connector, faxConfig, inbound);
+                } catch (Exception e) {
+                    log.error("Error processing inbound fax ref={}", inbound.getExternalReference(), e);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error polling for incoming faxes via direct API", e);
+        }
+    }
+
+    /**
+     * Process a single inbound fax received through a direct API connector.
+     * Downloads the fax content, saves to the document system, and marks as read.
+     */
+    private void processDirectApiInboundFax(FaxConnector connector, FaxConfig faxConfig, FaxInboundResult inbound) {
+
+        String faxReference = inbound.getExternalReference();
+        if (faxReference == null || faxReference.isEmpty()) {
+            log.warn("Inbound fax has no external reference; skipping.");
+            saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.ERROR, "Missing external reference");
+            return;
+        }
+
+        // Download the fax content as base64
+        String base64Content = connector.downloadFax(faxConfig, faxReference);
+        if (base64Content == null) {
+            log.warn("Failed to download fax content for ref={}", faxReference);
+            saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.ERROR, "Download failed");
+            return;
+        }
+
+        // Build a filename from the inbound result
+        String filename = inbound.getFileName();
+        if (filename == null || filename.isEmpty()) {
+            filename = "fax_" + faxReference + ".pdf";
+        }
+        filename = filename.replace("|", "-").trim();
+        if (!filename.toLowerCase().endsWith(".pdf")) {
+            filename = filename + ".pdf";
+        }
+
+        // Save to filesystem and insert into document queue
+        EDoc newDoc = new EDoc("Received Fax", "Received Fax", filename, "",
+                DEFAULT_USER, DEFAULT_USER, "", 'A',
+                org.apache.commons.lang3.time.DateFormatUtils.format(
+                        inbound.getReceivedDate() != null ? inbound.getReceivedDate() : new Date(), "yyyy-MM-dd"),
+                "", "", "demographic", DEFAULT_USER, inbound.getPageCount());
+
+        newDoc.setDocPublic("0");
+        filename = newDoc.getFileName();
+
+        // Validate the destination path to prevent path traversal
+        File documentDir = new File(DOCUMENT_DIR);
+        File validatedPath = PathValidationUtils.validatePath(filename, documentDir);
+
+        if (Base64.decodeToFile(base64Content, validatedPath.getAbsolutePath())) {
+
+            newDoc.setContentType("application/pdf");
+            newDoc.setNumberOfPages(inbound.getPageCount());
+            String doc_no = EDocUtil.addDocumentSQL(newDoc);
+
+            Integer queueId = faxConfig.getQueue();
+
+            try {
+                Integer docNum = Integer.parseInt(doc_no);
+                queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
+                log.info("Saved inbound fax {} to filesystem as document ID {}", filename, docNum);
+                providerRouting(docNum);
+
+                // Persist job record before marking as read to ensure we have a record even if mark-as-read fails
+                saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.RECEIVED, filename);
+
+                // Mark as read on the remote service so it does not appear again
+                connector.markFaxAsRead(faxConfig, faxReference);
+            } catch (NumberFormatException nfe) {
+                log.error("Invalid document ID '{}' for inbound fax ref={}; skipping routing and mark-as-read.",
+                        doc_no, faxReference, nfe);
+                saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.ERROR, "Invalid document ID");
+            }
+
+        } else {
+            log.error("Failed to save fax file {} to filesystem", filename);
+            saveInboundFaxJob(faxConfig, inbound, FaxJob.STATUS.ERROR, "Failed to save to filesystem");
+        }
+    }
+
+    /**
+     * Persist an inbound fax job record from a direct API connector result.
+     */
+    private void saveInboundFaxJob(FaxConfig faxConfig, FaxInboundResult inbound, FaxJob.STATUS status, String fileName) {
+        FaxJob faxJob = new FaxJob();
+        faxJob.setUser(DEFAULT_USER);
+        faxJob.setFax_line(faxConfig.getFaxNumber());
+        faxJob.setFile_name(fileName);
+        faxJob.setStatus(status);
+        faxJob.setStamp(inbound.getReceivedDate() != null ? inbound.getReceivedDate() : new Date());
+        faxJob.setNumPages(inbound.getPageCount());
+        faxJob.setStatusString(inbound.getCallerNumber());
+
+        // Store external reference for status tracking and deduplication
+        String externalRef = inbound.getExternalReference();
+        if (externalRef != null && !externalRef.isEmpty()) {
+            try {
+                faxJob.setJobId(Long.parseLong(externalRef));
+            } catch (NumberFormatException e) {
+                log.warn("Invalid external reference format for inbound fax: {}", externalRef);
+            }
+        }
+
+        faxJobDao.persist(faxJob);
     }
 
     private FaxJob downloadFax(CloseableHttpClient client, FaxConfig faxConfig, FaxJob fax) {
@@ -269,7 +439,7 @@ public class FaxImporter {
 
         filename = filename.replace(".tif", ".pdf");
 
-        if (!filename.endsWith(".pdf") || !filename.endsWith(".PDF")) {
+        if (!filename.toLowerCase().endsWith(".pdf")) {
             filename = filename + ".pdf";
         }
 
@@ -284,7 +454,10 @@ public class FaxImporter {
 
         filename = newDoc.getFileName();
 
-        if (Base64.decodeToFile(faxFile.getDocument(), DOCUMENT_DIR + "/" + filename)) {
+        File documentDir = new File(DOCUMENT_DIR);
+        File validatedPath = PathValidationUtils.validatePath(filename, documentDir);
+
+        if (Base64.decodeToFile(faxFile.getDocument(), validatedPath.getAbsolutePath())) {
 
             newDoc.setContentType("application/pdf");
             newDoc.setNumberOfPages(receivedFax.getNumPages());

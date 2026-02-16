@@ -28,6 +28,35 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    configureFax.jsp - Fax Gateway Account Configuration
+
+    Purpose:
+    Admin page for managing fax gateway accounts in CARLOS EMR. Allows administrators
+    to create, update, and delete fax accounts with support for multiple integration
+    types (Legacy External Gateway and SRFax Direct API).
+
+    Features:
+    - Multiple fax account management (add/remove accounts dynamically)
+    - Integration type selection per account (Legacy Gateway or SRFax)
+    - Shared legacy server credentials (URL, username, password) shown/hidden
+      based on whether any account uses the Legacy Gateway integration type
+    - Per-account fields: fax user, password, fax number, email, inbox queue
+    - Enable/disable gateway and fax receiving per account
+    - Fax scheduler status display and restart capability
+    - OWASP-encoded output for all user-supplied values
+
+    Parameters:
+    - No request parameters required (reads configuration from FaxConfigDao)
+    - Form submission via AJAX POST to ConfigureFax2Action (method=configure)
+
+    Security:
+    - Requires _admin read privilege for page access
+    - Requires _admin.fax.restart read privilege for scheduler status
+    - Passwords displayed as "**********" placeholder, never echoed in cleartext
+
+    @since 2026-02-09 (modified for integration type dropdown support)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -118,6 +147,9 @@
 
             getFaxSchedularStatus();
 
+            // Set initial visibility of legacy credentials section
+            onIntegrationTypeChange();
+
         });
 
         <%
@@ -142,6 +174,7 @@
             var div = $("#user").clone(true, true);
 
             $(div).attr("id", userDivId);
+            $(div).find("#integrationType").attr("id", "integrationType" + userCount);
             $(div).find("#faxUser").attr("id", "faxUser" + userCount);
             $(div).find("#faxPasswd").attr("id", "faxPasswd" + userCount);
             $(div).find("#senderEmail").attr("id", "senderEmail" + userCount);
@@ -238,6 +271,24 @@
             });
         }
 
+        function onIntegrationTypeChange(selectElem) {
+            $("#submit").prop("disabled", false);
+            var legacySection = $("#bodyrow");
+            // Determine if any account uses the legacy gateway integration type
+            var anyLegacy = false;
+            $("select[name='integrationType']").each(function() {
+                var v = $(this).val();
+                if (v === "" || v === "LEGACY_GATEWAY") {
+                    anyLegacy = true;
+                }
+            });
+            // Show legacy server credentials only if at least one account uses them
+            if (anyLegacy) {
+                legacySection.show();
+            } else {
+                legacySection.hide();
+            }
+        }
 
     </script>
 
@@ -315,6 +366,28 @@
 
                         <div class="row">
                             <div class="span6">
+                                <%
+                                    String currentIntegrationType = "";
+                                    if (!faxConfigList.isEmpty() && faxConfigList.get(count) != null) {
+                                        currentIntegrationType = faxConfigList.get(count).getIntegrationType();
+                                        if (currentIntegrationType == null) currentIntegrationType = "";
+                                    }
+                                %>
+                                <label for="integrationType<%=count == 0 ? "" : count%>">Integration Type</label>
+                                <select class="span6" id="integrationType<%=count == 0 ? "" : count%>" name="integrationType"
+                                        onchange="onIntegrationTypeChange(this)">
+                                    <option value="" <%=("".equals(currentIntegrationType) || "LEGACY_GATEWAY".equals(currentIntegrationType)) ? "selected" : ""%>>Legacy Gateway (External Server)</option>
+                                    <option value="SRFAX" <%="SRFAX".equals(currentIntegrationType) ? "selected" : ""%>>SRFax (Direct API)</option>
+                                </select>
+                            </div>
+                            <div class="span6">
+                                <label for="accountName<%= count == 0 ? "" : count %>">Account Name</label>
+                                <input type="text" name="accountName" id='accountName<%= count == 0 ? "" : count %>'
+                                       value='<%= Encode.forHtmlAttribute(faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getAccountName()) %>'/>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="span6">
                                 <label for="faxUser<%=count == 0 ? "" : count%>">User</label>
                                 <input class="span6" type="text" id="faxUser<%=count == 0 ? "" : count%>" name="faxUser"
                                        value="<%=Encode.forHtmlAttribute( faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getFaxUser() )%>"/>
@@ -377,11 +450,6 @@
                                     %>
                                 </select>
 
-                            </div>
-                            <div class="span6">
-                                <label for="accountName<%= count == 0 ? "" : count %>">Account Name</label>
-                                <input type="text" name="accountName" id='accountName<%= count == 0 ? "" : count %>'
-                                       value='<%= Encode.forHtmlAttribute(faxConfigList.isEmpty() ? "" : faxConfigList.get(count).getAccountName()) %>'/>
                             </div>
                         </div>
                         <div class="row">
