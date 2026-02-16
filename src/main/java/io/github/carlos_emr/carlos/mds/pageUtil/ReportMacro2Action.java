@@ -164,7 +164,7 @@ public class ReportMacro2Action extends ActionSupport {
                 t.setCreator(providerNo);
 
                 // Set future service date if quantity and timeUnits are provided
-                if(jTickler.has("quantity") && jTickler.has("timeUnits")) {
+                if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
                     // Validate that quantity and timeUnits are not null
                     if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
                         try {
@@ -178,7 +178,7 @@ public class ReportMacro2Action extends ActionSupport {
                             } else {
                                 // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
                                 boolean validCode = false;
-                                switch(code) {
+                                switch (code) {
                                     case 1:  // days
                                         cal.add(Calendar.DATE, qty);
                                         validCode = true;
