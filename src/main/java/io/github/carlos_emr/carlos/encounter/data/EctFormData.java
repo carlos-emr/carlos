@@ -308,7 +308,6 @@ public class EctFormData {
         };
 
         public Integer formId;
-        private Integer remoteFacilityId;
         public Integer demographicId;
         public Date created;
         public Date edited;
@@ -382,14 +381,6 @@ public class EctFormData {
 
         public void setFormName(String formName) {
             this.formName = formName;
-        }
-
-        public Integer getRemoteFacilityId() {
-            return (remoteFacilityId);
-        }
-
-        public void setRemoteFacilityId(Integer remoteFacilityId) {
-            this.remoteFacilityId = remoteFacilityId;
         }
 
         /**

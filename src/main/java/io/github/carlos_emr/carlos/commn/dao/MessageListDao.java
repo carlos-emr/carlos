@@ -54,16 +54,10 @@ public interface MessageListDao extends AbstractDao<MessageList> {
 
     public int findUnreadByProviderAndAttachedCount(String providerNo);
 
-    public int countUnreadByProvider(String providerNo);
-
     public List<MessageList> search(String providerNo, String status, int start, int max);
 
     public Integer searchAndReturnTotal(String providerNo, String status);
 
     public Integer messagesTotal(int type, String providerNo, Integer remoteLocation, String searchFilter);
-
-    public List<MessageList> findByIntegratedFacility(int facilityId, String status);
-
-    public List<MessageList> findByMessageAndIntegratedFacility(Long messageNo, int facilityId);
 
 }

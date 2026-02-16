@@ -31,7 +31,6 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.PrescriptDrug" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -347,7 +346,6 @@
            	%>
             <td>
 
-                <%if (prescriptDrug.getRemoteFacilityName() == null) {%>
                 <div style="display: flex; align-items: center;">
                     <% String cbxId = "reRxCheckBox_" + prescriptIdInt; %>
                     <input id="<%=cbxId%>" type=CHECKBOX
@@ -356,22 +354,13 @@
                            name="checkBox_<%=prescriptIdInt%>">
                     <label id="reRx_<%=prescriptIdInt%>" for="<%=cbxId%>">ReRx</label>
                 </div>
-                <%} else {%>
-                <form action="<%=request.getContextPath()%>/oscarRx/searchDrug.do" method="post">
-                    <input type="hidden" name="demographicNo" value="<%=patient.getDemographicNo()%>"/>
-                    <input type="hidden" name="searchString" value="<%=getName(prescriptDrug)%>"/>
-                    <input type="submit" class="ControlPushButton" value="Search to Re-prescribe"/>
-                </form>
-                <%}%>
             </td>
 
 			<%if(!OscarProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) { %>
             <td>
 
-                <%if (prescriptDrug.getRemoteFacilityName() == null) {%>
                 <a id="del_<%=prescriptIdInt%>" name="delete" <%=styleColor%> href="javascript:void(0);"
                    onclick="Delete2(this);">Del</a>
-                <%}%>
             </td>
 
 			<% } 
@@ -380,15 +369,10 @@
             <td>
                 <%if(!prescriptDrug.isDiscontinued())
                 {
-               	 if (prescriptDrug.getRemoteFacilityId()==null)
-               	 {
-               		
-					if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
-				
+					if(securityManager.hasWriteAccess("_rx",roleName$,true)) {
                 %>
-                	<a id="discont_<%=prescriptIdInt%>" href="javascript:void(0);" onclick="Discontinue(event,this);" <%=styleColor%> >Discon</a>                
+                	<a id="discont_<%=prescriptIdInt%>" href="javascript:void(0);" onclick="Discontinue(event,this);" <%=styleColor%> >Discon</a>
                 <% }
-               	 }
                 }else{%>
                   <%=prescriptDrug.getArchivedReason()%>
                 <%}%>
@@ -447,16 +431,11 @@
             <% } %>
 
             <td width="10px" align="center">
-                <%
-                    if (prescriptDrug.getRemoteFacilityName() != null) { %>
-                <span class="external"><%=prescriptDrug.getRemoteFacilityName()%></span>
-                <%} else if (prescriptDrug.getOutsideProviderName() != null && !prescriptDrug.getOutsideProviderName().equals("")) {%>
+                <%if (prescriptDrug.getOutsideProviderName() != null && !prescriptDrug.getOutsideProviderName().equals("")) {%>
                 <span class="external"><%=prescriptDrug.getOutsideProviderName()%></span>
                 <%} else {%>
                 local
                 <%}%>
-
-
             </td>
 
 			<td >
@@ -569,10 +548,6 @@
         }
 
         if (drug.getOutsideProviderName() != null && !drug.getOutsideProviderName().equals("")) {
-            sb = new StringBuilder("class=\"");
-            sb.append("external ");
-        }
-        if (drug.getRemoteFacilityName() != null) {
             sb = new StringBuilder("class=\"");
             sb.append("external ");
         }

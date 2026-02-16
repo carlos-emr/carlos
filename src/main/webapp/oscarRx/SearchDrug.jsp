@@ -92,7 +92,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.PrescriptDrug" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -386,45 +385,12 @@
                                                             href="<%= request.getContextPath() %>/oscarRx/StaticScript.jsp?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&bn=<%=Encode.forUriComponent(prescriptDrug.getBrandName())%>"><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%>
                                                     </a></td>
                                                     <td width="100px" align="center">
-                                                        <%
-                                                            if (prescriptDrug.getRemoteFacilityName() == null) {
-                                                        %>
                                                         <input type="checkbox" name="chkRePrescribe" align="center"
                                                                drugId="<%=prescriptDrug.getId()%>"/>
-                                                        <%
-                                                        } else {
-                                                        %>
-                                                        <form action="<%=request.getContextPath()%>/oscarRx/searchDrug.do"
-                                                              method="post">
-                                                            <input type="hidden" name="demographicNo"
-                                                                   value="<%=patient.getDemographicNo()%>"/>
-                                                            <%
-                                                                String searchString = prescriptDrug.getBrandName();
-                                                                if (searchString == null)
-                                                                    searchString = prescriptDrug.getCustomName();
-                                                                if (searchString == null)
-                                                                    searchString = prescriptDrug.getRegionalIdentifier();
-                                                                if (searchString == null)
-                                                                    searchString = prescriptDrug.getSpecial();
-                                                            %>
-                                                            <input type="hidden" name="searchString"
-                                                                   value="<%=searchString%>"/>
-                                                            <input type="submit" class="ControlPushButton"
-                                                                   value="Search to Re-prescribe"/>
-                                                        </form>
-                                                        <%
-                                                            }
-                                                        %>
                                                     </td>
                                                     <td width="100px" align="center">
-                                                        <%
-                                                            if (prescriptDrug.getRemoteFacilityName() == null) {
-                                                        %>
                                                         <input type="checkbox" name="chkDelete" align="center"
                                                                drugId="<%=prescriptDrug.getId()%>"/>
-                                                        <%
-                                                            }
-                                                        %>
                                                     </td>
                                                     <td width="20px" align="center"><a href="#" title="Annotation"
                                                                                        onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=prescriptDrug.getId()%>&demo=<%=bean.getDemographicNo()%>','anwin','width=400,height=500');">

@@ -160,10 +160,10 @@ public class LabsDocsSummary implements Summary {
             }
 
 
-            if (curDoc.getRemoteFacilityId() == null && curDoc.isPDF()) {
-                url = "../documentManager/MultiPageDocDisplay.jsp?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName="; //'); return false;";
+            if (curDoc.isPDF()) {
+                url = "../documentManager/MultiPageDocDisplay.jsp?segmentID=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&searchProviderNo=" + loggedInInfo.getLoggedInProviderNo() + "&status=A&demoName=";
             } else {
-                url = ""; // "../documentManager/ManageDocument.do?method=display&doc_no=" + dispDocNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + (curDoc.getRemoteFacilityId()!=null?"&remoteFacilityId="+curDoc.getRemoteFacilityId();
+                url = "";
             }
             summaryItem.setAction(url);
             if (summaryItem.getDisplayName().trim().equals("")) {
