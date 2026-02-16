@@ -79,8 +79,7 @@ public interface MessengerDemographicManager {
     public Map<Integer, String> getAttachedDemographicNameMap(LoggedInInfo loggedInInfo, int messageId);
 
     /**
-     * Attach an array of local Demographic numbers to the given message id
-     * DO NOT USE TO ATTACH DEMOGRAPHICS FROM OUTSIDE FACILITIES.
+     * Attach an array of local Demographic numbers to the given message id.
      *
      * @param loggedInInfo
      * @param messageId

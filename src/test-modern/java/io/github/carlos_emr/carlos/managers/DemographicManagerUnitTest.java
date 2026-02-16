@@ -1445,9 +1445,9 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             ConsentType consentType = new ConsentType();
             consentType.setId(1);
 
-            when(mockPatientConsentManager.getConsentType("INTEGRATOR_PATIENT_CONSENT")).thenReturn(consentType);
+            when(mockPatientConsentManager.getConsentType("TEST_PATIENT_CONSENT")).thenReturn(consentType);
 
-            manager.updatePatientConsent(mockLoggedInInfo, TEST_DEMO_NO, "INTEGRATOR_PATIENT_CONSENT", true);
+            manager.updatePatientConsent(mockLoggedInInfo, TEST_DEMO_NO, "TEST_PATIENT_CONSENT", true);
 
             verify(mockPatientConsentManager).setConsent(mockLoggedInInfo, TEST_DEMO_NO, 1, true);
         }
@@ -1458,10 +1458,10 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             ConsentType consentType = new ConsentType();
             consentType.setId(1);
 
-            when(mockPatientConsentManager.getConsentType("INTEGRATOR_PATIENT_CONSENT")).thenReturn(consentType);
+            when(mockPatientConsentManager.getConsentType("TEST_PATIENT_CONSENT")).thenReturn(consentType);
             when(mockPatientConsentManager.hasPatientConsented(TEST_DEMO_NO, consentType)).thenReturn(true);
 
-            boolean result = manager.isPatientConsented(mockLoggedInInfo, TEST_DEMO_NO, "INTEGRATOR_PATIENT_CONSENT");
+            boolean result = manager.isPatientConsented(mockLoggedInInfo, TEST_DEMO_NO, "TEST_PATIENT_CONSENT");
 
             assertThat(result).isTrue();
         }

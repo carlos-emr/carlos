@@ -139,8 +139,7 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
     }
 
     /**
-     * Attach an array of local Demographic numbers to the given message id
-     * DO NOT USE TO ATTACH DEMOGRAPHICS FROM OUTSIDE FACILITIES.
+     * Attach an array of local Demographic numbers to the given message id.
      *
      * @param loggedInInfo
      * @param messageId

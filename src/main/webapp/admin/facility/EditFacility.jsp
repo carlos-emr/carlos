@@ -63,17 +63,7 @@
                 var isOk = false;
                 isOk = validateRequiredField('facilityName', 'Facility Name', 32);
                 if (isOk) isOk = validateRequiredField('facilityDesc', 'Facility Description', 70);
-                if (isOk) isOk = validateRemoveDemoId();
                 return isOk;
-            }
-
-            function validateRemoveDemoId() {
-                var ret = true;
-                var rid = document.forms[0].removeDemographicIdentity.checked;
-                if (!rid) {
-                    ret = confirm("Remove Demographic Identity NOT checked! Is it OK?");
-                }
-                return ret;
             }
         </script>
         <!-- don't close in 1 statement, will break IE7 -->
