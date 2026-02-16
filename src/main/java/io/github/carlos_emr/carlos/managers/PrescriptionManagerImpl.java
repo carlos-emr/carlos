@@ -33,9 +33,6 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDrug;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
@@ -154,46 +151,6 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
             if (isCustomName) {
                 logger.info("ADDING PRESCRIPTION " + drug.getId());
                 results.add(drug);
-            }
-        }
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-
-                List<CachedDemographicDrug> remoteDrugs = null;
-                try {
-                    if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        remoteDrugs = CaisiIntegratorManager
-                                .getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility())
-                                .getLinkedCachedDemographicDrugsByDemographicId(demographicNo);
-                    }
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Unexpected error.", e);
-                    CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                }
-
-                if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    remoteDrugs = IntegratorFallBackManager.getRemoteDrugs(loggedInInfo, demographicNo);
-                }
-
-                for (CachedDemographicDrug remoteDrug : remoteDrugs) {
-                    Drug drug = new Drug(); // new Prescription(, remoteDrug.getCaisiProviderId(), demographicNo));
-                    drug.setId(remoteDrug.getFacilityIdIntegerCompositePk().getIntegratorFacilityId());
-                    drug.setProviderNo(remoteDrug.getCaisiProviderId());
-                    drug.setDemographicId(remoteDrug.getCaisiDemographicId());
-                    drug.setArchived(remoteDrug.isArchived());
-                    if (remoteDrug.getEndDate() != null)
-                        drug.setEndDate(remoteDrug.getEndDate().getTime());
-                    if (remoteDrug.getRxDate() != null)
-                        drug.setRxDate(remoteDrug.getRxDate().getTime());
-                    drug.setSpecial(remoteDrug.getSpecial());
-
-                    // okay so I'm not exactly making it unique... that's the price of last minute
-                    // conformance test changes.
-                    results.add(drug);
-                }
-            } catch (Exception e) {
-                logger.error("error getting remote allergies", e);
             }
         }
 

@@ -42,11 +42,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdLabResultCompositePk;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -57,8 +52,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
-
 import io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
@@ -72,39 +65,6 @@ public class LabDisplayHelper {
 
     public static String makeLabKey(Integer demographicId, String segmentId, String labType, String labDateTime) {
         return ("" + demographicId + ':' + segmentId + ':' + labType + ':' + labDateTime);
-    }
-
-    public static CachedDemographicLabResult getRemoteLab(LoggedInInfo loggedInInfo, Integer remoteFacilityId, String remoteLabKey, Integer demographicId) {
-
-        FacilityIdLabResultCompositePk pk = new FacilityIdLabResultCompositePk();
-        pk.setIntegratorFacilityId(remoteFacilityId);
-        pk.setLabResultId(remoteLabKey);
-        CachedDemographicLabResult cachedDemographicLabResult = null;
-
-        try {
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                cachedDemographicLabResult = demographicWs.getCachedDemographicLabResult(pk);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Unexpected error.", e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-        }
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            List<CachedDemographicLabResult> labResults = IntegratorFallBackManager.getLabResults(loggedInInfo, demographicId);
-            for (CachedDemographicLabResult labResult : labResults) {
-                if (labResult.getFacilityIdLabResultCompositePk().getIntegratorFacilityId() == pk.getIntegratorFacilityId() &&
-                        labResult.getFacilityIdLabResultCompositePk().getLabResultId().equals(pk.getLabResultId())) {
-                    cachedDemographicLabResult = labResult;
-                    break;
-                }
-
-            }
-
-        }
-
-        return (cachedDemographicLabResult);
     }
 
     public static Document labToXml(Integer demographicId, LabResultData lab) throws ParserConfigurationException, UnsupportedEncodingException {
@@ -176,10 +136,6 @@ public class LabDisplayHelper {
         XmlUtils.appendChild(doc, child, "segmentId", reportStatus.getID());
 
         rootNode.appendChild(child);
-    }
-
-    public static Document getXmlDocument(CachedDemographicLabResult cachedDemographicLabResult) throws IOException, SAXException, ParserConfigurationException {
-        return (XmlUtils.toDocument(cachedDemographicLabResult.getData()));
     }
 
     public static ArrayList<ReportStatus> getReportStatus(Document cachedDemographicLabResultXmlData) {

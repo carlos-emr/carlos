@@ -12,7 +12,7 @@ import com.itextpdf.text.pdf.PdfWriter;
 
 import org.apache.log4j.Logger;
 
-import io.github.carlos_emr.carlos.caisi_integrator.util.MiscUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Reusable page event handler for rendering headers on PDFs.

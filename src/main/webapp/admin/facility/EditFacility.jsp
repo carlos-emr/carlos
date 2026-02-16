@@ -63,22 +63,8 @@
                 var isOk = false;
                 isOk = validateRequiredField('facilityName', 'Facility Name', 32);
                 if (isOk) isOk = validateRequiredField('facilityDesc', 'Facility Description', 70);
-//                if (isOk) isOk = validateUpdateInterval();
                 if (isOk) isOk = validateRemoveDemoId();
                 return isOk;
-            }
-
-            function validateUpdateInterval() {
-                var ret = false;
-                var interval = document.forms[0].updateInterval.value;
-                if (!isInteger(interval)) {
-                    alert("Integrator Update Interval must be an integer!");
-                } else if (parseInt(interval) < 1) {
-                    alert("Integrator Update Interval must be > 0");
-                } else {
-                    ret = true;
-                }
-                return ret;
             }
 
             function validateRemoveDemoId() {
@@ -120,30 +106,6 @@
                 <td width="20%">Enable Digital Signatures:</td>
                 <td><input type="checkbox" name="facility.enableDigitalSignatures"/></td>
             </tr>
-            <tr class="b">
-                <td>Enable Integrator:</td>
-                <td><input type="checkbox" name="facility.integratorEnabled"/></td>
-            </tr>
-            <tr class="b">
-                <td>Integrator Url:</td>
-                <td><input type="checkbox" name="facility.integratorUrl" size="40" /></td>
-            </tr>
-            <tr class="b">
-                <td>Integrator User:</td>
-                <td><input type="text" name="facility.integratorUser" id="facility.integratorUser" /></td>
-            </tr>
-            <tr class="b">
-                <td>Integrator Password:</td>
-                <td><input type="password" name="integratorPassword" id="integratorPassword"/></td>
-            </tr>
-            <tr class="b">
-                <td>Remove Demographic Identity:</td>
-                <td>
-                    <input type="checkbox" name="removeDemographicIdentity"/>
-                    (All patients' names, hin# & sin# will be removed in Integrator)
-                    <br>
-                </td>
-            </tr>
 
             <tr class="b">
                 <td>Rx Interaction Warning Level:</td>
@@ -157,17 +119,6 @@
                     </select>
                 </td>
             </tr>
-            <!--Ronnie
-                </tr>
-                <tr class="b">
-                    <td>Integrator Update Interval:</td>
-                    <td>
-                        <input type="checkbox" name="updateInterval" id="updateInterval" size="3" />
-                        Hour(s)
-                        <br>
-                    </td>
-                </tr>
--->
             <tr>
                 <td colspan="2">* Mandatory fields</td>
             <tr>

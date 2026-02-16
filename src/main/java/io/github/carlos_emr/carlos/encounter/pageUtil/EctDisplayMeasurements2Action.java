@@ -225,9 +225,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             EctMeasurementsDataBeanHandler hd = new EctMeasurementsDataBeanHandler(demo);
             EctMeasurementsDataBean data;
             Vector measureTypes = (Vector) hd.getMeasurementsDataVector();
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                EctMeasurementsDataBeanHandler.addRemoteMeasurementsTypes(loggedInInfo, measureTypes, demo);
-            }
 
             for (int idx = 0; idx < measureTypes.size(); ++idx) {
                 data = (EctMeasurementsDataBean) measureTypes.get(idx);
@@ -239,9 +236,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                 hd = new EctMeasurementsDataBeanHandler(demo, data.getType());
                 Vector measures = (Vector) hd.getMeasurementsDataVector();
-                if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                    EctMeasurementsDataBeanHandler.addRemoteMeasurements(loggedInInfo, measures, data.getType(), demo);
-                }
 
                 if (measures.size() > 0) {
                     NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();

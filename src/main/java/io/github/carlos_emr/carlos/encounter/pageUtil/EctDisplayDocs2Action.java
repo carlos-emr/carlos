@@ -102,17 +102,6 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             String BGCOLOUR = request.getParameter("hC");
             Date date;
 
-            // --- add remote documents ---
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    ArrayList<EDoc> remoteDocuments = EDocUtil.getRemoteDocuments(loggedInInfo, Integer.parseInt(bean.demographicNo));
-                    docList.addAll(remoteDocuments);
-                } catch (Exception e) {
-                    logger.error("error getting remote documents", e);
-                }
-            }
-
             // sort complete list by date descending
             sortByDate(docList);
 
@@ -180,10 +169,6 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 javascript.append(js);
                 item.setURL(url);
                 item.setURLJavaScript(true);
-
-                if ("integrator".equalsIgnoreCase(curDoc.getSource())) {
-                    item.setBgColour("#FFCCCC");
-                }
 
                 if ("true".equals(curDoc.getAbnormal())) {
                     item.setColour("red");

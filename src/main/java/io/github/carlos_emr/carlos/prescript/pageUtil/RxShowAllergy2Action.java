@@ -31,7 +31,6 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.RemoteDrugAllergyHelper;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -55,8 +54,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 
 /**
  * Struts 2 action for displaying and managing patient allergies.
@@ -238,18 +235,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
             ObjectMapper objectMapper = new ObjectMapper();
             RxSessionBean rxSessionBean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
             Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, rxSessionBean.getDemographicNo()).getActiveAllergies();
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    ArrayList<Allergy> remoteAllergies = RemoteDrugAllergyHelper.getRemoteAllergiesAsAllergyItems(loggedInInfo, rxSessionBean.getDemographicNo());
-
-                    // now merge the 2 lists
-                    Collections.addAll(remoteAllergies, allergies);
-                    allergies = remoteAllergies.toArray(new Allergy[0]);
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("error getting remote allergies", e);
-                }
-            }
 
             Allergy[] allergyWarnings = null;
             RxDrugData drugData = new RxDrugData();

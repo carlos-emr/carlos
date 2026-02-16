@@ -34,7 +34,6 @@ package io.github.carlos_emr.carlos.managers;
 import java.util.List;
 import java.util.Map;
 
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
 import io.github.carlos_emr.carlos.commn.model.MsgIntegratorDemoMap;
@@ -72,10 +71,6 @@ public interface MessengerDemographicManager {
      */
     public List<MsgIntegratorDemoMap> getUnlinkedIntegratedDemographicList(LoggedInInfo loggedInInfo, int messageId);
 
-    public List<DemographicTransfer> getUnlinkedIntegratedDemographics(LoggedInInfo loggedInInfo, int messageId);
-
-    public DemographicTransfer getIntegratedDemographic(LoggedInInfo loggedInInfo, int demographicNo, int facilityId);
-
     /**
      * This will extract a string of names and ages for each demographic attached to the given message id.
      *
@@ -94,51 +89,6 @@ public interface MessengerDemographicManager {
      * @return
      */
     public Map<Integer, String> getAttachedDemographicNameMap(LoggedInInfo loggedInInfo, int messageId);
-
-    /**
-     * ONLY FOR USE WITH DEMOGRAPHICS THAT ARE REMOTELY ATTACHED TO A MESSAGE - INTEGRATOR ONLY.
-     *
-     * @param loggedInInfo
-     * @param messageId
-     * @param demographicNoArray
-     * @return
-     */
-    public Integer[] attachIntegratedDemographicToMessage(LoggedInInfo loggedInInfo, int messageId, Integer[] demographicNoArray, int sourceFacilityId);
-
-    /**
-     * ONLY FOR USE WITH DEMOGRAPHICS THAT ARE REMOTELY ATTACHED TO A MESSAGE - INTEGRATOR ONLY.
-     *
-     * @param loggedInInfo the logged in user information
-     * @param messageId the message ID
-     * @param demographicNo the demographic number
-     * @param sourceFacilityId the source facility ID
-     * @return the attached demographic mapping ID
-     */
-    public Integer attachIntegratedDemographicToMessage(LoggedInInfo loggedInInfo, int messageId, int demographicNo, int sourceFacilityId);
-
-
-    /**
-     * Get all the demographic ids from the given remote facility that are linked
-     * to the given local demographic number.
-     *
-     * @param loggedInInfo
-     * @param demographicNo
-     * @param sourceFacilityId
-     * @return List<Integer>
-     */
-    public List<Integer> getLinkedDemographicIdsFromSourceFacility(LoggedInInfo loggedInInfo, final int demographicNo, int sourceFacilityId);
-
-    /**
-     * Search for the Integrated demographic entry and then update the associated msgDemoMapId. This helps indicate that the demographic
-     * has been imported and attached.
-     *
-     * @param loggedInInfo
-     * @param messageId
-     * @param demographicNo
-     * @param facilityId
-     * @return long
-     */
-    public long updateAttachedIntegratedDemographic(LoggedInInfo loggedInInfo, int messageId, int demographicNo, int facilityId);
 
     /**
      * Attach an array of local Demographic numbers to the given message id
@@ -162,17 +112,6 @@ public interface MessengerDemographicManager {
     public Long attachDemographicToMessage(LoggedInInfo loggedInInfo, int messageId, int demographicNo);
 
     /**
-     * This method is hard-coded to the most commons Integrator patient consent types.
-     * UserProperty.INTEGRATOR_PATIENT_CONSENT
-     * UserProperty.INTEGRATOR_DEMOGRAPHIC_CONSENT
-     *
-     * @param loggedInInfo
-     * @param demographicNo
-     * @return
-     */
-    public boolean isPatientConsentedForIntegrator(LoggedInInfo loggedInInfo, int demographicNo);
-
-    /**
      * Gets a list of messages attached to the given demographic number
      *
      * @param loggedInInfo
@@ -180,15 +119,5 @@ public interface MessengerDemographicManager {
      * @return
      */
     public List<MsgDemoMap> getMessageMapByDemographicNo(LoggedInInfo loggedInInfo, int demographicNo);
-
-    /**
-     * Import a demographic file and/or linking it to another file on the Integrator.
-     * Returns null after a successful import or returns a list of Demographic objects if a user selection is required.
-     *
-     * @return
-     */
-    public List<Demographic> importDemographic(LoggedInInfo loggedInInfo, int remoteFacilityId, int remoteDemographicNo, int messageId);
-
-    public boolean linkDemographicWithRemote(LoggedInInfo loggedInInfo, int demographicNo, int remoteFacilityId, int remoteDemographicNo, int messageId);
 
 }

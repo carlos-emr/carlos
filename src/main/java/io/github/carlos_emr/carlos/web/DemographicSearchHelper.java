@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,23 +30,6 @@
 
 package io.github.carlos_emr.carlos.web;
 
-import java.net.MalformedURLException;
-import java.util.List;
-
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicParameters;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
 public final class DemographicSearchHelper {
 
-    public static List<MatchingDemographicTransferScore> getIntegratedSearchResults(LoggedInInfo loggedInInfo, MatchingDemographicParameters matchingDemographicParameters) throws MalformedURLException {
-        if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) return (null);
-
-        DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-
-        List<MatchingDemographicTransferScore> integratedMatches = demographicWs.getMatchingDemographics(matchingDemographicParameters);
-        return (integratedMatches);
-    }
 }

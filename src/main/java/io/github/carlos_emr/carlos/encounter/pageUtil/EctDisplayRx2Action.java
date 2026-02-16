@@ -31,13 +31,8 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDrug;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -45,12 +40,10 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 
 public class EctDisplayRx2Action extends EctDisplayAction {
     private String cmd = "Rx";
-    private static final Logger logger = MiscUtils.getLogger();
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
@@ -83,47 +76,8 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             ArrayList<Prescription> uniqueDrugs = new ArrayList<Prescription>();
             for (Prescription p : arr) uniqueDrugs.add(p);
 
-            int demographicId = Integer.parseInt(bean.demographicNo);
-
             CppPreferencesUIBean prefsBean = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
             prefsBean.loadValues();
-
-            // --- get integrator drugs ---
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-
-
-                    List<CachedDemographicDrug> remoteDrugs = null;
-                    try {
-                        if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                            remoteDrugs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicDrugsByDemographicId(demographicId);
-                        }
-                    } catch (Exception e) {
-                        MiscUtils.getLogger().error("Unexpected error.", e);
-                        CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                    }
-
-                    if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        remoteDrugs = IntegratorFallBackManager.getRemoteDrugs(loggedInInfo, demographicId);
-                    }
-
-                    logger.debug("remote Drugs : " + remoteDrugs.size());
-
-                    for (CachedDemographicDrug remoteDrug : remoteDrugs) {
-                        Prescription p = new Prescription(remoteDrug.getFacilityIdIntegerCompositePk().getIntegratorFacilityId(), remoteDrug.getCaisiProviderId(), demographicId);
-                        p.setArchived(remoteDrug.isArchived() ? "1" : "0");
-                        if (remoteDrug.getEndDate() != null) p.setEndDate(remoteDrug.getEndDate().getTime());
-                        if (remoteDrug.getRxDate() != null) p.setRxDate(remoteDrug.getRxDate().getTime());
-                        p.setSpecial(remoteDrug.getSpecial());
-                        p.setOutsideProviderName(" "); //little hack so that the style gets set to "external"
-
-                        // okay so I'm not exactly making it unique... that's the price of last minute conformance test changes.
-                        uniqueDrugs.add(p);
-                    }
-                } catch (Exception e) {
-                    logger.error("error getting remote drugs", e);
-                }
-            }
 
             long now = System.currentTimeMillis();
             long month = 1000L * 60L * 60L * 24L * 30L;

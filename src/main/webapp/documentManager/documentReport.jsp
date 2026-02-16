@@ -394,13 +394,6 @@
                     categoryKeys.add("Public Documents");
                 }
 
-                //--- get remote documents ---
-                if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                    List<EDoc> remoteDocuments = EDocUtil.getRemoteDocuments(loggedInInfo, Integer.parseInt(moduleid));
-                    categories.add(remoteDocuments);
-                    categoryKeys.add("Remote Documents");
-                }
-
                 for (int i = 0; i < categories.size(); i++) {
                     String currentkey = (String) categoryKeys.get(i);
                     ArrayList category = (ArrayList) categories.get(i);

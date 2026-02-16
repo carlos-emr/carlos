@@ -53,7 +53,6 @@ import java.io.Serializable;
  * 
  * @see AbstractModel
  * @see Gender
- * @see io.github.carlos_emr.carlos.caisi_integrator.ws.HnrWs
  * @see io.github.carlos_emr.carlos.ws.MatchingClientParameters
  * @see io.github.carlos_emr.carlos.ws.MatchingClientScore
  * @since 2026-01-14

@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.form;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -43,15 +41,6 @@ import java.util.Properties;
 import io.github.carlos_emr.Misc;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicForm;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProgram;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -233,40 +222,6 @@ public class FrmLabReq07Record extends FrmRecord {
             props.setProperty("practitionerNo", oscarProps.getProperty("lab_req_billing_no"));
         }
 
-        if (facility.isIntegratorEnabled()) {
-            //if patient was from integrator link up doc from other site
-            try {
-                Integer localDemographicId = Integer.parseInt(props.getProperty("demographic_no"));
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, facility);
-                List<DemographicTransfer> directLinks = demographicWs.getDirectlyLinkedDemographicsByDemographicId(localDemographicId);
-
-                if (directLinks.size() > 0) {
-                    props.setProperty("copy2clinician", "checked");
-                    DemographicTransfer demographicTransfer = directLinks.get(0);
-
-                    FacilityIdStringCompositePk providerPk = new FacilityIdStringCompositePk();
-                    providerPk.setIntegratorFacilityId(demographicTransfer.getIntegratorFacilityId());
-                    providerPk.setCaisiItemId(demographicTransfer.getLastUpdateUser());
-                    CachedProvider p = CaisiIntegratorManager.getProvider(loggedInInfo, facility, providerPk);
-                    if (p != null) {
-                        props.setProperty("copyLname", p.getLastName());
-                        props.setProperty("copyFname", p.getFirstName());
-
-                        List<CachedProgram> cps = CaisiIntegratorManager.getAllPrograms(loggedInInfo, facility);
-                        for (CachedProgram cp : cps) {
-                            if (providerPk.getIntegratorFacilityId() == cp.getFacilityIdIntegerCompositePk().getIntegratorFacilityId() && "OSCAR".equals(cp.getName()) && cp.getAddress() != null) {
-                                props.setProperty("copyAddress", cp.getAddress());
-                            }
-                        }
-
-                    }
-                }
-
-            } catch (Exception e) {
-                logger.error("error", e);
-            }
-        }
-
         return props;
     }
 
@@ -309,46 +264,4 @@ public class FrmLabReq07Record extends FrmRecord {
     }
 
 
-    public static Properties getRemoteRecordProperties(LoggedInInfo loggedInInfo, Integer remoteFacilityId, Integer formId, Integer demoNo) throws IOException {
-        FacilityIdIntegerCompositePk pk = new FacilityIdIntegerCompositePk();
-        pk.setIntegratorFacilityId(remoteFacilityId);
-        pk.setCaisiItemId(formId);
-
-        CachedDemographicForm form = null;
-        try {
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                form = demographicWs.getCachedDemographicForm(pk);
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-        }
-
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            Integer demographicNo = 0;
-            List<CachedDemographicForm> forms = IntegratorFallBackManager.getRemoteForms(loggedInInfo, demoNo, "formLabReq07");
-            for (CachedDemographicForm f : forms) {
-                if (f.getFacilityIdIntegerCompositePk().getCaisiItemId() == pk.getCaisiItemId() && f.getFacilityIdIntegerCompositePk().getIntegratorFacilityId() == pk.getIntegratorFacilityId()) {
-                    form = f;
-                    break;
-                }
-            }
-        }
-
-        ByteArrayInputStream bais = new ByteArrayInputStream(form.getFormData().getBytes());
-
-        Properties p = new Properties();
-        p.load(bais);
-
-        // missing
-        // props.setProperty("hcType", demographic.getHcType());
-        // props.setProperty("demoProvider", demographic.getProviderNo());
-        // props.setProperty("clinicProvince",oscar.Misc.getString(rs, "clinic_province"));
-
-        logger.debug("Remote properties : " + p);
-
-        return (p);
-    }
 }

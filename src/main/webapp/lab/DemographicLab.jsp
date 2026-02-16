@@ -81,10 +81,6 @@
     ArrayList<LabResultData> labs = comLab.populateLabResultsData(LoggedInInfo.getLoggedInInfoFromSession(request), "", demographicNo, "", "", "", "U");
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-        ArrayList<LabResultData> remoteResults = CommonLabResultData.getRemoteLabs(loggedInInfo, Integer.parseInt(demographicNo));
-        labs.addAll(remoteResults);
-    }
 
 
     int pageNum = 1;

@@ -32,7 +32,6 @@
 
 package io.github.carlos_emr.carlos.managers;
 
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -190,24 +189,12 @@ public interface DemographicManager {
             final Collection<Integer> demographicNumbers,
             final String residentNumber);
 
-    public Demographic getRemoteDemographic(LoggedInInfo loggedInInfo, int remoteFacilityId, int remoteDemographicId);
-
-    public Demographic copyRemoteDemographic(LoggedInInfo loggedInInfo, Demographic remoteDemographic,
-                                             int remoteFacilityId, int remoteDemographicId);
-
     public void updatePatientConsent(LoggedInInfo loggedInInfo, int demographic_no, String consentType,
                                      boolean consented);
 
     public List<DemographicContact> findSDMByDemographicNo(LoggedInInfo loggedInInfo, int demographicNo);
 
     public boolean isPatientConsented(LoggedInInfo loggedInInfo, int demographic_no, String consentType);
-
-    public boolean linkDemographicToRemoteDemographic(LoggedInInfo loggedInInfo, int demographicNo,
-                                                      int remoteFacilityId, int remoteDemographicNo);
-
-    public List<Integer> getLinkedDemographicIds(LoggedInInfo loggedInInfo, int demographicNo, int sourceFacilityId);
-
-    public List<DemographicTransfer> getLinkedDemographics(LoggedInInfo loggedInInfo, int demographicNo);
 
     void checkPrivilege(LoggedInInfo loggedInInfo, String privilege);
 

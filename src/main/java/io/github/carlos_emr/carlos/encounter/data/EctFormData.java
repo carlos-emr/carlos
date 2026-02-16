@@ -45,10 +45,6 @@ import javax.persistence.PersistenceException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicForm;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
@@ -245,54 +241,12 @@ public class EctFormData {
         return (forms);
     }
 
-    public static ArrayList<PatientForm> getRemotePatientForms(LoggedInInfo loggedInInfo, Integer demographicId, String formName, String table) {
-        ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
-        List<CachedDemographicForm> remoteForms = null;
-        table = StringUtils.trimToNull(table);
-        if (table == null) return (new ArrayList<PatientForm>());
-
-        try {
-            if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) return (forms);
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                remoteForms = demographicWs.getLinkedCachedDemographicForms(demographicId, table);
-            }
-        } catch (Exception e) {
-            logger.error("Error retriving remote forms :" + CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession()), e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-        }
-
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            remoteForms = IntegratorFallBackManager.getRemoteForms(loggedInInfo, demographicId, table);
-        }
-
-        if (remoteForms == null) return (forms);
-
-        for (CachedDemographicForm cachedDemographicForm : remoteForms) {
-            Date date = cachedDemographicForm.getEditDate().getTime();
-            PatientForm frm = new PatientForm(formName, cachedDemographicForm.getFacilityIdIntegerCompositePk().getCaisiItemId(), cachedDemographicForm.getCaisiDemographicId(), date, date);
-            frm.setRemoteFacilityId(cachedDemographicForm.getFacilityIdIntegerCompositePk().getIntegratorFacilityId());
-            forms.add(frm);
-        }
-        return (forms);
-    }
-
     public static PatientForm[] getPatientForms(String demoNo, String table) {
         return (getPatientFormsAsArrayList(demoNo, null, table).toArray(new PatientForm[0]));
     }
 
     public static PatientForm[] getPatientFormsFromLocalAndRemote(LoggedInInfo loggedInInfo, String demoNo, String table) {
         ArrayList<PatientForm> results = getPatientFormsAsArrayList(demoNo, null, table);
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                ArrayList<PatientForm> remoteResults = getRemotePatientForms(loggedInInfo, Integer.parseInt(demoNo), null, table);
-                results.addAll(remoteResults);
-            } catch (Exception e) {
-                logger.error("Retrieving remote forms failed", e);
-            }
-        }
 
         Collections.sort(results, PatientForm.CREATED_DATE_COMPARATOR);
 

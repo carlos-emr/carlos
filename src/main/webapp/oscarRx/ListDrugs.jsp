@@ -187,7 +187,6 @@
 
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
 
-    boolean integratorEnabled = loggedInInfo.getCurrentFacility().isIntegratorEnabled();
     String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
     String heading = request.getParameter("heading");
 

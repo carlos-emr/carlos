@@ -93,7 +93,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.PrescriptDrug" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -348,15 +347,6 @@
                                                     <th align="center" width="100px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/></b></th>
                                                     <th align="center" width="100px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDelete"/></b></th>
                                                     <th align="center" width="20px">&nbsp;</th>
-                                                    <%
-                                                        boolean integratorEnabled = loggedInInfo.getCurrentFacility().isIntegratorEnabled();
-
-                                                        if (integratorEnabled) {
-                                                    %>
-                                                    <td align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgLocationPrescribed"/></td>
-                                                    <%
-                                                        }
-                                                    %>
                                                 </tr>
 
                                                 <%
@@ -440,14 +430,6 @@
                                                                                        onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=prescriptDrug.getId()%>&demo=<%=bean.getDemographicNo()%>','anwin','width=400,height=500');">
                                                         <img src="<%= request.getContextPath() %>/images/notes.gif" border="0"></a>
                                                     </td>
-                                                    <%
-                                                        if (integratorEnabled) {
-                                                    %>
-                                                    <td align="center"><%=prescriptDrug.getRemoteFacilityName() == null ? "local" : prescriptDrug.getRemoteFacilityName()%>
-                                                    </td>
-                                                    <%
-                                                        }
-                                                    %>
                                                 </tr>
                                                 <%
                                                     }

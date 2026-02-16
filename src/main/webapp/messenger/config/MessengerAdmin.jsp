@@ -42,7 +42,7 @@
   - Delete groups (with confirmation)
   - Add/remove providers from groups
   - Display hierarchical group structure
-  - Support for local and remote (Integrator) groups
+  - Support for local groups
   
   Security:
   - Requires "_admin" object with read ("r") permissions

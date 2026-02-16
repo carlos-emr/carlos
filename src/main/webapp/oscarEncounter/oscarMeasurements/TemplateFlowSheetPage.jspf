@@ -40,7 +40,7 @@
 <%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.dxresearch.bean.*"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.dao.FlowSheetDxDao,io.github.carlos_emr.carlos.utility.MiscUtils"%>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedMeasurement,io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager,io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -717,9 +717,6 @@ div.recommendations ul{
             }
             String prevName = (String) h.get("name");
             ArrayList<EctMeasurementsDataBean> alist = mi.getMeasurementData(measure);
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                EctMeasurementsDataBeanHandler.addRemoteMeasurements(loggedInInfo, alist,measure,Integer.parseInt(demographic_no));
-             }
             String extraColour = "";
             if(mi.hasRecommendation(measure)){
                 extraColour = "style=\"background-color: "+mFlowsheet.getRecommendationColour()+"\" ";

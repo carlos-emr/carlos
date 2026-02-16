@@ -48,13 +48,9 @@ import javax.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicParameters;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
@@ -724,40 +720,7 @@ public class DemographicService extends AbstractServiceImpl {
         List<DemographicSearchResult> results = new ArrayList<DemographicSearchResult>();
 
         if (json.get("term") != null && json.get("term").asText().length() >= 1) {
-
-            MatchingDemographicParameters matches = CaisiIntegratorManager.getMatchingDemographicParameters(getLoggedInInfo(), convertFromJSON(json));
-            List<MatchingDemographicTransferScore> integratorSearchResults = null;
-            try {
-                matches.setMaxEntriesToReturn(itemsToReturn);
-                matches.setMinScore(7);
-                integratorSearchResults = DemographicSearchHelper.getIntegratedSearchResults(getLoggedInInfo(), matches);
-                MiscUtils.getLogger().info("Integrator search results : " + (integratorSearchResults == null ? "null" : String.valueOf(integratorSearchResults.size())));
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("error searching integrator", e);
-            }
-
-            if (integratorSearchResults != null) {
-                for (MatchingDemographicTransferScore matchingDemographicTransferScore : integratorSearchResults) {
-                    if (isLocal(matchingDemographicTransferScore)) {
-                        MiscUtils.getLogger().warn("ignoring remote demographic since we already have them locally");
-                        continue;
-                    }
-                    if (matchingDemographicTransferScore.getDemographicTransfer() != null) {
-                        DemographicTransfer obj = matchingDemographicTransferScore.getDemographicTransfer();
-                        DemographicSearchResult item = new DemographicSearchResult();
-                        item.setLastName(obj.getLastName());
-                        item.setFirstName(obj.getFirstName());
-                        item.setSex(obj.getGender().toString());
-                        item.setDob(obj.getBirthDate().getTime());
-                        item.setRemoteFacilityId(obj.getIntegratorFacilityId());
-                        item.setDemographicNo(obj.getCaisiDemographicId());
-                        results.add(item);
-                    }
-
-                }
-
-            }
-
+            // Local search results are handled upstream
         }
 
         response.setContent(results);
@@ -801,24 +764,4 @@ public class DemographicService extends AbstractServiceImpl {
         return req;
     }
 
-    private boolean isLocal(MatchingDemographicTransferScore matchingDemographicTransferScore) {
-        String hin = matchingDemographicTransferScore.getDemographicTransfer().getHin();
-
-        if (hin != null && !hin.isEmpty()) {
-            DemographicSearchRequest dsr = new DemographicSearchRequest();
-            dsr.setActive(true);
-            dsr.setKeyword(hin);
-            dsr.setMode(SEARCHMODE.HIN);
-            dsr.setOutOfDomain(true);
-            dsr.setSortMode(SORTMODE.Name);
-            dsr.setSortDir(SORTDIR.asc);
-
-            if (demographicManager.searchPatientsCount(getLoggedInInfo(), dsr) > 0) {
-                return true;
-            }
-        }
-
-        return false;
-
-    }
 }

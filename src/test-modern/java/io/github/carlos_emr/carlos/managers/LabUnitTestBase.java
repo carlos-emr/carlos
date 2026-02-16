@@ -60,7 +60,6 @@ public abstract class LabUnitTestBase extends OpenOUnitTestBase {
         mockFacility = Mockito.mock(Facility.class);
 
         Mockito.lenient().when(mockLoggedInInfo.getCurrentFacility()).thenReturn(mockFacility);
-        Mockito.lenient().when(mockFacility.isIntegratorEnabled()).thenReturn(false);
         Mockito.lenient().when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);

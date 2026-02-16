@@ -84,8 +84,6 @@ public interface MessagingManager {
      */
     public int getCountNewMessagesDemographicAttached(LoggedInInfo loggedInInfo, String providerNo);
 
-    public Integer getMyInboxIntegratorMessagesCount(LoggedInInfo loggedInInfo, String providerNo);
-
     /**
      * Get the count of all messages attached to the given demographic Id.
      *

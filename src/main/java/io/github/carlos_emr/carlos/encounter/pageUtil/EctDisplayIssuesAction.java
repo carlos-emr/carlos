@@ -30,15 +30,10 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.utility.CppUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
@@ -52,7 +47,6 @@ public class EctDisplayIssuesAction extends EctDisplayAction {
     private String cmd = "unresolvedIssues";
 
     private CaseManagementManager caseManagementMgr;
-    private static Logger log = MiscUtils.getLogger();
 
     public void setCaseManagementManager(CaseManagementManager caseManagementMgr) {
         this.caseManagementMgr = caseManagementMgr;
@@ -116,108 +110,6 @@ public class EctDisplayIssuesAction extends EctDisplayAction {
         }
 
 
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-
-
-                List<CachedDemographicIssue> remoteIssues = null;
-                try {
-                    if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        remoteIssues = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicIssuesByDemographicId(demographicId);
-                    }
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Unexpected error.", e);
-                    CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                }
-
-                if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    remoteIssues = IntegratorFallBackManager.getRemoteDemographicIssues(loggedInInfo, demographicId);
-                }
-
-
-                for (CachedDemographicIssue cachedDemographicIssue : remoteIssues) {
-                    if (cachedDemographicIssue.isResolved() != null && cachedDemographicIssue.isResolved())
-                        continue;
-
-                    log.info(cachedDemographicIssue.getIssueDescription());
-                    NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-
-                    String strTitle = StringUtils.maxLenString(cachedDemographicIssue.getIssueDescription(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    item.setTitle(strTitle);
-
-                    item.setLinkTitle(cachedDemographicIssue.getIssueDescription());
-
-                    // no link for now, will make this work later ... maybe
-                    url = "return false;";
-                    item.setURL(url);
-
-                    boolean skip = false;
-                    for (int x = 0; x < navBarDisplayDAO.numItems(); x++) {
-                        if (navBarDisplayDAO.getItem(x).getTitle().equals(strTitle)) {
-                            skip = true;
-                            break;
-                        }
-                    }
-                    if (!skip)
-                        navBarDisplayDAO.addItem(item);
-
-                }
-            } catch (Exception e) {
-                log.error("Unexpected error", e);
-            }
-        }
-
-
-        // add integrator issues
-/*
-		if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-			try {
-				List<CachedDemographicNote> remoteNotes=CaisiIntegratorManager.getLinkedNotes(demographicId);
-				
-				// map is of <issueId,issueDescription>
-				HashMap<String,String> remoteIssues=new HashMap<String,String>();
-				
-				for (CachedDemographicNote remoteNote : remoteNotes)
-				{
-					List<NoteIssue> noteIssues=remoteNote.getIssues();
-					
-					for (NoteIssue noteIssue: noteIssues)
-					{
-						String issueId=noteIssue.getCodeType().name()+':'+noteIssue.getIssueCode();
-						
-						String issueDescription;
-						Issue issue=issueDao.findIssueByTypeAndCode(noteIssue.getCodeType().name().toLowerCase(), noteIssue.getIssueCode());
-						if (issue!=null) issueDescription=issue.getDescription();
-						else issueDescription=issueId;
-
-						
-						remoteIssues.put(issueId, issueDescription);
-					}
-				}
-				
-				for (Map.Entry<String,String> remoteIssue : remoteIssues.entrySet())
-				{
-					String issueId=remoteIssue.getKey();					
-					String issueDescription=remoteIssue.getValue();
-										
-					NavBarDisplayDAO.Item item = navBarDisplayDAO.Item();
-
-					String strTitle = StringUtils.maxLenString(issueDescription, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-					item.setTitle(strTitle);
-					
-					item.setLinkTitle(issueDescription);
-					
-					// no link for now, will make this work later ... maybe
-					// url = "$('check_issue').value=" + issueId + ";return filter();";
-					// item.setURL(url);
-					
-					navBarDisplayDAO.addItem(item);					
-				}
-			} catch (MalformedURLException e) {
-				log.error("Unexpected error", e);
-			}
-		}
-*/
         return true;
     }
 

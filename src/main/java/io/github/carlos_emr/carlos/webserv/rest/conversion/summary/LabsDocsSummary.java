@@ -132,18 +132,6 @@ public class LabsDocsSummary implements Summary {
         String title;
 
 
-        // --- add remote documents ---
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                ArrayList<EDoc> remoteDocuments = EDocUtil.getRemoteDocuments(loggedInInfo, demographicNo);
-                docList.addAll(remoteDocuments);
-            } catch (Exception e) {
-                logger.error("error getting remote documents", e);
-            }
-        }
-
-
         for (int i = 0; i < docList.size(); i++) {
             EDoc curDoc = docList.get(i);
             String dispFilename = org.apache.commons.lang3.StringUtils.trimToEmpty(curDoc.getFileName());

@@ -32,9 +32,6 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
@@ -183,25 +180,6 @@ public class MsgViewMessage2Action extends ActionSupport {
             
             // Get demographics already attached to this message
             Map<Integer, String> attachedDemographics = messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, Integer.parseInt(msgDisplayMessage.getMessageId()));
-
-            // Process integrated facility demographics if Integrator is enabled
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                // Get any unlinked demographics from remote facilities
-                List<DemographicTransfer> unlinkedDemographics = messengerDemographicManager.getUnlinkedIntegratedDemographics(loggedInInfo, Integer.parseInt(messageNo));
-
-                CachedFacility remoteFacility = null;
-
-                if (unlinkedDemographics != null && unlinkedDemographics.size() > 0) {
-                    // Get information about the remote facility
-                    remoteFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), unlinkedDemographics.get(0).getIntegratorFacilityId());
-                }
-
-                if (remoteFacility != null) {
-                    // Store remote facility info in session for display
-                    request.getSession().setAttribute("demographicLocation", remoteFacility.getName());
-                    request.getSession().setAttribute("unlinkedDemographics", unlinkedDemographics);
-                }
-            }
 
             // Store all message data in session for display
             request.getSession().setAttribute("attachedDemographics", attachedDemographics);

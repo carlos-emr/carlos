@@ -18,15 +18,6 @@
 			<param name="ConversionPattern" value="%d %-5p [%c{1}:%L] %m%n" />
 		</layout>
 	</appender>
-<!--	-->
-<!--	<appender name="INTEGRATOR_FILE" class="org.apache.log4j.DailyRollingFileAppender">-->
-<!--		<param name="File" value="${catalina.base}/logs/integrator.log" />-->
-<!--		<param name="Append" value="true" />-->
-<!--		<param name="DatePattern" value="'.'yyyy-MM" />-->
-<!--		<layout class="org.apache.log4j.PatternLayout">-->
-<!--			<param name="ConversionPattern" value="%d %-5p [%c{1}:%L] %m%n" />-->
-<!--		</layout>-->
-<!--	</appender>-->
 
 	<!-- ############################# -->
 
@@ -38,16 +29,6 @@
 		<priority value="DEBUG"/>
 	</category>
 
-	<category name="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorUpdateTask" additivity="false">
-		<level value="INFO" />
-		<appender-ref ref="INTEGRATOR_FILE" />
-	</category>
-
-<!--
-	<category name="io.github.carlos_emr.carlos.PMmodule.caisi_integrator">
-		<priority value="DEBUG" />
-	</category>
--->
 	
 	<!-- //debugging soap messages  -->
 	<category name="httpclient.wire">
