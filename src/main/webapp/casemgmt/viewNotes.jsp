@@ -190,18 +190,6 @@
     } // end if
 %>
 
-    <%-- Remote Notes Section --%>
-    <fmt:setBundle basename="oscarResources"/>
-<fmt:message key="${param.title}" var="resolvedTitleRaw"/>
-<c:set var="resolvedTitle" value="${fn:escapeXml(resolvedTitleRaw)}"/>
-
-<%
-  // JS‑escaped version of the title
-  String resolvedTitleJs = Encode.forJavaScript(
-    (String) pageContext.getAttribute("resolvedTitle")
-  );
-%>
-
 
 
 <input type="hidden" id="${param.cmd}num" value="${num}">

@@ -115,7 +115,6 @@ public class FacilityManager2Action extends ActionSupport {
 
         if (request.getParameter("facility.hic") == null) facility.setHic(false);
 
-        facility.setAllowSims(WebUtils.isChecked(request, "facility.allowSims"));
         facility.setEnableHealthNumberRegistry(WebUtils.isChecked(request, "facility.enableHealthNumberRegistry"));
         facility.setEnableDigitalSignatures(WebUtils.isChecked(request, "facility.enableDigitalSignatures"));
         if (facility.getId() == null || facility.getId() == 0) facilityDao.persist(facility);

@@ -680,7 +680,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /**
-     * This method gets all prescriptions for this facility.
+     * Gets all prescriptions for the given demographic.
      */
     @Override
     public List<Drug> getPrescriptions(LoggedInInfo loggedInInfo, int demographicId, boolean all) {

@@ -563,7 +563,6 @@
     <!-- #ECHART END-->
 
 
-        <%-- -add by caisi  TODO: move these under integration or system management?--%>
     <caisi:isModuleLoad moduleName="caisi">
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" rights="r" reverse="<%=false%>">
 

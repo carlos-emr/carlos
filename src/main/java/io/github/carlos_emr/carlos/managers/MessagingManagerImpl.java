@@ -489,8 +489,7 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * A combined result of both the local reply recipients and recipients located in remote
-     * facilities inluding the original sender.
+     * Returns all reply recipients for the given message, including the original sender.
      */
     public List<ContactIdentifier> getAllMessageReplyRecipients(LoggedInInfo loggedInInfo, int messageId) {
         MessageTbl messageTbl = getMessage(loggedInInfo, messageId);

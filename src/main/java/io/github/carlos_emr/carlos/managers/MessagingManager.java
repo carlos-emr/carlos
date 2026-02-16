@@ -187,7 +187,7 @@ public interface MessagingManager {
     public List<ContactIdentifier> getAllLocalReplyRecipients(LoggedInInfo loggedInInfo, int messageId);
 
     /**
-     * Recipients that were copied in on the message with a non-local destination facility.
+     * Recipients that were copied in on the message from a different clinic location.
      *
      * @param loggedInInfo
      * @param messageId

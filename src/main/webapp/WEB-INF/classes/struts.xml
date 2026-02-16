@@ -1432,9 +1432,6 @@
             <result name="outside">/billing/CA/ON/billingLreport.jsp</result>
             <result name="error">/billing/CA/ON/billingOBECEA.jsp</result>
         </action>
-        <!--action name="PMmodule/remoteReferal" class="oscar.remotereferal.OscarRemoteReferal2Action">
-            <result name="success">/eform/efmshowform_data.jsp</result>
-        </action-->
         <action name="oscarWaitingList/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/oscarWaitingList/DisplayPatientWaitingList.jsp</result>
         </action>
