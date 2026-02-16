@@ -57,26 +57,18 @@ import java.util.Map;
  * 
  * <p>This is the primary action for displaying message content when a user clicks on
  * a message from their inbox, sent items, or deleted messages list. It handles the
- * complete message viewing workflow including marking messages as read, managing
- * demographic associations, and processing integrated facility demographics.</p>
- * 
+ * complete message viewing workflow including marking messages as read and managing
+ * demographic associations.</p>
+ *
  * <p>Key functionality:</p>
  * <ul>
  *   <li>Retrieves and displays complete message content with metadata</li>
  *   <li>Marks messages as read (except for sent items)</li>
  *   <li>Manages demographic-message associations</li>
- *   <li>Handles integrated facility demographic transfers</li>
  *   <li>Processes special message types (e.g., OSCAR_REVIEW_TYPE)</li>
  *   <li>Manages attachment indicators for regular and PDF attachments</li>
  * </ul>
- * 
- * <p>Integration features:</p>
- * <ul>
- *   <li>Supports cross-facility messaging via Integrator</li>
- *   <li>Handles unlinked demographics from remote facilities</li>
- *   <li>Manages demographic import workflow</li>
- * </ul>
- * 
+ *
  * <p>The action stores extensive message data in the session for display,
  * including message body, subject, sender, recipients, date/time, and attachment
  * information. It then redirects to the ViewMessage.jsp page for rendering.</p>

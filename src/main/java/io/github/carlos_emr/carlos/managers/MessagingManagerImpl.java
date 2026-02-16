@@ -379,8 +379,6 @@ public class MessagingManagerImpl implements MessagingManager {
 
         ArrayList<MsgProviderData> providerListing = messageData.getProviderStructure(loggedInInfo, recipients);
         String sentToWho = messageData.createSentToString(providerListing);
-        ArrayList<MsgProviderData> remoteProviderListing = messageData.getRemoteProvidersStructure();
-        sentToWho = sentToWho + " " + messageData.getRemoteNames(remoteProviderListing);
         Integer messageIdInteger = null;
         String messageId = messageData.sendMessageReview(
                 systemMessage.getMessage(),
@@ -679,29 +677,6 @@ public class MessagingManagerImpl implements MessagingManager {
                 timeMerge.get(Calendar.HOUR_OF_DAY), timeMerge.get(Calendar.MINUTE), timeMerge.get(Calendar.SECOND));
 
         return calendar.getTime();
-    }
-
-    /**
-     * Checks a list of message recipients for any recipients that are in remote locations.
-     *
-     * @param loggedInInfo
-     * @param msgProviderDataList
-     * @return
-     */
-    public static boolean doesContainRemoteRecipient(LoggedInInfo loggedInInfo, final List<MsgProviderData> msgProviderDataList) {
-        boolean remoterecipient = Boolean.FALSE;
-        int thisfacilityid = loggedInInfo.getCurrentFacility().getId();
-
-        if (msgProviderDataList != null) {
-            for (MsgProviderData msgProviderData : msgProviderDataList) {
-                ContactIdentifier contactIdentifier = msgProviderData.getId();
-                if (contactIdentifier.getFacilityId() > 0 && contactIdentifier.getFacilityId() != thisfacilityid) {
-                    remoterecipient = Boolean.TRUE;
-                    break;
-                }
-            }
-        }
-        return remoterecipient;
     }
 
     public static final List<ContactIdentifier> createContactIdentifierList(final String[] compositeContactIdArray) {

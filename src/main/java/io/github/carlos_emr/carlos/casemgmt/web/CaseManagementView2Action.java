@@ -582,7 +582,7 @@ public class CaseManagementView2Action extends ActionSupport {
             notesToDisplay.add(new NoteDisplayLocal(loggedInInfo, noteTemp));
         logger.debug("FETCHED " + localNotes.size() + " NOTES in time : " + (System.currentTimeMillis() - startTime));
 
-        // deal with remote notes
+        // deal with group notes
         startTime = System.currentTimeMillis();
         addGroupNotes(loggedInInfo, notesToDisplay, Integer.parseInt(demoNo), null);
         logger.debug("Get group notes. time=" + (System.currentTimeMillis() - startTime));
@@ -673,7 +673,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         /* PROGRESS NOTES */
         List<CaseManagementNote> notes = null;
-        // here we might have a checked/unchecked issue that is remote and has no issue_id (they're all zero).
+        // here we might have a checked/unchecked issue that has no issue_id (they're all zero).
         String[] checkedIssues = request.getParameterValues("check_issue");
 
         if (request.getParameter("offset") != null && request.getParameter("numToReturn") != null) {
@@ -727,7 +727,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (checkedIssues != null && checkedIssues.length > 0) notes = applyIssueFilter(notes, checkedIssues);
         logger.debug("Filter on issue " + (System.currentTimeMillis() - startTime));
 
-        // this is a local filter and does not apply to remote notes
+        // apply issue filter
         logger.debug("Pop notes with editors");
         startTime = System.currentTimeMillis();
         this.caseManagementMgr.getEditors(notes);

@@ -217,10 +217,7 @@ public final class MsgProviderData {
 
     /**
      * Gets the provider's location or facility.
-     * 
-     * <p>For remote providers, this will be "Integrator".
-     * For local providers, this is typically their address.</p>
-     * 
+     *
      * @return The location string
      */
     public String getLocation() {

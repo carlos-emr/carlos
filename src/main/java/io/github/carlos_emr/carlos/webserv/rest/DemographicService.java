@@ -633,8 +633,6 @@ public class DemographicService extends AbstractServiceImpl {
 
         DemographicSearchRequest req = new DemographicSearchRequest();
         req.setActive(true);
-        req.setIntegrator(false); //this should be configurable by persona
-
         //caisi
         boolean outOfDomain = true;
         if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
@@ -705,29 +703,6 @@ public class DemographicService extends AbstractServiceImpl {
         return response;
     }
 
-    @POST
-    @Path("/searchIntegrator")
-    @Produces("application/json")
-    @Consumes("application/json")
-    public AbstractSearchResponse<DemographicSearchResult> searchIntegrator(ObjectNode json, @QueryParam("itemsToReturn") Integer itemsToReturn) {
-        AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
-
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
-
-        List<DemographicSearchResult> results = new ArrayList<DemographicSearchResult>();
-
-        if (json.get("term") != null && json.get("term").asText().length() >= 1) {
-            // Local search results are handled upstream
-        }
-
-        response.setContent(results);
-        response.setTotal((response.getContent() != null) ? response.getContent().size() : 0);
-
-        return response;
-    }
-
     private DemographicSearchRequest convertFromJSON(ObjectNode json) {
         if (json == null) return null;
 
@@ -742,7 +717,6 @@ public class DemographicService extends AbstractServiceImpl {
 
         req.setKeyword(json.get("term") != null ? json.get("term").asText() : null);
         req.setActive(Boolean.valueOf(json.get("active") != null ? json.get("active").asText() : "false"));
-        req.setIntegrator(Boolean.valueOf(json.get("integrator") != null ? json.get("integrator").asText() : "false"));
         req.setOutOfDomain(Boolean.valueOf(json.get("outofdomain") != null ? json.get("outofdomain").asText() : "false"));
 
         Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");

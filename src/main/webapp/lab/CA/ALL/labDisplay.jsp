@@ -98,8 +98,6 @@
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = StringUtils.trimToEmpty(request.getParameter("searchProviderNo"));
     String patientMatched = request.getParameter("patientMatched");
-    String remoteFacilityIdString = request.getParameter("remoteFacilityId");
-    String remoteLabKey = request.getParameter("remoteLabKey");
     String demographicID = request.getParameter("demographicId");
     String showAllstr = request.getParameter("all");
 
@@ -157,8 +155,6 @@ Hl7TextMessage hl7TextMessage = null;
     MessageHandler handler = null;
     String hl7 = null;
     String reqID = null, reqTableID = null;
-    String remoteFacilityIdQueryString = "";
-
     boolean bShortcutForm = OscarProperties.getInstance().getProperty("appt_formview", "").equalsIgnoreCase("on") ? true : false;
     String formName = bShortcutForm ? OscarProperties.getInstance().getProperty("appt_formview_name") : "";
     String formNameShort = formName.length() > 3 ? (formName.substring(0, 2) + ".") : formName;
@@ -172,9 +168,7 @@ Hl7TextMessage hl7TextMessage = null;
 String duplicateOfLab = null;
 Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
 
-    if (remoteFacilityIdString == null) // local lab
     {
-
         HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
         if (reqMap.get("id") != null) {
             reqID = reqMap.get("id").toString();
@@ -1024,11 +1018,9 @@ request.setAttribute("missingTests", missingTests);
 <%
     for (int idx = 0; idx < segmentIDs.length; ++idx) {
 
-        if (remoteFacilityIdString == null) {
-            ackList = AcknowledgementData.getAcknowledgements(segmentID);
-            segmentID = segmentIDs[idx];
-            handler = handlers.get(idx);
-        }
+        ackList = AcknowledgementData.getAcknowledgements(segmentID);
+        segmentID = segmentIDs[idx];
+        handler = handlers.get(idx);
 
         boolean notBeenAcked = ackList.size() == 0;
         boolean ackFlag = false;
@@ -1287,9 +1279,6 @@ request.setAttribute("missingTests", missingTests);
                                 <input type="button" value="Recall"
                                        onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLabRecall');">
                                 <%}%>
-                                <%
-                                    if (remoteLabKey == null || "".equals(remoteLabKey.length())) {
-                                %>
 
 
                                 <span class="Field2"><i>Next Appointment: <oscar:nextAppt
@@ -1324,7 +1313,6 @@ request.setAttribute("missingTests", missingTests);
                                 <span id="labelspan_<%= Encode.forHtmlAttribute(segmentID) %>"
                                       class="Field2"><i><%= Encode.forHtml(labelval) %> </i></span>
 
-                                <% } %>
                             </td>
 
                         </tr>

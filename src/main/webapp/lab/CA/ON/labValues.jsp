@@ -62,9 +62,6 @@
     String demographicNo = request.getParameter("demo");
     String testName = request.getParameter("testName");
     String identifier = request.getParameter("identifier");
-    String remoteFacilityIdString = request.getParameter("remoteFacilityId");
-    String remoteLabKey = request.getParameter("remoteLabKey");
-
     if (identifier == null) identifier = "NULL";
 
     String highlight = "#E0E0FF";
