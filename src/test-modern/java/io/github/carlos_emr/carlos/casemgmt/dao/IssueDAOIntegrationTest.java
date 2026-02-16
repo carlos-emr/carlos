@@ -340,17 +340,29 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("filter")
-        @DisplayName("should retrieve community-specific codes")
+        @DisplayName("should retrieve community-specific codes as scalar code projection")
         void shouldRetrieveCommunitySpecificCodes() {
             // Given
             createIssue("COMM001", "Community Issue", "doctor", "community");
             hibernateTemplate.flush();
 
-            // When
-            List<String> codes = issueDAO.getLocalCodesByCommunityType("community");
+            // When - pass uppercase to verify DAO lowercases input before binding
+            List<String> codes = issueDAO.getLocalCodesByCommunityType("COMMUNITY");
 
             // Then
-            assertThat(codes).contains("COMM001");
+            assertThat(codes)
+                .isNotEmpty()
+                .allMatch(code -> code instanceof String)
+                .contains("COMM001")
+                .doesNotContain("DIAB001");
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should return empty list for blank community type")
+        void shouldReturnEmptyForBlankCommunityType() {
+            List<String> codes = issueDAO.getLocalCodesByCommunityType("");
+            assertThat(codes).isEmpty();
         }
     }
 
