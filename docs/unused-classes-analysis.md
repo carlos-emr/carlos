@@ -48,7 +48,7 @@ in **any other file** across the entire `src/main/` directory tree, including:
 | PMmodule | 13 | Low | Legacy program management classes |
 | Billing | 9 | Medium | Province-specific billing code |
 | Integration | 13 | Medium | External system integrations (incl. dashboard models) |
-| Hospital Report Manager | 4 | Low | HRM-related unused classes |
+| Hospital Report Manager | 3 | Low | HRM XSD enums (HRMAction.java is misnamed, not dead) |
 | Utility/Infrastructure | 13 | Low | Utility classes, config, helpers |
 | Login/Security | 5 | Medium | Auth-related unused code |
 | Other (misc) | 55 | Varies | Various domain-specific unused classes |
@@ -316,14 +316,17 @@ src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/Name.java
 src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/User.java
 ```
 
-### 9. Hospital Report Manager (4 classes) - LOW RISK
+### 9. Hospital Report Manager (3 classes) - LOW RISK
 
 ```
-src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/v2018/HRMAction.java
 src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/AuditFormat.java
 src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/MedicalSurgicalFlag.java
 src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/PreferredMethodOfContact.java
 ```
+
+**Note**: `HRMAction.java` was initially flagged but is a **false positive** - the file
+is misnamed and actually defines `class ColumnInfo` (not `HRMAction`), which IS used
+by `HRM2Action.java`. The file should be renamed to `ColumnInfo.java` but is not dead code.
 
 ### 10. Utility and Infrastructure (11 classes) - LOW RISK
 
@@ -356,13 +359,17 @@ src/main/java/io/github/carlos_emr/carlos/sec/CookieSecurity.java
 src/main/java/io/github/carlos_emr/carlos/sec/token/StJoesTokenManager.java
 ```
 
-### 12. Encounter Actions and Utils (7 classes) - LOW RISK
+### 12. Encounter Actions and Utils (8 classes) - LOW RISK
+
+The `EctDisplay*Action.java` classes are superseded Struts 1.x actions that have
+been replaced by `EctDisplay*2Action.java` equivalents wired in struts.xml.
 
 ```
 src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationAttachForms.java
 src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintPdf.java
 src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/EctValidationParameter.java
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAppointmentHistoryAction.java
+src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDxAction.java
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayIssuesAction.java
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayPhotosAction.java
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayResolvedIssuesAction.java
