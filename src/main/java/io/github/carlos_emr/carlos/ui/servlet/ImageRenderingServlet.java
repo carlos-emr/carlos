@@ -29,13 +29,9 @@ package io.github.carlos_emr.carlos.ui.servlet;
 
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.*;
-import io.github.carlos_emr.carlos.ws.Client;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAO;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -51,8 +47,8 @@ import java.net.SocketException;
 import java.net.URL;
 
 /**
- * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client, or source=hnr_client. Depending on the source, you may optionally need more parameters, as examples a local_client
- * may need a clientId=5 or a hnr_client may need linkingId=3. <br />
+ * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client. Depending on the source, you may optionally need more parameters, as an example a local_client
+ * may need a clientId=5. <br />
  * <br />
  * The structure of this class follows the structure of the Servlet class itself in the pattern of the service() -> (doPost/doGet/doDelete), from the doGet we fork to each specific source processor. <br />
  * <br />
@@ -66,7 +62,7 @@ public final class ImageRenderingServlet extends HttpServlet {
     private static ClientImageDAO clientImageDAO = (ClientImageDAO) SpringUtils.getBean(ClientImageDAO.class);
 
     public static enum Source {
-        local_client, hnr_client, integrator_client, signature_preview, signature_stored, clinic_logo
+        local_client, signature_preview, signature_stored, clinic_logo
     }
 
     @Override
@@ -80,10 +76,6 @@ public final class ImageRenderingServlet extends HttpServlet {
             // and a little processing logic.
             if (Source.local_client.name().equals(source)) {
                 renderLocalClient(request, response);
-            } else if (Source.hnr_client.name().equals(source)) {
-                renderHnrClient(request, response);
-            } else if (Source.integrator_client.name().equals(source)) {
-                renderIntegratorClient(request, response);
             } else if (Source.signature_preview.name().equals(source)) {
                 renderSignaturePreview(request, response);
             } else if (Source.signature_stored.name().equals(source)) {
@@ -119,66 +111,6 @@ public final class ImageRenderingServlet extends HttpServlet {
         if (image != null)
             bos.write(image);
         bos.flush();
-    }
-
-    private static final void renderIntegratorClient(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        // this expects integratorFacilityId and caisiClientId as a parameter
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        // sec check
-        HttpSession session = request.getSession();
-        Provider provider = (Provider) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER);
-        if (provider == null) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
-        }
-
-        try {
-            // get image
-            Integer integratorFacilityId = Integer.parseInt(request.getParameter("integratorFacilityId"));
-            Integer caisiClientId = Integer.parseInt(request.getParameter("caisiDemographicId"));
-            DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            DemographicTransfer demographicTransfer = demographicWs.getDemographicByFacilityIdAndDemographicId(integratorFacilityId, caisiClientId);
-
-            if (demographicTransfer != null && demographicTransfer.getPhoto() != null) {
-                renderImage(response, demographicTransfer.getPhoto(), "jpeg");
-                return;
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-        }
-
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
-    }
-
-    private static final void renderHnrClient(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        // this expects linkingId as a parameter
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        // sec check
-        HttpSession session = request.getSession();
-        Provider provider = (Provider) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER);
-        if (provider == null) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
-        }
-
-        try {
-            // get image
-            Integer linkingId = Integer.parseInt(request.getParameter("linkingId"));
-            Client hnrClient = CaisiIntegratorManager.getHnrClient(loggedInInfo, loggedInInfo.getCurrentFacility(), linkingId);
-
-            if (hnrClient != null && hnrClient.getImage() != null) {
-                renderImage(response, hnrClient.getImage(), "jpeg");
-                return;
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-        }
-
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
     private static void renderLocalClient(HttpServletRequest request, HttpServletResponse response) throws IOException {

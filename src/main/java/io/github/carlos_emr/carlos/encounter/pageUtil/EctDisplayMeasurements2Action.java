@@ -225,9 +225,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             EctMeasurementsDataBeanHandler hd = new EctMeasurementsDataBeanHandler(demo);
             EctMeasurementsDataBean data;
             Vector measureTypes = (Vector) hd.getMeasurementsDataVector();
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                EctMeasurementsDataBeanHandler.addRemoteMeasurementsTypes(loggedInInfo, measureTypes, demo);
-            }
 
             for (int idx = 0; idx < measureTypes.size(); ++idx) {
                 data = (EctMeasurementsDataBean) measureTypes.get(idx);
@@ -239,9 +236,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                 hd = new EctMeasurementsDataBeanHandler(demo, data.getType());
                 Vector measures = (Vector) hd.getMeasurementsDataVector();
-                if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                    EctMeasurementsDataBeanHandler.addRemoteMeasurements(loggedInInfo, measures, data.getType(), demo);
-                }
 
                 if (measures.size() > 0) {
                     NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
@@ -250,11 +244,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                     if (date == null) {
                         date = data.getDateEnteredAsDate();
                     }
-
-                    //Not sure what the standard should be for showing remote data in the left and right hand sides but im not sure this looks right.
-                    //if(data.getRemoteFacility() != null){
-                    //	item.setBgColour("#ffcccc");
-                    //}
 
                     String formattedDate = DateUtils.formatDate(date, request.getLocale());
                     item.setLinkTitle(title + " " + data.getDataField() + " " + formattedDate);

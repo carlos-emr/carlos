@@ -55,13 +55,7 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private boolean disabled;
     private Integer orgId;
     private Integer sectorId;
-    private boolean integratorEnabled = false;
-    private String integratorUrl = null;
-    private String integratorUser = null;
-    private String integratorPassword = null;
-    private boolean enableIntegratedReferrals = true;
     private boolean enableHealthNumberRegistry = true;
-    private boolean allowSims = true;
     private boolean enableDigitalSignatures = false;
     private boolean enableOcanForms = false;
     private boolean enableCbiForm = false;
@@ -110,20 +104,12 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private Date lastUpdated = new Date();
 
 
-    public boolean isEnableIntegratedReferrals() {
-        return enableIntegratedReferrals;
-    }
-
     public boolean isEnableHealthNumberRegistry() {
         return enableHealthNumberRegistry;
     }
 
     public void setEnableHealthNumberRegistry(boolean enableHealthNumberRegistry) {
         this.enableHealthNumberRegistry = enableHealthNumberRegistry;
-    }
-
-    public void setEnableIntegratedReferrals(boolean enableIntegratedReferrals) {
-        this.enableIntegratedReferrals = enableIntegratedReferrals;
     }
 
     public Facility() {
@@ -217,46 +203,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
 
     public void setSectorId(Integer sectorId) {
         this.sectorId = sectorId;
-    }
-
-    public boolean isIntegratorEnabled() {
-        return integratorEnabled;
-    }
-
-    public void setIntegratorEnabled(boolean integratorEnabled) {
-        this.integratorEnabled = integratorEnabled;
-    }
-
-    public String getIntegratorUrl() {
-        return integratorUrl;
-    }
-
-    public void setIntegratorUrl(String integratorUrl) {
-        this.integratorUrl = integratorUrl;
-    }
-
-    public String getIntegratorUser() {
-        return integratorUser;
-    }
-
-    public void setIntegratorUser(String integratorUser) {
-        this.integratorUser = integratorUser;
-    }
-
-    public String getIntegratorPassword() {
-        return integratorPassword;
-    }
-
-    public void setIntegratorPassword(String integratorPassword) {
-        this.integratorPassword = integratorPassword;
-    }
-
-    public boolean isAllowSims() {
-        return allowSims;
-    }
-
-    public void setAllowSims(boolean allowSims) {
-        this.allowSims = allowSims;
     }
 
     public boolean isEnableDigitalSignatures() {

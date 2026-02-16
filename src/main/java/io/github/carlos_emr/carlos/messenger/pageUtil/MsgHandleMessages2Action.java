@@ -65,7 +65,6 @@ import org.apache.struts2.ServletActionContext;
  *   <li>Forward messages with original content preserved</li>
  *   <li>Delete messages (soft delete)</li>
  *   <li>Demographic linking and unlinking support</li>
- *   <li>Integration with remote facilities via Integrator</li>
  * </ul>
  * 
  * <p>The action performs several important tasks:</p>
@@ -121,7 +120,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * <p>This method determines which operation to perform (reply, reply all,
      * forward, or delete) based on request parameters and executes the
      * appropriate workflow. It also manages demographic associations for
-     * messages, including handling unlinked Integrator demographics.</p>
+     * messages.</p>
      * 
      * <p>Operation workflows:</p>
      * <ul>
@@ -150,18 +149,12 @@ public class MsgHandleMessages2Action extends ActionSupport {
         }
 
         String demographicNo = this.getDemographic_no();
-        String unlinkedIntegratorDemographicName = request.getParameter("unlinkedIntegratorDemographicName");
 
         // Check for attached demographics and update demographicNo if found
         List<MsgDemoMap> msgDemoMap = messengerDemographicManager.getAttachedDemographicList(loggedInInfo, Integer.parseInt(messageNo));
         if (msgDemoMap != null && msgDemoMap.size() > 0) {
             // Use the first attached demographic
             demographicNo = msgDemoMap.get(0).getDemographic_no() + "";
-        }
-        // Handle unlinked Integrator demographics
-        else if (unlinkedIntegratorDemographicName != null && !unlinkedIntegratorDemographicName.isEmpty()) {
-            request.setAttribute("unlinkedIntegratorDemographicName", unlinkedIntegratorDemographicName);
-            demographicNo = null;
         }
 
         // Set the final demographic number for the view

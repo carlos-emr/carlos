@@ -48,13 +48,9 @@ import javax.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicParameters;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
@@ -79,8 +75,7 @@ import io.github.carlos_emr.carlos.managers.NoteManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.web.DemographicSearchHelper;
+
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AllergyConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicContactFewConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
@@ -638,8 +633,6 @@ public class DemographicService extends AbstractServiceImpl {
 
         DemographicSearchRequest req = new DemographicSearchRequest();
         req.setActive(true);
-        req.setIntegrator(false); //this should be configurable by persona
-
         //caisi
         boolean outOfDomain = true;
         if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
@@ -710,62 +703,6 @@ public class DemographicService extends AbstractServiceImpl {
         return response;
     }
 
-    @POST
-    @Path("/searchIntegrator")
-    @Produces("application/json")
-    @Consumes("application/json")
-    public AbstractSearchResponse<DemographicSearchResult> searchIntegrator(ObjectNode json, @QueryParam("itemsToReturn") Integer itemsToReturn) {
-        AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
-
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
-
-        List<DemographicSearchResult> results = new ArrayList<DemographicSearchResult>();
-
-        if (json.get("term") != null && json.get("term").asText().length() >= 1) {
-
-            MatchingDemographicParameters matches = CaisiIntegratorManager.getMatchingDemographicParameters(getLoggedInInfo(), convertFromJSON(json));
-            List<MatchingDemographicTransferScore> integratorSearchResults = null;
-            try {
-                matches.setMaxEntriesToReturn(itemsToReturn);
-                matches.setMinScore(7);
-                integratorSearchResults = DemographicSearchHelper.getIntegratedSearchResults(getLoggedInInfo(), matches);
-                MiscUtils.getLogger().info("Integrator search results : " + (integratorSearchResults == null ? "null" : String.valueOf(integratorSearchResults.size())));
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("error searching integrator", e);
-            }
-
-            if (integratorSearchResults != null) {
-                for (MatchingDemographicTransferScore matchingDemographicTransferScore : integratorSearchResults) {
-                    if (isLocal(matchingDemographicTransferScore)) {
-                        MiscUtils.getLogger().warn("ignoring remote demographic since we already have them locally");
-                        continue;
-                    }
-                    if (matchingDemographicTransferScore.getDemographicTransfer() != null) {
-                        DemographicTransfer obj = matchingDemographicTransferScore.getDemographicTransfer();
-                        DemographicSearchResult item = new DemographicSearchResult();
-                        item.setLastName(obj.getLastName());
-                        item.setFirstName(obj.getFirstName());
-                        item.setSex(obj.getGender().toString());
-                        item.setDob(obj.getBirthDate().getTime());
-                        item.setRemoteFacilityId(obj.getIntegratorFacilityId());
-                        item.setDemographicNo(obj.getCaisiDemographicId());
-                        results.add(item);
-                    }
-
-                }
-
-            }
-
-        }
-
-        response.setContent(results);
-        response.setTotal((response.getContent() != null) ? response.getContent().size() : 0);
-
-        return response;
-    }
-
     private DemographicSearchRequest convertFromJSON(ObjectNode json) {
         if (json == null) return null;
 
@@ -780,7 +717,6 @@ public class DemographicService extends AbstractServiceImpl {
 
         req.setKeyword(json.get("term") != null ? json.get("term").asText() : null);
         req.setActive(Boolean.valueOf(json.get("active") != null ? json.get("active").asText() : "false"));
-        req.setIntegrator(Boolean.valueOf(json.get("integrator") != null ? json.get("integrator").asText() : "false"));
         req.setOutOfDomain(Boolean.valueOf(json.get("outofdomain") != null ? json.get("outofdomain").asText() : "false"));
 
         Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
@@ -801,24 +737,4 @@ public class DemographicService extends AbstractServiceImpl {
         return req;
     }
 
-    private boolean isLocal(MatchingDemographicTransferScore matchingDemographicTransferScore) {
-        String hin = matchingDemographicTransferScore.getDemographicTransfer().getHin();
-
-        if (hin != null && !hin.isEmpty()) {
-            DemographicSearchRequest dsr = new DemographicSearchRequest();
-            dsr.setActive(true);
-            dsr.setKeyword(hin);
-            dsr.setMode(SEARCHMODE.HIN);
-            dsr.setOutOfDomain(true);
-            dsr.setSortMode(SORTMODE.Name);
-            dsr.setSortDir(SORTDIR.asc);
-
-            if (demographicManager.searchPatientsCount(getLoggedInInfo(), dsr) > 0) {
-                return true;
-            }
-        }
-
-        return false;
-
-    }
 }

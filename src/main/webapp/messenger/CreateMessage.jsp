@@ -29,7 +29,7 @@
 
 --%>
 <%--
-    CreateMessage.jsp - Main message composition interface for the OpenO EMR messaging system
+    CreateMessage.jsp - Main message composition interface for the CARLOS EMR messaging system
     
     Purpose:
     This JSP page provides the primary interface for healthcare providers to compose and send
@@ -38,7 +38,7 @@
     
     Key Features:
     - Message composition with subject and body text
-    - Recipient selection from local and remote provider lists
+    - Recipient selection from provider lists
     - Group-based recipient management
     - Patient demographic association for clinical messages
     - Attachment support including PDF documents
@@ -126,13 +126,11 @@
     // Initialize messaging managers and retrieve provider/group data
     MessengerGroupManager groupManager = SpringUtils.getBean(MessengerGroupManager.class);
     Map<Groups, List<MsgProviderData>> groups = groupManager.getAllGroupsWithMembers(LoggedInInfo.getLoggedInInfoFromSession(request));
-    Map<String, List<MsgProviderData>> remoteMembers = groupManager.getAllRemoteMembers(LoggedInInfo.getLoggedInInfoFromSession(request));
     List<MsgProviderData> localMembers = groupManager.getAllLocalMembers(LoggedInInfo.getLoggedInInfoFromSession(request));
     MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
 
     // Store provider and group data in request scope for JSP access
     request.setAttribute("groupManager", groups);
-    request.setAttribute("remoteMembers", remoteMembers);
     request.setAttribute("localMembers", localMembers);
 
     // Set up message subject and body (from new message, reply, or forward)
@@ -186,7 +184,7 @@
                 color: silver;
             }
 
-            .group_member_contact, .remote_member_contact {
+            .group_member_contact {
                 margin-left: 15px;
             }
 
@@ -207,14 +205,6 @@
             }
 
             function validatefields() {
-
-                // cannot send attachments to remote facilities
-                $("input:checked").each(function () {
-                    if (this.id.split("-")[2] > 0 && $("#attachmentAlert").val()) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.attachmentsNotPermitted"/>");
-                        return false;
-                    }
-                })
 
                 if (document.forms[0].message.value.length == 0) {
                     alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>");
@@ -468,62 +458,6 @@
 
                                                                 </div>
 
-                                                                <!-- Display Members by remote locations -->
-                                                                <c:if test="${ not empty remoteMembers }">
-
-                                                                    <hr style="border-top:1px solid #dcdcdc; border-bottom:none;"/>
-
-                                                                    <div id="remote-locations">
-                                                                        <details>
-                                                                            <summary>
-                                                                                <strong>All Integrated Clinics</strong>
-                                                                            </summary>
-                                                                            <c:forEach items="${ remoteMembers }"
-                                                                                       var="location">
-                                                                                <details>
-                                                                                    <summary>
-                                                                                        <input type="checkbox"
-                                                                                               name="tableDFR"
-                                                                                               id="remote_group_${ location.key }"
-                                                                                               value="${ location.key }"
-                                                                                               onchange="checkGroup(this)"/>
-                                                                                        <label for="remote_group_${ location.key }">${ location.key }</label>
-                                                                                    </summary>
-
-                                                                                    <c:forEach
-                                                                                            items="${ location.value }"
-                                                                                            var="member">
-
-                                                                                        <%-- this is horrible. try not to repeat it --%>
-                                                                                        <c:set var="providerChecked"
-                                                                                               value="false"/>
-                                                                                        <c:forEach var="replyId"
-                                                                                                   items="${ replyList }">
-                                                                                            <c:if test="${ replyId.compositeId eq member.id.compositeId }">
-                                                                                                <c:set var="providerChecked"
-                                                                                                       value="true"/>
-                                                                                            </c:if>
-                                                                                        </c:forEach>
-
-                                                                                        <div class="remote_member_contact">
-                                                                                            <input type="checkbox"
-                                                                                                   name="provider"
-                                                                                                   class="remote_group_${ location.key }"
-                                                                                                   id="${ member.id.compositeId }"
-                                                                                                   value="${ member.id.compositeId }"  ${ providerChecked ? 'checked' : '' }/>
-                                                                                            <label for="${ member.id.compositeId }">
-                                                                                                <c:out value="${ member.lastName }"/>,
-                                                                                                <c:out value="${ member.firstName }"/>
-                                                                                            </label>
-                                                                                        </div>
-                                                                                    </c:forEach>
-
-                                                                                </details>
-                                                                            </c:forEach>
-                                                                        </details>
-                                                                    </div>
-                                                                </c:if>
-
                                                                 <hr style="border-top:1px solid #dcdcdc; border-bottom:none;"/>
 
                                                                 <details open="true">
@@ -617,25 +551,15 @@
 
                                             <td bgcolor="#EEEEFF">
 
-                                                <c:choose>
-                                                    <c:when test="${ not empty unlinkedIntegratorDemographicName }">
-                                                        <input type="text" name="selectedDemo"
-                                                               value="<c:out value='${ unlinkedIntegratorDemographicName }' />"
-                                                               size="30" style="background: #EEEEFF; border: none;"
-                                                               readonly/>
-                                                    </c:when>
-                                                    <c:otherwise>
-                                                        <input type="text" id="selectedDemo" name="selectedDemo"
-                                                               size="30" readonly
-                                                               style="background: #EEEEFF; border: none" value="none"/>
-                                                        <script type="text/javascript">
-                                                            if ('<%=Encode.forHtmlUnquotedAttribute(demoName)%>' && '<%=Encode.forHtmlUnquotedAttribute(demoName)%>' !== 'null') {
-                                                                document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
-                                                                document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
-                                                            }
-                                                        </script>
-                                                    </c:otherwise>
-                                                </c:choose>
+                                                <input type="text" id="selectedDemo" name="selectedDemo"
+                                                       size="30" readonly
+                                                       style="background: #EEEEFF; border: none" value="none"/>
+                                                <script type="text/javascript">
+                                                    if ('<%=Encode.forHtmlUnquotedAttribute(demoName)%>' && '<%=Encode.forHtmlUnquotedAttribute(demoName)%>' !== 'null') {
+                                                        document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
+                                                        document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
+                                                    }
+                                                </script>
 
                                             </td>
                                             <td bgcolor="#EEEEFF">
