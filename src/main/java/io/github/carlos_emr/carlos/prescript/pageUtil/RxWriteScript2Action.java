@@ -70,6 +70,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -812,8 +813,30 @@ public final class RxWriteScript2Action extends ActionSupport {
             try {
                 String quantity = request.getParameter("quantity");
                 String randomId = request.getParameter("randomId");
-                RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
-                // get prescript from randomId
+                int randomIdInt;
+                try {
+                    randomIdInt = Integer.parseInt(randomId);
+                } catch (NumberFormatException e) {
+                    logger.error("Invalid randomId parameter: {}", Encode.forJava(randomId));
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    response.setContentType("application/json;charset=UTF-8");
+                    ObjectNode errorResponse = objectMapper.createObjectNode();
+                    errorResponse.put("error", "Invalid prescription identifier.");
+                    response.getOutputStream().write(errorResponse.toString().getBytes(StandardCharsets.UTF_8));
+                    return null;
+                }
+                RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
+                if (rx == null) {
+                    logger.error("Prescription not found in stash for randomId: {}. " +
+                                 "Session may have been reset or prescription was not properly staged.",
+                                 Encode.forJava(randomId));
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    response.setContentType("application/json;charset=UTF-8");
+                    ObjectNode errorResponse = objectMapper.createObjectNode();
+                    errorResponse.put("error", "Prescription not found. Please refresh and try again.");
+                    response.getOutputStream().write(errorResponse.toString().getBytes(StandardCharsets.UTF_8));
+                    return null;
+                }
                 if (quantity == null || quantity.equalsIgnoreCase("null")) {
                     quantity = "";
                 }
@@ -1555,8 +1578,21 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.demographicNo;
     }
 
-    public void setDemographicNo(int RHS) {
-        this.demographicNo = RHS;
+    /**
+     * Sets the demographic number from a String value, as provided by Struts2
+     * parameter binding from the {@code demographicNo} request parameter.
+     *
+     * @param RHS String the demographic number to parse; ignored if null, empty, or non-numeric
+     * @since 2026-01-30
+     */
+    public void setDemographicNo(String RHS) {
+        if (RHS != null && !RHS.isEmpty()) {
+            try {
+                this.demographicNo = Integer.parseInt(RHS);
+            } catch (NumberFormatException e) {
+                // Keep default value (0) if parse fails
+            }
+        }
     }
 
     public String getRxDate() {
