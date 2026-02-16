@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
@@ -45,7 +46,9 @@
 <%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
-
+<%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.time.LocalDate" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="java.util.*,
                  io.github.carlos_emr.carlos.util.UtilDateUtilities,
                  io.github.carlos_emr.carlos.lab.ca.all.*,
@@ -55,12 +58,15 @@
                  io.github.carlos_emr.carlos.log.*,
                  io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap, io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page
         import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager, io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao, io.github.carlos_emr.carlos.commn.model.Hl7TextMessage,io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,io.github.carlos_emr.carlos.commn.model.Hl7TextInfo" %>
@@ -262,6 +268,35 @@ request.setAttribute("missingTests", missingTests);
 
 /********************** Converted to this sport *****************************/
 
+String tickler_no="";
+String tickler_note="";
+Integer demoI = 0;
+Integer numTickler = 0;
+
+if (demographicID != null && !demographicID.isEmpty()) {
+    demoI = Integer.parseInt(demographicID);
+}
+
+
+LocalDate today = LocalDate.now().plusWeeks(6);
+DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+String strDate = today.format(formatter);
+
+SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
+
+if(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
+    String tlinkf="\n <a class=\"alert-link\" href=\'"+request.getContextPath()+"/tickler/ticklerEdit.jsp?tickler_no=";
+    for(Tickler t: ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate) ) ) {
+        if (numTickler != 0 ) {tickler_note =  tickler_note + ", "; }
+        tickler_no = t.getId().toString();
+        tickler_note = t.getMessage()==null?tickler_note:tickler_note + tlinkf + tickler_no + "\' target=\'_blank\'>" + Encode.forHtml(t.getMessage()) + "</a>";
+        numTickler += 1;
+    }
+}
+
+DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+Demographic demographic = demographicDao.getDemographic(demographicID);
 
 // check for errors printing
     if (request.getAttribute("printError") != null && (Boolean) request.getAttribute("printError")) {
@@ -294,13 +329,13 @@ request.setAttribute("missingTests", missingTests);
           href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
     <script language="javascript" type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery.form.js"></script>
+            src="${pageContext.servletContext.contextPath}/share/javascript/jquery/jquery.form.js"></script>
 
     <script type="text/javascript" charset="utf-8">
         var contextpath = "${pageContext.servletContext.contextPath}";
@@ -316,485 +351,145 @@ request.setAttribute("missingTests", missingTests);
             }
         }
     </script>
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css">
-    <style type="text/css">
-        <!--
-        .RollRes {
-            font-weight: 700;
-            font-size: 8pt;
-            color: white;
-            font-family: Verdana, Arial, Helvetica
-        }
+    <!--<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css">-->
+<!-- Bootstrap -->
+<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
+<script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+
+     <style type="text/css">
+body { line-height: 12px; font-size: 12px; }
+.RollRes     { font-weight: 700; font-size: 8pt; color: white; font-family:
+               Verdana, Arial, Helvetica }
+.RollRes a:link { color: white }
+.RollRes a:hover { color: white }
+.RollRes a:visited { color: white }
+.RollRes a:active { color: white }
+.AbnormalRollRes { font-weight: 700; font-size: 8pt; color: red; font-family:
+               Verdana, Arial, Helvetica }
+.AbnormalRollRes a:link { color: red }
+.AbnormalRollRes a:hover { color: red }
+.AbnormalRollRes a:visited { color: red }
+.AbnormalRollRes a:active { color: red }
+.CorrectedRollRes { font-weight: 700; font-size: 8pt; color: yellow; font-family:
+               Verdana, Arial, Helvetica }
+.CorrectedRollRes a:link { color: yellow }
+.CorrectedRollRes a:hover { color: yellow }
+.CorrectedRollRes a:visited { color: yellow }
+.CorrectedRollRes a:active { color: yellow }
+.AbnormalRes { font-weight: bold; font-size: 8pt; color: red; font-family:
+               Verdana, Arial, Helvetica }
+.AbnormalRes a:link { color: red }
+.AbnormalRes a:hover { color: red }
+.AbnormalRes a:visited { color: red }
+.AbnormalRes a:active { color: red }
+.NormalRes   { font-weight: bold; font-size: 8pt; color: black; font-family:
+                      Verdana, Arial, Helvetica }
+.TDISRes	{font-weight: bold; font-size: 10pt; color: black; font-family:
+               Verdana, Arial, Helvetica}
+.NormalRes a:link { color: black }
+.NormalRes a:hover { color: black }
+.NormalRes a:visited { color: black }
+.NormalRes a:active { color: black }
+.HiLoRes     { font-weight: bold; font-size: 8pt; color: blue; font-family:
+               Verdana, Arial, Helvetica }
+.HiLoRes a:link { color: blue }
+.HiLoRes a:hover { color: blue }
+.HiLoRes a:visited { color: blue }
+.HiLoRes a:active { color: blue }
+.CorrectedRes { font-weight: bold; font-size: 8pt; color: #E000D0; font-family:
+               Verdana, Arial, Helvetica }
+.CorrectedRes         a:link { color: #6da997 }
+.CorrectedRes a:hover { color: #6da997 }
+.CorrectedRes a:visited { color: #6da997 }
+.CorrectedRes a:active { color: #6da997 }
+.Field       { font-weight: bold; font-size: 8.5pt; color: black; font-family:
+               Verdana, Arial, Helvetica }
+.NarrativeRes { font-weight: 700; font-size: 10pt; color: black; font-family:
+               Courier New, Courier, mono }
+div.Field a:link { color: black }
+div.Field a:hover { color: black }
+div.Field a:visited { color: black }
+div.Field a:active { color: black }
+.Field2      { font-weight: bold; font-size: 8pt; color: #ffffff; font-family:
+               Verdana, Arial, Helvetica }
+div.Field2   { font-weight: bold; font-size: 8pt; color: #ffffff; font-family:
+               Verdana, Arial, Helvetica }
+div.FieldDatas { font-weight: normal; font-size: 8pt; color: black; font-family:
+               Verdana, Arial, Helvetica }
+div.Field3   { font-weight: normal; font-size: 8pt; color: black; font-style: italic;
+               font-family: Verdana, Arial, Helvetica }
+div.Title    { font-weight: 800; font-size: 10pt; color: white; font-family:
+               Verdana, Arial, Helvetica; padding-top: 4pt; padding-bottom:
+               2pt }
+div.Title a:link { color: white }
+div.Title a:hover { color: white }
+div.Title a:visited { color: white }
+div.Title a:active { color: white }
+div.Title2   { font-weight: bolder; font-size: 9pt; color: black; text-indent: 5pt;
+               font-family: Verdana, Arial, Helvetica; padding: 10pt 15pt 2pt 2pt}
+div.Title2 a:link { color: black }
+div.Title2 a:hover { color: black }
+div.Title2 a:visited { color: black }
+div.Title2 a:active { color: black }
+.Cell        { background-color: silver; border-left: thin solid grey;
+               border-right: thin solid black;
+               border-top: thin solid grey;
+               border-bottom: thin solid black }
+.Cell2       { background-color: #376c95; border-left-style: none; border-left-width: medium;
+               border-right-style: none; border-right-width: medium;
+               border-top: thin none #bfcbe3; border-bottom-style: none;
+               border-bottom-width: medium }
+.Cell3       { background-color: #add9c7; border-left: thin solid #dbfdeb;
+               border-right: thin solid #5d9987;
+               border-top: thin solid #dbfdeb;
+               border-bottom: thin solid #5d9987 }
+.CellHdr     { background-color: #cbe5d7; border-right-style: none; border-right-width:
+               medium; border-bottom-style: none; border-bottom-width: medium }
+.Nav         { font-weight: bold; font-size: 8pt; color: black; font-family:
+               Verdana, Arial, Helvetica }
+.PageLink a:link { font-size: 8pt; color: white }
+.PageLink a:hover { color: red }
+.PageLink a:visited { font-size: 9pt; color: yellow }
+.PageLink a:active { font-size: 12pt; color: yellow }
+.PageLink    { font-family: Verdana }
+.text1       { font-size: 8pt; color: black; font-family: Verdana, Arial, Helvetica }
+div.txt1     { font-size: 8pt; color: black; font-family: Verdana, Arial }
+div.txt2     { font-weight: bolder; font-size: 6pt; color: black; font-family: Verdana, Arial }
+div.Title3   { font-weight: bolder; font-size: 12pt; color: black; font-family:
+               Verdana, Arial }
+.red         { color: red }
+.text2       { font-size: 7pt; color: black; font-family: Verdana, Arial }
+.white       { color: white }
+.title1      { font-size: 9pt; color: black; font-family: Verdana, Arial }
+div.Title4   { font-weight: 600; font-size: 8pt; color: white; font-family:
+               Verdana, Arial, Helvetica }
+pre {
+	display: block;
+    font-family:  Verdana, Arial, Helvetica;
+    background-color: #f5f5f5;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    white-space: -moz-pre-space;
+    margin:0px;
+    font-size: x-small;
+    font-weight:600;
+}
+
+[id^=ticklerWrap]{position:relative;top:0px;background-color:#FF6600;width:100%;}
+
+input[id^='acklabel_']{
+    margin-top: 10px; /* align with bootstrap buttons */
+}
+
+
+.completedTickler{
+    opacity: 0.8;
+    filter: alpha(opacity=80); /* For IE8 and earlier */
+}
+
+@media print {
+.DoNotPrint{display:none;}
+}
 
-        .RollRes a:link {
-            color: white
-        }
-
-        .RollRes a:hover {
-            color: white
-        }
-
-        .RollRes a:visited {
-            color: white
-        }
-
-        .RollRes a:active {
-            color: white
-        }
-
-        .AbnormalRollRes {
-            font-weight: 700;
-            font-size: 8pt;
-            color: red;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .AbnormalRollRes a:link {
-            color: red
-        }
-
-        .AbnormalRollRes a:hover {
-            color: red
-        }
-
-        .AbnormalRollRes a:visited {
-            color: red
-        }
-
-        .AbnormalRollRes a:active {
-            color: red
-        }
-
-        .CorrectedRollRes {
-            font-weight: 700;
-            font-size: 8pt;
-            color: yellow;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .CorrectedRollRes a:link {
-            color: yellow
-        }
-
-        .CorrectedRollRes a:hover {
-            color: yellow
-        }
-
-        .CorrectedRollRes a:visited {
-            color: yellow
-        }
-
-        .CorrectedRollRes a:active {
-            color: yellow
-        }
-
-        .AbnormalRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: red;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .AbnormalRes a:link {
-            color: red
-        }
-
-        .AbnormalRes a:hover {
-            color: red
-        }
-
-        .AbnormalRes a:visited {
-            color: red
-        }
-
-        .AbnormalRes a:active {
-            color: red
-        }
-
-        .NormalRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .TDISRes {
-            font-weight: bold;
-            font-size: 10pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .NormalRes a:link {
-            color: black
-        }
-
-        .NormalRes a:hover {
-            color: black
-        }
-
-        .NormalRes a:visited {
-            color: black
-        }
-
-        .NormalRes a:active {
-            color: black
-        }
-
-        .HiLoRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: blue;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .HiLoRes a:link {
-            color: blue
-        }
-
-        .HiLoRes a:hover {
-            color: blue
-        }
-
-        .HiLoRes a:visited {
-            color: blue
-        }
-
-        .HiLoRes a:active {
-            color: blue
-        }
-
-        .CorrectedRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: #E000D0;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .CorrectedRes a:link {
-            color: #6da997
-        }
-
-        .CorrectedRes a:hover {
-            color: #6da997
-        }
-
-        .CorrectedRes a:visited {
-            color: #6da997
-        }
-
-        .CorrectedRes a:active {
-            color: #6da997
-        }
-
-        .Field {
-            font-weight: bold;
-            font-size: 8.5pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .NarrativeRes {
-            font-weight: 700;
-            font-size: 10pt;
-            color: black;
-            font-family: Courier New, Courier, mono
-        }
-
-        div.Field a:link {
-            color: black
-        }
-
-        div.Field a:hover {
-            color: black
-        }
-
-        div.Field a:visited {
-            color: black
-        }
-
-        div.Field a:active {
-            color: black
-        }
-
-        .Field2 {
-            font-weight: bold;
-            font-size: 8pt;
-            color: #ffffff;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.Field2 {
-            font-weight: bold;
-            font-size: 8pt;
-            color: #ffffff;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.FieldData {
-            font-weight: normal;
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.Field3 {
-            font-weight: normal;
-            font-size: 8pt;
-            color: black;
-            font-style: italic;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.Title {
-            font-weight: 800;
-            font-size: 10pt;
-            color: white;
-            font-family: Verdana, Arial, Helvetica;
-            padding-top: 4pt;
-            padding-bottom: 2pt
-        }
-
-        div.Title a:link {
-            color: white
-        }
-
-        div.Title a:hover {
-            color: white
-        }
-
-        div.Title a:visited {
-            color: white
-        }
-
-        div.Title a:active {
-            color: white
-        }
-
-        div.Title2 {
-            font-weight: bolder;
-            font-size: 9pt;
-            color: black;
-            text-indent: 5pt;
-            font-family: Verdana, Arial, Helvetica;
-            padding: 10pt 15pt 2pt 2pt
-        }
-
-        div.Title2 a:link {
-            color: black
-        }
-
-        div.Title2 a:hover {
-            color: black
-        }
-
-        div.Title2 a:visited {
-            color: black
-        }
-
-        div.Title2 a:active {
-            color: black
-        }
-
-        .Cell {
-            background-color: #9999CC;
-            border-left: thin solid #CCCCFF;
-            border-right: thin solid #6666CC;
-            border-top: thin solid #CCCCFF;
-            border-bottom: thin solid #6666CC
-        }
-
-        .Cell2 {
-            background-color: #376c95;
-            border-left-style: none;
-            border-left-width: medium;
-            border-right-style: none;
-            border-right-width: medium;
-            border-top: thin none #bfcbe3;
-            border-bottom-style: none;
-            border-bottom-width: medium
-        }
-
-        .Cell3 {
-            background-color: #add9c7;
-            border-left: thin solid #dbfdeb;
-            border-right: thin solid #5d9987;
-            border-top: thin solid #dbfdeb;
-            border-bottom: thin solid #5d9987
-        }
-
-        .CellHdr {
-            background-color: #cbe5d7;
-            border-right-style: none;
-            border-right-width: medium;
-            border-bottom-style: none;
-            border-bottom-width: medium
-        }
-
-        .Nav {
-            font-weight: bold;
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .PageLink a:link {
-            font-size: 8pt;
-            color: white
-        }
-
-        .PageLink a:hover {
-            color: red
-        }
-
-        .PageLink a:visited {
-            font-size: 9pt;
-            color: yellow
-        }
-
-        .PageLink a:active {
-            font-size: 12pt;
-            color: yellow
-        }
-
-        .PageLink {
-            font-family: Verdana
-        }
-
-        .text1 {
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.txt1 {
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        div.txt2 {
-            font-weight: bolder;
-            font-size: 6pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        div.Title3 {
-            font-weight: bolder;
-            font-size: 12pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        .red {
-            color: red
-        }
-
-        .text2 {
-            font-size: 7pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        .white {
-            color: white
-        }
-
-        .title1 {
-            font-size: 9pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        div.Title4 {
-            font-weight: 600;
-            font-size: 8pt;
-            color: white;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        pre {
-            display: block;
-            font-family: Verdana, Arial, Helvetica;
-            white-space: -moz-pre-space;
-            margin: 0px;
-            font-size: x-small;
-            font-weight: 600;
-        }
-
-        -->
-
-        input[type=button], button, input[id^='acklabel_'] {
-            font-size: 12px !important;
-            padding: 0px;
-        }
-
-        #ticklerWrap {
-            position: relative;
-            top: 0px;
-            background-color: #FF6600;
-            width: 100%;
-        }
-
-        .completedTickler {
-            opacity: 0.8;
-            filter: alpha(opacity=80); /* For IE8 and earlier */
-        }
-
-        @media print {
-            .DoNotPrint {
-                display: none;
-            }
-        }
-    </style>
-
-    <style>
-        /* Dropdown Button */
-        .dropbtn {
-            /*  background-color: #4CAF50;
-              color: white;
-              padding: 16px;
-              font-size: 16px;
-              border: none;*/
-        }
-
-        /* The container <div> - needed to position the dropdown content */
-        .dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        /* Dropdown Content (Hidden by Default) */
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            background-color: #f1f1f1;
-            min-width: 160px;
-            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
-            z-index: 1;
-        }
-
-        /* Links inside the dropdown */
-        .dropdown-content a {
-            color: black;
-            padding: 12px 16px;
-            text-decoration: none;
-            display: block;
-        }
-
-        /* Change color of dropdown links on hover */
-        .dropdown-content a:hover {
-            background-color: #ddd;
-        }
-
-        /* Show the dropdown menu on hover */
-        .dropdown:hover .dropdown-content {
-            display: block;
-        }
-
-        /* Change the background color of the dropdown button when the dropdown content is shown */
-.dropdown:hover .dropbtn {background-color: #3e8e41;}
 
 #labVersionInfoModal .modal-title {
     font-size: 18px;
@@ -1155,46 +850,7 @@ request.setAttribute("missingTests", missingTests);
         <c:set var="hasMissingTests" value="${not empty missingTests}" />
         <c:set var="showModal" value="${hasDuplicateInfo or hasMissingTests}" />
 
-        <c:if test="${showModal}">
-            <!-- Modal -->
-            <div id="labVersionInfoModal" title="Lab Version Information" style="display:none;">
-                <div class="lab-version-modal">
-                    <c:if test="${hasDuplicateInfo}">
-                        <!-- Duplicate Information Section -->
-                        <div class="info-section">
-                            <div class="modal-title">Duplicate Lab Version Alert</div>
-                            <p>Warning: You are viewing a version of a lab result that appears to be a duplicate of previously received version <c:out value="${duplicateOfLab}" />.</p>
-                            <p style="margin-top: 5px">There is likely no new data in this version, but please double check regardless.</p>
-                        </div>
-                    </c:if>
 
-                    <c:if test="${hasMissingTests}">
-                        <!-- Missing Tests Information Section -->
-                        <div class="info-section">
-                            <div class="modal-title">Missing Test Results</div>
-                            <p>Warning: At least the following tests were not included in this version of the lab results:</p>
-                            <div class="test-list">
-                                <c:forEach var="entry" items="${missingTests}">
-                                    <div class="test-item">
-                                        <span>${entry.key}</span>
-                                        <span class="status">${entry.value.description}</span>
-                                    </div>
-                                </c:forEach>
-                            </div>
-                        </div>
-                    </c:if>
-                </div>
-            </div>
-
-            <script>
-                // Include a short delay before showing modal to improve user experience
-                setTimeout(function () {
-                    jQuery(document).ready(function () {
-                        jQuery("#labVersionInfoModal").dialog({ modal: true, width: 500 });
-                    });
-                }, 300);
-            </script>
-        </c:if>
 
     <form name="reassignForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" action="<%= request.getContextPath() %>/lab/CA/ALL/Forward.do">
         <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
@@ -1238,11 +894,14 @@ request.setAttribute("missingTests", missingTests);
                                 <%
                                     UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
                                     UserProperty up = upDao.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), UserProperty.LAB_MACRO_JSON);
+                                    String btnClass = "btn-outline-primary";
                                     if (up != null && !StringUtils.isEmpty(up.getValue())) {
+                                        btnClass = "";
                                 %>
+<div class="d-flex align-items-center input-group-sm">
                                 <div class="dropdown">
-                                    <button class="dropbtn">Macros</button>
-                                    <div class="dropdown-content">
+                                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                         <%
                                             try {
                                                 ObjectMapper mapper = new ObjectMapper();
@@ -1253,60 +912,59 @@ request.setAttribute("missingTests", missingTests);
                                                         String name = macro.get("name").asText();
                                                         boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
 
-                                        %><a href="javascript:void(0);"
-                                             onClick="runMacro('<%=name%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>',<%=closeOnSuccess%>)"><%=name %>
-                                    </a><%
+                                        %><li><a class="dropdown-item" href="javascript:void(0);"
+                                             onClick="runMacro('<%=Encode.forJavaScript(name)%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>',<%=closeOnSuccess%>)"><%=Encode.forJavaScript(name)%>
+                                    </a></li><%
                                                 }
                                             }
                                         } catch (Exception e) {
                                             MiscUtils.getLogger().warn("Invalid JSON for lab macros", e);
                                         }
                                     %>
-
+                                      </ul>
                                     </div>
-                                </div>
                                 <% } %>
 
-                                <input type="button"
+                                <input type="button" class="btn btn-sm <%=btnClass%>"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                                        onclick="<%=ackLabFunc%>">
                                 <% } %>
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
+                                <input type="button" class="btn btn-sm" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
-                                <input type="button" class="smallButton"
+                                <input type="button" class="btn btn-sm"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
                                        onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
-                                <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                                <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
                                        onClick="window.close()">
-                                <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                                <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                                        onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
 
-                                <input type="button" value="Msg"
+                                <input type="button" class="btn btn-sm" value="Msg"
                                        onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');"/>
-                                <input type="button" value="Tickler"
+                                <input type="button" class="btn btn-sm" value="Tickler"
                                        onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');"/>
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
+                                <input type="button" class="btn btn-sm" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
                                        onclick="unlinkDemographic(<%=Encode.forJavaScript(segmentID)%>)"/>
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
-                                <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
+                                <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
                                 <% } %>
-                                <input type="button" value="Req# <%=reqTableID%>" title="Link to Requisition"
+                                <input type="button" class="btn btn-sm" value="Req# <%=reqTableID%>" title="Link to Requisition"
                                        onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');"/>
 
 
                                 <% if (bShortcutForm) { %>
-                                <input type="button" value="<%=formNameShort%>"
+                                <input type="button" class="btn btn-sm" value="<%=formNameShort%>"
                                        onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=formNameShort%>')"/>
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
-                                <input type="button" value="<%=formName2Short%>"
+                                <input type="button" class="btn btn-sm" value="<%=formName2Short%>"
                                        onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=formName2Short%>')"/>
                                 <% } %>
 
                                 <% if (recall) {%>
-                                <input type="button" value="Recall"
+                                <input type="button" class="btn btn-sm" value="Recall"
                                        onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLabRecall');">
                                 <%}%>
                                 <%
@@ -1314,26 +972,22 @@ request.setAttribute("missingTests", missingTests);
                                 %>
 
 
-                                <span class="Field2"><i>Next Appointment: <oscar:nextAppt
-                                        demographicNo="<%=demographicID%>"/></i></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
+                                <span style="font-size:10px; font-style:italic;">Next Appointment: <oscar:nextAppt
+                                        demographicNo="<%=demographicID%>"/></span>
                                 <% if (!label.equals(null) && !label.equals("")) { %>
-                                <button type="button" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
+                                <button type="button" class="btn btn-sm" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
                                         value="Label"
                                         onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
                                 </button>
                                 <%} else { %>
-                                <button type="button" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
-                                        style="background-color:#6699FF" value="Label"
+                                <button type="button" class="btn btn-sm" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
+                                        value="Label"
                                         onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
                                 </button>
                                 <%} %>
                                 <input type="hidden" id="labNum_<%=Encode.forHtmlAttribute(segmentID) %>" name="lab_no"
                                        value="<%=lab_no%>">
-                                <input type="text" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
+                                <input type="text" class="form-control form-control-sm" style="width: 140px; margin-top: 0px;" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
                                        value=""/>
 
                                 <% String labelval = "";
@@ -1347,6 +1001,13 @@ request.setAttribute("missingTests", missingTests);
                                       class="Field2"><i><%= Encode.forHtml(labelval) %> </i></span>
 
                                 <% } %>
+</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+
+
                             </td>
 
                         </tr>
@@ -1717,24 +1378,26 @@ request.setAttribute("missingTests", missingTests);
                             <td align="center" bgcolor="white" colspan="2" style="padding:0px;" cellspacing="0">
                                 <%
                                     String[] multiID = multiLabId.split(",");
+                                    boolean isTickler = false;
 
                                     for (int mcount = 0; mcount < multiID.length; mcount++) {
                                         if (demographicID != null && !demographicID.equals("")) {
-                                            TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+
                                             List<Tickler> LabTicklers = null;
                                             if (demographicID != null) {
                                                 LabTicklers = ticklerManager.getTicklerByLabIdAnyProvider(loggedInInfo, Integer.valueOf(multiID[mcount]), Integer.valueOf(demographicID));
                                             }
 
                                             if (LabTicklers != null && LabTicklers.size() > 0) {
-                                %>
-                                <div id="ticklerWrap" class="DoNotPrint">
-                                    <h3 style="color:#fff"><a href="javascript:void(0)" id="open-ticklers"
-                                                              onclick="showHideItem('ticklerDisplay')">View Ticklers</a>
-                                        Linked to this Lab</h3><br>
+                                    if(!isTickler){
+%>
+                            <div id="ticklerWrap" class="DoNotPrint">
+							    <h4 style="color:#fff"><a href="javascript:void(0)" id="open-ticklers" onclick="showHideItem('ticklerDisplay')">View Ticklers</a> Linked to this Lab</h4>
+                                <div id="ticklerDisplay" style="display:none">
+<%
 
-                                    <div id="ticklerDisplay" style="display:none">
-                                        <%
+                                        isTickler = true;
+                                    }
                                             String flag;
                                             String ticklerClass;
                                             String ticklerStatus;
@@ -1779,15 +1442,43 @@ request.setAttribute("missingTests", missingTests);
                                         <br>
                                         <%
                                             }
-                                        %>
-                                    </div><!-- end ticklerDisplay -->
-                                </div>
-                                <%
-                                            }//no ticklers to display
+
+                                            }//no ticklers to display OR
 
                                         }
                                     }
+    if(isTickler){
+    %>
+                                </div><!-- end ticklerDisplay-->
+                            </div><!-- end ticklerWrap-->
+    <%
+    }
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
+    <% if (numTickler > 0 && !searchProviderNo.isEmpty() ) {%>
+        <table style="width:100%;">
+            <tr>
+                <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=demographicID%>', 'openTicklers')">ticklers</a> are marked pending:<%=tickler_note%>
+                </td>
+            </tr>
+         </table>
+    <% } %>
+</security:oscarSec>
 
+            <c:if test="${hasDuplicateInfo}">
+                <table style="width:100%; height:20px">
+                    <tr>
+                        <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    <!-- Duplicate Information Section -->
+                                    <div class="info-section">
+                                        <p><b>Warning:</b> You are viewing a version of a lab result that is a duplicate of previously received version <b>v<c:out value="${duplicateOfLab}" /></b>.</p>
+                                    </div>
+                        </td>
+                    </tr>
+                </table>
+            </c:if>
+<%
 
                                     ReportStatus report;
                                     boolean startFlag = false;
@@ -1866,7 +1557,7 @@ request.setAttribute("missingTests", missingTests);
 
                         if (handler.getMsgType().equals("MEDVUE")) { %>
                     <%-- MEDVUE Redirect. --%>
-                    <table style="page-break-inside:avoid;" bgcolor="#003399" border="0" cellpadding="0" cellspacing="0"
+                    <table style="page-break-inside:avoid;" class="darkBkg" border="0" cellpadding="0" cellspacing="0"
                            width="100%">
                         <tr>
                             <td colspan="4" height="7">&nbsp;</td>
@@ -1883,7 +1574,7 @@ request.setAttribute("missingTests", missingTests);
                             <td width="*">&nbsp;</td>
                         </tr>
                     </table>
-                    <table width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="#CCCCFF"
+                    <table width="100%" border="0" cellspacing="0" cellpadding="2"
                            bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
                         <tr class="Field2">
                             <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
@@ -1941,7 +1632,7 @@ request.setAttribute("missingTests", missingTests);
                     isUnstructuredDoc = ((MEDITECHHandler) handler).isUnstructured();
                 } %>
 
-        <table style="page-break-inside:avoid;" bgcolor="#003399" border="0" cellpadding="0" cellspacing="0"
+        <table style="page-break-inside:avoid;" class="darkBkg" border="0" cellpadding="0" cellspacing="0"
                width="100%">
             <tr>
                 <td colspan="4" height="7">&nbsp;</td>
@@ -1960,13 +1651,13 @@ request.setAttribute("missingTests", missingTests);
         </table>
         <% if ((handler.getMsgType().equals("MEDITECH") && isUnstructuredDoc) ||
                 (handler.getMsgType().equals("MEDITECH") && ((MEDITECHHandler) handler).isReportData())) { %>
-        <table style="width:100%;border-collapse:collapse;" bgcolor="#CCCCFF" bordercolor="#9966FF"
+        <table style="width:100%;border-collapse:collapse;"  bordercolor="#9966FF"
                bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
             <tr>
                 <td colspan="4" style="padding-left:10px;">
 
                         <%} else if( isUnstructuredDoc){%>
-                    <table width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="#CCCCFF"
+                    <table width="100%" border="0" cellspacing="0" cellpadding="2"
                            bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
 
                         <tr class="Field2">
@@ -1986,7 +1677,7 @@ request.setAttribute("missingTests", missingTests);
                         </tr>
                             <%
 						} else {%>
-                        <table width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="#CCCCFF"
+                        <table width="100%" border="0" cellspacing="0" cellpadding="2"
                                bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
 
                                 <% if( handler instanceof MEDITECHHandler && "MIC".equals( ((MEDITECHHandler) handler).getSendingApplication() ) ) { %>
@@ -2046,7 +1737,7 @@ request.setAttribute("missingTests", missingTests);
                         String orderRequestStatus = ((ExcellerisOntarioHandler) handler).getOrderStatus(j);
                         int obrCommentCount = handler.getOBRCommentCount(j);
                         if (orderRequestStatus.equals(ExcellerisOntarioHandler.OrderStatus.DELETED.getDescription())) { continue; }
-                        
+
                         if (obxCount > 0 || !orderRequestStatus.isEmpty() || obrCommentCount > 0) {
                             obrFlag = true;
                             %>
@@ -2055,7 +1746,7 @@ request.setAttribute("missingTests", missingTests);
                                     <td colspan="1"><%=orderRequestStatus%></td>
                                 </tr>
                             <%
-                        }                               
+                        }
                     }
 
                     for (k = 0; k < obxCount; k++) {
@@ -2673,22 +2364,22 @@ request.setAttribute("missingTests", missingTests);
         %>
         <%-- FOOTER --%>
         <table width="100%" border="0" cellspacing="0" cellpadding="3" class="MainTableBottomRowRightColumn"
-               bgcolor="#003399">
+               class="darkBkg">
             <tr>
                 <td align="left" width="50%">
                     <% if (!ackFlag) { %>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
+                    <input type="button" class="btn btn-sm" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                            onclick="<%=ackLabFunc%>">
                     <% } %>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
+                    <input type="button" class="btn btn-sm" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                            onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
-                    <input type="button" class="smallButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                    <input type="button" class="btn btn-sm" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
                            onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
-                    <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> " onClick="window.close()">
-                    <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                    <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> " onClick="window.close()">
+                    <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                            onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
                     <% if (searchProviderNo != null) { // we were called from e-chart %>
-                    <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                    <input type="button" class="btn btn-sm" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                            onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
 
                     <% } %>
@@ -2705,6 +2396,26 @@ request.setAttribute("missingTests", missingTests);
 
         <br/>
         <table>
+                    <c:if test="${hasMissingTests}">
+                        <tr><td class="alert-block alert-info">
+                        <!-- Missing Tests Information Section -->
+                        <div class="info-section">
+                            <p>&nbsp;&nbsp<b>Info:</b> The following tests were not included in this version of the lab results:</p>
+                            <table class="test-list" >
+                                <c:forEach var="entry" items="${missingTests}">
+                                    <tr>
+                                        <td><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${entry.key}</span></td>
+                                        <td><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="status">${entry.value}</span></b></td>
+                                    </tr>
+                                </c:forEach>
+                                    <tr>
+                                        <td><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;If items are *reported under separate cover* see v1</span></td>
+                                        <td></td>
+                                    </tr>
+                            </table>
+                        </div>
+                        </td></tr>
+                    </c:if>
             <%
                 for (String lName : allLicenseNames) {
             %>
