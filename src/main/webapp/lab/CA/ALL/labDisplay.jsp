@@ -49,34 +49,38 @@
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%@ page import="java.time.LocalDate" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="java.util.*,
-                 io.github.carlos_emr.carlos.util.UtilDateUtilities,
-                 io.github.carlos_emr.carlos.lab.ca.all.*,
-                 io.github.carlos_emr.carlos.lab.ca.all.parsers.*,
-                 io.github.carlos_emr.carlos.lab.LabRequestReportLink,
-                 io.github.carlos_emr.carlos.mds.data.ReportStatus,
-                 io.github.carlos_emr.carlos.log.*,
-                 io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.LabRequestReportLink" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap, io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager, io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao, io.github.carlos_emr.carlos.commn.model.Hl7TextMessage,io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,io.github.carlos_emr.carlos.commn.model.Hl7TextInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextMessage" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <%@    page import="javax.swing.text.rtf.RTFEditorKit" %>
 <%@    page import="java.io.ByteArrayInputStream" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -278,21 +282,25 @@ if (demographicID != null && !demographicID.isEmpty()) {
 }
 
 
-LocalDate today = LocalDate.now().plusWeeks(6);
+LocalDate nearFuture = LocalDate.now().plusWeeks(6);
 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-String strDate = today.format(formatter);
+String strDate = nearFuture.format(formatter);
 
 SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
 
-if(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
-    String tlinkf="\n <a class=\"alert-link\" href=\'"+request.getContextPath()+"/tickler/ticklerEdit.jsp?tickler_no=";
-    for(Tickler t: ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate) ) ) {
-        if (numTickler != 0 ) {tickler_note =  tickler_note + ", "; }
-        tickler_no = t.getId().toString();
-        tickler_note = t.getMessage()==null?tickler_note:tickler_note + tlinkf + tickler_no + "\' target=\'_blank\'>" + Encode.forHtml(t.getMessage()) + "</a>";
-        numTickler += 1;
+if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
+    String tlinkf="\n <a class=\"alert-link\" href='"+request.getContextPath()+"/tickler/ticklerEdit.jsp?tickler_no=";
+    List<String> notes = new java.util.ArrayList<>();
+    List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
+
+    for (Tickler t: ticklers) {
+        if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
+            notes.add(tlinkf + t.getId() + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+        }
     }
+    numTickler = notes.size();
+    tickler_note = String.join(", ", notes);
 }
 
 DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
@@ -414,7 +422,7 @@ div.Field a:active { color: black }
                Verdana, Arial, Helvetica }
 div.Field2   { font-weight: bold; font-size: 8pt; color: #ffffff; font-family:
                Verdana, Arial, Helvetica }
-div.FieldDatas { font-weight: normal; font-size: 8pt; color: black; font-family:
+div.FieldData { font-weight: normal; font-size: 8pt; color: black; font-family:
                Verdana, Arial, Helvetica }
 div.Field3   { font-weight: normal; font-size: 8pt; color: black; font-style: italic;
                font-family: Verdana, Arial, Helvetica }
@@ -1459,7 +1467,7 @@ input[id^='acklabel_']{
         <table style="width:100%;">
             <tr>
                 <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=demographicID%>', 'openTicklers')">ticklers</a> are marked pending:<%=tickler_note%>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a> are marked pending:<%=tickler_note%>
                 </td>
             </tr>
          </table>
@@ -2363,8 +2371,7 @@ input[id^='acklabel_']{
 
         %>
         <%-- FOOTER --%>
-        <table width="100%" border="0" cellspacing="0" cellpadding="3" class="MainTableBottomRowRightColumn"
-               class="darkBkg">
+        <table width="100%" border="0" cellspacing="0" cellpadding="3" class="MainTableBottomRowRightColumn darkBkg">
             <tr>
                 <td align="left" width="50%">
                     <% if (!ackFlag) { %>
@@ -2405,7 +2412,7 @@ input[id^='acklabel_']{
                                 <c:forEach var="entry" items="${missingTests}">
                                     <tr>
                                         <td><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${entry.key}</span></td>
-                                        <td><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="status">${entry.value}</span></b></td>
+                                        <td><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="status">${entry.value.description}</span></b></td>
                                     </tr>
                                 </c:forEach>
                                     <tr>
