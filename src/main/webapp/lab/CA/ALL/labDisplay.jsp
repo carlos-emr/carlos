@@ -1584,7 +1584,7 @@ input[id^='acklabel_']{
                             <td>&nbsp;</td>
                         </tr>
                     </table>
-                    <table                           bordercolor="#9966FF" id="tblDiscs1">
+                    <table                           id="tblDiscs1">
                         <tr class="Field2">
                             <td class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
                             <td class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
@@ -1664,7 +1664,7 @@ input[id^='acklabel_']{
                 <td colspan="4" style="padding-left:10px;">
 
                         <%} else if( isUnstructuredDoc){%>
-                    <table                           bordercolor="#9966FF" id="tblDiscs3">
+                    <table                           id="tblDiscs3">
 
                         <tr class="Field2">
 
@@ -1683,7 +1683,7 @@ input[id^='acklabel_']{
                         </tr>
                             <%
 						} else {%>
-                        <table                               bordercolor="#9966FF" id="tblDiscs4">
+                        <table                               id="tblDiscs4">
 
                                 <% if( handler instanceof MEDITECHHandler && "MIC".equals( ((MEDITECHHandler) handler).getSendingApplication() ) ) { %>
                             <tr>
