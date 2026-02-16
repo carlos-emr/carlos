@@ -16,21 +16,21 @@
 --   enableIntegratedReferrals  - Whether cross-facility referrals were enabled
 --   allowSims                  - SIMS (System for Integrated Management of Services) opt-in
 --
--- IMPORTANT: These ALTER statements are COMMENTED OUT for safety.
--- Uncomment only after confirming no application code references these columns.
+-- IMPORTANT: All application code references to these columns have been removed.
+-- These ALTER statements will drop the orphaned columns from the database schema.
 -- =====================================================
 
 -- Step 1: Remove integrator connection columns
--- ALTER TABLE Facility DROP COLUMN integratorEnabled;
--- ALTER TABLE Facility DROP COLUMN integratorUrl;
--- ALTER TABLE Facility DROP COLUMN integratorUser;
--- ALTER TABLE Facility DROP COLUMN integratorPassword;
+ALTER TABLE Facility DROP COLUMN IF EXISTS integratorEnabled;
+ALTER TABLE Facility DROP COLUMN IF EXISTS integratorUrl;
+ALTER TABLE Facility DROP COLUMN IF EXISTS integratorUser;
+ALTER TABLE Facility DROP COLUMN IF EXISTS integratorPassword;
 
 -- Step 2: Remove integrated referrals flag
--- ALTER TABLE Facility DROP COLUMN enableIntegratedReferrals;
+ALTER TABLE Facility DROP COLUMN IF EXISTS enableIntegratedReferrals;
 
 -- Step 3: Remove SIMS flag
--- ALTER TABLE Facility DROP COLUMN allowSims;
+ALTER TABLE Facility DROP COLUMN IF EXISTS allowSims;
 
 -- =====================================================
 -- CAISI Integrator Removal Summary:
