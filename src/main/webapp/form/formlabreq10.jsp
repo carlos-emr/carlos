@@ -90,20 +90,16 @@
         int demoNo = Integer.parseInt(request.getParameter("demographic_no"));
         int formId = Integer.parseInt(request.getParameter("formId"));
         String provNo = (String) session.getAttribute("user");
-        String remoteFacilityIdString = request.getParameter("remoteFacilityId");
         String fromSession = request.getParameter("fromSession");
         java.util.Properties props = null;
 
-        // means it's local
-        if (remoteFacilityIdString == null) {
-            FrmRecord rec = (new FrmRecordFactory()).factory(formClass);
-            if (fromSession != null && fromSession.equals("true")) {
-                props = (java.util.Properties) request.getSession().getAttribute("labReq10" + demoNo);
-            }
-            if (props == null) {
-                props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
-                props = ((FrmLabReq10Record) rec).getFormCustRecord(props, provNo);
-            }
+        FrmRecord rec = (new FrmRecordFactory()).factory(formClass);
+        if (fromSession != null && fromSession.equals("true")) {
+            props = (java.util.Properties) request.getSession().getAttribute("labReq10" + demoNo);
+        }
+        if (props == null) {
+            props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
+            props = ((FrmLabReq10Record) rec).getFormCustRecord(props, provNo);
         }
 
         MiscUtils.getLogger().debug("properties : " + props);

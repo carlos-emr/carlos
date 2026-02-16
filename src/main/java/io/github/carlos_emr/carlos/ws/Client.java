@@ -14,13 +14,11 @@ import java.io.Serializable;
  * Client data transfer object for the Health Number Registry (HNR) web service.
  * 
  * <p>This class represents patient demographic and health insurance information used in the
- * CAISI Integrator system for matching and linking clients across multiple healthcare facilities.
- * It contains Protected Health Information (PHI) including Health Insurance Numbers (HIN),
- * personal demographics, and optional patient images.</p>
- * 
- * <p>The HNR web service enables healthcare facilities to share client information while
- * maintaining privacy and security compliance. This class is used as a data container for
- * SOAP-based web service operations including client retrieval, creation, and matching.</p>
+ * Health Number Registry (HNR) web service. It contains Protected Health Information (PHI)
+ * including Health Insurance Numbers (HIN), personal demographics, and optional patient images.</p>
+ *
+ * <p>The HNR web service provides client data operations including retrieval, creation,
+ * and matching. This class is used as a data container for SOAP-based web service operations.</p>
  * 
  * <p><strong>Security Considerations:</strong></p>
  * <ul>
@@ -40,8 +38,8 @@ import java.io.Serializable;
  * </ul>
  * 
  * <p><strong>Client Matching:</strong></p>
- * <p>The linkingId field is used to associate clients across different facilities in the
- * integrator system. Clients with the same linkingId are considered to be the same person
+ * <p>The linkingId field is used to associate clients across different facilities.
+ * Clients with the same linkingId are considered to be the same person
  * registered at different healthcare providers.</p>
  * 
  * <p><strong>Privacy Features:</strong></p>
@@ -399,14 +397,11 @@ public class Client extends AbstractModel implements Serializable
     
     /**
      * Gets the linking identifier used to associate this client across multiple facilities.
-     * 
-     * <p>In the CAISI Integrator system, clients registered at different healthcare facilities
-     * can be linked together using this identifier. Clients with the same linkingId represent
-     * the same person across different provider organizations.</p>
-     * 
-     * <p>This enables coordinated care and information sharing while maintaining separate
-     * local client records at each facility.</p>
-     * 
+     *
+     * <p>Clients registered at different healthcare facilities can be linked together using
+     * this identifier. Clients with the same linkingId represent the same person across
+     * different provider organizations.</p>
+     *
      * @return Integer the linking ID, or null if this client is not linked to other facilities
      */
     public Integer getLinkingId() {

@@ -168,50 +168,47 @@ Hl7TextMessage hl7TextMessage = null;
 String duplicateOfLab = null;
 Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
 
-    {
-        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
-        if (reqMap.get("id") != null) {
-            reqID = reqMap.get("id").toString();
-            reqTableID = reqMap.get("request_id").toString();
-        } else {
-            reqID = "";
-            reqTableID = "";
+    HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
+    if (reqMap.get("id") != null) {
+        reqID = reqMap.get("id").toString();
+        reqTableID = reqMap.get("request_id").toString();
+    } else {
+        reqID = "";
+        reqTableID = "";
+    }
+
+    PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
+    for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
+        demographicID = "" + r.getDemographicNo();
+    }
+
+    if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
+        isLinkedToDemographic = true;
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
+    } else {
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
+    }
+
+    if (showAll) {
+        multiLabId = request.getParameter("multiID");
+        segmentIDs = multiLabId.split(",");
+        for (int i = 0; i < segmentIDs.length; ++i) {
+            handlers.add(Factory.getHandler(segmentIDs[i]));
         }
 
-
-        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
-        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
-            demographicID = "" + r.getDemographicNo();
-        }
-
-        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
-            isLinkedToDemographic = true;
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
-        } else {
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
-        }
-
-
-        if (showAll) {
-            multiLabId = request.getParameter("multiID");
-            segmentIDs = multiLabId.split(",");
-            for (int i = 0; i < segmentIDs.length; ++i) {
-                handlers.add(Factory.getHandler(segmentIDs[i]));
-            }
-
-            handler = handlers.get(0);
-        } else {
-            multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
-            segmentIDs = multiLabId.split(",");
+        handler = handlers.get(0);
+    } else {
+        multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+        segmentIDs = multiLabId.split(",");
 
 		int totalMatchingLabs = segmentIDs.length;
 		if (showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
 			segmentID = segmentIDs[totalMatchingLabs - 1];
 		}
 
-            List<String> segmentIdList = new ArrayList<String>();
-            handler = Factory.getHandler(segmentID);
-            handlers.add(handler);
+        List<String> segmentIdList = new ArrayList<String>();
+        handler = Factory.getHandler(segmentID);
+        handlers.add(handler);
 
         if ("ExcellerisON".equals(handler.getMsgType()) && segmentIDs.length > 1) {
             LabVersionComparator labVersionComparator = new LabVersionComparator(Arrays.asList(segmentIDs));
@@ -219,14 +216,12 @@ Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>()
             missingTests = labVersionComparator.findMissingTests(segmentID, true);
         }
 
-            segmentIdList.add(segmentID);
+        segmentIdList.add(segmentID);
 
-            //this is where it gets weird. We want to show all messages with different filler order num but same accession in a single report
-            segmentIDs = segmentIdList.toArray(new String[segmentIdList.size()]);
+        //this is where it gets weird. We want to show all messages with different filler order num but same accession in a single report
+        segmentIDs = segmentIdList.toArray(new String[segmentIdList.size()]);
 
-            hl7 = Factory.getHL7Body(segmentID);
-        }
-
+        hl7 = Factory.getHL7Body(segmentID);
     }
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);

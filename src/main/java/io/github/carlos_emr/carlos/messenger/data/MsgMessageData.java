@@ -50,21 +50,19 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Core data management class for messages in the OpenO EMR messaging system.
- * 
+ * Core data management class for messages in the CARLOS EMR messaging system.
+ *
  * <p>This class handles the creation, retrieval, and management of internal messages
  * between healthcare providers. It manages message metadata, recipient lists, attachments,
- * and the persistence of messages to the database. The class supports both local and
- * remote message recipients across connected healthcare facilities.</p>
- * 
+ * and the persistence of messages to the database.</p>
+ *
  * <p>Key responsibilities:
  * <ul>
  *   <li>Creating and sending messages to multiple recipients</li>
  *   <li>Managing message metadata (subject, date, time, attachments)</li>
- *   <li>Handling local and remote provider recipients</li>
+ *   <li>Handling provider recipients</li>
  *   <li>Retrieving message history and details</li>
  *   <li>Managing message status (new, read, deleted)</li>
- *   <li>XML-based message serialization for remote transmission</li>
  * </ul>
  * </p>
  * 
@@ -79,9 +77,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @Deprecated
 public class MsgMessageData {
 
-    /**
-     * Flag indicating if remote recipients are included in the message.
-     */
     boolean areRemotes = false;
     
     /**
@@ -289,16 +284,16 @@ public class MsgMessageData {
      * 
      * <p>This comprehensive method handles message creation with all features including:
      * <ul>
-     *   <li>Multiple recipient support (local and remote)</li>
+     *   <li>Multiple recipient support</li>
      *   <li>File attachments</li>
      *   <li>PDF attachments with binary storage</li>
      *   <li>Message type classification</li>
      *   <li>Associated action links</li>
      * </ul>
      * </p>
-     * 
+     *
      * <p>The method properly escapes data for SQL injection prevention and handles
-     * both local database storage and remote XML transmission.</p>
+     * local database storage.</p>
      * 
      * @param message The message body content
      * @param subject The message subject line

@@ -223,6 +223,8 @@ public class MessengerGroupManager {
         MsgProviderData messengerContact = null;
         if (facilityId == 0 || facilityId == loggedInInfo.getCurrentFacility().getId()) {
             messengerContact = getLocalMember(loggedInInfo, providerNo);
+        } else {
+            logger.warn("Ignoring non-local facility ID {} for provider {}", facilityId, providerNo);
         }
         return messengerContact;
     }
@@ -273,10 +275,9 @@ public class MessengerGroupManager {
     }
 
     /**
-     * All providers contacts (potential Oscar Messenger Members) from the local Oscar
-     * AND all the Integrated clinics that are connected.
+     * All provider contacts (potential Messenger Members) from the local clinic.
      * This list is used in the Messenger Configuration to present potential members that can be enrolled into
-     * the Oscar Messenger system.
+     * the Messenger system.
      *
      * @param loggedInInfo
      * @return Map of provider data grouped by facility

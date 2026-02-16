@@ -34,6 +34,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Struts2 action stub for the demographic import page.
@@ -51,6 +53,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2019
  */
 public class ImportDemographic2Action extends ActionSupport {
+    private static final Logger logger = LogManager.getLogger(ImportDemographic2Action.class);
+
     /**
      * The HTTP request object containing form parameters and session data.
      */
@@ -72,12 +76,10 @@ public class ImportDemographic2Action extends ActionSupport {
      * @return SUCCESS constant indicating successful execution and forward to DisplayMessages.jsp
      */
     public String execute() {
+        logger.warn("ImportDemographic2Action invoked but cross-facility demographic import has been removed");
         String messageID = request.getParameter("messageID");
 
-        // Set attributes for the DisplayMessages.jsp page
-        // boxType "0" indicates returning to inbox view
         request.setAttribute("boxType", "0");
-        // Preserve message ID for display context
         request.setAttribute("messageID", messageID);
 
         return SUCCESS;

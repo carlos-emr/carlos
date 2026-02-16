@@ -102,7 +102,7 @@ public class MsgViewMessage2Action extends ActionSupport {
     private MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
     
     /**
-     * Manager for demographic-message associations and cross-facility demographic handling.
+     * Manager for demographic-message associations.
      */
     private MessengerDemographicManager messengerDemographicManager = SpringUtils.getBean(MessengerDemographicManager.class);
 
@@ -113,7 +113,7 @@ public class MsgViewMessage2Action extends ActionSupport {
      * <ol>
      *   <li>Validates user has read permissions for messaging</li>
      *   <li>Retrieves the message using the provided message ID</li>
-     *   <li>Processes attached demographics and unlinked integrated demographics</li>
+     *   <li>Processes attached demographics</li>
      *   <li>Handles special message types and their associated links</li>
      *   <li>Stores all message data in session for display</li>
      *   <li>Marks the message as read (unless viewing sent items)</li>

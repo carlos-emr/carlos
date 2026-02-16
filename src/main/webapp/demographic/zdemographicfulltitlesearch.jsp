@@ -44,7 +44,6 @@
     - Real-time DOB format validation and formatting
     - Inactive/All patient search options
     - Most Recent Patients quick access
-    - Integrator support for multi-facility searches
     - Out-of-domain search (with appropriate security)
 
     Parameters:

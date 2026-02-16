@@ -441,7 +441,7 @@ public class CaseManagementPrint {
      * that may have been set by CaseManagementView2Action.
      *
      * The method defaults to the "OSCAR" program if the provider has not been assigned to a specific
-     * program. Only local notes (NoteDisplayLocal) are returned; remote integrator notes are excluded.
+     * program. Only local notes (NoteDisplayLocal) are included in the returned results.
      *
      * @param loggedInInfo LoggedInInfo the authenticated session information
      * @param request HttpServletRequest the servlet request containing session attributes and parameters
@@ -521,7 +521,7 @@ public class CaseManagementPrint {
      * those dimensions. The method defaults to the "OSCAR" program if the provider has not
      * been assigned to a specific program.
      *
-     * Only local notes (NoteDisplayLocal) are returned; remote integrator notes are excluded.
+     * Only local notes (NoteDisplayLocal) are included in the returned results.
      *
      * @param loggedInInfo LoggedInInfo the authenticated session information
      * @param request HttpServletRequest the servlet request containing session attributes and parameters

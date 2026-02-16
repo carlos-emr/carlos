@@ -916,7 +916,7 @@
                                     }%>
 
                                     <%
-                                        /* Integrated results dont have an "ID" key */
+                                        /* Some results may not have a local database ID */
                                         if (hdata.containsKey("id")) {
                                             List<DHIRSubmissionLog> dhirLogs = submissionManager.findByPreventionId(Integer.parseInt((String) hdata.get("id")));
 

@@ -39,14 +39,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
-import io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
-import java.net.URLEncoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -139,40 +137,28 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
                 func = new StringBuilder("popupPage(700,960,'");
                 label = result.getLabel();
 
-                String remoteFacilityIdQueryString = "";
-                if (result.getRemoteFacilityId() != null) {
-                    try {
-                        remoteFacilityIdQueryString = "&remoteFacilityId=" + result.getRemoteFacilityId();
-                        String remoteLabKey = LabDisplayHelper.makeLabKey(Integer.parseInt(result.getLabPatientId()), result.getSegmentID(), result.labType, result.getDateTime());
-                        remoteFacilityIdQueryString = remoteFacilityIdQueryString + "&remoteLabKey=" + URLEncoder.encode(remoteLabKey, "UTF-8");
-                    } catch (Exception e) {
-                        logger.error("Error", e);
-                    }
-                }
-
                 if (result.isMDS()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus() + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus();
                 } else if (result.isCML()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else if (result.isHL7TEXT()) {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    // url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?providerNo="+bean.providerNo+"&segmentID="+result.segmentID;
-                    url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    url = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId;
                 }
                 String labRead = "";
                 if (!oscarLogDao.hasRead(((String) request.getSession().getAttribute("user")), "lab", result.segmentID)) {

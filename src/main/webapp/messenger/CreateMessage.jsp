@@ -38,7 +38,7 @@
     
     Key Features:
     - Message composition with subject and body text
-    - Recipient selection from local and remote provider lists
+    - Recipient selection from provider lists
     - Group-based recipient management
     - Patient demographic association for clinical messages
     - Attachment support including PDF documents

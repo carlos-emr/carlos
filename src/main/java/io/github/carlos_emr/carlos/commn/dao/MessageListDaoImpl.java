@@ -38,7 +38,6 @@ import java.util.List;
 import javax.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.MessageList;
-import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -131,16 +130,6 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
         query.setParameter(1, providerNo);
         return getCountResult(query).intValue();
 
-    }
-
-    @Override
-    public int countUnreadByProviderAndFromIntegratedFacility(String providerNo) {
-        Query query = entityManager.createQuery(
-                "SELECT count(l) FROM MessageList l, MessageTbl mt WHERE l.message = mt.id AND l.providerNo= ?1 AND l.status='new' AND mt.type = ?2");
-
-        query.setParameter(1, providerNo);
-        query.setParameter(2, OscarMsgType.INTEGRATOR_TYPE);
-        return getCountResult(query).intValue();
     }
 
     @Override

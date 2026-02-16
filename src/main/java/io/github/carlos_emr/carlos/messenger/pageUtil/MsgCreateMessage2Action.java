@@ -54,17 +54,17 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Struts2 Action for handling message creation and sending in the OpenO EMR messaging system.
- * 
+ * Struts2 Action for handling message creation and sending in the CARLOS EMR messaging system.
+ *
  * <p>This action processes the message composition form submission, validates security permissions,
- * and sends the message to selected recipients. It handles both local and remote providers,
- * manages attachments, and saves messages to the database.</p>
- * 
+ * and sends the message to selected recipients. It manages attachments and saves messages
+ * to the database.</p>
+ *
  * <p>Key responsibilities include:
  * <ul>
  *   <li>Security validation for message write permissions</li>
  *   <li>Processing message content, subject, and attachments</li>
- *   <li>Managing recipient lists (local and remote providers)</li>
+ *   <li>Managing recipient lists</li>
  *   <li>Associating messages with patient demographics when applicable</li>
  *   <li>Saving sent message preferences for future use</li>
  * </ul>
