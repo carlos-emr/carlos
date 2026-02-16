@@ -50,7 +50,6 @@ public final class FacilityTransfer {
     private Integer orgId;
     private Integer sectorId;
     private boolean enableHealthNumberRegistry;
-    private boolean allowSims;
     private boolean enableDigitalSignatures;
     private boolean enableOcanForms;
     private boolean enableAnonymous;
@@ -147,14 +146,6 @@ public final class FacilityTransfer {
 
     public void setEnableHealthNumberRegistry(boolean enableHealthNumberRegistry) {
         this.enableHealthNumberRegistry = enableHealthNumberRegistry;
-    }
-
-    public boolean isAllowSims() {
-        return (allowSims);
-    }
-
-    public void setAllowSims(boolean allowSims) {
-        this.allowSims = allowSims;
     }
 
     public boolean isEnableDigitalSignatures() {

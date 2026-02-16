@@ -59,9 +59,6 @@ public class ClientReferral implements Serializable {
     private String _providerFirstName;
     private String _programName;
     private String _programType;
-    private String remoteFacilityId;
-    private String remoteProgramId;
-
     //transient
     private String selectVacancy; //vacancy name
     private String vacancyTemplateName;
@@ -384,22 +381,6 @@ public class ClientReferral implements Serializable {
 
     public void setFacilityId(Integer facilityId) {
         this.facilityId = facilityId;
-    }
-
-    public String getRemoteFacilityId() {
-        return remoteFacilityId;
-    }
-
-    public void setRemoteFacilityId(String remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
-    }
-
-    public String getRemoteProgramId() {
-        return remoteProgramId;
-    }
-
-    public void setRemoteProgramId(String remoteProgramId) {
-        this.remoteProgramId = remoteProgramId;
     }
 
     public String getSelectVacancy() {

@@ -102,8 +102,6 @@ public interface NoteDisplay {
 
     public String getRoleName();
 
-    public Integer getRemoteFacilityId();
-
     public String getUuid();
 
     public boolean getHasHistory();

@@ -56,7 +56,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private Integer orgId;
     private Integer sectorId;
     private boolean enableHealthNumberRegistry = true;
-    private boolean allowSims = true;
     private boolean enableDigitalSignatures = false;
     private boolean enableOcanForms = false;
     private boolean enableCbiForm = false;
@@ -204,14 +203,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
 
     public void setSectorId(Integer sectorId) {
         this.sectorId = sectorId;
-    }
-
-    public boolean isAllowSims() {
-        return allowSims;
-    }
-
-    public void setAllowSims(boolean allowSims) {
-        this.allowSims = allowSims;
     }
 
     public boolean isEnableDigitalSignatures() {
