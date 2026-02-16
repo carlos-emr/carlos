@@ -31,6 +31,12 @@ package io.github.carlos_emr.carlos.PMmodule.web.admin;
  * Previously contained the RemoteQueueEntry inner class for integrator remote queue functionality.
  * Integrator functionality has been removed from CARLOS EMR.
  * This class is retained as an empty stub for backward compatibility.
+ *
+ * @deprecated This class is a legacy stub retained only for backward compatibility.
+ *             It contains no functionality and should not be used in new code.
+ *             This class is a candidate for removal in a future major version.
+ * @since 2026-02 (retained as stub after integrator removal in PR #399)
  */
+@Deprecated
 public class ProgramManagerAction {
 }

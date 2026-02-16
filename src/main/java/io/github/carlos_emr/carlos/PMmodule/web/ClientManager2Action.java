@@ -506,7 +506,14 @@ public class ClientManager2Action extends ActionSupport {
             Program program = programManager.getProgram(programId);
             p.setName(program.getName());
             p.setVacancyName(request.getParameter("vacancyName"));
-            p.setVacancyId(Integer.valueOf(request.getParameter("vacancyId")));
+            String vacancyIdParam = request.getParameter("vacancyId");
+            if (vacancyIdParam != null && !vacancyIdParam.trim().isEmpty()) {
+                try {
+                    p.setVacancyId(Integer.valueOf(vacancyIdParam.trim()));
+                } catch (NumberFormatException e) {
+                    logger.error("Invalid vacancyId parameter: {}", vacancyIdParam, e);
+                }
+            }
             request.setAttribute("program", program);
         }
 
@@ -742,33 +749,6 @@ public class ClientManager2Action extends ActionSupport {
         return false;
     }
 
-	/*
-    private Program getMatchVacancy(Program p){
-
-        List<VacancyDisplayBO> vacancyDisplayBOs = matchingManager.listNoOfVacanciesForWaitListProgram();
-
-        Program program = p;
-        for(int j=0;j<vacancyDisplayBOs.size();j++){
-            if(vacancyDisplayBOs.get(j).getProgramId().equals(program.getId())){
-                if(vacancyDisplayBOs.get(j).getNoOfVacancy() != 0){
-                    program.setNoOfVacancy(vacancyDisplayBOs.get(j).getNoOfVacancy());
-                    program.setVacancyName(vacancyDisplayBOs.get(j).getVacancyName());
-                    program.setDateCreated(vacancyDisplayBOs.get(j).getCreated().toString());
-                    int vacancyId = vacancyDisplayBOs.get(j).getVacancyID();
-                    List<MatchBO> matchList= matchingManager.getClientMatches(vacancyId);
-                    double percentageMatch = 0;
-                    for(int k=0;k<matchList.size();k++){
-                        percentageMatch = percentageMatch + matchList.get(k).getPercentageMatch();
-                    }
-                    program.setVacancyId(vacancyId);
-                    program.setMatches(percentageMatch);
-                }
-            }
-        }
-        return program;
-    }
-    */
-
     private void setEditAttributes(HttpServletRequest request, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -892,15 +872,7 @@ public class ClientManager2Action extends ActionSupport {
             }
             request.setAttribute("referrals", clientReferralDisplay);
 
-            //Added for refer to Vacancy
             if (tabBean.getTab().equals("Refer to vacancy")) {
-//				Program criteria = this.getProgram();				
-//				List<Program> programs = programManager.search(criteria);
-
-                //List<Program> programs = programManager.getPrograms(facilityId);
-
-                //List<VacancyDisplayBO> vacancyDisplayBOs = matchingManager.listVacanciesForWaitListProgram();
-                //get all vacancies.
                 WaitListService s = new WaitListService();
                 List<VacancyDisplayBO> vacancyDisplayBOs = s.listVacanciesForAllWaitListPrograms();
 
@@ -909,8 +881,6 @@ public class ClientManager2Action extends ActionSupport {
                 for (int j = 0; j < vacancyDisplayBOs.size(); j++) {
                     Program program = programManager.getProgram(vacancyDisplayBOs.get(j).getProgramId());
 
-                    //if(vacancyDisplayBOs.get(j).getNoOfVacancy() != 0){
-                    //program.setNoOfVacancy(vacancyDisplayBOs.get(j).getNoOfVacancy());
                     program.setVacancyName(vacancyDisplayBOs.get(j).getVacancyName());
                     program.setDateCreated(vacancyDisplayBOs.get(j).getCreated().toString());
 
@@ -934,7 +904,6 @@ public class ClientManager2Action extends ActionSupport {
 
         /* service restrictions */
         if (tabBean.getTab().equals("Service Restrictions")) {
-            // request.setAttribute("serviceRestrictions", clientRestrictionManager.getActiveRestrictionsForClient(Integer.valueOf(demographicNo), new Date()));
             request.setAttribute("serviceRestrictions", clientRestrictionManager.getActiveRestrictionsForClient(Integer.valueOf(demographicNo), facilityId, new Date()));
 
             request.setAttribute("serviceRestrictionList", lookupManager.LoadCodeList("SRT", true, null, null));
