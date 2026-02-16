@@ -1682,6 +1682,12 @@
                             <testSourceDirectory>src/test-modern/java</testSourceDirectory>
                             <reportsDirectory>${project.build.directory}/surefire-reports-modern</reportsDirectory>
                             <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
+                            <!-- Process-level parallelism: each fork gets its own JVM,
+                                 Spring context, and H2 database — no shared state between forks.
+                                 Unit tests also use JUnit 5 thread-level parallelism via
+                                 @Execution(CONCURRENT) on OpenOUnitTestBase. -->
+                            <forkCount>2</forkCount>
+                            <reuseForks>true</reuseForks>
                             <includes>
                                 <include>**/test/**/*Test.java</include>
                                 <include>**/test/**/*Tests.java</include>

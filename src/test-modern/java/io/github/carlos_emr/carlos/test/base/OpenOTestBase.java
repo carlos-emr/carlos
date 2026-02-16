@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.orm.hibernate5.HibernateTemplate;
@@ -58,11 +60,18 @@ import java.lang.reflect.Method;
  * Tests are configured to run with Spring's test context, automatic
  * transaction rollback, and property overrides from test.properties.
  *
+ * <p><b>Parallel Execution:</b>
+ * Integration tests are explicitly marked {@code @Execution(SAME_THREAD)} to prevent
+ * concurrent execution within a single JVM. All integration tests share a single H2 in-memory
+ * database and Spring context. Process-level parallelism is achieved via Surefire's
+ * {@code forkCount} — each fork gets its own JVM, Spring context, and H2 database instance.
+ *
  * @see SpringUtils
  * @see SpringExtension
  * @author yingbull
  * @since 2025-09-15
  */
+@Execution(ExecutionMode.SAME_THREAD)
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = {
     "classpath:test-context-full.xml"

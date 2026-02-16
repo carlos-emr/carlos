@@ -27,6 +27,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -73,11 +75,18 @@ import static org.mockito.Mockito.mockStatic;
  *   <li>Proper cleanup to prevent test pollution</li>
  * </ul>
  *
+ * <p><b>Parallel Execution:</b>
+ * This class is annotated with {@code @Execution(CONCURRENT)} to enable parallel test class
+ * execution. Mockito 5.x's {@code MockedStatic} uses thread-local scoping, so each test thread
+ * gets its own independent static mock — no cross-thread interference. Methods within a single
+ * class still run sequentially (governed by {@code junit-platform.properties} defaults).
+ *
  * @since 2025-01-17
  * @see SpringUtils
  */
 @Tag("unit")
 @Tag("fast")
+@Execution(ExecutionMode.CONCURRENT)
 public abstract class OpenOUnitTestBase {
 
     /**
