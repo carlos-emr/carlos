@@ -2,9 +2,9 @@
 
 **Date**: 2026-02-16
 **Branch**: `claude/identify-unused-classes-Zxx1H`
-**Total Unused Classes Found**: 232
+**Total Unused Classes Found**: 232 (explicitly unreferenced) + ~230 JAXB stubs (see Section 15)
 **Total Classes in Codebase**: 4,068
-**Percentage Unused**: ~5.7%
+**Percentage Unused**: ~11% including JAXB stubs, ~5.7% excluding them
 
 ## Methodology
 
@@ -43,10 +43,11 @@ in **any other file** across the entire `src/main/` directory tree, including:
 | Encounter Data Records | 10 | Low | Legacy encounter record classes |
 | DAO Implementations (`commn/dao/`) | 26 | Medium | Interfaces unused too; safe to remove |
 | Web Services (`webserv/`) | 26 | Medium | REST/SOAP endpoints and DTOs |
-| CAISI Integrator | 12 | Low | Related to archived CAISI integration |
+| CAISI Integrator (explicit) | 14 | Low | Related to archived CAISI integration |
+| CAISI Integrator JAXB stubs | ~230 | Low | Auto-generated WS stubs (see Section 15) |
 | PMmodule | 13 | Low | Legacy program management classes |
 | Billing | 9 | Medium | Province-specific billing code |
-| Integration | 7 | Medium | External system integrations |
+| Integration | 13 | Medium | External system integrations (incl. dashboard models) |
 | Hospital Report Manager | 4 | Low | HRM-related unused classes |
 | Utility/Infrastructure | 13 | Low | Utility classes, config, helpers |
 | Login/Security | 5 | Medium | Auth-related unused code |
@@ -212,26 +213,42 @@ src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/ProviderSearchRe
 src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/WebServiceLoggingAdvice.java
 ```
 
-### 5. CAISI Integrator (12 classes) - LOW RISK
+### 5. CAISI Integrator - Explicit Unused (14 classes) - LOW RISK
 
 Related to the archived CAISI integration system. Per CLAUDE.md, CAISI integrator
 architecture is being phased out.
 
+**DAO classes with no external references:**
 ```
-src/main/java/io/github/carlos_emr/carlos/PMmodule/caisi_integrator/ByteWrapper.java
-src/main/java/io/github/carlos_emr/carlos/PMmodule/caisi_integrator/IntegratorLocalStoreUpdateJob.java
-src/main/java/io/github/carlos_emr/carlos/caisi/CaisiUtil.java
-src/main/java/io/github/carlos_emr/carlos/caisi/OscarMenuExtension.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/CachedDemographicImage.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/EventLog.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/HomelessPopulationReport.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/MatchingCachedDemographicScore.java
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/ImportLog.java
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/ProviderCommunication.java
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/SystemProperties.java
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/dao/Referral.java
+```
+
+**Generated WS test clients (zero external references):**
+```
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/DemographicWs_DemographicWsPort_Client.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/FacilityWs_FacilityWsPort_Client.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/HnrWs_HnrWsPort_Client.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/ProgramWs_ProgramWsPort_Client.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/ProviderWs_ProviderWsPort_Client.java
 src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/ReferralWs_ReferralWsPort_Client.java
+```
+
+**Other CAISI-related unused:**
+```
+src/main/java/io/github/carlos_emr/carlos/PMmodule/caisi_integrator/ByteWrapper.java
+src/main/java/io/github/carlos_emr/carlos/PMmodule/caisi_integrator/IntegratorLocalStoreUpdateJob.java
+src/main/java/io/github/carlos_emr/carlos/caisi/CaisiUtil.java
+src/main/java/io/github/carlos_emr/carlos/caisi/OscarMenuExtension.java
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/util/ImageIoUtils.java
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/util/XmlUtils.java
+src/main/java/io/github/carlos_emr/carlos/caisi_integrator/util/ConfigXmlUtils.java
 ```
 
 ### 6. PMmodule (13 classes) - LOW RISK
@@ -273,9 +290,9 @@ src/main/java/io/github/carlos_emr/carlos/entities/Billingdetail.java
 src/main/java/io/github/carlos_emr/carlos/entities/Insclaim.java
 ```
 
-### 8. Integration (7 classes) - MEDIUM RISK
+### 8. Integration (13 classes) - MEDIUM RISK
 
-External system integration classes including DHIR, EBS, FHIR, and OBEC.
+External system integration classes including DHIR, EBS, FHIR, OBEC, and dashboard.
 
 ```
 src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboardMetricSenderJob.java
@@ -285,6 +302,18 @@ src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/WSS4JInNonVa
 src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/PatientContact.java
 src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/RelatedPerson.java
 src/main/java/io/github/carlos_emr/carlos/integration/mchcv/OBECRunner.java
+```
+
+**Dashboard model classes** (only used by `OutcomesDashboardUtils` for JSON
+serialization to an external dashboard service - if that service is decommissioned,
+all are dead):
+```
+src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/Clinic.java
+src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/MetricData.java
+src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/MetricOwner.java
+src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/MetricSet.java
+src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/Name.java
+src/main/java/io/github/carlos_emr/carlos/integration/dashboard/model/User.java
 ```
 
 ### 9. Hospital Report Manager (4 classes) - LOW RISK
@@ -398,35 +427,96 @@ src/main/java/io/github/carlos_emr/carlos/wl/prepared/seaton/consultation/Proces
 src/main/java/io/github/carlos_emr/carlos/www/admin/UserSearchFormBean.java
 ```
 
+### 15. CAISI Integrator JAXB-Generated Stubs (~230 classes) - LOW RISK
+
+The `caisi_integrator/ws/` package contains **~242 files**, of which **~230 are
+auto-generated JAXB web service stubs** (Request/Response pairs, data transfer
+objects). These were generated from the CAISI integrator server's WSDL.
+
+Breakdown of the ~230 JAXB stubs:
+- **~84 `*Response.java`** - JAXB response wrappers
+- **~79 `Get*.java`** - JAXB request wrappers
+- **~49 `Set*.java`** - JAXB request wrappers
+- **~6 `Delete*.java`** - JAXB request wrappers
+- **~12 misc** - Other generated data types
+
+**Still active** (~12 files in `caisi_integrator/ws/`):
+- 6 WS service interfaces: `DemographicWs`, `FacilityWs`, `HnrWs`, `ProgramWs`,
+  `ProviderWs`, `ReferralWs`
+- 6 WS service factory classes: `*WsService.java`
+- Transfer objects used by `CaisiIntegratorManager`
+
+**Important caveat**: While these JAXB stubs have no explicit Java imports outside
+the package, the JAXB runtime uses them via annotation-based auto-discovery during
+SOAP message deserialization. Removing them requires confirming that the CAISI
+integrator SOAP communication can function without them, or that CAISI integration
+is fully decommissioned.
+
+Full listing not included due to volume (~230 files). To see all files:
+```bash
+find src/main/java/io/github/carlos_emr/carlos/caisi_integrator/ws/ \
+  -name "*Response.java" -o -name "Get*.java" -o -name "Set*.java" \
+  -o -name "Delete*.java" | wc -l
+```
+
+### Confirmed NOT Dead (Packages Verified Active)
+
+The following packages were verified as fully active and should NOT be removed:
+- **`webserv/`** (309 files) - All wired in Spring config (`spring_ws.xml`,
+  `applicationContextREST.xml`, component scanning)
+- **`decisionSupport/`** (19 files) - Heavily cross-referenced from login, flowsheets,
+  prevention, billing, and REST API
+- **`drools/`** (1 file) - Used by decision support and measurement flowsheets
+- **`mds/`** (17 files) - All actions mapped in struts.xml, used by lab display
+- **`match/`** (9 files) - Used by PMmodule vacancy/waitlist management
+- **`workflow/`** (8 files) - Used by Rh Immunoglobulin form (narrow but active)
+- **`contactRegistry/`** (1 file) - Mapped in struts.xml
+- **`scratch/`** (3 files) - Mapped in struts.xml with JSP
+
+### Removed Module Remnant Status
+
+| Module | Status | Remnants |
+|--------|--------|----------|
+| MyDrugRef | Properly removed | Minor: 2 JS string replacements in `SearchDrug3.jsp` |
+| BORN Integration | Properly removed | None (grep hits are medical terms, not module refs) |
+| HealthSafety | Properly removed | Only a database column name in HBM mapping |
+| ERx (External Prescriber) | Properly removed | None |
+
 ---
 
 ## Recommended Removal Priority
 
-### Phase 1: Safe to Remove Immediately (LOW RISK - 75 classes)
-- All 52 `Frm*Record` form classes
+### Phase 1: Safe to Remove Immediately (LOW RISK - ~80 classes)
+- All 52 `Frm*Record` form classes + `FrmPdfGraphicRourke` + `FormBooleanValuePK`
 - All 10 `Ect*Record` encounter data classes
 - `Dangerous.java` (annotation marker, unused)
-- `LookupTagValue.java`
+- `LookupTagValue.java`, `DAO.java`, `Pager.java`
 - `FileHolder.java`, `PagerDef.java`
 - `OscarMenuExtension.java`, `CaisiUtil.java`
-- `ByteWrapper.java`
-- `EnumNameComparator.java`
+- `ByteWrapper.java`, `EnumNameComparator.java`
 - `UserSearchFormBean.java`
-- `FormBooleanValuePK.java`
-- `FrmPdfGraphicRourke.java`
+- 6 CAISI `*_*Port_Client.java` generated test stubs
 
-### Phase 2: Remove After Verification (MEDIUM RISK - 100+ classes)
+### Phase 2: Remove After Verification (MEDIUM RISK - ~130 classes)
 - 26 DAO implementations (verify interfaces are also unused)
-- 26 web service classes (verify no CXF auto-discovery)
-- CAISI integrator classes
-- PMmodule legacy classes
-- Billing-related unused classes
+- 26 web service REST/SOAP classes (verify no CXF auto-discovery)
+- CAISI integrator DAO + util classes (8+3 classes)
+- PMmodule legacy classes (13 classes)
+- Billing-related unused classes (9 classes)
+- Dashboard model classes (6 classes - verify external service status)
 
 ### Phase 3: Requires Careful Review (HIGHER RISK - ~50 classes)
 - Login/security classes (`OAuth1Utils`, `ValidateMFA2Action`, `CookieSecurity`)
 - Integration classes (EBS, FHIR, DHIR)
 - Billing province-specific code
 - `EDTDelegateImpl` (check `DelegateFactory` for reflection usage)
+
+### Phase 4: CAISI JAXB Stubs (~230 classes) - Requires Architecture Decision
+- ~230 auto-generated JAXB stubs in `caisi_integrator/ws/`
+- Removal depends on whether CAISI integrator SOAP communication is still needed
+- If CAISI integration is fully decommissioned per the phased removal plan
+  (PR #398), these can be removed as a batch with the rest of the `caisi_integrator/`
+  package
 
 ---
 
