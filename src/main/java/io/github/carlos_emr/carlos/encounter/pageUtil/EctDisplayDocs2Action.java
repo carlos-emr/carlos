@@ -102,17 +102,6 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             String BGCOLOUR = request.getParameter("hC");
             Date date;
 
-            // --- add remote documents ---
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    ArrayList<EDoc> remoteDocuments = EDocUtil.getRemoteDocuments(loggedInInfo, Integer.parseInt(bean.demographicNo));
-                    docList.addAll(remoteDocuments);
-                } catch (Exception e) {
-                    logger.error("error getting remote documents", e);
-                }
-            }
-
             // sort complete list by date descending
             sortByDate(docList);
 
@@ -162,11 +151,11 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                     String path = IsPropertiesOn.getProperty("DOCUMENT_DIR");
  		    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/mod/docmgmtComp/FillARForm.do?method=showInboxDocDetails&path=" + Encode.forJavaScript(path) + "&demoNo=" + Encode.forJavaScript(bean.demographicNo) + "&name=" + Encode.forJavaScript(dispFilename) + "'); return false;";
                     isURLjavaScript = true;
-                } else if (curDoc.getRemoteFacilityId() == null && curDoc.isPDF()) {
+                } else if (curDoc.isPDF()) {
                     url = "popupPage(window.screen.width,window.screen.height,'" + hash + "','" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + Encode.forJavaScript(dispDocNo) + "'); return false;";
                     isURLjavaScript = true;
                 } else {
-                    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/documentManager/ManageDocument.do?method=display&doc_no=" + Encode.forJavaScript(dispDocNo) + "&providerNo=" + Encode.forJavaScript(user) + (curDoc.getRemoteFacilityId() != null ? "&remoteFacilityId=" + Encode.forJavaScript(curDoc.getRemoteFacilityId().toString()) : "") + "'); return false;";
+                    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/documentManager/ManageDocument.do?method=display&doc_no=" + Encode.forJavaScript(dispDocNo) + "&providerNo=" + Encode.forJavaScript(user) + "'); return false;";
                 }
 
                 item.setLinkTitle(title + serviceDateStr);
@@ -180,10 +169,6 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 javascript.append(js);
                 item.setURL(url);
                 item.setURLJavaScript(true);
-
-                if ("integrator".equalsIgnoreCase(curDoc.getSource())) {
-                    item.setBgColour("#FFCCCC");
-                }
 
                 if ("true".equals(curDoc.getAbnormal())) {
                     item.setColour("red");

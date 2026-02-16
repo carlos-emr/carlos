@@ -277,10 +277,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             String dispStatus = " ";
             String globalNoteId = "";
 
-            if (note.getRemoteFacilityId() != null) {
-                globalNoteId = "UUID" + note.getUuid();
-            }
-
             if (noteId != null) {
                 globalNoteId = note.getNoteId().toString();
 
@@ -314,8 +310,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             }
 
             noteStr = StringEscapeUtils.escapeHtml4(noteStr);
-            // for remote notes, the full text is always shown.
-            fulltxt = fullTxtFormat.get(pos) || note.getRemoteFacilityId() != null;
+            fulltxt = fullTxtFormat.get(pos);
             --pos;
             bgColour = CaseManagementViewAction.getNoteColour(note);
             if (fulltxt) {
@@ -434,8 +429,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <%
             } else {
                 String rev = note.getRevision();
-                if (note.getRemoteFacilityId() == null) // always display full note for remote notes
-                {
                     if (note.isDocument() || note.isCpp() || note.isEformData() || note.isEncounterForm() || note.isInvoice() || note.isEmailNote()) {
                         // blank if so it never displays min/max icon for documents
                     } else if (fulltxt) {
@@ -453,19 +446,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                  src='<%=ctx %>/oscarEncounter/graphics/triangle_down.gif'/>
             <%
                     }
-                }
 
-                if (note.getRemoteFacilityId() != null) // if it's a remote note, say where if came from on the top of the note
-                {
-            %>
-            <div style="background-color:#ffcccc; text-align:right">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteFrom.label"/>&nbsp;<%=note.getLocation()%>
-                ,<%=note.getProviderName()%>
-            </div>
-            <%
-                }
-
-                if (note.isGroupNote()) // if it's a remote note, say where if came from on the top of the note
+                if (note.isGroupNote())
                 {
             %>
             <div style="background-color:#33FFCC; text-align:right">
@@ -487,9 +469,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 }
 
                 if (!note.isDocument() && !note.isRxAnnotation()) {
-                    // only allow editing for local notes
-                    // also disallow editing of cpp's inline (can be edited in the cpp area)
-                    if (note.getRemoteFacilityId() == null && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
+                    if (!note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
                         if (!note.isReadOnly()) {
             %>
             <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
@@ -516,9 +496,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 //get drug from note id.
                 RxPrescriptionData.Prescription rx = note.getRxFromAnnotation(note.getNoteLink());
 
-                if (note.getRemoteFacilityId() == null) // only allow editing for local notes
-                {
-                    if (!note.isReadOnly()) {
+                if (!note.isReadOnly()) {
             %>
             <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
                href="javascript:void(0);" onclick="<%=editWarn?"noPrivs(event);":"editNote(event);"%> return false;"
@@ -526,7 +504,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>
             </a>
             <%
-                    }
                 }
 
                 if (rx != null) {
@@ -554,16 +531,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 							String editUrl = "window.open('/oscar/annotation/annotation.jsp?display=Documents&amp;table_id=" + encodedDispDocNo + "&amp;demo=" + demographicNo + "','anwin','width=400,height=500');";
 
-                if (note.getRemoteFacilityId() == null) // only allow editing for local notes
-                {
-                    if (!note.isReadOnly()) {
+                if (!note.isReadOnly()) {
             %>
                 <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
                    href="javascript:void(0);" onclick="<%=editUrl%> return false;" style="<%=bgColour%> order: 1; padding: 2px 5px;">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>
                 </a>
             <%
-                    }
                 }
             %>
             <div class="view-links"

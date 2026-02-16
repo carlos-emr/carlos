@@ -32,9 +32,6 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
@@ -60,26 +57,18 @@ import java.util.Map;
  * 
  * <p>This is the primary action for displaying message content when a user clicks on
  * a message from their inbox, sent items, or deleted messages list. It handles the
- * complete message viewing workflow including marking messages as read, managing
- * demographic associations, and processing integrated facility demographics.</p>
- * 
+ * complete message viewing workflow including marking messages as read and managing
+ * demographic associations.</p>
+ *
  * <p>Key functionality:</p>
  * <ul>
  *   <li>Retrieves and displays complete message content with metadata</li>
  *   <li>Marks messages as read (except for sent items)</li>
  *   <li>Manages demographic-message associations</li>
- *   <li>Handles integrated facility demographic transfers</li>
  *   <li>Processes special message types (e.g., OSCAR_REVIEW_TYPE)</li>
  *   <li>Manages attachment indicators for regular and PDF attachments</li>
  * </ul>
- * 
- * <p>Integration features:</p>
- * <ul>
- *   <li>Supports cross-facility messaging via Integrator</li>
- *   <li>Handles unlinked demographics from remote facilities</li>
- *   <li>Manages demographic import workflow</li>
- * </ul>
- * 
+ *
  * <p>The action stores extensive message data in the session for display,
  * including message body, subject, sender, recipients, date/time, and attachment
  * information. It then redirects to the ViewMessage.jsp page for rendering.</p>
@@ -113,7 +102,7 @@ public class MsgViewMessage2Action extends ActionSupport {
     private MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
     
     /**
-     * Manager for demographic-message associations and cross-facility demographic handling.
+     * Manager for demographic-message associations.
      */
     private MessengerDemographicManager messengerDemographicManager = SpringUtils.getBean(MessengerDemographicManager.class);
 
@@ -124,7 +113,7 @@ public class MsgViewMessage2Action extends ActionSupport {
      * <ol>
      *   <li>Validates user has read permissions for messaging</li>
      *   <li>Retrieves the message using the provided message ID</li>
-     *   <li>Processes attached demographics and unlinked integrated demographics</li>
+     *   <li>Processes attached demographics</li>
      *   <li>Handles special message types and their associated links</li>
      *   <li>Stores all message data in session for display</li>
      *   <li>Marks the message as read (unless viewing sent items)</li>
@@ -183,25 +172,6 @@ public class MsgViewMessage2Action extends ActionSupport {
             
             // Get demographics already attached to this message
             Map<Integer, String> attachedDemographics = messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, Integer.parseInt(msgDisplayMessage.getMessageId()));
-
-            // Process integrated facility demographics if Integrator is enabled
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                // Get any unlinked demographics from remote facilities
-                List<DemographicTransfer> unlinkedDemographics = messengerDemographicManager.getUnlinkedIntegratedDemographics(loggedInInfo, Integer.parseInt(messageNo));
-
-                CachedFacility remoteFacility = null;
-
-                if (unlinkedDemographics != null && unlinkedDemographics.size() > 0) {
-                    // Get information about the remote facility
-                    remoteFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), unlinkedDemographics.get(0).getIntegratorFacilityId());
-                }
-
-                if (remoteFacility != null) {
-                    // Store remote facility info in session for display
-                    request.getSession().setAttribute("demographicLocation", remoteFacility.getName());
-                    request.getSession().setAttribute("unlinkedDemographics", unlinkedDemographics);
-                }
-            }
 
             // Store all message data in session for display
             request.getSession().setAttribute("attachedDemographics", attachedDemographics);

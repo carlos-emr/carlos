@@ -28,9 +28,8 @@
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -39,14 +38,12 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.xml.ws.WebServiceException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaTypeOptionDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
@@ -73,12 +70,6 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramQueueManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager;
 import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.Referral;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.ReferralWs;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.FunctionalCentreDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
@@ -116,7 +107,6 @@ import org.apache.struts2.ServletActionContext;
  * <li>Vacancy and vacancy template management</li>
  * <li>Program queue management</li>
  * <li>Program signature tracking for audit</li>
- * <li>Remote referral integration via CAISI Integrator</li>
  * </ul>
  * <p>
  * The action uses method-based routing where the "method" request parameter
@@ -264,7 +254,7 @@ public class ProgramManager2Action extends ActionSupport {
      * <li>save_restriction_settings/enable_restriction/disable_restriction - Service restrictions</li>
      * <li>save_vacancy/save_vacancy_template/viewVacancyTemplate/chooseTemplate - Vacancy management</li>
      * <li>activeTmplStatus/inactiveTmplStatus/saveVacancyStatus - Vacancy template status</li>
-     * <li>remove_queue/remove_remote_queue - Queue management</li>
+     * <li>remove_queue - Queue management</li>
      * <li>programSignatures - Signature display</li>
      * <li>assign_role - Role assignment</li>
      * </ul>
@@ -310,8 +300,6 @@ public class ProgramManager2Action extends ActionSupport {
             return edit_team();
         } else if ("remove_queue".equals(method)) {
             return remove_queue();
-        } else if ("remove_remote_queue".equals(method)) {
-            return remove_remote_queue();
         } else if ("remove_team".equals(method)) {
             return remove_team();
         } else if ("save_restriction_settings".equals(method)) {
@@ -725,25 +713,6 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
-    }
-
-    public String remove_remote_queue() {
-        Program program = this.getProgram();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        Integer remoteReferralId = Integer.valueOf(request.getParameter("remoteReferralId"));
-
-        try {
-            ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            referralWs.removeReferral(remoteReferralId);
-        } catch (MalformedURLException e) {
-            logger.error("Unexpected error", e);
-        } catch (WebServiceException e) {
-            logger.error("Unexpected error", e);
-        }
-
-        setEditAttributes(request, String.valueOf(program.getId()));
         return "edit";
     }
 
@@ -1349,10 +1318,6 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("accesses", programManager.getProgramAccesses(programId));
             request.setAttribute("queue", programQueueManager.getActiveProgramQueuesByProgramId(Long.valueOf(programId)));
 
-            if (CaisiIntegratorManager.isEnableIntegratedReferrals(loggedInInfo.getCurrentFacility())) {
-                request.setAttribute("remoteQueue", getRemoteQueue(loggedInInfo, Integer.parseInt(programId)));
-            }
-
             request.setAttribute("programFirstSignature", programManager.getProgramFirstSignature(Integer.valueOf(programId)));
         }
 
@@ -1362,77 +1327,6 @@ public class ProgramManager2Action extends ActionSupport {
         request.setAttribute("accessTypes", programManager.getAccessTypes());
 
         request.setAttribute("facilities", facilityDao.findAll(true));
-    }
-
-    public static class RemoteQueueEntry {
-        private Referral remoteReferral = null;
-        private String clientName = null;
-        private String providerName = null;
-
-        public Referral getReferral() {
-            return remoteReferral;
-        }
-
-        public void setReferral(Referral remoteReferral) {
-            this.remoteReferral = remoteReferral;
-        }
-
-        public String getClientName() {
-            return clientName;
-        }
-
-        public void setClientName(String clientName) {
-            this.clientName = clientName;
-        }
-
-        public String getProviderName() {
-            return providerName;
-        }
-
-        public void setProviderName(String providerName) {
-            this.providerName = providerName;
-        }
-
-    }
-
-    protected List<RemoteQueueEntry> getRemoteQueue(LoggedInInfo loggedInInfo, int programId) {
-        try {
-            DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            List<Referral> remoteReferrals = referralWs.getReferralsToProgram(programId);
-
-            ArrayList<RemoteQueueEntry> results = new ArrayList<RemoteQueueEntry>();
-            for (Referral remoteReferral : remoteReferrals) {
-                RemoteQueueEntry remoteQueueEntry = new RemoteQueueEntry();
-                remoteQueueEntry.setReferral(remoteReferral);
-
-                DemographicTransfer demographicTransfer = demographicWs.getDemographicByFacilityIdAndDemographicId(remoteReferral.getSourceIntegratorFacilityId(), remoteReferral.getSourceCaisiDemographicId());
-                if (demographicTransfer != null) {
-                    remoteQueueEntry.setClientName(demographicTransfer.getLastName() + ", " + demographicTransfer.getFirstName());
-                } else {
-                    remoteQueueEntry.setClientName("N/A");
-                }
-
-                FacilityIdStringCompositePk pk = new FacilityIdStringCompositePk();
-                pk.setIntegratorFacilityId(remoteReferral.getSourceIntegratorFacilityId());
-                pk.setCaisiItemId(remoteReferral.getSourceCaisiProviderId());
-                CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), pk);
-                if (cachedProvider != null) {
-                    remoteQueueEntry.setProviderName(cachedProvider.getLastName() + ", " + cachedProvider.getFirstName());
-                } else {
-                    remoteQueueEntry.setProviderName("N/A");
-                }
-
-                results.add(remoteQueueEntry);
-            }
-            return (results);
-        } catch (MalformedURLException e) {
-            logger.error("Unexpected Error.", e);
-        } catch (WebServiceException e) {
-            logger.error("Unexpected Error.", e);
-        }
-
-        return (null);
     }
 
     public String delete_status() {

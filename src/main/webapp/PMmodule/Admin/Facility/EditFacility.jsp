@@ -152,30 +152,6 @@
             <td><input type="checkbox" name="facility.enableDigitalSignatures"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Integrator:</td>
-            <td><input type="checkbox" name="facility.integratorEnabled"/></td>
-        </tr>
-        <tr class="b">
-            <td width="20%">Integrator Url:</td>
-            <td><input type="text" name="facility.integratorUrl" id="facility.integratorUrl" /></td>
-        </tr>
-        <tr class="b">
-            <td width="20%">Integrator User:</td>
-            <td><input type="text" name="facility.integratorUser" id="facility.integratorUser" /></td>
-        </tr>
-        <tr class="b">
-            <td width="20%">Integrator Password:</td>
-            <td><input type="password" name="integratorPassword" id="integratorPassword"/></td>
-        </tr>
-        <tr class="b">
-            <td width="20%">Allow SIMS Integration:</td>
-            <td><input type="checkbox" name="facility.allowSims"/></td>
-        </tr>
-        <tr class="b">
-            <td width="20%">Enable Integrated Referrals:</td>
-            <td><input type="checkbox" name="facility.enableIntegratedReferrals"/></td>
-        </tr>
-        <tr class="b">
             <td width="20%">Enable Health Number Registry:</td>
             <td><input type="checkbox" name="facility.enableHealthNumberRegistry"/></td>
         </tr>

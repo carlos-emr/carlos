@@ -58,8 +58,6 @@ public class DSMessageCheck extends DaoTestFixtures {
 
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         Facility currentFacility = new Facility();
-        currentFacility.setIntegratorEnabled(false);
-
         loggedInInfo.setCurrentFacility(currentFacility);
 
         String provider = "999998";

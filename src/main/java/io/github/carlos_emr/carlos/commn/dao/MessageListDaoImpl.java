@@ -32,13 +32,11 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.util.Collections;
 import java.util.List;
 
 import javax.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.MessageList;
-import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -131,25 +129,6 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
         query.setParameter(1, providerNo);
         return getCountResult(query).intValue();
 
-    }
-
-    @Override
-    public int countUnreadByProviderAndFromIntegratedFacility(String providerNo) {
-        Query query = entityManager.createQuery(
-                "SELECT count(l) FROM MessageList l, MessageTbl mt WHERE l.message = mt.id AND l.providerNo= ?1 AND l.status='new' AND mt.type = ?2");
-
-        query.setParameter(1, providerNo);
-        query.setParameter(2, OscarMsgType.INTEGRATOR_TYPE);
-        return getCountResult(query).intValue();
-    }
-
-    @Override
-    public int countUnreadByProvider(String providerNo) {
-        Query query = entityManager.createQuery(
-                "select count(l) from MessageList l where l.providerNo= ?1 and l.status='new' and l.sourceFacilityId > 0");
-
-        query.setParameter(1, providerNo);
-        return getCountResult(query).intValue();
     }
 
     @Override
@@ -259,32 +238,6 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
         Integer result = ((Long) query.getSingleResult()).intValue();
 
         return result;
-    }
-
-    @Override
-    public List<MessageList> findByIntegratedFacility(int facilityId, String status) {
-        Query query = createQuery("ml",
-                "ml.status like ?1 and ml.destinationFacilityId = ?2 order by ml.id");
-        query.setParameter(1, facilityId);
-        query.setParameter(2, status);
-        List<MessageList> results = query.getResultList();
-        if (results == null) {
-            results = Collections.emptyList();
-        }
-        return results;
-    }
-
-    @Override
-    public List<MessageList> findByMessageAndIntegratedFacility(Long messageNo, int facilityId) {
-        Query query = createQuery("ml",
-                "ml.message = ?1 and ml.destinationFacilityId = ?2 order by ml.id");
-        query.setParameter(1, messageNo);
-        query.setParameter(2, facilityId);
-        List<MessageList> results = query.getResultList();
-        if (results == null) {
-            results = Collections.emptyList();
-        }
-        return results;
     }
 
 }

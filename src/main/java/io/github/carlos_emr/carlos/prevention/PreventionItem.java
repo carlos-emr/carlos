@@ -31,7 +31,6 @@ package io.github.carlos_emr.carlos.prevention;
 
 import java.util.Date;
 
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicPrevention;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -80,14 +79,6 @@ public class PreventionItem {
         this.nextDate = pp.getNextDate();
         this.refused = pp.isRefused();
         this.inelligible = pp.isIneligible();
-    }
-
-    public PreventionItem(CachedDemographicPrevention pp) {
-        this.name = pp.getPreventionType();
-        this.datePreformed = pp.getPreventionDate().getTime();
-        this.never = ConversionUtils.toBoolString(pp.isNever());
-        this.nextDate = pp.getNextDate() == null ? null : pp.getNextDate().getTime();
-        this.refused = pp.isRefused();
     }
 
     public boolean getNeverVal() {
