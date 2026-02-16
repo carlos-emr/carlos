@@ -2,7 +2,7 @@
 
 **Date**: 2026-02-16
 **Branch**: `claude/identify-unused-classes-Zxx1H`
-**Total Unused Classes Found**: 230
+**Total Unused Classes Found**: 232
 **Total Classes in Codebase**: 4,068
 **Percentage Unused**: ~5.7%
 
@@ -30,6 +30,8 @@ in **any other file** across the entire `src/main/` directory tree, including:
 - Hibernate HBM XML mappings with `<class>` elements may reference classes indirectly.
 - Some classes may be entry points invoked via URL patterns, scheduled jobs config,
   or external systems.
+- Short/generic class names (e.g., `DAO`, `Pager`) may produce false negatives in
+  substring-based search; these were caught via secondary fully-qualified name checks.
 
 ---
 
@@ -46,7 +48,7 @@ in **any other file** across the entire `src/main/` directory tree, including:
 | Billing | 9 | Medium | Province-specific billing code |
 | Integration | 7 | Medium | External system integrations |
 | Hospital Report Manager | 4 | Low | HRM-related unused classes |
-| Utility/Infrastructure | 11 | Low | Utility classes, config, helpers |
+| Utility/Infrastructure | 13 | Low | Utility classes, config, helpers |
 | Login/Security | 5 | Medium | Auth-related unused code |
 | Other (misc) | 55 | Varies | Various domain-specific unused classes |
 
@@ -300,7 +302,9 @@ src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/PreferredMet
 src/main/java/io/github/carlos_emr/carlos/utility/EnumNameComparator.java
 src/main/java/io/github/carlos_emr/carlos/utility/HinValidator.java
 src/main/java/io/github/carlos_emr/carlos/utility/SpringPropertyConfigurer.java
+src/main/java/io/github/carlos_emr/carlos/util/DAO.java
 src/main/java/io/github/carlos_emr/carlos/util/FileHolder.java
+src/main/java/io/github/carlos_emr/carlos/util/Pager.java
 src/main/java/io/github/carlos_emr/carlos/util/PagerDef.java
 src/main/java/io/github/carlos_emr/carlos/util/plugin/OscarDbPropertiesListener.java
 src/main/java/io/github/carlos_emr/carlos/commons/LookupTagValue.java
