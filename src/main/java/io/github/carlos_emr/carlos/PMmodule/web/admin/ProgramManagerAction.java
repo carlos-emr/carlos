@@ -18,7 +18,7 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -27,36 +27,16 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
-import io.github.carlos_emr.carlos.caisi_integrator.ws.Referral;
-
+/**
+ * Previously contained the RemoteQueueEntry inner class for integrator remote queue functionality.
+ * Integrator functionality has been removed from CARLOS EMR.
+ * This class is retained as an empty stub for backward compatibility.
+ *
+ * @deprecated This class is a legacy stub retained only for backward compatibility.
+ *             It contains no functionality and should not be used in new code.
+ *             This class is a candidate for removal in a future major version.
+ * @since 2026-02 (retained as stub after integrator removal in PR #399)
+ */
+@Deprecated
 public class ProgramManagerAction {
-    public static class RemoteQueueEntry {
-        private Referral remoteReferral = null;
-        private String clientName = null;
-        private String providerName = null;
-
-        public Referral getReferral() {
-            return remoteReferral;
-        }
-
-        public void setReferral(Referral remoteReferral) {
-            this.remoteReferral = remoteReferral;
-        }
-
-        public String getClientName() {
-            return clientName;
-        }
-
-        public void setClientName(String clientName) {
-            this.clientName = clientName;
-        }
-
-        public String getProviderName() {
-            return providerName;
-        }
-
-        public void setProviderName(String providerName) {
-            this.providerName = providerName;
-        }
-    }
 }

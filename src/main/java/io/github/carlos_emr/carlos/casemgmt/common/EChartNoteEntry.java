@@ -33,7 +33,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.caisi_integrator.util.MiscUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class EChartNoteEntry {
 

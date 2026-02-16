@@ -38,9 +38,6 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicAllergy;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.DiseasesDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
@@ -204,62 +201,10 @@ public class RxPatientData {
         }
 
         public Allergy[] getAllergies(LoggedInInfo loggedInInfo) {
-            ArrayList<Allergy> results = new ArrayList<Allergy>();
             Integer demographicNo = getDemographicNo();
             List<Allergy> allergies = allergyDao.findAllergies(demographicNo);
-            results.addAll(allergies);
 
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    List<CachedDemographicAllergy> remoteAllergies = null;
-                    try {
-                        if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                            remoteAllergies = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicAllergies(demographicNo);
-                        }
-                    } catch (Exception e) {
-                        MiscUtils.getLogger().error("Unexpected error.", e);
-                        CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                    }
-
-                    if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        remoteAllergies = IntegratorFallBackManager.getRemoteAllergies(loggedInInfo, demographicNo);
-                    }
-
-                    for (CachedDemographicAllergy remoteAllergy : remoteAllergies) {
-                        Date date = null;
-                        if (remoteAllergy.getEntryDate() != null) date = remoteAllergy.getEntryDate().getTime();
-
-                        Allergy a = new Allergy();
-                        a.setDemographicNo(demographicNo);
-                        a.setId(remoteAllergy.getFacilityIdIntegerCompositePk().getCaisiItemId().intValue());
-                        a.setEntryDate(date);
-                        a.setDescription(remoteAllergy.getDescription());
-                        a.setHiclSeqno(remoteAllergy.getHiclSeqNo());
-                        a.setHicSeqno(remoteAllergy.getHicSeqNo());
-                        a.setAgcsp(remoteAllergy.getAgcsp());
-                        a.setAgccs(remoteAllergy.getAgccs());
-                        a.setTypeCode(remoteAllergy.getTypeCode());
-                        a.setIntegratorResult(true);
-                        a.setReaction(remoteAllergy.getReaction());
-
-                        if (remoteAllergy.getStartDate() != null) date = remoteAllergy.getStartDate().getTime();
-
-                        a.setStartDate(date);
-                        a.setAgeOfOnset(remoteAllergy.getAgeOfOnset());
-                        a.setSeverityOfReaction(remoteAllergy.getSeverityCode());
-                        a.setOnsetOfReaction(remoteAllergy.getOnSetCode());
-                        a.setRegionalIdentifier(remoteAllergy.getRegionalIdentifier());
-                        a.setLifeStage(remoteAllergy.getLifeStage());
-                        a.setDrugrefId(String.valueOf(remoteAllergy.getPickId()));
-
-                        results.add(a);
-                    }
-                } catch (Exception e) {
-                    logger.error("error getting remote allergies", e);
-                }
-            }
-
-            return (results.toArray(new Allergy[0]));
+            return (allergies.toArray(new Allergy[0]));
         }
 
         public Allergy[] getActiveAllergies() {

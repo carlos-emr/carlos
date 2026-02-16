@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.rx;
 
-import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,12 +38,6 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDrug;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -54,7 +47,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
-import io.github.carlos_emr.carlos.util.DateUtils;
 
 public class StaticScriptBean {
     private static final Logger logger = MiscUtils.getLogger();
@@ -111,71 +103,8 @@ public class StaticScriptBean {
             results.add(getDrugDisplayData(drug));
         }
 
-        // add remote drugs
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                List<CachedDemographicDrug> remoteDrugs = null;
-                try {
-                    if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        remoteDrugs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicDrugsByDemographicId(demographicId);
-                    }
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Unexpected error.", e);
-                    CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                }
-
-                if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    remoteDrugs = IntegratorFallBackManager.getRemoteDrugs(loggedInInfo, demographicId);
-                }
-
-                if (remoteDrugs != null) {
-                    for (CachedDemographicDrug remoteDrug : remoteDrugs) {
-                        if (regionalIdentifier != null) {
-                            if (regionalIdentifier.equals(remoteDrug.getRegionalIdentifier()))
-                                results.add(getDrugDisplayData(loggedInInfo, remoteDrug));
-                        } else if (customName != null && !"null".equals(customName) && customName.equals(remoteDrug.getCustomName()))
-                            results.add(getDrugDisplayData(loggedInInfo, remoteDrug));
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("Unexpected error", e);
-            }
-        }
-
         Collections.sort(results, DrugDisplayData.DATE_COMPARATOR);
         return (results);
-    }
-
-    private static DrugDisplayData getDrugDisplayData(LoggedInInfo loggedInInfo, CachedDemographicDrug remoteDrug) throws MalformedURLException {
-        DrugDisplayData drugDisplayData = new DrugDisplayData();
-
-        FacilityIdStringCompositePk remoteProviderPk = new FacilityIdStringCompositePk();
-        int remoteFacilityId = remoteDrug.getFacilityIdIntegerCompositePk().getIntegratorFacilityId();
-        remoteProviderPk.setIntegratorFacilityId(remoteFacilityId);
-        remoteProviderPk.setCaisiItemId(remoteDrug.getCaisiProviderId());
-        CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteProviderPk);
-        CachedFacility cachedFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteFacilityId);
-        drugDisplayData.providerName = cachedProvider.getFirstName() + ' ' + cachedProvider.getLastName() + " @ " + cachedFacility.getName();
-
-        drugDisplayData.startDate = RxUtil.DateToString(remoteDrug.getRxDate());
-        drugDisplayData.dateStartDate = DateUtils.toDate(remoteDrug.getRxDate());
-
-        drugDisplayData.writtenDate = RxUtil.DateToString(remoteDrug.getCreateDate());
-        drugDisplayData.endDate = RxUtil.DateToString(remoteDrug.getEndDate());
-
-        drugDisplayData.prescriptionDetails = RxPrescriptionData.getFullOutLine(remoteDrug.getSpecial()).replaceAll(";", " ");
-
-        drugDisplayData.genericName = remoteDrug.getGenericName();
-
-        drugDisplayData.customName = remoteDrug.getCustomName();
-
-        drugDisplayData.brandName = remoteDrug.getBrandName();
-
-        drugDisplayData.isArchived = remoteDrug.isArchived();
-
-        drugDisplayData.isLocal = false;
-
-        return (drugDisplayData);
     }
 
     private static DrugDisplayData getDrugDisplayData(Drug drug) {

@@ -1314,7 +1314,7 @@
             <result name="genCppSingleLine">/provider/setCppSingleLine.jsp</result>
             <result name="genAckCommentLab">/provider/setLabAckComment.jsp</result>
             <result name="genLabRecallPrefs">/provider/setLabRecallPrefs.jsp</result>
-            <result name="genIntegrator">/admin/setIntegratorProperties.jsp</result>
+
             <result name="genEncounterWindowSize">/provider/setEncounterWindowSize.jsp</result>
             <result name="genQuickChartSize">/provider/setQuickChartSize.jsp</result>
             <result name="genEDocBrowserInDocumentReport">/provider/setEDocBrowserInDocumentReport.jsp</result>
@@ -1432,9 +1432,6 @@
             <result name="outside">/billing/CA/ON/billingLreport.jsp</result>
             <result name="error">/billing/CA/ON/billingOBECEA.jsp</result>
         </action>
-        <!--action name="PMmodule/remoteReferal" class="oscar.remotereferal.OscarRemoteReferal2Action">
-            <result name="success">/eform/efmshowform_data.jsp</result>
-        </action-->
         <action name="oscarWaitingList/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/oscarWaitingList/DisplayPatientWaitingList.jsp</result>
         </action>
@@ -2211,7 +2208,7 @@
         </action>
         <!--action name="consults/Consultations" class="org.oscarehr.consultations.Consultation2Action"/-->
         <action name="DemographicExtService" class="io.github.carlos_emr.carlos.commn.web.DemographicExtService2Action"/>
-        <action name="integrator/IntegratorPush" class="io.github.carlos_emr.carlos.commn.web.IntegratorPush2Action"/>
+
         <action name="printReferralLabelAction" class="io.github.carlos_emr.carlos.commn.web.PrintReferralLabel2Action"/>
         <action name="billing/CA/ON/billingON3rdPayments" class="io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action" method="execute">
             <result name="success">/billing/CA/ON/billingON3rdPayments.jsp</result>
