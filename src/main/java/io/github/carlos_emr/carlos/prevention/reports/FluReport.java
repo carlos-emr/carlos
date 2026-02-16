@@ -38,7 +38,6 @@ import java.util.GregorianCalendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 
@@ -77,17 +76,6 @@ public class FluReport implements PreventionReport {
 
             ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "Flu", demo);
             PreventionData.addRemotePreventions(loggedInInfo, prevs, demo, "Flu", null);
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    ArrayList<HashMap<String, Object>> remotePreventions = PreventionData.getLinkedRemotePreventionData(loggedInInfo, "Flu", demo);
-                    prevs.addAll(remotePreventions);
-
-                    Collections.sort(prevs, new PreventionData.PreventionsComparator());
-                } catch (Exception e) {
-                    log.error("Error getting remote preventions.", e);
-                }
-            }
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
             PreventionReportDisplay prd = new PreventionReportDisplay();

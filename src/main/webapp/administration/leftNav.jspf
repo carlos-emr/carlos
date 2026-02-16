@@ -823,9 +823,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp">REST Clients</a></li>
 						</ul>
 					</li>
-<%--					<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/integratorStatus.jsp">Integrator Status</a></li>--%>
-					
-<%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/setProviderStaleDate.do?method=viewIntegratorProperties'><fmt:setBundle basename="oscarResources"/><fmt:message key="providers.btnSetIntegratorPreferences"/></a></li>--%>
 <%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 					
 					<caisi:isModuleLoad moduleName="HRM">
@@ -854,7 +851,6 @@ String curProvider_no = (String)session.getAttribute("user");
 			
 					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/updateDrugref.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>	
 <%-- K2A config link removed --%>
-<%--					<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/integratorPushStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.integratorPush"/></a></li>--%>
 
 					<caisi:isModuleLoad moduleName="BORN">
 						<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/born.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.born"/></a></li>

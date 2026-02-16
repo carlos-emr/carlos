@@ -56,14 +56,6 @@
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 
 <%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
@@ -278,7 +270,7 @@
                 String temp = null;
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     temp = e.nextElement().toString();
-                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit") || temp.equals("includeIntegratedResults"))
+                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit"))
                         continue;
             %>
             <input type="hidden" name="<%=Encode.forHtmlAttribute(temp)%>"
@@ -302,19 +294,6 @@
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>">
             </div>
-            <%
-                if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            %>
-            <input type="checkbox" class="checkbox-inline" name="includeIntegratedResults"
-                   value="true"   <%="true".equals(request.getParameter("includeIntegratedResults")) ? "checked" : ""%>/>
-            <span style="font-size:small"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgInclIntegratedResults"/></span>
-            <% } %>
-            <%--   </li>--%>
-            <% if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {%>
-            <%--        <li>--%>
-            <jsp:include page="/admin/IntegratorStatus.jspf"></jsp:include>
-            <%--        </li>--%>
-            <% } %>
             <%--    </ul>--%>
         </div>
     </form>
@@ -531,67 +510,6 @@
                         }
                     }
 
-                    @SuppressWarnings("unchecked")
-                    List<MatchingDemographicTransferScore> integratorSearchResults = (List<MatchingDemographicTransferScore>) request.getAttribute("integratorSearchResults");
-                    if (integratorSearchResults != null) {
-                        for (MatchingDemographicTransferScore matchingDemographicTransferScore : integratorSearchResults) {
-                            if (isLocal(matchingDemographicTransferScore, demoList)) {
-                                continue;
-                            }
-                            rowCounter++;
-                            bgColor = rowCounter % 2 == 0 ? "#EEEEFF" : "white";
-                            DemographicTransfer demographicTransfer = matchingDemographicTransferScore.getDemographicTransfer();
-                %>
-                <tr style="background-color: <%=bgColor%>"
-                    onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                    onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demographicTransfer.getCaisiDemographicId()%>;addName('<%=demographicTransfer.getCaisiDemographicId()%>','<%=URLEncoder.encode(demographicTransfer.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demographicTransfer.getFirstName(), StandardCharsets.UTF_8)%>','','<%=request.getParameter("messageId")%>','<%=demographicTransfer.getCaisiProviderId()%>','<%=demographicTransfer.getIntegratorFacilityId()%>')">
-                    <td class="demoId" colspan="8">
-                        <input type="submit" class="mbttn btn btn-default btn-sm" name="demographic_no"
-                               value="Integrator <%=CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), demographicTransfer.getIntegratorFacilityId()).getName()%>:<%=demographicTransfer.getCaisiDemographicId()%>"/>
-                    </td>
-                    <td class="lastName"><%=Misc.toUpperLowerCase(demographicTransfer.getLastName())%>
-                    </td>
-                    <td class="firstName"><%=Misc.toUpperLowerCase(demographicTransfer.getFirstName())%>
-                    </td>
-                    <%
-                        String ageString = "";
-                        String bdayString = "";
-
-                        if (demographicTransfer.getBirthDate() != null) {
-                            Integer ageX = DateUtils.getAge(demographicTransfer.getBirthDate(), new GregorianCalendar());
-                            ageString = ageX.toString();
-
-                            bdayString = DateFormatUtils.ISO_DATE_FORMAT.format(demographicTransfer.getBirthDate());
-                        }
-                    %>
-                    <td class="age"><%=ageString%>
-                    </td>
-                    <td class="rosterStatus"></td>
-                    <td class="sex"><%=demographicTransfer.getGender()%>
-                    </td>
-                    <td class="dob"><%=bdayString%>
-                    </td>
-                    <td class="doctor">
-                        <%
-                            FacilityIdStringCompositePk providerPk = new FacilityIdStringCompositePk();
-                            providerPk.setIntegratorFacilityId(demographicTransfer.getIntegratorFacilityId());
-                            providerPk.setCaisiItemId(demographicTransfer.getCaisiProviderId());
-                            CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), providerPk);
-                            MiscUtils.getLogger().debug("Cached providers, pk=" + providerPk.getIntegratorFacilityId() + "," + providerPk.getCaisiItemId() + ", cachedProvider=" + cachedProvider);
-
-                            String providerName = "";
-
-                            if (cachedProvider != null) {
-                                providerName = cachedProvider.getLastName() + ", " + cachedProvider.getFirstName();
-                            }
-                        %>
-                        <%=Encode.forHtml(providerName)%>
-                    </td>
-                </tr>
-                <%
-                        }
-                    }
                     for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                         temp = e.nextElement().toString();
                         if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
@@ -712,19 +630,3 @@
 </div>
 </body>
 </html>
-<%!
-
-    Boolean isLocal(MatchingDemographicTransferScore matchingDemographicTransferScore, List<Demographic> demoList) {
-        String hin = matchingDemographicTransferScore.getDemographicTransfer().getHin();
-        for (Demographic demo : demoList) {
-
-            if (hin != null && hin.equals(demo.getHin())) {
-                return true;
-            }
-        }
-
-        return false;
-
-    }
-
-%>

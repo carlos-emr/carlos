@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.PMmodule.web;
 import io.github.carlos_emr.carlos.PMmodule.service.*;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
-import io.github.carlos_emr.carlos.commn.dao.IntegratorConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.RemoteReferralDao;
 import io.github.carlos_emr.carlos.services.LookupManager;
 import org.apache.commons.text.StringEscapeUtils;
@@ -65,7 +64,6 @@ public class ClientManagerAction {
     private ProgramManager programManager;
     private ProviderManager providerManager;
     private ProgramQueueManager programQueueManager;
-    private IntegratorConsentDao integratorConsentDao;
     private CdsClientFormDao cdsClientFormDao;
     private static AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
     private static ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);

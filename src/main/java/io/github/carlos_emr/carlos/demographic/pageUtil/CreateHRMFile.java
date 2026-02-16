@@ -42,7 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.apache.xmlbeans.XmlOptions;
-import io.github.carlos_emr.carlos.caisi_integrator.util.MiscUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import cds.DemographicsDocument;
 import cds.DemographicsDocument.Demographics.Enrolment.EnrolmentHistory;

@@ -357,13 +357,6 @@
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
                        TITLE="Close window">
             </div>
-            <%
-                LoggedInInfo loggedInInfo2 = LoggedInInfo.getLoggedInInfoFromSession(request);
-                if (loggedInInfo2.getCurrentFacility().isIntegratorEnabled()) {
-            %>
-            <input type="checkbox" class="form-control" name="includeIntegratedResults" id="includeIntegratedResults"
-                   value="true"/><label for="includeIntegratedResults">Include Integrator</label>
-            <%}%>
 
             <security:oscarSec roleName="<%=roleName%>" objectName="_search.outofdomain" rights="r">
                 <INPUT TYPE="button" onclick="searchOutOfDomain();"

@@ -30,31 +30,27 @@
 
 package io.github.carlos_emr.carlos.messenger.data;
 
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 
 /**
  * Data model representing a healthcare provider in the messaging system.
  * 
  * <p>This class encapsulates provider information for use in the messaging module,
- * supporting both local providers and remote providers from integrated facilities.
- * It serves as a unified representation of provider data across different sources,
- * including local database providers and cached providers from the CAISI integrator.</p>
- * 
+ * supporting local providers from the database.
+ * It serves as a unified representation of provider data.</p>
+ *
  * <p>Key features:
  * <ul>
- *   <li>Support for both local and remote (integrated) providers</li>
  *   <li>Composite identification through ContactIdentifier</li>
  *   <li>Provider metadata including name, type, and location</li>
  *   <li>Group membership tracking for messaging groups</li>
  * </ul>
  * </p>
- * 
+ *
  * @version 1.0
  * @since 2002
  * @see ContactIdentifier
  * @see Provider
- * @see CachedProvider
  */
 public final class MsgProviderData {
 
@@ -98,24 +94,6 @@ public final class MsgProviderData {
      */
     public MsgProviderData() {
         // Default constructor for manual population
-    }
-
-    /**
-     * Constructs provider data from a cached remote provider.
-     * 
-     * <p>This constructor is used when creating provider data from a remote
-     * facility accessed through the CAISI integrator. The location is set
-     * to "Integrator" to indicate this is a remote provider.</p>
-     * 
-     * @param cachedProvider The cached provider from a remote integrated facility
-     */
-    public MsgProviderData(CachedProvider cachedProvider) {
-        getId().setContactId(cachedProvider.getFacilityIdStringCompositePk().getCaisiItemId());
-        getId().setFacilityId(cachedProvider.getFacilityIdStringCompositePk().getIntegratorFacilityId());
-        setFirstName(cachedProvider.getFirstName());
-        setLastName(cachedProvider.getLastName());
-        setLocation("Integrator");
-        setProviderType(cachedProvider.getSpecialty());
     }
 
     /**

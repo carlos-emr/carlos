@@ -31,19 +31,13 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicAllergy;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -54,9 +48,6 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 
 public class EctDisplayAllergy2Action extends EctDisplayAction {
-
-    private static Logger logger = MiscUtils.getLogger();
-
 
     private String cmd = "allergies";
 
@@ -99,40 +90,6 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
 
                 NavBarDisplayDAO.Item item = makeItem(date, allergies[idx].getDescription(), allergies[idx].getSeverityOfReaction(), locale, prefsBean, startDate, severity);
                 Dao.addItem(item);
-            }
-
-            // --- get integrator allergies ---
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    List<CachedDemographicAllergy> remoteAllergies = null;
-                    try {
-                        if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                            remoteAllergies = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicAllergies(demographicId);
-                            MiscUtils.getLogger().debug("remoteAllergies retrieved " + remoteAllergies.size());
-                        }
-                    } catch (Exception e) {
-                        MiscUtils.getLogger().error("Unexpected error.", e);
-                        CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                    }
-
-                    if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        remoteAllergies = IntegratorFallBackManager.getRemoteAllergies(loggedInInfo, demographicId);
-                        MiscUtils.getLogger().debug("fallBack Allergies retrieved " + remoteAllergies.size());
-                    }
-
-
-                    for (CachedDemographicAllergy remoteAllergy : remoteAllergies) {
-                        Date date = null;
-                        if (remoteAllergy.getEntryDate() != null) date = remoteAllergy.getEntryDate().getTime();
-                        Date startDate = null;
-                        if (remoteAllergy.getStartDate() != null) startDate = remoteAllergy.getStartDate().getTime();
-
-                        NavBarDisplayDAO.Item item = makeItem(date, remoteAllergy.getDescription(), remoteAllergy.getSeverityCode(), locale, prefsBean, startDate, remoteAllergy.getSeverityCode());
-                        Dao.addItem(item);
-                    }
-                } catch (Exception e) {
-                    logger.error("error getting remote allergies", e);
-                }
             }
 
             // --- sort all results ---

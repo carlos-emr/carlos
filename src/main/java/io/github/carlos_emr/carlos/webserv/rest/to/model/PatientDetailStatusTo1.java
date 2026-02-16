@@ -37,11 +37,6 @@ public class PatientDetailStatusTo1 implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private boolean integratorEnabled = false;
-    private boolean integratorOffline = true;
-    private boolean integratorAllSynced = true;
-
-
     //from oscar.properties
     private boolean conformanceFeaturesEnabled = false;
     private boolean workflowEnhance = false;
@@ -50,35 +45,6 @@ public class PatientDetailStatusTo1 implements Serializable {
     private String billregion;
     private String defaultView;
     private String hospitalView;
-
-
-    public boolean isIntegratorEnabled() {
-        return integratorEnabled;
-    }
-
-    public void setIntegratorEnabled(boolean integratorEnabled) {
-        this.integratorEnabled = integratorEnabled;
-    }
-
-    public boolean isIntegratorOffline() {
-        return integratorOffline;
-    }
-
-    public void setIntegratorOffline(boolean integratorOffline) {
-        this.integratorOffline = integratorOffline;
-    }
-
-    public boolean isIntegratorAllSynced() {
-        return integratorAllSynced;
-    }
-
-    public void setIntegratorAllSynced(boolean integratorAllSynced) {
-        this.integratorAllSynced = integratorAllSynced;
-    }
-
-    public static long getSerialversionuid() {
-        return serialVersionUID;
-    }
 
 
     public boolean isConformanceFeaturesEnabled() {

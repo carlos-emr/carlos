@@ -38,11 +38,6 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.RemotePreventionHelper;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicPrevention;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
@@ -348,19 +343,6 @@ public class PreventionData {
         return list;
     }
 
-    public static ArrayList<HashMap<String, Object>> getLinkedRemotePreventionData(LoggedInInfo loggedInInfo, String preventionType, Integer localDemographicId) {
-        ArrayList<HashMap<String, Object>> allResults = RemotePreventionHelper.getLinkedPreventionDataMap(loggedInInfo, localDemographicId);
-        ArrayList<HashMap<String, Object>> filteredResults = new ArrayList<HashMap<String, Object>>();
-
-        for (HashMap<String, Object> temp : allResults) {
-            if (preventionType.equals(temp.get("type"))) {
-                filteredResults.add(temp);
-            }
-        }
-
-        return (filteredResults);
-    }
-
     public static String getPreventionComment(String id) {
         log.debug("Calling getPreventionComment " + id);
         String comment = null;
@@ -376,21 +358,6 @@ public class PreventionData {
             log.error(e.getMessage(), e);
         }
         return comment;
-    }
-
-    public static io.github.carlos_emr.carlos.prevention.Prevention getLocalandRemotePreventions(LoggedInInfo loggedInInfo, Integer demographicId) {
-        io.github.carlos_emr.carlos.prevention.Prevention prevention = getPrevention(loggedInInfo, demographicId);
-
-        List<CachedDemographicPrevention> cachedPreventions = getRemotePreventions(loggedInInfo, demographicId);
-
-        if (cachedPreventions != null) {
-            for (CachedDemographicPrevention cdp : cachedPreventions) {
-                PreventionItem pi = new PreventionItem(cdp);
-                prevention.addPreventionItem(pi);
-            }
-        }
-
-        return prevention;
     }
 
     public static io.github.carlos_emr.carlos.prevention.Prevention getPrevention(LoggedInInfo loggedInInfo, Integer demoNo) {
@@ -413,111 +380,6 @@ public class PreventionData {
             p.addPreventionItem(pi);
         }
         return p;
-    }
-
-    public static List<CachedDemographicPrevention> getRemotePreventions(LoggedInInfo loggedInInfo, Integer demographicId) {
-
-        List<CachedDemographicPrevention> remotePreventions = null;
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    remotePreventions = CaisiIntegratorManager.getLinkedPreventions(loggedInInfo, demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                remotePreventions = IntegratorFallBackManager.getRemotePreventions(loggedInInfo, demographicId);
-            }
-        }
-        if (remotePreventions == null) {
-            remotePreventions = Collections.emptyList();
-        }
-
-        return remotePreventions;
-    }
-
-    public static io.github.carlos_emr.carlos.prevention.Prevention addRemotePreventions(LoggedInInfo loggedInInfo, io.github.carlos_emr.carlos.prevention.Prevention prevention, Integer demographicId) {
-        List<CachedDemographicPrevention> remotePreventions = getRemotePreventions(loggedInInfo, demographicId);
-
-        for (CachedDemographicPrevention cachedDemographicPrevention : remotePreventions) {
-            Date preventionDate = DateUtils.toDate(cachedDemographicPrevention.getPreventionDate());
-
-            PreventionItem pItem = new PreventionItem(cachedDemographicPrevention.getPreventionType(), preventionDate);
-            pItem.setRemoteEntry(true);
-            prevention.addPreventionItem(pItem);
-        }
-
-        return (prevention);
-    }
-
-    public static List<Prevention> addRemotePreventions(LoggedInInfo loggedInInfo, List<Prevention> preventions, Integer demographicId, String preventionType, Date demographicDateOfBirth) {
-        List<CachedDemographicPrevention> remotePreventions = getRemotePreventions(loggedInInfo, demographicId);
-        for (CachedDemographicPrevention cachedDemographicPrevention : remotePreventions) {
-            if (preventionType.equals(cachedDemographicPrevention.getPreventionType())) {
-                Prevention prevention = new Prevention();
-                prevention.setPreventionDate(cachedDemographicPrevention.getPreventionDate().getTime());
-                prevention.setPreventionType(preventionType);
-                prevention.setCompletedExternally(true);
-                prevention.setProviderNo("r:" + cachedDemographicPrevention.getCaisiProviderId());
-                preventions.add(prevention);
-            }
-
-            Collections.sort(preventions, new PreventionComparator());
-        }
-        return preventions;
-    }
-
-    public static ArrayList<Map<String, Object>> addRemotePreventions(LoggedInInfo loggedInInfo, ArrayList<Map<String, Object>> preventions, Integer demographicId, String preventionType, Date demographicDateOfBirth) {
-        List<CachedDemographicPrevention> remotePreventions = getRemotePreventions(loggedInInfo, demographicId);
-        return addRemotePreventions(loggedInInfo, remotePreventions, preventions, preventionType, demographicDateOfBirth);
-    }
-
-    public static ArrayList<Map<String, Object>> addRemotePreventions(LoggedInInfo loggedInInfo, List<CachedDemographicPrevention> remotePreventions, ArrayList<Map<String, Object>> preventions, String preventionType, Date demographicDateOfBirth) {
-        for (CachedDemographicPrevention cachedDemographicPrevention : remotePreventions) {
-            if (preventionType.equals(cachedDemographicPrevention.getPreventionType())) {
-
-                Map<String, Object> h = new HashMap<String, Object>();
-                h.put("integratorFacilityId", cachedDemographicPrevention.getFacilityPreventionPk().getIntegratorFacilityId());
-                h.put("integratorPreventionId", cachedDemographicPrevention.getFacilityPreventionPk().getCaisiItemId());
-                String remoteFacilityName = "N/A";
-                CachedFacility remoteFacility = null;
-                try {
-                    remoteFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), cachedDemographicPrevention.getFacilityPreventionPk().getIntegratorFacilityId());
-                } catch (Exception e) {
-                    log.error("Error", e);
-                }
-
-                if (remoteFacility != null) {
-                    remoteFacilityName = remoteFacility.getName();
-                }
-
-                h.put("remoteFacilityName", remoteFacilityName);
-                h.put("integratorDemographicId", cachedDemographicPrevention.getCaisiDemographicId());
-                h.put("type", cachedDemographicPrevention.getPreventionType());
-                h.put("provider_no", "remote:" + cachedDemographicPrevention.getCaisiProviderId());
-                h.put("provider_name", "remote:" + cachedDemographicPrevention.getCaisiProviderId());
-                h.put("prevention_date", DateFormatUtils.ISO_DATE_FORMAT.format(cachedDemographicPrevention.getPreventionDate()) + " 00:00");
-                h.put("prevention_date_asDate", cachedDemographicPrevention.getPreventionDate());
-                h.put("prevention_date_no_time", blankIfNull(DateFormatUtils.ISO_DATE_FORMAT.format(cachedDemographicPrevention.getPreventionDate())));
-
-                if (demographicDateOfBirth != null) {
-                    String age = UtilDateUtilities.calcAgeAtDate(demographicDateOfBirth, DateUtils.toDate(cachedDemographicPrevention.getPreventionDate()));
-                    h.put("age", age);
-                } else {
-                    h.put("age", "N/A");
-                }
-
-                preventions.add(h);
-            }
-
-            Collections.sort(preventions, new PreventionsComparator());
-        }
-
-        return preventions;
     }
 
     public static class PreventionsComparator implements Comparator<Map<String, Object>> {

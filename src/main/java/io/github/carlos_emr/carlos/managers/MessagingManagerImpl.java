@@ -254,14 +254,6 @@ public class MessagingManagerImpl implements MessagingManager {
         return count;
     }
 
-    public Integer getMyInboxIntegratorMessagesCount(LoggedInInfo loggedInInfo, String providerNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
-        }
-
-        return messageListDao.countUnreadByProviderAndFromIntegratedFacility(providerNo);
-    }
-
     /**
      * Get the count of all messages attached to the given demographic Id.
      *
@@ -536,16 +528,6 @@ public class MessagingManagerImpl implements MessagingManager {
         ContactIdentifier contactIdentifier = new ContactIdentifier();
         contactIdentifier.setContactId(providerNo);
         contactIdentifier.setClinicLocationNo(clinicLocationNo);
-
-        /*
-         *  Kinda crazy, right? based on current design; the sentByLocation id is the only way
-         *  to track the facility id for a reply to sender.
-         */
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()
-                && clinicLocationNo != getCurrentLocationId()) {
-            contactIdentifier.setFacilityId(clinicLocationNo);
-            contactIdentifier.setClinicLocationNo(0);
-        }
 
         contactIdentifierList.add(contactIdentifier);
         return contactIdentifierList;

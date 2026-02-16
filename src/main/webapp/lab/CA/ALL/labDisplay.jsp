@@ -43,7 +43,6 @@
 <%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.w3c.dom.Document" %>
-<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
 <%@ page import="java.time.format.DateTimeFormatter" %>

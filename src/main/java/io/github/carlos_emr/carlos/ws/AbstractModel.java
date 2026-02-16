@@ -53,7 +53,6 @@ import java.io.Serializable;
  *
  * @since 2026-01-18
  * @see Client
- * @see io.github.carlos_emr.carlos.caisi_integrator.ws.HnrWs
  * @see javax.xml.bind.annotation.XmlAccessorType
  * @see javax.xml.bind.annotation.XmlType
  * @see java.io.Serializable

@@ -98,9 +98,7 @@ public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
         mockLoggedInInfo = Mockito.mock(LoggedInInfo.class);
         mockFacility = Mockito.mock(Facility.class);
 
-        // Configure facility mock to return false for integrator by default
         Mockito.lenient().when(mockLoggedInInfo.getCurrentFacility()).thenReturn(mockFacility);
-        Mockito.lenient().when(mockFacility.isIntegratorEnabled()).thenReturn(false);
         Mockito.lenient().when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
 
         // Register common mocks with SpringUtils

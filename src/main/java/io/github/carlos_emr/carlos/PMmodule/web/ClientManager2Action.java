@@ -28,11 +28,9 @@
 package io.github.carlos_emr.carlos.PMmodule.web;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -44,17 +42,12 @@ import java.util.TreeMap;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import javax.xml.ws.WebServiceException;
 
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import org.springframework.beans.BeanUtils;
 import org.apache.commons.text.StringEscapeUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
@@ -81,23 +74,13 @@ import io.github.carlos_emr.carlos.PMmodule.wlmatch.MatchBO;
 import io.github.carlos_emr.carlos.PMmodule.wlmatch.MatchingManager;
 import io.github.carlos_emr.carlos.PMmodule.wlmatch.VacancyDisplayBO;
 import io.github.carlos_emr.carlos.PMmodule.wlservice.WaitListService;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedAdmission;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProgram;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.Gender;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.Referral;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.ReferralWs;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
-import io.github.carlos_emr.carlos.commn.dao.IntegratorConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
-import io.github.carlos_emr.carlos.commn.dao.RemoteReferralDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.WebUtils;
 import org.springframework.beans.factory.annotation.Required;
 
 import io.github.carlos_emr.OscarProperties;
@@ -124,21 +107,14 @@ public class ClientManager2Action extends ActionSupport {
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     private ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
     private ProgramQueueManager programQueueManager = SpringUtils.getBean(ProgramQueueManager.class);
-    private IntegratorConsentDao integratorConsentDao = SpringUtils.getBean(IntegratorConsentDao.class);
     private CdsClientFormDao cdsClientFormDao = SpringUtils.getBean(CdsClientFormDao.class);
     private static AdmissionDao admissionDao = SpringUtils.getBean(AdmissionDao.class);
     private static ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     private static ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
-    private RemoteReferralDao remoteReferralDao = SpringUtils.getBean(RemoteReferralDao.class);
     private VacancyDao vacancyDao = SpringUtils.getBean(VacancyDao.class);
     private VacancyTemplateDao vacancyTemplateDao = SpringUtils.getBean(VacancyTemplateDao.class);
     private MatchingManager matchingManager = new MatchingManager();
 
-
-
-    public void setIntegratorConsentDao(IntegratorConsentDao integratorConsentDao) {
-        this.integratorConsentDao = integratorConsentDao;
-    }
 
 
     public void setCdsClientFormDao(CdsClientFormDao cdsClientFormDao) {
@@ -450,47 +426,6 @@ public class ClientManager2Action extends ActionSupport {
 
             referToLocalAgencyProgram(request, referral, p);
         }
-        // remote referral
-        else if (referral.getRemoteFacilityId() != null && referral.getRemoteProgramId() != null) {
-            try {
-                int remoteFacilityId = Integer.parseInt(referral.getRemoteFacilityId());
-                int remoteProgramId = Integer.parseInt(referral.getRemoteProgramId());
-
-                Referral integratorReferral = new Referral();
-                integratorReferral.setDestinationIntegratorFacilityId(remoteFacilityId);
-                integratorReferral.setDestinationCaisiProgramId(remoteProgramId);
-                integratorReferral.setPresentingProblem(referral.getPresentProblems());
-                integratorReferral.setReasonForReferral(referral.getNotes());
-                integratorReferral.setSourceCaisiDemographicId(clientId);
-                integratorReferral.setSourceCaisiProviderId(loggedInInfo.getLoggedInProviderNo());
-
-                ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                referralWs.makeReferral(integratorReferral);
-
-                // save local copy
-                RemoteReferral remoteReferral = new RemoteReferral();
-                remoteReferral.setFacilityId(loggedInInfo.getCurrentFacility().getId());
-                remoteReferral.setDemographicId(clientId);
-                remoteReferral.setPresentingProblem(referral.getPresentProblems());
-                remoteReferral.setReasonForReferral(referral.getNotes());
-                remoteReferral.setReferalDate(new GregorianCalendar());
-
-                CachedFacility cachedFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteFacilityId);
-                remoteReferral.setReferredToFacilityName(cachedFacility.getName());
-
-                FacilityIdIntegerCompositePk remoteProgramCompositeKey = new FacilityIdIntegerCompositePk();
-                remoteProgramCompositeKey.setIntegratorFacilityId(remoteFacilityId);
-                remoteProgramCompositeKey.setCaisiItemId(remoteProgramId);
-                CachedProgram cachedProgram = CaisiIntegratorManager.getRemoteProgram(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteProgramCompositeKey);
-                remoteReferral.setReferredToProgramName(cachedProgram.getName());
-
-                remoteReferral.setReferringProviderNo(loggedInInfo.getLoggedInProviderNo());
-                remoteReferralDao.persist(remoteReferral);
-            } catch (Exception e) {
-                WebUtils.addErrorMessage(request.getSession(), "Error processing referral : " + e.getMessage());
-                logger.error("Unexpected Error.", e);
-            }
-        }
 
         setEditAttributes(request, String.valueOf(clientId));
         this.setProgram(new Program());
@@ -552,24 +487,6 @@ public class ClientManager2Action extends ActionSupport {
             p.setName(program.getName());
             request.setAttribute("program", program);
         }
-        // if it's a remote referal
-        else if (r.getRemoteFacilityId() != null && r.getRemoteProgramId() != null) {
-            try {
-                FacilityIdIntegerCompositePk pk = new FacilityIdIntegerCompositePk();
-                pk.setIntegratorFacilityId(Integer.parseInt(r.getRemoteFacilityId()));
-                pk.setCaisiItemId(Integer.parseInt(r.getRemoteProgramId()));
-                CachedProgram cachedProgram = CaisiIntegratorManager.getRemoteProgram(loggedInInfo, loggedInInfo.getCurrentFacility(), pk);
-
-                p.setName(cachedProgram.getName());
-
-                Program program = new Program();
-                BeanUtils.copyProperties(cachedProgram, program);
-
-                request.setAttribute("program", program);
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-            }
-        }
 
         request.setAttribute("do_refer", true);
         request.setAttribute("temporaryAdmission", programManager.getEnabled());
@@ -578,7 +495,6 @@ public class ClientManager2Action extends ActionSupport {
     }
 
     public String vacancy_refer_select_program() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         Program p = this.getProgram();
         ClientReferral r = this.getReferral();
         r.setSelectVacancy(request.getParameter("vacancyName"));
@@ -594,24 +510,6 @@ public class ClientManager2Action extends ActionSupport {
             p.setVacancyName(request.getParameter("vacancyName"));
             p.setVacancyId(Integer.valueOf(request.getParameter("vacancyId")));
             request.setAttribute("program", program);
-        }
-        // if it's a remote referal
-        else if (r.getRemoteFacilityId() != null && r.getRemoteProgramId() != null) {
-            try {
-                FacilityIdIntegerCompositePk pk = new FacilityIdIntegerCompositePk();
-                pk.setIntegratorFacilityId(Integer.parseInt(r.getRemoteFacilityId()));
-                pk.setCaisiItemId(Integer.parseInt(r.getRemoteProgramId()));
-                CachedProgram cachedProgram = CaisiIntegratorManager.getRemoteProgram(loggedInInfo, loggedInInfo.getCurrentFacility(), pk);
-
-                p.setName(cachedProgram.getName());
-
-                Program program = new Program();
-                BeanUtils.copyProperties(cachedProgram, program);
-
-                request.setAttribute("program", program);
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-            }
         }
 
         request.setAttribute("do_refer", true);
@@ -771,110 +669,13 @@ public class ClientManager2Action extends ActionSupport {
     }
 
     public String search_programs() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-
         Program criteria = this.getProgram();
         List<Program> programs = programManager.search(criteria);
         request.setAttribute("programs", programs);
 
-        if (CaisiIntegratorManager.isEnableIntegratedReferrals(loggedInInfo.getCurrentFacility())) {
-            try {
-                List<CachedProgram> results = CaisiIntegratorManager.getRemoteProgramsAcceptingReferrals(loggedInInfo, loggedInInfo.getCurrentFacility());
-
-                filterResultsByCriteria(results, criteria);
-
-                removeCommunityPrograms(results);
-
-                request.setAttribute("remotePrograms", results);
-            } catch (MalformedURLException e) {
-                logger.error("unexpected error", e);
-            } catch (WebServiceException e) {
-                logger.error("unexpected error", e);
-            }
-        }
-
         ProgramUtils.addProgramRestrictions(request);
 
         return "search_programs";
-    }
-
-    private void removeCommunityPrograms(List<CachedProgram> results) {
-        Iterator<CachedProgram> it = results.iterator();
-        while (it.hasNext()) {
-            CachedProgram cachedProgram = it.next();
-            if ("community".equals(cachedProgram.getType())) it.remove();
-        }
-    }
-
-    private void filterResultsByCriteria(List<CachedProgram> results, Program criteria) {
-
-        Iterator<CachedProgram> it = results.iterator();
-        while (it.hasNext()) {
-            CachedProgram cachedProgram = it.next();
-            String temp = StringUtils.trimToNull(criteria.getName());
-            if (temp != null) {
-                if (!cachedProgram.getName().toLowerCase().contains(temp.toLowerCase())) {
-                    it.remove();
-                    continue;
-                }
-            }
-
-            temp = StringUtils.trimToNull(criteria.getType());
-            if (temp != null) {
-                if (!cachedProgram.getType().equals(temp)) {
-                    it.remove();
-                    continue;
-                }
-            }
-
-            temp = StringUtils.trimToNull(criteria.getManOrWoman());
-            if (temp != null) {
-                if (cachedProgram.getGender() != null && !cachedProgram.getGender().name().equals(temp.toUpperCase())) {
-                    it.remove();
-                    continue;
-                }
-            }
-
-            if (criteria.isTransgender() && cachedProgram.getGender() != Gender.T) {
-                it.remove();
-                continue;
-            }
-
-            if (criteria.isFirstNation() && !cachedProgram.isFirstNation()) {
-                it.remove();
-                continue;
-            }
-
-
-            if (criteria.isAlcohol() && !cachedProgram.isAlcohol()) {
-                it.remove();
-                continue;
-            }
-
-            temp = StringUtils.trimToNull(criteria.getAbstinenceSupport());
-            if (temp != null) {
-                if (cachedProgram.getAbstinenceSupport() != null && !cachedProgram.getAbstinenceSupport().equals(temp)) {
-                    it.remove();
-                    continue;
-                }
-            }
-
-            if (criteria.isPhysicalHealth() && !cachedProgram.isPhysicalHealth()) {
-                it.remove();
-                continue;
-            }
-
-            if (criteria.isMentalHealth() && !cachedProgram.isMentalHealth()) {
-                it.remove();
-                continue;
-            }
-
-            if (criteria.isHousing() && !cachedProgram.isHousing()) {
-                it.remove();
-                continue;
-            }
-        }
     }
 
 
@@ -1022,7 +823,6 @@ public class ClientManager2Action extends ActionSupport {
                     admissionList.add(new AdmissionForDisplay(admission1));
                 }
             }
-            addRemoteAdmissions(loggedInInfo, admissionList, demographicId);
             request.setAttribute("admissions", admissionList);
 
             // Intake functionality removed
@@ -1043,8 +843,6 @@ public class ClientManager2Action extends ActionSupport {
             List<Admission> addLocalAdmissions = admissionManager.getAdmissionsByFacility(demographicId, facilityId);
             for (Admission admission : addLocalAdmissions)
                 allResults.add(new AdmissionForDisplay(admission));
-
-            addRemoteAdmissions(loggedInInfo, allResults, demographicId);
 
             request.setAttribute("admissionHistory", allResults);
             request.setAttribute("referralHistory", getReferralsForHistory(loggedInInfo, demographicId, facilityId));
@@ -1076,20 +874,7 @@ public class ClientManager2Action extends ActionSupport {
 
 
             /* consent forms */
-            int clientId = Integer.parseInt(demographicNo);
-            List<IntegratorConsent> consentTemp = integratorConsentDao.findByFacilityAndDemographic(facilityId, clientId);
-            TreeMap<Date, HashMap<String, Object>> consents = new TreeMap<Date, HashMap<String, Object>>(Collections.reverseOrder());
-            for (IntegratorConsent x : consentTemp) {
-                HashMap<String, Object> map = new HashMap<String, Object>();
-                map.put("createdDate", DateFormatUtils.ISO_DATETIME_FORMAT.format(x.getCreatedDate()).replace('T', ' '));
-                Provider provider = providerDao.getProvider(x.getProviderNo());
-                map.put("providers", provider.getFormattedName());
-                map.put("consentId", x.getId());
-
-                consents.put(x.getCreatedDate(), map);
-            }
-
-            request.setAttribute("consents", consents.values());
+            request.setAttribute("consents", new ArrayList<>());
 
             // CDS forms
             List<CdsClientForm> cdsForms = cdsClientFormDao.findByFacilityClient(facilityId, clientId);
@@ -1111,64 +896,6 @@ public class ClientManager2Action extends ActionSupport {
             }
             request.setAttribute("referrals", clientReferralDisplay);
 
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    ArrayList<RemoteReferral> results = new ArrayList<RemoteReferral>();
-
-                    // get local data
-                    List<RemoteReferral> remoteReferralsFromDB = remoteReferralDao.findByFacilityIdDemogprahicId(facilityId, demographicId);
-                    results.addAll(remoteReferralsFromDB);
-
-                    // get remote Data
-                    ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-
-                    Integer currentRemoteFacilityId = CaisiIntegratorManager.getCurrentRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility()).getIntegratorFacilityId();
-                    List<Referral> referrals = referralWs.getLinkedReferrals(Integer.parseInt(demographicNo));
-
-                    if (referrals != null) {
-                        for (Referral remoteReferral : referrals) {
-                            if (currentRemoteFacilityId.equals(remoteReferral.getSourceIntegratorFacilityId()))
-                                continue;
-
-                            RemoteReferral temp = new RemoteReferral();
-                            CachedFacility cachedFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteReferral.getDestinationIntegratorFacilityId());
-                            temp.setReferredToFacilityName(cachedFacility.getName());
-
-                            FacilityIdIntegerCompositePk pk = new FacilityIdIntegerCompositePk();
-                            pk.setIntegratorFacilityId(remoteReferral.getDestinationIntegratorFacilityId());
-                            pk.setCaisiItemId(remoteReferral.getDestinationCaisiProgramId());
-                            CachedProgram cachedProgram = CaisiIntegratorManager.getRemoteProgram(loggedInInfo, loggedInInfo.getCurrentFacility(), pk);
-                            temp.setReferredToProgramName(cachedProgram.getName());
-
-                            temp.setReferalDate(remoteReferral.getReferralDate());
-
-                            Provider tempProvider = providerDao.getProvider(remoteReferral.getSourceCaisiProviderId());
-                            temp.setReferringProviderNo(tempProvider.getFormattedName());
-
-                            temp.setReasonForReferral(remoteReferral.getReasonForReferral());
-                            temp.setPresentingProblem(remoteReferral.getPresentingProblem());
-
-                            results.add(temp);
-                        }
-                    }
-
-                    Comparator<RemoteReferral> tempComparator = new Comparator<RemoteReferral>() {
-                        @Override
-                        public int compare(RemoteReferral o1, RemoteReferral o2) {
-                            if (o1.getReferalDate() == null && o2.getReferalDate() == null) return (0);
-                            if (o1.getReferalDate() == null) return (-1);
-                            if (o2.getReferalDate() == null) return (1);
-                            return (o1.getReferalDate().compareTo(o2.getReferalDate()));
-                        }
-                    };
-
-                    Collections.sort(results, tempComparator);
-
-                    request.setAttribute("remoteReferrals", results);
-                } catch (Exception e) {
-                    logger.error("Unexpected Error.", e);
-                }
-            }
             //Added for refer to Vacancy
             if (tabBean.getTab().equals("Refer to vacancy")) {
 //				Program criteria = this.getProgram();				
@@ -1283,34 +1010,6 @@ public class ClientManager2Action extends ActionSupport {
     }
 
 
-    private void addRemoteAdmissions(LoggedInInfo loggedInInfo, ArrayList<AdmissionForDisplay> admissionsForDisplay, Integer demographicId) {
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-
-            try {
-                List<CachedAdmission> cachedAdmissions = null;
-                try {
-                    if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        cachedAdmissions = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedAdmissionsByDemographicId(demographicId);
-                    }
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Unexpected error.", e);
-                    CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                }
-
-                if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    cachedAdmissions = IntegratorFallBackManager.getRemoteAdmissions(loggedInInfo, demographicId);
-                }
-
-                for (CachedAdmission cachedAdmission : cachedAdmissions)
-                    admissionsForDisplay.add(new AdmissionForDisplay(loggedInInfo, cachedAdmission));
-
-                Collections.sort(admissionsForDisplay, AdmissionForDisplay.ADMISSION_DATE_COMPARATOR);
-            } catch (Exception e) {
-                logger.error("Error retrieveing integrated admissions.", e);
-            }
-        }
-    }
-
     private List<ReferralSummaryDisplay> getReferralsForSummary(LoggedInInfo loggedInInfo, Integer demographicNo, Integer facilityId) {
         ArrayList<ReferralSummaryDisplay> allResults = new ArrayList<ReferralSummaryDisplay>();
 
@@ -1328,20 +1027,6 @@ public class ClientManager2Action extends ActionSupport {
 
         }
 
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-
-                List<Referral> tempRemoteReferrals = referralWs.getLinkedReferrals(demographicNo);
-                for (Referral referral : tempRemoteReferrals)
-                    allResults.add(new ReferralSummaryDisplay(loggedInInfo, referral));
-
-                Collections.sort(allResults, ReferralSummaryDisplay.REFERRAL_DATE_COMPARATOR);
-            } catch (Exception e) {
-                logger.error("Unexpected error.", e);
-            }
-        }
-
         return (allResults);
     }
 
@@ -1350,20 +1035,6 @@ public class ClientManager2Action extends ActionSupport {
 
         for (ClientReferral clientReferral : clientManager.getReferralsByFacility(demographicNo, facilityId))
             allResults.add(new ReferralHistoryDisplay(clientReferral));
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-
-                List<Referral> tempRemoteReferrals = referralWs.getLinkedReferrals(demographicNo);
-                for (Referral referral : tempRemoteReferrals)
-                    allResults.add(new ReferralHistoryDisplay(loggedInInfo, loggedInInfo.getCurrentFacility(), referral));
-
-                Collections.sort(allResults, ReferralHistoryDisplay.REFERRAL_DATE_COMPARATOR);
-            } catch (Exception e) {
-                logger.error("Unexpected error.", e);
-            }
-        }
 
         return (allResults);
     }
