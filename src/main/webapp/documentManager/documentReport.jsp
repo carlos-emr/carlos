@@ -529,7 +529,7 @@
 
                                 <td>
                                     <%
-                                        String url = "ManageDocument.do?method=display&doc_no=" + curdoc.getDocId() + "&providerNo=" + user_no + (curdoc.getRemoteFacilityId() != null ? "&remoteFacilityId=" + curdoc.getRemoteFacilityId() : "");
+                                        String url = "ManageDocument.do?method=display&doc_no=" + curdoc.getDocId() + "&providerNo=" + user_no;
                                     %>
                                     <a <%=curdoc.getStatus() == 'D' ? "style='text-decoration:line-through'" : ""%>
                                             href="javascript:void(0);"
@@ -558,7 +558,6 @@
                                 <td style="text-align: right;">
                                     <div style="white-space: nowrap;">
                                         <%
-                                            if (curdoc.getRemoteFacilityId() == null) {
                                                 if (curdoc.getCreatorId().equalsIgnoreCase(user_no)) {
                                                     if (curdoc.getStatus() == 'D') { %>
                                         <a href="documentReport.jsp?undelDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&viewstatus=<%=Encode.forUriComponent(viewstatus)%>"
@@ -671,9 +670,6 @@
                                             </svg>
                                         </a>
 
-                                        <% } %>
-                                        <%} else { %>
-                                        Remote Document
                                         <% } %>
                                     </div><!-- button grouping -->
                                 </td>

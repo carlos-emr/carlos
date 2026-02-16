@@ -202,46 +202,6 @@
   );
 %>
 
-<ul>
-  <c:forEach var="remoteNote" items="${remoteNotes}" varStatus="status">
-    <% 
-       // pull the JSP var "remoteNote" into a Java variable
-       NoteDisplay note =
-         (NoteDisplay) pageContext.getAttribute("remoteNote");
-
-       // now you can use 'note' in your scriptlet
-       String rawText   = note.getNote().replaceAll("\n","<br>");
-       String rawTextJs = Encode.forJavaScript(rawText);
-
-       String locAttr = note.getLocation();
-       String locJs   = Encode.forJavaScript(locAttr);
-
-       String provAttr = note.getProviderName();
-       String provJs   = Encode.forJavaScript(provAttr);
-
-       String timestamp = ConversionUtils
-                            .toTimestampString(note.getObservationDate());
-       String timeJs   = Encode.forJavaScript(timestamp);
-    %>
-
-    <li class="cpp ${status.index % 2 == 0 ? 'row-even' : 'row-odd'}">
-      <a class="links"
-         onmouseover="this.className='linkhover'"
-         onmouseout="this.className='links'"
-         title="<%= Encode.forHtmlAttribute(locAttr) %> by <%= Encode.forHtmlAttribute(provAttr) %> on <%= Encode.forHtmlAttribute(timestamp) %>"
-         href="javascript:void(0)"
-         onclick="showIntegratedNote(
-           '<%= resolvedTitleJs %>',
-           '<%= rawTextJs      %>',
-           '<%= locJs          %>',
-           '<%= provJs         %>',
-           '<%= timeJs         %>'
-         ); return false;">
-        <%= Encode.forHtml(rawText) %>
-      </a>
-    </li>
-  </c:forEach>
-</ul>
 
 
 <input type="hidden" id="${param.cmd}num" value="${num}">

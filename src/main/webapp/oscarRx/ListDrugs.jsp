@@ -253,9 +253,7 @@
                 CaseManagementNoteLink cml = null;
                 CaseManagementNote p_cmn = null;
 
-                if (prescriptDrug.getRemoteFacilityId() != null) {
-                    cml = caseManagementManager.getLatestLinkByTableId(tableName, Long.parseLong(prescriptDrug.getId().toString()));
-                }
+                cml = caseManagementManager.getLatestLinkByTableId(tableName, Long.parseLong(prescriptDrug.getId().toString()));
 
                 if (cml != null) {
                     p_cmn = caseManagementManager.getNote(cml.getNoteId().toString());
@@ -382,7 +380,7 @@
             	<% 	
             		List<DrugReason> drugReasons  = drugReasonDao.getReasonsForDrugID(prescriptDrug.getId(),true);            		            					        	
 			
-            		if (prescriptDrug.getRemoteFacilityId()==null && securityManager.hasWriteAccess("_rx",roleName$,true) )
+            		if (securityManager.hasWriteAccess("_rx",roleName$,true) )
             		{
             			%>
 			           	 	<a href="javascript:void(0);"  onclick="popupRxReasonWindow(<%=patient.getDemographicNo()%>,<%=prescriptIdInt%>);"  title="<%=displayDrugReason(codingSystemManager,drugReasons,true) %>">
@@ -391,7 +389,7 @@
             	%>
             	<%=StringUtils.maxLenString(displayDrugReason(codingSystemManager,drugReasons,false), 4, 3, StringUtils.ELLIPSIS)%>
 				<%
-		      		if (prescriptDrug.getRemoteFacilityId()==null  && securityManager.hasWriteAccess("_rx",roleName$,true))
+		      		if (securityManager.hasWriteAccess("_rx",roleName$,true))
 		      		{
 		      			%>
 			            	</a>
@@ -417,16 +415,11 @@
 			<%if(securityManager.hasWriteAccess("_rx",roleName$,true)) {%>
             <td width="10px" align="center">
                 <%
-                    if (prescriptDrug.getRemoteFacilityId() == null) {
-                %>
                 <a href="javascript:void(0);" title="Annotation"
                    onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=prescriptIdInt%>&amp;demo=<%=bean.getDemographicNo()%>&amp;drugSpecial=<%=StringEscapeUtils.escapeEcmaScript(specialText)%>','anwin','width=400,height=500');">
                     <%if (!isPrevAnnotation) {%> <img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                       width="13" border="0"><%} else {%><img
                         src="<%= request.getContextPath() %>/images/filledNotes.gif" height="16" width="13" alt="rxFilledNotes" border="0"> <%}%></a>
-                <%
-                    }
-                %>
             </td>
             <% } %>
 

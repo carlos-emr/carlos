@@ -137,13 +137,6 @@
 
 %>
 
-<%!
-    public String getFromFacilityMsg(Map<String, Object> ht) {
-        if (ht.get("id") == null)
-            return ("<br /><span style=\"color:#990000\">(At facility : " + ht.get("remoteFacilityName") + ")<span>");
-        else return ("");
-    }
-%>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -933,7 +926,7 @@
                                     }
                                 %>
 
-                                            <%=getFromFacilityMsg(hdata)%></p>
+                                            </p>
                                 </div>
                                 <%}%>
                             </div>
@@ -1078,8 +1071,7 @@
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <%=hdata.get("age")%> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <%=StringEscapeUtils.escapeHtml4((String) hdata.get("prevention_date_no_time"))%>
-                                                <%=getFromFacilityMsg(hdata)%>
-                                            </p>
+                                                                                            </p>
                                         </div>
                                         <%}%>
                                     </div>

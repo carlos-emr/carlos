@@ -826,7 +826,8 @@ div.recommendations ul{
             <%if (comb) {%>
             <span class="footnote"><%=comments.size()%></span>
             <%}%>
-           <%=getFromFacilityMsg(mdb) %>
+
+
         </p>
     </div>
     <%}%>
@@ -1113,9 +1114,8 @@ if(idExists("WT") && idExists("HT" ) && idExists("BMI")){
         return ret;
     }
 
-    public String getFromFacilityMsg(EctMeasurementsDataBean emdb){
-		return("");
-	}
+
+
 
 
 
