@@ -47,8 +47,8 @@ import java.net.SocketException;
 import java.net.URL;
 
 /**
- * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client, or source=hnr_client. Depending on the source, you may optionally need more parameters, as examples a local_client
- * may need a clientId=5 or a hnr_client may need linkingId=3. <br />
+ * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client. Depending on the source, you may optionally need more parameters, as an example a local_client
+ * may need a clientId=5. <br />
  * <br />
  * The structure of this class follows the structure of the Servlet class itself in the pattern of the service() -> (doPost/doGet/doDelete), from the doGet we fork to each specific source processor. <br />
  * <br />
