@@ -2,9 +2,9 @@
 
 **Date**: 2026-02-16
 **Branch**: `claude/identify-unused-classes-Zxx1H`
-**Total Unused Classes Found**: 251 (explicitly unreferenced) + ~230 JAXB stubs (see Section 17)
+**Total Unused Classes Found**: 262 (explicitly unreferenced) + ~230 JAXB stubs (see Section 17)
 **Total Classes in Codebase**: 4,068
-**Percentage Unused**: ~11.8% including JAXB stubs, ~6.2% excluding them
+**Percentage Unused**: ~12.1% including JAXB stubs, ~6.4% excluding them
 
 ## Methodology
 
@@ -45,6 +45,7 @@ in **any other file** across the entire `src/main/` directory tree, including:
 | Dead Model Classes (`commn/model/`) | 1 | Low | Unreferenced JPA entity (Pronoun) |
 | DAO Implementations (`commn/dao/`) | 26 | Medium | Interfaces unused too; safe to remove |
 | Registered-but-Unused Beans | 10 | Medium | Spring XML beans never consumed (incl. DAO pairs) |
+| Dead-Chain Model Classes | 11 | Medium | Models only referenced by their unused DAOs |
 | Web Services (`webserv/`) | 26 | Medium | REST/SOAP endpoints and DTOs |
 | CAISI Integrator (explicit) | 14 | Low | Related to archived CAISI integration |
 | CAISI Integrator JAXB stubs | ~230 | Low | Auto-generated WS stubs (see Section 17) |
@@ -258,7 +259,33 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxResultsRepositoryImpl.j
 The three DAO pairs are registered in `applicationContext.xml`/`spring_jpa.xml`
 (some explicitly excluded from component scanning) and never consumed.
 
-### 5c. False Positives Identified and Excluded
+### 5c. Dead Code Chain: Model Classes Only Referenced by Unused DAOs (11 classes)
+
+These model classes are **only** referenced by their corresponding DAO (listed in
+Sections 5 or 5b), which is itself unused. Removing the DAO without removing the
+model would leave an orphaned class; both should be removed together.
+
+| Model Class | File | Only Referenced By (Unused DAO) |
+|-------------|------|---------------------------------|
+| `CaisiForm` | `commn/model/CaisiForm.java` | `CaisiFormDao` |
+| `IntegratorConsentComplexExitInterview` | `commn/model/IntegratorConsentComplexExitInterview.java` | `IntegratorConsentComplexExitInterviewDao` |
+| `MdsZCL` | `commn/model/MdsZCL.java` | `MdsZCLDao` |
+| `MdsZCT` | `commn/model/MdsZCT.java` | `MdsZCTDao` |
+| `MdsZFR` | `commn/model/MdsZFR.java` | `MdsZFRDao` |
+| `OscarAnnotation` | `commn/model/OscarAnnotation.java` | `OscarAnnotationDao` |
+| `ProgramAccessRoles` | `commn/model/ProgramAccessRoles.java` | `ProgramAccessRolesDao` |
+| `ReadLab` | `commn/model/ReadLab.java` | `ReadLabDao` |
+| `RecycleBinBilling` | `commn/model/RecycleBinBilling.java` | `RecycleBinBillingDao` |
+| `RemoteDataLog` | `commn/model/RemoteDataLog.java` | `RemoteDataLogDao` |
+| `BillingPrivateTransactions` | `billing/CA/BC/model/BillingPrivateTransactions.java` | `PrivateBillTransactionsDAO` |
+
+**Notable dead subsystems**:
+- **CAISI Forms**: All 6 CaisiForm*Dao pairs + `CaisiForm` model are completely dead
+- **MergedDemographic DAOs**: All 5 `*MergedDemographic*` pairs (Allergy, Consultation,
+  Document, Drug, Prevention) - demographic merge feature appears never completed
+- **MDS (Minimum Data Set)**: All 3 MdsZ*Dao pairs + models - RAI data no longer used
+
+### 5d. False Positives Identified and Excluded
 
 The following classes were initially flagged as unused but are confirmed active:
 
@@ -596,8 +623,8 @@ The following packages were verified as fully active and should NOT be removed:
 - `UserSearchFormBean.java`
 - 6 CAISI `*_*Port_Client.java` generated test stubs
 
-### Phase 2: Remove After Verification (MEDIUM RISK - ~140 classes)
-- 26 DAO implementations (verify interfaces are also unused)
+### Phase 2: Remove After Verification (MEDIUM RISK - ~151 classes)
+- 26 DAO implementations + 11 dead-chain model classes (remove DAO+model together)
 - 10 registered-but-unused Spring beans (remove XML config + source together)
 - 26 web service REST/SOAP classes (verify no CXF auto-discovery)
 - CAISI integrator DAO + util classes (8+3 classes)
