@@ -423,12 +423,12 @@ public class FaxManagerImpl implements FaxManager {
             /*
              * Avoid duplicate fax numbers.
              */
-            if (faxJob.getDestination() == faxRecipient.getFax()) {
+            if (Objects.equals(faxJob.getDestination(), faxRecipient.getFax())) {
                 continue;
             }
 
             for (FaxJob faxJobItem : faxJobList) {
-                if (faxJobItem.getDestination() == faxRecipient.getFax()) {
+                if (Objects.equals(faxJobItem.getDestination(), faxRecipient.getFax())) {
                     continue outer;
                 }
             }
@@ -599,6 +599,10 @@ public class FaxManagerImpl implements FaxManager {
     public void updateFaxLog(LoggedInInfo loggedInInfo, FaxJob faxJob) {
 
         FaxClientLog faxClientLog = faxClientLogDao.findClientLogbyFaxId(faxJob.getId());
+        if (faxClientLog == null) {
+            logger.warn("No FaxClientLog found for fax id {} - cannot update fax log entry", faxJob.getId());
+            return;
+        }
         LogAction.addLogSynchronous(loggedInInfo, faxJob.getStatus().name(), faxClientLog.getTransactionType() + ":" + faxClientLog.getRequestId());
         faxClientLog.setResult(faxJob.getStatus().name());
         faxClientLog.setEndTime(new Date(System.currentTimeMillis()));

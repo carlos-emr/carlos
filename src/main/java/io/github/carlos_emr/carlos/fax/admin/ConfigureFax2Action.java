@@ -44,6 +44,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import io.github.carlos_emr.carlos.fax.core.FaxImporter;
 
 /**
  * Admin action for fax configuration and scheduler controls.
@@ -74,6 +78,9 @@ public class ConfigureFax2Action extends ActionSupport {
             return null;
         } else if ("restartFaxScheduler".equals(method)) {
             restartFaxScheduler();
+            return null;
+        } else if ("getPendingIncomingFaxes".equals(method)) {
+            getPendingIncomingFaxes();
             return null;
         } else if ("configure".equals(method)) {
             return configure();
@@ -135,6 +142,20 @@ public class ConfigureFax2Action extends ActionSupport {
                     faxConfigDao.remove(sfaxConfig.getId());
                 }
             } else {
+                // Validate all required arrays have consistent lengths
+                int expectedLength = faxConfigIds.length;
+                if (faxUsers == null || faxUsers.length < expectedLength
+                        || faxNumbers == null || faxNumbers.length < expectedLength
+                        || senderEmails == null || senderEmails.length < expectedLength
+                        || accountNames == null || accountNames.length < expectedLength
+                        || inboxQueues == null || inboxQueues.length < expectedLength
+                        || activeState == null || activeState.length < expectedLength
+                        || downloadState == null || downloadState.length < expectedLength) {
+                    throw new IllegalArgumentException(
+                            "Form submission is incomplete — some account fields are missing. "
+                            + "Please reload the page and try again.");
+                }
+
                 for (int idx = 0; idx < faxConfigIds.length; ++idx) {
                     if (StringUtils.trimToNull(faxConfigIds[idx]) == null) {
                         continue;
@@ -300,7 +321,7 @@ public class ConfigureFax2Action extends ActionSupport {
      * This method falls back to MIDDLEWARE when providerTypes array is missing or the value
      * at the given index is null. Throws {@link IllegalArgumentException} for invalid provider
      * type names. This ensures existing fax configurations continue working after the provider
-     * abstraction refactor (PR #345) without requiring manual updates.</p>
+     * abstraction refactor without requiring manual updates.</p>
      *
      * <p>The fallback prevents configuration errors when:
      * <ul>
@@ -428,6 +449,44 @@ public class ConfigureFax2Action extends ActionSupport {
             ObjectNode jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
             jsonObject.put("message", "Fax scheduler restart failed unexpectedly.");
+            JSONUtil.jsonResponse(response, jsonObject);
+        }
+    }
+
+    /**
+     * Returns a JSON list of fax files in the incoming directory that have not been imported yet.
+     * Provides admin visibility into pending/failed fax imports.
+     */
+    public void getPendingIncomingFaxes() {
+        try {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (loggedInInfo == null) {
+                throw new SecurityException("No valid session found");
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "r", null)) {
+                throw new SecurityException("missing required sec object (_admin.fax)");
+            }
+
+            FaxImporter faxImporter = SpringUtils.getBean(FaxImporter.class);
+            List<Map<String, Object>> pendingFaxes = faxImporter.listPendingIncomingFaxes();
+
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", true);
+            jsonObject.put("count", pendingFaxes.size());
+            ArrayNode faxArray = objectMapper.valueToTree(pendingFaxes);
+            jsonObject.set("faxes", faxArray);
+            JSONUtil.jsonResponse(response, jsonObject);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Pending faxes check denied: {}", e.getMessage());
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Insufficient privileges.");
+            JSONUtil.jsonResponse(response, jsonObject);
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Failed to list pending incoming faxes: {}", e.getMessage(), e);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Failed to list pending faxes.");
             JSONUtil.jsonResponse(response, jsonObject);
         }
     }

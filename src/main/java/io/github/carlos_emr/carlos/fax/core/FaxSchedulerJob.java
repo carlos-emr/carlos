@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -57,8 +56,12 @@ public class FaxSchedulerJob {
 
     private static final String FAX_POLL_INTERVAL_KEY = "faxPollInterval";
     private static final long DEFAULT_PERIOD_MS = 60000L;
-    private static final long FAILURE_RESTART_DELAY_MS = 300000L;
-    private static final int MAX_AUTO_RESTART_ATTEMPTS = 10;
+    // Intentional design: fixed 10-minute retry interval with no maximum attempt cap.
+    // The fax scheduler is critical infrastructure and must keep trying to recover from
+    // transient failures (database connection drops, network glitches) indefinitely.
+    // OOM and JVM errors are excluded from auto-restart (see runCycle exception handling).
+    // Each retry is logged at ERROR level so admins can monitor via log aggregation.
+    private static final long FAILURE_RESTART_DELAY_MS = 600000L;
 
     private final FaxImporter faxImporter;
     private final FaxSender faxSender;
@@ -67,7 +70,7 @@ public class FaxSchedulerJob {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong lastSuccessfulRunEpochMs = new AtomicLong(0L);
     private final AtomicReference<String> lastError = new AtomicReference<>("");
-    private final AtomicInteger autoRestartAttempts = new AtomicInteger(0);
+    private final AtomicLong autoRestartAttempts = new AtomicLong(0);
 
     private Timer timer;
     private TimerTask timerTask;
@@ -165,25 +168,16 @@ public class FaxSchedulerJob {
      *
      * <p><strong>Design Rationale:</strong> The scheduler is critical infrastructure for fax
      * operations. Rather than requiring manual admin intervention for transient failures
-     * (database connection drops, network glitches), this method automatically retries after
-     * {@link #FAILURE_RESTART_DELAY_MS} (5 minutes). If restart fails, it attempts to schedule
-     * another retry. If scheduling itself fails, it logs a CRITICAL error and updates
-     * {@link #getLastError()} so the admin UI can surface the failure state.</p>
+     * (database connection drops, network glitches), this method automatically retries at
+     * fixed 10-minute intervals indefinitely. There is intentionally no maximum attempt cap --
+     * the scheduler must keep trying to recover because clinics depend on fax delivery.
+     * OOM and JVM errors are excluded from auto-restart (see runCycle exception handling).</p>
      *
-     * <p>Admin visibility: Failure state is exposed via {@link #getLastError()} and
-     * {@link #isRunning()} for monitoring dashboards.</p>
-     *
-     * <p><strong>Note:</strong> OutOfMemoryError failures do NOT trigger automatic restart
-     * (see exception handling in {@code runCycle()}) because the system is in a bad state
-     * requiring manual intervention.</p>
+     * <p>Admin visibility: Failure state and attempt count are exposed via {@link #getLastError()}
+     * and {@link #isRunning()} for monitoring dashboards. Each retry is logged at ERROR level.</p>
      */
     private synchronized void scheduleAutomaticRestart() {
-        if (autoRestartAttempts.incrementAndGet() > MAX_AUTO_RESTART_ATTEMPTS) {
-            logger.error("CRITICAL: Max restart attempts ({}) exceeded - fax scheduler requires manual restart via admin UI",
-                    MAX_AUTO_RESTART_ATTEMPTS);
-            lastError.set("Max restart attempts (" + MAX_AUTO_RESTART_ATTEMPTS + ") exceeded - manual restart required");
-            return;
-        }
+        long attempt = autoRestartAttempts.incrementAndGet();
 
         if (timer == null) {
             timer = new Timer("FaxSchedulerJob Recovery Timer", true);
@@ -196,21 +190,23 @@ public class FaxSchedulerJob {
             @Override
             public void run() {
                 try {
-                    logger.error("URGENT: attempting automatic fax scheduler restart after failure");
+                    logger.error("URGENT: attempting automatic fax scheduler restart (attempt {})", attempt);
                     restartTask();
                 } catch (Exception ex) {
-                    logger.error("URGENT: automatic fax scheduler restart attempt failed - will retry in {} ms",
-                            FAILURE_RESTART_DELAY_MS, ex);
+                    logger.error("URGENT: automatic fax scheduler restart attempt {} failed - will retry in {} ms",
+                            attempt, FAILURE_RESTART_DELAY_MS, ex);
                     try {
                         scheduleAutomaticRestart();
                     } catch (Exception schedulingEx) {
-                        logger.error("CRITICAL: Failed to schedule automatic restart - fax scheduler requires manual restart", schedulingEx);
-                        lastError.set("Auto-restart scheduling failed - manual restart required");
+                        logger.error("CRITICAL: Failed to schedule automatic restart (attempt {}) - fax scheduler requires manual restart",
+                                attempt, schedulingEx);
+                        lastError.set("Auto-restart scheduling failed at attempt " + attempt + " - manual restart required");
                     }
                 }
             }
         };
 
+        logger.error("Fax scheduler auto-restart scheduled: attempt {} in {} ms", attempt, FAILURE_RESTART_DELAY_MS);
         timer.schedule(autoRestartTask, FAILURE_RESTART_DELAY_MS);
     }
 

@@ -191,7 +191,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
             return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
         } catch (IOException e) {
-            throw new FaxProviderException("HTTP WS CLIENT ERROR", e);
+            throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e);
         }
     }
 
@@ -233,7 +233,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             }
             return downloaded;
         } catch (IOException e) {
-            throw new FaxProviderException("IO ERROR", e);
+            throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e);
         }
     }
 
@@ -258,7 +258,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name());
             }
         } catch (IOException e) {
-            throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name(), e);
+            throw new FaxProviderException("Middleware fax delete communication failure", e);
         }
     }
 
@@ -294,7 +294,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             String content = EntityUtils.toString(httpEntity);
             return mapper.readValue(content, FaxJob.class);
         } catch (IOException e) {
-            throw new FaxProviderException("HTTP WS CLIENT ERROR", e);
+            throw new FaxProviderException("Middleware status check communication failure", e);
         }
     }
 

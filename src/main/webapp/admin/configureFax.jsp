@@ -241,6 +241,7 @@
 
             getFaxSchedularStatus();
             updateMiddlewareFieldsVisibility();
+            getPendingIncomingFaxes();
 
         });
 
@@ -312,6 +313,49 @@
             });
         }
 
+        function getPendingIncomingFaxes() {
+            $.ajax({
+                url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
+                method: 'POST',
+                data: 'method=getPendingIncomingFaxes&' + csrfParameterName + '=' + csrfToken,
+                success: function (data) {
+                    if (!data.success) {
+                        $("#pendingFaxesSection").hide();
+                        return;
+                    }
+
+                    var count = data.count || 0;
+                    $("#pendingFaxCount").text(count);
+                    if (count === 0) {
+                        $("#pendingFaxBadge").hide();
+                        $("#pendingFaxesTable").hide();
+                        $("#pendingFaxesNone").show();
+                    } else {
+                        $("#pendingFaxBadge").show().text(count);
+                        $("#pendingFaxesNone").hide();
+
+                        var tbody = $("#pendingFaxesTableBody");
+                        tbody.empty();
+                        $.each(data.faxes, function(i, fax) {
+                            var sizeKb = Math.round((fax.sizeBytes || 0) / 1024);
+                            var dateStr = fax.lastModifiedMs > 0 ? new Date(fax.lastModifiedMs).toLocaleString() : "Unknown";
+                            var row = $("<tr></tr>");
+                            row.append($("<td></td>").text(fax.fileName));
+                            row.append($("<td></td>").text(sizeKb + " KB"));
+                            row.append($("<td></td>").text(dateStr));
+                            row.append($("<td></td>").text("Config #" + fax.configId));
+                            tbody.append(row);
+                        });
+                        $("#pendingFaxesTable").show();
+                    }
+                    $("#pendingFaxesSection").show();
+                },
+                error: function() {
+                    $("#pendingFaxesSection").hide();
+                }
+            });
+        }
+
 
     </script>
 
@@ -348,6 +392,37 @@
                     <button id="restartFaxSchedulerBtn" class="btn btn-warning" type="button" onclick="rebootFaxSchedular()" disabled>
                         <i class="fas fa-sync-alt"></i> Restart Scheduler
                     </button>
+                </div>
+            </div>
+        </security:oscarSec>
+
+        <!-- Pending Incoming Faxes -->
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r" reverse="<%=false%>">
+            <div id="pendingFaxesSection" class="row" style="display:none;">
+                <div class="span12">
+                    <legend class="fax-section-title">
+                        <i class="fas fa-inbox"></i> Pending Incoming Faxes
+                        <span id="pendingFaxBadge" class="badge badge-warning" style="display:none; font-size: 12px; vertical-align: middle; margin-left: 8px;"></span>
+                    </legend>
+                    <small class="fax-muted" style="display: block; margin-bottom: 12px;">
+                        Fax files downloaded from the provider but not yet fully imported into the document system. These are retried automatically each poll cycle.
+                    </small>
+                </div>
+                <div class="span12">
+                    <div id="pendingFaxesNone" style="display:none; margin-bottom: 14px;">
+                        <span style="color: #059669;"><i class="fas fa-check-circle"></i> All downloaded faxes have been imported successfully.</span>
+                    </div>
+                    <table id="pendingFaxesTable" class="table table-striped table-condensed" style="display:none; margin-bottom: 14px;">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Size</th>
+                                <th>Downloaded</th>
+                                <th>Account</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingFaxesTableBody"></tbody>
+                    </table>
                 </div>
             </div>
         </security:oscarSec>
@@ -434,7 +509,7 @@
                                     <input class="span12" type="text" readonly
                                            value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
-                                    <small class="fax-muted"><i class="fas fa-lock"></i> Fixed endpoint &mdash; not configurable</small>
+                                    <small class="fax-muted"><i class="fas fa-lock"></i> Default endpoint &mdash; override via <code>srfax.api.url</code> in oscar_mcmaster.properties only</small>
                                 </div>
                             </div>
                         </div>

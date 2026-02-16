@@ -212,8 +212,8 @@ public class FaxStatusUpdater {
                         faxJobDao.merge(faxJob);
                     } catch (FaxProviderException e) {
                         log.error("Failed to update fax status for fax id {}", faxJob.getId(), e);
-                        String current = faxJob.getStatusString() != null ? faxJob.getStatusString() : "";
-                        faxJob.setStatusString(current + " [Status check failed: " + e.getMessage() + "]");
+                        // Replace rather than append to prevent unbounded growth on prolonged failures
+                        faxJob.setStatusString("Status check failed: " + e.getMessage());
                         faxJobDao.merge(faxJob);
                     }
                 } else {

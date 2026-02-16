@@ -186,10 +186,10 @@ class FaxStatusUpdaterTest extends OpenOUnitTestBase {
         // When
         faxStatusUpdater.updateStatus();
 
-        // Then - first fax status enum unchanged but statusString updated, second fax fully updated
+        // Then - first fax status enum unchanged but statusString replaced, second fax fully updated
         assertThat(failingFax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
         assertThat(failingFax.getStatusString())
-                .contains("[Status check failed: Provider API timeout]");
+                .isEqualTo("Status check failed: Provider API timeout");
         assertThat(succeedingFax.getStatus()).isEqualTo(FaxJob.STATUS.COMPLETE);
         assertThat(succeedingFax.getStatusString()).isEqualTo("Sent successfully");
         verify(faxJobDao).merge(failingFax);
@@ -267,8 +267,8 @@ class FaxStatusUpdaterTest extends OpenOUnitTestBase {
     }
 
     @Test
-    @DisplayName("should preserve fax status enum but append failure info to statusString when provider exception occurs")
-    void shouldPreserveFaxStatusButAppendFailureInfo_whenProviderExceptionOccurs() throws FaxProviderException {
+    @DisplayName("should preserve fax status enum but replace statusString with failure info when provider exception occurs")
+    void shouldPreserveFaxStatusButReplaceStatusString_whenProviderExceptionOccurs() throws FaxProviderException {
         // Given
         FaxJob fax = createFaxJob(40, FAX_LINE_H, FaxJob.STATUS.SENT, 4001L);
         fax.setStatusString("Queued for delivery");
@@ -283,11 +283,10 @@ class FaxStatusUpdaterTest extends OpenOUnitTestBase {
         // When
         faxStatusUpdater.updateStatus();
 
-        // Then - status enum unchanged, but statusString updated with failure info and merged
+        // Then - status enum unchanged, statusString replaced (not appended) to prevent unbounded growth
         assertThat(fax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
         assertThat(fax.getStatusString())
-                .startsWith("Queued for delivery")
-                .contains("[Status check failed: API rate limit exceeded]");
+                .isEqualTo("Status check failed: API rate limit exceeded");
         verify(faxJobDao).merge(fax);
     }
 

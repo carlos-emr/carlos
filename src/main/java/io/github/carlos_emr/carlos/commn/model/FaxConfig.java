@@ -135,12 +135,7 @@ public class FaxConfig extends AbstractModel<Integer> {
      * @return the passwd (decrypted plain text)
      */
     public String getPasswd() {
-        String decrypted = decryptField(passwd, "password");
-        // Auto-migrate legacy unencrypted passwords
-        if (decrypted != null && !decrypted.isEmpty() && !EncryptionUtils.isEncrypted(passwd)) {
-            this.setPasswd(decrypted);
-        }
-        return decrypted;
+        return decryptField(passwd, "password");
     }
 
 
@@ -172,12 +167,7 @@ public class FaxConfig extends AbstractModel<Integer> {
      * @return the faxPasswd (decrypted plain text)
      */
     public String getFaxPasswd() {
-        String decrypted = decryptField(faxPasswd, "fax password");
-        // Auto-migrate legacy unencrypted passwords
-        if (decrypted != null && !decrypted.isEmpty() && !EncryptionUtils.isEncrypted(faxPasswd)) {
-            this.setFaxPasswd(decrypted);
-        }
-        return decrypted;
+        return decryptField(faxPasswd, "fax password");
     }
 
 
@@ -195,7 +185,7 @@ public class FaxConfig extends AbstractModel<Integer> {
      * @param value the field value (may be encrypted or legacy plain text)
      * @param fieldLabel descriptive label for error messages
      * @return decrypted plain text password, or empty string if value is null/empty
-     * @return decrypted plain text password, or empty string if value is null/empty or decryption fails
+     * @throws IllegalStateException if decryption fails (possible key rotation or data corruption)
      */
     private String decryptField(String value, String fieldLabel) {
         if (value != null && !value.isEmpty()) {
@@ -206,11 +196,12 @@ public class FaxConfig extends AbstractModel<Integer> {
                 // Legacy plain text - return as-is, caller decides whether to re-encrypt
                 return value;
             } catch (Exception e) {
-                logger.error("Failed to decrypt {} - possible key rotation or data corruption. " +
-                        "Downstream operations will see 'not configured' errors because the decrypted value " +
-                        "will be empty. Re-enter the password in Administration > Faxes > Configure Fax to " +
-                        "re-encrypt with the current key.", fieldLabel, e);
-                return "";
+                logger.error("Failed to decrypt {} - possible key rotation or data corruption. "
+                        + "Re-enter the password in Administration > Faxes > Configure Fax to "
+                        + "re-encrypt with the current key.", fieldLabel, e);
+                throw new IllegalStateException(
+                        "Failed to decrypt " + fieldLabel
+                        + " - re-enter password in Administration > Faxes > Configure Fax", e);
             }
         }
         return "";

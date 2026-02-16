@@ -81,13 +81,28 @@ public class SRFaxProviderClient implements FaxProviderClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Returns the SRFax API endpoint URL. Uses {@code srfax.api.url} from oscar properties
-     * if configured, otherwise falls back to the default endpoint.
+     * Returns the SRFax API endpoint URL. Defaults to {@link #DEFAULT_SRFAX_API_URL} and
+     * can only be overridden via {@code srfax.api.url} in oscar_mcmaster.properties.
+     *
+     * <p>The override must point to an official srfax.com domain. Any other value is rejected
+     * with a warning log and the default is used instead. This prevents SSRF or credential
+     * theft via admin-configured URLs.</p>
      */
     private String getSrfaxApiUrl() {
         String configured = OscarProperties.getInstance().getProperty("srfax.api.url");
         if (configured != null && !configured.trim().isEmpty()) {
-            return configured.trim();
+            String trimmed = configured.trim();
+            try {
+                java.net.URI uri = new java.net.URI(trimmed);
+                String host = uri.getHost();
+                if (host != null && host.toLowerCase().endsWith("srfax.com")
+                        && ("https".equals(uri.getScheme()) || "http".equals(uri.getScheme()))) {
+                    return trimmed;
+                }
+            } catch (java.net.URISyntaxException ignored) {
+                // Fall through to warning below
+            }
+            logger.warn("Configured srfax.api.url '{}' is not a valid srfax.com endpoint - using default", trimmed);
         }
         return DEFAULT_SRFAX_API_URL;
     }
@@ -250,7 +265,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
         requireMatchingProviderType(faxConfig);
         validateCredentials(faxConfig);
 
-        logger.debug("SRFax download requested for file (length={})", fax.getFile_name() != null ? fax.getFile_name().length() : 0);
+        logger.debug("SRFax download requested for fax id={}", fax.getId());
         List<NameValuePair> params = createAuthParams(faxConfig);
         params.add(new BasicNameValuePair("action", ACTION_RETRIEVE_FAX));
         params.add(new BasicNameValuePair("sFaxFileName", fax.getFile_name()));
@@ -307,7 +322,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
         JsonNode root = postForm(getSrfaxApiUrl(), params);
         ensureSuccess(root, "Failed to mark fax as read on SRFax");
 
-        logger.info("SRFax fax marked as read: {}", fax.getFile_name());
+        logger.info("SRFax fax marked as read: id={}", fax.getId());
     }
 
     /**
