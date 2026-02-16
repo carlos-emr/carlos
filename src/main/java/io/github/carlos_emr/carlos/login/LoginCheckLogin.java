@@ -120,37 +120,11 @@ public final class LoginCheckLogin {
         return bBlock;
     }
 
-    /**
-     * Authenticates based on an SSO Key
-     *
-     * @param ssoKey - The ssoKey to be matched to a providers
-     * @return String array of the providers information
-     */
-    public String[] ssoAuth(String ssoKey) {
-        lb = new LoginCheckLoginBean();
-        lb.ssoIni(ssoKey);
-        return lb.ssoAuthenticate();
-    }
-
     // authenticate is used to check password
     public String[] auth(String user_name, String password, String pin, String ip) {
         lb = new LoginCheckLoginBean();
         lb.ini(user_name, password, pin, ip);
         return lb.authenticate();
-    }
-
-    /**
-     * Overload method for authentication without PIN code.
-     * It does not matter if the PIN code is set as required in
-     * the provider profile.
-     *
-     * @param user_name
-     * @param password
-     * @param ip
-     * @return
-     */
-    public String[] auth(String user_name, String password, String ip) {
-        return auth(user_name, password, null, ip);
     }
 
     /**

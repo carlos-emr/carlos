@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SSOUtility;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import org.owasp.encoder.Encode;
@@ -62,7 +61,6 @@ public final class LoginCheckLoginBean {
     private String password = "";
     private String pin;
     private String ip = "";
-    private String ssoKey = "";
 
     private String userpassword; // your password in the table
 
@@ -82,10 +80,6 @@ public final class LoginCheckLoginBean {
         setIp(ip1);
     }
 
-    public void ssoIni(String ssoKey) {
-        setSsoKey(ssoKey);
-    }
-
     public String[] authenticate() {
         security = getUserID();
 
@@ -98,17 +92,6 @@ public final class LoginCheckLoginBean {
         String sPin = pin;
 
         if (sPin != null && OscarProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(sPin);
-
-        /*
-         * Override PIN requirement when SSO is enabled
-         * The pin parameter is set to null in the LoginCheckLogin bean and
-         * is changed back to default empty after the pin requirement is disabled.
-         */
-        if (sPin == null && SSOUtility.isSSOEnabled()) {
-            security.setBRemotelockset(0);
-            security.setBLocallockset(0);
-            sPin = "";
-        }
 
 		if (this.isPinCheckEnabled() && isWAN() && security.getBRemotelockset() != null && security.getBRemotelockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
             return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
@@ -160,27 +143,6 @@ public final class LoginCheckLoginBean {
         } else { // login failed
             return cleanNullObj(LOG_PRE + "password failed: " + username);
         }
-    }
-
-    public String[] ssoAuthenticate() {
-        security = getUserIDWithSSOKey();
-        String[] strAuth;
-        if (security != null) {
-            String expired_days = "";
-            strAuth = new String[7];
-            strAuth[0] = security.getProviderNo();
-            strAuth[1] = firstname;
-            strAuth[2] = lastname;
-            strAuth[3] = profession;
-            strAuth[4] = rolename;
-            strAuth[5] = expired_days;
-            strAuth[6] = email;
-
-        } else {
-            strAuth = cleanNullObj(LOG_PRE + "ssoKey does not match a record");
-        }
-
-        return strAuth;
     }
 
     private String[] cleanNullObj(String errorMsg) {
@@ -237,49 +199,6 @@ public final class LoginCheckLoginBean {
         return security;
     }
 
-    private Security getUserIDWithSSOKey() {
-        SecurityDao securityDao = (SecurityDao) SpringUtils.getBean(SecurityDao.class);
-        List<Security> securityResults = securityDao.findByOneIdKey(ssoKey);
-        Security securityRecord = null;
-
-        if (securityResults != null && securityResults.size() > 0) {
-            securityRecord = securityResults.get(0);
-        }
-
-        if (securityRecord != null) {
-            if (OscarProperties.isLdapAuthenticationEnabled()) {
-                securityRecord = new LdapSecurity(securityRecord);
-            }
-
-            // Gets the providers record
-            ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-            Provider provider = providerDao.getProvider(securityRecord.getProviderNo());
-
-            if (provider == null || (provider.getStatus() != null && provider.getStatus().equals("0"))) {
-                String error = "Provider account is missing or inactive. Provider number: " + securityRecord.getProviderNo();
-                logger.error(error);
-                LogAction.addLog(securityRecord.getProviderNo(), "login", "failed", "inactive");
-                return null;
-            } else {
-                firstname = provider.getFirstName();
-                lastname = provider.getLastName();
-            }
-
-            // retrieve the oscar roles for this Provider as a comma separated list
-            SecUserRoleDao secUserRoleDao = (SecUserRoleDao) SpringUtils.getBean(SecUserRoleDao.class);
-            List<SecUserRole> roles = secUserRoleDao.getUserRoles(securityRecord.getProviderNo());
-            for (SecUserRole role : roles) {
-                if (rolename == null) {
-                    rolename = role.getRoleName();
-                } else {
-                    rolename += "," + role.getRoleName();
-                }
-            }
-        }
-
-        return securityRecord;
-    }
-
     public boolean isWAN() {
         boolean bWAN = true;
         //Properties p = OscarProperties.getInstance();
@@ -304,10 +223,6 @@ public final class LoginCheckLoginBean {
 
     public void setIp(String ip1) {
         this.ip = ip1;
-    }
-
-    public void setSsoKey(String ssoKey) {
-        this.ssoKey = ssoKey;
     }
 
     public Security getSecurity() {

@@ -16,7 +16,6 @@
 	<package name="default" namespace="/" extends="struts-default">
         <action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action">
             <result name="success">/index.jsp</result>
-            <result name="logoutsso">/ssoLogin.do?method=ssoLogout</result>
         </action>
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
             <result name="success">/admin/lookUpLists/</result>
@@ -109,25 +108,9 @@
             <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
             <result name="forcepasswordreset">/forcepasswordreset.jsp</result>
             <result name="programLocation">/location.jsp</result>
-            <result name="ssoLogin">/ssoLogin.do</result>
             <result name="mfaHandler">/mfa/mfa_handler.jsp</result>
         </action>
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
-        <action name="ssoLogin" class="io.github.carlos_emr.carlos.login.SSOLogin2Action">
-            <result name="provider">/provider/providercontrol.jsp</result>
-            <result name="failure">/logout.jsp?login=failed</result>
-            <result name="ssoLoginError">/index.jsp</result>
-            <result name="error">/loginfailed.jsp</result>
-            <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
-            <result name="LoginTest">/login/LoginTest.jsp</result>
-            <result name="programLocation">/location.jsp</result>
-            <result name="logout">/logout.jsp</result>
-        </action>
-        <action name="econsultSSOLogin" class="io.github.carlos_emr.carlos.login.SSOLogin2Action">
-            <result name="success">/oscarEncounter/econsult.do</result>
-            <result name="error">/logout.jsp</result>
-            <result name="ssoLoginError">/index.jsp</result>
-        </action>
         <action name="login/recordLogin" class="io.github.carlos_emr.carlos.login.LoginAgreement2Action"/>
         <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
             <result name="success">/messenger/ViewMessage.do</result>

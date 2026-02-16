@@ -63,8 +63,6 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -311,14 +309,7 @@ public final class Login2Action extends ActionSupport {
          */
         String[] strAuth;
         try {
-            /*
-             * the pin code is not required for SSO IDP.
-             */
-            if (SSOUtility.isSSOEnabled()) {
-                strAuth = cl.auth(userName, password, ip);
-            } else {
-                strAuth = cl.auth(userName, password, pin, ip);
-            }
+            strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
             logger.error("Error", e);
             String newURL = request.getContextPath() + "/loginfailed.jsp";
@@ -380,22 +371,6 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            /*
-             * User has authenticated in OSCAR at this point.
-             * The following will redirect to the selected IDP for
-             * an authentication request if SSO is enabled
-             * The remainder of the login process will be handled through the
-             * SSOLogin2Action class.
-             *
-             */
-            if (SSOUtility.isSSOEnabled()) {
-                String encodedEmail = URLEncoder.encode(strAuth[6], StandardCharsets.UTF_8);
-                String newURL = request.getContextPath() + "/ssoLogin.do?user_email=" + encodedEmail;
-
-                response.sendRedirect(newURL);
-                return NONE;
-            }
-
             // invalidate the existing session
             HttpSession session = request.getSession(false);
             if (session != null) {
@@ -411,27 +386,6 @@ public final class Login2Action extends ActionSupport {
 
             if (cl.getSecurity() != null) {
                 this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
-            }
-
-            // Process ONE ID if present
-            String oneIdKey = request.getParameter("nameId");
-            String oneIdEmail = request.getParameter("email");
-            
-            // If the oneIdKey parameter is not null and is not an empty string
-            if (oneIdKey != null && !oneIdKey.equals("")) {
-                String providerNumber = strAuth[0];
-                Security securityRecord = securityDao.getByProviderNo(providerNumber);
-
-                if (securityRecord.getOneIdKey() == null || securityRecord.getOneIdKey().equals("")) {
-                    securityRecord.setOneIdKey(oneIdKey);
-                    securityRecord.setOneIdEmail(oneIdEmail);
-                    securityDao.updateOneIdKey(securityRecord);
-                    session.setAttribute("oneIdEmail", oneIdEmail);
-                } else {
-                    logger.error("The account for providers number " + providerNumber
-                            + " already has a ONE ID key associated with it");
-                    return "error";
-                }
             }
 
             logger.debug("Assigned new session for: " + strAuth[0] + " : " + strAuth[3] + " : " + strAuth[4]);

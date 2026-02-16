@@ -48,9 +48,7 @@ public class Logout2Action extends ActionSupport {
     public String execute() {
         String method = request.getParameter("method");
 
-        if ("ssoLogout".equals(method)) {
-            return ssoLogout();
-        } else if ("sessionTimeout".equals(method)) {
+        if ("sessionTimeout".equals(method)) {
             return sessionTimeout();
         } else if ("failure".equals(method)) {
             return failure();
@@ -58,11 +56,6 @@ public class Logout2Action extends ActionSupport {
 
         // Default to logout method if unspecified
         return logout();
-    }
-
-    public String ssoLogout() {
-        logout();
-        return "logoutsso";
     }
 
     public String sessionTimeout() {

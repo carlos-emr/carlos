@@ -35,7 +35,6 @@ import java.util.Properties;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.utility.SSOUtility;
 import io.github.carlos_emr.OscarProperties;
 
 public class LoginResourceBean {
@@ -49,18 +48,6 @@ public class LoginResourceBean {
     private String tabName;
     private String buildTag;
     private String econsultURL;
-    private String ssoLoginUrl;
-    private boolean ssoEnabled;
-
-    public boolean isSsoEnabled() {
-        return ssoEnabled;
-    }
-
-    public void setSsoEnabled(boolean ssoEnabled) {
-        this.ssoEnabled = ssoEnabled;
-    }
-
-    private final String ssoCallbackUrl = "#!" + "/ssoLogin.do" + "?loginStart=";
 
     private AcceptableUseAgreementManager acceptableUseAgreementManager;
 
@@ -115,8 +102,6 @@ public class LoginResourceBean {
         this.econsultURL = oscarProperties.getProperty("backendEconsultUrl");
 
         this.acceptableUseAgreementManager = new AcceptableUseAgreementManager();
-
-        setSsoEnabled(SSOUtility.isSSOEnabled());
     }
 
     public String getSupportLink() {
@@ -199,11 +184,4 @@ public class LoginResourceBean {
         this.tabName = tabName;
     }
 
-    public String getSsoLoginUrl() {
-        return ssoLoginUrl;
-    }
-
-    public void setSsoLoginUrl(String ssoLoginUrl) {
-        this.ssoLoginUrl = ssoLoginUrl;
-    }
 }
