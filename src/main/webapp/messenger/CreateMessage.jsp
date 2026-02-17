@@ -164,7 +164,7 @@
     if (recall) {
         String subjectText = messagingManager.getLabRecallMsgSubjectPref(LoggedInInfo.getLoggedInInfoFromSession(request));
         delegate = messagingManager.getLabRecallDelegatePref(LoggedInInfo.getLoggedInInfoFromSession(request));
-        if (delegate != null || delegate != "") {
+        if (delegate != null && !delegate.isEmpty()) {
             delegateName = messagingManager.getDelegateName(delegate);
         }
         pageContext.setAttribute("delegateName", delegateName);
@@ -269,7 +269,7 @@ function validateFields() {
 
 	function BackToOscar()
 	{
-	    if (opener.callRefreshTabAlerts) {
+	    if (opener && opener.callRefreshTabAlerts) {
 		opener.callRefreshTabAlerts("oscar_new_msg");
 	        setTimeout("window.close()", 100);
 	    } else {
@@ -425,8 +425,8 @@ function validateFields() {
 								<td style="padding: 10px 5px; min-width:fit-content;"  class="form-inline"><!--list of the providers cell Start-->
 									<%if(recall){ %>
 										<div>
-											<input name="provider" value="<%=delegate%>" type="checkbox" checked>
-											<strong><a title="default recall delegate: <%=delegateName%>">default: <%=delegateName%></a></strong>
+											<input name="provider" value="<%=Encode.forHtmlAttribute(delegate)%>" type="checkbox" checked>
+											<strong><a title="default recall delegate: <%=Encode.forHtmlAttribute(delegateName)%>">default: <%=Encode.forHtml(delegateName)%></a></strong>
 										</div>
 									<%} %>
 

@@ -38,7 +38,7 @@
 
   Main features:
   - Displays success confirmation
-  - Shows message details (recipients, subject)
+  - Shows sent confirmation with recipient list
   - Provides navigation options (close window, new message, inbox)
   - Auto-refresh of parent window if in popup mode
 
@@ -53,14 +53,14 @@
   UI elements:
   - Success message with sent details
   - Action buttons for next steps
-  - Auto-close timer option (if configured)
 
-  @since 2003
+  @since 2002
 --%>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
@@ -93,12 +93,9 @@
             </c:if>
         </c:if>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.title"/></title>
-        <!--<link rel="stylesheet" type="text/css" href="encounterStyles.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>-->
-
         <script type="text/javascript">
             function BackToOscar() {
-                if (opener.callRefreshTabAlerts) {
+                if (opener && opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");
                     setTimeout("window.close()", 100);
                 } else {
@@ -131,7 +128,7 @@
             <i class=" icon-question-sign"></i>
             <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger sent')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
             <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about" /></a>
+            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about" /></a>
         </td>
 			</tr>
 		</table>
@@ -140,7 +137,7 @@
 </table>
 <div class="alert alert-success" role="alert" style="margin-left:20px; margin-right:20px; margin-top: 20px;">
     <fmt:setBundle basename="oscarResources"/><fmt:message
-					key="messenger.SentMessage.msgMessageSentTo" /> <%= request.getAttribute("SentMessageProvs") %>
+					key="messenger.SentMessage.msgMessageSentTo" /> <%= Encode.forHtml(request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "") %>
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">

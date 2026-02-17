@@ -41,9 +41,7 @@
   - Attachment viewing and download capabilities
   - Reply, forward, and delete actions
   - Integration with case management notes
-  - Support for resident/supervisor message approval workflow
   - PDF attachment preview
-  - Message thread navigation
 
   Security:
   - Requires "_msg" object with read ("r") permissions
@@ -58,27 +56,19 @@
 
   Integration points:
   - Case management notes for clinical documentation
-  - Resident supervision workflow
   - PDF document management
   - Patient encounter system
 
-  @since 2003
+  @since 2002
 --%>
 
 <%@page import="java.util.HashMap" %>
 <%@ page import="java.util.List" %>
-<%@ page import="java.util.Enumeration" %>
-<%@ page import="java.util.Set" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ResidentOscarMsg" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ResidentOscarMsgDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.OscarMsgType" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -112,6 +102,9 @@
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
     String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
+    if (bodyTextAsHTML == null) {
+        bodyTextAsHTML = "";
+    }
 %>
 <!DOCTYPE html>
 
@@ -132,7 +125,7 @@ String boxType = request.getParameter("boxType");
 <script>
 function BackToOscar()
 {
-    if (opener.callRefreshTabAlerts) {
+    if (opener && opener.callRefreshTabAlerts) {
 	opener.callRefreshTabAlerts("oscar_new_msg");
         setTimeout("window.close()", 100);
     } else {
@@ -167,13 +160,9 @@ function popup(demographicNo, msgId, providerNo, action) { //open a new popup wi
   var vwidth = 980;
 
   if (demographicNo!=null &&  demographicNo!="" ){
-      //alert("demographicNo is not null!");
       windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
       var page = "";
       var win;
-      var today = "<%=Encode.forJavaScript((String)request.getAttribute("today"))%>";
-      var header = "oscarMessenger";
-      var encType = "oscarMessenger";
       var txt;
 
       //note editor in new ui
@@ -442,8 +431,8 @@ font-size:17px;
 								<c:out value="${ viewMessageDate }" /> <c:out value="${ viewMessageTime }" />
 							</td>
 						</tr>
-						<%  String attach = (String) request.getAttribute("viewMessageAttach");
-                                    String id = (String) request.getAttribute("viewMessageId");
+						<%  String attach = (String) session.getAttribute("viewMessageAttach");
+                                    String id = (String) session.getAttribute("viewMessageId");
                                     if ( attach != null && attach.equals("1") ){
                                     %>
 						<tr>
@@ -456,7 +445,7 @@ font-size:17px;
                                     }
                                 %>
 						<%
-                                    String pdfAttach = (String) request.getAttribute("viewMessagePDFAttach");
+                                    String pdfAttach = (String) session.getAttribute("viewMessagePDFAttach");
                                     if ( pdfAttach != null && pdfAttach.equals("1") ){
                                     %>
 						<tr>
@@ -509,10 +498,6 @@ font-size:17px;
 													onclick="javascript:popup('${ fn:escapeXml(demographic_no) }', '${ fn:escapeXml(messageID) }', '${ fn:escapeXml(providerNo) }');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
 													value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.writeToE" />">
-                                                <!-- refers to non existant function <input
-													onclick="return paste2Encounter('${ demographic_no }');"
-													class="btn DoNotPrint" type="button" name="pasteToEncounter"
-													value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.pasteToE" />"> -->
 											 </c:if>
 										</td>
 										</tr>
@@ -537,13 +522,13 @@ font-size:17px;
 							<td ></td>
 							<td  colspan="2">
 								<button type="submit" class="btn" name="reply"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/>"/><i class="icon-reply"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/>"><i class="icon-reply"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/></button>
                                 <button type="submit" class="btn" name="replyAll"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/>"/><i class="icon-reply-all"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="icon-reply-all"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
                                 <button type="submit" class="btn" name="forward"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"/><i class="icon-share-alt"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="icon-share-alt"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/></button>
                                 <button type="submit" class="btn" name="delete"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"/><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/></button>
+                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/></button>
                                 <input type="hidden" name="messageNo" id="messageNo" value="${ fn:escapeXml(viewMessageNo) }"/>
 							</td>
 						</tr>
@@ -605,7 +590,7 @@ font-size:17px;
                                         <input type="button"
 								class="btn" name="linkDemo"
 								value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.linkToDemo" />"
-								onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript((String)request.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>','linkToDemographic')" />
+								onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','linkToDemographic')" />
 
 							<input type="button" class="btn"
 								name="clearDemographic" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.clearDemo" />"
@@ -636,25 +621,19 @@ font-size:17px;
 								<td class="DoNotPrint">
 								<a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=${ fn:escapeXml(demographic.key) }&displaymode=edit&dboperation=search_detail')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.M" /></a>
 
-								<!--<a href="javascript:void(0)" onclick="window.opener.location.href='../web/#/record/${ demographic.key }/summary'">E2</a> -->
 								<%
-									//Hide old echart link
-									boolean showOldEchartLink = true;
-								    //UserPropertyDAO propDao =(UserPropertyDAO)SpringUtils.getBean("UserPropertyDAO");
-									//UserProperty oldEchartLink = propDao.getProp(curUser_no, UserProperty.HIDE_OLD_ECHART_LINK_IN_APPT);
-									//if (oldEchartLink!=null && "Y".equals(oldEchartLink.getValue())) showOldEchartLink = false;
 									CaseManagementNoteDAO caseManagementNoteDAO = SpringUtils.getBean(CaseManagementNoteDAO.class);
-								if (showOldEchartLink) {
 	                                                            String params = "";
-	                                                            String msgType = (String)request.getAttribute("msgType");
+	                                                            String msgType = (String)session.getAttribute("msgType");
 
 	                                                            if( msgType != null ) {
 
 	                                                                    if( Integer.valueOf(msgType).equals(OscarMsgType.OSCAR_REVIEW_TYPE) ) {
-	                                                                        HashMap<String,List<String>> hashMap =  (HashMap<String,List<String>>)request.getAttribute("msgTypeLink");
+	                                                                        HashMap<String,List<String>> hashMap =  (HashMap<String,List<String>>)session.getAttribute("msgTypeLink");
 	                                                                        if( hashMap != null) {
 	                                                                            List<String> demoList = hashMap.get((String) pageContext.getAttribute("demographicNumber"));
 
+	                                                                            if( demoList != null && demoCount < demoList.size() ) {
 	                                                                             String[] val = demoList.get(demoCount).split(":");
 	                                                                             if( val.length == 3 ) {
 	                                                                                 String note_id = "";
@@ -662,11 +641,13 @@ font-size:17px;
 	                                                                                 if( note != null ) {
 	                                                                                     String uuid = note.getUuid();
 	                                                                                     List<CaseManagementNote> noteList = caseManagementNoteDAO.getNotesByUUID(uuid);
-	                                                                                     if( noteList.get(noteList.size()-1).getId().equals(note.getId()) ) {
-	                                                                                         note_id = String.valueOf(note.getId());
-	                                                                                     }
-	                                                                                     else {
-	                                                                                         note_id = String.valueOf(noteList.get(noteList.size()-1).getId());
+	                                                                                     if( noteList != null && !noteList.isEmpty() ) {
+	                                                                                         if( noteList.get(noteList.size()-1).getId().equals(note.getId()) ) {
+	                                                                                             note_id = String.valueOf(note.getId());
+	                                                                                         }
+	                                                                                         else {
+	                                                                                             note_id = String.valueOf(noteList.get(noteList.size()-1).getId());
+	                                                                                         }
 	                                                                                     }
 	                                                                                 }
 
@@ -675,6 +656,7 @@ font-size:17px;
 	                                                                             else {
 	                                                                                 params = "";
 	                                                                             }
+	                                                                            }
 	                                                                         }
 	                                                                    }
 	                                                                }
@@ -682,10 +664,9 @@ font-size:17px;
 
 
 	                                                        %>
-	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=${ fn:escapeXml(demographic.key) }&curProviderNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.E" /></a>
-								<%} %>
+	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=${ fn:escapeXml(demographic.key) }&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.E" /></a>
 
-								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>&demographicNo=${ fn:escapeXml(demographic.key) }')">Rx</a>
+								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=${ fn:escapeXml(demographic.key) }')">Rx</a>
 
 
 
@@ -693,7 +674,7 @@ font-size:17px;
 
 								<input type="button" class="btn DoNotPrint"
 									name="writeEncounter" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.writeToE" />"
-									onclick="popup( '${ fn:escapeXml(demographic.key) }','<%=Encode.forJavaScript((String)request.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)request.getAttribute("providerNo"))%>','writeToEncounter')" />
+									onclick="popup( '${ fn:escapeXml(demographic.key) }','<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','writeToEncounter')" />
 								</td>
 							</tr>
 							<tr>

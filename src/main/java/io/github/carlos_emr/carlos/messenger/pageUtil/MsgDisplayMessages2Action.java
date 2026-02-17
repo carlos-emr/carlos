@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Consumer;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -53,30 +54,34 @@ import org.apache.struts2.ServletActionContext;
  * Struts2 action for displaying and managing the main message inbox/outbox interface.
  * 
  * <p>This action serves as the primary controller for the message listing interface,
- * handling message display, search functionality, and bulk deletion operations.
- * It manages the user's message view state through session beans and provides
- * different initialization paths based on how the user accesses the messaging system.</p>
- * 
+ * handling message display, search functionality, bulk deletion, and read/unread
+ * status operations. It manages the user's message view state through session beans
+ * and provides different initialization paths based on how the user accesses the
+ * messaging system.</p>
+ *
  * <p>Key features:</p>
  * <ul>
  *   <li>Initializes message session for different access patterns</li>
  *   <li>Provides search and filter capabilities for messages</li>
  *   <li>Handles bulk message deletion (soft delete)</li>
+ *   <li>Handles bulk mark-as-read and mark-as-unread operations</li>
  *   <li>Maintains view state across requests via session beans</li>
  * </ul>
- * 
+ *
  * <p>Access patterns supported:</p>
  * <ul>
  *   <li>Direct access with providerNo and userName parameters</li>
  *   <li>Provider-only access (looks up provider name from database)</li>
  *   <li>Session-based access (uses existing session bean)</li>
  * </ul>
- * 
+ *
  * <p>Operations:</p>
  * <ul>
  *   <li>btnSearch - Filters messages based on search string</li>
  *   <li>btnClearSearch - Removes active search filter</li>
  *   <li>btnDelete - Soft deletes selected messages</li>
+ *   <li>btnRead - Marks selected messages as read</li>
+ *   <li>btnUnread - Marks selected messages as unread</li>
  * </ul>
  * 
  * <p>Security: Requires "_msg" read privilege to access messaging functionality.</p>
@@ -110,7 +115,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      * <ol>
      *   <li>Validates security permissions for message access</li>
      *   <li>Initializes or retrieves the message session bean</li>
-     *   <li>Processes search, clear search, or delete operations</li>
+     *   <li>Processes search, clear search, delete, read, and unread operations</li>
      *   <li>Maintains view state through session beans</li>
      * </ol>
      * 
@@ -121,11 +126,13 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      *   <li>Otherwise: Uses existing session bean</li>
      * </ul>
      * 
-     * <p>The method supports three main operations triggered by button parameters:</p>
+     * <p>The method supports five main operations triggered by button parameters:</p>
      * <ul>
      *   <li>Search: Applies a text filter to the message list</li>
      *   <li>Clear Search: Removes any active filters</li>
      *   <li>Delete: Soft deletes selected messages (marks as deleted)</li>
+     *   <li>Read: Marks selected messages as read</li>
+     *   <li>Unread: Marks selected messages as unread</li>
      * </ul>
      * 
      * @return "success" to forward to the message display page
@@ -173,7 +180,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 
         // Ensure we have a valid session bean before processing actions that depend on it
         if (bean == null) {
-            MiscUtils.getLogger().info("MsgSessionBean is null; possible session timeout or invalid access. Returning to page without processing action.");
+            MiscUtils.getLogger().warn("MsgSessionBean is null; possible session timeout or invalid access. Returning to page without processing action.");
             return findForward;
         }
 
@@ -181,74 +188,77 @@ public class MsgDisplayMessages2Action extends ActionSupport {
         if (request.getParameter("btnSearch") != null) {
             // Apply search filter to message list
             MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
-            displayMsgBean.setFilter(request.getParameter("searchString"));
-            
+            if (displayMsgBean != null) {
+                displayMsgBean.setFilter(request.getParameter("searchString"));
+            }
+
         } else if (request.getParameter("btnClearSearch") != null) {
             // Remove search filter to show all messages
             MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
-            displayMsgBean.clearFilter();
+            if (displayMsgBean != null) {
+                displayMsgBean.clearFilter();
+            }
             
-        } else if (request.getParameter("btnDelete") != null) {            
-            // Quick return if messageNo is null (no message is selected for deletion)
+        } else if (request.getParameter("btnDelete") != null) {
             if (messageNo == null) {
-                MiscUtils.getLogger().info("No messages selected, returning back to page");
+                MiscUtils.getLogger().info("No messages selected for deletion, returning back to page");
                 return findForward;
             }
+            updateSelectedMessages(bean.getProviderNo(), messageNo, msg -> msg.setDeleted(true));
 
-            // Process bulk message deletion
-            providerNo = bean.getProviderNo();
-            MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
-            
-            // Iterate through selected messages and mark as deleted
-            for (int i = 0; i < messageNo.length; i++) {
-                // Find all instances of this message for the provider
-                List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]));
-                // Soft delete each message instance
-                for (MessageList msg : msgs) {
-                    msg.setDeleted(true);
-                    dao.merge(msg);
-                }
+        } else if (request.getParameter("btnRead") != null) {
+            if (messageNo == null) {
+                MiscUtils.getLogger().info("No messages selected for marking as read, returning back to page");
+                return findForward;
             }
-		} else if (request.getParameter("btnRead") != null){
-			providerNo = bean.getProviderNo();
-			MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
-			for (int i = 0; i < messageNo.length; i++) {
-				List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]));
-				for (MessageList msg : msgs) {
-					msg.setStatus("read");
-					dao.merge(msg);
-				}
-			}
-		} else if (request.getParameter("btnUnread") != null){
-			providerNo = bean.getProviderNo();
-			MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
-			for (int i = 0; i < messageNo.length; i++) {
-				List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]));
-				for (MessageList msg : msgs) {
-					msg.setStatus("unread");
-					dao.merge(msg);
-				}
-			}
-		} else {
-            MiscUtils.getLogger().debug("Unexpected action in MsgDisplayMessagesBean.java");
+            updateSelectedMessages(bean.getProviderNo(), messageNo, msg -> msg.setStatus("read"));
+
+        } else if (request.getParameter("btnUnread") != null) {
+            if (messageNo == null) {
+                MiscUtils.getLogger().info("No messages selected for marking as unread, returning back to page");
+                return findForward;
+            }
+            updateSelectedMessages(bean.getProviderNo(), messageNo, msg -> msg.setStatus("unread"));
+
+        } else {
+            MiscUtils.getLogger().debug("Unexpected action in MsgDisplayMessages2Action.java");
         }
 
         return findForward;
     }
+
     /**
-     * Array of message IDs selected for deletion.
-     * Populated from form submission when user selects messages to delete.
+     * Applies an action to all selected messages for the given provider.
+     *
+     * @param providerNo String the provider number whose messages to update
+     * @param messageIds String[] array of message IDs to process
+     * @param action Consumer that applies the desired mutation to each message
+     */
+    private void updateSelectedMessages(String providerNo, String[] messageIds, Consumer<MessageList> action) {
+        MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
+        for (String messageId : messageIds) {
+            List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageId));
+            for (MessageList msg : msgs) {
+                action.accept(msg);
+                dao.merge(msg);
+            }
+        }
+    }
+
+    /**
+     * Array of message IDs selected for bulk operations (delete, mark read, mark unread).
+     * Populated from form submission when user selects messages via checkboxes.
      */
     String[] messageNo;
 
     /**
-     * Gets the array of message IDs selected for deletion.
-     * 
+     * Gets the array of message IDs selected for processing.
+     *
      * <p>This method ensures that a non-null array is always returned,
      * initializing an empty array if messageNo is null to prevent
      * NullPointerExceptions in calling code.</p>
      *
-     * @return String[] array of message IDs to delete, never null
+     * @return String[] array of message IDs selected for processing, never null
      */
     public String[] getMessageNo() {
         if (messageNo == null) {
@@ -258,14 +268,13 @@ public class MsgDisplayMessages2Action extends ActionSupport {
     }
 
     /**
-     * Sets the array of message IDs to be deleted.
-     * 
-     * <p>This method is called by the Struts framework when processing
-     * form submissions containing selected messages for deletion.
-     * The actual deletion is performed as a soft delete, marking
-     * messages as deleted rather than removing them from the database.</p>
+     * Sets the array of message IDs for bulk operations.
      *
-     * @param mess String[] array of message IDs selected for deletion
+     * <p>This method is called by the Struts framework when processing
+     * form submissions containing selected messages. Used for deletion,
+     * marking as read, and marking as unread operations.</p>
+     *
+     * @param mess String[] array of message IDs selected for processing
      */
     public void setMessageNo(String[] mess) {
         this.messageNo = mess;
