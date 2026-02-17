@@ -90,12 +90,20 @@
                 return true;
             }
 
+            function submitAddReaction(id, type, name) {
+                var form = document.getElementById('addReactionForm');
+                form.elements['ID'].value = id;
+                form.elements['type'].value = type;
+                form.elements['name'].value = name;
+                form.submit();
+            }
+
             function addCustomAllergy() {
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
                     alert(name);
-                    window.location = "<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=0&type=0&name=" + encodeURIComponent(name);
+                    submitAddReaction('0', '0', name);
                 }
             }
 
@@ -113,6 +121,11 @@
         </script>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <form id="addReactionForm" method="post" action="<%= request.getContextPath() %>/oscarRx/addReaction.do" style="display:none">
+        <input type="hidden" name="ID" value=""/>
+        <input type="hidden" name="type" value=""/>
+        <input type="hidden" name="name" value=""/>
+    </form>
 
     <table border="0" cellpadding="0" cellspacing="0"
            style="border-collapse: collapse" bordercolor="#111111" width="100%"
@@ -229,12 +242,12 @@
                                     <c:choose>
                                         <c:when test="${flatResults}">
                                             <c:forEach var="allergy" items="${flatMap}">
-                                                <a href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${allergy.value.drugrefId}&name=${fn:escapeXml(allergy.value.description)}&type=${allergy.value.typeCode}">
+                                                <a href="javascript:void(0)" onclick="submitAddReaction('${allergy.value.drugrefId}', '${allergy.value.typeCode}', '${fn:escapeXml(allergy.value.description)}')">
                                                         ${allergy.value.description}
                                                 </a>
                                                 <c:forEach var="drugClassPair" items="${drugClassHash[allergy.value.drugrefId]}">
                                                     &nbsp;&nbsp;&nbsp;
-                                                    <a style="color: orange" href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${drugClassPair[0]}&name=${fn:escapeXml(drugClassPair[1])}&type=10">
+                                                    <a style="color: orange" href="javascript:void(0)" onclick="submitAddReaction('${drugClassPair[0]}', '10', '${fn:escapeXml(drugClassPair[1])}')">
                                                             ${drugClassPair[1]}
                                                     </a>
                                                 </c:forEach>
@@ -250,7 +263,7 @@
                                                 </div>
                                                 <div id="8_content">
                                                     <c:forEach var="allergy" items="${allergyResults[8]}">
-                                                        <a href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${allergy.drugrefId}&name=${fn:escapeXml(allergy.description)}&type=${allergy.typeCode}">
+                                                        <a href="javascript:void(0)" onclick="submitAddReaction('${allergy.drugrefId}', '${allergy.typeCode}', '${fn:escapeXml(allergy.description)}')">
                                                                 ${allergy.description}
                                                         </a>
                                                         <br/>

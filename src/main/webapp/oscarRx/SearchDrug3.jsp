@@ -597,8 +597,9 @@ function renderRxStage() {
 
 
     function moveDrugDown(drugId,swapDrugId,demographicNo) {
-    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do?method=update&direction=down&drugId='+encodeURIComponent(drugId) + '&swapDrugId='+encodeURIComponent(swapDrugId)+'&demographicNo=' + demographicNo + "&rand="+ Math.floor(Math.random()*10001) , {
-  		  method: 'get',
+    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+  		  method: 'post',
+  		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
   			callReplacementWebService("ListDrugs.jsp",'drugProfile');
             resetReRxDrugList();
@@ -608,8 +609,9 @@ function renderRxStage() {
     }
 
     function moveDrugUp(drugId,swapDrugId,demographicNo) {
-    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do?method=update&direction=up&drugId='+encodeURIComponent(drugId)  + '&swapDrugId='+encodeURIComponent(swapDrugId)+'&demographicNo=' + demographicNo +"&rand=" + Math.floor(Math.random()*10001), {
-    		  method: 'get',
+    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+    		  method: 'post',
+    		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
     			  callReplacementWebService("ListDrugs.jsp",'drugProfile');
                   resetReRxDrugList();
@@ -1973,7 +1975,7 @@ function addFav(randomId,brandName){
    if (favoriteName.length > 0){
         var url= ctx + "/oscarRx/addFavorite2.do?parameterValue=addFav2";
         var data="randomId="+randomId+"&favoriteName="+favoriteName;
-        new Ajax.Request(url, {method: 'get',parameters:data, onSuccess:function(transport){
+        new Ajax.Request(url, {method: 'post',parameters:data, onSuccess:function(transport){
               window.location.href = ctx + "/oscarRx/SearchDrug3.jsp";
    }
 					})

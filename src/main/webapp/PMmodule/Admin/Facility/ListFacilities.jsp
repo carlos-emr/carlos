@@ -67,10 +67,15 @@
                 Edit </a>
         </display:column>
         <display:column sortable="false" title="">
-            <a
-                    onclick="return ConfirmDelete('<c:out value="${facility.name}"/>')"
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager.do?method=delete&id=<c:out value="${facility.id}"/>&name=<c:out value="${facility.name}"/>">
+            <a href="javascript:void(0)"
+                    onclick="if(ConfirmDelete('<c:out value="${facility.name}"/>')){document.getElementById('deleteForm_<c:out value="${facility.id}"/>').submit()}">
                 Disable </a>
+            <form id="deleteForm_<c:out value="${facility.id}"/>" method="post"
+                  action="<%=request.getContextPath() %>/PMmodule/FacilityManager.do" style="display:none">
+                <input type="hidden" name="method" value="delete"/>
+                <input type="hidden" name="id" value="<c:out value="${facility.id}"/>"/>
+                <input type="hidden" name="name" value="<c:out value="${facility.name}"/>"/>
+            </form>
         </display:column>
 
 

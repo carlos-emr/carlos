@@ -167,11 +167,19 @@
                 return true;
             }
 
+            function submitAddReaction(id, type, name) {
+                var form = document.getElementById('addReactionForm');
+                form.elements['ID'].value = id;
+                form.elements['type'].value = type;
+                form.elements['name'].value = name;
+                form.submit();
+            }
+
             function addCustomAllergy() {
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
-                    window.location = "<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=0&type=0&name=" + encodeURIComponent(name);
+                    submitAddReaction('0', '0', name);
                 }
             }
 
@@ -196,6 +204,11 @@
         </script>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <form id="addReactionForm" method="post" action="<%= request.getContextPath() %>/oscarRx/addReaction.do" style="display:none">
+        <input type="hidden" name="ID" value=""/>
+        <input type="hidden" name="type" value=""/>
+        <input type="hidden" name="name" value=""/>
+    </form>
     <table border="0" cellpadding="0" cellspacing="0"
            style="border-collapse: collapse" bordercolor="#111111" width="100%"
            id="AutoNumber1" height="100%">

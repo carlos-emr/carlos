@@ -346,9 +346,11 @@
 
             }
 
-            function deleteDispensingEvent(id) {
+            function deleteDispensingEvent(eventId) {
                 if (confirm("Are you sure you want to delete this record?")) {
-                    location.href = "<%=request.getContextPath()%>/oscarRx/Dispense.do?method=delete&eventId=" + id + "&id=" + <%=request.getAttribute("id")%>;
+                    var form = document.getElementById('deleteDispensingForm');
+                    form.elements['eventId'].value = eventId;
+                    form.submit();
                 }
             }
         </script>
@@ -356,6 +358,11 @@
     </head>
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <form id="deleteDispensingForm" method="post" action="<%=request.getContextPath()%>/oscarRx/Dispense.do" style="display:none">
+        <input type="hidden" name="method" value="delete"/>
+        <input type="hidden" name="eventId" value=""/>
+        <input type="hidden" name="id" value="<%=request.getAttribute("id")%>"/>
+    </form>
     <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111"
            width="100%" id="AutoNumber1" height="100%">
         <%@ include file="/oscarRx/TopLinks.jsp"%><!-- Row One included here-->

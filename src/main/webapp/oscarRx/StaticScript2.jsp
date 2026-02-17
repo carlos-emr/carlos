@@ -146,7 +146,7 @@
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
                     new Ajax.Request(url, {
-                        method: 'get', parameters: data, onSuccess: function (transport) {
+                        method: 'post', parameters: data, onSuccess: function (transport) {
                             window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%=regionalIdentifier%>' + "&cn=" + '<%=cn%>';
                         }
                     });

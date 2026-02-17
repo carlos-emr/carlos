@@ -90,25 +90,34 @@
                 return true;
             }
 
+            function submitAddReaction(actionUrl, id, type, name) {
+                var form = document.getElementById('addReactionForm');
+                form.action = actionUrl;
+                form.elements['ID'].value = id;
+                form.elements['type'].value = type;
+                form.elements['name'].value = name;
+                form.submit();
+            }
+
             function addCustomAllergy() {
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
                     alert(name);
-                    window.location = "<%= request.getContextPath() %>/oscarRx/addReaction2.do?ID=0&type=0&name=" + encodeURIComponent(name);
+                    submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction2.do', '0', '0', name);
                 }
             }
 
             function addPenicillinAllergy() {
-                window.location = "<%= request.getContextPath() %>/oscarRx/addReaction2.do?ID=44452&name=PENICILLINS&type=10";
+                submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction2.do', '44452', '10', 'PENICILLINS');
             }
 
             function addSulfonamideAllergy() {
-                window.location = "<%= request.getContextPath() %>/oscarRx/addReaction2.do?ID=44159&name=SULFONAMIDES&type=10";
+                submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction2.do', '44159', '10', 'SULFONAMIDES');
             }
 
             function addCustomNKDA() {
-                window.location = "<%= request.getContextPath() %>/oscarRx/addReaction2.do?ID=0&type=0&name=NKDA";
+                submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction2.do', '0', '0', 'NKDA');
             }
 
             function toggleSection(typecode) {
@@ -125,6 +134,11 @@
         </script>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <form id="addReactionForm" method="post" action="<%= request.getContextPath() %>/oscarRx/addReaction.do" style="display:none">
+        <input type="hidden" name="ID" value=""/>
+        <input type="hidden" name="type" value=""/>
+        <input type="hidden" name="name" value=""/>
+    </form>
 
     <table border="0" cellpadding="0" cellspacing="0"
            style="border-collapse: collapse" bordercolor="#111111" width="100%"
@@ -250,14 +264,14 @@
                                                     <!-- 判断是否为平铺结果显示 -->
                                                     <c:if test="${flatResults}">
                                                         <c:forEach var="allergy" items="${flatMap}">
-                                                            <a href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${allergy.value.drugrefId}&name=${fn:escapeXml(allergy.value.description)}&type=${allergy.value.typeCode}">
+                                                            <a href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${allergy.value.drugrefId}', '${allergy.value.typeCode}', '${fn:escapeXml(allergy.value.description)}')">
                                                                     ${allergy.value.description}
                                                             </a>
 
                                                             <!-- 显示药物分类 -->
                                                             <c:forEach var="drugClass" items="${drugClassHash[allergy.value.drugrefId]}">
                                                                 &nbsp;&nbsp;&nbsp;
-                                                                <a style="color: orange" href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${drugClass[0]}&name=${fn:escapeXml(drugClass[1])}&type=10">
+                                                                <a style="color: orange" href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${drugClass[0]}', '10', '${fn:escapeXml(drugClass[1])}')">
                                                                         ${drugClass[1]}
                                                                 </a>
                                                             </c:forEach>
@@ -278,14 +292,14 @@
 
                                                                 <div id="${type}_content" style="display: ${type == 11 || type == 12 ? 'none' : 'block'}">
                                                                     <c:forEach var="allergy" items="${allergyResults[type]}">
-                                                                        <a href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${allergy.drugrefId}&name=${fn:escapeXml(allergy.description)}&type=${allergy.typeCode}">
+                                                                        <a href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${allergy.drugrefId}', '${allergy.typeCode}', '${fn:escapeXml(allergy.description)}')">
                                                                                 ${allergy.description}
                                                                         </a>
 
                                                                         <!-- 显示药物分类 -->
                                                                         <c:forEach var="drugClass" items="${drugClassHash[allergy.drugrefId]}">
                                                                             &nbsp;&nbsp;&nbsp;
-                                                                            <a style="color: orange" href="<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=${drugClass[0]}&name=${fn:escapeXml(drugClass[1])}&type=10">
+                                                                            <a style="color: orange" href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${drugClass[0]}', '10', '${fn:escapeXml(drugClass[1])}')">
                                                                                     ${drugClass[1]}
                                                                             </a>
                                                                         </c:forEach>
