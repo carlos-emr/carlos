@@ -1,5 +1,7 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,16 +17,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -363,7 +360,7 @@ public class MeasurementFlowSheet {
                     log.debug("# OF RULES FOR " + fsi.getItemName() + " " + rules.size() + " key " + key);
                     for (Object obj : rules) {
                         Recommendation rec = (Recommendation) obj;
-                        dsElements.add(rec.getRuleBaseElement());
+                        ruleStrings.add(rec.getRuleBaseElement());
                     }
                 } else {
                     log.debug("NO RULES FOR " + fsi.getItemName());
@@ -371,15 +368,15 @@ public class MeasurementFlowSheet {
 
             }
         }
-        log.debug("LOADING RULES2" + name + " size + " + dsElements.size() + " rulebase " + ruleBase);
-        if (dsElements != null && dsElements.size() > 0) {
+        log.debug("LOADING RULES2" + name + " size + " + ruleStrings.size() + " rulebase " + ruleBase);
+        if (ruleStrings != null && ruleStrings.size() > 0) {
 
-            log.debug("LOADING RULES21" + dsElements.size());
+            log.debug("LOADING RULES21" + ruleStrings.size());
             RuleBaseCreator rcb = new RuleBaseCreator();
             try {
 
                 log.debug("LOADING RULES22");
-                ruleBase = rcb.getRuleBase("rulesetName", dsElements);
+                ruleBase = rcb.getRuleBase("rulesetName", ruleStrings);
                 log.debug("LOADING RULES23");
                 rulesLoaded = true;
             } catch (Exception e) {
@@ -434,12 +431,12 @@ public class MeasurementFlowSheet {
             int count = 0;
             for (TargetColour obj : targetColours) {
                 TargetColour rec = obj;
-                dsElements.add(rec.getRuleBaseElement("DD" + count));
+                ruleStrings.add(rec.getRuleBaseElement("DD" + count));
                 count++;
             }
 
             log.debug("loadMeasuremntRuleBase 1");
-            measurementRuleBase = rcb.getRuleBase("rulesetName", dsElements);
+            measurementRuleBase = rcb.getRuleBase("rulesetName", ruleStrings);
             log.debug("loadMeasuremntRuleBase 2");
             rulesLoaded = true;
         } catch (Exception e) {
@@ -490,7 +487,7 @@ public class MeasurementFlowSheet {
         log.debug("RULEBASE FOR " + fs);
         //Is there a rule base for this
         if (rb != null) {
-
+            KieSession kieSession = rb.newKieSession();
             try {
                 KieSession kieSession = rb.newKieSession();
                 try {
@@ -502,6 +499,8 @@ public class MeasurementFlowSheet {
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 //throw new Exception("ERROR: Drools ",e);
+            } finally {
+                kieSession.dispose();
             }
         }
     }
@@ -513,6 +512,7 @@ public class MeasurementFlowSheet {
             //loadRuleBase();
         }
 
+        KieSession kieSession = ruleBase.newKieSession();
         try {
             KieSession kieSession = ruleBase.newKieSession();
             try {
@@ -524,6 +524,8 @@ public class MeasurementFlowSheet {
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             //throw new Exception("ERROR: Drools ",e);
+        } finally {
+            kieSession.dispose();
         }
         return mi;
     }

@@ -1,5 +1,7 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,7 +26,8 @@
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 /*
@@ -318,7 +321,7 @@ public class DSGuidelineDrools extends DSGuideline {
 
             String consequencesElement = this.getDroolsConsequences(this.getConsequences());
 
-            rules.add(this.getRule(conditionElements, lParameterElements, consequencesElement, ruleCount++));
+            rules.add(this.getRule(conditionStrings, lParameterStrings, consequencesString, ruleCount++));
 
             RuleBaseCreator ruleBaseCreator = new RuleBaseCreator();
             try {

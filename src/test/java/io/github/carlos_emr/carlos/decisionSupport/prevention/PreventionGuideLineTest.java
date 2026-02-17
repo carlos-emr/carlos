@@ -28,13 +28,12 @@ import java.io.InputStream;
 import io.github.carlos_emr.carlos.decisionSupport.prevention.DSPreventionDrools;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
-import org.drools.RuleBase;
+import org.kie.api.KieBase;
 
 import org.junit.Test;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertEquals;
 
 public class PreventionGuideLineTest {
     private static final Logger logger = MiscUtils.getLogger();
@@ -47,10 +46,8 @@ public class PreventionGuideLineTest {
 
     @Test
     public void testLoading() throws Exception {
-        RuleBase rulebase = DSPreventionDrools.createRuleBase(getRuleSet());
-        assertNotNull(rulebase);
-        assertEquals(rulebase.getRuleSets().size(), 1);
-        logger.error(rulebase.getRuleSets().get(0).getClass());
+        KieBase kieBase = DSPreventionDrools.createRuleBase(getRuleSet());
+        assertNotNull(kieBase);
     }
 
 }

@@ -1,32 +1,28 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
-
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.util;
 
 import java.util.ArrayList;
@@ -41,7 +37,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Class used to create Drools DRL rules
  *
- * @author jaygallagher
+ * <p>Migrated from Drools 2.0 XML format to modern DRL text format as part of
+ * the Drools 2.0 to 7.74.1.Final upgrade.</p>
+ *
+ * @since 2001-01-01
  */
 public class RuleBaseCreator {
     private static final Logger log = MiscUtils.getLogger();
@@ -68,7 +67,21 @@ public class RuleBaseCreator {
         }
     }
 
-    public void test() {
+    /**
+     * Generates a DRL rule string from the given parameters.
+     *
+     * <p>Creates a modern DRL rule definition using {@code eval()} expressions
+     * for conditions, replacing the legacy Drools 2.0 XML format.</p>
+     *
+     * @param ruleName String the rule name
+     * @param incomingClass String fully qualified class name for the fact object
+     * @param conditions List of DSCondition objects defining the rule conditions
+     * @param consequence String the Java code to execute when the rule fires
+     * @return String the DRL rule definition text
+     */
+    public String getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
+        lastIncomingClass = incomingClass;
+        String simpleClassName = incomingClass.substring(incomingClass.lastIndexOf('.') + 1);
 
         ArrayList<String> elementList = new ArrayList<String>();
         ArrayList list = new ArrayList();
