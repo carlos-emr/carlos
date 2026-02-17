@@ -196,7 +196,7 @@
 				securityId: securityId
 			};
 			new Ajax.Request(url, {
-				method: 'get',
+				method: 'post',
 				parameters: data,
 				onSuccess: function (transport) {
 					updateMfaElementsVisibility(true, false);
@@ -371,12 +371,15 @@
                         <input type="submit" name="subbutton"
                                value='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.btnDelete"/>"
-                               onclick="window.location='securitydelete.jsp?keyword=<%=security.getSecurityNo()%>'">
+                               onclick="document.getElementById('deleteSecurityForm').submit()">
                     </td>
                 </tr>
                 <%
                     }
                 %>
+            </form>
+            <form id="deleteSecurityForm" method="post" action="securitydelete.jsp" style="display:none">
+                <input type="hidden" name="keyword" value="<%=security.getSecurityNo()%>">
             </form>
         </table>
 

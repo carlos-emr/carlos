@@ -86,24 +86,18 @@
 
         <script>
             function cancelJob(jobId) {
-                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/cancelJob?jobId=" + jobId, {async: true},
+                jQuery.post("<%= request.getContextPath() %>/ws/rs/jobs/cancelJob", {jobId: jobId},
                     function (xml) {
                         listJobs();
-                    });
+                    }, "json");
             }
 
             function updateJobStatus(jobId, status) {
-                if (status) {
-                    jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/enableJob?jobId=" + jobId, {async: true},
-                        function (xml) {
-                            listJobs();
-                        });
-                } else {
-                    jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/disableJob?jobId=" + jobId, {async: true},
-                        function (xml) {
-                            listJobs();
-                        });
-                }
+                var action = status ? "enableJob" : "disableJob";
+                jQuery.post("<%= request.getContextPath() %>/ws/rs/jobs/" + action, {jobId: jobId},
+                    function (xml) {
+                        listJobs();
+                    }, "json");
             }
 
             function scheduleJob(jobId) {

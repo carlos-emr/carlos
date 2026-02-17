@@ -156,8 +156,8 @@
             //represcribe a drug
             function reRxDrugSearch3(reRxDrugId) {
                 var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-                var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
-                new Ajax.Request(urlUpdateId, {method: 'get', parameters: dataUpdateId});
+                var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do";
+                new Ajax.Request(urlUpdateId, {method: 'post', parameters: dataUpdateId + "&parameterValue=updateReRxDrug"});
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId);
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/rePrescribe2.do?method=saveReRxDrugIdToStash";
