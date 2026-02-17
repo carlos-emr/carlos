@@ -1,152 +1,115 @@
-<?xml version="1.0"?>
+package HousingFlowsheet;
 
-<rule-set name="HousingFlowsheet"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
-    <rule name="Hass 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Hass") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("Hass","Question not answered in "+m.getLastDateRecordedInMonths("Hass")+" months");
-        </java:consequence>
-    </rule>
+rule "Hass 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Hass") >= 12 )
+    then
+        m.addWarning("Hass","Question not answered in "+m.getLastDateRecordedInMonths("Hass")+" months");
+end
 
-    <rule name="Hass 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Hass") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("Hass","Question not answered");
-        </java:consequence>
-    </rule>
+rule "Hass 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Hass") == -1 )
+    then
+        m.addWarning("Hass","Question not answered");
+end
 
-    <rule name="CnAp 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("CnAp") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("CnAp","Question not answered in "+m.getLastDateRecordedInMonths("CnAp")+" months");
-        </java:consequence>
-    </rule>
+rule "CnAp 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("CnAp") >= 12 )
+    then
+        m.addWarning("CnAp","Question not answered in "+m.getLastDateRecordedInMonths("CnAp")+" months");
+end
 
-    <rule name="CnAp 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("CnAp") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("CnAp","Question not answered");
-        </java:consequence>
-    </rule>
+rule "CnAp 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("CnAp") == -1 )
+    then
+        m.addWarning("CnAp","Question not answered");
+end
 
-    <rule name="HAP 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("HAP") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("HAP","Question not answered in "+m.getLastDateRecordedInMonths("HAP")+" months");
-        </java:consequence>
-    </rule>
+rule "HAP 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("HAP") >= 12 )
+    then
+        m.addWarning("HAP","Question not answered in "+m.getLastDateRecordedInMonths("HAP")+" months");
+end
 
-    <rule name="HAP 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("HAP") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("HAP","Question not answered");
-        </java:consequence>
-    </rule>
+rule "HAP 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("HAP") == -1 )
+    then
+        m.addWarning("HAP","Question not answered");
+end
 
-    <rule name="CCAC 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("CCAC") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("CCAC","Question not answered in "+m.getLastDateRecordedInMonths("CCAC")+" months");
-        </java:consequence>
-    </rule>
+rule "CCAC 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("CCAC") >= 12 )
+    then
+        m.addWarning("CCAC","Question not answered in "+m.getLastDateRecordedInMonths("CCAC")+" months");
+end
 
-    <rule name="CCAC 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("CCAC") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("CCAC","Question not answered");
-        </java:consequence>
-    </rule>
+rule "CCAC 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("CCAC") == -1 )
+    then
+        m.addWarning("CCAC","Question not answered");
+end
 
-    <rule name="CMSP 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("CMSP") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("CMSP","Question not answered in "+m.getLastDateRecordedInMonths("CMSP")+" months");
-        </java:consequence>
-    </rule>
+rule "CMSP 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("CMSP") >= 12 )
+    then
+        m.addWarning("CMSP","Question not answered in "+m.getLastDateRecordedInMonths("CMSP")+" months");
+end
 
-    <rule name="CMSP 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("CMSP") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("CMSP","Question not answered");
-        </java:consequence>
-    </rule>
+rule "CMSP 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("CMSP") == -1 )
+    then
+        m.addWarning("CMSP","Question not answered");
+end
 
-    <rule name="HVIS 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("HVIS") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("HVIS","Question not answered in "+m.getLastDateRecordedInMonths("HVIS")+" months");
-        </java:consequence>
-    </rule>
+rule "HVIS 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("HVIS") >= 12 )
+    then
+        m.addWarning("HVIS","Question not answered in "+m.getLastDateRecordedInMonths("HVIS")+" months");
+end
 
-    <rule name="HVIS 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("HVIS") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("HVIS","Question not answered");
-        </java:consequence>
-    </rule>
+rule "HVIS 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("HVIS") == -1 )
+    then
+        m.addWarning("HVIS","Question not answered");
+end
 
-    <rule name="Hsup 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Hsup") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("Hsup","Question not answered in "+m.getLastDateRecordedInMonths("Hsup")+" months");
-        </java:consequence>
-    </rule>
+rule "Hsup 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Hsup") >= 12 )
+    then
+        m.addWarning("Hsup","Question not answered in "+m.getLastDateRecordedInMonths("Hsup")+" months");
+end
 
-    <rule name="Hsup 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Hsup") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("Hsup","Question not answered");
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+rule "Hsup 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Hsup") == -1 )
+    then
+        m.addWarning("Hsup","Question not answered");
+end

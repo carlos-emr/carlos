@@ -29,11 +29,11 @@
 package io.github.carlos_emr.carlos.drools;
 
 import org.apache.commons.lang3.time.DateUtils;
-import org.drools.RuleBase;
+import org.kie.api.KieBase;
 import io.github.carlos_emr.carlos.utility.QueueCache;
 
 /**
- * Factory class for managing Drools RuleBase instances with caching.
+ * Factory class for managing Drools KieBase instances with caching.
  *
  * This factory provides centralized management of Drools rule bases used throughout
  * the OpenO EMR system for clinical decision support and business rule processing.
@@ -67,7 +67,7 @@ import io.github.carlos_emr.carlos.utility.QueueCache;
  * to the shared cache instance.
  *
  * @since 2001-01-01
- * @see org.drools.RuleBase
+ * @see org.kie.api.KieBase
  * @see io.github.carlos_emr.carlos.utility.QueueCache
  */
 public final class RuleBaseFactory {
@@ -84,10 +84,10 @@ public final class RuleBaseFactory {
      * The cache automatically evicts entries older than 24 hours to ensure
      * rule updates are reflected within a day without manual intervention.
      */
-    private static QueueCache<String, RuleBase> ruleBaseInstances = new QueueCache<String, RuleBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
+    private static QueueCache<String, KieBase> ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
 
     /**
-     * Retrieves a cached RuleBase instance by its source key.
+     * Retrieves a cached KieBase instance by its source key.
      *
      * This method provides thread-safe access to compiled rule bases. If the
      * requested rule base is not in the cache or has expired, null is returned.
@@ -97,14 +97,14 @@ public final class RuleBaseFactory {
      * such as "prevention", "ckd", "diabetes", or module-specific identifiers.
      *
      * @param sourceKey String unique identifier for the rule base (e.g., "prevention", "ckd")
-     * @return RuleBase the cached rule base instance, or null if not found or expired
+     * @return KieBase the cached rule base instance, or null if not found or expired
      */
-    public static synchronized RuleBase getRuleBase(String sourceKey) {
+    public static synchronized KieBase getRuleBase(String sourceKey) {
         return (ruleBaseInstances.get(sourceKey));
     }
 
     /**
-     * Stores a RuleBase instance in the cache.
+     * Stores a KieBase instance in the cache.
      *
      * Adds or updates a compiled rule base in the cache with the specified key.
      * The rule base will be automatically evicted after 24 hours to ensure
@@ -114,14 +114,14 @@ public final class RuleBaseFactory {
      * from DRL (Drools Rule Language) files or other rule sources.
      *
      * @param sourceKey String unique identifier for the rule base
-     * @param ruleBase RuleBase compiled rule base instance to cache
+     * @param kieBase KieBase compiled rule base instance to cache
      */
-    public static synchronized void putRuleBase(String sourceKey, RuleBase ruleBase) {
-        ruleBaseInstances.put(sourceKey, ruleBase);
+    public static synchronized void putRuleBase(String sourceKey, KieBase kieBase) {
+        ruleBaseInstances.put(sourceKey, kieBase);
     }
 
     /**
-     * Removes a specific RuleBase from the cache.
+     * Removes a specific KieBase from the cache.
      *
      * Explicitly removes a rule base from the cache before its natural expiration.
      * This is useful when rules have been updated and the cached version needs
@@ -139,7 +139,7 @@ public final class RuleBaseFactory {
     }
 
     /**
-     * Clears all cached RuleBase instances.
+     * Clears all cached KieBase instances.
      *
      * Completely resets the cache by creating a new QueueCache instance.
      * This forces all rule bases to be recompiled on next access.
@@ -155,6 +155,6 @@ public final class RuleBaseFactory {
      */
     public static synchronized void flushAllCached() {
         // Create new cache instance to clear all cached entries
-        ruleBaseInstances = new QueueCache<String, RuleBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
+        ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
     }
 }

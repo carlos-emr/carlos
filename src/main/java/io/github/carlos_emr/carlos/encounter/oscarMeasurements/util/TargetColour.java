@@ -78,7 +78,7 @@ public class TargetColour {
     }
 
 
-    public Element getRuleBaseElement(String ruleName) {//, String measurement){
+    public String getRuleBaseElement(String ruleName) {
 
         ArrayList<DSCondition> list = new ArrayList<DSCondition>();
 
@@ -96,9 +96,9 @@ public class TargetColour {
         log.debug("ruleName" + ruleName + " cond size " + getTargetConditions().size() + " list size " + list.size());
 
         RuleBaseCreator rcb = new RuleBaseCreator();
-        Element ruleElement = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper", list, consequence);
+        String ruleText = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper", list, consequence);
 
-        return ruleElement;
+        return ruleText;
     }
 
 

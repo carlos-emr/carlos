@@ -39,10 +39,9 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
-import org.drools.RuleBase;
-import org.drools.WorkingMemory;
-import org.drools.io.RuleBaseLoader;
-import org.jdom2.Element;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
+import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -113,12 +112,12 @@ public class DroolsNumerator5 implements Numerator {
             ArrayList<TargetCondition> list = new ArrayList<TargetCondition>();
             list.add(tc);
             tcolour.setTargetConditions(list);
-            ArrayList<Element> list2 = new ArrayList<Element>();
+            ArrayList<String> list2 = new ArrayList<String>();
             list2.add(tcolour.getRuleBaseElement("ClinicalRule"));
             RuleBaseCreator rcb = new RuleBaseCreator();
 
 
-            RuleBase ruleBase = rcb.getRuleBase("rulesetName", list2);
+            KieBase kieBase = rcb.getRuleBase("rulesetName", list2);
 
 //            EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(demographicNo, measurement);
 //           Collection v = ect.getMeasurementsDataVector();
@@ -129,15 +128,19 @@ public class DroolsNumerator5 implements Numerator {
 
 
             MiscUtils.getLogger().debug("new working mem");
-            WorkingMemory workingMemory = ruleBase.newWorkingMemory();
+            KieSession kieSession = kieBase.newKieSession();
 
-            MiscUtils.getLogger().debug("assertObject");
+            try {
+                MiscUtils.getLogger().debug("assertObject");
 
-            workingMemory.assertObject(dshelper);
+                kieSession.insert(dshelper);
 
 
-            MiscUtils.getLogger().debug("fireAllRules");
-            workingMemory.fireAllRules();
+                MiscUtils.getLogger().debug("fireAllRules");
+                kieSession.fireAllRules();
+            } finally {
+                kieSession.dispose();
+            }
             evalTrue = dshelper.isInRange();
 
             MiscUtils.getLogger().debug("right before catch");
@@ -156,8 +159,8 @@ public class DroolsNumerator5 implements Numerator {
     }
 
 
-    public RuleBase loadMeasurementRuleBase(String string) {
-        RuleBase measurementRuleBase = null;
+    public KieBase loadMeasurementRuleBase(String string) {
+        KieBase measurementRuleBase = null;
         try {
             boolean fileFound = false;
             String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
@@ -168,7 +171,7 @@ public class DroolsNumerator5 implements Numerator {
                 if (file.isFile() || file.canRead()) {
                     MiscUtils.getLogger().debug("Loading from file " + file.getName());
                     FileInputStream fis = new FileInputStream(file);
-                    measurementRuleBase = RuleBaseLoader.loadFromInputStream(fis);
+                    measurementRuleBase = DroolsHelper.loadFromInputStream(fis);
                     fileFound = true;
                 }
             }
@@ -176,7 +179,7 @@ public class DroolsNumerator5 implements Numerator {
             if (!fileFound) {
                 URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + string);  //TODO: change this so it is configurable;
                 MiscUtils.getLogger().debug("loading from URL " + url.getFile());
-                measurementRuleBase = RuleBaseLoader.loadFromUrl(url);
+                measurementRuleBase = DroolsHelper.loadFromUrl(url);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

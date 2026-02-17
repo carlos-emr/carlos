@@ -38,8 +38,8 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
-import org.drools.RuleBase;
-import org.drools.io.RuleBaseLoader;
+import org.kie.api.KieBase;
+import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -119,8 +119,8 @@ public class DroolsNumerator3 implements Numerator {
     }
 
 
-    public RuleBase loadMeasurementRuleBase(String string) {
-        RuleBase measurementRuleBase = null;
+    public KieBase loadMeasurementRuleBase(String string) {
+        KieBase measurementRuleBase = null;
         try {
             boolean fileFound = false;
             String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
@@ -131,7 +131,7 @@ public class DroolsNumerator3 implements Numerator {
                 if (file.isFile() || file.canRead()) {
                     MiscUtils.getLogger().debug("Loading from file " + file.getName());
                     FileInputStream fis = new FileInputStream(file);
-                    measurementRuleBase = RuleBaseLoader.loadFromInputStream(fis);
+                    measurementRuleBase = DroolsHelper.loadFromInputStream(fis);
                     fileFound = true;
                 }
             }
@@ -139,7 +139,7 @@ public class DroolsNumerator3 implements Numerator {
             if (!fileFound) {
                 URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + string);  //TODO: change this so it is configurable;
                 MiscUtils.getLogger().debug("loading from URL " + url.getFile());
-                measurementRuleBase = RuleBaseLoader.loadFromUrl(url);
+                measurementRuleBase = DroolsHelper.loadFromUrl(url);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

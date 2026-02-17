@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -46,11 +46,8 @@ import javax.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import org.drools.FactException;
-import org.drools.RuleBase;
-import org.drools.WorkingMemory;
-import org.jdom2.Element;
-import org.jdom2.Namespace;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSCondition;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess;
@@ -71,14 +68,10 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCrea
 public class DSGuidelineDrools extends DSGuideline {
     private static final Logger log = MiscUtils.getLogger();
 
-    public static final Namespace namespace = Namespace.getNamespace("http://drools.org/rules");
-    public static final Namespace javaNamespace = Namespace.getNamespace("java", "http://drools.org/semantics/java");
-    // public static final Namespace xsNs = Namespace.getNamespace("xs", "http://www.w3.org/2001/XMLSchema-instance");
-
     private static final String demographicAccessObjectClassPath = "io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess";
 
     @Transient
-    private RuleBase _ruleBase = null;
+    private KieBase _kieBase = null;
     @Transient
     int ruleCount = 0;
 
@@ -91,191 +84,203 @@ public class DSGuidelineDrools extends DSGuideline {
     }
 
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo) throws DecisionSupportException {
-        if (_ruleBase == null) generateRuleBase();
-        //at this point _ruleBase WILL be set or exception is thrown in generateRuleBase()
-        WorkingMemory workingMemory = _ruleBase.newWorkingMemory();
-        DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo);
-        //put "bob" in working memory
+        if (_kieBase == null) generateRuleBase();
+        //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
+        KieSession kieSession = _kieBase.newKieSession();
         try {
+            DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo);
+            //put "bob" in working memory
+            try {
 
-            workingMemory.assertObject(dsDemographicAccess);
+                kieSession.insert(dsDemographicAccess);
 
-            for (DSCondition dsc : this.getConditions()) {
-                if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
-                    log.debug("PARAM:" + dsc.getParam().toString());
-                    workingMemory.assertObject(dsc.getParam());
-                }
-            }
-
-            List<DSParameter> lDSP = this.getParameters();
-            if (lDSP != null) {
-                for (DSParameter dsp : lDSP) {
-                    Class clas = Class.forName(dsp.getStrClass());
-                    Constructor constructor = clas.getConstructor();
-                    Object obj = constructor.newInstance();
-
-                    workingMemory.assertObject(obj);
-                }
-            }
-
-            workingMemory.fireAllRules();
-            if (dsDemographicAccess.isPassedGuideline()) {
-                List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
-                if (this.getConsequences() == null) return returnDsConsequences;
-                else {
-                    for (DSConsequence dsConsequence : this.getConsequences()) {
-                        if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
-                            returnDsConsequences.add(dsConsequence);
-                        } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                            @SuppressWarnings("unchecked")
-                            List<Object> javaConsequences = workingMemory.getObjects();
-                            dsConsequence.setObjConsequence(javaConsequences);
-                            returnDsConsequences.add(dsConsequence);
-                        }
+                for (DSCondition dsc : this.getConditions()) {
+                    if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
+                        log.debug("PARAM:" + dsc.getParam().toString());
+                        kieSession.insert(dsc.getParam());
                     }
-                    return returnDsConsequences;
                 }
-            } else {
-                return null;
+
+                List<DSParameter> lDSP = this.getParameters();
+                if (lDSP != null) {
+                    for (DSParameter dsp : lDSP) {
+                        Class clas = Class.forName(dsp.getStrClass());
+                        Constructor constructor = clas.getConstructor();
+                        Object obj = constructor.newInstance();
+
+                        kieSession.insert(obj);
+                    }
+                }
+
+                kieSession.fireAllRules();
+                if (dsDemographicAccess.isPassedGuideline()) {
+                    List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
+                    if (this.getConsequences() == null) return returnDsConsequences;
+                    else {
+                        for (DSConsequence dsConsequence : this.getConsequences()) {
+                            if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
+                                returnDsConsequences.add(dsConsequence);
+                            } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
+                                @SuppressWarnings("unchecked")
+                                List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
+                                dsConsequence.setObjConsequence(javaConsequences);
+                                returnDsConsequences.add(dsConsequence);
+                            }
+                        }
+                        return returnDsConsequences;
+                    }
+                } else {
+                    return null;
+                }
+            } catch (RuntimeException factException) {
+                throw new DecisionSupportException("Unable to assert guideline", factException);
+            } catch (ClassNotFoundException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (NoSuchMethodException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (InstantiationException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (IllegalAccessException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (InvocationTargetException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
             }
-        } catch (FactException factException) {
-            throw new DecisionSupportException("Unable to assert guideline", factException);
-        } catch (ClassNotFoundException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (NoSuchMethodException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (InstantiationException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (IllegalAccessException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (InvocationTargetException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
+        } finally {
+            kieSession.dispose();
         }
     }
 
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo, String providerNo) throws DecisionSupportException {
-        if (_ruleBase == null) generateRuleBase();
-        //at this point _ruleBase WILL be set or exception is thrown in generateRuleBase()
-        WorkingMemory workingMemory = _ruleBase.newWorkingMemory();
-        DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo, providerNo);
-        //put "bob" in working memory
+        if (_kieBase == null) generateRuleBase();
+        //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
+        KieSession kieSession = _kieBase.newKieSession();
         try {
+            DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo, providerNo);
+            //put "bob" in working memory
+            try {
 
-            workingMemory.assertObject(dsDemographicAccess);
+                kieSession.insert(dsDemographicAccess);
 
-            for (DSCondition dsc : this.getConditions()) {
-                if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
-                    log.debug("PARAM:" + dsc.getParam().toString());
-                    workingMemory.assertObject(dsc.getParam());
-                }
-            }
-
-            List<DSParameter> lDSP = this.getParameters();
-            if (lDSP != null) {
-                for (DSParameter dsp : lDSP) {
-                    Class clas = Class.forName(dsp.getStrClass());
-                    Constructor constructor = clas.getConstructor();
-                    Object obj = constructor.newInstance();
-
-                    workingMemory.assertObject(obj);
-                }
-            }
-
-            workingMemory.fireAllRules();
-            if (dsDemographicAccess.isPassedGuideline()) {
-                List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
-                if (this.getConsequences() == null) return returnDsConsequences;
-                else {
-                    for (DSConsequence dsConsequence : this.getConsequences()) {
-                        if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
-                            returnDsConsequences.add(dsConsequence);
-                        } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                            @SuppressWarnings("unchecked")
-                            List<Object> javaConsequences = workingMemory.getObjects();
-                            dsConsequence.setObjConsequence(javaConsequences);
-                            returnDsConsequences.add(dsConsequence);
-                        }
+                for (DSCondition dsc : this.getConditions()) {
+                    if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
+                        log.debug("PARAM:" + dsc.getParam().toString());
+                        kieSession.insert(dsc.getParam());
                     }
-                    return returnDsConsequences;
                 }
-            } else {
-                return null;
+
+                List<DSParameter> lDSP = this.getParameters();
+                if (lDSP != null) {
+                    for (DSParameter dsp : lDSP) {
+                        Class clas = Class.forName(dsp.getStrClass());
+                        Constructor constructor = clas.getConstructor();
+                        Object obj = constructor.newInstance();
+
+                        kieSession.insert(obj);
+                    }
+                }
+
+                kieSession.fireAllRules();
+                if (dsDemographicAccess.isPassedGuideline()) {
+                    List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
+                    if (this.getConsequences() == null) return returnDsConsequences;
+                    else {
+                        for (DSConsequence dsConsequence : this.getConsequences()) {
+                            if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
+                                returnDsConsequences.add(dsConsequence);
+                            } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
+                                @SuppressWarnings("unchecked")
+                                List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
+                                dsConsequence.setObjConsequence(javaConsequences);
+                                returnDsConsequences.add(dsConsequence);
+                            }
+                        }
+                        return returnDsConsequences;
+                    }
+                } else {
+                    return null;
+                }
+            } catch (RuntimeException factException) {
+                throw new DecisionSupportException("Unable to assert guideline", factException);
+            } catch (ClassNotFoundException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (NoSuchMethodException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (InstantiationException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (IllegalAccessException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (InvocationTargetException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
             }
-        } catch (FactException factException) {
-            throw new DecisionSupportException("Unable to assert guideline", factException);
-        } catch (ClassNotFoundException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (NoSuchMethodException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (InstantiationException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (IllegalAccessException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (InvocationTargetException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
+        } finally {
+            kieSession.dispose();
         }
     }
 
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo, String providerNo, List<Object> dynamicArgs) throws DecisionSupportException {
-        if (_ruleBase == null) generateRuleBase();
-        //at this point _ruleBase WILL be set or exception is thrown in generateRuleBase()
-        WorkingMemory workingMemory = _ruleBase.newWorkingMemory();
-        DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo, providerNo, dynamicArgs);
-        //put "bob" in working memory
+        if (_kieBase == null) generateRuleBase();
+        //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
+        KieSession kieSession = _kieBase.newKieSession();
         try {
+            DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo, providerNo, dynamicArgs);
+            //put "bob" in working memory
+            try {
 
-            workingMemory.assertObject(dsDemographicAccess);
+                kieSession.insert(dsDemographicAccess);
 
-            for (DSCondition dsc : this.getConditions()) {
-                if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
-                    log.debug("PARAM:" + dsc.getParam().toString());
-                    workingMemory.assertObject(dsc.getParam());
-                }
-            }
-
-            List<DSParameter> lDSP = this.getParameters();
-            if (lDSP != null) {
-                for (DSParameter dsp : lDSP) {
-                    Class clas = Class.forName(dsp.getStrClass());
-                    Constructor constructor = clas.getConstructor();
-                    Object obj = constructor.newInstance();
-
-                    workingMemory.assertObject(obj);
-                }
-            }
-
-            workingMemory.fireAllRules();
-            if (dsDemographicAccess.isPassedGuideline()) {
-                List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
-                if (this.getConsequences() == null) return returnDsConsequences;
-                else {
-                    for (DSConsequence dsConsequence : this.getConsequences()) {
-                        if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
-                            returnDsConsequences.add(dsConsequence);
-                        } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                            @SuppressWarnings("unchecked")
-                            List<Object> javaConsequences = workingMemory.getObjects();
-                            dsConsequence.setObjConsequence(javaConsequences);
-                            returnDsConsequences.add(dsConsequence);
-                        }
+                for (DSCondition dsc : this.getConditions()) {
+                    if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
+                        log.debug("PARAM:" + dsc.getParam().toString());
+                        kieSession.insert(dsc.getParam());
                     }
-                    return returnDsConsequences;
                 }
-            } else {
-                return null;
+
+                List<DSParameter> lDSP = this.getParameters();
+                if (lDSP != null) {
+                    for (DSParameter dsp : lDSP) {
+                        Class clas = Class.forName(dsp.getStrClass());
+                        Constructor constructor = clas.getConstructor();
+                        Object obj = constructor.newInstance();
+
+                        kieSession.insert(obj);
+                    }
+                }
+
+                kieSession.fireAllRules();
+                if (dsDemographicAccess.isPassedGuideline()) {
+                    List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
+                    if (this.getConsequences() == null) return returnDsConsequences;
+                    else {
+                        for (DSConsequence dsConsequence : this.getConsequences()) {
+                            if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
+                                returnDsConsequences.add(dsConsequence);
+                            } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
+                                @SuppressWarnings("unchecked")
+                                List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
+                                dsConsequence.setObjConsequence(javaConsequences);
+                                returnDsConsequences.add(dsConsequence);
+                            }
+                        }
+                        return returnDsConsequences;
+                    }
+                } else {
+                    return null;
+                }
+            } catch (RuntimeException factException) {
+                throw new DecisionSupportException("Unable to assert guideline", factException);
+            } catch (ClassNotFoundException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (NoSuchMethodException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (InstantiationException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (IllegalAccessException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
+            } catch (InvocationTargetException e) {
+                throw new DecisionSupportException("Unable to instantiate class", e);
             }
-        } catch (FactException factException) {
-            throw new DecisionSupportException("Unable to assert guideline", factException);
-        } catch (ClassNotFoundException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (NoSuchMethodException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (InstantiationException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (IllegalAccessException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
-        } catch (InvocationTargetException e) {
-            throw new DecisionSupportException("Unable to instantiate class", e);
+        } finally {
+            kieSession.dispose();
         }
     }
 
@@ -284,19 +289,19 @@ public class DSGuidelineDrools extends DSGuideline {
         try {
             String ruleBaseFactoryKey = getRuleBaseFactoryKey();
 
-            RuleBase result = RuleBaseFactory.getRuleBase(ruleBaseFactoryKey);
+            KieBase result = RuleBaseFactory.getRuleBase(ruleBaseFactoryKey);
             if (result != null) {
-                _ruleBase = result;
+                _kieBase = result;
                 return;
             }
 
-            ArrayList<Element> rules = new ArrayList<Element>();
-            ArrayList<Element> conditionElements = new ArrayList<Element>();
-            ArrayList<Element> lParameterElements = new ArrayList<Element>();
+            ArrayList<String> rules = new ArrayList<String>();
+            ArrayList<String> conditionElements = new ArrayList<String>();
+            ArrayList<String> lParameterElements = new ArrayList<String>();
 
             if (this.getParameters() != null) {
                 for (DSParameter dsParameter : this.getParameters()) {
-                    Element parameterElement = this.getDroolsParameter(dsParameter);
+                    String parameterElement = this.getDroolsParameter(dsParameter);
                     lParameterElements.add(parameterElement);
                 }
             }
@@ -307,18 +312,18 @@ public class DSGuidelineDrools extends DSGuideline {
                     condition.setLabel("param" + paramCount);
                     paramCount++;
                 }
-                Element conditionElement = getDroolsCondition(condition);
+                String conditionElement = getDroolsCondition(condition);
                 conditionElements.add(conditionElement);
             }
 
-            Element consequencesElement = this.getDroolsConsequences(this.getConsequences());
+            String consequencesElement = this.getDroolsConsequences(this.getConsequences());
 
             rules.add(this.getRule(conditionElements, lParameterElements, consequencesElement, ruleCount++));
 
             RuleBaseCreator ruleBaseCreator = new RuleBaseCreator();
             try {
-                _ruleBase = ruleBaseCreator.getRuleBase(ruleBaseFactoryKey, rules);
-                RuleBaseFactory.putRuleBase(ruleBaseFactoryKey, _ruleBase);
+                _kieBase = ruleBaseCreator.getRuleBase(ruleBaseFactoryKey, rules);
+                RuleBaseFactory.putRuleBase(ruleBaseFactoryKey, _kieBase);
             } catch (Exception e) {
                 throw new DecisionSupportException("Could not create a rule base for guideline '" + this.getTitle() + "'", e);
             }
@@ -327,105 +332,97 @@ public class DSGuidelineDrools extends DSGuideline {
         }
     }
 
-    private Element getRule(List<Element> conditionElements, List<Element> parameterElements, Element consequenceElement, int ruleCount) {
-        Element ruleElement = new Element("rule", DSGuidelineDrools.namespace);
-        ruleElement.setAttribute("name", getRuleBaseFactoryKey() + "." + ruleCount);
+    private String getRule(List<String> conditionElements, List<String> parameterElements, String consequenceElement, int ruleCount) {
+        StringBuilder rule = new StringBuilder();
+        String ruleName = getRuleBaseFactoryKey() + "." + ruleCount;
+        rule.append("rule \"").append(ruleName).append("\"\n");
+        rule.append("    when\n");
 
-        Element accessClassParameter = new Element("parameter", DSGuidelineDrools.namespace);
-        accessClassParameter.setAttribute("identifier", "a");
-        Element accessClass = new Element("class", DSGuidelineDrools.namespace);
-        accessClass.addContent(demographicAccessObjectClassPath);
-        accessClassParameter.addContent(accessClass);
-        ruleElement.addContent(accessClassParameter);
+        // Primary access class parameter binding
+        rule.append("        a : ").append(demographicAccessObjectClassPath).append("()\n");
 
-        ruleElement.addContent(parameterElements);
+        // Additional parameter bindings
+        for (String paramElement : parameterElements) {
+            rule.append(paramElement).append("\n");
+        }
 
+        // Parameter bindings for conditions with params (Hashtable)
         for (DSCondition condition : this.getConditions()) {
             if (condition.getParam() != null && !condition.getParam().isEmpty()) {
-                Element paramsHashEle = new Element("parameter", DSGuidelineDrools.namespace);
-                paramsHashEle.setAttribute("identifier", condition.getLabel());
-                Element paramClass = new Element("class", DSGuidelineDrools.namespace);
-                paramClass.addContent("java.util.Hashtable");
-                paramsHashEle.addContent(paramClass);
-                ruleElement.addContent(paramsHashEle);
+                rule.append("        ").append(condition.getLabel()).append(" : java.util.Hashtable()\n");
             }
         }
 
-        ruleElement.addContent(conditionElements);
-        ruleElement.addContent(consequenceElement);
-        return ruleElement;
+        // Condition eval() clauses
+        for (String conditionElement : conditionElements) {
+            rule.append(conditionElement).append("\n");
+        }
+
+        rule.append("    then\n");
+        rule.append("        ").append(consequenceElement).append("\n");
+        rule.append("end");
+        return rule.toString();
     }
 
-    private Element getRule(List<Element> conditionElements, Element consequenceElement, int ruleCount) {
-        Element ruleElement = new Element("rule", DSGuidelineDrools.namespace);
-        ruleElement.setAttribute("name", getRuleBaseFactoryKey() + "." + ruleCount);
+    private String getRule(List<String> conditionElements, String consequenceElement, int ruleCount) {
+        StringBuilder rule = new StringBuilder();
+        String ruleName = getRuleBaseFactoryKey() + "." + ruleCount;
+        rule.append("rule \"").append(ruleName).append("\"\n");
+        rule.append("    when\n");
 
-        Element accessClassParameter = new Element("parameter", DSGuidelineDrools.namespace);
-        accessClassParameter.setAttribute("identifier", "a");
-        Element accessClass = new Element("class", DSGuidelineDrools.namespace);
-        accessClass.addContent(demographicAccessObjectClassPath);
-        accessClassParameter.addContent(accessClass);
-        ruleElement.addContent(accessClassParameter);
+        // Primary access class parameter binding
+        rule.append("        a : ").append(demographicAccessObjectClassPath).append("()\n");
 
+        // Parameter bindings for conditions with params (Hashtable)
         for (DSCondition condition : this.getConditions()) {
             if (condition.getParam() != null && !condition.getParam().isEmpty()) {
-                Element paramsHashEle = new Element("parameter", DSGuidelineDrools.namespace);
-                paramsHashEle.setAttribute("identifier", condition.getLabel());
-                Element paramClass = new Element("class", DSGuidelineDrools.namespace);
-                paramClass.addContent("java.util.Hashtable");
-                paramsHashEle.addContent(paramClass);
-                ruleElement.addContent(paramsHashEle);
+                rule.append("        ").append(condition.getLabel()).append(" : java.util.Hashtable()\n");
             }
         }
 
-        ruleElement.addContent(conditionElements);
-        ruleElement.addContent(consequenceElement);
-        return ruleElement;
+        // Condition eval() clauses
+        for (String conditionElement : conditionElements) {
+            rule.append(conditionElement).append("\n");
+        }
+
+        rule.append("    then\n");
+        rule.append("        ").append(consequenceElement).append("\n");
+        rule.append("end");
+        return rule.toString();
     }
 
-    protected Element getRule(Element conditionElement, Element consequenceElement, int ruleCounter) {
-        List<Element> conditionElements = new ArrayList<Element>();
+    protected String getRule(String conditionElement, String consequenceElement, int ruleCounter) {
+        List<String> conditionElements = new ArrayList<String>();
         conditionElements.add(conditionElement);
         return getRule(conditionElements, consequenceElement, ruleCounter);
     }
 
     //multiple conditions because to handle OR statements, need to have multiple
-    public Element getDroolsCondition(DSCondition condition) {
+    public String getDroolsCondition(DSCondition condition) {
         String accessMethod = condition.getConditionType().getAccessMethod();
-        Element javaCondition = new Element("condition", DSGuidelineDrools.javaNamespace);
         String parameters = "\"" + StringUtils.join(condition.getValues(), ",") + "\"";
         accessMethod = accessMethod + StringUtils.capitalize(condition.getListOperator().name());
-        String functionStr = "a." + accessMethod + "(" + parameters; // + ")";
+        String functionStr = "a." + accessMethod + "(" + parameters;
         if (condition.getParam() != null && !condition.getParam().isEmpty()) {
-            //functionStr += ",\"" +condition.getParam().toString()+"\"";
             functionStr += "," + condition.getLabel();
         }
         functionStr += ")";
 
-        javaCondition.addContent(functionStr);
-        return javaCondition;
+        return "        eval( " + functionStr + " )";
     }
 
-    public Element getDroolsParameter(DSParameter dsParameter) {
-        Element accessClassParameter = new Element("parameter", DSGuidelineDrools.namespace);
-        accessClassParameter.setAttribute("identifier", dsParameter.getStrAlias());
-        Element accessClass = new Element("class", DSGuidelineDrools.namespace);
-        accessClass.addContent(dsParameter.getStrClass());
-        accessClassParameter.addContent(accessClass);
-
-        return accessClassParameter;
+    public String getDroolsParameter(DSParameter dsParameter) {
+        return "        " + dsParameter.getStrAlias() + " : " + dsParameter.getStrClass() + "()";
     }
 
-    public Element getDroolsConsequences(List<DSConsequence> consequences) {
-        Element javaElement = new Element("consequence", DSGuidelineDrools.javaNamespace);
+    public String getDroolsConsequences(List<DSConsequence> consequences) {
         String consequencesStr = "a.setPassedGuideline(true);";
         for (DSConsequence consequence : consequences) {
             if (consequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                consequencesStr = consequencesStr + "\n" + consequence.getText();
+                consequencesStr = consequencesStr + "\n        " + consequence.getText();
             }
         }
-        javaElement.addContent(consequencesStr);
-        return javaElement;
+        return consequencesStr;
     }
 
     @PostUpdate

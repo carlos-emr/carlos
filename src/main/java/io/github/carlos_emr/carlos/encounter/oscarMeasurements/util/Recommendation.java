@@ -98,11 +98,11 @@ public class Recommendation {
 
     }
 
-    public Element getRuleBaseElement() {
+    public String getRuleBaseElement() {
         return getRuleBaseElement(ruleName, measurement);
     }
 
-    public Element getRuleBaseElement(String ruleName, String measurement) {
+    public String getRuleBaseElement(String ruleName, String measurement) {
 
         log.debug("LOADING RULES - getRuleBaseElement" + measurement);
         ArrayList<DSCondition> list = new ArrayList<DSCondition>();
@@ -135,10 +135,9 @@ public class Recommendation {
         }
 
         RuleBaseCreator rcb = new RuleBaseCreator();
-        Element ruleElement = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, consequence);
+        String ruleText = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, consequence);
 
-
-        return ruleElement;
+        return ruleText;
     }
 
 //    public String getMonthrange() {

@@ -29,60 +29,40 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.util;
 
-import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.drools.RuleBase;
-import org.drools.io.RuleBaseLoader;
-import org.jdom2.Element;
-import org.jdom2.Namespace;
-import org.jdom2.output.Format;
-import org.jdom2.output.XMLOutputter;
+import org.kie.api.KieBase;
+import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Class used to create Drools XML files
+ * Class used to create Drools DRL rules
  *
  * @author jaygallagher
  */
 public class RuleBaseCreator {
     private static final Logger log = MiscUtils.getLogger();
 
-    Namespace namespace = Namespace.getNamespace("http://drools.org/rules");
-    Namespace javaNamespace = Namespace.getNamespace("java", "http://drools.org/semantics/java");
-    Namespace xsNs = Namespace.getNamespace("xs", "http://www.w3.org/2001/XMLSchema-instance");
-
-    public RuleBase getRuleBase(String rulesetName, List<Element> elementRules) throws Exception {
+    public KieBase getRuleBase(String rulesetName, List<String> drlRules) throws Exception {
         long timer = System.currentTimeMillis();
         try {
-            Element va = new Element("rule-set");
-
-            addAttributeifValueNotNull(va, "name", rulesetName);
-
-            va.setNamespace(namespace);
-            va.addNamespaceDeclaration(javaNamespace);
-            va.addNamespaceDeclaration(xsNs);
-            va.setAttribute("schemaLocation", "http://drools.org/rules rules.xsd http://drools.org/semantics/java java.xsd", xsNs);
-
-            for (Element ele : elementRules) {
-                va.addContent(ele);
+            StringBuilder drl = new StringBuilder();
+            drl.append("package ").append(rulesetName).append(";\n\n");
+            for (String rule : drlRules) {
+                drl.append(rule).append("\n\n");
             }
+            String drlString = drl.toString();
+            log.debug(drlString);
 
-            XMLOutputter outp = new XMLOutputter();
-            outp.setFormat(Format.getPrettyFormat());
-            String ooo = outp.outputString(va);
+            KieBase kieBase = RuleBaseFactory.getRuleBase("RuleBaseCreator:" + drlString);
+            if (kieBase != null) return kieBase;
 
-            log.debug(ooo);
-
-            RuleBase ruleBase = RuleBaseFactory.getRuleBase("RuleBaseCreator:" + ooo);
-            if (ruleBase != null) return (ruleBase);
-
-            ruleBase = RuleBaseLoader.loadFromInputStream(new ByteArrayInputStream(ooo.getBytes()));
-            RuleBaseFactory.putRuleBase("RuleBaseCreator:" + ooo, ruleBase);
-            return ruleBase;
+            kieBase = DroolsHelper.createKieBaseFromDrl(drlString);
+            RuleBaseFactory.putRuleBase("RuleBaseCreator:" + drlString, kieBase);
+            return kieBase;
         } finally {
             log.debug("generateRuleBase TimeMs : " + (System.currentTimeMillis() - timer));
         }
@@ -90,54 +70,40 @@ public class RuleBaseCreator {
 
     public void test() {
 
-        ArrayList elementList = new ArrayList();
+        ArrayList<String> elementList = new ArrayList<String>();
         ArrayList list = new ArrayList();
 
         list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", ">=", "3"));
         list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", "<", "6"));
 
-        Element ruleElement = getRule("REBG1", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleElement);
+        String ruleText = getRule("REBG1", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
+        elementList.add(ruleText);
 
         list = new ArrayList();
         list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", ">", "6"));
-        ruleElement = getRule("REBG2", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleElement);
+        ruleText = getRule("REBG2", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
+        elementList.add(ruleText);
 
         list = new ArrayList();
         list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", "==", "-1"));
-        ruleElement = getRule("REBG3", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleElement);
+        ruleText = getRule("REBG3", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
+        elementList.add(ruleText);
     }
 
-    void addAttributeifValueNotNull(Element element, String attr, String value) {
-        if (value != null) {
-            element.setAttribute(attr, value);
-        }
-    }
-
-    public Element getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
-        Element rule = new Element("rule", namespace);
-        addAttributeifValueNotNull(rule, "name", ruleName);
-        Element param = new Element("parameter", namespace);
-        addAttributeifValueNotNull(param, "identifier", "m");
-        Element classEle = new Element("class", namespace);
-        classEle.setText(incomingClass);
-
-        rule.addContent(param);
-        param.addContent(classEle);
-
+    public String getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
+        String simpleClassName = incomingClass.substring(incomingClass.lastIndexOf('.') + 1);
+        StringBuilder rule = new StringBuilder();
+        rule.append("import ").append(incomingClass).append(";\n");
+        rule.append("rule \"").append(ruleName).append("\"\n");
+        rule.append("    when\n");
+        rule.append("        m : ").append(simpleClassName).append("()\n");
         for (DSCondition cond : conditions) {
-            Element condElement = new Element("condition", javaNamespace);
-            condElement.setText("m." + cond.getType() + " " + cond.getComparision() + " " + cond.getValue());
-            rule.addContent(condElement);
+            rule.append("        eval( m.").append(cond.getType()).append(" ").append(cond.getComparision()).append(" ").append(cond.getValue()).append(" )\n");
         }
-
-        Element conseq = new Element("consequence", javaNamespace);
-        conseq.addContent(consequence);
-
-        rule.addContent(conseq);
-        log.debug("Return Rule" + rule);
-        return rule;
+        rule.append("    then\n");
+        rule.append("        ").append(consequence).append("\n");
+        rule.append("end");
+        log.debug("Return Rule: {}", rule);
+        return rule.toString();
     }
 }

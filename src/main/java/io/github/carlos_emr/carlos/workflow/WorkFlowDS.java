@@ -30,8 +30,8 @@
 
 package io.github.carlos_emr.carlos.workflow;
 
-import org.drools.RuleBase;
-import org.drools.WorkingMemory;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 public class WorkFlowDS {
 
-    RuleBase ruleBase = null;
+    KieBase kieBase = null;
 
     /**
      * Creates a new instance of WorkFlowDS
@@ -47,15 +47,19 @@ public class WorkFlowDS {
     public WorkFlowDS() {
     }
 
-    public WorkFlowDS(RuleBase r) {
-        ruleBase = r;
+    public WorkFlowDS(KieBase kb) {
+        this.kieBase = kb;
     }
 
     public WorkFlowInfo getMessages(WorkFlowInfo w) throws Exception {
         try {
-            WorkingMemory workingMemory = ruleBase.newWorkingMemory();
-            workingMemory.assertObject(w);
-            workingMemory.fireAllRules();
+            KieSession kieSession = kieBase.newKieSession();
+            try {
+                kieSession.insert(w);
+                kieSession.fireAllRules();
+            } finally {
+                kieSession.dispose();
+            }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             throw new Exception("ERROR: Drools ", e);

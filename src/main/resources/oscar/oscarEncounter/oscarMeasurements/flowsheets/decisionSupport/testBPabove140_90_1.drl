@@ -1,28 +1,15 @@
-<?xml version="1.0"?>
+package ReportA1C;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-
-<rule-set name="ReportA1C"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
-
-    <rule name="BP">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == true</java:condition>       
-        <java:condition>m.getNumberFromSplit("/",0) &gt; 140</java:condition>
-        <java:condition>m.getNumberFromSplit("/",1) &gt; 90</java:condition>
-        <java:condition>m.getLastDateRecordedInMths() &lt; 7</java:condition>
-        <java:consequence>     
-              m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+rule "BP"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("BP") == true )
+        eval( m.getNumberFromSplit("/",0) > 140 )
+        eval( m.getNumberFromSplit("/",1) > 90 )
+        eval( m.getLastDateRecordedInMths() < 7 )
+    then
+        m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(true);
+end

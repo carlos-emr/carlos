@@ -48,7 +48,7 @@ import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
-import org.drools.RuleBase;
+import org.kie.api.KieBase;
 import org.jdom2.Attribute;
 import org.jdom2.Document;
 import org.jdom2.Element;
@@ -698,7 +698,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         return h;
     }
 */
-    protected Element getRuleBaseElement(String ruleName, String measurement, Hashtable<String, String> recowarn) {
+    protected String getRuleBaseElement(String ruleName, String measurement, Hashtable<String, String> recowarn) {
 
         log.debug("LOADING RULES - getRuleBaseElement");
         ArrayList<DSCondition> list = new ArrayList<DSCondition>();
@@ -766,10 +766,10 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         }
 
         RuleBaseCreator rcb = new RuleBaseCreator();
-        Element ruleElement = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, consequence);
+        String ruleText = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, consequence);
 
 
-        return ruleElement;
+        return ruleText;
     }
 
 
@@ -785,7 +785,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                         log.debug(" CUST ADDING");
                         FlowSheetItem item = getItemFromString(cust.getPayload());
                         if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
-                            RuleBase rb = personalizedFlowsheet.loadMeasuremntRuleBase(item.getTargetColour());
+                            KieBase rb = personalizedFlowsheet.loadMeasuremntRuleBase(item.getTargetColour());
                             item.setRuleBase(rb);
                         }
                         personalizedFlowsheet.addAfter(cust.getMeasurement(), item);
@@ -793,7 +793,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                         log.debug(" CUST UPDATING");
                         FlowSheetItem item = getItemFromString(cust.getPayload());
                         if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
-                            RuleBase rb = personalizedFlowsheet.loadMeasuremntRuleBase(item.getTargetColour());
+                            KieBase rb = personalizedFlowsheet.loadMeasuremntRuleBase(item.getTargetColour());
                             item.setRuleBase(rb);
                         }
                         personalizedFlowsheet.updateMeasurementFlowSheetInfo(cust.getMeasurement(), item);

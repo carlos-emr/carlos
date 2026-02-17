@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.RuleBase;
+import org.kie.api.KieBase;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.Recommendation;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour;
@@ -55,13 +55,13 @@ public class FlowSheetItem {
     private String possibleAnswer = null;
     private List<Recommendation> recommendations = null;
     private List<TargetColour> targetColour = null;
-    private RuleBase ruleBase = null;
+    private KieBase kieBase = null;
     private String dsRulesFileName = null;
     private boolean hide = false;
 
     @Override
     public String toString() {
-        return " MEASUREMENT TYPE :" + measurementType + " PREV TYPE :" + preventionType + " dsRulesFileName :" + dsRulesFileName + " ruleBASE :" + ruleBase;
+        return " MEASUREMENT TYPE :" + measurementType + " PREV TYPE :" + preventionType + " dsRulesFileName :" + dsRulesFileName + " ruleBASE :" + kieBase;
     }
 
    /*
@@ -156,12 +156,12 @@ public class FlowSheetItem {
         return allFields;
     }
 
-    public RuleBase getRuleBase() {
-        return ruleBase;
+    public KieBase getRuleBase() {
+        return kieBase;
     }
 
-    public void setRuleBase(RuleBase ruleBase) {
-        this.ruleBase = ruleBase;
+    public void setRuleBase(KieBase kieBase) {
+        this.kieBase = kieBase;
     }
 
     public boolean isHide() {

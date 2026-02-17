@@ -34,10 +34,9 @@ import java.util.List;
 import java.util.ResourceBundle;
 
 import org.apache.logging.log4j.Logger;
-import org.drools.RuleBase;
+import org.kie.api.KieBase;
 import org.jdom2.Document;
 import org.jdom2.Element;
-import org.jdom2.Namespace;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -48,11 +47,9 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCrea
 public class DSPreventionDrools {
     private static final Logger logger = MiscUtils.getLogger();
 
-    public static final Namespace namespace = Namespace.getNamespace("http://drools.org/rules");
-    public static final Namespace javaNamespace = Namespace.getNamespace("java", "http://drools.org/semantics/java");
     public static final String preventionObjectClassPath = "io.github.carlos_emr.carlos.prevention.Prevention";
 
-    public static RuleBase createRuleBase(byte[] ruleSet) throws Exception {
+    public static KieBase createRuleBase(byte[] ruleSet) throws Exception {
         logger.debug(preventionObjectClassPath);
         RuleBaseCreator rbc = new RuleBaseCreator();
         ResourceBundle oscarResource = ResourceBundle.getBundle("oscarResources");
@@ -61,7 +58,7 @@ public class DSPreventionDrools {
         Document doc = parser.build(new ByteArrayInputStream(ruleSet));
         Element root = doc.getRootElement();
         int count = 0;
-        List<Element> elementList = new ArrayList<Element>();
+        List<String> elementList = new ArrayList<String>();
 
         List<Element> recommendations = root.getChildren("recommendations");
         logger.debug("recommendations size :" + recommendations.size());
