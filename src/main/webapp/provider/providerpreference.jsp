@@ -1472,8 +1472,9 @@ function isValidAutoSaveResponse(transport) {
     el.addEventListener('change', function() {
         var self = this;
         new Ajax.Request(
-            '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do?method=update&value=' + encodeURIComponent(self.value),
-            { method: 'get',
+            '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do',
+            { method: 'post',
+              parameters: 'method=update&value=' + encodeURIComponent(self.value),
               onSuccess: function(r) {
                   if (isValidAutoSaveResponse(r)) {
                       flashAutoSave(self, true);
@@ -1504,9 +1505,10 @@ function isValidAutoSaveResponse(transport) {
     el.addEventListener('change', function() {
         var self = this;
         new Ajax.Request(
-            '<c:out value="${ctx}"/>/setProviderStaleDate.do?method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
+            '<c:out value="${ctx}"/>/setProviderStaleDate.do',
+            { method: 'post',
+              parameters: 'method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
                 + '&provider_no=<%=Encode.forJavaScript(providerNo)%>',
-            { method: 'get',
               onSuccess: function(r) {
                   if (isValidAutoSaveResponse(r)) {
                       flashAutoSave(self, true);

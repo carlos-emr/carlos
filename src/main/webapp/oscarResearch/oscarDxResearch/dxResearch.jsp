@@ -186,7 +186,17 @@
 
             function update_date(did, demoNo, provNo) {
                 var startdate = document.getElementById("startdatenew" + did).value;
-                window.location.href = "dxResearchUpdate.do?startdate=" + startdate + "&did=" + did + "&demographicNo=" + demoNo + "&providerNo=" + provNo;
+                submitDxAction('', startdate, did, demoNo, provNo);
+            }
+
+            function submitDxAction(status, startdate, did, demoNo, provNo) {
+                var form = document.getElementById('dxResearchActionForm');
+                form.elements['status'].value = status;
+                form.elements['startdate'].value = startdate || '';
+                form.elements['did'].value = did;
+                form.elements['demographicNo'].value = demoNo;
+                form.elements['providerNo'].value = provNo;
+                form.submit();
             }
 
             //-->
@@ -356,11 +366,10 @@
                                                     <td class="notResolved"><c:out value="${diagnotics.end_date}"/></td>
                                                     <c:if test="${not disable}">
                                                         <td class="notResolved">
-                                                            <a href="dxResearchUpdate.do?status=C&did=${diagnotics.dxResearchNo}&demographicNo=${demographicNo}&providerNo=${providerNo}">
+                                                            <a href="#" onclick="submitDxAction('C','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}'); return false;">
                                                                 <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnResolve"/>
                                                             </a>
-                                                            <a href="dxResearchUpdate.do?status=D&did=${diagnotics.dxResearchNo}&demographicNo=${demographicNo}&providerNo=${providerNo}"
-                                                               onclick="javascript: return confirm('Are you sure you would like to delete: ${diagnotics.description} ?')">
+                                                            <a href="#" onclick="if(confirm('Are you sure you would like to delete: ${diagnotics.description} ?')){submitDxAction('D','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}');} return false;">
                                                                 <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnDelete"/>
                                                             </a>
                                                             <a href="#" onclick="update_date(${diagnotics.dxResearchNo}, ${demographicNo}, ${providerNo});">
@@ -379,8 +388,7 @@
                                                     <c:if test="${not disable}">
                                                         <td>
                                                             <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnResolve"/> |
-                                                            <a href="dxResearchUpdate.do?status=D&did=${diagnotics.dxResearchNo}&demographicNo=${demographicNo}&providerNo=${providerNo}"
-                                                               onclick="javascript: return confirm('Are you sure you would like to delete this?')">
+                                                            <a href="#" onclick="if(confirm('Are you sure you would like to delete this?')){submitDxAction('D','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}');} return false;">
                                                                 <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnDelete"/>
                                                             </a>
                                                         </td>
@@ -400,6 +408,13 @@
             </tr>
         </table>
     </div>
+    <form id="dxResearchActionForm" method="post" action="dxResearchUpdate.do" style="display:none">
+        <input type="hidden" name="status" value="">
+        <input type="hidden" name="startdate" value="">
+        <input type="hidden" name="did" value="">
+        <input type="hidden" name="demographicNo" value="">
+        <input type="hidden" name="providerNo" value="">
+    </form>
     </body>
 </html>
 

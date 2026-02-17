@@ -472,7 +472,7 @@
     </div><!-- row well-->
 
 
-    <form name="ReProcessBillingForm" method="get" action="reprocessBill.do">
+    <form name="ReProcessBillingForm" method="post" action="reprocessBill.do">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
                value="<%=request.getParameter("billTypes")%>">
