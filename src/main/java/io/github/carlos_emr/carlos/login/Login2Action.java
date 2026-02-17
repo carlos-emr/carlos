@@ -71,39 +71,184 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+/**
+ * Struts2 action class that handles user authentication and login flow for CARLOS EMR.
+ *
+ * <p>This action manages the complete authentication lifecycle including:
+ * <ul>
+ *   <li>Standard username/password/PIN authentication</li>
+ *   <li>Multi-factor authentication (MFA) validation and registration</li>
+ *   <li>Forced password reset flows</li>
+ *   <li>Session management and invalidation</li>
+ *   <li>Provider preference initialization</li>
+ *   <li>Facility selection and assignment</li>
+ *   <li>Mobile device detection and optimization</li>
+ *   <li>AJAX response handling</li>
+ *   <li>IP-based account lockout for failed login attempts</li>
+ * </ul>
+ *
+ * <p>Security features include:
+ * <ul>
+ *   <li>Input validation for username, password, and PIN formats</li>
+ *   <li>Protection against brute force attacks via IP blocking</li>
+ *   <li>Secure session regeneration after successful authentication</li>
+ *   <li>OWASP encoding for all user-provided output</li>
+ *   <li>TOTP-based MFA support (RFC 6238)</li>
+ *   <li>PHI-compliant audit logging</li>
+ * </ul>
+ *
+ * <p>The authentication flow varies based on the request type:
+ * <ol>
+ *   <li>Standard login: validates credentials via {@link LoginCheckLogin#auth}</li>
+ *   <li>MFA validation: verifies TOTP code against stored secret</li>
+ *   <li>Forced password reset: validates old password and persists new password</li>
+ *   <li>Facility selection: allows multi-facility providers to choose working context</li>
+ * </ol>
+ *
+ * <p>CRITICAL: This action ONLY accepts POST requests for security reasons.
+ * GET requests are rejected to prevent credential exposure in URL parameters or server logs.
+ *
+ * <p>This action integrates with Spring-managed services for:
+ * <ul>
+ *   <li>Provider management ({@link ProviderManager})</li>
+ *   <li>Security operations ({@link SecurityManager})</li>
+ *   <li>MFA operations ({@link MfaManager})</li>
+ *   <li>Session tracking ({@link UserSessionManager})</li>
+ *   <li>Decision support ({@link DSService})</li>
+ * </ul>
+ *
+ * @see LoginCheckLogin for authentication business logic
+ * @see LoginCheckLoginBean for authentication validation
+ * @see MfaManager for multi-factor authentication operations
+ * @see SecurityManager for password encoding and validation
+ * @since 2026-02-10
+ */
 public final class Login2Action extends ActionSupport {
+    /** Servlet request from Struts2 context */
     HttpServletRequest request = ServletActionContext.getRequest();
+
+    /** Servlet response from Struts2 context */
     HttpServletResponse response = ServletActionContext.getResponse();
 
     /**
-     * This variable is only intended to be used by this class and the jsp which
-     * sets the selected facility.
-     * This variable represents the queryString key used to pass the facility ID to
-     * this class.
+     * Query string parameter key for facility ID selection.
+     *
+     * <p>This constant is used when a provider belongs to multiple facilities
+     * and must select which facility context to work in. The selected facility ID
+     * is passed as a request parameter using this key.
+     *
+     * @see #execute() for facility selection logic
      */
     public static final String SELECTED_FACILITY_ID = "selectedFacilityId";
 
+    /** Logger instance for authentication events and errors */
     private static final Logger logger = MiscUtils.getLogger();
+
+    /** Log message prefix for authentication-related log entries */
     private static final String LOG_PRE = "Login!@#$: ";
 
+    /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
+
+    /** Spring-managed service for application-level operations */
     private final AppManager appManager = SpringUtils.getBean(AppManager.class);
+
+    /** DAO for facility data access */
     private final FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
+
+    /** DAO for provider preference data access */
     private final ProviderPreferenceDao providerPreferenceDao = SpringUtils.getBean(ProviderPreferenceDao.class);
+
+    /** DAO for provider data access */
     private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+
+    /** DAO for user property data access */
     private final UserPropertyDAO propDao = SpringUtils.getBean(UserPropertyDAO.class);
+
+    /** Decision support service for clinical decision support features */
     private final DSService dsService = SpringUtils.getBean(DSService.class);
+
+    /** DAO for OAuth service request token management */
     private final ServiceRequestTokenDao serviceRequestTokenDao = SpringUtils.getBean(ServiceRequestTokenDao.class);
+
+    /** Security manager for password encoding and validation */
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
+
+    /** DAO for security data access (user accounts and credentials) */
     private final SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
+
+    /** Session manager for tracking active user sessions */
     private final UserSessionManager userSessionManager = SpringUtils.getBean(UserSessionManager.class);
+
+    /** MFA manager for multi-factor authentication operations */
     private final MfaManager mfaManager = SpringUtils.getBean(MfaManager.class);
-    
+
+    /** Jackson ObjectMapper for JSON response serialization */
     private ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Main execution method that handles user authentication and login flow.
+     *
+     * <p>This method processes various authentication scenarios:
+     * <ul>
+     *   <li>Standard login with username, password, and PIN</li>
+     *   <li>MFA code validation after initial authentication</li>
+     *   <li>MFA registration for first-time MFA users</li>
+     *   <li>Forced password reset after administrator-mandated password change</li>
+     *   <li>Facility selection for multi-facility providers</li>
+     *   <li>OAuth token association for integrated services</li>
+     * </ul>
+     *
+     * <p>Security validations performed:
+     * <ul>
+     *   <li>POST-only request method enforcement</li>
+     *   <li>Username format validation (alphanumeric, max 10 characters)</li>
+     *   <li>PIN format validation (4 digits)</li>
+     *   <li>IP-based brute force protection</li>
+     *   <li>Provider inactive status checking</li>
+     *   <li>Password expiration checking</li>
+     *   <li>Absolute URL redirect prevention</li>
+     * </ul>
+     *
+     * <p>Session management:
+     * <ul>
+     *   <li>Existing session invalidation before creating new session</li>
+     *   <li>Session timeout set to 2 hours (7200 seconds)</li>
+     *   <li>Provider preferences loaded into session</li>
+     *   <li>Facility context established</li>
+     *   <li>CAISI program management settings initialized (if enabled)</li>
+     * </ul>
+     *
+     * <p>Audit logging:
+     * <ul>
+     *   <li>Successful login events logged with IP address</li>
+     *   <li>Failed login attempts tracked for IP blocking</li>
+     *   <li>Inactive account access attempts logged</li>
+     *   <li>Password expiration events logged</li>
+     * </ul>
+     *
+     * <p>Return values:
+     * <ul>
+     *   <li>"provider" - Standard provider interface</li>
+     *   <li>"caisiPMM" - CAISI program management module interface</li>
+     *   <li>"programLocation" - Program location selection interface</li>
+     *   <li>"patientIntake" - Patient intake role interface</li>
+     *   <li>"mfaHandler" - MFA validation/registration interface</li>
+     *   <li>NONE - Processing complete (redirect already sent)</li>
+     *   <li>null - AJAX response sent (no forward needed)</li>
+     * </ul>
+     *
+     * @return String Struts2 result name indicating next page to display
+     * @throws ServletException if servlet-level error occurs
+     * @throws IOException if I/O error occurs during redirect or response writing
+     * @see LoginCheckLogin#auth for authentication logic
+     * @see MfaManager#getQRCodeImageData for MFA QR code generation
+     * @see #resumePostAuthenticationFlow for MFA continuation logic
+     */
     public String execute() throws ServletException, IOException {
 
         // >> 1. Initial Checks and Mobile Detection
+        // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
             MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
             String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Application Error. See Log.";
@@ -111,17 +256,20 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
+        // Determine if client expects JSON response (for AJAX login forms)
         boolean ajaxResponse = request.getParameter("ajaxResponse") != null ? Boolean.valueOf(request.getParameter("ajaxResponse")) : false;
         boolean isMobileOptimized = false;
 
+        // Extract client information for audit logging and device detection
         String ip = request.getRemoteAddr();
         String userAgent = request.getHeader("user-agent");
         String accept = request.getHeader("Accept");
 
+        // Detect mobile devices to serve optimized interface
         UAgentInfo userAgentInfo = new UAgentInfo(userAgent, accept);
         isMobileOptimized = userAgentInfo.detectMobileQuick();
 
-        // override by the user login.
+        // Allow user to override mobile detection and request full desktop site
         String submitType = request.getParameter("submit");
 
         if (submitType != null && "full".equalsIgnoreCase(submitType)) {
@@ -129,8 +277,8 @@ public final class Login2Action extends ActionSupport {
         }
 
         LoginCheckLogin cl;
-        
-        // Check if this is MFA validation flow
+
+        // Determine if this is MFA code validation flow vs. initial authentication
         boolean isMfaVerifyFlow = (this.code != null && !this.code.isEmpty());
         
         if (isMfaVerifyFlow) {
@@ -614,38 +762,78 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Resume post-authentication flow after MFA validation
+     * Resumes the post-authentication flow after successful MFA validation.
+     *
+     * <p>This method is called after a user has successfully validated their MFA code
+     * (either during MFA registration or during standard MFA login). It completes the
+     * login process by setting up the user's session and determining the appropriate
+     * landing page.
+     *
+     * <p>NOTE: This is currently a simplified stub implementation. A complete implementation
+     * would need to include all the session setup from the main execute() flow:
+     * <ul>
+     *   <li>Provider preference loading and session attribute setting</li>
+     *   <li>Facility assignment and selection logic</li>
+     *   <li>CAISI program management settings (if enabled)</li>
+     *   <li>Start hour, end hour, appointment interval settings</li>
+     *   <li>Alert timer initialization for BC MSP alerts</li>
+     *   <li>LoggedInInfo object creation and session registration</li>
+     *   <li>User role checking for specialized interfaces</li>
+     * </ul>
+     *
+     * @param cl LoginCheckLogin object containing authenticated user security information
+     * @param ip String the client IP address for audit logging
+     * @param isMobileOptimized boolean whether mobile-optimized interface was detected
+     * @param submitType String the submit button type ("full" or null) for desktop/mobile preference
+     * @param ajaxResponse boolean whether to return JSON response instead of Struts forward
+     * @return String Struts2 result name ("provider", "caisiPMM", etc.) or null for AJAX response
+     * @throws IOException if error occurs writing AJAX response to output stream
+     * @see #execute() for complete session setup logic that should be extracted to shared helper
      */
-    private String resumePostAuthenticationFlow(LoginCheckLogin cl, String ip, boolean isMobileOptimized, 
+    private String resumePostAuthenticationFlow(LoginCheckLogin cl, String ip, boolean isMobileOptimized,
                                                String submitType, boolean ajaxResponse) throws IOException {
         HttpSession session = request.getSession();
-        
-        // Continue with normal post-authentication flow
+
+        // Retrieve provider number from session (set during initial authentication)
         String providerNo = (String) session.getAttribute("user");
         String where = "provider";
-        
-        // Set up all the session attributes and preferences
-        // (This is a simplified version - would need full implementation)
-        
+
+        // TODO: Extract full session setup logic from execute() into shared helper method
+        // Currently missing: provider preferences, facility assignment, CAISI settings,
+        // scheduling preferences, alert timers, LoggedInInfo creation, role-based routing
+
+        // Handle AJAX response for mobile/API clients
         if (ajaxResponse) {
             logger.debug("rendering ajax response");
             Provider prov = providerDao.getProvider(providerNo);
             ObjectNode json = objectMapper.createObjectNode();
             json.put("success", true);
+            // SECURITY: OWASP encode provider name for JavaScript context
             json.put("providerName", Encode.forJavaScript(prov.getFormattedName()));
             json.put("providerNo", prov.getProviderNo());
             response.setContentType("text/x-json");
             response.getWriter().write(json.toString());
             return null;
         }
-        
+
         return where;
     }
 
     /**
-     * Removes attributes from session
+     * Removes authentication-related attributes from the session.
      *
-     * @param request
+     * <p>This method is called when cleaning up after a forced password reset flow
+     * or when login fails and sensitive data must be cleared from the session.
+     *
+     * <p>Attributes removed:
+     * <ul>
+     *   <li>userName - The authenticated username</li>
+     *   <li>password - The encoded password hash</li>
+     *   <li>pin - The provider PIN code</li>
+     *   <li>nextPage - The post-authentication redirect target</li>
+     * </ul>
+     *
+     * @param request HttpServletRequest containing the session to clean
      */
     private void removeAttributesFromSession(HttpServletRequest request) {
         request.getSession().removeAttribute("userName");
@@ -655,13 +843,28 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Set user info to session
+     * Stores user authentication information in the session for forced password reset flow.
      *
-     * @param request
-     * @param userName
-     * @param password
-     * @param pin
-     * @param nextPage
+     * <p>During the forced password reset process, the user's credentials are temporarily
+     * stored in the session so they can be re-authenticated after successfully changing
+     * their password. The password is encoded before storage for security.
+     *
+     * <p>Session attributes set:
+     * <ul>
+     *   <li>userName - String the authenticated username (validated alphanumeric)</li>
+     *   <li>password - String the SHA-encoded password hash</li>
+     *   <li>pin - String the 4-digit provider PIN</li>
+     *   <li>nextPage - String the target page to redirect to after password change</li>
+     * </ul>
+     *
+     * @param request HttpServletRequest to access the session
+     * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
+     * @param password String the plain-text password (will be encoded before storage)
+     * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
+     * @param nextPage String the relative URL to redirect to after password reset
+     * @throws Exception if password encoding fails
+     * @see #encodePassword for password encoding algorithm
+     * @see #removeAttributesFromSession for cleanup after password reset
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
@@ -673,25 +876,41 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Performs the error handling
+     * Validates password change requirements during forced password reset flow.
      *
-     * @param oldEncodedPassword
-     * @param newPassword
-     * @param confirmPassword
-     * @param oldPassword
-     * @return
+     * <p>This method performs three validation checks:
+     * <ol>
+     *   <li>Old password matches the current password in the database</li>
+     *   <li>New password and confirmation password match each other</li>
+     *   <li>New password is different from old password (unless IGNORE_PASSWORD_REQUIREMENTS is true)</li>
+     * </ol>
+     *
+     * <p>The method returns a URL query string fragment containing an error message if
+     * validation fails, or an empty string if all validations pass.
+     *
+     * @param oldEncodedPassword String the current password hash from the database
+     * @param newPassword String the new password entered by the user
+     * @param confirmPassword String the confirmation of the new password
+     * @param oldPassword String the old password entered by the user for verification
+     * @return String empty string if validation passes, or URL query parameter with error message if validation fails
+     * @see SecurityManager#matchesPassword for password comparison logic
      */
     private String errorHandling(String oldEncodedPassword, String newPassword, String confirmPassword,
                                  String oldPassword) {
 
         String newURL = "";
 
+        // Verify old password matches current password in database
         if (!this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
             newURL = newURL
                     + "?errormsg=Your old password, does NOT match the password in the system. Please enter your old password.";
-        } else if (!newPassword.equals(confirmPassword)) {
+        }
+        // Verify new password and confirmation match
+        else if (!newPassword.equals(confirmPassword)) {
             newURL = newURL + "?errormsg=Your new password, does NOT match the confirmed password. Please try again.";
-        } else if (!Boolean.parseBoolean(OscarProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
+        }
+        // Verify new password is different from old password (unless requirement is disabled)
+        else if (!Boolean.parseBoolean(OscarProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
                 && newPassword.equals(oldPassword)) {
             newURL = newURL
                     + "?errormsg=Your new password, is the same as your old password. Please choose a new password.";
@@ -701,12 +920,23 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * This method encodes the password, before setting to session.
-     * TODO: Consider using SecurityManager.encodePassword() if it provides the same encoding
+     * Encodes a plain-text password using SHA-1 hashing algorithm.
      *
-     * @param password
-     * @return
-     * @throws Exception
+     * <p>This method creates a SHA-1 digest of the password and converts each byte
+     * to a string representation. The resulting hash is stored in the session during
+     * the forced password reset flow.
+     *
+     * <p>SECURITY NOTE: SHA-1 is deprecated for cryptographic use. This legacy encoding
+     * is maintained for backward compatibility but should be migrated to BCrypt or
+     * PBKDF2 in the future.
+     *
+     * <p>TODO: Consider using {@link SecurityManager#encodePassword} if it provides
+     * the same encoding format, or migrate to modern password hashing algorithms.
+     *
+     * @param password String the plain-text password to encode
+     * @return String the SHA-1 encoded password as concatenated byte string
+     * @throws Exception if SHA MessageDigest algorithm is not available
+     * @deprecated SHA-1 is cryptographically weak; migrate to BCrypt or PBKDF2
      */
     private String encodePassword(String password) throws Exception {
 
@@ -714,6 +944,7 @@ public final class Login2Action extends ActionSupport {
 
         StringBuilder sbTemp = new StringBuilder();
         byte[] btNewPasswd = md.digest(password.getBytes());
+        // Convert each byte to string representation
         for (int i = 0; i < btNewPasswd.length; i++)
             sbTemp = sbTemp.append(btNewPasswd[i]);
 
@@ -722,10 +953,23 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * get the sec record based on the username
+     * Retrieves the Security record for a given username.
      *
-     * @param username
-     * @return
+     * <p>This method looks up the user's security record from the database and
+     * wraps it with LDAP authentication support if LDAP is enabled in the system
+     * configuration.
+     *
+     * <p>LDAP integration: If LDAP authentication is enabled via
+     * {@link OscarProperties#isLdapAuthenticationEnabled()}, the returned Security
+     * object is wrapped in a {@link LdapSecurity} adapter that delegates password
+     * validation to the LDAP server while maintaining the local Security record
+     * for session management.
+     *
+     * @param username String the username to look up (must match security.user_name column)
+     * @return Security the user's security record, wrapped in LdapSecurity if LDAP is enabled,
+     *         or null if no matching user found
+     * @see SecurityDao#findByUserName for database lookup
+     * @see LdapSecurity for LDAP authentication adapter
      */
     private Security getSecurity(String username) {
 
@@ -736,7 +980,9 @@ public final class Login2Action extends ActionSupport {
 
         if (security == null) {
             return null;
-        } else if (OscarProperties.isLdapAuthenticationEnabled()) {
+        }
+        // Wrap with LDAP authentication support if LDAP is enabled
+        else if (OscarProperties.isLdapAuthenticationEnabled()) {
             security = new LdapSecurity(security);
         }
 
@@ -744,11 +990,26 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Persists the new password
+     * Persists a new password for a user after forced password reset.
      *
-     * @param userName
-     * @param newPassword
-     * @return
+     * <p>This method updates the user's password in the database and clears the
+     * forcePasswordReset flag so the user won't be prompted again on next login.
+     *
+     * <p>Steps performed:
+     * <ol>
+     *   <li>Retrieve the user's Security record via {@link #getSecurity}</li>
+     *   <li>Encode the new password using {@link #encodePassword}</li>
+     *   <li>Update the password field in the Security record</li>
+     *   <li>Clear the forcePasswordReset flag</li>
+     *   <li>Persist changes to the database</li>
+     * </ol>
+     *
+     * @param userName String the username of the account to update
+     * @param newPassword String the new plain-text password (will be encoded before storage)
+     * @throws Exception if password encoding fails or database update fails
+     * @see #getSecurity for retrieving the Security record
+     * @see #encodePassword for password hashing
+     * @see SecurityDao#saveEntity for database persistence
      */
     private void persistNewPassword(String userName, String newPassword) throws Exception {
 
@@ -759,91 +1020,230 @@ public final class Login2Action extends ActionSupport {
 
     }
 
+    /**
+     * Retrieves the Spring ApplicationContext from the servlet context.
+     *
+     * <p>This method provides access to the Spring application context for
+     * programmatic bean lookup and dependency injection outside of normal
+     * Spring-managed components.
+     *
+     * @return ApplicationContext the Spring application context for this web application
+     */
     public ApplicationContext getAppContext() {
         return WebApplicationContextUtils.getWebApplicationContext(ServletActionContext.getServletContext());
     }
 
+    // ===== Struts2 Action Properties (populated from form parameters) =====
+
+    /** Username submitted from login form (alphanumeric, max 10 characters) */
     private String username;
+
+    /** Password submitted from login form (plain-text, encoded before storage/comparison) */
     private String password;
+
+    /** Provider PIN submitted from login form (4 digits) */
     private String pin;
+
+    /** Property name for user property operations (legacy field) */
     private String propname;
 
+    /** Old password submitted from forced password reset form */
     private String oldPassword;
+
+    /** New password submitted from forced password reset form */
     private String newPassword;
+
+    /** Confirmation of new password from forced password reset form */
     private String confirmPassword;
-    
-    // MFA properties
+
+    /** MFA TOTP code submitted from MFA validation form (6 digits) */
     private String code;
+
+    /** Flag indicating whether this is MFA registration flow vs. standard MFA validation */
     private boolean mfaRegistrationFlow;
 
+    /**
+     * Gets the username from the login form.
+     *
+     * @return String the username (validated to alphanumeric, max 10 characters)
+     */
     public String getUsername() {
         return username;
     }
 
+    /**
+     * Sets the username from the login form parameter.
+     *
+     * <p>Struts2 automatically calls this method to populate the username field
+     * from the "username" request parameter.
+     *
+     * @param username String the username submitted from the form
+     */
     public void setUsername(String username) {
         this.username = username;
     }
 
+    /**
+     * Gets the password from the login form.
+     *
+     * @return String the plain-text password (never store in logs or session without encoding)
+     */
     public String getPassword() {
         return password;
     }
 
+    /**
+     * Sets the password from the login form parameter.
+     *
+     * <p>Struts2 automatically calls this method to populate the password field
+     * from the "password" request parameter.
+     *
+     * @param password String the plain-text password submitted from the form
+     */
     public void setPassword(String password) {
         this.password = password;
     }
 
+    /**
+     * Gets the provider PIN from the login form.
+     *
+     * @return String the 4-digit PIN code
+     */
     public String getPin() {
         return pin;
     }
 
+    /**
+     * Sets the PIN from the login form parameter.
+     *
+     * <p>Struts2 automatically calls this method to populate the pin field
+     * from the "pin" request parameter.
+     *
+     * @param pin String the 4-digit PIN submitted from the form (validated to [0-9]{4})
+     */
     public void setPin(String pin) {
         this.pin = pin;
     }
 
+    /**
+     * Gets the property name for user property operations.
+     *
+     * @return String the property name (legacy field, usage unclear)
+     */
     public String getPropname() {
         return propname;
     }
 
+    /**
+     * Sets the property name from request parameter.
+     *
+     * @param propname String the property name
+     */
     public void setPropname(String propname) {
         this.propname = propname;
     }
 
+    /**
+     * Gets the old password from the forced password reset form.
+     *
+     * @return String the old password for verification during password change
+     */
     public String getOldPassword() {
         return oldPassword;
     }
 
+    /**
+     * Sets the old password from forced password reset form parameter.
+     *
+     * <p>Struts2 automatically calls this method to populate the oldPassword field
+     * from the "oldPassword" request parameter during forced password reset flow.
+     *
+     * @param oldPassword String the old password for verification
+     */
     public void setOldPassword(String oldPassword) {
         this.oldPassword = oldPassword;
     }
 
+    /**
+     * Gets the new password from the forced password reset form.
+     *
+     * @return String the new password to be set
+     */
     public String getNewPassword() {
         return newPassword;
     }
 
+    /**
+     * Sets the new password from forced password reset form parameter.
+     *
+     * <p>Struts2 automatically calls this method to populate the newPassword field
+     * from the "newPassword" request parameter during forced password reset flow.
+     *
+     * @param newPassword String the new password to be set
+     */
     public void setNewPassword(String newPassword) {
         this.newPassword = newPassword;
     }
 
+    /**
+     * Gets the confirmation password from the forced password reset form.
+     *
+     * @return String the confirmation of the new password
+     */
     public String getConfirmPassword() {
         return confirmPassword;
     }
 
+    /**
+     * Sets the confirmation password from forced password reset form parameter.
+     *
+     * <p>Struts2 automatically calls this method to populate the confirmPassword field
+     * from the "confirmPassword" request parameter during forced password reset flow.
+     *
+     * @param confirmPassword String the confirmation of the new password
+     */
     public void setConfirmPassword(String confirmPassword) {
         this.confirmPassword = confirmPassword;
     }
-    
+
+    /**
+     * Gets the MFA TOTP code from the MFA validation form.
+     *
+     * @return String the 6-digit TOTP code (RFC 6238)
+     */
     public String getCode() {
         return code;
     }
 
+    /**
+     * Sets the MFA code from MFA validation form parameter.
+     *
+     * <p>Struts2 automatically calls this method to populate the code field
+     * from the "code" request parameter during MFA validation flow.
+     *
+     * @param code String the 6-digit TOTP code generated by the user's authenticator app
+     */
     public void setCode(String code) {
         this.code = code;
     }
 
+    /**
+     * Checks if this is an MFA registration flow.
+     *
+     * @return boolean true if registering MFA for first time, false if validating existing MFA
+     */
     public boolean isMfaRegistrationFlow() {
         return mfaRegistrationFlow;
     }
 
+    /**
+     * Sets whether this is an MFA registration flow.
+     *
+     * <p>Struts2 automatically calls this method to populate the mfaRegistrationFlow field
+     * from the "mfaRegistrationFlow" request parameter.
+     *
+     * @param mfaRegistrationFlow boolean true for MFA registration, false for standard MFA validation
+     */
     public void setMfaRegistrationFlow(boolean mfaRegistrationFlow) {
         this.mfaRegistrationFlow = mfaRegistrationFlow;
     }

@@ -40,52 +40,176 @@ import javax.servlet.http.HttpSession;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action class that handles user logout and session cleanup for CARLOS EMR.
+ *
+ * <p>This action manages three logout scenarios:
+ * <ul>
+ *   <li>Standard logout - User explicitly logs out</li>
+ *   <li>Session timeout - User session expires due to inactivity</li>
+ *   <li>Login failure - Logout triggered after failed authentication</li>
+ * </ul>
+ *
+ * <p>Logout operations performed:
+ * <ol>
+ *   <li>Invalidate HTTP session to clear all session attributes</li>
+ *   <li>Log logout event with user ID and IP address for audit trail</li>
+ *   <li>Clear all browser cookies by setting maxAge to 0</li>
+ *   <li>Return SUCCESS to redirect user to login page</li>
+ * </ol>
+ *
+ * <p>Security considerations:
+ * <ul>
+ *   <li>Session invalidation prevents session fixation attacks</li>
+ *   <li>Cookie clearing ensures complete logout across browser tabs</li>
+ *   <li>Audit logging provides PHI-compliant access tracking</li>
+ *   <li>Safe handling of null sessions (already logged out)</li>
+ * </ul>
+ *
+ * <p>Usage from JSP/URL:
+ * <pre>
+ * /logout.do                     # Standard logout
+ * /logout.do?method=sessionTimeout  # Session timeout
+ * /logout.do?method=failure         # Login failure
+ * </pre>
+ *
+ * <p>Struts configuration (struts.xml):
+ * <pre>
+ * &lt;action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action"&gt;
+ *     &lt;result name="success"&gt;/logout.jsp&lt;/result&gt;
+ * &lt;/action&gt;
+ * </pre>
+ *
+ * @see Login2Action for authentication and session creation
+ * @see LogAction for audit logging
+ * @since 2026-02-10
+ */
 public class Logout2Action extends ActionSupport {
+    /** Servlet request from Struts2 context */
     HttpServletRequest request = ServletActionContext.getRequest();
+
+    /** Servlet response from Struts2 context */
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
+    /**
+     * Main execution method that routes to specific logout handler based on method parameter.
+     *
+     * <p>This method examines the "method" request parameter to determine which
+     * logout scenario applies:
+     * <ul>
+     *   <li>method=sessionTimeout → {@link #sessionTimeout()}</li>
+     *   <li>method=failure → {@link #failure()}</li>
+     *   <li>no method parameter → {@link #logout()} (standard logout)</li>
+     * </ul>
+     *
+     * <p>All three methods ultimately perform the same logout operations,
+     * but are kept separate to allow for future differentiation (e.g., different
+     * redirect targets or additional cleanup steps).
+     *
+     * @return String Struts2 result name (always SUCCESS, redirects to logout.jsp)
+     */
     public String execute() {
         String method = request.getParameter("method");
 
+        // Route to appropriate logout handler based on method parameter
         if ("sessionTimeout".equals(method)) {
             return sessionTimeout();
         } else if ("failure".equals(method)) {
             return failure();
         }
 
-        // Default to logout method if unspecified
+        // Default to standard logout if no method specified
         return logout();
     }
 
+    /**
+     * Handles logout due to session timeout.
+     *
+     * <p>Called when user's session expires due to inactivity (default 2 hours).
+     * Currently delegates to {@link #logout()} for session cleanup.
+     *
+     * @return String Struts2 result name (SUCCESS)
+     */
     public String sessionTimeout() {
         return logout();
     }
 
+    /**
+     * Handles logout after login failure.
+     *
+     * <p>Called when authentication fails and user is redirected to logout page.
+     * Currently delegates to {@link #logout()} for session cleanup.
+     *
+     * @return String Struts2 result name (SUCCESS)
+     */
     public String failure() {
         return logout();
     }
 
+    /**
+     * Performs complete logout operation including session invalidation, audit logging, and cookie cleanup.
+     *
+     * <p>Logout operations performed:
+     * <ol>
+     *   <li>Retrieve existing session (if any) - does not create new session</li>
+     *   <li>Extract user ID from session for audit logging</li>
+     *   <li>Invalidate session to clear all attributes and prevent reuse</li>
+     *   <li>Log logout event with user ID and client IP address</li>
+     *   <li>Clear all browser cookies by setting maxAge to 0</li>
+     * </ol>
+     *
+     * <p>Cookie cleanup:
+     * <ul>
+     *   <li>Iterates through all cookies from request</li>
+     *   <li>Sets each cookie's maxAge to 0 (immediate expiration)</li>
+     *   <li>Sets cookie path to "/" to ensure deletion across entire application</li>
+     *   <li>Adds expired cookie to response to overwrite browser's stored cookie</li>
+     * </ul>
+     *
+     * <p>Audit logging:
+     * <ul>
+     *   <li>Logs logout event only if user ID is available in session</li>
+     *   <li>Records user ID, action type (LOGOUT), context (LOGIN), and IP address</li>
+     *   <li>Provides PHI-compliant audit trail for security and compliance</li>
+     * </ul>
+     *
+     * <p>NOTE: The method currently retrieves login, errorMessage, and nameId parameters
+     * but does not use them. These may be legacy parameters from removed SSO functionality.
+     *
+     * @return String Struts2 result name (always SUCCESS, redirects to logout.jsp)
+     * @see HttpSession#invalidate() for session cleanup
+     * @see Cookie#setMaxAge(int) for cookie expiration
+     * @see LogAction#addLog for audit logging
+     */
     public String logout() {
 
+        // Retrieve existing session without creating new one
         HttpSession session = request.getSession(false);
+        // Legacy parameters (unused, may be from removed SSO functionality)
         String login = request.getParameter("login");
         String errorMessage = request.getParameter("errorMessage");
         String nameId = request.getParameter("nameId");
 
+        // Invalidate session and log logout event if session exists
         if (session != null) {
             String user = (String) session.getAttribute("user");
+            // Invalidate session to prevent session fixation attacks
             session.invalidate();
+            // Log logout event for audit trail (only if user was logged in)
             if (user != null) {
                 LogAction.addLog(user, LogConst.LOGOUT, LogConst.CON_LOGIN, "", request.getRemoteAddr());
             }
         }
 
+        // Clear all browser cookies to ensure complete logout
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
+                // Set maxAge to 0 to delete cookie immediately
                 cookie.setMaxAge(0);
+                // Set path to "/" to ensure cookie is deleted across entire application
                 cookie.setPath("/");
+                // Add expired cookie to response to overwrite browser's stored cookie
                 response.addCookie(cookie);
             }
         }
