@@ -288,8 +288,8 @@
                 keyWord = "";
             }
         %>
-        <div class="input-group select-group">
-            <select class="form-control input-group-addon" name="search_mode" id="search_mode" onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
+        <div class="input-group">
+            <select class="form-select" name="search_mode" id="search_mode" onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
                 <option value="search_name" <%=searchMode.equals("search_name") ? "selected" : ""%>>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formName"/>
                 </option>
@@ -333,7 +333,7 @@
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
             <INPUT TYPE="hidden" NAME="fromMessenger" VALUE="<%=fromMessenger%>">
             <INPUT TYPE="hidden" NAME="outofdomain" VALUE="">
-            <div class="input-group-btn">
+            <div>
                 <INPUT TYPE="SUBMIT" class="rightButton blueButton top btn btn-primary"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>" SIZE="17"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>">
