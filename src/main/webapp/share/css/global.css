@@ -74,7 +74,7 @@ body {
 .page-header-bar {
     width: 100%;
     background: var(--carlos-bg-light);
-    padding: 8px 15px;
+    padding: 12px 15px;
     border-bottom: 1px solid var(--carlos-border);
     margin-bottom: 10px;
 }
