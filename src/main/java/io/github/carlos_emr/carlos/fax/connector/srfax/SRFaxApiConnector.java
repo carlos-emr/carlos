@@ -46,7 +46,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.logging.log4j.Logger;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -545,18 +545,18 @@ public class SRFaxApiConnector {
                 result.setStatus("Error");
                 result.setError("Account is Blocked at this IP");
             } else {
-                JSONObject json = new JSONObject(response);
-                String status = json.getString("Status");
+                JsonNode json = OBJECT_MAPPER.readTree(response);
+                String status = json.get("Status").asText();
                 if (ListWrapper.STATUS_SUCCESS.equals(status)) {
-                    result = OBJECT_MAPPER.readValue(response, typeReference);
+                    result = (ListWrapper<T>) OBJECT_MAPPER.readValue(response, typeReference);
                 } else {
                     logger.warn("API Response Failure: {}", response);
                     result = new ListWrapper<>();
                     result.setStatus(status);
-                    result.setError(json.getString("Result"));
+                    result.setError(json.get("Result").asText());
                 }
             }
-        } catch (IOException | org.json.JSONException e) {
+        } catch (IOException e) {
             logger.error("Failed to parse SRFax API list response", e);
             result = new ListWrapper<>();
             result.setStatus("Error");
@@ -589,17 +589,17 @@ public class SRFaxApiConnector {
             result.setError("Account is Blocked at this IP");
         } else {
             try {
-                JSONObject json = new JSONObject(response);
-                String status = json.getString("Status");
+                JsonNode json = OBJECT_MAPPER.readTree(response);
+                String status = json.get("Status").asText();
                 if (SingleWrapper.STATUS_SUCCESS.equals(status)) {
-                    result = OBJECT_MAPPER.readValue(response, typeReference);
+                    result = (SingleWrapper<T>) OBJECT_MAPPER.readValue(response, typeReference);
                 } else {
                     logger.warn("API Response Failure: {}", response);
                     result = new SingleWrapper<>();
                     result.setStatus(status);
-                    result.setError(json.getString("Result"));
+                    result.setError(json.get("Result").asText());
                 }
-            } catch (IOException | org.json.JSONException e) {
+            } catch (IOException e) {
                 logger.error("Failed to parse SRFax API single response", e);
                 result = new SingleWrapper<>();
                 result.setStatus("Error");

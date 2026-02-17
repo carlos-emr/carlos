@@ -30,14 +30,11 @@ package io.github.carlos_emr.carlos.PMmodule.web;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -877,7 +874,7 @@ public class ClientManager2Action extends ActionSupport {
             request.setAttribute("consents", new ArrayList<>());
 
             // CDS forms
-            List<CdsClientForm> cdsForms = cdsClientFormDao.findByFacilityClient(facilityId, clientId);
+            List<CdsClientForm> cdsForms = cdsClientFormDao.findByFacilityClient(facilityId, demographicId);
             request.setAttribute("cdsForms", cdsForms);
 
 

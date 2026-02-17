@@ -123,9 +123,9 @@ public class TicklerList2Action extends ActionSupport {
                 "ticklers=" + ticklers.size() + ",total=" + totalRecords);
 
         long ticklerWarnDays = getTicklerWarnDays();
-        DateTimeFormatter datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", locale);
-        DateTimeFormatter dateOnlyFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", locale);
-        DateTimeFormatter timeOnlyFormatter = DateTimeFormatter.ofPattern("HH:mm:ss", locale);
+        DateFormat datetimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", locale);
+        DateFormat dateOnlyFormat = new SimpleDateFormat("yyyy-MM-dd", locale);
+        DateFormat timeOnlyFormat = new SimpleDateFormat("HH:mm:ss", locale);
 
         ArrayNode dataArray = objectMapper.createArrayNode();
         ObjectNode commentsMap = objectMapper.createObjectNode();

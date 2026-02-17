@@ -75,7 +75,6 @@ public class FluReport implements PreventionReport {
             Integer demo = Integer.valueOf(fieldList.get(0));
 
             ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "Flu", demo);
-            PreventionData.addRemotePreventions(loggedInInfo, prevs, demo, "Flu", null);
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
             PreventionReportDisplay prd = new PreventionReportDisplay();

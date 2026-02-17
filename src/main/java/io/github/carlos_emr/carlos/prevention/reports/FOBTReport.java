@@ -76,10 +76,8 @@ public class FOBTReport implements PreventionReport {
 
             //search   prevention_date prevention_type  deleted   refused
             ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "FOBT", demo);
-            PreventionData.addRemotePreventions(loggedInInfo, prevs, demo, "FOBT", null);
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
             ArrayList<Map<String, Object>> colonoscopys = PreventionData.getPreventionData(loggedInInfo, "COLONOSCOPY", demo);
-            PreventionData.addRemotePreventions(loggedInInfo, colonoscopys, demo, "COLONOSCOPY", null);
             PreventionReportDisplay prd = new PreventionReportDisplay();
             prd.demographicNo = demo;
             prd.bonusStatus = "N";

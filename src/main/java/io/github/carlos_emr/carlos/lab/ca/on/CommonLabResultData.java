@@ -42,9 +42,6 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.labs.LabIdAndType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.xml.sax.SAXException;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
@@ -54,8 +51,6 @@ import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
