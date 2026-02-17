@@ -54,7 +54,6 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     private static final Logger logger = MiscUtils.getLogger();
 
     private String docId;
-    private Integer remoteFacilityId;
     private String description = "";
     private String dateTimeStamp = "";
     private Date dateTimeStampAsDate = null;
@@ -250,14 +249,6 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
 
     public String getDocId() {
         return docId;
-    }
-
-    public Integer getRemoteFacilityId() {
-        return (remoteFacilityId);
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
     }
 
     public void setDocId(String docId) {

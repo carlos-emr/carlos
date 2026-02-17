@@ -38,7 +38,6 @@ package io.github.carlos_emr.carlos.utility;
  *   <li>Current program and facility context</li>
  *   <li>Logged-in provider information and preferences</li>
  *   <li>Security and authentication state</li>
- *   <li>Integrator connectivity status</li>
  * </ul>
  * 
  * @deprecated Use the LoggedInInfo class for accessing session-related information
@@ -65,6 +64,4 @@ public class SessionConstants {
     /** Session key for the logged-in provider's preferences */
     public static final String LOGGED_IN_PROVIDER_PREFERENCE = "providerPreference";
     
-    /** Session key indicating if the integrator is offline */
-    public static final String INTEGRATOR_OFFLINE = "integratorOffline";
 }

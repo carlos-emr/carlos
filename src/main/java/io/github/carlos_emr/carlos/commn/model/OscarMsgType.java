@@ -56,7 +56,6 @@ public class OscarMsgType extends AbstractModel<Integer> implements Serializable
 
     public static final Integer OSCAR_REVIEW_TYPE = 1;
     public static final Integer GENERAL_TYPE = 2;
-    public static final Integer INTEGRATOR_TYPE = 3;
 
     private static final long serialVersionUID = 1L;
     @Id

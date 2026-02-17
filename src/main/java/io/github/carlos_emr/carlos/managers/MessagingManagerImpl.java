@@ -254,14 +254,6 @@ public class MessagingManagerImpl implements MessagingManager {
         return count;
     }
 
-    public Integer getMyInboxIntegratorMessagesCount(LoggedInInfo loggedInInfo, String providerNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
-        }
-
-        return messageListDao.countUnreadByProviderAndFromIntegratedFacility(providerNo);
-    }
-
     /**
      * Get the count of all messages attached to the given demographic Id.
      *
@@ -296,8 +288,8 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * Set the message opened by this local provider from new to read. Matching provider numbers from
-     * remote locations will be ignored.
+     * Set the message opened by this local provider from new to read. Only messages with a
+     * local destination are updated.
      *
      * @param loggedInInfo
      * @param messageId
@@ -387,8 +379,6 @@ public class MessagingManagerImpl implements MessagingManager {
 
         ArrayList<MsgProviderData> providerListing = messageData.getProviderStructure(loggedInInfo, recipients);
         String sentToWho = messageData.createSentToString(providerListing);
-        ArrayList<MsgProviderData> remoteProviderListing = messageData.getRemoteProvidersStructure();
-        sentToWho = sentToWho + " " + messageData.getRemoteNames(remoteProviderListing);
         Integer messageIdInteger = null;
         String messageId = messageData.sendMessageReview(
                 systemMessage.getMessage(),
@@ -474,8 +464,7 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * A combined result of both the local reply recipients and recipients located in remote
-     * facilities including the original sender.
+     * Returns all reply recipients for the given message, including the original sender.
      */
     public final List<ContactIdentifier> getAllMessageReplyRecipients(LoggedInInfo loggedInInfo, final MessageTbl messageTbl) {
 
@@ -500,8 +489,7 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * A combined result of both the local reply recipients and recipients located in remote
-     * facilities inluding the original sender.
+     * Returns all reply recipients for the given message, including the original sender.
      */
     public List<ContactIdentifier> getAllMessageReplyRecipients(LoggedInInfo loggedInInfo, int messageId) {
         MessageTbl messageTbl = getMessage(loggedInInfo, messageId);
@@ -537,16 +525,6 @@ public class MessagingManagerImpl implements MessagingManager {
         contactIdentifier.setContactId(providerNo);
         contactIdentifier.setClinicLocationNo(clinicLocationNo);
 
-        /*
-         *  Kinda crazy, right? based on current design; the sentByLocation id is the only way
-         *  to track the facility id for a reply to sender.
-         */
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()
-                && clinicLocationNo != getCurrentLocationId()) {
-            contactIdentifier.setFacilityId(clinicLocationNo);
-            contactIdentifier.setClinicLocationNo(0);
-        }
-
         contactIdentifierList.add(contactIdentifier);
         return contactIdentifierList;
     }
@@ -580,8 +558,7 @@ public class MessagingManagerImpl implements MessagingManager {
     }
 
     /**
-     * Recipients that were copied in on the message but have an origin in one of the included
-     * remote facilities.
+     * Recipients that were copied in on the message with a non-local destination facility.
      *
      * @param loggedInInfo
      * @param messageId
@@ -697,29 +674,6 @@ public class MessagingManagerImpl implements MessagingManager {
                 timeMerge.get(Calendar.HOUR_OF_DAY), timeMerge.get(Calendar.MINUTE), timeMerge.get(Calendar.SECOND));
 
         return calendar.getTime();
-    }
-
-    /**
-     * Checks a list of message recipients for any recipients that are in remote locations.
-     *
-     * @param loggedInInfo
-     * @param msgProviderDataList
-     * @return
-     */
-    public static boolean doesContainRemoteRecipient(LoggedInInfo loggedInInfo, final List<MsgProviderData> msgProviderDataList) {
-        boolean remoterecipient = Boolean.FALSE;
-        int thisfacilityid = loggedInInfo.getCurrentFacility().getId();
-
-        if (msgProviderDataList != null) {
-            for (MsgProviderData msgProviderData : msgProviderDataList) {
-                ContactIdentifier contactIdentifier = msgProviderData.getId();
-                if (contactIdentifier.getFacilityId() > 0 && contactIdentifier.getFacilityId() != thisfacilityid) {
-                    remoterecipient = Boolean.TRUE;
-                    break;
-                }
-            }
-        }
-        return remoterecipient;
     }
 
     public static final List<ContactIdentifier> createContactIdentifierList(final String[] compositeContactIdArray) {

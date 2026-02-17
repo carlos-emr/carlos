@@ -163,9 +163,9 @@
 									+ "&demographic_no=" + demoNo 
 									+ "&formId=" + pfrm.getFormId()
 									+ "&provNo=" + provNo
-									+ "&remoteFacilityId=" + pfrm.getRemoteFacilityId() %>'); return false;">
+									%>'); return false;">
 
-                    <%=frm.getFormName() + (pfrm.getRemoteFacilityId() != null ? " (remote)" : "") + (yellow ? " (current)" : "")%>
+                    <%=frm.getFormName() + (yellow ? " (current)" : "")%>
                 </a></td>
                 <td align='center'><%=pfrm.getCreated()%>
                 </td>
