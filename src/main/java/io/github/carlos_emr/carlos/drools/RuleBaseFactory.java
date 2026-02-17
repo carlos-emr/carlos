@@ -106,7 +106,7 @@ public final class RuleBaseFactory {
      * @param sourceKey String identifier of the knowledge base to remove
      */
     public static synchronized void removeRuleBase(String sourceKey) {
-        kieBaseInstances.remove(sourceKey);
+        ruleBaseInstances.remove(sourceKey);
     }
 
     /**

@@ -82,10 +82,10 @@ public class DSPreventionDrools {
                     reminder = replaceKeys(reminder, preventionType);
                     consequence.append("m.addReminder(\"" + reminder + "\"); ");
                 }
-                ruleStrings.add(rbc.getRule(ruleNumber, DSPreventionDrools.preventionObjectClassPath, dsConditions, consequence.toString()));
+                elementList.add(rbc.getRule(ruleNumber, DSPreventionDrools.preventionObjectClassPath, dsConditions, consequence.toString()));
             }
         }
-        return rbc.getRuleBase("preventions", ruleStrings);
+        return rbc.getRuleBase("preventions", elementList);
 
     }
 

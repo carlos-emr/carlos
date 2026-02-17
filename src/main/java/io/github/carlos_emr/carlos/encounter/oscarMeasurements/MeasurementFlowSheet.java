@@ -360,7 +360,7 @@ public class MeasurementFlowSheet {
                     log.debug("# OF RULES FOR " + fsi.getItemName() + " " + rules.size() + " key " + key);
                     for (Object obj : rules) {
                         Recommendation rec = (Recommendation) obj;
-                        ruleStrings.add(rec.getRuleBaseElement());
+                        dsElements.add(rec.getRuleBaseElement());
                     }
                 } else {
                     log.debug("NO RULES FOR " + fsi.getItemName());
@@ -368,15 +368,15 @@ public class MeasurementFlowSheet {
 
             }
         }
-        log.debug("LOADING RULES2" + name + " size + " + ruleStrings.size() + " rulebase " + ruleBase);
-        if (ruleStrings != null && ruleStrings.size() > 0) {
+        log.debug("LOADING RULES2" + name + " size + " + dsElements.size() + " rulebase " + ruleBase);
+        if (dsElements != null && dsElements.size() > 0) {
 
-            log.debug("LOADING RULES21" + ruleStrings.size());
+            log.debug("LOADING RULES21" + dsElements.size());
             RuleBaseCreator rcb = new RuleBaseCreator();
             try {
 
                 log.debug("LOADING RULES22");
-                ruleBase = rcb.getRuleBase("rulesetName", ruleStrings);
+                ruleBase = rcb.getRuleBase("rulesetName", dsElements);
                 log.debug("LOADING RULES23");
                 rulesLoaded = true;
             } catch (Exception e) {
@@ -431,12 +431,12 @@ public class MeasurementFlowSheet {
             int count = 0;
             for (TargetColour obj : targetColours) {
                 TargetColour rec = obj;
-                ruleStrings.add(rec.getRuleBaseElement("DD" + count));
+                dsElements.add(rec.getRuleBaseElement("DD" + count));
                 count++;
             }
 
             log.debug("loadMeasuremntRuleBase 1");
-            measurementRuleBase = rcb.getRuleBase("rulesetName", ruleStrings);
+            measurementRuleBase = rcb.getRuleBase("rulesetName", dsElements);
             log.debug("loadMeasuremntRuleBase 2");
             rulesLoaded = true;
         } catch (Exception e) {
@@ -489,16 +489,10 @@ public class MeasurementFlowSheet {
         if (rb != null) {
             KieSession kieSession = rb.newKieSession();
             try {
-                KieSession kieSession = rb.newKieSession();
-                try {
-                    kieSession.insert(new MeasurementDSHelper(loggedInInfo, mdb));
-                    kieSession.fireAllRules();
-                } finally {
-                    kieSession.dispose();
-                }
+                kieSession.insert(new MeasurementDSHelper(loggedInInfo, mdb));
+                kieSession.fireAllRules();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
-                //throw new Exception("ERROR: Drools ",e);
             } finally {
                 kieSession.dispose();
             }
@@ -514,16 +508,10 @@ public class MeasurementFlowSheet {
 
         KieSession kieSession = ruleBase.newKieSession();
         try {
-            KieSession kieSession = ruleBase.newKieSession();
-            try {
-                kieSession.insert(mi);
-                kieSession.fireAllRules();
-            } finally {
-                kieSession.dispose();
-            }
+            kieSession.insert(mi);
+            kieSession.fireAllRules();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            //throw new Exception("ERROR: Drools ",e);
         } finally {
             kieSession.dispose();
         }

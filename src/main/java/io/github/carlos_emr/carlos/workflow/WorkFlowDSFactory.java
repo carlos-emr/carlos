@@ -81,6 +81,6 @@ public class WorkFlowDSFactory {
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
-        return kieBase;
+        return ruleBase;
     }
 }

@@ -80,30 +80,6 @@ public class RuleBaseCreator {
      * @return String the DRL rule definition text
      */
     public String getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
-        lastIncomingClass = incomingClass;
-        String simpleClassName = incomingClass.substring(incomingClass.lastIndexOf('.') + 1);
-
-        ArrayList<String> elementList = new ArrayList<String>();
-        ArrayList list = new ArrayList();
-
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", ">=", "3"));
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", "<", "6"));
-
-        String ruleText = getRule("REBG1", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleText);
-
-        list = new ArrayList();
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", ">", "6"));
-        ruleText = getRule("REBG2", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleText);
-
-        list = new ArrayList();
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", "==", "-1"));
-        ruleText = getRule("REBG3", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleText);
-    }
-
-    public String getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
         String simpleClassName = incomingClass.substring(incomingClass.lastIndexOf('.') + 1);
         StringBuilder rule = new StringBuilder();
         rule.append("import ").append(incomingClass).append(";\n");

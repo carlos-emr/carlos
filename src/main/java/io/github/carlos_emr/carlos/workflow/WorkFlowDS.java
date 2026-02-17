@@ -51,13 +51,8 @@ public class WorkFlowDS {
     public WorkFlowInfo getMessages(WorkFlowInfo w) throws Exception {
         KieSession kieSession = kieBase.newKieSession();
         try {
-            KieSession kieSession = kieBase.newKieSession();
-            try {
-                kieSession.insert(w);
-                kieSession.fireAllRules();
-            } finally {
-                kieSession.dispose();
-            }
+            kieSession.insert(w);
+            kieSession.fireAllRules();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             throw new Exception("ERROR: Drools ", e);

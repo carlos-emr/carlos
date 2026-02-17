@@ -84,7 +84,6 @@ public class DroolsNumerator5 implements Numerator {
 
     public boolean evaluate(LoggedInInfo loggedInInfo, String demographicNo) {
         boolean evalTrue = false;
-        KieSession kieSession = null;
         try {
 
             Iterator terator = replaceableValues.entrySet().iterator();
@@ -117,22 +116,15 @@ public class DroolsNumerator5 implements Numerator {
 
             KieBase kieBase = rcb.getRuleBase("rulesetName", list2);
 
-//            EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(demographicNo, measurement);
-//           Collection v = ect.getMeasurementsDataVector();
-//           measurementList.add(new ArrayList(v));
-
             MeasurementDSHelper dshelper = new MeasurementDSHelper(loggedInInfo, demographicNo);
             dshelper.setMeasurement(measurement, startDateAsDate, endDateAsDate);
 
 
             MiscUtils.getLogger().debug("new working mem");
             KieSession kieSession = kieBase.newKieSession();
-
             try {
                 MiscUtils.getLogger().debug("assertObject");
-
                 kieSession.insert(dshelper);
-
 
                 MiscUtils.getLogger().debug("fireAllRules");
                 kieSession.fireAllRules();
@@ -144,10 +136,6 @@ public class DroolsNumerator5 implements Numerator {
             MiscUtils.getLogger().debug("right before catch");
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-        } finally {
-            if (kieSession != null) {
-                kieSession.dispose();
-            }
         }
         return evalTrue;
     }

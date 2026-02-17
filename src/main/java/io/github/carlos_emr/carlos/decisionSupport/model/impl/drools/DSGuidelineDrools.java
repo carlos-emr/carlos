@@ -321,7 +321,7 @@ public class DSGuidelineDrools extends DSGuideline {
 
             String consequencesElement = this.getDroolsConsequences(this.getConsequences());
 
-            rules.add(this.getRule(conditionStrings, lParameterStrings, consequencesString, ruleCount++));
+            rules.add(this.getRule(conditionElements, lParameterElements, consequencesElement, ruleCount++));
 
             RuleBaseCreator ruleBaseCreator = new RuleBaseCreator();
             try {
