@@ -29,108 +29,89 @@
 
 --%>
 
-<!-- add by caisi -->
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<!-- add by caisi end<style>* {border:1px solid black;}</style> -->
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-
-<%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.providers.pageUtil.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     if (session.getValue("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
-    String curUser_no, userfirstname, userlastname;
-    curUser_no = (String) session.getAttribute("user");
-
+    String curUser_no = (String) session.getAttribute("user");
     ProSignatureData sig = new ProSignatureData();
 %>
-<html>
+
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
-
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.title"/></title>
-
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <!-- add by caisi -->
-    <caisi:isModuleLoad moduleName="caisi">
+    <body>
 
+    <caisi:isModuleLoad moduleName="caisi">
         <iframe id="hiddenFrame" src="javascript:void(0)" style="display: none"></iframe>
         <script>
             function toggleSig(n) {
                 // Function disabled - infirm.do action no longer exists
             }
         </script>
-
     </caisi:isModuleLoad>
-    <!-- add by caisi end-->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgPrefs"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgProviderSignature"/></td>
-                        <td>&nbsp;</td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn">&nbsp;</td>
-            <td class="MainTableRightColumn"><form action="${pageContext.request.contextPath}/EnterSignature.do" method="post">
+
+    <div class="container">
+
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <i class="fas fa-signature page-header-icon"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgProviderSignature"/>
+            </h4>
+        </div>
+
+        <div class="mt-3">
+            <form action="${pageContext.request.contextPath}/EnterSignature.do" method="post">
                 <%
                     if (sig.hasSignature(curUser_no)) {
                 %>
-                <label for="signature"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgEdit"/></label>
-                <br>
-                <input type="text" name="signature" id="signature" size="40" value="<%= Encode.forHtmlAttribute(sig.getSignature(curUser_no)) %>" />
-                <br>
+                <div class="mb-3">
+                    <label for="signature" class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgEdit"/></label>
+                    <input type="text" name="signature" id="signature" class="form-control form-control-sm" style="max-width:400px;"
+                           value="<%= Encode.forHtmlAttribute(sig.getSignature(curUser_no)) %>">
+                </div>
 
-                <!-- add by caisi -->
                 <caisi:isModuleLoad moduleName="caisi">
-                    <INPUT TYPE="checkbox"
-                            <%= ((Boolean)session.getAttribute("signOnNote")).booleanValue()?"checked":""%>
-                           onchange="toggleSig('<%= curUser_no %>')">also sign the signiture in encounter notes
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input"
+                                <%= ((Boolean)session.getAttribute("signOnNote")).booleanValue()?"checked":""%>
+                               onchange="toggleSig('<%= Encode.forJavaScriptAttribute(curUser_no) %>')">
+                        <label class="form-check-label">also sign the signature in encounter notes</label>
+                    </div>
                 </caisi:isModuleLoad>
-                <!-- add by caisi end-->
 
-                <input type="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.btnUpdate"/>"/>
-                <% } else {%>
-                <label for="signature"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgNew"/></label>
-                <br>
-                <input type="text" name="signature" id="signature" size="40" />
-                <br>
-                <!-- add by caisi -->
+                <input type="submit" class="btn btn-primary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.btnUpdate"/>">
+
+                <% } else { %>
+                <div class="mb-3">
+                    <label for="signature" class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.msgNew"/></label>
+                    <input type="text" name="signature" id="signature" class="form-control form-control-sm" style="max-width:400px;">
+                </div>
+
                 <caisi:isModuleLoad moduleName="caisi">
-                    <INPUT TYPE="checkbox"
-                            <%= ((Boolean)session.getAttribute("signOnNote")).booleanValue()?"checked":""%>
-                           onchange="toggleSig('<%= curUser_no %>')">also sign the signature in encounter notes
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input"
+                                <%= ((Boolean)session.getAttribute("signOnNote")).booleanValue()?"checked":""%>
+                               onchange="toggleSig('<%= Encode.forJavaScriptAttribute(curUser_no) %>')">
+                        <label class="form-check-label">also sign the signature in encounter notes</label>
+                    </div>
                 </caisi:isModuleLoad>
-                <!-- add by caisi end-->
-                <input type="submit"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.btnSubmit"/>"/>
-                <%}%>
-            </form></td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+
+                <input type="submit" class="btn btn-primary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editSignature.btnSubmit"/>">
+                <% } %>
+            </form>
+        </div>
+
+    </div>
     </body>
 </html>

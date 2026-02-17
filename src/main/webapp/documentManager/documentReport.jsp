@@ -164,26 +164,15 @@
 <html>
     <head>
 
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
 
-        <link rel="stylesheet" type="text/css"
-              href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css"/>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
               rel="stylesheet" type="text/css"/>
-
-
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
-                type="text/javascript"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
                 type="text/javascript"></script>
         <script type="text/javascript"
                 src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
-
-        <script src="${pageContext.request.contextPath}/js/global.js" type="text/javascript"></script>
         <%
             CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
             List<String> reportClasses = docClassDao.findUniqueReportClasses();
@@ -329,41 +318,29 @@
         </script>
 
         <style>
-            :root *:not(h2) {
-                font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
-                font-size: 12px;
-                overscroll-behavior: none;
-                -webkit-font-smoothing: antialiased;
-                -moz-osx-font-smoothing: grayscale;
-            }
-
-            .panel-body {
+            .card-body {
                 overflow: auto;
             }
-
-            a {
-                color: blue;
+            .card-body table tr td a {
+                text-wrap: auto;
+                word-wrap: anywhere;
+                word-break: break-word;
             }
-            .panel-body table tr td a {
-	            text-wrap: auto;
-	            word-wrap: anywhere;
-	            word-break: break-word;
-            }
-
         </style>
-        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     </head>
     <body>
 
     <div class="container" style="margin-bottom: 25px">
-        <h2>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                 class="bi bi-file-earmark" viewBox="0 0 16 16">
-                <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
-            </svg>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager
-        </h2>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor"
+                     viewBox="0 0 16 16" class="page-header-icon">
+                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager
+            </h4>
+        </div>
 
         <% if ("demographic".equals(module)) { %>
         <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(moduleid)%>"/>
@@ -398,18 +375,18 @@
                     String currentkey = (String) categoryKeys.get(i);
                     ArrayList category = (ArrayList) categories.get(i);
             %>
-                <div class="doclist panel panel-default">
-                    <div class="headerline panel-heading">
+                <div class="doclist card">
+                    <div class="headerline card-header">
                         <div class="container">
-                            <div class="form-inline">
-                                <div class="form-group" style="margin-right: 10px;">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div>
                                     <%= Encode.forHtmlContent(currentkey) %>
                                 </div>
 
                                 <% if (i == 0) {%>
-                                <div class="form-group">
+                                <div>
                                         <%--      <label for="viewstatus"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
-                                    <select class="form-control" id="viewstatus" name="viewstatus"
+                                    <select class="form-select form-select-sm" id="viewstatus" name="viewstatus"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
                                         <option value="all"
                                                 <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAll"/></option>
@@ -422,10 +399,10 @@
                                     </select>
                                 </div>
                                 <%}%>
-                                <div class="form-group">
+                                <div>
                                         <%--          <label for="view"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
-                                            class="input-medium form-control"
+                                            class="form-select form-select-sm"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
                                         <option value="">All</option>
                                         <%
@@ -439,7 +416,7 @@
                                     </select>
                                 </div>
                                 <%if (DocumentBrowserLink) {%>
-                                <div class="form-group">
+                                <div>
                                     <a class="btn btn-link form-control"
                                         href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>
@@ -450,8 +427,8 @@
                         </div>
                     </div>
 
-                    <div id="documentsInnerDiv<%=i%>" class="panel-body">
-                        <table id="tblDocs<%=i%>" class="table table-condensed table-striped">
+                    <div id="documentsInnerDiv<%=i%>" class="card-body">
+                        <table id="tblDocs<%=i%>" class="table table-sm table-striped">
                             <thead>
                             <tr>
                                 <th>

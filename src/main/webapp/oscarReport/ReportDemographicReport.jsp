@@ -92,12 +92,8 @@
 
 <html>
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>Demographic Report Tool</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
@@ -133,9 +129,6 @@
             }
         </script>
 
-        <style type="text/css" media="print">
-            .searchBox { display: none; }
-        </style>
         <style type="text/css">
             #provider {
                 margin: 0; padding: 0;
@@ -165,9 +158,9 @@
     <div class="container">
     <div class="searchBox">
 
-        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
-            <h4 style="margin:0; font-size:18px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
                 </svg>
                 &nbsp;Demographic Report Tool
@@ -179,7 +172,7 @@
             <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : Encode.forHtmlAttribute(studyId)%>'/>
 
             <div style="margin-bottom:10px; padding:5px 10px; background:#fafafa; border:1px solid #eee; border-radius:3px;">
-                <select name="savedQuery" id="savedQuery" class="form-control input-sm" style="width:auto;display:inline-block">
+                <select name="savedQuery" id="savedQuery" class="form-control form-control-sm" style="width:auto;display:inline-block">
                     <%
                         for (int i = 0; i < queryArray.size(); i++) {
                             RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
@@ -188,14 +181,14 @@
                     <option value="<%=Encode.forHtmlAttribute(qId)%>"><%=Encode.forHtml(qName)%></option>
                     <%}%>
                 </select>
-                <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-default"/>
+                <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-outline-secondary"/>
                 <a href="<%= request.getContextPath() %>/oscarReport/ManageDemographicQueryFavourites.jsp">manage</a>
             </div>
 
             <div class="row">
                 <div class="col-md-4">
                     <div class="section-header">Search For</div>
-                    <table class="table table-condensed table-striped" style="font-size:13px;">
+                    <table class="table table-sm table-striped" style="font-size:13px;">
                         <tr>
                             <td><input type="checkbox" name="select" id="select_demographic_no" value="demographic_no" <%= containsValue(formBean.getSelect(), "demographic_no") ? "checked" : "" %>/></td>
                             <td>Demographic #</td>
@@ -315,36 +308,36 @@
                     </table>
 
                     <div style="padding:5px 0;">
-                        <input type="text" name="queryName" id="queryName" class="form-control input-sm" style="margin-bottom:5px;" placeholder="Query Name" value="<%= safeValue(formBean.getQueryName()) %>"/>
-                        <input type="submit" value="Save Query" name="query" class="btn btn-sm btn-default"/>
+                        <input type="text" name="queryName" id="queryName" class="form-control form-control-sm" style="margin-bottom:5px;" placeholder="Query Name" value="<%= safeValue(formBean.getQueryName()) %>"/>
+                        <input type="submit" value="Save Query" name="query" class="btn btn-sm btn-outline-secondary"/>
                         <input type="submit" value="Run Query" name="query" class="btn btn-sm btn-primary"/>
                     </div>
                     <span id="submitPatientSet" style="display:block; margin-top:5px;">
-                        <input type="submit" value="Run Query And Save to Patient Set" name="query" class="btn btn-sm btn-default"/>
-                        <input type="text" name="setName" class="form-control input-sm" style="width:auto;display:inline-block;margin-top:3px;" placeholder="Set Name" value="<%= safeValue(formBean.getSetName()) %>"/>
+                        <input type="submit" value="Run Query And Save to Patient Set" name="query" class="btn btn-sm btn-outline-secondary"/>
+                        <input type="text" name="setName" class="form-control form-control-sm" style="width:auto;display:inline-block;margin-top:3px;" placeholder="Set Name" value="<%= safeValue(formBean.getSetName()) %>"/>
                     </span>
                     <%if (studyId != null && !studyId.equals("") && !studyId.equalsIgnoreCase("null")) {%>
                     <div style="margin-top:5px;">
-                        <input type="submit" value="Add to Study" name="query" class="btn btn-sm btn-default"/>
+                        <input type="submit" value="Add to Study" name="query" class="btn btn-sm btn-outline-secondary"/>
                     </div>
                     <%} %>
                 </div>
 
                 <div class="col-md-8">
                     <div class="section-header">Where</div>
-                    <table class="table table-condensed table-striped" style="font-size:13px;">
+                    <table class="table table-sm table-striped" style="font-size:13px;">
                         <tr>
                             <td style="width:120px;">AGE</td>
                             <td>
-                                <select name="age" id="age" class="form-control input-sm" style="width:auto;display:inline-block">
+                                <select name="age" id="age" class="form-control form-control-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getAge()) || formBean.getAge() == null ? "selected" : "" %>>---NO AGE SPECIFIED---</option>
                                     <option value="1" <%= "1".equals(formBean.getAge()) ? "selected" : "" %>>younger than</option>
                                     <option value="2" <%= "2".equals(formBean.getAge()) ? "selected" : "" %>>older than</option>
                                     <option value="3" <%= "3".equals(formBean.getAge()) ? "selected" : "" %>>equal too</option>
                                     <option value="4" <%= "4".equals(formBean.getAge()) ? "selected" : "" %>>ages between</option>
                                 </select>
-                                <input type="text" name="startYear" size="4" class="form-control input-sm" style="width:60px;display:inline-block" value="<%= safeValue(formBean.getStartYear()) %>"/>
-                                <input type="text" name="endYear" size="4" class="form-control input-sm" style="width:60px;display:inline-block" value="<%= safeValue(formBean.getEndYear()) %>"/>
+                                <input type="text" name="startYear" size="4" class="form-control form-control-sm" style="width:60px;display:inline-block" value="<%= safeValue(formBean.getStartYear()) %>"/>
+                                <input type="text" name="endYear" size="4" class="form-control form-control-sm" style="width:60px;display:inline-block" value="<%= safeValue(formBean.getEndYear()) %>"/>
                             </td>
                         </tr>
                         <tr>
@@ -352,16 +345,16 @@
                             <td>
                                 Exact: <input type="radio" name="ageStyle" value="1" <%= "1".equals(formBean.getAgeStyle()) || formBean.getAgeStyle() == null ? "checked" : "" %>/>
                                 &nbsp; In the year: <input type="radio" name="ageStyle" value="2" <%= "2".equals(formBean.getAgeStyle()) ? "checked" : "" %>/>
-                                &nbsp; As of: <input type="text" name="asofDate" size="9" id="asofDate" class="form-control input-sm" style="width:auto;display:inline-block" value="<%= safeValue(formBean.getAsofDate()) %>"/>
+                                &nbsp; As of: <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%= safeValue(formBean.getAsofDate()) %>"/>
                                 <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                             </td>
                         </tr>
                         <tr>
                             <td>First Name</td>
                             <td>
-                                <input type="text" name="firstName" id="firstName" class="form-control input-sm" style="width:auto;display:inline-block" value="<%= safeValue(formBean.getFirstName()) %>"/>
+                                <input type="text" name="firstName" id="firstName" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%= safeValue(formBean.getFirstName()) %>"/>
                                 &nbsp; Last Name:
-                                <input type="text" name="lastName" id="lastName" class="form-control input-sm" style="width:auto;display:inline-block" value="<%= safeValue(formBean.getLastName()) %>"/>
+                                <input type="text" name="lastName" id="lastName" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%= safeValue(formBean.getLastName()) %>"/>
                             </td>
                         </tr>
                         <tr>
@@ -379,7 +372,7 @@
                         <tr>
                             <td>Sex</td>
                             <td>
-                                <select name="sex" id="sex" class="form-control input-sm" style="width:auto;display:inline-block">
+                                <select name="sex" id="sex" class="form-control form-control-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getSex()) || formBean.getSex() == null ? "selected" : "" %>>---NO SEX SPECIFIED---</option>
                                     <option value="1" <%= "1".equals(formBean.getSex()) ? "selected" : "" %>>Female</option>
                                     <option value="2" <%= "2".equals(formBean.getSex()) ? "selected" : "" %>>Male</option>
@@ -420,13 +413,13 @@
                         <tr>
                             <td>Demographic ID(s)</td>
                             <td>
-                                <textarea name="demoIds" class="form-control input-sm" rows="3" style="width:100%;"><%= formBean.getDemoIds() != null ? Encode.forHtml(formBean.getDemoIds()) : "" %></textarea>
+                                <textarea name="demoIds" class="form-control form-control-sm" rows="3" style="width:100%;"><%= formBean.getDemoIds() != null ? Encode.forHtml(formBean.getDemoIds()) : "" %></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td>Order By</td>
                             <td>
-                                <select name="orderBy" id="orderBy" class="form-control input-sm" style="width:auto;display:inline-block">
+                                <select name="orderBy" id="orderBy" class="form-control form-control-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getOrderBy()) || formBean.getOrderBy() == null || formBean.getOrderBy().isEmpty() ? "selected" : "" %>>---NO ORDER---</option>
                                     <option value="Demographic #" <%= "Demographic #".equals(formBean.getOrderBy()) ? "selected" : "" %>>Demographic #</option>
                                     <option value="Last Name" <%= "Last Name".equals(formBean.getOrderBy()) ? "selected" : "" %>>Last Name</option>
@@ -461,7 +454,7 @@
                         <tr>
                             <td>Limit Results to</td>
                             <td>
-                                <select name="resultNum" id="resultNum" class="form-control input-sm" style="width:auto;display:inline-block">
+                                <select name="resultNum" id="resultNum" class="form-control form-control-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getResultNum()) || formBean.getResultNum() == null || formBean.getResultNum().isEmpty() ? "selected" : "" %>>---NO LIMIT---</option>
                                     <option value="10" <%= "10".equals(formBean.getResultNum()) ? "selected" : "" %>>10</option>
                                     <option value="50" <%= "50".equals(formBean.getResultNum()) ? "selected" : "" %>>50</option>
@@ -486,7 +479,7 @@
     %>
         <div style="margin-top:15px;">
             <div class="section-header">Search Returned: <%=searchList.size()%> Results</div>
-            <table class="table table-condensed table-striped table-bordered" style="font-size:13px;">
+            <table class="table table-sm table-striped table-bordered" style="font-size:13px;">
                 <tr>
                     <%for (int i = 0; i < selectArray.length; i++) {%>
                     <th><%=Encode.forHtml(dcn.getColumnTitle(selectArray[i]))%></th>

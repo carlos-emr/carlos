@@ -6,7 +6,7 @@
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
-    of the License, or (at your option) any later version. 
+    of the License, or (at your option) any later version.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -32,13 +32,12 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="java.util.ArrayList" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
@@ -53,29 +52,30 @@
     }
 %>
 
-
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <%@ include file="/includes/global-head.jspf" %>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.title"/></title>
-    <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 
-    <script type="text/javascript">
+    <script>
         var useDocumentDescriptionTemplateType;
 
         function adddocDescription() {
             if (document.docDescriptionForm.docDescription.value.length > 0 && document.docDescriptionForm.docDescriptionShortcut.value.length > 0) {
-                var docType = document.getElementById('docType').options[document.getElementById('docType').selectedIndex].value;
+                var docType = $('#docType').val();
                 var docDescription = document.docDescriptionForm.docDescription.value;
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var providerNo = document.docDescriptionForm.providerNo.value;
-                var data = 'method=addDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&providerNo=' + providerNo;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        getDocumentDescriptionTemplateFromSelectedDocType();
-                    }
+                $.post(url, {
+                    method: 'addDocumentDescription',
+                    description: docDescription,
+                    shortcut: docShortcut,
+                    doctype: docType,
+                    providerNo: providerNo
+                }, function () {
+                    getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
@@ -85,16 +85,20 @@
         function updatedocDescription() {
             if (document.docDescriptionForm.docDescription.value.length > 0 && document.docDescriptionForm.docDescriptionShortcut.value.length > 0) {
                 var id = document.docDescriptionForm.descriptionId.value;
-                var docType = document.getElementById('docType').options[document.getElementById('docType').selectedIndex].value;
+                var docType = $('#docType').val();
                 var docDescription = document.docDescriptionForm.docDescription.value;
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
                 var providerNo = document.docDescriptionForm.providerNo.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=updateDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&id=' + id + '&providerNo=' + providerNo;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        getDocumentDescriptionTemplateFromSelectedDocType();
-                    }
+                $.post(url, {
+                    method: 'updateDocumentDescription',
+                    description: docDescription,
+                    shortcut: docShortcut,
+                    doctype: docType,
+                    id: id,
+                    providerNo: providerNo
+                }, function () {
+                    getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
@@ -105,11 +109,11 @@
             if (document.docDescriptionForm.docDescription.value.length > 0 && document.docDescriptionForm.docDescriptionShortcut.value.length > 0) {
                 var id = document.docDescriptionForm.descriptionId.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=deleteDocumentDescription&id=' + id;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        getDocumentDescriptionTemplateFromSelectedDocType();
-                    }
+                $.post(url, {
+                    method: 'deleteDocumentDescription',
+                    id: id
+                }, function () {
+                    getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
@@ -117,22 +121,16 @@
         }
 
         function getDocumentDescriptionTemplateFromSelectedDocType() {
-
             var docType = "";
-
             var providerNo = document.docDescriptionForm.providerNo.value;
-            var docDescriptionList;
-            var adoc;
-            docDescriptionList = $('docDescriptionList');
 
-            while (docDescriptionList.hasChildNodes()) {
-                docDescriptionList.removeChild(docDescriptionList.lastChild);
-            }
-            if (document.getElementById('docType').selectedIndex > 0) {
-                docType = document.getElementById('docType').options[document.getElementById('docType').selectedIndex].value;
-                document.getElementById('tblDesc').style.visibility = "visible";
+            $('#docDescriptionList').empty();
+
+            if ($('#docType')[0].selectedIndex > 0) {
+                docType = $('#docType').val();
+                $('#tblDesc').css('visibility', 'visible');
             } else {
-                document.getElementById('tblDesc').style.visibility = "hidden";
+                $('#tblDesc').css('visibility', 'hidden');
                 document.docDescriptionForm.addDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.updateDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.deleteDescription.style.visibility = 'hidden';
@@ -142,43 +140,32 @@
                 return;
             }
 
-            adoc = document.createElement('div');
-            docDescriptionList.appendChild(adoc);
             var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-            var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=" + providerNo + "&useDocumentDescriptionTemplateType=" + useDocumentDescriptionTemplateType;
-            new Ajax.Request(url, {
-                method: 'post', parameters: data, onSuccess: function (transport) {
-                    var json = transport.responseText.evalJSON();
+            $.post(url, {
+                method: 'getDocumentDescriptionFromDocType',
+                doctype: docType,
+                providerNo: providerNo,
+                useDocumentDescriptionTemplateType: useDocumentDescriptionTemplateType
+            }, function (data) {
+                var json = typeof data === 'string' ? JSON.parse(data) : data;
 
-                    if (json != null) {
+                if (json != null) {
+                    var mySelect = $('<select id="docDescList" class="form-select form-select-sm"></select>');
+                    mySelect.on('change', getDescriptionAndShortcutFromSelectedList);
+                    mySelect.append('<option value=""></option>');
 
-                        var mySelect = document.createElement("select");
-                        mySelect.setAttribute("id", "docDescList");
-                        mySelect.setAttribute("onchange", "getDescriptionAndShortcutFromSelectedList()");
-                        var myOption1 = document.createElement("option");
-                        myOption1.text = "";
-                        myOption1.value = "";
-                        mySelect.appendChild(myOption1);
-
-                        for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
-
-                            myOption1 = document.createElement("option");
-                            myOption1.text = "(" + json.documentDescriptionTemplate[i].descriptionShortcut + ")      " + json.documentDescriptionTemplate[i].description;
-                            myOption1.value = json.documentDescriptionTemplate[i].id;
-
-                            mySelect.appendChild(myOption1);
-                        }
-                        docDescriptionList = $('docDescriptionList');
-                        docDescriptionList.appendChild(mySelect);
-                        getDescriptionAndShortcutFromSelectedList();
+                    for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
+                        var t = json.documentDescriptionTemplate[i];
+                        mySelect.append($('<option></option>').val(t.id).text("(" + t.descriptionShortcut + ")      " + t.description));
                     }
+                    $('#docDescriptionList').append(mySelect);
+                    getDescriptionAndShortcutFromSelectedList();
                 }
             });
-
         }
 
         function getDescriptionAndShortcutFromSelectedList() {
-            if (document.getElementById('docDescList').selectedIndex <= 0) {
+            if ($('#docDescList')[0].selectedIndex <= 0) {
                 document.docDescriptionForm.addDescription.style.visibility = 'visible';
                 document.docDescriptionForm.updateDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.deleteDescription.style.visibility = 'hidden';
@@ -186,55 +173,53 @@
                 document.docDescriptionForm.docDescription.value = "";
                 document.docDescriptionForm.docDescriptionShortcut.value = "";
             } else {
-                var id = document.getElementById('docDescList').options[document.getElementById('docDescList').selectedIndex].value;
+                var id = $('#docDescList').val();
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=getDocumentDescriptionFromId&id=' + id;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        var json = transport.responseText.evalJSON();
-                        if (json != null) {
-                            document.docDescriptionForm.addDescription.style.visibility = 'hidden';
-                            document.docDescriptionForm.updateDescription.style.visibility = 'visible';
-                            document.docDescriptionForm.deleteDescription.style.visibility = 'visible';
-                            document.docDescriptionForm.descriptionId.value = json.documentDescriptionTemplate.id;
-                            document.docDescriptionForm.docDescription.value = json.documentDescriptionTemplate.description;
-                            document.docDescriptionForm.docDescriptionShortcut.value = json.documentDescriptionTemplate.descriptionShortcut;
-                        }
+                $.post(url, {
+                    method: 'getDocumentDescriptionFromId',
+                    id: id
+                }, function (data) {
+                    var json = typeof data === 'string' ? JSON.parse(data) : data;
+                    if (json != null) {
+                        document.docDescriptionForm.addDescription.style.visibility = 'hidden';
+                        document.docDescriptionForm.updateDescription.style.visibility = 'visible';
+                        document.docDescriptionForm.deleteDescription.style.visibility = 'visible';
+                        document.docDescriptionForm.descriptionId.value = json.documentDescriptionTemplate.id;
+                        document.docDescriptionForm.docDescription.value = json.documentDescriptionTemplate.description;
+                        document.docDescriptionForm.docDescriptionShortcut.value = json.documentDescriptionTemplate.descriptionShortcut;
                     }
                 });
             }
         }
 
         function checkClinicDefault() {
-
-            if (document.getElementById('useclinicdefault').checked && document.docDescriptionForm.providerNo.value != "null") {
-                document.getElementById('docTypeTable').style.visibility = 'hidden';
-                document.getElementById('tblDesc').style.visibility = 'hidden';
+            if ($('#useclinicdefault').is(':checked') && document.docDescriptionForm.providerNo.value != "null") {
+                $('#docTypeTable').css('visibility', 'hidden');
+                $('#tblDesc').css('visibility', 'hidden');
                 document.docDescriptionForm.updateDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.deleteDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.addDescription.style.visibility = 'hidden';
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=<%=UserProperty.CLINIC%>';
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                    }
+                $.post(url, {
+                    method: 'saveDocumentDescriptionTemplatePreference',
+                    defaultShortcut: '<%=UserProperty.CLINIC%>'
                 });
             } else {
                 useDocumentDescriptionTemplateType = document.docDescriptionForm.providerNo.value != "null" ? "<%=UserProperty.USER%>" : "<%=UserProperty.CLINIC%>";
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=' + useDocumentDescriptionTemplateType;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                    }
+                $.post(url, {
+                    method: 'saveDocumentDescriptionTemplatePreference',
+                    defaultShortcut: useDocumentDescriptionTemplateType
                 });
-                document.getElementById('docTypeTable').style.visibility = 'visible';
-                document.getElementById('docType').selectedIndex = -1;
-                document.getElementById('tblDesc').style.visibility = 'hidden';
+                $('#docTypeTable').css('visibility', 'visible');
+                $('#docType')[0].selectedIndex = -1;
+                $('#tblDesc').css('visibility', 'hidden');
                 getDocumentDescriptionTemplateFromSelectedDocType();
             }
         }
     </script>
 </head>
+
 <body onload="checkClinicDefault()">
 <%
     String providerNo = curProvider_no;
@@ -242,66 +227,89 @@
         providerNo = null;
     }
 %>
-<form method="post" name="docDescriptionForm" action="displayDocumentDescriptionTemplate.jsp">
-    <div id="usefault" style="<%=providerNo==null? "visibility:hidden" : ""%>">
-        <input type="checkbox" name="useclinicdefault" <%=clinicDefault == true ? "checked='checked'" : ""%>
-               id="useclinicdefault" onclick="checkClinicDefault()"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
+<div class="container">
+
+    <div class="page-header-bar">
+        <h4 class="page-header-title">
+            <i class="fas fa-file-alt page-header-icon"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.title"/>
+        </h4>
     </div>
-    <% if (providerNo == null) {%>
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.setClinicDefault"/>
-    <%}%>
-    <p>
 
-    <table id="docTypeTable">
-        <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Type"/>:</td>
-            <td>
-                <select name="docType" id="docType" onchange="getDocumentDescriptionTemplateFromSelectedDocType()">
-                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectType"/></option>
-                    <%
-                        for (int j = 0; j < docTypes.size(); j++) {
-                            String docType = (String) docTypes.get(j);
-                    %>
-                    <option value="<%= docType%>"><%= docType%>
-                    </option>
-                    <%}%>
-                </select>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/>:
-            </td>
-            <td>
-                <div id="docDescriptionList"></div>
-            </td>
-        </tr>
-    </table>
-    <p>
-    <p>
+    <form method="post" name="docDescriptionForm" action="displayDocumentDescriptionTemplate.jsp" class="mt-3">
 
-    <table style="visibility:hidden" id="tblDesc">
-        <tr>
-            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></th>
-            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></th>
-        </tr>
-        <tr>
-            <td><input type="hidden" name="providerNo" value="<%=(providerNo==null?"null":providerNo)%>"><input
-                    type="hidden" name="descriptionId"><input name="docDescriptionShortcut" maxlength="20" size="20"
-                                                              value=""></td>
-            <td><input name="docDescription" maxlength="255" size="60" value=""></td>
-        </tr>
-        <tr>
-            <td colspan="2"><input type="button"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Add"/>"
-                                   id="addDescription" onclick="adddocDescription()">
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Update"/>"
-                       id="updateDescription" onclick="updatedocDescription()">
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Delete"/>"
-                       id="deleteDescription" onclick="deletedocDescription()">
-            </td>
-        </tr>
-    </table>
-</form>
+        <div id="usefault" class="form-check mb-3" style="<%=providerNo==null? "visibility:hidden" : ""%>">
+            <input type="checkbox" class="form-check-input" name="useclinicdefault" <%=clinicDefault ? "checked" : ""%>
+                   id="useclinicdefault" onclick="checkClinicDefault()">
+            <label class="form-check-label" for="useclinicdefault">
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>
+            </label>
+        </div>
+
+        <% if (providerNo == null) { %>
+        <p class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.setClinicDefault"/></p>
+        <% } %>
+
+        <table id="docTypeTable" class="mb-3">
+            <tr>
+                <td class="pe-2 fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Type"/>:</td>
+                <td>
+                    <select name="docType" id="docType" onchange="getDocumentDescriptionTemplateFromSelectedDocType()"
+                            class="form-select form-select-sm" style="width:auto;">
+                        <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectType"/></option>
+                        <%
+                            for (int j = 0; j < docTypes.size(); j++) {
+                                String docType = (String) docTypes.get(j);
+                        %>
+                        <option value="<%=Encode.forHtmlAttribute(docType)%>"><%=Encode.forHtml(docType)%></option>
+                        <% } %>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="pe-2 fw-bold pt-2">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/>:
+                </td>
+                <td class="pt-2">
+                    <div id="docDescriptionList"></div>
+                </td>
+            </tr>
+        </table>
+
+        <table style="visibility:hidden" id="tblDesc" class="mb-3">
+            <tr>
+                <th class="pe-3"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionShortcut"/></th>
+                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Description"/></th>
+            </tr>
+            <tr>
+                <td>
+                    <input type="hidden" name="providerNo" value="<%=(providerNo==null?"null":Encode.forHtmlAttribute(providerNo))%>">
+                    <input type="hidden" name="descriptionId">
+                    <input name="docDescriptionShortcut" maxlength="20" size="20" value=""
+                           class="form-control form-control-sm">
+                </td>
+                <td>
+                    <input name="docDescription" maxlength="255" size="60" value=""
+                           class="form-control form-control-sm">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" class="pt-2">
+                    <div class="d-flex gap-2">
+                        <input type="button" class="btn btn-primary btn-sm"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Add"/>"
+                               id="addDescription" onclick="adddocDescription()">
+                        <input type="button" class="btn btn-primary btn-sm"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Update"/>"
+                               id="updateDescription" onclick="updatedocDescription()">
+                        <input type="button" class="btn btn-outline-danger btn-sm"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.Delete"/>"
+                               id="deleteDescription" onclick="deletedocDescription()">
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </form>
+
+</div>
 </body>
-<html>
+</html>

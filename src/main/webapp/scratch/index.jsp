@@ -66,7 +66,7 @@
 <head>
 <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/></title>
 
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+    <%@ include file="/includes/global-head.jspf" %>
 
     <script type="text/javascript">
         let dirty = false;
@@ -313,64 +313,21 @@
 	        }
         }
     </script>
-    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" />
-
     <style>
-        :root * {
-            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
-        }
-
-        :root * :not(h2):not(h4) {
-            font-size: 12px;
-            line-height: 1 !important;
-            overscroll-behavior: none;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        .heading {
+        .scratch-layout {
             display: flex;
-            justify-content: flex-start;
-            align-items: first baseline;
-            width: 100%;
+            gap: 15px;
+            align-items: flex-start;
         }
-        .heading .page-title {
-            width: 100%;
+        .scratch-sidebar {
+            min-width: 200px;
         }
-
-        .heading .user-name {
-            width: 100%;
-            justify-content: center;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            display:flex;
-            justify-content: center;
-            align-content: flex-start;
-            align-items: stretch;
-            flex-direction: column;
-        }
-        table tr {
-            display:flex;
-            flex-direction: row;
-        }
-        table tr td {
-            padding: 10px;
-            vertical-align: top;
-        }
-        table tr td.MainTableRightColumn {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            flex:1;
-        }
-
-        .MainTableRightColumn > textarea {
+        .scratch-main {
             flex: 1;
+            display: flex;
+            flex-direction: column;
         }
-
-        textarea {
+        .scratch-main textarea {
             width: 100%;
             box-sizing: border-box;
             min-height: 346px;
@@ -379,67 +336,58 @@
             border-radius: 4px;
             border: lightgray thin solid;
             padding: 10px;
+            flex: 1;
         }
-
     </style>
 </head>
 
 <body>
 <div class="container">
-    <div class="heading">
-        <div class="page-title">
 
-            <h2 style="font-size: 30px;margin-top: 20px;margin-bottom: 10px;font-weight:bold;line-height: 1.1">
-
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-card-list" viewBox="0 0 16 16">
-                    <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2z"></path>
-                    <path d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8m0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0m0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"></path>
-                </svg>
-
-              <fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/>
-            </h2>
-        </div>
-          <div class="user-name" >
-              <h4><%=Encode.forHtmlContent(userfirstname)%> <%=Encode.forHtmlContent(userlastname)%></h4>
-          </div>
+    <div class="page-header-bar">
+        <h4 class="page-header-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2z"/>
+                <path d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8m0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0m0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+            </svg>
+            &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/>
+            <span class="text-muted" style="font-size: 0.8em; font-weight: normal;">
+                &mdash; <%=Encode.forHtmlContent(userfirstname)%> <%=Encode.forHtmlContent(userlastname)%>
+            </span>
+        </h4>
     </div>
 
-    <table class="MainTable table-sm table-borderless" id="scrollNumber1">
+    <div class="scratch-layout">
+        <div class="scratch-sidebar">
+            <input type="button" class="btn btn-primary mb-2 w-100" onclick="checkScratch('Save button...')" id="savebutton" value="Save" />
 
-	<tr>
-		<td class="MainTableLeftColumn" id="tablelle" >
-            <input type="button" style="margin-bottom: 8px;" class="btn btn-primary" onclick="checkScratch('Save button...')" id="savebutton" value="save" />
+            <select class="form-select form-select-sm" onChange="showVersion(this.options[this.selectedIndex].value)">
+                <option value="showVersion">Select Version to Display</option>
+                <%
+                for( ScratchPad scratchPad : dateIdList ) {
+                    String strId = scratchPad.getId() + "";
+                    Date date = scratchPad.getDateTime();
+                %>
+                    <option value="<%=Encode.forHtmlAttribute(strId)%>"><%=DateUtils.formatDateTime(date, request.getLocale())%></option>
+                <%
+                }
+                %>
+            </select>
 
-			<select class="form-select" onChange="showVersion(this.options[this.selectedIndex].value)">
-				<option value="showVersion">Select Version to Display</option>
-				<% 
-				for( ScratchPad scratchPad : dateIdList ) {
-				    String strId = scratchPad.getId() + "";
-				    Date date = scratchPad.getDateTime();
-				    
-				%>
-					<option value="<%=Encode.forHtmlAttribute(strId)%>"><%=DateUtils.formatDateTime(date, request.getLocale())%></option>
-				<%
-				}
-				%>
-			</select>
+            <div id="lastSavedTimestamp" class="text-muted mt-2" style="min-height: 20px;"></div>
+        </div>
 
-            <div id="lastSavedTimestamp" style="color: #666; margin-top: 8px; min-height: 20px;"></div>
-	    </td>
-
-		<td class="MainTableRightColumn" id="mainRight">
-		<form id="scratch" action="">
-            <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(user_no)%>" />
-            <input type="hidden" name="id" id="curr_id" value="<%=Encode.forHtmlAttribute(id)%>" />
-            <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
-            <input type="hidden" name="dirty" value=false id="dirty" />
-            <textarea name="scratchpad" id="thetext" rows="50"
-			cols="50" oninput="setDirty();" onpaste="setDirty();" ><%=Encode.forHtmlContent(text)%></textarea>
-
-        </form>
-		</td>
-	</tr>
-</table>
+        <div class="scratch-main" id="mainRight">
+            <form id="scratch" action="">
+                <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(user_no)%>" />
+                <input type="hidden" name="id" id="curr_id" value="<%=Encode.forHtmlAttribute(id)%>" />
+                <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
+                <input type="hidden" name="dirty" value=false id="dirty" />
+                <textarea name="scratchpad" id="thetext" rows="50"
+                    cols="50" oninput="setDirty();" onpaste="setDirty();"><%=Encode.forHtmlContent(text)%></textarea>
+            </form>
+        </div>
+    </div>
 
 <script type="text/javascript">
 fixHeightOfTheText(); // fix it first time in.

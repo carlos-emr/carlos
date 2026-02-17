@@ -37,91 +37,76 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.title"/></title>
     </head>
 
-    <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providercontrol.jsp">
+    <body>
+    <div class="container">
 
-        <div id="topMenuDiv" style="position:fixed;width:100%">
-            <div style="background-color:#486ebd;text-align:center;font-family:Helvetica,sans-serif;color:#ffffff;font-weight:bold;padding:1px">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
-            </div>
-            <div style="background-color:#486ebd;text-align:center;border-top:solid white 1px;padding:1px">
-                <input type="hidden" name="submit_form" value="">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='Delete'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="RESET" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnClose"/>"
-                       onClick="window.close();">
-            </div>
+        <div class="page-header-bar d-flex align-items-center justify-content-between">
+            <h4 class="page-header-title">
+                <i class="fas fa-users page-header-icon"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
+            </h4>
         </div>
-        <br/>
-            <%-- This DIV and following javascript spaces out the content properly below the fixed position menu  --%>
-        <div id="topMenuSpacerDiv" style="height:3em">&nbsp;</div>
-        <script type="text/javascript">
-            document.getElementById('topMenuSpacerDiv').style.height = document.getElementById('topMenuDiv').offsetHeight + 'px';
-        </script>
 
-        <center>
-            <table border="0" cellpadding="0" cellspacing="0" width="80%">
-                <tr>
-                    <td width="100%">
+        <form name="UPDATEPRE" method="post" action="providercontrol.jsp">
+            <input type="hidden" name="submit_form" value="">
 
-                        <table BORDER="0" CELLPADDING="0" CELLSPACING="1" WIDTH="100%"
-                               BGCOLOR="#C0C0C0">
-                            <tr BGCOLOR="#CCFFFF">
-                                <td ALIGN="center" colspan="2"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></font></td>
-                                <td ALIGN="center"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgProvider"/></font></td>
-                            </tr>
-                            <%
-                                boolean bNewNo = false;
-                                String oldNo = "";
-                                List<MyGroup> myGroups = dao.findAll();
-                                Collections.sort(myGroups, MyGroup.MyGroupNoComparator);
-                                for (MyGroup myGroup : myGroups) {
+            <div class="d-flex gap-2 mb-3">
+                <input type="submit" class="btn btn-secondary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
+                       onclick="document.forms['UPDATEPRE'].submit_form.value='Delete';">
+                <input type="submit" class="btn btn-primary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
+                       onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
+            </div>
 
-                                    String groupNo = myGroup.getId().getMyGroupNo();
-                                    if (!(groupNo.equals(oldNo))) {
-                                        bNewNo = bNewNo ? false : true;
-                                        oldNo = groupNo;
-                                    }
-                            %>
-                            <tr BGCOLOR="<%=bNewNo?"white":"ivory"%>">
-                                <td width="10%" align="center"><input type="checkbox"
-                                                                      name="<%=groupNo+myGroup.getId().getProviderNo()%>"
-                                                                      value="<%=groupNo%>"></td>
-                                <td ALIGN="center"><font face="arial"><%=groupNo%>
-                                </font></td>
-                                <td ALIGN="center"><font
-                                        face="arial"><%=myGroup.getLastName() + ", " + myGroup.getFirstName()%>
-                                </font>
-                                </td>
-                            </tr>
-                            <%
-                                }
-                            %>
-                            <INPUT TYPE="hidden" NAME="displaymode" VALUE='newgroup'>
-
-                        </table>
-
-                    </td>
-                </tr>
+            <table class="table table-hover table-sm table-striped">
+                <thead>
+                    <tr>
+                        <th style="width:50px"></th>
+                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></th>
+                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgProvider"/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <%
+                        String oldNo = "";
+                        List<MyGroup> myGroups = dao.findAll();
+                        Collections.sort(myGroups, MyGroup.MyGroupNoComparator);
+                        for (MyGroup myGroup : myGroups) {
+                            String groupNo = myGroup.getId().getMyGroupNo();
+                            String providerNo = myGroup.getId().getProviderNo();
+                    %>
+                    <tr>
+                        <td class="text-center">
+                            <input type="checkbox"
+                                   name="<%=Encode.forHtmlAttribute(groupNo + providerNo)%>"
+                                   value="<%=Encode.forHtmlAttribute(groupNo)%>">
+                        </td>
+                        <td><%=Encode.forHtmlContent(groupNo)%></td>
+                        <td><%=Encode.forHtmlContent(myGroup.getLastName() + ", " + myGroup.getFirstName())%></td>
+                    </tr>
+                    <%
+                        }
+                    %>
+                </tbody>
             </table>
-        </center>
 
-    </FORM>
+            <input type="hidden" name="displaymode" value="newgroup">
+        </form>
 
+    </div>
     </body>
 </html>

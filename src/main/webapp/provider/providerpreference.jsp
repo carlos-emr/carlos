@@ -27,8 +27,8 @@
     Provider Preferences - Consolidated Single-Page View
 
     Displays all provider preferences in a single Bootstrap 5 accordion layout,
-    themed to match the CARLOS EMR schedule page (navy blue #486ebd header, clean
-    clinical styling). Uses FontAwesome icons for visual clarity.
+    Uses the CARLOS global stylesheet for consistent theming with FontAwesome
+    icons for visual clarity.
 
     Previously, most settings required navigating to many separate sub-pages via
     setProviderStaleDate.do. Now they are all inlined with a single Save button.
@@ -227,68 +227,19 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <%@ include file="/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
     <title>Provider Preferences</title>
-
-    <!-- CARLOS global scripts -->
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
-    <!-- Bootstrap 5 (local bundle) + FontAwesome (local bundle) -->
-    <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
-
     <style>
-        /* ─── Colour palette matched to CARLOS schedule page ─── */
+        /* ─── Page-specific palette extensions ─── */
         :root {
-            --carlos-navy: #486ebd;          /* Primary brand colour from schedule header */
-            --carlos-navy-dark: #3a5a9e;     /* Darker shade for hover/active states */
-            --carlos-navy-light: #5a7ec8;    /* Lighter shade for gradients */
-            --carlos-blue: #3EA4E1;          /* Accent blue from schedule time slots */
-            --carlos-teal: #00A488;          /* Teal accent from schedule */
-            --carlos-text: #00283c;          /* Dark blue text from schedule links */
+            --carlos-teal: #00A488;
             --carlos-text-secondary: #475569;
-            --carlos-bg: #f0f4f8;            /* Light cool grey page background */
-            --carlos-input-bg: #F4EaD7;      /* Cream input background from schedule */
-            --carlos-input-border: #0097cf;  /* Cyan border from schedule inputs */
-            --carlos-border: #d5dce6;
+            --carlos-input-bg: #F4EaD7;
+            --carlos-input-border: #0097cf;
             --carlos-card-bg: #ffffff;
-        }
-
-        /* ─── Base layout ─── */
-        body {
-            background: var(--carlos-bg);
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            font-size: 13px;
-            color: var(--carlos-text);
-            margin: 0;
-            padding: 0;
-        }
-
-        /* ─── Sticky header bar ─── */
-        .pref-header {
-            background: var(--carlos-navy);
-            color: #fff;
-            padding: 10px 20px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 4px rgba(0,0,0,.15);
-        }
-        .pref-header h1 {
-            font-size: 15px;
-            margin: 0;
-            font-weight: 600;
-            letter-spacing: .3px;
-        }
-        .pref-header h1 i { margin-right: 8px; opacity: .85; }
-        .pref-header .header-hint {
-            font-size: 11px;
-            opacity: .7;
         }
 
         /* ─── Main scrollable body ─── */
@@ -315,19 +266,19 @@
             width: 22px;
             text-align: center;
             margin-right: 10px;
-            color: var(--carlos-navy);
+            color: var(--carlos-primary);
             font-size: 14px;
         }
         .accordion-button:not(.collapsed) {
             background: #e8eef7;
-            color: var(--carlos-navy-dark);
+            color: color-mix(in srgb, var(--carlos-primary) 80%, black);
             box-shadow: none;
         }
         .accordion-button:not(.collapsed) i.section-icon {
-            color: var(--carlos-navy-dark);
+            color: color-mix(in srgb, var(--carlos-primary) 80%, black);
         }
         .accordion-button:focus {
-            box-shadow: 0 0 0 2px rgba(72, 110, 189, .25);
+            box-shadow: 0 0 0 2px rgba(51, 122, 183, .25);
         }
         .accordion-button::after {
             /* Adjust chevron icon to approximate brand colour */
@@ -371,9 +322,9 @@
             transition: border-color .15s, box-shadow .15s;
         }
         .pref-input:focus {
-            border-color: var(--carlos-navy);
+            border-color: var(--carlos-primary);
             outline: none;
-            box-shadow: 0 0 0 2px rgba(72, 110, 189, .2);
+            box-shadow: 0 0 0 2px rgba(51, 122, 183, .2);
             background: #fff;
         }
         select.pref-input { cursor: pointer; }
@@ -391,11 +342,11 @@
             border: 1px solid #b0bec5;
         }
         .form-check-input:checked {
-            background-color: var(--carlos-navy);
-            border-color: var(--carlos-navy);
+            background-color: var(--carlos-primary);
+            border-color: var(--carlos-primary);
         }
         .form-check-input:focus {
-            box-shadow: 0 0 0 2px rgba(72, 110, 189, .25);
+            box-shadow: 0 0 0 2px rgba(51, 122, 183, .25);
         }
 
         /* ─── Colour picker ─── */
@@ -443,7 +394,7 @@
             background: #e8eef7;
             border: 1px solid var(--carlos-border);
             border-radius: 4px;
-            color: var(--carlos-navy);
+            color: var(--carlos-primary);
             text-decoration: none;
             font-size: 12px;
             font-weight: 500;
@@ -451,9 +402,9 @@
             transition: background .15s, color .15s;
         }
         .pref-link:hover {
-            background: var(--carlos-navy);
+            background: var(--carlos-primary);
             color: #fff;
-            border-color: var(--carlos-navy);
+            border-color: var(--carlos-primary);
         }
         .pref-link i { font-size: 11px; }
 
@@ -471,14 +422,14 @@
             position: sticky;
             bottom: 0;
             background: #fff;
-            border-top: 2px solid var(--carlos-navy);
+            border-top: 2px solid var(--carlos-primary);
             padding: 10px 20px;
             text-align: center;
             z-index: 100;
             box-shadow: 0 -2px 6px rgba(0,0,0,.08);
         }
         .btn-save {
-            background: var(--carlos-navy);
+            background: var(--carlos-primary);
             border: none;
             color: #fff;
             font-weight: 600;
@@ -487,7 +438,7 @@
             font-size: 13px;
             letter-spacing: .3px;
         }
-        .btn-save:hover { background: var(--carlos-navy-dark); color: #fff; }
+        .btn-save:hover { background: color-mix(in srgb, var(--carlos-primary) 80%, black); color: #fff; }
         .btn-save i { margin-right: 6px; }
         .btn-close-pref {
             background: #e2e8f0;
@@ -531,9 +482,13 @@
 <%-- ═══════════════════════════════════════════════════════════════════════
      HEADER BAR - Sticky navy header matching the schedule page top bar
      ═══════════════════════════════════════════════════════════════════════ --%>
-<div class="pref-header">
-    <h1><i class="fas fa-cog"></i> Provider Preferences</h1>
-    <span class="header-hint"><i class="fas fa-info-circle"></i> Click "Save All Preferences" to apply changes</span>
+<div class="page-header-bar d-flex align-items-center justify-content-between">
+    <h4 class="page-header-title">
+        <i class="fas fa-cog page-header-icon"></i>&nbsp;Provider Preferences
+    </h4>
+    <span class="text-muted" style="font-size: 0.8em;">
+        <i class="fas fa-info-circle"></i> Click "Save All Preferences" to apply changes
+    </span>
 </div>
 
 <div class="pref-body">
@@ -686,7 +641,7 @@
                             <td></td>
                             <td>
                                 <button type="button" class="btn btn-sm mt-1"
-                                        style="background:var(--carlos-navy); color:#fff; font-size:11px"
+                                        style="background:var(--carlos-primary); color:#fff; font-size:11px"
                                         onclick="addQuickLink()">
                                     <i class="fas fa-plus"></i> Add Link
                                 </button>
@@ -1332,7 +1287,7 @@
 <div class="modal fade" id="dxSearchModal" tabindex="-1" aria-labelledby="dxSearchLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header" style="background:var(--carlos-navy);color:#fff;padding:8px 16px">
+            <div class="modal-header" style="background:var(--carlos-primary);color:#fff;padding:8px 16px">
                 <h5 class="modal-title" id="dxSearchLabel" style="font-size:14px;margin:0">
                     <i class="fas fa-search" style="margin-right:6px"></i> Search Diagnostic Codes
                 </h5>
@@ -1345,8 +1300,6 @@
     </div>
 </div>
 
-<!-- Bootstrap 5 JS bundle (includes Popper for accordion) -->
-<script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js"></script>
 <!-- Prototype.js for Ajax auto-save (legacy dependency) -->
 <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 

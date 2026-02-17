@@ -29,110 +29,73 @@
 
 --%>
 
-<%@ include file="/casemgmt/taglibs.jsp" %>
-
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%
     if (session.getValue("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
-    String curUser_no;
-    curUser_no = (String) session.getAttribute("user");
 
-    boolean bFirstLoad = request.getAttribute("status") == null;
-
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<c:set var="ctx" value="${pageContext.request.contextPath}"
-       scope="request"/>
-<html>
+
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.title"/></title>
-
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
-              title="win2k-cold-1">
-
-        <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js"
-                type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js"
-                type="text/javascript"></script>
-
-        <script type="text/javascript">
-
-            function validate() {
-                var date = document.getElementById("staleDate");
-                if (date.value == "") {
-                    alert("Please select a date before saving");
-                    return false;
-                }
-
-                return true;
-            }
-        </script>
-
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
+    <body>
+    <div class="container">
 
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgPrefs"/></td>
-            <td style="color: white" class="MainTableTopRowRightColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgProviderStaleDate"/></td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn">&nbsp;</td>
-            <td class="MainTableRightColumn">
-                <%
-                    if (request.getAttribute("status") == null) {
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <i class="fas fa-clock page-header-icon"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgProviderStaleDate"/>
+            </h4>
+        </div>
 
-                %> 
-                <form style="frmProperty" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" id="method" name="method" value="save">
-                    <input type="hidden" name="dateProperty.name" value="staleNoteDate"/>
-                    <input type="hidden" name="dateProperty.providerNo" value="${providerNo}"/>
+        <% if (request.getAttribute("status") == null) { %>
+        <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post" class="mt-3">
+            <input type="hidden" id="method" name="method" value="save">
+            <input type="hidden" name="dateProperty.name" value="staleNoteDate"/>
+            <input type="hidden" name="dateProperty.providerNo" value="${providerNo}"/>
 
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgEdit"/>
-                    <select name="dateProperty.value" id="dateProperty.value">
-                        <c:forEach var="opt" items="${staleDateOptions}">
-                            <option value="${opt.value}" <c:if test="${opt.value == dateProperty.value}">selected</c:if>>${opt.label}</option>
-                        </c:forEach>
-                    </select>
-                    <br/>
+            <p class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgEdit"/></p>
+            <div class="mb-3">
+                <select name="dateProperty.value" id="dateProperty.value" class="form-select form-select-sm" style="max-width:200px;">
+                    <c:forEach var="opt" items="${staleDateOptions}">
+                        <option value="${opt.value}" <c:if test="${opt.value == dateProperty.value}">selected</c:if>>${opt.label}</option>
+                    </c:forEach>
+                </select>
+            </div>
 
-                    <input type="hidden" name="singleViewProperty.name" value="staleFormat"/>
-                    <input type="hidden" name="singleViewProperty.providerNo" value="${providerNo}"/>
+            <input type="hidden" name="singleViewProperty.name" value="staleFormat"/>
+            <input type="hidden" name="singleViewProperty.providerNo" value="${providerNo}"/>
 
-                    Use Single Line View:
-                    <select name="singleViewProperty.value" id="singleViewProperty.value">
-                        <c:forEach var="opt" items="${viewOptions}">
-                            <option value="${opt.value}" <c:if test="${opt.value == singleViewProperty.value}">selected</c:if>>${opt.label}</option>
-                        </c:forEach>
-                    </select>
-                    <br/>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Use Single Line View:</label>
+                <select name="singleViewProperty.value" id="singleViewProperty.value" class="form-select form-select-sm" style="max-width:200px;">
+                    <c:forEach var="opt" items="${viewOptions}">
+                        <option value="${opt.value}" <c:if test="${opt.value == singleViewProperty.value}">selected</c:if>>${opt.label}</option>
+                    </c:forEach>
+                </select>
+            </div>
 
-                    <input type="submit"
-                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnSubmit"/>"/>
-                    <input type="submit" onclick="$('method').value='remove';"
-                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnReset"/>"/>
-                </form> <%
-            } else {
-            %>  <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgSuccess"/>
-                <br>
+            <div class="d-flex gap-2">
+                <input type="submit" class="btn btn-primary btn-sm"
+                       value="<%=bundle.getString("provider.setNoteStaleDate.btnSubmit")%>"/>
+                <input type="submit" class="btn btn-outline-secondary btn-sm"
+                       onclick="$('#method').val('remove');"
+                       value="<%=bundle.getString("provider.setNoteStaleDate.btnReset")%>"/>
+            </div>
+        </form>
 
-                <%
-                    }
-                %>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+        <% } else { %>
+        <div class="alert alert-success mt-3"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.msgSuccess"/></div>
+        <% } %>
+
+    </div>
     </body>
 </html>

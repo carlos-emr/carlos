@@ -288,42 +288,44 @@
                 keyWord = "";
             }
         %>
-        <div class="input-group">
-            <select class="form-select" name="search_mode" id="search_mode" onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
-                <option value="search_name" <%=searchMode.equals("search_name") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formName"/>
-                </option>
-                <option value="search_phone" <%=searchMode.equals("search_phone") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formPhone"/>
-                </option>
-                <option value="search_dob" <%=searchMode.equals("search_dob") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formDOB"/>
-                </option>
-                <option value="search_address" <%=searchMode.equals("search_address") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formAddr"/>
-                </option>
-                <option value="search_hin" <%=searchMode.equals("search_hin") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formHIN"/>
-                </option>
-                <option value="search_chart_no" <%=searchMode.equals("search_chart_no") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formChart"/>
-                </option>
-                <option value="search_demographic_no" <%=searchMode.equals("search_demographic_no") ? "selected" : ""%>>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formDemographicNo"/>
-                </option>
-                <oscar:oscarPropertiesCheck value="true" defaultVal="false" property="FIRST_NATIONS_MODULE">
-                    <option value="search_band_number" <%=searchMode.equals("search_band_number") ? "selected" : ""%> >
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formBandNumber"/>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="input-group" style="max-width:500px;">
+                <select class="form-select form-select-sm" name="search_mode" id="search_mode" style="max-width:150px;"
+                        onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
+                    <option value="search_name" <%=searchMode.equals("search_name") ? "selected" : ""%>>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formName"/>
                     </option>
-                </oscar:oscarPropertiesCheck>
-            </select>
+                    <option value="search_phone" <%=searchMode.equals("search_phone") ? "selected" : ""%>>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formPhone"/>
+                    </option>
+                    <option value="search_dob" <%=searchMode.equals("search_dob") ? "selected" : ""%>>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formDOB"/>
+                    </option>
+                    <option value="search_address" <%=searchMode.equals("search_address") ? "selected" : ""%>>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formAddr"/>
+                    </option>
+                    <option value="search_hin" <%=searchMode.equals("search_hin") ? "selected" : ""%>>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formHIN"/>
+                    </option>
+                    <option value="search_chart_no" <%=searchMode.equals("search_chart_no") ? "selected" : ""%>>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formChart"/>
+                    </option>
+                    <option value="search_demographic_no" <%=searchMode.equals("search_demographic_no") ? "selected" : ""%>>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formDemographicNo"/>
+                    </option>
+                    <oscar:oscarPropertiesCheck value="true" defaultVal="false" property="FIRST_NATIONS_MODULE">
+                        <option value="search_band_number" <%=searchMode.equals("search_band_number") ? "selected" : ""%> >
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formBandNumber"/>
+                        </option>
+                    </oscar:oscarPropertiesCheck>
+                </select>
 
-            <input class="wideInput form-control" type="search" placeholder="Search" NAME="keyword" ID="keyword"
-                   aria-label="Search"
-                   VALUE="<%=Encode.forHtmlAttribute(keyWord)%>" SIZE="17" MAXLENGTH="100"
-                   oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
-                   onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
-
+                <input class="form-control form-control-sm" type="search" placeholder="Search" NAME="keyword" ID="keyword"
+                       aria-label="Search"
+                       VALUE="<%=Encode.forHtmlAttribute(keyWord)%>" MAXLENGTH="100"
+                       oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
+                       onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
+            </div>
 
             <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name, first_name">
             <INPUT TYPE="hidden" NAME="dboperation" VALUE="search_titlename">
@@ -333,34 +335,34 @@
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
             <INPUT TYPE="hidden" NAME="fromMessenger" VALUE="<%=fromMessenger%>">
             <INPUT TYPE="hidden" NAME="outofdomain" VALUE="">
-            <div>
-                <INPUT TYPE="SUBMIT" class="rightButton blueButton top btn btn-primary"
-                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>" SIZE="17"
+
+            <div class="d-flex flex-wrap gap-1">
+                <INPUT TYPE="SUBMIT" class="btn btn-primary btn-sm"
+                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>">
 
-
-                <INPUT TYPE="button" class="btn btn-secondary" onclick="searchInactive();"
+                <INPUT TYPE="button" class="btn btn-secondary btn-sm" onclick="searchInactive();"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchInactive"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.Inactive"/>">
 
-                <INPUT TYPE="button" class="btn btn-secondary" onclick="searchAll();"
+                <INPUT TYPE="button" class="btn btn-secondary btn-sm" onclick="searchAll();"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>">
 
-                <INPUT TYPE="button" class="btn btn-link"
+                <INPUT TYPE="button" class="btn btn-link btn-sm"
                        onclick="document.titlesearch.keyword.value='';document.titlesearch.submit();"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgMostRecentPatients"/>"
                        TITLE="Show most recently viewed patients">
             </div>
 
             <security:oscarSec roleName="<%=roleName%>" objectName="_search.outofdomain" rights="r">
-                <INPUT TYPE="button" onclick="searchOutOfDomain();"
+                <INPUT TYPE="button" class="btn btn-secondary btn-sm" onclick="searchOutOfDomain();"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchOutOfDomain"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.OutOfDomain"/>">
             </security:oscarSec>
 
             <caisi:isModuleLoad moduleName="caisi">
-                <input type="button" value="cancel"
+                <input type="button" class="btn btn-secondary btn-sm" value="cancel"
                        onclick="location.href='${request.contextPath}/PMmodule/ProviderInfo.do'">
             </caisi:isModuleLoad>
         </div>

@@ -31,6 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getValue("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -60,12 +61,13 @@
     OscarProperties op = OscarProperties.getInstance();
 %>
 
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/checkPassword.js.jsp"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.title"/></title>
-        <script language="javascript">
+        <script>
             function setfocus(el) {
                 this.focus();
                 document.updatepassword.elements[el].focus();
@@ -142,78 +144,115 @@
         </script>
     </head>
 
-    <body onLoad="setfocus('oldpassword')" topmargin="0" leftmargin="0" rightmargin="0">
-    <FORM NAME="updatepassword" METHOD="post"
-          ACTION="providerupdatepassword.jsp" onSubmit="return(checkPwdPolicy())">
-        <table border=0 cellspacing=0 cellpadding=0 width="100%">
-            <tr bgcolor="#486ebd">
-                <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.description"/></font></th>
-            </tr>
-        </table>
+    <body onload="setfocus('oldpassword')">
+    <div class="container">
 
-        <p><b><font color='red'><%=errormsg%>
-        </font></b>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <i class="fas fa-key page-header-icon"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.description"/>
+            </h4>
+        </div>
 
-        <table width="100%" border="0" cellpadding="2" bgcolor="#eeeeee">
-            <tr>
-                <td><font face="arial" size="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgInstructions"/> <b><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgUpdate"/></b> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgClickButton"/></font></td>
-            </tr>
-        </table>
-        <center>
+        <% if (!errormsg.isEmpty()) { %>
+        <div class="alert alert-danger mt-3"><%=Encode.forHtml(errormsg)%></div>
+        <% } %>
 
-            <table border="0" width="100%" cellpadding="4" cellspacing="0">
-                <tr>
-                    <td align="right" width="50%"><font face="arial"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgEnterOld"/> &nbsp;<b><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.formCurrPassword"/>:</b></font></td>
-                    <td><input type=password name="oldpassword" value="" size=20
-                               maxlength=32></td>
-                </tr>
-                <tr>
-                    <td width="50%" align="right"><font face="arial"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgChooseNew"/> &nbsp;<b><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</b></font></td>
-                    <td><input type=password name="mypassword" value="" size=20
-                               maxlength=32> <font size="-2">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
-                </tr>
-                <tr>
-                    <td width="50%" align="right"><font face="arial"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgConfirm"/> &nbsp;<b><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</b></font></td>
-                    <td><input type=password name="confirmpassword" value="" size=20
-                               maxlength=32> <font size="-2">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
-                </tr>
+        <div class="alert alert-info mt-3">
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgInstructions"/>
+            <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgUpdate"/></strong>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgClickButton"/>
+        </div>
 
-                <% if (BLocallockset != null && BRemotelockset != null && (BLocallockset.intValue() == 1 || BRemotelockset.intValue() == 1)) { %>
+        <form name="updatepassword" method="post"
+              action="providerupdatepassword.jsp" onsubmit="return(checkPwdPolicy())">
 
-                <tr>
-                    <td align="right" width="50%"><font face="arial"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgEnterOld"/>&nbsp;<b><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.currentPIN"/>:</b></font></td>
-                    <td><input type=password name="pin" value="" size=20
-                               maxlength=32></td>
-                </tr>
-                <tr>
-                    <td width="50%" align="right"><font face="arial"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgChooseNew"/>&nbsp;<b><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.newPIN"/>:</b></font></td>
-                    <td><input type=password name="newpin" value="" size=20
-                               maxlength=32> <font size="-2">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_pin_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
-                </tr>
-                <tr>
-                    <td width="50%" align="right"><font face="arial"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgConfirm"/>&nbsp;<b><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.newPIN"/>:</b></font></td>
-                    <td><input type=password name="confirmpin" value="" size=20
-                               maxlength=32> <font size="-2">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_pin_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
-                </tr>
-                <% } %>
+            <div class="row mb-3">
+                <label class="col-sm-4 col-form-label text-end">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgEnterOld"/>
+                    &nbsp;<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.formCurrPassword"/>:</strong>
+                </label>
+                <div class="col-sm-4">
+                    <input type="password" name="oldpassword" value="" size="20"
+                           maxlength="32" class="form-control form-control-sm">
+                </div>
+            </div>
 
-            </table>
-        </center>
-        <table width="100%" border="0" cellpadding="4" cellspacing="0"
-               bgcolor="#486ebd">
-            <tr>
-                <TD align="center" width="50%"><INPUT TYPE="submit"
-                                                      VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.btnSubmit"/>'
-                                                      SIZE="7"> &nbsp;&nbsp;&nbsp; <INPUT TYPE="RESET"
-                                                                                          VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>'
-                                                                                          onClick="window.close();">
-                </TD>
-            </tr>
-        </table>
-    </form>
+            <div class="row mb-3">
+                <label class="col-sm-4 col-form-label text-end">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgChooseNew"/>
+                    &nbsp;<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</strong>
+                </label>
+                <div class="col-sm-4">
+                    <input type="password" name="mypassword" value="" size="20"
+                           maxlength="32" class="form-control form-control-sm">
+                    <small class="text-muted">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
+                        <%=op.getProperty("password_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</small>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-4 col-form-label text-end">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgConfirm"/>
+                    &nbsp;<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</strong>
+                </label>
+                <div class="col-sm-4">
+                    <input type="password" name="confirmpassword" value="" size="20"
+                           maxlength="32" class="form-control form-control-sm">
+                    <small class="text-muted">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
+                        <%=op.getProperty("password_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</small>
+                </div>
+            </div>
+
+            <% if (BLocallockset != null && BRemotelockset != null && (BLocallockset.intValue() == 1 || BRemotelockset.intValue() == 1)) { %>
+
+            <hr>
+
+            <div class="row mb-3">
+                <label class="col-sm-4 col-form-label text-end">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgEnterOld"/>
+                    &nbsp;<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.currentPIN"/>:</strong>
+                </label>
+                <div class="col-sm-4">
+                    <input type="password" name="pin" value="" size="20"
+                           maxlength="32" class="form-control form-control-sm">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-4 col-form-label text-end">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgChooseNew"/>
+                    &nbsp;<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.newPIN"/>:</strong>
+                </label>
+                <div class="col-sm-4">
+                    <input type="password" name="newpin" value="" size="20"
+                           maxlength="32" class="form-control form-control-sm">
+                    <small class="text-muted">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
+                        <%=op.getProperty("password_pin_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</small>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-4 col-form-label text-end">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgConfirm"/>
+                    &nbsp;<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.newPIN"/>:</strong>
+                </label>
+                <div class="col-sm-4">
+                    <input type="password" name="confirmpin" value="" size="20"
+                           maxlength="32" class="form-control form-control-sm">
+                    <small class="text-muted">(<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgAtLeast"/>
+                        <%=op.getProperty("password_pin_min_length")%> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.msgSymbols"/>)</small>
+                </div>
+            </div>
+
+            <% } %>
+
+            <div class="d-flex gap-2 mt-3">
+                <input type="submit" class="btn btn-primary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerchangepassword.btnSubmit"/>">
+            </div>
+
+        </form>
+
+    </div>
     </body>
 </html>

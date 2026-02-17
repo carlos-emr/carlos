@@ -64,14 +64,11 @@ List<Provider> providerList = providerDao.getActiveProviders();
 ObjectMapper mapper = SpringUtils.getBean(ObjectMapper.class);
 
 %>
-<!DOCTYPE HTML>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-
-<title><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>
-
-<!-- Bootstrap -->
-<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
+    <%@ include file="/includes/global-head.jspf" %>
+    <title><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>
 
 <script>
 function assembleJSON() {
@@ -79,12 +76,10 @@ function assembleJSON() {
     const elements = document.querySelectorAll('[id^="macro_"]');
 
     elements.forEach(el => {
-        // Check if element is visible
         if (window.getComputedStyle(el).display !== 'none') {
             let suffix = el.id.split('_')[1];
             let nameField = document.getElementById('name_' + suffix);
 
-            // Check if name field exists and has length > 0
             if (nameField && nameField.value.length > 0) {
                 let commentField = document.getElementById('comment_' + suffix);
                 let ticklerTo = document.getElementById('ticklerTo_' + suffix);
@@ -100,7 +95,6 @@ function assembleJSON() {
                     closeOnSuccess: true
                 };
 
-                // Add tickler if it exists
                 if (ticklerTo && ticklerTo.value.length > 0) {
                     macroObj.tickler = {
                         taskAssignedTo: ticklerTo.value,
@@ -133,24 +127,20 @@ function toggleMe(el){
 </head>
 <body>
 
-<div class="card mb-3">
-    <div class="card-header bg-light">
-        <div class="row">
-            <div class="col-sm-6">
-                <h4 class="mb-0"><fmt:message key="provider.labMacroPrefs.msgPrefs" /></h4>
-            </div>
-            <div class="col-sm-6 text-center">
-                <fmt:message key="provider.labMacroPrefs.title" />
-            </div>
-        </div>
+<div class="container">
+
+    <div class="page-header-bar d-flex align-items-center justify-content-between">
+        <h4 class="page-header-title">
+            <i class="fas fa-flask page-header-icon"></i>&nbsp;<fmt:message key="provider.labMacroPrefs.msgPrefs" />
+        </h4>
+        <span class="text-muted" style="font-size: 0.8em;">
+            <fmt:message key="provider.labMacroPrefs.title" />
+        </span>
     </div>
-</div>
-			<!-- form starts here -->
 
 <form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do">
 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 <input type="hidden" name="method" value="saveLabMacroPrefs">
-<div class="container"><br>
 
 <%
 String status = (String) request.getAttribute("status");
@@ -166,7 +156,6 @@ if ("saveLabMacroPrefs".equals(status)) {
     %>
 <%
     try {
-//[{"name":"APT","acknowledge":{"comment":"APT"},"tickler":{"taskAssignedTo":"101","message":"APT"},"closeOnSuccess":true},{"name":"TBS","acknowledge":{"comment":"TBS"},"tickler":{"taskAssignedTo":"101","message":"TBS"},"closeOnSuccess":true}]
         JsonNode macros = mapper.readTree(up.getValue());
             if(macros != null && macros.isArray()) {
                 int x = 0;
@@ -183,7 +172,6 @@ if ("saveLabMacroPrefs".equals(status)) {
                     comment = acknowledge.path("comment").asText("");
                 }
 
-                // Tickler block
                 JsonNode tickler = macro.path("tickler");
                 if(!tickler.isMissingNode()){
                     ticklerTo = tickler.path("taskAssignedTo").asText("");
@@ -197,38 +185,46 @@ if ("saveLabMacroPrefs".equals(status)) {
 
 %>
 
- <div class="form-group row" id="macro_<%=x%>">
+ <div class="row mb-2 align-items-end" id="macro_<%=x%>">
     <div class="col-sm-2">
-     <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" style="width:90px;" value="<%=Encode.forHtmlAttribute(name)%>">
+     <label for="name_<%=x%>" class="form-label"><fmt:message key="global.macro" /></label>
+     <input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" style="width:90px;" value="<%=Encode.forHtmlAttribute(name)%>">
     </div>
     <div class="col-sm-3">
-     <label for="comment_<%=x%>"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="form-control form-control-sm w-100" value="<%=Encode.forHtmlAttribute(comment)%>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+     <label for="comment_<%=x%>" class="form-label">Lab Comment</label>
+     <input type="text" id="comment_<%=x%>" class="form-control form-control-sm w-100" value="<%=Encode.forHtmlAttribute(comment)%>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
       <%
         String val1 = ticklerTo;
         if(val1 == null) val1 = "";
         %>
-		    <label for="ticklerTo_<%=x%>"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-control form-control-sm w-100">
+        <label for="ticklerTo_<%=x%>" class="form-label"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label>
+        <select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-select form-select-sm">
             <option value="" <%=(val1.equals("")?" selected=\"selected\"":"") %> >-</option>
-			<%for(Provider p: providerList) {%>
-				<option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"<%=(val1.equals(p.getProviderNo())?" selected=\"selected\"":"") %>><%=Encode.forHtml(p.getFullName())%></option>
-						<%}%>
-			</select>
+            <%for(Provider p: providerList) {%>
+                <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"<%=(val1.equals(p.getProviderNo())?" selected=\"selected\"":"") %>><%=Encode.forHtml(p.getFullName())%></option>
+            <%}%>
+        </select>
     </div>
-    <div class="col-sm-2 ">
-     <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=Encode.forHtmlAttribute(message)%>">
+    <div class="col-sm-2">
+     <label for="message_<%=x%>" class="form-label"><fmt:message key="global.tickler" /></label>
+     <input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=Encode.forHtmlAttribute(message)%>">
     </div>
-    <div class="col-sm-3 ">
-     <label for="quantity_<%=x%>"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_<%=x%>" class="form-control form-control-sm" style="width:50px;" value="<%=Encode.forHtmlAttribute(quantity)%>"><select id="timeUnits_<%=x%>" class="form-control form-control-sm" style="width:80px;">
+    <div class="col-sm-2">
+     <label for="quantity_<%=x%>" class="form-label"><fmt:message key="tickler.ticklerMain.msgDate" /></label>
+     <div class="d-flex gap-1">
+         <input type="number" id="quantity_<%=x%>" class="form-control form-control-sm" style="width:50px;" value="<%=Encode.forHtmlAttribute(quantity)%>">
+         <select id="timeUnits_<%=x%>" class="form-select form-select-sm" style="width:90px;">
             <option value="1" <%=(timeUnits.equals("1")?" selected=\"selected\"":"") %>><fmt:message key="global.days" /></option>
             <option value="7" <%=(timeUnits.equals("7")?" selected=\"selected\"":"") %>><fmt:message key="global.weeks" /></option>
             <option value="30" <%=(timeUnits.equals("30")?" selected=\"selected\"":"") %>><fmt:message key="global.months" /></option>
             <option value="365" <%=(timeUnits.equals("365")?" selected=\"selected\"":"") %>><fmt:message key="global.years" /></option>
         </select>
+     </div>
     </div>
-    <div class="col-sm-2">
-     &nbsp;<input type="button" id="delete_<%=x%>" class="btn btn-link" value="<fmt:message key="global.btnDelete" />" onclick="document.getElementById('macro_<%=x%>').style.display = 'none';">
+    <div class="col-sm-1">
+     <input type="button" id="delete_<%=x%>" class="btn btn-outline-danger btn-sm" value="<fmt:message key="global.btnDelete" />" onclick="document.getElementById('macro_<%=x%>').style.display = 'none';">
     </div>
  </div>
 
@@ -240,59 +236,60 @@ if ("saveLabMacroPrefs".equals(status)) {
 %>
   <div class="alert alert-danger"><fmt:message key="error.msgException" /></div>
 <%
-		}
+        }
 }
 %>
 
- <div class="form-group row" id="macro_new">
+ <div class="row mb-2 align-items-end" id="macro_new">
     <div class="col-sm-2">
-     <label for="name_new"><fmt:message key="global.macro" /></label><br><input type="text" id="name_new" class="form-control form-control-sm" style="width:90px;" placeholder="<fmt:message key="name" />" value="">
+     <label for="name_new" class="form-label"><fmt:message key="global.macro" /></label>
+     <input type="text" id="name_new" class="form-control form-control-sm" style="width:90px;" placeholder="<fmt:message key="name" />" value="">
     </div>
     <div class="col-sm-3">
-     <label for="comment_new"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_new" class="form-control form-control-sm w-100" value="" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+     <label for="comment_new" class="form-label">Lab Comment</label>
+     <input type="text" id="comment_new" class="form-control form-control-sm w-100" value="" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
-					<label for="ticklerTo_new"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><select id="ticklerTo_new" name="ticklerTo_new" class="form-control form-control-sm w-100">
-					<option value="" selected="selected">-</option>
-					<%for(Provider p: providerList) {%>
-						<option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFullName())%></option>
-						<%}%>
-					</select>
+        <label for="ticklerTo_new" class="form-label"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label>
+        <select id="ticklerTo_new" name="ticklerTo_new" class="form-select form-select-sm">
+            <option value="" selected="selected">-</option>
+            <%for(Provider p: providerList) {%>
+                <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFullName())%></option>
+            <%}%>
+        </select>
     </div>
     <div class="col-sm-2">
-     <label for="message_new"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_new" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="">
+     <label for="message_new" class="form-label"><fmt:message key="global.tickler" /></label>
+     <input type="text" id="message_new" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="">
     </div>
-    <div class="col-sm-3 ">
-     <label for="timeUnits_new"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_new" class="form-control form-control-sm" style="width:50px;" value="0"><select id="timeUnits_new" class="form-control form-control-sm" style="width:80px;">
+    <div class="col-sm-2">
+     <label for="quantity_new" class="form-label"><fmt:message key="tickler.ticklerMain.msgDate" /></label>
+     <div class="d-flex gap-1">
+         <input type="number" id="quantity_new" class="form-control form-control-sm" style="width:50px;" value="0">
+         <select id="timeUnits_new" class="form-select form-select-sm" style="width:90px;">
             <option value="1"><fmt:message key="global.days" /></option>
             <option value="7"><fmt:message key="global.weeks" /></option>
             <option value="30"><fmt:message key="global.months" /></option>
             <option value="365"><fmt:message key="global.years" /></option>
         </select>
+     </div>
     </div>
-    <div class="col-sm-2">
-        &nbsp;<input type="button" id="add_new" class="btn btn-link d-none" value="Add">
+    <div class="col-sm-1">
+        <input type="button" id="add_new" class="btn btn-link btn-sm d-none" value="Add">
     </div>
 </div>
 
-  <div class="form-group row">
-<br>
-    <div class="col-sm-5 col-sm-offset-1">
-        <input type="submit" class="btn btn-primary" value="<fmt:message key="global.btnSave" />" onclick="assembleJSON();"/>
-<input type="button" class="btn" value="<fmt:message key="global.btnClose" />" onclick="window.close();"/>
-<a href="javascript:void(0);" onclick="assembleJSON(); toggleMe(document.getElementById('raw'));" style="color:white">Show macro JSON</a>
-    </div>
-    <div class="col-sm-5 ">
+  <div class="d-flex gap-2 mt-3">
+        <input type="submit" class="btn btn-primary btn-sm" value="<fmt:message key="global.btnSave" />" onclick="assembleJSON();"/>
+  </div>
 
-    </div>
+  <div class="mt-3" style="display:none;" id="raw">
+  <textarea name="labMacroJSON.value" id="macroJSON" class="form-control" rows="15"><%=Encode.forHtml((up != null && up.getValue() != null)?up.getValue():"")%></textarea>
+  <input type="submit" class="btn btn-primary btn-sm mt-2" value="<fmt:message key="global.btnSave" />" />
   </div>
-<div>
-</div>
-  <div class="form-group row" style="display:none;" id="raw">
-  <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><%=Encode.forHtml((up != null && up.getValue() != null)?up.getValue():"")%></textarea>
-  <input type="submit" class="btn" value="<fmt:message key="global.btnSave" />" />
-  </div>
-</div>
+
 </form>
+
+</div>
 </body>
 </html>

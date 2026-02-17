@@ -29,7 +29,7 @@
 
 --%>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
@@ -41,84 +41,96 @@
     String providertitle = (String) request.getAttribute("providertitle");
     String providermsgPrefs = (String) request.getAttribute("providermsgPrefs");
     String providermsgProvider = (String) request.getAttribute("providermsgProvider");
-    String providermsgEdit = (String) request.getAttribute("providermsgEdit");
     String providermsgSuccess = (String) request.getAttribute("providermsgSuccess");
 %>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <%@ include file="/includes/global-head.jspf" %>
         <title><%=bundle.getString(providertitle)%></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
+    <body>
+    <div class="container">
 
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><%=bundle.getString(providermsgPrefs)%></td>
-            <td style="color: white" class="MainTableTopRowRightColumn"><%=bundle.getString(providermsgProvider)%></td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn">&nbsp;</td>
-            <td class="MainTableRightColumn">
-                <%if (request.getAttribute("status") == null) {%>
-                <%=bundle.getString(providermsgEdit)%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
-                    <table>
-                        <tr>
-                            <td>Delegate: <font color="red">*required</font></td>
-                            <td>
-                                <select name="labRecallDelegate.value" id="labRecallDelegate.value" onchange="delegateCheck();">
-                                    <c:forEach var="provider" items="${providerSelect}">
-                                        <option value="${provider.value}" <c:if test="${provider.value == labRecallDelegate.value}">selected</c:if> >
-                                                ${provider.label}
-                                        </option>
-                                    </c:forEach>
-                                </select>
-                            </td>
-                        </tr>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <i class="fas fa-redo page-header-icon"></i>&nbsp;<%=bundle.getString(providermsgProvider)%>
+            </h4>
+        </div>
 
-                        <tr>
-                            <td>Default Message Subject:</td>
-                            <td><input type="text" name="labRecallMsgSubject.value" value="<c:out value='${subject.value}'/>" size="50" /></td>
-                        </tr>
+        <%if (request.getAttribute("status") == null) {%>
 
-                        <tr>
-                            <td>Tickler Assignee:</td>
-                            <td><input type="checkbox" name="labRecallTicklerAssignee.checked" <c:if test="${labRecallTicklerAssignee.checked}">checked</c:if> />default to delegate</td>
-                        </tr>
+        <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+            <input type="hidden" name="method" value="<c:out value="${method}"/>">
 
-                        <tr>
-                            <td>Tickler Priority:</td>
-                            <td><select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value">
-                                <c:forEach var="priority" items="${prioritySelect}">
-                                    <option value="${priority.value}" <c:if test="${priority.value == labRecallTicklerPriority.value}">selected</c:if> >
-                                            ${priority.label}
-                                    </option>
-                                </c:forEach>
-                            </select></td>
-                        </tr>
+            <div class="row mb-3">
+                <label class="col-sm-3 col-form-label fw-bold">
+                    Delegate <span class="text-danger">*required</span>
+                </label>
+                <div class="col-sm-5">
+                    <select name="labRecallDelegate.value" id="labRecallDelegate.value"
+                            class="form-select form-select-sm" onchange="delegateCheck();">
+                        <c:forEach var="provider" items="${providerSelect}">
+                            <option value="${provider.value}" <c:if test="${provider.value == labRecallDelegate.value}">selected</c:if>>
+                                ${provider.label}
+                            </option>
+                        </c:forEach>
+                    </select>
+                </div>
+            </div>
 
-                    </table>
-                    <input type="submit" name="btnApply" value="Submit" />
-                    <input type="button" name="delete" value="Delete" onclick="deleteProp();" style="display:none;">
-                </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
-                <%}%>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+            <div class="row mb-3">
+                <label class="col-sm-3 col-form-label fw-bold">Default Message Subject</label>
+                <div class="col-sm-5">
+                    <input type="text" name="labRecallMsgSubject.value"
+                           value="<c:out value='${subject.value}'/>"
+                           class="form-control form-control-sm">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-3 col-form-label fw-bold">Tickler Assignee</label>
+                <div class="col-sm-5 d-flex align-items-center gap-2">
+                    <input type="checkbox" class="form-check-input"
+                           name="labRecallTicklerAssignee.checked"
+                           <c:if test="${labRecallTicklerAssignee.checked}">checked</c:if>>
+                    <span>Default to delegate</span>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-3 col-form-label fw-bold">Tickler Priority</label>
+                <div class="col-sm-5">
+                    <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value"
+                            class="form-select form-select-sm">
+                        <c:forEach var="priority" items="${prioritySelect}">
+                            <option value="${priority.value}" <c:if test="${priority.value == labRecallTicklerPriority.value}">selected</c:if>>
+                                ${priority.label}
+                            </option>
+                        </c:forEach>
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <input type="submit" name="btnApply" class="btn btn-primary btn-sm" value="Save">
+                <input type="button" name="delete" class="btn btn-outline-danger btn-sm"
+                       value="Delete" onclick="deleteProp();" style="display:none;">
+            </div>
+
+        </form>
+
+        <%} else {%>
+        <div class="alert alert-success"><%=bundle.getString(providermsgSuccess)%></div>
+        <%}%>
+
+    </div>
 
     <script>
         function deleteProp() {
             var r = confirm("Are you sure you would like to delete the lab recall settings?");
-            if (r == true) {
+            if (r === true) {
                 document.forms[0].reset();
                 document.forms[0]['labRecallDelegate.value'].value = "";
                 document.forms[0].submit();
@@ -127,19 +139,14 @@
 
         function delegateCheck() {
             var delegate = document.forms[0]['labRecallDelegate.value'].value;
-            if (delegate != "") {
-                document.forms[0]['btnApply'].disabled = false;
-            } else {
-                document.forms[0]['btnApply'].disabled = true;
-            }
+            document.forms[0]['btnApply'].disabled = (delegate === "");
         }
 
         delegateCheck();
 
-        if (document.forms[0]['labRecallDelegate.value'].value != "") {
+        if (document.forms[0] && document.forms[0]['labRecallDelegate.value'].value !== "") {
             document.forms[0]['delete'].style.display = "inline";
         }
-
     </script>
     </body>
 </html>

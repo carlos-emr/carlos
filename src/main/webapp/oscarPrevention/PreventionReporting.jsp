@@ -88,12 +88,9 @@
 
 <html>
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
@@ -150,18 +147,15 @@
                 display: none;
             }
         </style>
-        <style type="text/css" media="print">
-            .searchBox { display: none; }
-        </style>
     </head>
 
     <body>
     <div class="container">
     <div class="searchBox">
 
-        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
-            <h4 style="margin:0; font-size:18px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
                 </svg>
                 &nbsp;Prevention Reporting
@@ -169,11 +163,11 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/oscarPrevention/PreventionReport.do" method="get">
-            <table class="table table-condensed" style="font-size:13px; margin-bottom:10px;">
+            <table class="table table-sm" style="font-size:13px; margin-bottom:10px;">
                 <tr>
                     <td style="width:180px;">Patient Demographic Query</td>
                     <td>
-                        <select name="patientSet" id="patientSet" class="form-control input-sm" style="width:auto;display:inline-block">
+                        <select name="patientSet" id="patientSet" class="form-control form-control-sm" style="width:auto;display:inline-block">
                             <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>>--Select Query--</option>
                             <%
                                 for (int i = 0; i < queryArray.size(); i++) {
@@ -190,7 +184,7 @@
                 <tr>
                     <td>Prevention</td>
                     <td>
-                        <select name="prevention" id="prevention" class="form-control input-sm" style="width:auto;display:inline-block">
+                        <select name="prevention" id="prevention" class="form-control form-control-sm" style="width:auto;display:inline-block">
                             <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>>--Select Prevention--</option>
                             <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>>Breast</option>
                             <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>>Cervical</option>
@@ -203,7 +197,7 @@
                 <tr>
                     <td>As of</td>
                     <td>
-                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control input-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
+                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
                         <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     </td>
                 </tr>
@@ -242,7 +236,7 @@
                 <span style="margin-right:15px;"><%=Encode.forHtml(String.valueOf(request.getAttribute("patientSet")))%></span>
             </div>
 
-            <table id="preventionTable" class="sortable table table-condensed table-bordered" style="font-size:12px;">
+            <table id="preventionTable" class="sortable table table-sm table-bordered" style="font-size:12px;">
                 <thead>
                 <tr>
                     <th class="unsortable">#</th>
@@ -309,14 +303,14 @@
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;
-if ("green".equals(dis.color)) labelClass = "label-success";
-else if ("red".equals(dis.color)) labelClass = "label-danger";
-else if ("yellow".equals(dis.color)) labelClass = "label-warning";
-else if ("orange".equals(dis.color)) labelClass = "label-warning";
-else if ("pink".equals(dis.color)) labelClass = "label-info";
-else if ("Magenta".equals(dis.color)) labelClass = "label-info";
-else labelClass = "label-default";
-%><span class="label <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
+if ("green".equals(dis.color)) labelClass = "bg-success";
+else if ("red".equals(dis.color)) labelClass = "bg-danger";
+else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("pink".equals(dis.color)) labelClass = "bg-info";
+else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else labelClass = "bg-secondary";
+%><span class="badge <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
                     <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
                     <td><%=Encode.forHtml(dis.lastDate)%></td>
 
@@ -333,14 +327,14 @@ else labelClass = "label-default";
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;
-if ("green".equals(dis.color)) labelClass = "label-success";
-else if ("red".equals(dis.color)) labelClass = "label-danger";
-else if ("yellow".equals(dis.color)) labelClass = "label-warning";
-else if ("orange".equals(dis.color)) labelClass = "label-warning";
-else if ("pink".equals(dis.color)) labelClass = "label-info";
-else if ("Magenta".equals(dis.color)) labelClass = "label-info";
-else labelClass = "label-default";
-%><span class="label <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
+if ("green".equals(dis.color)) labelClass = "bg-success";
+else if ("red".equals(dis.color)) labelClass = "bg-danger";
+else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("pink".equals(dis.color)) labelClass = "bg-info";
+else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else labelClass = "bg-secondary";
+%><span class="badge <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
                     <td><%=Encode.forHtml(String.valueOf(dis.numShots))%></td>
                     <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
                     <td><%=Encode.forHtml(dis.lastDate)%></td>

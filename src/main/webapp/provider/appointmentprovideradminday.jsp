@@ -590,13 +590,19 @@
                 border-color: #999;
             }
             .multiplier-input {
-                width: 24px;
+                width: 30px;
                 padding: 2px 4px;
                 font-size: 11px;
                 text-align: center;
                 border: 1px solid #ccc;
                 border-radius: 3px;
                 background-color: #f8f8f8;
+                -moz-appearance: textfield;
+            }
+            .multiplier-input::-webkit-outer-spin-button,
+            .multiplier-input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
             }
             .multiplier-input:focus {
                 border-color: #0066cc;
@@ -1210,7 +1216,8 @@
                 <span class="quick-nav noprint" style="margin-left: 10px;">
                     <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
                     <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
-                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>" oninput="localStorage.setItem('dateMultiplier', this.value)"/>
+                    <script>document.getElementById('dateMultiplier').value = localStorage.getItem('dateMultiplier') || 1;</script>
                     <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
                     <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
                     |
