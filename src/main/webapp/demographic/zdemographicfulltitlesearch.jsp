@@ -351,11 +351,6 @@
                        onclick="document.titlesearch.keyword.value='';document.titlesearch.submit();"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgMostRecentPatients"/>"
                        TITLE="Show most recently viewed patients">
-
-                <INPUT TYPE="button" class="btn btn-link"
-                       onclick="try{if(window.opener && !window.opener.closed)window.opener.location.reload();}catch(e){}window.close();"
-                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
-                       TITLE="Close window">
             </div>
 
             <security:oscarSec roleName="<%=roleName%>" objectName="_search.outofdomain" rights="r">
