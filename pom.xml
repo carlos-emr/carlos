@@ -32,6 +32,8 @@
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
         <hapifhir.version>6.10.5</hapifhir.version>
+        <!-- org.hl7.fhir.core Version (override transitive from HAPI FHIR to fix XXE CVEs) -->
+        <fhir.core.version>6.4.0</fhir.core.version>
         <!-- Apache CXF Version -->
         <cxf.version>3.6.9</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
@@ -165,6 +167,28 @@
                 <groupId>jakarta.persistence</groupId>
                 <artifactId>jakarta.persistence-api</artifactId>
                 <version>2.2.3</version>
+            </dependency>
+            <!-- Override transitive org.hl7.fhir.core dependencies from HAPI FHIR 6.10.5
+                 (which ships fhir.core 6.1.2.2) to fix multiple XXE vulnerabilities:
+                 - CVE-2024-51132: XXE via crafted XML requests
+                 - CVE-2024-52007: XXE in XSLT parsing (incomplete fix for CVE-2024-45294)
+                 - CVE-2024-45294: XXE in XSLT transforms
+                 Fixed in org.hl7.fhir.core 6.4.0. Only model classes are used (DSTU3),
+                 so this minor version override is backward-compatible. -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.utilities</artifactId>
+                <version>${fhir.core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>${fhir.core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu2</artifactId>
+                <version>${fhir.core.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
