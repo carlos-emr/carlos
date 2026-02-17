@@ -150,6 +150,7 @@ public class ReportBuilder {
 
     private List<Prevention> getPreventionData(LoggedInInfo loggedInInfo, PreventionSearchConfigTo1 preventionSearchConfig, Integer demographicNo) {
         List<Prevention> prevs = PreventionData.getPrevention(loggedInInfo, preventionSearchConfig.getName(), demographicNo);
+        PreventionData.addRemotePreventions(loggedInInfo, prevs, demographicNo, preventionSearchConfig.getName(), null);
         return prevs;
     }
 

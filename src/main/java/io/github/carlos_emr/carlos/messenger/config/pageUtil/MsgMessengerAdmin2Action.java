@@ -135,9 +135,12 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         Map<Groups, List<MsgProviderData>> groups = messengerGroupManager.getAllGroupsWithMembers(loggedInInfo);
         // Get all local providers available for messaging
         List<MsgProviderData> localContacts = messengerGroupManager.getAllLocalMessengerContactList(loggedInInfo);
+        // Get remote contacts from other connected facilities
+        Map<String, List<MsgProviderData>> remoteContacts = messengerGroupManager.getAllRemoteMessengerContactList(loggedInInfo);
 
         request.setAttribute("groups", groups);
         request.setAttribute("localContacts", localContacts);
+        request.setAttribute("remoteContacts", remoteContacts);
         return SUCCESS;
     }
 

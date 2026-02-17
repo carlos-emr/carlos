@@ -400,6 +400,11 @@ public class ProviderService extends AbstractServiceImpl {
 
         ProviderSettings settings = providerManager.getProviderSettings(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo());
 
+        // Redact sensitive credentials - never expose passwords via API
+        if (settings.geteRxPassword() != null && !settings.geteRxPassword().isEmpty()) {
+            settings.seteRxPassword("********");
+        }
+
         List<ProviderSettings> content = new ArrayList<ProviderSettings>();
         content.add(settings);
         response.setContent(content);
@@ -418,6 +423,14 @@ public class ProviderService extends AbstractServiceImpl {
         String currentProviderNo = getLoggedInInfo().getLoggedInProviderNo();
         if (!currentProviderNo.equals(providerNo) && !securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", "w", null)) {
             throw new SecurityException("missing required security object (_admin)");
+        }
+
+        // If the eRx password field contains the redacted placeholder, preserve the existing password
+        if ("********".equals(json.geteRxPassword())) {
+            ProviderSettings existing = providerManager.getProviderSettings(getLoggedInInfo(), providerNo);
+            if (existing != null) {
+                json.seteRxPassword(existing.geteRxPassword());
+            }
         }
 
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);

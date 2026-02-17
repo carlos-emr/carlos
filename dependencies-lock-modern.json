@@ -648,6 +648,14 @@
     "optional" : false,
     "integrity" : "sha512:pEVIX5jB60p+O7u4P1Uxa7K+xhfdDMOcpvG0VcSeCiry1s4mA4+1k/iJD3G6tTLmkQSmcUhSl/BUyYutHY32Kg=="
   }, {
+    "groupId" : "com.ostermiller",
+    "artifactId" : "ostermillerutils",
+    "version" : "1.4.3",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:uh0OM4Iv8QHKJg3hH1om3U10ie0Ke+ZVRlG8qS7ne/UkPERLpHJMP1Y62IYIHYidXq1s3PjTQaHrOwodV3B0cA=="
+  }, {
     "groupId" : "com.sun.activation",
     "artifactId" : "jakarta.activation",
     "version" : "1.2.1",
@@ -1352,14 +1360,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:8fFA9PQKs88yZZGdudu5WmMaKap4TjBfKR3k5oh2u3EdkhfWLXk3zd3dOTmC3s33GmCLSzq39OY3XPKK8ok9fw=="
-  }, {
-    "groupId" : "org.apache.commons",
-    "artifactId" : "commons-csv",
-    "version" : "1.12.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:xEbv4WnXQV/JtkzKLPDJT2aDZeWz1ur4w5uO7IJT+CTWo3V5DW5pqIikadH3DXVyNqAd9jj34Kvh+1uagSExjQ=="
   }, {
     "groupId" : "org.apache.commons",
     "artifactId" : "commons-dbcp2",

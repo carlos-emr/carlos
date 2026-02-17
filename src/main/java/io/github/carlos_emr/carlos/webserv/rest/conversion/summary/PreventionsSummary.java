@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.webserv.rest.conversion.summary;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,8 @@ public class PreventionsSummary implements Summary {
             HashMap<String, String> h = prevList.get(i);
             String prevName = h.get("name");
             ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, demographicNo);
+            Date demographicDateOfBirth = PreventionData.getDemographicDateOfBirth(loggedInInfo, demographicNo);
+            PreventionData.addRemotePreventions(loggedInInfo, alist, demographicNo, prevName, demographicDateOfBirth);
             boolean show = pdc.display(loggedInInfo, h, demographicNo.toString(), alist.size());
             if (show) {
                 //add warnings right away so they display first

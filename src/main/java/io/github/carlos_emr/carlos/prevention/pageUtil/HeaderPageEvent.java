@@ -10,7 +10,7 @@ import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfPageEventHelper;
 import com.itextpdf.text.pdf.PdfWriter;
 
-import org.apache.logging.log4j.Logger;
+import org.apache.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 

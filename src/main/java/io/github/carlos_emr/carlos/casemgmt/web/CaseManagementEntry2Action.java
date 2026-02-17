@@ -425,6 +425,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CaseManagementView2Action caseManagementViewAction = new CaseManagementView2Action();
             ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
             caseManagementViewAction.addLocalIssues(providerNo, checkBoxBeanList, demographicNo, false, programId);
+            caseManagementViewAction.addRemoteIssues(loggedInInfo, checkBoxBeanList, demographicNo, false);
 
             caseManagementViewAction.sortIssuesByOrderId(checkBoxBeanList);
 
@@ -440,6 +441,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CaseManagementView2Action caseManagementViewAction = new CaseManagementView2Action();
             ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
             caseManagementViewAction.addLocalIssues(providerNo, checkBoxBeanList, demographicNo, false, programId);
+            caseManagementViewAction.addRemoteIssues(loggedInInfo, checkBoxBeanList, demographicNo, false);
             caseManagementViewAction.addGroupIssues(loggedInInfo, checkBoxBeanList, demographicNo, false);
 
                         checkedList = checkBoxBeanList;

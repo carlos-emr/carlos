@@ -242,7 +242,7 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
 
     @Override
     public String getWarnings(LoggedInInfo loggedInInfo, String demo) {
-        io.github.carlos_emr.carlos.prevention.Prevention prev = PreventionData.getPrevention(loggedInInfo,
+        io.github.carlos_emr.carlos.prevention.Prevention prev = PreventionData.getLocalandRemotePreventions(loggedInInfo,
                 Integer.parseInt(demo));
         String message = "";
 
