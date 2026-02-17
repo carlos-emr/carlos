@@ -167,7 +167,7 @@
                 <tr>
                     <td style="width:180px;">Patient Demographic Query</td>
                     <td>
-                        <select name="patientSet" id="patientSet" class="form-control form-control-sm" style="width:auto;display:inline-block">
+                        <select name="patientSet" id="patientSet" class="form-select form-select-sm" style="width:auto;display:inline-block">
                             <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>>--Select Query--</option>
                             <%
                                 for (int i = 0; i < queryArray.size(); i++) {
@@ -176,7 +176,7 @@
                                     String qName = sc.queryName;
                                     String selected = (patientSet != null && patientSet.equals(qId)) ? "selected" : "";
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(qId)%>" <%=selected%>><%=Encode.forHtmlContent(qName)%></option>
+                            <option value="<%=Encode.forHtmlAttribute(qId)%>" <%=selected%>><%=Encode.forHtml(qName)%></option>
                             <%}%>
                         </select>
                     </td>
@@ -184,7 +184,7 @@
                 <tr>
                     <td>Prevention</td>
                     <td>
-                        <select name="prevention" id="prevention" class="form-control form-control-sm" style="width:auto;display:inline-block">
+                        <select name="prevention" id="prevention" class="form-select form-select-sm" style="width:auto;display:inline-block">
                             <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>>--Select Prevention--</option>
                             <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>>Breast</option>
                             <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>>Cervical</option>
@@ -197,7 +197,7 @@
                 <tr>
                     <td>As of</td>
                     <td>
-                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
+                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-select form-select-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
                         <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     </td>
                 </tr>
@@ -285,21 +285,21 @@
 
                     <%if (type == null) { %>
                     <td><%=demo.getAgeAsOf(asDate)%></td>
-                    <td><%=Encode.forHtmlContent(h.get("sex"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("lastName"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("firstName"))%></td>
+                    <td><%=Encode.forHtml(h.get("sex"))%></td>
+                    <td><%=Encode.forHtml(h.get("lastName"))%></td>
+                    <td><%=Encode.forHtml(h.get("firstName"))%></td>
                     <td><%
                         String hExt = demo.getExtraValue(DemographicExt.DemographicProperty.hPhoneExt);
                         String wExt = demo.getExtraValue(DemographicExt.DemographicProperty.wPhoneExt);
-                        if (!demo.getPhone().isEmpty()) { %>H: <%=Encode.forHtmlContent(demo.getPhone())%><%= !hExt.isEmpty() ? " x" + Encode.forHtmlContent(hExt) : "" %><%
+                        if (!demo.getPhone().isEmpty()) { %>H: <%=Encode.forHtml(demo.getPhone())%><%= !hExt.isEmpty() ? " x" + Encode.forHtml(hExt) : "" %><%
                         }
-                        if (!demo.getPhone2().isEmpty()) { %><br/>W: <%=Encode.forHtmlContent(demo.getPhone2())%><%= !wExt.isEmpty() ? " x" + Encode.forHtmlContent(wExt) : "" %><%
+                        if (!demo.getPhone2().isEmpty()) { %><br/>W: <%=Encode.forHtml(demo.getPhone2())%><%= !wExt.isEmpty() ? " x" + Encode.forHtml(wExt) : "" %><%
                         }
-                        if (!demo.getCellPhone().isEmpty()) { %><br/>C: <%=Encode.forHtmlContent(demo.getCellPhone())%><%
+                        if (!demo.getCellPhone().isEmpty()) { %><br/>C: <%=Encode.forHtml(demo.getCellPhone())%><%
                         }
                     %></td>
-                    <td><%=Encode.forHtmlContent(demo.getEmail())%></td>
-                    <td><%=Encode.forHtmlContent(demo.getAddress())+" "+Encode.forHtmlContent(demo.getCity())+" "+Encode.forHtmlContent(demo.getProvince())+" "+Encode.forHtmlContent(demo.getPostal())%></td>
+                    <td><%=Encode.forHtml(demo.getEmail())%></td>
+                    <td><%=Encode.forHtml(demo.getAddress())+" "+Encode.forHtml(demo.getCity())+" "+Encode.forHtml(demo.getProvince())+" "+Encode.forHtml(demo.getPostal())%></td>
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;
@@ -317,13 +317,13 @@ else labelClass = "bg-secondary";
                     <% } else {
                         Demographic demoSDM = demoData.getSubstituteDecisionMaker(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());%>
                     <td><%=demo.getAgeAsOf(asDate)%></td>
-                    <td><%=Encode.forHtmlContent(h.get("sex"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("lastName"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("firstName"))%></td>
-                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getFirstName()) %>&nbsp;</td>
-                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPhone())%>&nbsp;</td>
-                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getEmail())%>&nbsp;</td>
-                    <td><%=demoSDM == null ? "" :Encode.forHtmlContent(demoSDM.getAddress())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getCity())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getProvince())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPostal())%>&nbsp;</td>
+                    <td><%=Encode.forHtml(h.get("sex"))%></td>
+                    <td><%=Encode.forHtml(h.get("lastName"))%></td>
+                    <td><%=Encode.forHtml(h.get("firstName"))%></td>
+                    <td><%=demoSDM == null ? "" : Encode.forHtml(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : Encode.forHtml(demoSDM.getFirstName()) %>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" : Encode.forHtml(demoSDM.getPhone())%>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" : Encode.forHtml(demoSDM.getEmail())%>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" :Encode.forHtml(demoSDM.getAddress())%> <%=demoSDM == null ? "" : Encode.forHtml(demoSDM.getCity())%> <%=demoSDM == null ? "" : Encode.forHtml(demoSDM.getProvince())%> <%=demoSDM == null ? "" : Encode.forHtml(demoSDM.getPostal())%>&nbsp;</td>
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;

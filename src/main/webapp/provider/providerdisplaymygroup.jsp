@@ -95,8 +95,8 @@
                                    name="<%=Encode.forHtmlAttribute(groupNo + providerNo)%>"
                                    value="<%=Encode.forHtmlAttribute(groupNo)%>">
                         </td>
-                        <td><%=Encode.forHtmlContent(groupNo)%></td>
-                        <td><%=Encode.forHtmlContent(myGroup.getLastName() + ", " + myGroup.getFirstName())%></td>
+                        <td><%=Encode.forHtml(groupNo)%></td>
+                        <td><%=Encode.forHtml(myGroup.getLastName() + ", " + myGroup.getFirstName())%></td>
                     </tr>
                     <%
                         }

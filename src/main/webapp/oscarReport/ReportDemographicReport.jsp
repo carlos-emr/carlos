@@ -172,7 +172,7 @@
             <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : Encode.forHtmlAttribute(studyId)%>'/>
 
             <div style="margin-bottom:10px; padding:5px 10px; background:#fafafa; border:1px solid #eee; border-radius:3px;">
-                <select name="savedQuery" id="savedQuery" class="form-control form-control-sm" style="width:auto;display:inline-block">
+                <select name="savedQuery" id="savedQuery" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         for (int i = 0; i < queryArray.size(); i++) {
                             RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
@@ -329,7 +329,7 @@
                         <tr>
                             <td style="width:120px;">AGE</td>
                             <td>
-                                <select name="age" id="age" class="form-control form-control-sm" style="width:auto;display:inline-block">
+                                <select name="age" id="age" class="form-select form-select-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getAge()) || formBean.getAge() == null ? "selected" : "" %>>---NO AGE SPECIFIED---</option>
                                     <option value="1" <%= "1".equals(formBean.getAge()) ? "selected" : "" %>>younger than</option>
                                     <option value="2" <%= "2".equals(formBean.getAge()) ? "selected" : "" %>>older than</option>
@@ -372,7 +372,7 @@
                         <tr>
                             <td>Sex</td>
                             <td>
-                                <select name="sex" id="sex" class="form-control form-control-sm" style="width:auto;display:inline-block">
+                                <select name="sex" id="sex" class="form-select form-select-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getSex()) || formBean.getSex() == null ? "selected" : "" %>>---NO SEX SPECIFIED---</option>
                                     <option value="1" <%= "1".equals(formBean.getSex()) ? "selected" : "" %>>Female</option>
                                     <option value="2" <%= "2".equals(formBean.getSex()) ? "selected" : "" %>>Male</option>
@@ -419,7 +419,7 @@
                         <tr>
                             <td>Order By</td>
                             <td>
-                                <select name="orderBy" id="orderBy" class="form-control form-control-sm" style="width:auto;display:inline-block">
+                                <select name="orderBy" id="orderBy" class="form-select form-select-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getOrderBy()) || formBean.getOrderBy() == null || formBean.getOrderBy().isEmpty() ? "selected" : "" %>>---NO ORDER---</option>
                                     <option value="Demographic #" <%= "Demographic #".equals(formBean.getOrderBy()) ? "selected" : "" %>>Demographic #</option>
                                     <option value="Last Name" <%= "Last Name".equals(formBean.getOrderBy()) ? "selected" : "" %>>Last Name</option>
@@ -454,7 +454,7 @@
                         <tr>
                             <td>Limit Results to</td>
                             <td>
-                                <select name="resultNum" id="resultNum" class="form-control form-control-sm" style="width:auto;display:inline-block">
+                                <select name="resultNum" id="resultNum" class="form-select form-select-sm" style="width:auto;display:inline-block">
                                     <option value="0" <%= "0".equals(formBean.getResultNum()) || formBean.getResultNum() == null || formBean.getResultNum().isEmpty() ? "selected" : "" %>>---NO LIMIT---</option>
                                     <option value="10" <%= "10".equals(formBean.getResultNum()) ? "selected" : "" %>>10</option>
                                     <option value="50" <%= "50".equals(formBean.getResultNum()) ? "selected" : "" %>>50</option>

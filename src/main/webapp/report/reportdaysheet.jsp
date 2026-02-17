@@ -111,6 +111,8 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.title"/></title>
+        <!-- Prototype.js required for $$('tr.oscar') CSS selector on this page -->
+        <!-- WARNING: Prototype.js overwrites jQuery's $ - use jQuery() instead of $() here -->
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
 
         <script language="JavaScript">

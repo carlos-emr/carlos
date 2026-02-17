@@ -126,9 +126,6 @@
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.title"/></title>
 
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.request.contextPath}/demographic/searchdemographicstyle.css"/>
