@@ -1,39 +1,42 @@
-<?xml version="1.0"?>
+package oscar.oscarEncounter.oscarMeasurements.flowsheets.decisionSupport;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
+//  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+//  This software is published under the GPL GNU General Public License.
+//  This program is free software; you can redistribute it and/or
+//  modify it under the terms of the GNU General Public License
+//  as published by the Free Software Foundation; either version 2
+//  of the License, or (at your option) any later version.
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+//  GNU General Public License for more details. You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+//  Maintained by the CARLOS EMR Project.
+//  https://github.com/carlos-emr/carlos
+//
+//  Modifications by CARLOS Contributors, 2026.
 
-<rule-set name="DiabetesACR"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+rule "ACR 1"
+    when
+        m : MeasurementDSHelper()
+        eval(m.isMale() == true)
+        eval(m.getDataAsDouble() >= 2.0)
+    then
+        m.log("ACR RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end
 
-    <rule name="ACR 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.isMale() == true </java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 2.0</java:condition> 
-        <java:consequence>     
-              m.log("ACR RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
-
-    <rule name="ACR 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.isFemale() == true </java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 2.0</java:condition> 
-        <java:consequence>     
-              m.log("ACR RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
-
-    
-</rule-set>
-
-
+rule "ACR 2"
+    when
+        m : MeasurementDSHelper()
+        eval(m.isFemale() == true)
+        eval(m.getDataAsDouble() >= 2.0)
+    then
+        m.log("ACR RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end

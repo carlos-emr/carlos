@@ -1,143 +1,134 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
-
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.util;
 
-import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.drools.RuleBase;
-import org.drools.io.RuleBaseLoader;
-import org.jdom2.Element;
-import org.jdom2.Namespace;
-import org.jdom2.output.Format;
-import org.jdom2.output.XMLOutputter;
+import org.kie.api.KieBase;
+import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
+import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Class used to create Drools XML files
+ * Creates Drools 7.x DRL rule definitions programmatically and compiles them into KieBase instances.
  *
- * @author jaygallagher
+ * <p>Migrated from Drools 2.0 XML format to modern DRL text format as part of
+ * the Drools 2.0 to 7.74.1.Final upgrade.</p>
+ *
+ * @since 2001-01-01
  */
 public class RuleBaseCreator {
     private static final Logger log = MiscUtils.getLogger();
 
-    Namespace namespace = Namespace.getNamespace("http://drools.org/rules");
-    Namespace javaNamespace = Namespace.getNamespace("java", "http://drools.org/semantics/java");
-    Namespace xsNs = Namespace.getNamespace("xs", "http://www.w3.org/2001/XMLSchema-instance");
+    /**
+     * Tracks the incoming class from the last getRule() call so getRuleBase() can generate imports.
+     */
+    private String lastIncomingClass = null;
 
-    public RuleBase getRuleBase(String rulesetName, List<Element> elementRules) throws Exception {
+    /**
+     * Compiles a list of DRL rule strings into a KieBase.
+     *
+     * <p>Wraps the rule strings with a package declaration and import statement,
+     * then compiles via {@link DroolsHelper}. Results are cached in
+     * {@link RuleBaseFactory} using the DRL content as the cache key.</p>
+     *
+     * @param rulesetName String name for the rule set package
+     * @param ruleStrings List of String DRL rule definitions
+     * @return KieBase the compiled knowledge base
+     * @throws Exception if compilation fails
+     */
+    public KieBase getRuleBase(String rulesetName, List<String> ruleStrings) throws Exception {
         long timer = System.currentTimeMillis();
         try {
-            Element va = new Element("rule-set");
+            StringBuilder drl = new StringBuilder();
+            drl.append("package drools.generated;\n\n");
 
-            addAttributeifValueNotNull(va, "name", rulesetName);
-
-            va.setNamespace(namespace);
-            va.addNamespaceDeclaration(javaNamespace);
-            va.addNamespaceDeclaration(xsNs);
-            va.setAttribute("schemaLocation", "http://drools.org/rules rules.xsd http://drools.org/semantics/java java.xsd", xsNs);
-
-            for (Element ele : elementRules) {
-                va.addContent(ele);
+            if (lastIncomingClass != null) {
+                drl.append("import ").append(lastIncomingClass).append(";\n\n");
             }
 
-            XMLOutputter outp = new XMLOutputter();
-            outp.setFormat(Format.getPrettyFormat());
-            String ooo = outp.outputString(va);
+            for (String ruleText : ruleStrings) {
+                drl.append(ruleText).append("\n");
+            }
 
-            log.debug(ooo);
+            String drlContent = drl.toString();
+            log.debug(drlContent);
 
-            RuleBase ruleBase = RuleBaseFactory.getRuleBase("RuleBaseCreator:" + ooo);
-            if (ruleBase != null) return (ruleBase);
+            KieBase kieBase = RuleBaseFactory.getRuleBase("RuleBaseCreator:" + drlContent);
+            if (kieBase != null) return kieBase;
 
-            ruleBase = RuleBaseLoader.loadFromInputStream(new ByteArrayInputStream(ooo.getBytes()));
-            RuleBaseFactory.putRuleBase("RuleBaseCreator:" + ooo, ruleBase);
-            return ruleBase;
+            kieBase = DroolsHelper.buildKieBase(drlContent);
+            RuleBaseFactory.putRuleBase("RuleBaseCreator:" + drlContent, kieBase);
+            return kieBase;
+        } catch (DroolsCompilationException e) {
+            throw new Exception("Failed to compile DRL rules", e);
         } finally {
             log.debug("generateRuleBase TimeMs : " + (System.currentTimeMillis() - timer));
         }
     }
 
-    public void test() {
+    /**
+     * Generates a DRL rule string from the given parameters.
+     *
+     * <p>Creates a modern DRL rule definition using {@code eval()} expressions
+     * for conditions, replacing the legacy Drools 2.0 XML format.</p>
+     *
+     * @param ruleName String the rule name
+     * @param incomingClass String fully qualified class name for the fact object
+     * @param conditions List of DSCondition objects defining the rule conditions
+     * @param consequence String the Java code to execute when the rule fires
+     * @return String the DRL rule definition text
+     */
+    public String getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
+        lastIncomingClass = incomingClass;
+        String simpleClassName = incomingClass.substring(incomingClass.lastIndexOf('.') + 1);
 
-        ArrayList elementList = new ArrayList();
-        ArrayList list = new ArrayList();
-
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", ">=", "3"));
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", "<", "6"));
-
-        Element ruleElement = getRule("REBG1", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleElement);
-
-        list = new ArrayList();
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", ">", "6"));
-        ruleElement = getRule("REBG2", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleElement);
-
-        list = new ArrayList();
-        list.add(new DSCondition("getLastDateRecordedInMonths", "REBG", "==", "-1"));
-        ruleElement = getRule("REBG3", "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo", list, "MiscUtils.getLogger().debug(\"REBG 1 getting called\");");
-        elementList.add(ruleElement);
-    }
-
-    void addAttributeifValueNotNull(Element element, String attr, String value) {
-        if (value != null) {
-            element.setAttribute(attr, value);
-        }
-    }
-
-    public Element getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
-        Element rule = new Element("rule", namespace);
-        addAttributeifValueNotNull(rule, "name", ruleName);
-        Element param = new Element("parameter", namespace);
-        addAttributeifValueNotNull(param, "identifier", "m");
-        Element classEle = new Element("class", namespace);
-        classEle.setText(incomingClass);
-
-        rule.addContent(param);
-        param.addContent(classEle);
+        StringBuilder sb = new StringBuilder();
+        sb.append("rule \"").append(ruleName).append("\"\n");
+        sb.append("    when\n");
+        sb.append("        m : ").append(simpleClassName).append("()\n");
 
         for (DSCondition cond : conditions) {
-            Element condElement = new Element("condition", javaNamespace);
-            condElement.setText("m." + cond.getType() + " " + cond.getComparision() + " " + cond.getValue());
-            rule.addContent(condElement);
+            String condText = "m." + cond.getType();
+            String comparison = cond.getComparision();
+            String value = cond.getValue();
+            if (comparison != null && !comparison.trim().isEmpty()) {
+                condText = condText + " " + comparison + " " + value;
+            }
+            sb.append("        eval(").append(condText).append(")\n");
         }
 
-        Element conseq = new Element("consequence", javaNamespace);
-        conseq.addContent(consequence);
+        sb.append("    then\n");
+        sb.append("        ").append(consequence).append("\n");
+        sb.append("end\n");
 
-        rule.addContent(conseq);
-        log.debug("Return Rule" + rule);
-        return rule;
+        String ruleText = sb.toString();
+        log.debug("Return Rule: " + ruleText);
+        return ruleText;
     }
 }

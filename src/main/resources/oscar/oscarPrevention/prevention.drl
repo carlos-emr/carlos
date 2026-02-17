@@ -1,960 +1,819 @@
-<?xml version="1.0"?>
-<rule-set name="Prevention"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+package oscar.oscarPrevention;
 
-    <rule name="DTaP-IPV 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 0</java:condition>
-	<java:condition>prev.getNumberOfPreventionType("DTaP-IPV-Hib") == 0</java:condition>
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-        
-                
-        <java:consequence>              
-              prev.log("DTaP-IPV 1");
-              prev.addWarning("DTaP-IPV", "Needs First DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
+import io.github.carlos_emr.carlos.prevention.Prevention;
 
-    <rule name="DTaP-IPV 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt;= 72</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 1</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 2</java:condition>
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-        <java:condition>prev.isNextDateSet("DTaP-IPV")</java:condition>
-        
-        <java:consequence>              
-              prev.log("DTaP-IPV 2");
-              prev.addWarning("DTaP-IPV", "Needs Second DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
-    
-    <rule name="DTaP-IPV 2.1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.isPassedNextDate("DTaP-IPV")</java:condition>        
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 1</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 2</java:condition>
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-                
-        <java:consequence>              
-              prev.log("DTaP-IPV 2");
-              prev.addWarning("DTaP-IPV", "Needs Second DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
+//  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+//  This software is published under the GPL GNU General Public License.
+//  This program is free software; you can redistribute it and/or
+//  modify it under the terms of the GNU General Public License
+//  as published by the Free Software Foundation; either version 2
+//  of the License, or (at your option) any later version.
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+//  GNU General Public License for more details. You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+//  Maintained by the CARLOS EMR Project.
+//  https://github.com/carlos-emr/carlos
+//
+//  Modifications by CARLOS Contributors, 2026.
 
+rule "DTaP-IPV 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 2)
+        eval(prev.getAgeInMonths() < 72)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 0)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV-Hib") == 0)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 1");
+        prev.addWarning("DTaP-IPV", "Needs First DTaP-IPV /HIB");
+end
 
+rule "DTaP-IPV 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 4)
+        eval(prev.getAgeInMonths() <= 72)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 1)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+        eval(prev.isNextDateSet("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 2");
+        prev.addWarning("DTaP-IPV", "Needs Second DTaP-IPV /HIB");
+end
 
-    <rule name="DTaP-IPV 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 6</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 2</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 2</java:condition>                
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
+rule "DTaP-IPV 2.1"
+    when
+        prev : Prevention()
+        eval(prev.isPassedNextDate("DTaP-IPV"))
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 1)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 2");
+        prev.addWarning("DTaP-IPV", "Needs Second DTaP-IPV /HIB");
+end
 
-        <java:consequence>              
-              prev.log("DTaP-IPV 3");
-              prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
+rule "DTaP-IPV 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 6)
+        eval(prev.getAgeInMonths() < 72)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 2)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 3");
+        prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
+end
 
-    <rule name="DTaP-IPV 3.1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.isPassedNextDate("DTaP-IPV")</java:condition>        
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 2</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 2</java:condition>
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-                
-        <java:consequence>              
-              prev.log("DTaP-IPV 2.1");
-              prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
+rule "DTaP-IPV 3.1"
+    when
+        prev : Prevention()
+        eval(prev.isPassedNextDate("DTaP-IPV"))
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 2)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 2.1");
+        prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
+end
 
+rule "DTaP-IPV 4"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 18)
+        eval(prev.getAgeInMonths() < 72)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 3)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 12)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 4");
+        prev.addWarning("DTaP-IPV", "Needs Fourth DTaP-IPV /HIB");
+end
 
+rule "DTaP-IPV 4.1"
+    when
+        prev : Prevention()
+        eval(prev.isPassedNextDate("DTaP-IPV"))
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 2)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 2.1");
+        prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
+end
 
-    <rule name="DTaP-IPV 4">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 18</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 3</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 12</java:condition>                                
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-        <java:consequence>              
-              prev.log("DTaP-IPV 4");
-              prev.addWarning("DTaP-IPV", "Needs Fourth DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
+rule "DTaP-IPV 5"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 48)
+        eval(prev.getAgeInMonths() < 72)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 4)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 1)
+        eval(prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") <= 48)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 3");
+        prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
+end
 
-        <rule name="DTaP-IPV 4.1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.isPassedNextDate("DTaP-IPV")</java:condition>        
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 2</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 2</java:condition>
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-                
-        <java:consequence>              
-              prev.log("DTaP-IPV 2.1");
-              prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
+rule "DTaP-IPV 6"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 168)
+        eval(prev.getAgeInMonths() < 192)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV") == 4)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 1)
+        eval(prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") <= 48)
+        eval(!prev.isPreventionNever("DTaP-IPV"))
+    then
+        prev.log("DTaP-IPV 3");
+        prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
+end
 
+rule "Tdap-IPV 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 48)
+        eval(prev.getAgeInMonths() <= 72)
+        eval(prev.getNumberOfPreventionType("Tdap-IPV") == 0)
+        eval(!prev.isPreventionNever("Tdap-IPV"))
+    then
+        prev.log("Tdap-IPV 1");
+        prev.addWarning("Tdap-IPV", "Needs Tdap-IPV vaccine");
+end
 
-    <rule name="DTaP-IPV 5">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 72</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 4</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 1</java:condition>                
-        <java:condition>prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") &lt;= 48</java:condition>                                
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-        <java:consequence>              
-              prev.log("DTaP-IPV 3");
-              prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
-    <rule name="DTaP-IPV 6">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 168</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 192</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("DTaP-IPV") == 4</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 1</java:condition>                
-        <java:condition>prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") &lt;= 48</java:condition>                                
-        <java:condition>!prev.isPreventionNever("DTaP-IPV")</java:condition>
-        <java:consequence>              
-              prev.log("DTaP-IPV 3");
-              prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
-        </java:consequence>
-    </rule>
+rule "Rot 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 2)
+        eval(prev.getAgeInMonths() < 5)
+        eval(prev.getNumberOfPreventionType("Rot") == 0)
+        eval(!prev.isPreventionNever("Rot"))
+    then
+        System.out.println("Rot 1");
+        prev.addWarning("Rot", "Needs First Rot-1 vaccine");
+end
 
-     <rule name="Tdap-IPV 1">
-       <parameter identifier="prev">
-           <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-       </parameter>
-       <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
-       <java:condition>prev.getAgeInMonths() &lt;= 72</java:condition>
-       <java:condition>prev.getNumberOfPreventionType("Tdap-IPV") == 0</java:condition>
-       <java:condition>!prev.isPreventionNever("Tdap-IPV")</java:condition>
-       <java:consequence>
-             prev.log("Tdap-IPV 1");
-             prev.addWarning("Tdap-IPV", "Needs Tdap-IPV vaccine");
-       </java:consequence>
-   </rule>
-    
-     <rule name="Rot 1">
-       <parameter identifier="prev">
-           <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-       </parameter>
-       <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
-       <java:condition>prev.getAgeInMonths() &lt; 5</java:condition>
-       <java:condition>prev.getNumberOfPreventionType("Rot") == 0</java:condition>
-       <java:condition>!prev.isPreventionNever("Rot")</java:condition>
-       <java:consequence>
-             System.out.println("Rot 1");
-             prev.addWarning("Rot", "Needs First Rot-1 vaccine");
-       </java:consequence>
-   </rule>
+rule "Rot 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 4)
+        eval(prev.getAgeInMonths() <= 6)
+        eval(prev.getNumberOfPreventionType("Rot") == 1)
+        eval(prev.getHowManyMonthsSinceLast("Rot") >= 1)
+        eval(!prev.isPreventionNever("Rot"))
+        eval(prev.isNextDateSet("Rot"))
+    then
+        System.out.println("Rot 2");
+        prev.addWarning("Rot", "Needs Second Rot-1 vaccine");
+end
 
-   <rule name="Rot 2">
-       <parameter identifier="prev">
-           <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-       </parameter>
-       <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
-       <java:condition>prev.getAgeInMonths() &lt;= 6</java:condition>
-       <java:condition>prev.getNumberOfPreventionType("Rot") == 1</java:condition>
-       <java:condition>prev.getHowManyMonthsSinceLast("Rot") &gt;= 1</java:condition>
-       <java:condition>!prev.isPreventionNever("Rot")</java:condition>
-       <java:condition>prev.isNextDateSet("Rot")</java:condition>
+rule "Hib 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 2)
+        eval(prev.getAgeInMonths() < 12)
+        eval(prev.getNumberOfPreventionType("Hib") == 0)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV-Hib") == 0)
+    then
+        prev.log("Hib 1");
+        prev.addWarning("Hib", "Needs first Hib");
+end
 
-       <java:consequence>
-             System.out.println("Rot 2");
-             prev.addWarning("Rot", "Needs Second Rot-1 vaccine");
-       </java:consequence>
-   </rule>    
-    
-    <rule name="Hib 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Hib") == 0 </java:condition>    
-	<java:condition>prev.getNumberOfPreventionType("DTaP-IPV-Hib") == 0</java:condition>    
-        <java:consequence>              
-              prev.log("Hib 1");
-              prev.addWarning("Hib", "Needs first Hib");
-        </java:consequence>
-    </rule>
-    <rule name="Hib 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Hib") == 1 </java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Hib") &gt;= 2</java:condition>                        
-        <java:consequence>              
-              prev.log("Hib 2");
-              prev.addWarning("Hib", "Needs second Hib");
-        </java:consequence>
-    </rule>
-    <rule name="Hib 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 6</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Hib") == 2 </java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Hib") &gt;= 2</java:condition>                        
-        <java:consequence>              
-              prev.log("Hib 3");
-              prev.addWarning("Hib", "Needs third Hib");
-        </java:consequence>
-    </rule>
-    <rule name="Hib 4">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Hib") == 0 </java:condition>   
-	<java:condition>prev.getNumberOfPreventionType("DTaP-IPV-Hib") == 0</java:condition>     
-        <java:consequence>              
-              prev.log("Hib 4");
-              prev.addWarning("Hib", "Needs first Hib");
-        </java:consequence>
-    </rule>
-    <rule name="Hib 5">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Hib") == 1 </java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Hib") &gt;= 2</java:condition>                        
-        <java:consequence>              
-              prev.log("Hib 5");
-              prev.addWarning("Hib", "Needs second Hib");
-        </java:consequence>
-    </rule>
-    <rule name="Hib 6">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 24</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 60</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Hib") == 0 </java:condition>        
-        <java:consequence>              
-              prev.log("Hib 6");
-              prev.addWarning("Hib", "Needs second Hib");
-        </java:consequence>
-    </rule>
+rule "Hib 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 4)
+        eval(prev.getAgeInMonths() < 12)
+        eval(prev.getNumberOfPreventionType("Hib") == 1)
+        eval(prev.getHowManyMonthsSinceLast("Hib") >= 2)
+    then
+        prev.log("Hib 2");
+        prev.addWarning("Hib", "Needs second Hib");
+end
 
+rule "Hib 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 6)
+        eval(prev.getAgeInMonths() < 12)
+        eval(prev.getNumberOfPreventionType("Hib") == 2)
+        eval(prev.getHowManyMonthsSinceLast("Hib") >= 2)
+    then
+        prev.log("Hib 3");
+        prev.addWarning("Hib", "Needs third Hib");
+end
 
-    <rule name="Pneu-C 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 2</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Pneu-C") == 0</java:condition>
-                
-        <java:consequence>              
-              prev.log("Pneu-C 1");
-              prev.addWarning("Pneu-C", "Needs First Pneu-C");
-        </java:consequence>
-    </rule>
-    <rule name="Pneu-C 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 4</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Pneu-C") == 1</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Pneu-C") &gt;= 2</java:condition>                                        
-        <java:consequence>              
-              prev.log("Pneu-C 2");
-              prev.addWarning("Pneu-C", "Needs Second Pneu-C");
-        </java:consequence>
-    </rule>
-    <rule name="Pneu-C 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 6</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 12</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Pneu-C") == 2</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Pneu-C") &gt;= 2</java:condition>                                        
-        <java:consequence>              
-              prev.log("Pneu-C 3");
-              prev.addWarning("Pneu-C", "Needs Third Pneu-C");
-        </java:consequence>
-    </rule>
-    <rule name="Pneu-C 4">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 15</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Pneu-C") == 3</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Pneu-C") &gt;= 6</java:condition>                                        
-        <java:consequence>              
-              prev.log("Pneu-C 4");
-              prev.addWarning("Pneu-C", "Needs Fourth Pneu-C");
-        </java:consequence>
-    </rule>
-    <rule name="Pneu-C 5">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Pneu-C") == 0</java:condition>        
-        <java:consequence>              
-              prev.log("Pneu-C 5");
-              prev.addWarning("Pneu-C", "Needs First Pneu-C");
-        </java:consequence>
-    </rule>
-    <rule name="Pneu-C 6">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 14</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt; 24</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("Pneu-C") == 1</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Pneu-C") &gt;= 2</java:condition>                                        
-        <java:consequence>              
-              prev.log("Pneu-C 6");
-              prev.addWarning("Pneu-C", "Needs Second Pneu-C");
-        </java:consequence>
-    </rule>
+rule "Hib 4"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 12)
+        eval(prev.getAgeInMonths() < 24)
+        eval(prev.getNumberOfPreventionType("Hib") == 0)
+        eval(prev.getNumberOfPreventionType("DTaP-IPV-Hib") == 0)
+    then
+        prev.log("Hib 4");
+        prev.addWarning("Hib", "Needs first Hib");
+end
 
+rule "Hib 5"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 12)
+        eval(prev.getAgeInMonths() < 24)
+        eval(prev.getNumberOfPreventionType("Hib") == 1)
+        eval(prev.getHowManyMonthsSinceLast("Hib") >= 2)
+    then
+        prev.log("Hib 5");
+        prev.addWarning("Hib", "Needs second Hib");
+end
 
-     <rule name="MMR 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>     
-        <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>        
-        <java:condition>prev.getAgeInYears() &lt; 10</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("MMR") == 0</java:condition>
-       <java:condition>prev.getNumberOfPreventionType("MMRV") == 0</java:condition>                          
-        <java:consequence>       
-              prev.log("MMR 1");
-              prev.addWarning("MMR", "Needs First MMR or MMRV");
-        </java:consequence>
-    </rule>
+rule "Hib 6"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 24)
+        eval(prev.getAgeInMonths() < 60)
+        eval(prev.getNumberOfPreventionType("Hib") == 0)
+    then
+        prev.log("Hib 6");
+        prev.addWarning("Hib", "Needs second Hib");
+end
 
+rule "Pneu-C 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 2)
+        eval(prev.getAgeInMonths() < 12)
+        eval(prev.getNumberOfPreventionType("Pneu-C") == 0)
+    then
+        prev.log("Pneu-C 1");
+        prev.addWarning("Pneu-C", "Needs First Pneu-C");
+end
 
-   <rule name="MMR 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 10</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("MMR") == 1</java:condition>                                        
-        <java:consequence>              
-              prev.log("MMR 2");
-              prev.addWarning("MMR", "Needs Second MMR or MMRV");
-        </java:consequence>
-    </rule>
+rule "Pneu-C 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 4)
+        eval(prev.getAgeInMonths() < 12)
+        eval(prev.getNumberOfPreventionType("Pneu-C") == 1)
+        eval(prev.getHowManyMonthsSinceLast("Pneu-C") >= 2)
+    then
+        prev.log("Pneu-C 2");
+        prev.addWarning("Pneu-C", "Needs Second Pneu-C");
+end
 
+rule "Pneu-C 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 6)
+        eval(prev.getAgeInMonths() < 12)
+        eval(prev.getNumberOfPreventionType("Pneu-C") == 2)
+        eval(prev.getHowManyMonthsSinceLast("Pneu-C") >= 2)
+    then
+        prev.log("Pneu-C 3");
+        prev.addWarning("Pneu-C", "Needs Third Pneu-C");
+end
 
-    <rule name="MMRV 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 48</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 10</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("MMRV") == 1</java:condition>  
-        <java:consequence>
-              prev.log("MMRV 1");
-              prev.addWarning("MMRV", "Needs Second MMR or MMRV");
-        </java:consequence>
-    </rule>
+rule "Pneu-C 4"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 15)
+        eval(prev.getAgeInMonths() < 24)
+        eval(prev.getNumberOfPreventionType("Pneu-C") == 3)
+        eval(prev.getHowManyMonthsSinceLast("Pneu-C") >= 6)
+    then
+        prev.log("Pneu-C 4");
+        prev.addWarning("Pneu-C", "Needs Fourth Pneu-C");
+end
 
+rule "Pneu-C 5"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 12)
+        eval(prev.getAgeInMonths() < 24)
+        eval(prev.getNumberOfPreventionType("Pneu-C") == 0)
+    then
+        prev.log("Pneu-C 5");
+        prev.addWarning("Pneu-C", "Needs First Pneu-C");
+end
 
-    <rule name="MenC-C 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 12</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 24</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("MenC-C") == 0</java:condition>                  
-        <java:consequence>              
-              prev.log("Pneu-C 4");
-              prev.addWarning("MenC-C", "Needs MenC-C");
-        </java:consequence>
-    </rule>
+rule "Pneu-C 6"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 14)
+        eval(prev.getAgeInMonths() < 24)
+        eval(prev.getNumberOfPreventionType("Pneu-C") == 1)
+        eval(prev.getHowManyMonthsSinceLast("Pneu-C") >= 2)
+    then
+        prev.log("Pneu-C 6");
+        prev.addWarning("Pneu-C", "Needs Second Pneu-C");
+end
 
-    <rule name="MenC-C 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 12</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 13</java:condition>
-        <java:condition>prev.getNumberOfPreventionType("MenC-C") == 0</java:condition>                  
-        <java:consequence>              
-              prev.log("MenC-C 2");
-              prev.addWarning("MenC-C", "Needs MenC-C");
-        </java:consequence>
-    </rule>
-	<rule name="HPV 1">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.getAgeInYears() &gt;= 12</java:condition>
-		<java:condition>prev.getAgeInYears() &lt; 19</java:condition>
-		<java:condition>prev.getNumberOfPreventionType("[HPV-9] Human Papillomavirus") + prev.getNumberOfPreventionType("[HPV-4] Human Papillomavirus")  + prev.getNumberOfPreventionType("HPV Vaccine") == 0</java:condition>
-		<java:consequence>
-              prev.log("HPV 1");
-              prev.addWarning("HPV", "Needs HPV");
-        </java:consequence>
-	</rule>
-    <rule name="MenC-C 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 15</java:condition>
-        <java:condition>prev.getAgeInYears() &lt;= 19 </java:condition>
-        <java:condition>prev.getNumberOfPreventionType("MenC-C") == 0</java:condition>                  
-        <java:consequence>              
-              prev.log("MenC-C 3");
-              prev.addWarning("MenC-C", "Needs MenC-C");
-        </java:consequence>
-    </rule>
+rule "MMR 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 12)
+        eval(prev.getAgeInYears() < 10)
+        eval(prev.getNumberOfPreventionType("MMR") == 0)
+        eval(prev.getNumberOfPreventionType("MMRV") == 0)
+    then
+        prev.log("MMR 1");
+        prev.addWarning("MMR", "Needs First MMR or MMRV");
+end
 
-    <rule name="VZ 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 15</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt;= 24 </java:condition>
-        <java:condition>prev.getNumberOfPreventionType("VZ") == 0</java:condition>
-        <java:condition>prev.getHowManyDaysSinceLast("MMR") &gt;= 28</java:condition>
-        <java:consequence>              
-              prev.log("VZ 1");
-              prev.addWarning("VZ", "Needs VZ");
-        </java:consequence>
-    </rule>
+rule "MMR 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 48)
+        eval(prev.getAgeInYears() < 10)
+        eval(prev.getNumberOfPreventionType("MMR") == 1)
+    then
+        prev.log("MMR 2");
+        prev.addWarning("MMR", "Needs Second MMR or MMRV");
+end
 
-    <rule name="VZ 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInMonths() &gt;= 15</java:condition>
-        <java:condition>prev.getAgeInMonths() &lt;= 24 </java:condition>
-        <java:condition>prev.getNumberOfPreventionType("VZ") == 0</java:condition>
-        <java:condition>prev.getHowManyDaysSinceLast("MMR") == 0</java:condition>
-        <java:consequence>              
-              prev.log("VZ 2");
-              prev.addWarning("VZ", "Needs VZ");
-        </java:consequence>
-    </rule>
+rule "MMRV 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 48)
+        eval(prev.getAgeInYears() < 10)
+        eval(prev.getNumberOfPreventionType("MMRV") == 1)
+    then
+        prev.log("MMRV 1");
+        prev.addWarning("MMRV", "Needs Second MMR or MMRV");
+end
 
-    <rule name="VZ 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 4</java:condition>
-        <java:condition>prev.getAgeInYears() &lt;= 6 </java:condition>
-        <java:condition>prev.getNumberOfPreventionType("VZ") == 0</java:condition> 
-        <java:condition>prev.getHowManyDaysSinceLast("MMR") &gt;= 28</java:condition>
-        <java:consequence>              
-              prev.log("VZ 3");
-              prev.addWarning("VZ", "Needs VZ");
-        </java:consequence>
-    </rule>
+rule "MenC-C 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 12)
+        eval(prev.getAgeInYears() < 24)
+        eval(prev.getNumberOfPreventionType("MenC-C") == 0)
+    then
+        prev.log("Pneu-C 4");
+        prev.addWarning("MenC-C", "Needs MenC-C");
+end
 
-    <rule name="VZ 4">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 4</java:condition>
-        <java:condition>prev.getAgeInYears() &lt;= 6 </java:condition>
-        <java:condition>prev.getNumberOfPreventionType("VZ") == 0</java:condition> 
-        <java:condition>prev.getHowManyDaysSinceLast("MMR") == 0</java:condition>
-        <java:consequence>              
-              prev.log("VZ 4");
-              prev.addWarning("VZ", "Needs VZ");
-        </java:consequence>
-    </rule>
+rule "MenC-C 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 12)
+        eval(prev.getAgeInYears() < 13)
+        eval(prev.getNumberOfPreventionType("MenC-C") == 0)
+    then
+        prev.log("MenC-C 2");
+        prev.addWarning("MenC-C", "Needs MenC-C");
+end
 
+rule "HPV 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 12)
+        eval(prev.getAgeInYears() < 19)
+        eval(prev.getNumberOfPreventionType("[HPV-9] Human Papillomavirus") + prev.getNumberOfPreventionType("[HPV-4] Human Papillomavirus")  + prev.getNumberOfPreventionType("HPV Vaccine") == 0)
+    then
+        prev.log("HPV 1");
+        prev.addWarning("HPV", "Needs HPV");
+end
 
-    <rule name="dTap 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getNumberOfPreventionType("dTap") == 0</java:condition> 
-        <java:condition>prev.getHowManyMonthsSinceLast("DTaP-IPV") &gt;= 120</java:condition>
-        <java:consequence>              
-              prev.log("dTap 1");
-              prev.addWarning("dTap", "Needs dTap");
-        </java:consequence>
-    </rule>
+rule "MenC-C 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 15)
+        eval(prev.getAgeInYears() <= 19)
+        eval(prev.getNumberOfPreventionType("MenC-C") == 0)
+    then
+        prev.log("MenC-C 3");
+        prev.addWarning("MenC-C", "Needs MenC-C");
+end
 
+rule "VZ 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 15)
+        eval(prev.getAgeInMonths() <= 24)
+        eval(prev.getNumberOfPreventionType("VZ") == 0)
+        eval(prev.getHowManyDaysSinceLast("MMR") >= 28)
+    then
+        prev.log("VZ 1");
+        prev.addWarning("VZ", "Needs VZ");
+end
 
-    <rule name="Td 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getNumberOfPreventionType("Td") == 0</java:condition> 
-        <java:condition>prev.getHowManyMonthsSinceLast("dTaP") &gt;= 120</java:condition>
-        <java:consequence>              
-              prev.log("Td 1");
-              prev.addWarning("Td", "Needs Td");
-        </java:consequence>
-    </rule>
+rule "VZ 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInMonths() >= 15)
+        eval(prev.getAgeInMonths() <= 24)
+        eval(prev.getNumberOfPreventionType("VZ") == 0)
+        eval(prev.getHowManyDaysSinceLast("MMR") == 0)
+    then
+        prev.log("VZ 2");
+        prev.addWarning("VZ", "Needs VZ");
+end
 
-    <rule name="Td 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getNumberOfPreventionType("Td") &gt;= 1</java:condition> 
-        <java:condition>prev.getHowManyMonthsSinceLast("Td") &gt;= 120</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("dTaP") &gt;= 120</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Td-IPV") &gt;= 120</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") &gt;= 120</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Tdap-IPV") &gt;= 120</java:condition>
-        <java:consequence>              
-              prev.log("Td 2");
-              prev.addWarning("Td", "Needs repeat Td");
-        </java:consequence>
-    </rule>
+rule "VZ 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 4)
+        eval(prev.getAgeInYears() <= 6)
+        eval(prev.getNumberOfPreventionType("VZ") == 0)
+        eval(prev.getHowManyDaysSinceLast("MMR") >= 28)
+    then
+        prev.log("VZ 3");
+        prev.addWarning("VZ", "Needs VZ");
+end
 
-    <rule name="Flu 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>       
-        <java:condition>prev.isTodayinDateRange("2005-10-01","2006-01-29")</java:condition> 
-        <java:condition>!prev.isLastPreventionWithinRange("Flu","2005-10-01","2006-01-29")</java:condition> 
-        <java:consequence>              
-              prev.log("Flu 1");
-              prev.addWarning("Flu", "Needs Flu Shot ");
-        </java:consequence>
-    </rule>
-    
-    <rule name="Flu 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>       
-        <java:condition>prev.getAgeInYears() &gt;=65</java:condition> 
-        <java:condition>prev.getHowManyMonthsSinceLast("Flu") &gt;= 12</java:condition> 
-        <java:consequence>              
-              prev.log("Flu 2");
-              prev.addWarning("Flu", "Needs Flu Shot ");
-        </java:consequence>
-    </rule>
-    
-    <rule name="Flu 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>       
-        <java:condition>prev.getAgeInYears() &gt;=65</java:condition> 
-        <java:condition>prev.getHowManyMonthsSinceLast("Flu") == -1</java:condition> 
-        <java:consequence>              
-              prev.log("Flu 3");
-              prev.addWarning("Flu", "Needs Flu Shot ");
-        </java:consequence>
-    </rule>
+rule "VZ 4"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 4)
+        eval(prev.getAgeInYears() <= 6)
+        eval(prev.getNumberOfPreventionType("VZ") == 0)
+        eval(prev.getHowManyDaysSinceLast("MMR") == 0)
+    then
+        prev.log("VZ 4");
+        prev.addWarning("VZ", "Needs VZ");
+end
 
-    <rule name="Flu Set Date">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>       
-        <java:condition>prev.isNextDateSet("Flu")</java:condition>        
-        <java:condition>prev.isPassedNextDate("Flu")</java:condition>                    
-        <java:consequence>              
-              prev.log("Flu 1");
-              prev.addWarning("Flu", "Needs Flu Shot ");
-        </java:consequence>
-    </rule>
-	<rule name="HPV-CERVIX 1">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
-		<java:condition>prev.getAgeInYears() &lt; 75</java:condition>
-		<java:condition>prev.isFemale()</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("HPV-CERVIX") &gt;= 58</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("HPV-CERVIX") &lt;= 60</java:condition>
-		<java:condition>!prev.isPreventionNever("HPV-CERVIX")</java:condition>
-		<java:condition>!prev.isNextDateSet("HPV-CERVIX")</java:condition>
-		<java:condition>!prev.isInelligible("HPV-CERVIX")</java:condition>
-		<java:consequence>
-              prev.log("HPV-CERVIX 1");
-              prev.addReminder("HPV-CERVIX repeat is coming due for this patient");
-        	</java:consequence>
-	</rule>
-	<rule name="HPV-CERVIX 2">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
-		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-		<java:condition>prev.isFemale()</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("HPV-CERVIX") &gt; 60</java:condition>
-		<java:condition>!prev.isPreventionNever("HPV-CERVIX")</java:condition>
-		<java:condition>!prev.isNextDateSet("HPV-CERVIX")</java:condition>
-		<java:condition>!prev.isInelligible("HPV-CERVIX")</java:condition>
-		<java:consequence>
-              prev.log("HPV-CERVIX 2");
-              prev.addWarning("HPV-CERVIX", "HPV-CERVIX is overdue for this patient");
-        	</java:consequence>
-	</rule>
-	<rule name="HPV-CERVIX 3">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
-		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-		<java:condition>prev.isFemale()</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("PAP") == -1</java:condition>
-		<java:condition>!prev.isInelligible("PAP")</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("HPV-CERVIX") == -1</java:condition>
-		<java:condition>!prev.isInelligible("HPV-CERVIX")</java:condition>
-		<java:consequence>
-              prev.log("HPV-CERVIX 3");
-              prev.addWarning("HPV-CERVIX", "Neighter HPV-CERVIX nor PAP records can be found for this patient");
-        	</java:consequence>
-	</rule>
-	<rule name="PAP 1">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
-		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-		<java:condition>prev.isFemale()</java:condition>
-		<java:condition>prev.isPreventionNever("HPV-CERVIX")</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("PAP") &gt;= 34</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("PAP") &lt;= 36</java:condition>
-		<java:condition>!prev.isPreventionNever("PAP")</java:condition>
-		<java:condition>!prev.isNextDateSet("PAP")</java:condition>
-		<java:condition>!prev.isInelligible("PAP")</java:condition>
-		<java:consequence>
-              prev.log("PAP 1");
-              prev.addReminder("PAP is coming due for this patient");
-        	</java:consequence>
-	</rule>
-	<rule name="PAP 2">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
-		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-		<java:condition>prev.isFemale()</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("PAP") &gt; 36</java:condition>
-		<java:condition>!prev.isPreventionNever("PAP")</java:condition>
-		<java:condition>!prev.isNextDateSet("PAP")</java:condition>
-		<java:condition>!prev.isInelligible("PAP")</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("HPV-CERVIX") == -1</java:condition>
-		<java:consequence>
-              prev.log("PAP 2");
-              prev.addWarning("PAP", "PAP is overdue for this patient");
-        	</java:consequence>
-	</rule>
-	<rule name="PAP 4">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.isFemale()</java:condition>
-		<java:condition>prev.isNextDateSet("PAP")</java:condition>
-		<java:condition>prev.isPassedNextDate("PAP")</java:condition>
-		<java:condition>!prev.isInelligible("PAP")</java:condition>
-		<java:consequence>
-              prev.log("PAP 4");
-              prev.addWarning("PAP", "PAP is overdue for this patient");
-        	</java:consequence>
-	</rule>
-	<rule name="PAP debug">
-		<parameter identifier="prev">
-			<class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-		</parameter>
-		<java:condition>prev.getAgeInYears() &gt;= 25</java:condition>
-		<java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-		<java:condition>prev.isFemale()</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("PAP") != -1</java:condition>
-		<java:condition>prev.getHowManyMonthsSinceLast("HPV-CERVIX") != -1</java:condition>
-		<java:condition>!prev.isInelligible("HPV-CERVIX")</java:condition>
-		<java:condition>!prev.isInelligible("PAP")</java:condition>
-		<java:consequence>
-              prev.log("PAP debug");
-              prev.addReminder("Last PAP was done "+prev.getHowManyMonthsSinceLast("PAP")+" month(s) ago");
-        	</java:consequence>
-	</rule>
+rule "dTap 1"
+    when
+        prev : Prevention()
+        eval(prev.getNumberOfPreventionType("dTap") == 0)
+        eval(prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 120)
+    then
+        prev.log("dTap 1");
+        prev.addWarning("dTap", "Needs dTap");
+end
 
-<!-- Mammogram Rules Start -->
-   <rule name="MAM 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-        <java:condition>prev.isFemale()</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("MAM") &gt;= 22</java:condition>        
-        <java:condition>prev.getHowManyMonthsSinceLast("MAM") &lt;= 24</java:condition>        
-        <java:condition>!prev.isPreventionNever("MAM")</java:condition>
-        <java:condition>!prev.isNextDateSet("MAM")</java:condition>
-        <java:condition>!prev.isInelligible("MAM")</java:condition>
-        <java:consequence>              
-              prev.log("MAM 1");
-              prev.addReminder("Mammogram is coming due for this patient");
-        </java:consequence>
-    </rule>
+rule "Td 1"
+    when
+        prev : Prevention()
+        eval(prev.getNumberOfPreventionType("Td") == 0)
+        eval(prev.getHowManyMonthsSinceLast("dTaP") >= 120)
+    then
+        prev.log("Td 1");
+        prev.addWarning("Td", "Needs Td");
+end
 
-    <rule name="MAM 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-        <java:condition>prev.isFemale()</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("MAM") &gt; 24</java:condition>        
-        <java:condition>!prev.isPreventionNever("MAM")</java:condition>
-        <java:condition>!prev.isNextDateSet("MAM")</java:condition>
-        <java:condition>!prev.isInelligible("MAM")</java:condition>
-        <java:consequence>              
-              prev.log("MAM 2");
-              prev.addWarning("MAM", "Mammogram is overdue for this patient");
-        </java:consequence>
-    </rule>
+rule "Td 2"
+    when
+        prev : Prevention()
+        eval(prev.getNumberOfPreventionType("Td") >= 1)
+        eval(prev.getHowManyMonthsSinceLast("Td") >= 120)
+        eval(prev.getHowManyMonthsSinceLast("dTaP") >= 120)
+        eval(prev.getHowManyMonthsSinceLast("Td-IPV") >= 120)
+        eval(prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120)
+        eval(prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120)
+    then
+        prev.log("Td 2");
+        prev.addWarning("Td", "Needs repeat Td");
+end
 
-    <rule name="MAM 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-        <java:condition>prev.isFemale()</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("MAM") == -1</java:condition>
-        <java:condition>!prev.isInelligible("MAM")</java:condition>
-        <java:consequence>              
-              prev.log("MAM 3");
-              prev.addWarning("MAM", "No Mammogram records can be found for this patient");
-        </java:consequence>
-    </rule>
+rule "Flu 1"
+    when
+        prev : Prevention()
+        eval(prev.isTodayinDateRange("2005-10-01","2006-01-29"))
+        eval(!prev.isLastPreventionWithinRange("Flu","2005-10-01","2006-01-29"))
+    then
+        prev.log("Flu 1");
+        prev.addWarning("Flu", "Needs Flu Shot ");
+end
 
+rule "Flu 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >=65)
+        eval(prev.getHowManyMonthsSinceLast("Flu") >= 12)
+    then
+        prev.log("Flu 2");
+        prev.addWarning("Flu", "Needs Flu Shot ");
+end
 
-    <rule name="MAM 4">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>        
-        <java:condition>prev.isFemale()</java:condition>                
-        <java:condition>prev.isNextDateSet("MAM")</java:condition>        
-        <java:condition>prev.isPassedNextDate("MAM")</java:condition>
-        <java:condition>!prev.isInelligible("MAM")</java:condition>
-        <java:consequence>              
-              prev.log("MAM 4");
-              prev.addWarning("MAM", "MAM is overdue for this patient");
-        </java:consequence>
-    </rule>
+rule "Flu 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >=65)
+        eval(prev.getHowManyMonthsSinceLast("Flu") == -1)
+    then
+        prev.log("Flu 3");
+        prev.addWarning("Flu", "Needs Flu Shot ");
+end
 
+rule "Flu Set Date"
+    when
+        prev : Prevention()
+        eval(prev.isNextDateSet("Flu"))
+        eval(prev.isPassedNextDate("Flu"))
+    then
+        prev.log("Flu 1");
+        prev.addWarning("Flu", "Needs Flu Shot ");
+end
 
-    <rule name="MAM debug">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 18</java:condition>
-        <java:condition>prev.getAgeInYears() &lt; 70</java:condition>
-        <java:condition>prev.isFemale()</java:condition>             
-        <java:condition>prev.getHowManyMonthsSinceLast("MAM") != -1</java:condition>
-        <java:condition>!prev.isInelligible("MAM")</java:condition>
-        <java:consequence>              
-              prev.log("MAM debug");
-              prev.addReminder("Last Mammogram was done "+prev.getHowManyMonthsSinceLast("MAM")+" month(s) ago");
-        </java:consequence>
-    </rule>
+rule "HPV-CERVIX 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 25)
+        eval(prev.getAgeInYears() < 75)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("HPV-CERVIX") >= 58)
+        eval(prev.getHowManyMonthsSinceLast("HPV-CERVIX") <= 60)
+        eval(!prev.isPreventionNever("HPV-CERVIX"))
+        eval(!prev.isNextDateSet("HPV-CERVIX"))
+        eval(!prev.isInelligible("HPV-CERVIX"))
+    then
+        prev.log("HPV-CERVIX 1");
+        prev.addReminder("HPV-CERVIX repeat is coming due for this patient");
+end
 
-    
-<!-- Mammogram Rules End -->
+rule "HPV-CERVIX 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 25)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("HPV-CERVIX") > 60)
+        eval(!prev.isPreventionNever("HPV-CERVIX"))
+        eval(!prev.isNextDateSet("HPV-CERVIX"))
+        eval(!prev.isInelligible("HPV-CERVIX"))
+    then
+        prev.log("HPV-CERVIX 2");
+        prev.addWarning("HPV-CERVIX", "HPV-CERVIX is overdue for this patient");
+end
 
-<!-- FOBT Rules -->
-    <rule name="FOBT 1">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
-        <java:condition>prev.getAgeInYears() &lt;= 74</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("COLONOSCOPY") == -1</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("FOBT") &gt;= 24</java:condition>
-        <java:consequence>
-              prev.log("FOBT 1 debug");
-              prev.addWarning("FOBT", "FIT is overdue for this patient");
-        </java:consequence>
-    </rule>
+rule "HPV-CERVIX 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 25)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("PAP") == -1)
+        eval(!prev.isInelligible("PAP"))
+        eval(prev.getHowManyMonthsSinceLast("HPV-CERVIX") == -1)
+        eval(!prev.isInelligible("HPV-CERVIX"))
+    then
+        prev.log("HPV-CERVIX 3");
+        prev.addWarning("HPV-CERVIX", "Neighter HPV-CERVIX nor PAP records can be found for this patient");
+end
 
-    <rule name="FOBT 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
-        <java:condition>prev.getAgeInYears() &lt;= 74</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("COLONOSCOPY") == -1</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("FOBT") == -1</java:condition>
-        <java:consequence>
-              prev.log("FOBT 2 debug");
-              prev.addWarning("FOBT", "FIT is overdue for this patient");
-        </java:consequence>
-    </rule>
+rule "PAP 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 25)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.isPreventionNever("HPV-CERVIX"))
+        eval(prev.getHowManyMonthsSinceLast("PAP") >= 34)
+        eval(prev.getHowManyMonthsSinceLast("PAP") <= 36)
+        eval(!prev.isPreventionNever("PAP"))
+        eval(!prev.isNextDateSet("PAP"))
+        eval(!prev.isInelligible("PAP"))
+    then
+        prev.log("PAP 1");
+        prev.addReminder("PAP is coming due for this patient");
+end
 
-    <rule name="FOBT 3">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 50</java:condition>
-        <java:condition>prev.getAgeInYears() &lt;= 74</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("COLONOSCOPY") &gt;= 120</java:condition>
-        <java:consequence>
-              prev.log("FOBT 3 debug");
-              prev.addWarning("FOBT", "Colonoscopy is over 10 years old");
-        </java:consequence>
-    </rule>
+rule "PAP 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 25)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("PAP") > 36)
+        eval(!prev.isPreventionNever("PAP"))
+        eval(!prev.isNextDateSet("PAP"))
+        eval(!prev.isInelligible("PAP"))
+        eval(prev.getHowManyMonthsSinceLast("HPV-CERVIX") == -1)
+    then
+        prev.log("PAP 2");
+        prev.addWarning("PAP", "PAP is overdue for this patient");
+end
 
-    <rule name="FOBT Inelligible">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getHowManyMonthsSinceLast("COLONOSCOPY") != -1</java:condition>
-        <java:consequence>
-              prev.log("FOBT Inelligible debug");
-              prev.addReminder("Colonoscopy makes FIT Ineligible");
-        </java:consequence>
-    </rule>
-    <!-- FOBT Rules End-->
-    
-    <rule name="Smoking">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 13</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("Smoking") == -1</java:condition>
-        <java:consequence>
-              prev.log("Smoking debug");
-              prev.addReminder("Need to ask about Smoking");
-        </java:consequence>
-    </rule>
-    
-    <rule name="Bone Mineral Density">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getAgeInYears() &gt;= 65</java:condition>
-        <java:condition>prev.getHowManyMonthsSinceLast("BMD") == -1</java:condition>
-        <java:consequence>
-              prev.log("BMD debug");
-              prev.addReminder("Need Bone Mineral Density Test");
-        </java:consequence>
-    </rule>
-    
-    <rule name="PHV">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getHowManyMonthsSinceLast("PHV") == -1</java:condition>
-        <java:consequence>
-              prev.log("PHV debug");
-              prev.addWarning("PHV", "Periodic Health Visit has never been reviewed");
-        </java:consequence>
-    </rule>
+rule "PAP 4"
+    when
+        prev : Prevention()
+        eval(prev.isFemale())
+        eval(prev.isNextDateSet("PAP"))
+        eval(prev.isPassedNextDate("PAP"))
+        eval(!prev.isInelligible("PAP"))
+    then
+        prev.log("PAP 4");
+        prev.addWarning("PAP", "PAP is overdue for this patient");
+end
 
-    <rule name="PHV 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-	<java:condition>prev.getHowManyMonthsSinceLast("PHV") &gt; 11</java:condition>
-        <java:consequence>
-              prev.log("PHV debug");
-              prev.addWarning("PHV", "Periodic Health Visit has not occurred in over a year");
-        </java:consequence>
-    </rule> 
-    
-    <rule name="Annual Physical">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getHowManyMonthsSinceLast("Annual Physical") == -1</java:condition>
-        <java:consequence>
-              prev.log("Annual Physical debug");
-              prev.addWarning("Annual Physical", "Annual Physical has never been reviewed");
-        </java:consequence>
-    </rule>
-    
-    <rule name="Annual Physical 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getHowManyMonthsSinceLast("Annual Physical") &gt; 11</java:condition>
-        <java:consequence>
-              prev.log("Annual Physical 2 debug");
-              prev.addWarning("Annual Physical", "Annual Physical has not occurred in over 12 months");
-        </java:consequence>
-    </rule>
-    
-    <rule name="Obesity">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getHowManyMonthsSinceLast("Obesity") == -1</java:condition>
-        <java:consequence>
-              prev.log("Obesity debug");
-              prev.addWarning("Obesity", "Obesity has never been reviewed");
-        </java:consequence>
-    </rule>
-    
-    <rule name="Obesity 2">
-        <parameter identifier="prev">
-            <class>io.github.carlos_emr.carlos.prevention.Prevention</class>
-        </parameter>
-        <java:condition>prev.getHowManyMonthsSinceLast("Obesity") &gt; 11</java:condition>
-        <java:consequence>
-              prev.log("Obesity 2 debug");
-              prev.addWarning("Obesity", "Obesity check has not occurred in over 12 months");
-        </java:consequence>
-    </rule>
+rule "PAP debug"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 25)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("PAP") != -1)
+        eval(prev.getHowManyMonthsSinceLast("HPV-CERVIX") != -1)
+        eval(!prev.isInelligible("HPV-CERVIX"))
+        eval(!prev.isInelligible("PAP"))
+    then
+        prev.log("PAP debug");
+        prev.addReminder("Last PAP was done "+prev.getHowManyMonthsSinceLast("PAP")+" month(s) ago");
+end
 
-  </rule-set>
+// Mammogram Rules Start
 
-<!--
+rule "MAM 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 50)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("MAM") >= 22)
+        eval(prev.getHowManyMonthsSinceLast("MAM") <= 24)
+        eval(!prev.isPreventionNever("MAM"))
+        eval(!prev.isNextDateSet("MAM"))
+        eval(!prev.isInelligible("MAM"))
+    then
+        prev.log("MAM 1");
+        prev.addReminder("Mammogram is coming due for this patient");
+end
 
-    <vaccine key="DTaP-IPV">                      the key would match the prevention type stored in the database     
-    <routine ageBetween="0m-12m">
-     <warning age="2m"  grace="0"/>           warning is probably not the best word  but the idea is that at each element there would be a warning on the top of the screen in the prevention module
-     <warning age="4m"  grace="0"/>
-     <warning age="6m"  grace="0"/>
-     <warning age="18m"  grace="0"/>
-     <warning ageBetween="4y-6y"  grace="2m"/>
-    </routine>
-    <routine ageBetween="12m-7y" >
-     <warning age="asap" grace="0"/>
-     <warning age="+2m" grace="0"/>
-     <warning age="+2m"  grace="0"/>
-     <warning age="+12m"  grace="0"/>
-     <warning age="4y-6y"  grace="2m"/>
-    </routine>    
+rule "MAM 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 50)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("MAM") > 24)
+        eval(!prev.isPreventionNever("MAM"))
+        eval(!prev.isNextDateSet("MAM"))
+        eval(!prev.isInelligible("MAM"))
+    then
+        prev.log("MAM 2");
+        prev.addWarning("MAM", "Mammogram is overdue for this patient");
+end
 
--->
+rule "MAM 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 50)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("MAM") == -1)
+        eval(!prev.isInelligible("MAM"))
+    then
+        prev.log("MAM 3");
+        prev.addWarning("MAM", "No Mammogram records can be found for this patient");
+end
 
+rule "MAM 4"
+    when
+        prev : Prevention()
+        eval(prev.isFemale())
+        eval(prev.isNextDateSet("MAM"))
+        eval(prev.isPassedNextDate("MAM"))
+        eval(!prev.isInelligible("MAM"))
+    then
+        prev.log("MAM 4");
+        prev.addWarning("MAM", "MAM is overdue for this patient");
+end
+
+rule "MAM debug"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 18)
+        eval(prev.getAgeInYears() < 70)
+        eval(prev.isFemale())
+        eval(prev.getHowManyMonthsSinceLast("MAM") != -1)
+        eval(!prev.isInelligible("MAM"))
+    then
+        prev.log("MAM debug");
+        prev.addReminder("Last Mammogram was done "+prev.getHowManyMonthsSinceLast("MAM")+" month(s) ago");
+end
+
+// Mammogram Rules End
+
+// FOBT Rules
+
+rule "FOBT 1"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 50)
+        eval(prev.getAgeInYears() <= 74)
+        eval(prev.getHowManyMonthsSinceLast("COLONOSCOPY") == -1)
+        eval(prev.getHowManyMonthsSinceLast("FOBT") >= 24)
+    then
+        prev.log("FOBT 1 debug");
+        prev.addWarning("FOBT", "FIT is overdue for this patient");
+end
+
+rule "FOBT 2"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 50)
+        eval(prev.getAgeInYears() <= 74)
+        eval(prev.getHowManyMonthsSinceLast("COLONOSCOPY") == -1)
+        eval(prev.getHowManyMonthsSinceLast("FOBT") == -1)
+    then
+        prev.log("FOBT 2 debug");
+        prev.addWarning("FOBT", "FIT is overdue for this patient");
+end
+
+rule "FOBT 3"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 50)
+        eval(prev.getAgeInYears() <= 74)
+        eval(prev.getHowManyMonthsSinceLast("COLONOSCOPY") >= 120)
+    then
+        prev.log("FOBT 3 debug");
+        prev.addWarning("FOBT", "Colonoscopy is over 10 years old");
+end
+
+rule "FOBT Inelligible"
+    when
+        prev : Prevention()
+        eval(prev.getHowManyMonthsSinceLast("COLONOSCOPY") != -1)
+    then
+        prev.log("FOBT Inelligible debug");
+        prev.addReminder("Colonoscopy makes FIT Ineligible");
+end
+
+// FOBT Rules End
+
+rule "Smoking"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 13)
+        eval(prev.getHowManyMonthsSinceLast("Smoking") == -1)
+    then
+        prev.log("Smoking debug");
+        prev.addReminder("Need to ask about Smoking");
+end
+
+rule "Bone Mineral Density"
+    when
+        prev : Prevention()
+        eval(prev.getAgeInYears() >= 65)
+        eval(prev.getHowManyMonthsSinceLast("BMD") == -1)
+    then
+        prev.log("BMD debug");
+        prev.addReminder("Need Bone Mineral Density Test");
+end
+
+rule "PHV"
+    when
+        prev : Prevention()
+        eval(prev.getHowManyMonthsSinceLast("PHV") == -1)
+    then
+        prev.log("PHV debug");
+        prev.addWarning("PHV", "Periodic Health Visit has never been reviewed");
+end
+
+rule "PHV 2"
+    when
+        prev : Prevention()
+        eval(prev.getHowManyMonthsSinceLast("PHV") > 11)
+    then
+        prev.log("PHV debug");
+        prev.addWarning("PHV", "Periodic Health Visit has not occurred in over a year");
+end
+
+rule "Annual Physical"
+    when
+        prev : Prevention()
+        eval(prev.getHowManyMonthsSinceLast("Annual Physical") == -1)
+    then
+        prev.log("Annual Physical debug");
+        prev.addWarning("Annual Physical", "Annual Physical has never been reviewed");
+end
+
+rule "Annual Physical 2"
+    when
+        prev : Prevention()
+        eval(prev.getHowManyMonthsSinceLast("Annual Physical") > 11)
+    then
+        prev.log("Annual Physical 2 debug");
+        prev.addWarning("Annual Physical", "Annual Physical has not occurred in over 12 months");
+end
+
+rule "Obesity"
+    when
+        prev : Prevention()
+        eval(prev.getHowManyMonthsSinceLast("Obesity") == -1)
+    then
+        prev.log("Obesity debug");
+        prev.addWarning("Obesity", "Obesity has never been reviewed");
+end
+
+rule "Obesity 2"
+    when
+        prev : Prevention()
+        eval(prev.getHowManyMonthsSinceLast("Obesity") > 11)
+    then
+        prev.log("Obesity 2 debug");
+        prev.addWarning("Obesity", "Obesity check has not occurred in over 12 months");
+end

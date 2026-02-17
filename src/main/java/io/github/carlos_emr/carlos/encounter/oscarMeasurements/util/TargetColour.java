@@ -1,5 +1,7 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,16 +17,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -78,7 +75,7 @@ public class TargetColour {
     }
 
 
-    public Element getRuleBaseElement(String ruleName) {//, String measurement){
+    public String getRuleBaseElement(String ruleName) {
 
         ArrayList<DSCondition> list = new ArrayList<DSCondition>();
 
@@ -96,9 +93,9 @@ public class TargetColour {
         log.debug("ruleName" + ruleName + " cond size " + getTargetConditions().size() + " list size " + list.size());
 
         RuleBaseCreator rcb = new RuleBaseCreator();
-        Element ruleElement = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper", list, consequence);
+        String ruleText = rcb.getRule(ruleName, "io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper", list, consequence);
 
-        return ruleElement;
+        return ruleText;
     }
 
 

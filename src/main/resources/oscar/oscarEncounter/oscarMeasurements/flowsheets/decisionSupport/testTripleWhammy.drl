@@ -1,146 +1,124 @@
-<?xml version="1.0"?>
+package oscar.oscarEncounter.oscarMeasurements.flowsheets.decisionSupport;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
+//  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+//  This software is published under the GPL GNU General Public License.
+//  This program is free software; you can redistribute it and/or
+//  modify it under the terms of the GNU General Public License
+//  as published by the Free Software Foundation; either version 2
+//  of the License, or (at your option) any later version.
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+//  GNU General Public License for more details. You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+//  Maintained by the CARLOS EMR Project.
+//  https://github.com/carlos-emr/carlos
+//
+//  Modifications by CARLOS Contributors, 2026.
 
-<rule-set name="ReportA1C"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+rule "LDL"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("LDL") == true)
+        eval(m.getDataAsDouble() < 2.0)
+    then
+        m.log("LDL RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(true);
+end
 
-    <rule name="LDL">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("LDL") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt; 2.0</java:condition>       
-        <java:consequence>     
-              m.log("LDL RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
+rule "LDL_1"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("LDL") == false)
+    then
+        m.log("LDL_1 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(false);
+end
 
-    <rule name="LDL_1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("LDL") == false</java:condition>       
-        <java:consequence>     
-              m.log("LDL_1 RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
+rule "BP_3"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("BP") == false)
+    then
+        m.log("NO BP records");
+        m.setInRange(false);
+end
 
+rule "BP"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("BP") == true)
+        eval(m.getNumberFromSplit("/",0) < 131)
+        eval(m.isInRange() == true)
+    then
+        m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(true);
+end
 
+rule "BP_2"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("BP") == true)
+        eval(m.getNumberFromSplit("/",0) >= 131)
+    then
+        m.log("BP2 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(false);
+end
 
-    <rule name="BP_3">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == false</java:condition>       
-        <java:consequence>     
-              m.log("NO BP records");
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
+rule "A1C_3"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("A1C") == false)
+    then
+        m.log("No A1C Records");
+        m.setInRange(false);
+end
 
-   <rule name="BP">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == true</java:condition>       
-        <java:condition>m.getNumberFromSplit("/",0) &lt; 131</java:condition>   
-        <java:condition>m.isInRange() == true</java:condition>
-        <java:consequence>     
-              m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
+rule "A1C_1"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("A1C") == true)
+        eval(m.getDataAsDouble() < 7.0)
+        eval(m.getDataAsDouble() >= 2.0)
+        eval(m.isInRange() == true)
+    then
+        m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(true);
+end
 
+rule "A1C_1_2"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("A1C") == true)
+        eval(m.getDataAsDouble() >= 7.0)
+    then
+        m.log("A1C_1_2 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(false);
+end
 
-    <rule name="BP_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == true</java:condition>       
-        <java:condition>m.getNumberFromSplit("/",0) &gt;= 131</java:condition>   
-        <java:consequence>     
-              m.log("BP2 RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
+rule "A1C_2"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("A1C") == true)
+        eval(m.getDataAsDouble() < 0.07)
+        eval(m.isInRange() == true)
+    then
+        m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(true);
+end
 
-
-    
-
-  
-    <rule name="A1C_3">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == false</java:condition>       
-        <java:consequence>     
-              m.log("No A1C Records");
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
-
-
-    <rule name="A1C_1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt; 7.0</java:condition> 
-        <java:condition>m.getDataAsDouble() &gt;= 2.0</java:condition>
-        <java:condition>m.isInRange() == true</java:condition>      
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-    <rule name="A1C_1_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 7.0</java:condition>              
-        <java:consequence>     
-              m.log("A1C_1_2 RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
-
-    
-    <rule name="A1C_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt; 0.07</java:condition>       
-        <java:condition>m.isInRange() == true</java:condition> 
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-
-    <rule name="A1C_2_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 0.07</java:condition>  
-        <java:condition>m.getDataAsDouble() &lt;= 2.0</java:condition>    
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+rule "A1C_2_2"
+    when
+        m : MeasurementDSHelper()
+        eval(m.setMeasurement("A1C") == true)
+        eval(m.getDataAsDouble() >= 0.07)
+        eval(m.getDataAsDouble() <= 2.0)
+    then
+        m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.setInRange(false);
+end

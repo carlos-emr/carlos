@@ -603,11 +603,31 @@
             <version>1.2-b1</version>
         </dependency>
 
-        <!-- apache xmlrpc -->
+        <!-- Drools 7.x Rule Engine (upgraded from drools:drools-all:2.0) -->
         <dependency>
-            <groupId>drools</groupId>
-            <artifactId>drools-all</artifactId>
-            <version>2.0</version>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-core</artifactId>
+            <version>7.74.1.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-compiler</artifactId>
+            <version>7.74.1.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
+            <version>7.74.1.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>org.kie</groupId>
+            <artifactId>kie-api</artifactId>
+            <version>7.74.1.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>org.kie</groupId>
+            <artifactId>kie-internal</artifactId>
+            <version>7.74.1.Final</version>
         </dependency>
 
         <!-- jasper reports -->

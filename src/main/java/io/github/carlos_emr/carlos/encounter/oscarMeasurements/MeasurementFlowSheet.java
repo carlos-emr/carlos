@@ -1,5 +1,7 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,16 +17,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -48,10 +45,9 @@ import org.apache.commons.collections.OrderedMapIterator;
 import org.apache.commons.collections.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
-import org.drools.RuleBase;
-import org.drools.WorkingMemory;
-import org.drools.io.RuleBaseLoader;
-import org.jdom2.Element;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
+import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -85,7 +81,7 @@ public class MeasurementFlowSheet {
     //ArrayList list = null;  // list of the measurements  ** replace with a asList Items. (maybe for first iteration condence down to string
     //ArrayList dsElements = null; //collection of ds xml elements  ** future replace function with just getted list
     //Hashtable dsHash = null; //hash of the rules  ** might not be needed if it's in the object
-    RuleBase ruleBase = null;   //ruleBase for the flowsheet   compile from list
+    KieBase ruleBase = null;   //ruleBase for the flowsheet   compile from list
     boolean rulesLoaded = false;   //flag to trigger loading the rules
     //Hashtable measurementsInfo = null;            //Colectopm of EctMeasurementType objects  ** GET RID OF THIS
     //Hashtable measurementsFlowSheetInfo = null;   //Collenction of hash tables with details  ** CAN now be from itemList (Hoping)
@@ -102,10 +98,10 @@ public class MeasurementFlowSheet {
         String dsRules = item.getAllFields().get("ds_rules");  //ds_rules=
         log.debug("DS RULES " + dsRules);
         if (dsRules != null && !dsRules.equals("")) {
-            RuleBase rb = loadMeasurementRuleBase(dsRules);
+            KieBase rb = loadMeasurementRuleBase(dsRules);
             item.setRuleBase(rb);
         } else if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
-            RuleBase rb = loadMeasuremntRuleBase(item.getTargetColour());
+            KieBase rb = loadMeasuremntRuleBase(item.getTargetColour());
             item.setRuleBase(rb);
         }
         itemList.put(item.getItemName(), item);
@@ -352,7 +348,7 @@ public class MeasurementFlowSheet {
 
     public void loadRuleBase() {
         log.debug("LOADRULEBASE == " + name);
-        ArrayList<Element> dsElements = new ArrayList<Element>();
+        ArrayList<String> ruleStrings = new ArrayList<String>();
 
         if (itemList != null) {
             OrderedMapIterator iter = itemList.orderedMapIterator();
@@ -364,7 +360,7 @@ public class MeasurementFlowSheet {
                     log.debug("# OF RULES FOR " + fsi.getItemName() + " " + rules.size() + " key " + key);
                     for (Object obj : rules) {
                         Recommendation rec = (Recommendation) obj;
-                        dsElements.add(rec.getRuleBaseElement());
+                        ruleStrings.add(rec.getRuleBaseElement());
                     }
                 } else {
                     log.debug("NO RULES FOR " + fsi.getItemName());
@@ -372,15 +368,15 @@ public class MeasurementFlowSheet {
 
             }
         }
-        log.debug("LOADING RULES2" + name + " size + " + dsElements.size() + " rulebase " + ruleBase);
-        if (dsElements != null && dsElements.size() > 0) {
+        log.debug("LOADING RULES2" + name + " size + " + ruleStrings.size() + " rulebase " + ruleBase);
+        if (ruleStrings != null && ruleStrings.size() > 0) {
 
-            log.debug("LOADING RULES21" + dsElements.size());
+            log.debug("LOADING RULES21" + ruleStrings.size());
             RuleBaseCreator rcb = new RuleBaseCreator();
             try {
 
                 log.debug("LOADING RULES22");
-                ruleBase = rcb.getRuleBase("rulesetName", dsElements);
+                ruleBase = rcb.getRuleBase("rulesetName", ruleStrings);
                 log.debug("LOADING RULES23");
                 rulesLoaded = true;
             } catch (Exception e) {
@@ -404,7 +400,7 @@ public class MeasurementFlowSheet {
                 if (file.isFile() || file.canRead()) {
                     log.debug("Loading from file " + file.getName());
                     FileInputStream fis = new FileInputStream(file);
-                    ruleBase = RuleBaseLoader.loadFromInputStream(fis);
+                    ruleBase = DroolsHelper.loadFromInputStream(fis);
                     fileFound = true;
                 }
             }
@@ -412,7 +408,7 @@ public class MeasurementFlowSheet {
             if (!fileFound) {
                 URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/" + string);  //TODO: change this so it is configurable;
                 log.debug("loading from URL " + url.getFile());
-                ruleBase = RuleBaseLoader.loadFromUrl(url);
+                ruleBase = DroolsHelper.loadFromUrl(url);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -427,20 +423,20 @@ public class MeasurementFlowSheet {
         }
     }
 
-    public RuleBase loadMeasuremntRuleBase(List<TargetColour> targetColours) {
-        RuleBase measurementRuleBase = null;
-        List<Element> dsElements = new ArrayList<Element>();
+    public KieBase loadMeasuremntRuleBase(List<TargetColour> targetColours) {
+        KieBase measurementRuleBase = null;
+        List<String> ruleStrings = new ArrayList<String>();
         RuleBaseCreator rcb = new RuleBaseCreator();
         try {
             int count = 0;
             for (TargetColour obj : targetColours) {
                 TargetColour rec = obj;
-                dsElements.add(rec.getRuleBaseElement("DD" + count));
+                ruleStrings.add(rec.getRuleBaseElement("DD" + count));
                 count++;
             }
 
             log.debug("loadMeasuremntRuleBase 1");
-            measurementRuleBase = rcb.getRuleBase("rulesetName", dsElements);
+            measurementRuleBase = rcb.getRuleBase("rulesetName", ruleStrings);
             log.debug("loadMeasuremntRuleBase 2");
             rulesLoaded = true;
         } catch (Exception e) {
@@ -453,8 +449,8 @@ public class MeasurementFlowSheet {
     }
 
 
-    public RuleBase loadMeasurementRuleBase(String string) {
-        RuleBase measurementRuleBase = null;
+    public KieBase loadMeasurementRuleBase(String string) {
+        KieBase measurementRuleBase = null;
         try {
             boolean fileFound = false;
             String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
@@ -465,7 +461,7 @@ public class MeasurementFlowSheet {
                 if (file.isFile() || file.canRead()) {
                     log.debug("Loading from file " + file.getName());
                     FileInputStream fis = new FileInputStream(file);
-                    ruleBase = RuleBaseLoader.loadFromInputStream(fis);
+                    ruleBase = DroolsHelper.loadFromInputStream(fis);
                     fileFound = true;
                 }
             }
@@ -473,7 +469,7 @@ public class MeasurementFlowSheet {
             if (!fileFound) {
                 URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + string);  //TODO: change this so it is configurable;
                 log.debug("loading from URL " + url.getFile());
-                measurementRuleBase = RuleBaseLoader.loadFromUrl(url);
+                measurementRuleBase = DroolsHelper.loadFromUrl(url);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -487,18 +483,19 @@ public class MeasurementFlowSheet {
         String type = mdb.getType();
         log.debug("GETTING RULES FOR TYPE " + type);
         FlowSheetItem fs = (FlowSheetItem) itemList.get(type);
-        RuleBase rb = fs.getRuleBase();
+        KieBase rb = fs.getRuleBase();
         log.debug("RULEBASE FOR " + fs);
         //Is there a rule base for this
         if (rb != null) {
-
+            KieSession kieSession = rb.newKieSession();
             try {
-                WorkingMemory workingMemory = rb.newWorkingMemory();
-                workingMemory.assertObject(new MeasurementDSHelper(loggedInInfo, mdb));
-                workingMemory.fireAllRules();
+                kieSession.insert(new MeasurementDSHelper(loggedInInfo, mdb));
+                kieSession.fireAllRules();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 //throw new Exception("ERROR: Drools ",e);
+            } finally {
+                kieSession.dispose();
             }
         }
     }
@@ -510,13 +507,15 @@ public class MeasurementFlowSheet {
             //loadRuleBase();
         }
 
+        KieSession kieSession = ruleBase.newKieSession();
         try {
-            WorkingMemory workingMemory = ruleBase.newWorkingMemory();
-            workingMemory.assertObject(mi);
-            workingMemory.fireAllRules();
+            kieSession.insert(mi);
+            kieSession.fireAllRules();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             //throw new Exception("ERROR: Drools ",e);
+        } finally {
+            kieSession.dispose();
         }
         return mi;
     }

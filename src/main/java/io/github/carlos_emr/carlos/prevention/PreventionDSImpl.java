@@ -1,33 +1,29 @@
 /**
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by Magenta Health in 2024.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -43,9 +39,9 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
-import org.drools.RuleBase;
-import org.drools.WorkingMemory;
-import org.drools.io.RuleBaseLoader;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
+import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.decisionSupport.prevention.DSPreventionDrools;
@@ -62,7 +58,7 @@ import io.github.carlos_emr.OscarProperties;
 public class PreventionDSImpl implements PreventionDS {
     private static Logger log = MiscUtils.getLogger();
     static boolean loaded = false;
-    static RuleBase ruleBase = null;
+    static KieBase kieBase = null;
 
     @Autowired
     private ResourceStorageDao resourceStorageDao; // = SpringUtils.getBean(ResourceStorageDao.class);
@@ -88,7 +84,7 @@ public class PreventionDSImpl implements PreventionDS {
 
                     FileInputStream fis = new FileInputStream(file);
                     try {
-                        ruleBase = RuleBaseLoader.loadFromInputStream(fis);
+                        kieBase = DroolsHelper.loadFromInputStream(fis);
                     } catch (Exception e) {
                         MiscUtils.getLogger().error("Error loading preventions", e);
                     } finally {
@@ -101,7 +97,7 @@ public class PreventionDSImpl implements PreventionDS {
                 if (!fileFound && preventionPath.startsWith("classpath:")) {
                     URL url = PreventionDS.class.getResource(preventionPath.substring(10));
                     log.debug("loading from URL " + url.getFile());
-                    ruleBase = RuleBaseLoader.loadFromUrl(url);
+                    kieBase = DroolsHelper.loadFromUrl(url);
                 }
             }
 
@@ -109,7 +105,7 @@ public class PreventionDSImpl implements PreventionDS {
                 ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.PREVENTION_RULES);
                 if (resourceStorage != null) {
                     try {
-                        ruleBase = DSPreventionDrools.createRuleBase(resourceStorage.getFileContents());
+                        kieBase = DSPreventionDrools.createRuleBase(resourceStorage.getFileContents());
                         log.info("Loading prevention rule base from " + resourceStorage.getResourceName());
                         fileFound = true;
                     } catch (Exception resourceError) {
@@ -125,7 +121,7 @@ public class PreventionDSImpl implements PreventionDS {
             if (!fileFound) {
                 URL url = PreventionDS.class.getResource("/oscar/oscarPrevention/prevention.drl");  //TODO: change this so it is configurable;
                 log.debug("loading from URL " + url.getFile());
-                ruleBase = RuleBaseLoader.loadFromUrl(url);
+                kieBase = DroolsHelper.loadFromUrl(url);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -135,13 +131,15 @@ public class PreventionDSImpl implements PreventionDS {
 
 
     public Prevention getMessages(Prevention p) throws Exception {
+        KieSession kieSession = kieBase.newKieSession();
         try {
-            WorkingMemory workingMemory = ruleBase.newWorkingMemory();
-            workingMemory.assertObject(p);
-            workingMemory.fireAllRules();
+            kieSession.insert(p);
+            kieSession.fireAllRules();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             throw new Exception("ERROR: Drools ", e);
+        } finally {
+            kieSession.dispose();
         }
         return p;
     }
