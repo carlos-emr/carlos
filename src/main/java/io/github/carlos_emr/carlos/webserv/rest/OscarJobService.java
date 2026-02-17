@@ -39,6 +39,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MultivaluedMap;
 
@@ -191,10 +192,11 @@ public class OscarJobService extends AbstractServiceImpl {
         return getJob(result.getId());
     }
 
-    @GET
+    @POST
     @Path("/cancelJob")
     @Produces("application/json")
-    public OscarJobResponse cancelJob(@QueryParam(value = "jobId") Integer jobId) {
+    @Consumes("application/x-www-form-urlencoded")
+    public OscarJobResponse cancelJob(@FormParam(value = "jobId") Integer jobId) {
 
         ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(jobId);
         if (future != null) {
@@ -334,10 +336,11 @@ public class OscarJobService extends AbstractServiceImpl {
         return getJobType(result.getId());
     }
 
-    @GET
+    @POST
     @Path("/enableJob")
     @Produces("application/json")
-    public OscarJobResponse enableJob(@QueryParam(value = "jobId") Integer jobId) {
+    @Consumes("application/x-www-form-urlencoded")
+    public OscarJobResponse enableJob(@FormParam(value = "jobId") Integer jobId) {
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(true);
@@ -351,10 +354,11 @@ public class OscarJobService extends AbstractServiceImpl {
         return getJob(jobId);
     }
 
-    @GET
+    @POST
     @Path("/disableJob")
     @Produces("application/json")
-    public OscarJobResponse disableJob(@QueryParam(value = "jobId") Integer jobId) {
+    @Consumes("application/x-www-form-urlencoded")
+    public OscarJobResponse disableJob(@FormParam(value = "jobId") Integer jobId) {
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(false);

@@ -40,8 +40,8 @@
 
 %>
 function storeApptNo(apptNo) {
-var url = "storeApptInSession.jsp?appointment_no="+apptNo;
-new Ajax.Request(url, {method:'get'});
+var url = "storeApptInSession.jsp";
+new Ajax.Request(url, {method:'post', parameters: {appointment_no: apptNo}});
 }
 
 function getElementsByClass(searchClass,node,tag) {

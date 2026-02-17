@@ -2129,22 +2129,22 @@ function addFav(randomId,brandName){
 				var ar = elementId.split("_");
 				var drugId = ar[1];
 				if (drugId != null && $(elementId).checked == true) {
-					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-					var url = ctx + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
-					new Ajax.Request(url, {method: 'get', parameters: data});
+					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
+					var url = ctx + "/oscarRx/WriteScript.do";
+					new Ajax.Request(url, {method: 'post', parameters: data});
 				} else if (drugId != null) {
-					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-					var url = ctx + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
-					new Ajax.Request(url, {method: 'get', parameters: data});
+					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
+					var url = ctx + "/oscarRx/WriteScript.do";
+					new Ajax.Request(url, {method: 'post', parameters: data});
 				}
 			}
 
 
 function removeReRxDrugId(drugId) {
     if (drugId != null) {
-        const data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-        const url = ctx + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
-        new Ajax.Request(url, {method: 'get', parameters: data});
+        const data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
+        const url = ctx + "/oscarRx/WriteScript.do";
+        new Ajax.Request(url, {method: 'post', parameters: data});
     }
 }
 
@@ -2164,9 +2164,9 @@ function represcribe(element, toArchive){
             }
         });
     } else if(drugId!=null) {
-        var dataUpdateId="reRxDrugId="+encodeURIComponent(toArchive)+"&action=addToReRxDrugIdList&rand="+Math.floor(Math.random()*10001);
-        var urlUpdateId= ctx + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
-        new Ajax.Request(urlUpdateId, {method: 'get',parameters:dataUpdateId});
+        var dataUpdateId="reRxDrugId="+encodeURIComponent(toArchive)+"&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand="+Math.floor(Math.random()*10001);
+        var urlUpdateId= ctx + "/oscarRx/WriteScript.do";
+        new Ajax.Request(urlUpdateId, {method: 'post',parameters:dataUpdateId});
 
         var data="drugId="+encodeURIComponent(drugId);
         var url= ctx + "/oscarRx/rePrescribe2.do?method=represcribe2&rand="+Math.floor(Math.random()*10001);
@@ -2270,9 +2270,9 @@ function rePrescribe2(uiRefId, drugId) {
  * @param drugId The ID of the drug to add.
  */
 function addDrugToReRxListInSession(uiRefId, drugId) {
-    const dataUpdateId = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&rand=" + uiRefId;
-    const urlUpdateId = ctx + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
-    new Ajax.Request(urlUpdateId, {method: 'get', parameters: dataUpdateId});
+    const dataUpdateId = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + uiRefId;
+    const urlUpdateId = ctx + "/oscarRx/WriteScript.do";
+    new Ajax.Request(urlUpdateId, {method: 'post', parameters: dataUpdateId});
 }
 
 /**
