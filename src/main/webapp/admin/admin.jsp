@@ -563,7 +563,6 @@
     <!-- #ECHART END-->
 
 
-        <%-- -add by caisi  TODO: move these under integration or system management?--%>
     <caisi:isModuleLoad moduleName="caisi">
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" rights="r" reverse="<%=false%>">
 
@@ -826,11 +825,6 @@
                 <ul>
 
                     <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/api/clients.jsp");return false;'>REST Clients</a></li>
-                    <li><a href="#"
-                           onclick="popupPage(900, 500, '<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewIntegratorProperties');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetIntegratorPreferences"/></a></li>
-                    <li><a href="#"
-                           onClick="popupPage(800, 1000, '${pageContext.request.contextPath}/admin/integratorPushStatus.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.integratorPush"/></a></li>
-
                     <li><a href="<%=request.getContextPath()%>/lab/CA/ALL/sendOruR01.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>

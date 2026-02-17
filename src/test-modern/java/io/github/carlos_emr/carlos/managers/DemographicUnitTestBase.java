@@ -83,7 +83,7 @@ public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
      * and performs the following setup:</p>
      * <ol>
      *   <li>Creates mock instances for SecurityInfoManager, LoggedInInfo, and Facility</li>
-     *   <li>Configures default behavior for facility (integrator disabled)</li>
+     *   <li>Configures default behavior for facility</li>
      *   <li>Configures LoggedInInfo to return test provider number</li>
      *   <li>Registers SecurityInfoManager with SpringUtils for static lookups</li>
      * </ol>
@@ -98,9 +98,7 @@ public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
         mockLoggedInInfo = Mockito.mock(LoggedInInfo.class);
         mockFacility = Mockito.mock(Facility.class);
 
-        // Configure facility mock to return false for integrator by default
         Mockito.lenient().when(mockLoggedInInfo.getCurrentFacility()).thenReturn(mockFacility);
-        Mockito.lenient().when(mockFacility.isIntegratorEnabled()).thenReturn(false);
         Mockito.lenient().when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
 
         // Register common mocks with SpringUtils

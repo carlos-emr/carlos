@@ -98,8 +98,6 @@ public class LabResultData implements Comparable<LabResultData> {
 
     private Integer ackCount = null;
     private Integer multiplAckCount = null;
-    private Integer remoteFacilityId = null;
-
     private ArrayList<Integer> duplicateLabIds = new ArrayList<Integer>();
 
     public LabResultData() {
@@ -493,14 +491,6 @@ public class LabResultData implements Comparable<LabResultData> {
         this.multiplAckCount = multipleAckCount;
     }
 
-    public Integer getRemoteFacilityId() {
-        return (remoteFacilityId);
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
-    }
-
     public ArrayList<Integer> getDuplicateLabIds() {
         return (duplicateLabIds);
     }
@@ -513,7 +503,4 @@ public class LabResultData implements Comparable<LabResultData> {
         this.label = label;
     }
 
-    public boolean isRemoteLab() {
-        return getRemoteFacilityId() != null;
-    }
 }

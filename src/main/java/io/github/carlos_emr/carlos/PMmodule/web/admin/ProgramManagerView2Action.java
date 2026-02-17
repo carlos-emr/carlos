@@ -27,7 +27,6 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
-import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
@@ -37,13 +36,10 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import javax.xml.ws.WebServiceException;
 
 import io.github.carlos_emr.carlos.PMmodule.model.*;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.*;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
 import io.github.carlos_emr.carlos.PMmodule.exception.AdmissionException;
@@ -85,7 +81,6 @@ public class ProgramManagerView2Action extends ActionSupport {
     private AdmissionManager admissionManager = SpringUtils.getBean(AdmissionManager.class);
     private ClientManager clientManager = SpringUtils.getBean(ClientManager.class);
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
-    private ProgramManagerAction programManagerAction = SpringUtils.getBean(ProgramManagerAction.class);
     private ProgramQueueManager programQueueManager = SpringUtils.getBean(ProgramQueueManager.class);
     private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -94,15 +89,9 @@ public class ProgramManagerView2Action extends ActionSupport {
         this.facilityDao = facilityDao;
     }
 
-    public void setProgramManagerAction(ProgramManagerAction programManagerAction) {
-        this.programManagerAction = programManagerAction;
-    }
-
     public String execute() {
         String method = request.getParameter("method");
-        if ("remove_remote_queue".equals(method)) {
-            return remove_remote_queue();
-        } else if ("admit".equals(method)) {
+        if ("admit".equals(method)) {
             return admit();
         } else if ("override_restriction".equals(method)) {
             return override_restriction();
@@ -160,10 +149,6 @@ public class ProgramManagerView2Action extends ActionSupport {
         // need the queue to determine which tab to go to first
         List<ProgramQueue> queue = programQueueManager.getActiveProgramQueuesByProgramId(Long.valueOf(programId));
         request.setAttribute("queue", queue);
-
-        if (CaisiIntegratorManager.isEnableIntegratedReferrals(loggedInInfo.getCurrentFacility())) {
-            request.setAttribute("remoteQueue", getRemoteQueue(loggedInInfo, Integer.parseInt(programId)));
-        }
 
         HashSet<Long> genderConflict = new HashSet<Long>();
         HashSet<Long> ageConflict = new HashSet<Long>();
@@ -287,63 +272,6 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         return "view";
     }
-
-    protected List<ProgramManagerAction.RemoteQueueEntry> getRemoteQueue(LoggedInInfo loggedInInfo, int programId) {
-        try {
-            DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            List<Referral> remoteReferrals = referralWs.getReferralsToProgram(programId);
-
-            ArrayList<ProgramManagerAction.RemoteQueueEntry> results = new ArrayList<>();
-            for (Referral remoteReferral : remoteReferrals) {
-                ProgramManagerAction.RemoteQueueEntry remoteQueueEntry = new ProgramManagerAction.RemoteQueueEntry();
-                //remoteQueueEntry.setReferral(remoteReferral);
-
-                DemographicTransfer demographicTransfer = demographicWs.getDemographicByFacilityIdAndDemographicId(remoteReferral.getSourceIntegratorFacilityId(), remoteReferral.getSourceCaisiDemographicId());
-                if (demographicTransfer != null) {
-                    remoteQueueEntry.setClientName(demographicTransfer.getLastName() + ", " + demographicTransfer.getFirstName());
-                } else {
-                    remoteQueueEntry.setClientName("N/A");
-                }
-
-                FacilityIdStringCompositePk pk = new FacilityIdStringCompositePk();
-                pk.setIntegratorFacilityId(remoteReferral.getSourceIntegratorFacilityId());
-                pk.setCaisiItemId(remoteReferral.getSourceCaisiProviderId());
-                CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), pk);
-                if (cachedProvider != null) {
-                    remoteQueueEntry.setProviderName(cachedProvider.getLastName() + ", " + cachedProvider.getFirstName());
-                } else {
-                    remoteQueueEntry.setProviderName("N/A");
-                }
-
-                results.add(remoteQueueEntry);
-            }
-            return (results);
-        } catch (MalformedURLException e) {
-            logger.error("Unexpected Error.", e);
-        } catch (WebServiceException e) {
-            logger.error("Unexpected Error.", e);
-        }
-
-        return (null);
-    }
-
-    public String remove_remote_queue() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        Integer remoteReferralId = Integer.valueOf(request.getParameter("remoteReferralId"));
-
-        try {
-            ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            referralWs.removeReferral(remoteReferralId);
-        } catch (MalformedURLException e) {
-            logger.error("Unexpected error", e);
-        } catch (WebServiceException e) {
-            logger.error("Unexpected error", e);
-        }
-
-        return view();
-    }
-
 
     public String admit() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

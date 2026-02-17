@@ -29,7 +29,7 @@
 
 --%>
 <%--
-    CreateMessage.jsp - Main message composition interface for the OpenO EMR messaging system
+    CreateMessage.jsp - Main message composition interface for the CARLOS EMR messaging system
 
     Purpose:
     This JSP page provides the primary interface for healthcare providers to compose and send
@@ -38,7 +38,7 @@
 
     Key Features:
     - Message composition with subject and body text
-    - Recipient selection from local and remote provider lists
+    - Recipient selection from provider lists
     - Group-based recipient management
     - Patient demographic association for clinical messages
     - Attachment support including PDF documents
@@ -131,13 +131,11 @@
     // Initialize messaging managers and retrieve provider/group data
     MessengerGroupManager groupManager = SpringUtils.getBean(MessengerGroupManager.class);
     Map<Groups, List<MsgProviderData>> groups = groupManager.getAllGroupsWithMembers(LoggedInInfo.getLoggedInInfoFromSession(request));
-    Map<String, List<MsgProviderData>> remoteMembers = groupManager.getAllRemoteMembers(LoggedInInfo.getLoggedInInfoFromSession(request));
     List<MsgProviderData> localMembers = groupManager.getAllLocalMembers(LoggedInInfo.getLoggedInInfoFromSession(request));
     MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
 
     // Store provider and group data in request scope for JSP access
     request.setAttribute("groupManager", groups);
-    request.setAttribute("remoteMembers", remoteMembers);
     request.setAttribute("localMembers", localMembers);
 
     // Set up message subject and body (from new message, reply, or forward)
@@ -188,7 +186,7 @@
                 color: silver;
             }
 
-            .group_member_contact, .remote_member_contact {
+            .group_member_contact {
                 margin-left: 15px;
             }
 
@@ -234,14 +232,6 @@ function checkGroup(group) {
 
 /*            function validatefields() {
 
-                // cannot send attachments to remote facilities
-                $("input:checked").each(function () {
-                    if (this.id.split("-")[2] > 0 && $("#attachmentAlert").val()) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.attachmentsNotPermitted"/>");
-                        return false;
-                    }
-                })
-
                 if (document.forms[0].message.value.length == 0) {
                     alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>");
                     return false;
@@ -255,17 +245,6 @@ function checkGroup(group) {
             }*/
 
 function validateFields() {
-    // Cannot send attachments to remote facilities
-    var checkedInputs = document.querySelectorAll('input:checked');
-    var attachmentAlert = document.getElementById('attachmentAlert');
-    for (var i = 0; i < checkedInputs.length; i++) {
-        var idParts = checkedInputs[i].id.split('-');
-        // Check if id structure exists and index 2 > 0
-        if (idParts.length > 2 && parseInt(idParts) > 0 && attachmentAlert && attachmentAlert.value) {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.attachmentsNotPermitted"/>');
-            return false;
-        }
-    }
     // Check if message body is empty
     if (document.forms[0].message.value.length === 0) {
         alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>');
@@ -480,49 +459,6 @@ function validateFields() {
 
 										</div>
 
-										<!-- Display Members by remote locations -->
-										<c:if test="${ not empty remoteMembers }" >
-
-										<hr style="border-top:1px solid #dcdcdc; border-bottom:none;">
-
-										<div id="remote-locations">
-										<details>
-											<summary>
-												<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.remoteMembers" /></strong>
-											</summary>
-											<c:forEach items="${ remoteMembers }" var="location" >
-												<details>
-													<summary>
-														<input type="checkbox" name="tableDFR" id="remote_group_${ location.key }"
-																value="${ location.key }" onchange="checkGroup(this)" />
-														<label for="remote_group_${ location.key }" >${ location.key }</label>
-													</summary>
-
-													<c:forEach items="${ location.value }" var="member">
-
-														<%-- this is horrible. try not to repeat it --%>
-														<c:set var="providerChecked" value="false" />
-														<c:forEach var="replyId" items="${ replyList }">
-															<c:if test="${ replyId.compositeId eq member.id.compositeId }">
-																<c:set var="providerChecked" value="true" />
-															</c:if>
-														</c:forEach>
-
-														<div class="remote_member_contact">
-															<input type="checkbox" name="provider" class="remote_group_${ location.key }"
-																id="${ member.id.compositeId }" value="${ member.id.compositeId }"  ${ providerChecked ? 'checked' : '' }/>
-															<label for="${ member.id.compositeId }" >
-																<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
-															</label>
-														</div>
-													</c:forEach>
-
-												</details>
-											</c:forEach>
-										</details>
-										</div>
-										</c:if>
-
 										<hr style="border-top:1px solid #dcdcdc; border-bottom:none;">
 
 										<details open="true">
@@ -580,7 +516,6 @@ function validateFields() {
                     %>
 							<br>
 							<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachments" />
-							<input type="hidden" id="attachmentAlert" name="attachmentAlert" value="true" />
 							<%
 							bean.setSubject(null);
 							bean.setMessage(null);
@@ -611,12 +546,6 @@ function validateFields() {
 
 					<td>
 
-						<c:choose>
-							<c:when test="${ not empty unlinkedIntegratorDemographicName }">
-								<input type="text" name="selectedDemo" value="${ unlinkedIntegratorDemographicName }"
-									class="form-control" style="border: none;" readonly />
-							</c:when>
-							<c:otherwise>
 								<input type="text" name="selectedDemo" class="form-control" readonly style="border: none" value="none" />
 								<script>
 			                          if ('<%=Encode.forHtmlUnquotedAttribute(demoName)%>' && '<%=Encode.forHtmlUnquotedAttribute(demoName)%>' !== 'null') {
@@ -624,8 +553,6 @@ function validateFields() {
                                         document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
                                        }
 			                     </script>
-							</c:otherwise>
-						</c:choose>
 
 	                </td>
 	                <td>

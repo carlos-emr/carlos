@@ -28,29 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
-<%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@include file="/layouts/html_top.jspf" %>
-
-<h3>Select a provider</h3>
-<br/>
-<%
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    String demographicId = request.getParameter("demographicId");
-
-    List<CachedProvider> providers = CaisiIntegratorManager.getAllProviders(loggedInInfo, loggedInInfo.getCurrentFacility());
-
-    for (CachedProvider cachedProvider : providers) {
-%>
-<a href="followUp.jsp?demographicId=<%=demographicId%>&remoteFacilityId=<%=cachedProvider.getFacilityIdStringCompositePk().getIntegratorFacilityId()%>&remoteProviderId=<%=cachedProvider.getFacilityIdStringCompositePk().getCaisiItemId()%>"><%=CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), cachedProvider.getFacilityIdStringCompositePk().getIntegratorFacilityId()).getName()%>
-    : <%=cachedProvider.getLastName() + ", " + cachedProvider.getFirstName()%>
-</a>
-<br/>
-<%
-    }
-%>
-
-<%@include file="/layouts/html_bottom.jspf" %>
+<%-- This page previously provided integrator follow-up selection functionality which has been removed. --%>
+<html>
+<head>
+    <title>Follow-Up Selection</title>
+</head>
+<body>
+<p>This feature has been removed.</p>
+</body>
+</html>

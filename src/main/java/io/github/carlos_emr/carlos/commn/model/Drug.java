@@ -173,12 +173,6 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "pharmacyId")
     private Integer pharmacyId;
 
-    // ///
-    @Transient
-    private String remoteFacilityName = null;
-    @Transient
-    private Integer remoteFacilityId = null;
-
     public static final String DELETED = "deleted";
     public static final String DOSE_CHANGE = "doseChange";
     public static final String NOT_SELECTED = "notSelected";
@@ -845,28 +839,6 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         // }
 
         return ret;
-    }
-
-    /**
-     * @return the remoteFacilityName
-     */
-    public String getRemoteFacilityName() {
-        return remoteFacilityName;
-    }
-
-    /**
-     * @param remoteFacilityName the remoteFacilityName to set
-     */
-    public void setRemoteFacilityName(String remoteFacilityName) {
-        this.remoteFacilityName = remoteFacilityName;
-    }
-
-    public Integer getRemoteFacilityId() {
-        return (remoteFacilityId);
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
     }
 
     public long daysToExpire() {

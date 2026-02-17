@@ -42,8 +42,6 @@ import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDao;
@@ -51,9 +49,6 @@ import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
 import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDrug;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicNote;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
 import io.github.carlos_emr.carlos.casemgmt.common.EChartNoteEntry;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -66,10 +61,8 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
-import java.net.MalformedURLException;
 import java.nio.file.ProviderNotFoundException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -687,10 +680,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /**
-     * This method gets all prescriptions including from integrated facilities. This
-     * method will also check to ensure the integrator is enabled for this facility
-     * before attemping to add remote drugs. If it's not enabled it will return only
-     * local drugs.
+     * Gets all prescriptions for the given demographic.
      */
     @Override
     public List<Drug> getPrescriptions(LoggedInInfo loggedInInfo, int demographicId, boolean all) {
@@ -698,86 +688,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         results = getPrescriptions(String.valueOf(demographicId), all);
 
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            addIntegratorDrugs(loggedInInfo, results, all, demographicId);
-        }
-
         return (results);
-    }
-
-    private void addIntegratorDrugs(LoggedInInfo loggedInInfo, List<Drug> prescriptions, boolean viewAll,
-                                    int demographicId) {
-
-        if (prescriptions == null) {
-            logger.warn(
-                    "prescriptions passed in is null, it should never be null, empty list should be used if no entries for drugs.");
-            return;
-        }
-
-        try {
-            List<CachedDemographicDrug> remoteDrugs = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    remoteDrugs = CaisiIntegratorManager
-                            .getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility())
-                            .getLinkedCachedDemographicDrugsByDemographicId(demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                remoteDrugs = IntegratorFallBackManager.getRemoteDrugs(loggedInInfo, demographicId);
-            }
-
-            for (CachedDemographicDrug cachedDrug : remoteDrugs) {
-                if (viewAll) {
-                    prescriptions.add(getPrescriptDrug(loggedInInfo, cachedDrug));
-                } else {
-                    // if it's not view all, we need to only add the drug if it's not already there,
-                    // or if it's a newer prescription
-                    Drug pd = containsPrescriptDrug(prescriptions, cachedDrug.getRegionalIdentifier());
-                    if (pd == null) {
-                        prescriptions.add(getPrescriptDrug(loggedInInfo, cachedDrug));
-                    } else {
-                        if (pd.getRxDate().before(DateUtils.toDate(cachedDrug.getRxDate()))
-                                || (pd.getRxDate().equals(cachedDrug.getRxDate())
-                                && pd.getCreateDate().before(DateUtils.toDate(cachedDrug.getCreateDate())))) {
-                            prescriptions.remove(pd);
-                            prescriptions.add(getPrescriptDrug(loggedInInfo, cachedDrug));
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-        }
-    }
-
-    private Drug getPrescriptDrug(LoggedInInfo loggedInInfo, CachedDemographicDrug cachedDrug)
-            throws MalformedURLException {
-        Drug pd = new Drug();
-
-        pd.setBrandName(cachedDrug.getBrandName());
-        pd.setCustomName(cachedDrug.getCustomName());
-        pd.setRxDate(DateUtils.toDate(cachedDrug.getRxDate()));
-        pd.setArchived(cachedDrug.isArchived());
-        pd.setSpecial(cachedDrug.getSpecial());
-        pd.setEndDate(DateUtils.toDate(cachedDrug.getEndDate()));
-        pd.setRegionalIdentifier(cachedDrug.getRegionalIdentifier());
-        pd.setCreateDate(DateUtils.toDate(cachedDrug.getCreateDate()));
-
-        pd.setId(cachedDrug.getFacilityIdIntegerCompositePk().getCaisiItemId());
-
-        int remoteFacilityId = cachedDrug.getFacilityIdIntegerCompositePk().getIntegratorFacilityId();
-        pd.setRemoteFacilityId(remoteFacilityId);
-
-        CachedFacility cachedFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo,
-                loggedInInfo.getCurrentFacility(), remoteFacilityId);
-        pd.setRemoteFacilityName(cachedFacility.getName());
-
-        return (pd);
     }
 
     private static Drug containsPrescriptDrug(List<Drug> prescriptions, String regionalIdentifier) {
@@ -1484,7 +1395,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         List ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
         if (ppList == null || ppList.isEmpty()) {
             for (EChartNoteEntry note : notes) {
-                if (!note.getType().equals("local_note") && !note.getType().equals("remote_note"))
+                if (!note.getType().equals("local_note"))
                     filteredNotes.add(note);
             }
             return filteredNotes;
@@ -1497,20 +1408,15 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // iterate through the issue list
         for (EChartNoteEntry cmNote : notes) {
-            if (!cmNote.getType().equals("local_note") && !cmNote.getType().equals("remote_note")) {
+            if (!cmNote.getType().equals("local_note")) {
                 filteredNotes.add(cmNote);
                 continue;
             }
 
             String noteRole;
             String noteRoleName;
-            if (cmNote.getType().equals("local_note")) {
-                noteRole = cmNote.getRole();
-                noteRoleName = safeGetRoleName(noteRole);
-            } else { // remote_note
-                noteRole = cmNote.getRole();
-                noteRoleName = cmNote.getRole();
-            }
+            noteRole = cmNote.getRole();
+            noteRoleName = safeGetRoleName(noteRole);
 
             ProgramAccess pa = null;
             boolean add = false;
@@ -1568,64 +1474,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         // }
 
         return filteredNotes;
-    }
-
-    @Override
-    public boolean hasRole(String providerNo, CachedDemographicNote cachedDemographicNote, String programId) {
-
-        // Get Role - if no ProgramProvider record found, show no issues.
-        @SuppressWarnings("unchecked")
-        List ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
-        if (ppList == null || ppList.isEmpty()) {
-            return (false);
-        }
-
-        ProgramProvider pp = (ProgramProvider) ppList.get(0);
-        Secrole role = pp.getRole();
-
-        // Load up access list from program
-        @SuppressWarnings("unchecked")
-        List programAccessList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
-        @SuppressWarnings("unchecked")
-        Map programAccessMap = convertProgramAccessListToMap(programAccessList);
-
-        // iterate through the issue list
-        String noteRoleName = cachedDemographicNote.getRole();
-        if (noteRoleName != null)
-            noteRoleName = noteRoleName.toLowerCase();
-        ProgramAccess pa = null;
-        boolean add = false;
-
-        // write
-        pa = null;
-        // read
-        pa = (ProgramAccess) programAccessMap.get("read " + noteRoleName + " notes");
-        if (pa != null) {
-            if (pa.isAllRoles() || isRoleIncludedInAccess(pa, role)) {
-                // filteredIssues.add(cmIssue);
-                return (true);
-            }
-        } else {
-            if (noteRoleName.equals(role.getRoleName().toLowerCase())) {
-                // default
-                return (true);
-            }
-        }
-
-        // apply defaults
-        if (!add) {
-            if (noteRoleName.equals(role.getRoleName().toLowerCase())) {
-                return (true);
-            }
-        }
-
-        // global default role access
-        String accessName = "read " + noteRoleName + " notes";
-        if (roleProgramAccessDAO.hasAccess(accessName, role.getId())) {
-            return (true);
-        }
-
-        return (false);
     }
 
     @Override

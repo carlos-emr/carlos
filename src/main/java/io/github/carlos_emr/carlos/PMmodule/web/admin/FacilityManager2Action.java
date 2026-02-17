@@ -97,10 +97,10 @@ public class FacilityManager2Action extends ActionSupport {
 
         request.setAttribute(BEAN_FACILITIES, facilities);
 
-        // get agency's organization list from caisi editor table
+        // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
 
-        // get agency's sector list from caisi editor table
+        // get agency's sector list from the lookup table
         request.setAttribute("sectorList", lookupManager.LoadCodeList("SEC", true, null, null));
 
         return FORWARD_LIST;
@@ -183,10 +183,10 @@ public class FacilityManager2Action extends ActionSupport {
         request.setAttribute("orgId", facility.getOrgId());
         request.setAttribute("sectorId", facility.getSectorId());
 
-        // get agency's organization list from caisi editor table
+        // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
 
-        // get agency's sector list from caisi editor table
+        // get agency's sector list from the lookup table
         request.setAttribute("sectorList", lookupManager.LoadCodeList("SEC", true, null, null));
 
         return FORWARD_EDIT;
@@ -205,10 +205,10 @@ public class FacilityManager2Action extends ActionSupport {
         Facility facility = new Facility("", "");
         this.setFacility(facility);
 
-        // get agency's organization list from caisi editor table
+        // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
 
-        // get agency's sector list from caisi editor table
+        // get agency's sector list from the lookup table
         request.setAttribute("sectorList", lookupManager.LoadCodeList("SEC", true, null, null));
 
         return FORWARD_EDIT;
@@ -221,9 +221,6 @@ public class FacilityManager2Action extends ActionSupport {
         if (request.getParameter("facility.hic") == null) facility.setHic(false);
 
         try {
-            facility.setIntegratorEnabled(WebUtils.isChecked(request, "facility.integratorEnabled"));
-            facility.setAllowSims(WebUtils.isChecked(request, "facility.allowSims"));
-            facility.setEnableIntegratedReferrals(WebUtils.isChecked(request, "facility.enableIntegratedReferrals"));
             facility.setEnableHealthNumberRegistry(WebUtils.isChecked(request, "facility.enableHealthNumberRegistry"));
             facility.setEnableDigitalSignatures(WebUtils.isChecked(request, "facility.enableDigitalSignatures"));
 
