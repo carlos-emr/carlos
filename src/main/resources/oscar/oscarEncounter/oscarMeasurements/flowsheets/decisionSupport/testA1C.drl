@@ -1,3 +1,13 @@
+// ============================================================================
+// CARLOS EMR - Clinical Report: A1C Threshold Test Rules
+// ============================================================================
+//
+// Used by DroolsNumerator for clinical reporting. Evaluates if a patient's
+// A1C measurement falls within a specified range, setting isInRange flag.
+//
+// Fact: MeasurementDSHelper - bound as "m"
+// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// ============================================================================
 package ReportA1C;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;

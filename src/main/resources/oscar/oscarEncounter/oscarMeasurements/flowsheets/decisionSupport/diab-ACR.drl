@@ -1,3 +1,15 @@
+// ============================================================================
+// CARLOS EMR - Diabetes ACR Target Range Decision Support Rules
+// ============================================================================
+//
+// Evaluates Albumin-to-Creatinine Ratio (ACR) values for diabetic
+// nephropathy screening. Sex-specific thresholds (male vs female).
+//
+// Fact: MeasurementDSHelper - bound as "m"
+// Methods: getDataAsDouble(), isMale(), isFemale(), setIndicationColor()
+//
+// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// ============================================================================
 package DiabetesACR;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;

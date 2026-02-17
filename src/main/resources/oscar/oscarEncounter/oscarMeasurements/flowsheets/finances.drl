@@ -1,3 +1,15 @@
+// ============================================================================
+// CARLOS EMR - Financial Assessment Flowsheet Rules
+// ============================================================================
+//
+// Rules for the financial assessment flowsheet used in community health
+// settings. Evaluates when financial assessment data needs review.
+//
+// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
+// Consequences: addRecommendation() / addWarning() for overdue assessments
+//
+// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// ============================================================================
 package FinancesFlowsheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;

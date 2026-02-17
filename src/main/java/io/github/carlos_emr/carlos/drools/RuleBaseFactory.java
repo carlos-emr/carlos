@@ -32,51 +32,62 @@ import io.github.carlos_emr.carlos.utility.QueueCache;
 /**
  * Factory class for managing Drools KieBase instances with caching.
  *
- * <p>This factory provides centralized management of Drools knowledge bases used throughout
- * the CARLOS EMR system for clinical decision support and business rule processing.
- * It implements a caching mechanism to optimize performance by avoiding repeated
- * compilation of rule bases.</p>
+ * <p>This factory provides centralized management of compiled Drools knowledge bases
+ * used throughout the CARLOS EMR system for clinical decision support, prevention
+ * schedules, measurement flowsheets, and workflow automation. It implements a caching
+ * mechanism using {@link QueueCache} to avoid expensive repeated compilation of
+ * DRL rules.</p>
  *
- * <p>The factory uses a QueueCache to store KieBase instances with automatic expiration
- * after 24 hours. This ensures that rule updates can be deployed without requiring
- * system restarts while maintaining good performance through caching.</p>
+ * <h3>Caching Strategy</h3>
+ * <p>The factory uses a {@link QueueCache} with the following configuration:</p>
+ * <ul>
+ *   <li><strong>Queue buckets:</strong> 4 (distributes entries across buckets for performance)</li>
+ *   <li><strong>Max entries:</strong> 2048 (maximum number of knowledge bases to cache)</li>
+ *   <li><strong>TTL:</strong> 24 hours (entries expire after {@link DateUtils#MILLIS_PER_DAY})</li>
+ *   <li><strong>Expiry handler:</strong> null (no custom cleanup on expiration)</li>
+ * </ul>
+ *
+ * <h3>Cache Key Conventions</h3>
+ * <p>Callers use different key strategies depending on the subsystem:</p>
+ * <ul>
+ *   <li>{@code RuleBaseCreator}: Key is {@code "RuleBaseCreator:" + fullDrlString} (guarantees
+ *       uniqueness but verbose; the entire DRL text serves as its own cache key)</li>
+ *   <li>{@code DSGuidelineDrools}: Key is the guideline's {@code ruleBaseFactoryKey}
+ *       (a compact identifier derived from the guideline's title and UUID)</li>
+ * </ul>
+ *
+ * <h3>Thread Safety</h3>
+ * <p>All methods are {@code synchronized} to ensure thread-safe access to the shared
+ * cache instance. Multiple web requests may simultaneously evaluate clinical rules
+ * for different patients.</p>
  *
  * <p>Migrated from legacy {@code org.drools.RuleBase} to {@link org.kie.api.KieBase}
  * as part of the Drools 2.0 to 7.74.1.Final upgrade.</p>
  *
- * <p>Thread Safety: All methods are synchronized to ensure thread-safe access
- * to the shared cache instance.</p>
- *
  * @since 2001-01-01
+ * @see DroolsHelper
  * @see org.kie.api.KieBase
  * @see io.github.carlos_emr.carlos.utility.QueueCache
  */
 public final class RuleBaseFactory {
 
     /**
-     * Cache for storing compiled KieBase instances.
+     * Cache for storing compiled KieBase instances, keyed by a source identifier string.
      *
-     * <p>Configuration parameters:</p>
-     * <ul>
-     *   <li>Queue size: 4 (number of queue buckets for load distribution)</li>
-     *   <li>Max entries: 2048 (maximum number of knowledge bases to cache)</li>
-     *   <li>Expiry time: 24 hours (DateUtils.MILLIS_PER_DAY)</li>
-     *   <li>Expiry handler: null (no custom cleanup on expiration)</li>
-     * </ul>
+     * <p>Configuration: 4 queue buckets, 2048 max entries, 24-hour TTL, no expiry callback.</p>
      */
     private static QueueCache<String, KieBase> ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
 
     /**
      * Retrieves a cached KieBase instance by its source key.
      *
-     * This method provides thread-safe access to compiled rule bases. If the
-     * requested rule base is not in the cache or has expired, null is returned.
-     * Callers should check for null and compile/load the rule base if needed.
+     * <p>Provides thread-safe access to compiled rule bases. If the requested rule base
+     * is not in the cache or has expired (after 24 hours), {@code null} is returned.
+     * Callers should check for null and compile/load the rule base if needed, then
+     * call {@link #putRuleBase(String, KieBase)} to cache the result.</p>
      *
-     * The source key typically identifies the type of rules being accessed,
-     * such as "prevention", "ckd", "diabetes", or module-specific identifiers.
-     *
-     * @param sourceKey String unique identifier for the rule base (e.g., "prevention", "ckd")
+     * @param sourceKey String unique identifier for the rule base
+     *                  (e.g., "prevention", "RuleBaseCreator:...", guideline key)
      * @return KieBase the cached rule base instance, or null if not found or expired
      */
     public static synchronized KieBase getRuleBase(String sourceKey) {
@@ -86,12 +97,9 @@ public final class RuleBaseFactory {
     /**
      * Stores a KieBase instance in the cache.
      *
-     * Adds or updates a compiled rule base in the cache with the specified key.
+     * <p>Adds or updates a compiled rule base in the cache with the specified key.
      * The rule base will be automatically evicted after 24 hours to ensure
-     * updates to rules are reflected within a reasonable timeframe.
-     *
-     * This method should be called after successfully compiling a rule base
-     * from DRL (Drools Rule Language) files or other rule sources.
+     * updates to rules are reflected without requiring system restarts.</p>
      *
      * @param sourceKey String unique identifier for the rule base
      * @param kieBase KieBase compiled rule base instance to cache
@@ -103,6 +111,10 @@ public final class RuleBaseFactory {
     /**
      * Removes a specific KieBase from the cache.
      *
+     * <p>Called when a rule base needs to be invalidated, for example when
+     * a {@code DSGuidelineDrools} entity is updated via its {@code @PostUpdate}
+     * callback, forcing recompilation on next access.</p>
+     *
      * @param sourceKey String identifier of the knowledge base to remove
      */
     public static synchronized void removeRuleBase(String sourceKey) {
@@ -112,8 +124,9 @@ public final class RuleBaseFactory {
     /**
      * Clears all cached KieBase instances.
      *
-     * <p>Completely resets the cache by creating a new QueueCache instance.
-     * This forces all knowledge bases to be recompiled on next access.</p>
+     * <p>Completely resets the cache by creating a new {@link QueueCache} instance
+     * with the same configuration. This forces all knowledge bases to be recompiled
+     * on next access. Useful for administrative cache clearing or after bulk rule updates.</p>
      */
     public static synchronized void flushAllCached() {
         // Create new cache instance to clear all cached entries

@@ -64,20 +64,131 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCreator;
 
 /**
- * @author apavel
+ * Drools-based clinical decision support guideline entity that programmatically generates
+ * DRL (Drools Rule Language) rules from XML-stored conditions, parameters, and consequences.
+ *
+ * <p>This JPA entity is the concrete implementation of {@link DSGuideline} for the Drools rules
+ * engine. It is persisted in the {@code dsGuidelines} table with a discriminator value of
+ * {@code "drools"}, and its clinical logic (conditions, parameters, consequences) is stored as
+ * XML in the {@code xml} LOB column. At evaluation time, the XML is parsed by
+ * {@link io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineFactory DSGuidelineFactory}
+ * into structured {@link DSCondition}, {@link DSParameter}, and {@link DSConsequence} objects,
+ * which are then translated into DRL rule text and compiled into a {@link KieBase}.</p>
+ *
+ * <h3>DRL Generation Pipeline</h3>
+ * <p>The class generates DRL rules dynamically using the following pipeline:</p>
+ * <ol>
+ *   <li><strong>Parse XML</strong>: The base class lazily parses the stored XML into lists of
+ *       {@code DSCondition}, {@code DSParameter}, and {@code DSConsequence} objects.</li>
+ *   <li><strong>Build DRL "when" clause</strong>: Each {@code DSCondition} is converted into a
+ *       DRL eval expression via {@link #getDroolsCondition(DSCondition)}. Conditions
+ *       invoke methods on the bound {@link DSDemographicAccess} fact object (bound as variable
+ *       {@code a}), passing comma-joined condition values as a single string argument.</li>
+ *   <li><strong>Build DRL parameter bindings</strong>: Each {@code DSParameter} is converted into
+ *       a DRL fact binding via {@link #getDroolsParameter(DSParameter)}, using the parameter's
+ *       fully-qualified class name (FQCN) directly in the DRL without an import statement.
+ *       Drools resolves FQCNs inline, so no {@code import} directive is needed.</li>
+ *   <li><strong>Build DRL "then" clause</strong>: Consequences are assembled via
+ *       {@link #getDroolsConsequences(List)}, which always sets
+ *       {@code a.setPassedGuideline(true)} and appends any {@code java}-type consequence text.</li>
+ *   <li><strong>Compile to KieBase</strong>: The generated DRL string is compiled via
+ *       {@link RuleBaseCreator} and {@link io.github.carlos_emr.carlos.drools.DroolsHelper DroolsHelper}
+ *       into a {@link KieBase}.</li>
+ * </ol>
+ *
+ * <h3>Generated DRL Structure</h3>
+ * <p>A typical generated rule looks like:</p>
+ * <pre>{@code
+ * rule "DSGuidelineDrools:42.0"
+ *     when
+ *         a : io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess()
+ *         myParam : com.example.SomeClass()
+ *         param0 : java.util.Hashtable()
+ *         eval( a.hasDxCodesAny("icd9:250,icd9:401") )
+ *         eval( a.isAgeAll(">18y") )
+ *     then
+ *         a.setPassedGuideline(true);
+ * end
+ * }</pre>
+ *
+ * <p>Note that fact classes are referenced by their fully-qualified class name directly in the
+ * DRL pattern, avoiding the need for DRL {@code import} statements. The Drools engine resolves
+ * FQCNs at compile time. Conditions with associated {@link java.util.Hashtable} parameters
+ * (e.g., billing options like {@code payer=MSP, notInDays=365}) are bound as separate
+ * Hashtable facts and passed to the method alongside the condition values.</p>
+ *
+ * <h3>Caching Strategy</h3>
+ * <p>Compiled {@link KieBase} instances are cached in {@link RuleBaseFactory} using a key of
+ * the form {@code "DSGuidelineDrools:<id>"} (or {@code "DSGuidelineDrools:<title>"} when the
+ * entity has no persisted ID). The cache has a 24-hour TTL. When the entity is updated via JPA,
+ * the {@link #afterSave()} callback (annotated with {@link javax.persistence.PostUpdate @PostUpdate})
+ * invalidates the cached entry, forcing recompilation on the next evaluation.</p>
+ *
+ * <h3>Evaluation Flow</h3>
+ * <p>The three {@code evaluate()} overloads create a new {@link KieSession}, insert the
+ * {@link DSDemographicAccess} fact (which provides access to patient demographics, diagnoses,
+ * prescriptions, billing, and clinical notes), insert any condition-associated Hashtable
+ * parameters and DSParameter-defined objects, then fire all rules. If the
+ * {@code DSDemographicAccess.passedGuideline} flag is set to {@code true} by the rule
+ * consequence, the method returns the guideline's consequences; otherwise it returns
+ * {@code null}.</p>
+ *
+ * <h3>Migration History</h3>
+ * <p>Originally used the Drools 2.0 XML rule format with {@code org.drools.RuleBase}.
+ * Migrated to programmatic DRL text generation with the KIE API ({@link KieBase},
+ * {@link KieSession}) as part of the Drools 2.0 to 7.74.1.Final upgrade.</p>
+ *
+ * @since 2009-07-06
+ * @see io.github.carlos_emr.carlos.drools.DroolsHelper
+ * @see RuleBaseFactory
+ * @see DSCondition
+ * @see DSDemographicAccess
+ * @see DSParameter
+ * @see DSConsequence
+ * @see RuleBaseCreator
  */
 @Entity
 @DiscriminatorValue("drools")
 public class DSGuidelineDrools extends DSGuideline {
     private static final Logger log = MiscUtils.getLogger();
 
+    /**
+     * Fully-qualified class name of {@link DSDemographicAccess}, used as the primary fact
+     * type in generated DRL rules. By using the FQCN directly in the DRL pattern (e.g.,
+     * {@code a : io.github.carlos_emr...DSDemographicAccess()}), the generated rule avoids
+     * needing a DRL {@code import} statement. Drools resolves FQCNs at compile time.
+     */
     private static final String demographicAccessObjectClassPath = "io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess";
 
+    /**
+     * Cached compiled KieBase for this guideline instance. Lazily initialized on first
+     * evaluation via {@link #generateRuleBase()}. Marked {@code @Transient} because it
+     * is a runtime artifact and must not be persisted. Set to {@code null} to force
+     * recompilation.
+     */
     @Transient
     private KieBase _kieBase = null;
+
+    /**
+     * Counter used to generate unique rule names within this guideline's DRL output.
+     * Each call to {@link #generateRuleBase()} increments this counter, producing rule
+     * names like {@code "DSGuidelineDrools:42.0"}, {@code "DSGuidelineDrools:42.1"}, etc.
+     * Marked {@code @Transient} because it is a runtime artifact.
+     */
     @Transient
     int ruleCount = 0;
 
+    /**
+     * Builds the cache key used to store and retrieve the compiled {@link KieBase}
+     * in {@link RuleBaseFactory}.
+     *
+     * <p>If the entity has been persisted (has a non-null ID), the key is
+     * {@code "DSGuidelineDrools:<id>"}. Otherwise, it falls back to
+     * {@code "DSGuidelineDrools:<title>"}. This ensures that unsaved guidelines
+     * (e.g., during testing or preview) can still participate in caching.</p>
+     *
+     * @return String cache key for {@link RuleBaseFactory} lookup
+     */
     public String getRuleBaseFactoryKey() {
         if (getId() != null)
             return ("DSGuidelineDrools:" + getId());
@@ -86,6 +197,26 @@ public class DSGuidelineDrools extends DSGuideline {
 
     }
 
+    /**
+     * Evaluates this clinical guideline against a patient's data and returns applicable consequences.
+     *
+     * <p>Creates a {@link DSDemographicAccess} fact for the given patient, inserts it along with
+     * any condition-associated Hashtable parameters and DSParameter-defined objects into a new
+     * {@link KieSession}, fires all rules, and checks whether the guideline passed. If it passed,
+     * returns the list of consequences (with java-type consequences populated with all objects
+     * from working memory). If it did not pass, returns {@code null}.</p>
+     *
+     * <p>The KieBase is lazily compiled on first invocation via {@link #generateRuleBase()} and
+     * cached for subsequent calls. The KieSession is always disposed in a finally block to
+     * prevent memory leaks.</p>
+     *
+     * @param loggedInInfo LoggedInInfo session information for the evaluating provider
+     * @param demographicNo String patient identifier used to retrieve clinical data
+     * @return List of {@link DSConsequence} objects representing triggered clinical recommendations
+     *         or warnings; {@code null} if the guideline conditions were not met
+     * @throws DecisionSupportException if rule base compilation fails, fact assertion fails,
+     *         or a DSParameter class cannot be instantiated via reflection
+     */
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo) throws DecisionSupportException {
         if (_kieBase == null) generateRuleBase();
         //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
@@ -95,8 +226,12 @@ public class DSGuidelineDrools extends DSGuideline {
             //put "bob" in working memory
             try {
 
+                // Insert the primary fact object that provides access to all patient data
                 kieSession.insert(dsDemographicAccess);
 
+                // Insert any Hashtable parameters associated with conditions (e.g., billing options).
+                // These are bound in the DRL as "param0 : java.util.Hashtable()" and passed
+                // to condition methods like billedForAny(searchStrings, options).
                 for (DSCondition dsc : this.getConditions()) {
                     if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
                         log.debug("PARAM:" + dsc.getParam().toString());
@@ -104,6 +239,9 @@ public class DSGuidelineDrools extends DSGuideline {
                     }
                 }
 
+                // Instantiate and insert DSParameter-defined objects via reflection.
+                // These are additional fact types declared in the guideline XML that
+                // the DRL rules may reference (e.g., custom data access objects).
                 List<DSParameter> lDSP = this.getParameters();
                 if (lDSP != null) {
                     for (DSParameter dsp : lDSP) {
@@ -115,6 +253,8 @@ public class DSGuidelineDrools extends DSGuideline {
                     }
                 }
 
+                // Fire all compiled rules; if conditions match, the rule consequence
+                // sets dsDemographicAccess.passedGuideline = true
                 kieSession.fireAllRules();
                 if (dsDemographicAccess.isPassedGuideline()) {
                     List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
@@ -122,8 +262,11 @@ public class DSGuidelineDrools extends DSGuideline {
                     else {
                         for (DSConsequence dsConsequence : this.getConsequences()) {
                             if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
+                                // Warning-type consequences are returned as-is with their text
                                 returnDsConsequences.add(dsConsequence);
                             } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
+                                // Java-type consequences collect all objects from working memory,
+                                // which may include objects created or modified by the rule's "then" block
                                 @SuppressWarnings("unchecked")
                                 List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
                                 dsConsequence.setObjConsequence(javaConsequences);
@@ -153,6 +296,21 @@ public class DSGuidelineDrools extends DSGuideline {
         }
     }
 
+    /**
+     * Evaluates this clinical guideline with provider-specific context and returns applicable consequences.
+     *
+     * <p>Identical to {@link #evaluate(LoggedInInfo, String)} but additionally passes a provider
+     * number to the {@link DSDemographicAccess} fact, enabling provider-specific evaluations such
+     * as flowsheet-based conditions that depend on provider-customized measurement configurations.</p>
+     *
+     * @param loggedInInfo LoggedInInfo session information for the evaluating provider
+     * @param demographicNo String patient identifier used to retrieve clinical data
+     * @param providerNo String provider identifier for provider-specific evaluation context
+     * @return List of {@link DSConsequence} objects representing triggered clinical recommendations
+     *         or warnings; {@code null} if the guideline conditions were not met
+     * @throws DecisionSupportException if rule base compilation fails, fact assertion fails,
+     *         or a DSParameter class cannot be instantiated via reflection
+     */
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo, String providerNo) throws DecisionSupportException {
         if (_kieBase == null) generateRuleBase();
         //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
@@ -220,6 +378,25 @@ public class DSGuidelineDrools extends DSGuideline {
         }
     }
 
+    /**
+     * Evaluates this clinical guideline with dynamic arguments and returns applicable consequences.
+     *
+     * <p>This is the most flexible evaluation overload. In addition to provider context, it passes
+     * a list of dynamic arguments (e.g., active ATC codes from the current prescription context)
+     * to the {@link DSDemographicAccess} fact. These dynamic arguments are used by specialized
+     * condition methods such as {@code hasATCcodeAny()} and {@code hasRxClassNotany()} that
+     * compare guideline criteria against runtime-provided data rather than database lookups.</p>
+     *
+     * @param loggedInInfo LoggedInInfo session information for the evaluating provider
+     * @param demographicNo String patient identifier used to retrieve clinical data
+     * @param providerNo String provider identifier for provider-specific evaluation context
+     * @param dynamicArgs List of Object parameters for specialized evaluation logic, typically
+     *                    ATC codes or other runtime values passed from the calling context
+     * @return List of {@link DSConsequence} objects representing triggered clinical recommendations
+     *         or warnings; {@code null} if the guideline conditions were not met
+     * @throws DecisionSupportException if rule base compilation fails, fact assertion fails,
+     *         or a DSParameter class cannot be instantiated via reflection
+     */
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo, String providerNo, List<Object> dynamicArgs) throws DecisionSupportException {
         if (_kieBase == null) generateRuleBase();
         //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
@@ -287,11 +464,41 @@ public class DSGuidelineDrools extends DSGuideline {
         }
     }
 
+    /**
+     * Generates and caches the {@link KieBase} for this guideline by translating its XML-defined
+     * conditions, parameters, and consequences into a DRL rule string and compiling it.
+     *
+     * <p>This method implements a two-level caching strategy:</p>
+     * <ol>
+     *   <li><strong>RuleBaseFactory cache</strong>: First checks {@link RuleBaseFactory} for a
+     *       previously compiled KieBase using the guideline's cache key. If found, assigns it
+     *       directly to the instance field and returns immediately.</li>
+     *   <li><strong>RuleBaseCreator cache</strong>: If not in the factory cache, generates a DRL
+     *       string and delegates to {@link RuleBaseCreator#getRuleBase(String, List)}, which has
+     *       its own secondary cache keyed by the full DRL text. The compiled result is then
+     *       stored back into the factory cache.</li>
+     * </ol>
+     *
+     * <p>The DRL generation pipeline proceeds as follows:</p>
+     * <ol>
+     *   <li>Convert each {@link DSParameter} into a DRL fact-binding line</li>
+     *   <li>Assign sequential labels ({@code param0}, {@code param1}, ...) to conditions that
+     *       carry Hashtable parameters, so the DRL can bind them as named facts</li>
+     *   <li>Convert each {@link DSCondition} into a DRL eval expression</li>
+     *   <li>Assemble the DRL consequence block from the guideline's {@link DSConsequence} list</li>
+     *   <li>Combine all elements into a complete DRL rule via
+     *       {@link #getRule(List, List, String, int)}</li>
+     * </ol>
+     *
+     * @throws DecisionSupportException if the DRL cannot be compiled into a valid rule base,
+     *         wrapping the underlying compilation or parsing exception
+     */
     public void generateRuleBase() throws DecisionSupportException {
         long timer = System.currentTimeMillis();
         try {
             String ruleBaseFactoryKey = getRuleBaseFactoryKey();
 
+            // Check the RuleBaseFactory cache first to avoid recompilation
             KieBase result = RuleBaseFactory.getRuleBase(ruleBaseFactoryKey);
             if (result != null) {
                 _kieBase = result;
@@ -302,12 +509,20 @@ public class DSGuidelineDrools extends DSGuideline {
             ArrayList<String> conditionElements = new ArrayList<String>();
             ArrayList<String> lParameterElements = new ArrayList<String>();
 
+            // Convert each DSParameter into a DRL fact-binding line, e.g.:
+            //   "myAlias : com.example.SomeClass()"
+            // The FQCN is used directly, avoiding the need for a DRL import statement.
             if (this.getParameters() != null) {
                 for (DSParameter dsParameter : this.getParameters()) {
                     String parameterElement = this.getDroolsParameter(dsParameter);
                     lParameterElements.add(parameterElement);
                 }
             }
+
+            // Assign sequential labels to conditions that carry Hashtable parameters.
+            // The label (e.g., "param0") becomes both the DRL variable name for the
+            // Hashtable fact binding and the argument passed to the condition's access
+            // method in the eval expression.
             int paramCount = 0;
 
             for (DSCondition condition : this.getConditions()) {
@@ -323,6 +538,8 @@ public class DSGuidelineDrools extends DSGuideline {
 
             rules.add(this.getRule(conditionElements, lParameterElements, consequencesElement, ruleCount++));
 
+            // Compile the DRL via RuleBaseCreator, which delegates to DroolsHelper
+            // for KIE API compilation, and cache the result in RuleBaseFactory
             RuleBaseCreator ruleBaseCreator = new RuleBaseCreator();
             try {
                 _kieBase = ruleBaseCreator.getRuleBase(ruleBaseFactoryKey, rules);
@@ -335,28 +552,60 @@ public class DSGuidelineDrools extends DSGuideline {
         }
     }
 
+    /**
+     * Generates a complete DRL rule string with parameter bindings, condition bindings, and
+     * consequence block.
+     *
+     * <p>This is the primary rule generation method that produces the full DRL rule text,
+     * including:</p>
+     * <ul>
+     *   <li>The primary {@link DSDemographicAccess} fact binding (variable {@code a}) using
+     *       the FQCN so no DRL import is needed</li>
+     *   <li>{@link DSParameter}-defined fact bindings (e.g., {@code myAlias : com.example.Foo()})</li>
+     *   <li>{@link java.util.Hashtable} fact bindings for conditions that carry parameters
+     *       (e.g., {@code param0 : java.util.Hashtable()}), matched by Drools against
+     *       Hashtable objects inserted into working memory</li>
+     *   <li>DRL eval expressions for each condition</li>
+     *   <li>The consequence (then) block</li>
+     * </ul>
+     *
+     * @param conditionElements List of String DRL eval expressions, one per {@link DSCondition}
+     * @param parameterElements List of String DRL fact-binding lines, one per {@link DSParameter}
+     * @param consequenceElement String the DRL consequence block content
+     * @param ruleCount int counter appended to the rule name for uniqueness
+     * @return String the complete DRL rule definition
+     */
     private String getRule(List<String> conditionElements, List<String> parameterElements, String consequenceElement, int ruleCount) {
         StringBuilder rule = new StringBuilder();
         String ruleName = getRuleBaseFactoryKey() + "." + ruleCount;
         rule.append("rule \"").append(ruleName).append("\"\n");
         rule.append("    when\n");
 
-        // Primary access class parameter binding
+        // Bind the DSDemographicAccess fact as variable "a" using its FQCN.
+        // Using the fully-qualified class path avoids needing a DRL "import" statement;
+        // Drools resolves the class directly from the classpath at compile time.
         rule.append("        a : ").append(demographicAccessObjectClassPath).append("()\n");
 
-        // Additional parameter bindings
+        // Append DSParameter-defined fact bindings (e.g., "myAlias : com.example.SomeClass()")
         for (String paramElement : parameterElements) {
             rule.append(paramElement).append("\n");
         }
 
-        // Parameter bindings for conditions with params (Hashtable)
+        // Bind Hashtable facts for conditions that carry parameter maps.
+        // Each condition with a non-empty param Hashtable gets a named binding
+        // (e.g., "param0 : java.util.Hashtable()"). When the rule fires, Drools
+        // matches these bindings against the Hashtable objects inserted into
+        // working memory during evaluate(). The label (param0, param1, ...) is
+        // then passed as an argument to the condition's access method in the
+        // eval expression, allowing methods like billedForAny(codes, options)
+        // to receive the Hashtable containing options like payer and notInDays.
         for (DSCondition condition : this.getConditions()) {
             if (condition.getParam() != null && !condition.getParam().isEmpty()) {
                 rule.append("        ").append(condition.getLabel()).append(" : java.util.Hashtable()\n");
             }
         }
 
-        // Condition eval() clauses
+        // Append eval expressions for each condition
         for (String conditionElement : conditionElements) {
             rule.append(conditionElement).append("\n");
         }
@@ -367,23 +616,35 @@ public class DSGuidelineDrools extends DSGuideline {
         return rule.toString();
     }
 
+    /**
+     * Generates a complete DRL rule string without explicit parameter bindings.
+     *
+     * <p>This overload omits the {@link DSParameter}-based fact bindings but still includes
+     * Hashtable bindings for conditions that carry parameters. It is used as a delegate by
+     * {@link #getRule(String, String, int)} for single-condition rules.</p>
+     *
+     * @param conditionElements List of String DRL eval expressions, one per {@link DSCondition}
+     * @param consequenceElement String the DRL consequence block content
+     * @param ruleCount int counter appended to the rule name for uniqueness
+     * @return String the complete DRL rule definition
+     */
     private String getRule(List<String> conditionElements, String consequenceElement, int ruleCount) {
         StringBuilder rule = new StringBuilder();
         String ruleName = getRuleBaseFactoryKey() + "." + ruleCount;
         rule.append("rule \"").append(ruleName).append("\"\n");
         rule.append("    when\n");
 
-        // Primary access class parameter binding
+        // Bind the DSDemographicAccess fact as variable "a" using its FQCN
         rule.append("        a : ").append(demographicAccessObjectClassPath).append("()\n");
 
-        // Parameter bindings for conditions with params (Hashtable)
+        // Bind Hashtable facts for conditions that carry parameter maps
         for (DSCondition condition : this.getConditions()) {
             if (condition.getParam() != null && !condition.getParam().isEmpty()) {
                 rule.append("        ").append(condition.getLabel()).append(" : java.util.Hashtable()\n");
             }
         }
 
-        // Condition eval() clauses
+        // Append eval expressions for each condition
         for (String conditionElement : conditionElements) {
             rule.append(conditionElement).append("\n");
         }
@@ -394,18 +655,77 @@ public class DSGuidelineDrools extends DSGuideline {
         return rule.toString();
     }
 
+    /**
+     * Convenience method that generates a DRL rule from a single condition string.
+     *
+     * <p>Wraps the single condition in a list and delegates to
+     * {@link #getRule(List, String, int)}. This is useful for guidelines with
+     * exactly one condition or for testing purposes.</p>
+     *
+     * @param conditionElement String a single DRL eval expression
+     * @param consequenceElement String the DRL consequence block content
+     * @param ruleCounter int counter appended to the rule name for uniqueness
+     * @return String the complete DRL rule definition
+     */
     protected String getRule(String conditionElement, String consequenceElement, int ruleCounter) {
         List<String> conditionElements = new ArrayList<String>();
         conditionElements.add(conditionElement);
         return getRule(conditionElements, consequenceElement, ruleCounter);
     }
 
-    //multiple conditions because to handle OR statements, need to have multiple
+    /**
+     * Converts a {@link DSCondition} into a DRL eval expression string that invokes the
+     * corresponding access method on the bound {@link DSDemographicAccess} fact.
+     *
+     * <p>The generated eval expression follows this pattern:</p>
+     * <pre>
+     *     eval( a.{accessMethod}{ListOperator}("{value1,value2,...}") )
+     * </pre>
+     *
+     * <p>The method name is assembled by concatenating:</p>
+     * <ol>
+     *   <li>The condition type's base access method (from {@link DSDemographicAccess.Module},
+     *       e.g., {@code "hasDxCodes"}, {@code "isAge"}, {@code "billedFor"})</li>
+     *   <li>The capitalized list operator name (e.g., {@code "Any"}, {@code "All"},
+     *       {@code "Not"}, {@code "Notany"}, {@code "Notall"})</li>
+     * </ol>
+     * <p>This produces method names like {@code hasDxCodesAny}, {@code isAgeAll},
+     * {@code billedForNotany}, which are defined on {@link DSDemographicAccess}.</p>
+     *
+     * <p>The condition's values (from the XML {@code <value>} elements) are joined with
+     * commas and passed as a single quoted string argument. If the condition carries a
+     * Hashtable parameter map (e.g., billing options), the parameter's label variable
+     * (e.g., {@code param0}) is appended as a second unquoted argument, referencing the
+     * Hashtable fact bound earlier in the DRL "when" clause.</p>
+     *
+     * <p>Example outputs:</p>
+     * <ul>
+     *   <li>{@code eval( a.hasDxCodesAny("icd9:250,icd9:401") )}</li>
+     *   <li>{@code eval( a.billedForAny("13050,14050",param0) )}</li>
+     * </ul>
+     *
+     * @param condition DSCondition the clinical condition to convert into a DRL expression
+     * @return String the formatted DRL eval expression line (indented with 8 spaces)
+     * @see DSDemographicAccess for the available access methods that are invoked
+     */
     public String getDroolsCondition(DSCondition condition) {
+        // Get the base method name from the condition's module type
+        // (e.g., Module.dxcodes -> "hasDxCodes", Module.age -> "isAge")
         String accessMethod = condition.getConditionType().getAccessMethod();
+
+        // Join all condition values into a single comma-separated, quoted string argument
+        // (e.g., "icd9:250,icd9:401" or ">18y")
         String parameters = "\"" + StringUtils.join(condition.getValues(), ",") + "\"";
+
+        // Append the capitalized list operator to form the full method name
+        // (e.g., "hasDxCodes" + "Any" -> "hasDxCodesAny")
         accessMethod = accessMethod + StringUtils.capitalize(condition.getListOperator().name());
+
+        // Build the method call on the bound DSDemographicAccess fact variable "a"
         String functionStr = "a." + accessMethod + "(" + parameters;
+
+        // If the condition carries a Hashtable parameter map, append the label as a
+        // second argument (unquoted, since it references a DRL-bound variable)
         if (condition.getParam() != null && !condition.getParam().isEmpty()) {
             functionStr += "," + condition.getLabel();
         }
@@ -414,13 +734,53 @@ public class DSGuidelineDrools extends DSGuideline {
         return "        eval( " + functionStr + " )";
     }
 
+    /**
+     * Converts a {@link DSParameter} into a DRL fact-binding line.
+     *
+     * <p>Generates a DRL pattern that binds an instance of the parameter's class to
+     * a named variable. The fully-qualified class name (FQCN) is used directly in the
+     * DRL, avoiding the need for a separate import statement. At runtime, Drools matches
+     * this pattern against objects inserted into the KieSession's working memory.</p>
+     *
+     * <p>Example output: {@code "        myList : java.util.ArrayList()"}</p>
+     *
+     * @param dsParameter DSParameter the parameter definition containing the alias and
+     *                    fully-qualified class name
+     * @return String the formatted DRL fact-binding line (indented with 8 spaces)
+     */
     public String getDroolsParameter(DSParameter dsParameter) {
         return "        " + dsParameter.getStrAlias() + " : " + dsParameter.getStrClass() + "()";
     }
 
+    /**
+     * Builds the DRL consequence (then) block from the guideline's consequence definitions.
+     *
+     * <p>The consequence block always begins with {@code a.setPassedGuideline(true)}, which
+     * signals to the calling {@code evaluate()} method that the guideline's conditions were
+     * satisfied. Any consequences of type {@link DSConsequence.ConsequenceType#java} have
+     * their text appended as additional Java statements in the consequence block.</p>
+     *
+     * <p>Warning-type consequences are not included in the DRL output; they are handled
+     * separately in the {@code evaluate()} method after rule execution, where they are
+     * returned directly to the caller as-is.</p>
+     *
+     * <p>Example output:</p>
+     * <pre>
+     * a.setPassedGuideline(true);
+     *         someObject.doSomething();
+     * </pre>
+     *
+     * @param consequences List of {@link DSConsequence} objects to include in the rule's
+     *                     "then" block
+     * @return String the assembled DRL consequence block content
+     */
     public String getDroolsConsequences(List<DSConsequence> consequences) {
+        // Always mark the guideline as passed; this is the signal to evaluate()
+        // that conditions were met and consequences should be returned
         String consequencesStr = "a.setPassedGuideline(true);";
         for (DSConsequence consequence : consequences) {
+            // Only java-type consequences are embedded in the DRL "then" block;
+            // warning-type consequences are returned directly by evaluate()
             if (consequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
                 consequencesStr = consequencesStr + "\n        " + consequence.getText();
             }
@@ -428,6 +788,22 @@ public class DSGuidelineDrools extends DSGuideline {
         return consequencesStr;
     }
 
+    /**
+     * JPA lifecycle callback that invalidates the cached {@link KieBase} when this
+     * guideline entity is updated in the database.
+     *
+     * <p>Annotated with {@link PostUpdate}, this method is automatically invoked by the
+     * JPA persistence provider after a successful update of this entity. It removes the
+     * compiled rule base from the {@link RuleBaseFactory} cache, forcing recompilation
+     * from the updated XML on the next call to {@link #evaluate(LoggedInInfo, String)}
+     * or any of its overloads.</p>
+     *
+     * <p>Note: This does not clear the instance-level {@code _kieBase} field. If the
+     * same Java object instance is reused after the update (within the same session),
+     * the stale in-memory KieBase would still be used. In practice, JPA entity instances
+     * are typically short-lived within a request scope, so a fresh instance is loaded
+     * for the next evaluation.</p>
+     */
     @PostUpdate
     public void afterSave() {
         RuleBaseFactory.removeRuleBase(getRuleBaseFactoryKey());

@@ -35,19 +35,118 @@ import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Class used to create Drools DRL rules
+ * Programmatically generates Drools DRL (Drools Rule Language) rule strings from
+ * {@link DSCondition} objects and compiles them into executable {@link KieBase} instances
+ * for clinical measurement decision support.
  *
- * <p>Migrated from Drools 2.0 XML format to modern DRL text format as part of
- * the Drools 2.0 to 7.74.1.Final upgrade.</p>
+ * <p>This class is a core component of the CARLOS EMR measurement flowsheet subsystem.
+ * It translates clinical decision support conditions (e.g., "blood pressure above 140")
+ * defined as {@link DSCondition} objects into DRL rule text, then compiles and caches
+ * the resulting {@link KieBase} for evaluation against patient measurement data.</p>
+ *
+ * <h3>DRL Generation Pipeline</h3>
+ * <p>The generation process works in two stages:</p>
+ * <ol>
+ *   <li><strong>Rule text generation</strong> ({@link #getRule}): Each caller (e.g.,
+ *       {@link TargetColour}, {@code Recommendation}, {@code MeasurementTemplateFlowSheetConfig})
+ *       provides a list of {@link DSCondition} objects. {@code getRule()} converts them
+ *       into a single DRL rule string with condition expressions that invoke methods
+ *       on the fact object (typically {@code MeasurementDSHelper}).</li>
+ *   <li><strong>Rule compilation and caching</strong> ({@link #getRuleBase}): Multiple
+ *       DRL rule strings are assembled into a complete DRL file with a package declaration,
+ *       then compiled via {@link DroolsHelper#createKieBaseFromDrl(String)} and cached
+ *       in {@link RuleBaseFactory} to avoid expensive recompilation on subsequent requests.</li>
+ * </ol>
+ *
+ * <h3>Caching Strategy</h3>
+ * <p>Compiled {@link KieBase} instances are cached in {@link RuleBaseFactory} using the
+ * full DRL string as the cache key (prefixed with {@code "RuleBaseCreator:"}). This
+ * ensures that identical rule sets produce cache hits while different rule configurations
+ * trigger fresh compilation. The cache has a 24-hour TTL managed by {@link RuleBaseFactory}.</p>
+ *
+ * <h3>Generated DRL Format</h3>
+ * <p>The generated DRL follows this structure:</p>
+ * <pre>{@code
+ * import ...MeasurementDSHelper;
+ * rule "ruleName"
+ *     when
+ *         m : MeasurementDSHelper()
+ *         eval( m.doubleValue() >= 140 )
+ *         eval( m.isMale() == true )
+ *     then
+ *         m.setIndicationColor("HIGH");
+ * end
+ * }</pre>
+ *
+ * <h3>Drools Migration History</h3>
+ * <p>This class was originally written for Drools 2.0, which used an XML-based rule
+ * format. As part of the Drools 2.0 to 7.74.1.Final migration, the XML generation
+ * was replaced with DRL text generation. The {@code getRule()} method now produces
+ * modern DRL syntax with condition expressions, and {@code getRuleBase()} uses
+ * the KIE API via {@link DroolsHelper} instead of the legacy
+ * {@code org.drools.io.RuleBaseLoader}.</p>
+ *
+ * <h3>Usage in CARLOS EMR</h3>
+ * <p>This class is used by multiple subsystems:</p>
+ * <ul>
+ *   <li>{@link io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet MeasurementFlowSheet}
+ *       - compiles flowsheet-level decision support rules for measurement display</li>
+ *   <li>{@link TargetColour} - generates rules for colour-coded measurement indicators
+ *       (e.g., HIGH, LOW, NORMAL)</li>
+ *   <li>{@code Recommendation} - generates rules for clinical recommendations</li>
+ *   <li>{@code MeasurementTemplateFlowSheetConfig} - builds rules from flowsheet
+ *       template configurations</li>
+ *   <li>{@code DroolsNumerator2/4/5} - clinical reporting numerator rules</li>
+ *   <li>{@code DSPreventionDrools} - prevention schedule decision support rules</li>
+ *   <li>{@code DSGuidelineDrools} - clinical guideline decision support rules</li>
+ * </ul>
  *
  * @since 2001-01-01
+ * @see DroolsHelper
+ * @see RuleBaseFactory
+ * @see DSCondition
+ * @see TargetColour
+ * @see io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet
  */
 public class RuleBaseCreator {
     private static final Logger log = MiscUtils.getLogger();
 
+    /**
+     * Assembles multiple DRL rule strings into a complete DRL file and compiles
+     * them into a {@link KieBase}, using {@link RuleBaseFactory} to cache the result.
+     *
+     * <p>This method performs the following steps:</p>
+     * <ol>
+     *   <li>Constructs a complete DRL string by prepending a package declaration
+     *       (using {@code rulesetName}) and concatenating all individual rule strings</li>
+     *   <li>Checks the {@link RuleBaseFactory} cache for an existing compiled
+     *       {@link KieBase} matching the full DRL content</li>
+     *   <li>On cache miss, compiles the DRL via
+     *       {@link DroolsHelper#createKieBaseFromDrl(String)} and stores the result
+     *       in the cache for future requests</li>
+     * </ol>
+     *
+     * <p>The cache key is {@code "RuleBaseCreator:" + fullDrlString}, which guarantees
+     * that identical rule sets always produce cache hits regardless of how they were
+     * constructed. The trade-off is verbose cache keys, but this avoids the need for
+     * a separate key-generation strategy.</p>
+     *
+     * @param rulesetName String the DRL package name used in the generated
+     *                    {@code package} declaration (e.g., "rulesetName")
+     * @param drlRules List of String individual DRL rule definitions, each typically
+     *                 produced by {@link #getRule}; each must contain a complete
+     *                 {@code import ... rule "name" when ... then ... end} block
+     * @return KieBase compiled rule base containing all provided rules, ready for
+     *         creating stateful or stateless sessions for rule evaluation
+     * @throws Exception if DRL compilation fails due to syntax errors or invalid
+     *                   rule definitions; error details are logged by {@link DroolsHelper}
+     */
     public KieBase getRuleBase(String rulesetName, List<String> drlRules) throws Exception {
         long timer = System.currentTimeMillis();
         try {
+            // Assemble a complete DRL file: package declaration followed by all rule strings.
+            // Each rule string (from getRule()) already contains its own import statement,
+            // so no additional imports are needed at the package level.
             StringBuilder drl = new StringBuilder();
             drl.append("package ").append(rulesetName).append(";\n\n");
             for (String rule : drlRules) {
@@ -56,9 +155,15 @@ public class RuleBaseCreator {
             String drlString = drl.toString();
             log.debug(drlString);
 
+            // Check the RuleBaseFactory cache first to avoid expensive recompilation.
+            // The full DRL string is used as the cache key, ensuring that any change
+            // in rule content (even a single condition value) triggers a fresh compile.
             KieBase kieBase = RuleBaseFactory.getRuleBase("RuleBaseCreator:" + drlString);
             if (kieBase != null) return kieBase;
 
+            // Cache miss: compile the DRL via the KIE API and store the result.
+            // DroolsHelper handles the KieFileSystem/KieBuilder pipeline and throws
+            // RuntimeException if the DRL contains compilation errors.
             kieBase = DroolsHelper.createKieBaseFromDrl(drlString);
             RuleBaseFactory.putRuleBase("RuleBaseCreator:" + drlString, kieBase);
             return kieBase;
@@ -68,27 +173,86 @@ public class RuleBaseCreator {
     }
 
     /**
-     * Generates a DRL rule string from the given parameters.
+     * Generates a single DRL rule string from a list of {@link DSCondition} objects.
      *
-     * <p>Creates a modern DRL rule definition using {@code eval()} expressions
-     * for conditions, replacing the legacy Drools 2.0 XML format.</p>
+     * <p>Produces a complete DRL rule definition including an import statement, a fact
+     * pattern match, condition expressions derived from each {@link DSCondition},
+     * and a consequence (action) block. The generated rule uses the modern DRL text
+     * format, replacing the legacy Drools 2.0 XML rule representation.</p>
      *
-     * @param ruleName String the rule name
-     * @param incomingClass String fully qualified class name for the fact object
-     * @param conditions List of DSCondition objects defining the rule conditions
-     * @param consequence String the Java code to execute when the rule fires
-     * @return String the DRL rule definition text
+     * <h4>Generated Structure</h4>
+     * <p>For a call with {@code ruleName="BP_HIGH"}, {@code incomingClass=
+     * "...MeasurementDSHelper"}, two conditions, and a consequence, the output is:</p>
+     * <pre>{@code
+     * import ...MeasurementDSHelper;
+     * rule "BP_HIGH"
+     *     when
+     *         m : MeasurementDSHelper()
+     *         eval( m.doubleValue() >= 140 )
+     *         eval( m.isMale() == true )
+     *     then
+     *         m.setIndicationColor("HIGH");
+     * end
+     * }</pre>
+     *
+     * <h4>Condition Mapping</h4>
+     * <p>Each {@link DSCondition} is translated into a Drools condition expression.
+     * The condition's {@link DSCondition#getType() type} becomes a method call on the
+     * bound fact variable {@code m}, the {@link DSCondition#getComparision() comparison}
+     * becomes the operator (e.g., {@code >=}, {@code ==}), and the
+     * {@link DSCondition#getValue() value} becomes the right-hand operand. The
+     * {@code DSCondition.getType()} method handles appending parentheses and optional
+     * parameters to form a valid method invocation.</p>
+     *
+     * @param ruleName String the unique name for this rule within the DRL package;
+     *                 callers typically use sequential names like "DD0", "DD1", etc.
+     * @param incomingClass String the fully qualified Java class name of the fact object
+     *                      to match in the rule's {@code when} clause (e.g.,
+     *                      {@code "io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper"})
+     * @param conditions List of {@link DSCondition} objects defining the rule's
+     *                   criteria; each condition generates one condition expression line
+     * @param consequence String the Java code to execute in the rule's {@code then} block
+     *                    when all conditions are satisfied (e.g.,
+     *                    {@code "m.setIndicationColor(\"HIGH\");"})
+     * @return String the complete DRL rule definition text, including the import statement,
+     *         rule declaration, when/then blocks, and end marker
+     * @see DSCondition#getType()
+     * @see DSCondition#getComparision()
+     * @see DSCondition#getValue()
      */
     public String getRule(String ruleName, String incomingClass, List<DSCondition> conditions, String consequence) {
+        // Extract the simple class name from the fully qualified name for use
+        // in the DRL pattern match (e.g., "MeasurementDSHelper" from the full path).
         String simpleClassName = incomingClass.substring(incomingClass.lastIndexOf('.') + 1);
+
         StringBuilder rule = new StringBuilder();
+
+        // Import statement: required so the DRL engine can resolve the fact class.
+        // Each rule string includes its own import because getRule() produces
+        // self-contained DRL fragments that are later assembled by getRuleBase().
         rule.append("import ").append(incomingClass).append(";\n");
+
+        // Rule header with quoted name
         rule.append("rule \"").append(ruleName).append("\"\n");
+
+        // "when" clause: bind the fact object to variable "m" for use in conditions
+        // and consequence. The pattern "m : ClassName()" matches any instance of the
+        // class inserted into the Drools working memory, binding it to variable "m".
         rule.append("    when\n");
         rule.append("        m : ").append(simpleClassName).append("()\n");
+
+        // Each DSCondition becomes a condition expression that calls a method on "m".
+        // For example, DSCondition(type="doubleValue", comparison=">=", value="140")
+        // produces: eval( m.doubleValue() >= 140 )
+        // The DSCondition.getType() method handles method call formatting, including
+        // appending "()" for no-arg methods or "(\"param\")" for parameterized methods.
         for (DSCondition cond : conditions) {
             rule.append("        eval( m.").append(cond.getType()).append(" ").append(cond.getComparision()).append(" ").append(cond.getValue()).append(" )\n");
         }
+
+        // "then" clause: the consequence Java code that executes when all conditions match.
+        // Typically sets an indication color on the MeasurementDSHelper fact object,
+        // e.g., m.setIndicationColor("HIGH");
         rule.append("    then\n");
         rule.append("        ").append(consequence).append("\n");
         rule.append("end");

@@ -1,3 +1,27 @@
+// ============================================================================
+// CARLOS EMR - Immunization/Prevention Schedule Decision Support Rules
+// ============================================================================
+//
+// This DRL file defines the immunization schedule rules for the CARLOS EMR
+// prevention module. Rules evaluate a patient's age, vaccination history,
+// and prevention status to generate appropriate clinical warnings.
+//
+// Fact object: Prevention (io.github.carlos_emr.carlos.prevention.Prevention)
+//   - Bound as "prev" in all rules
+//   - Key methods: getAgeInMonths(), getNumberOfPreventionType(String),
+//     getHowManyMonthsSinceLast(String), isPreventionNever(String),
+//     isMale(), isFemale(), isNextDateSet(String), isPassedNextDate(String)
+//
+// Consequence methods:
+//   - prev.addWarning(preventionType, message) - adds clinical warning
+//   - prev.log(ruleName) - logs rule activation for debugging
+//
+// Vaccine schedules covered: DTaP-IPV, Hib, MMR, Varicella, Hepatitis B,
+//   Pneumococcal, Meningococcal, Tdap, HPV, Influenza, and more.
+//
+// Converted from Drools 2.0 XML format to Drools 7.x DRL text format.
+// Original XML used <rule-set>, <parameter>, <java:condition>, <java:consequence>.
+// ============================================================================
 package Prevention;
 
 import io.github.carlos_emr.carlos.prevention.Prevention;

@@ -1,3 +1,15 @@
+// ============================================================================
+// CARLOS EMR - Chronic Kidney Disease (CKD) Flowsheet Rules
+// ============================================================================
+//
+// Rules for the CKD management flowsheet. Evaluates when key renal function
+// measurements (eGFR, ACR, blood pressure, potassium, etc.) are overdue.
+//
+// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
+// Consequences: addRecommendation() for moderate delays, addWarning() for severe
+//
+// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// ============================================================================
 package ckdFlowSheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
