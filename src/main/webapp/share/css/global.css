@@ -38,6 +38,29 @@
     --carlos-text: #333;
 }
 
+/* Bootstrap 5 overrides — retheme via CARLOS variables */
+:root {
+    --bs-primary: var(--carlos-primary);
+    --bs-link-color: var(--carlos-link);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--carlos-primary);
+    --bs-btn-border-color: var(--carlos-primary);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--carlos-primary) 85%, black);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--carlos-primary) 80%, black);
+    --bs-btn-active-bg: color-mix(in srgb, var(--carlos-primary) 75%, black);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--carlos-primary) 70%, black);
+}
+
+a {
+    color: var(--carlos-link);
+}
+
+a:hover {
+    color: color-mix(in srgb, var(--carlos-link) 75%, black);
+}
+
 /* Base resets */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
