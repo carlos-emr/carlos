@@ -34,8 +34,6 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
 <%@page import="java.util.ArrayList" %>

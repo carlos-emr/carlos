@@ -397,20 +397,13 @@
                                                     <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getStartDate())%>
                                                     </td>
                                                     <td>
-                                                        <%
-                                                            // annotations only avaiable for local allergies
-                                                            if (displayAllergy.getRemoteFacilityId() == null) {
-                                                        %>
                                                         <a href="#" title="Annotation"
                                                            onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=displayAllergy.getId()%>&demo=${patient.demographicNo}','anwin','width=400,height=500');"><img
                                                                 src="<%= request.getContextPath() %>/images/notes.gif" border="0"></a>
-                                                        <%
-                                                            }
-                                                        %>
                                                     </td>
                                                     <td>
                                                         <%
-                                                            if (displayAllergy.getRemoteFacilityId() == null && securityManager.hasDeleteAccess("_allergies", roleName2$)) {
+                                                            if (securityManager.hasDeleteAccess("_allergies", roleName2$)) {
                                                         %>
                                                         <a href="<%= request.getContextPath() %>/oscarRx/deleteAllergy.do?ID=<%= String.valueOf(displayAllergy.getId()) %>&demographicNo=<%=demoNo %>&action=<%=actionPath %>"
                                                            onClick="return confirm('Are you sure you want to set the allergy <%=displayAllergy.getDescription() %> to <%=labelConfirmAction%>?');"><%=labelAction%>

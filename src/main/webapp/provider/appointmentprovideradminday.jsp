@@ -275,8 +275,6 @@
     // end get eform form links
 
     boolean prescriptionQrCodes = providerPreference.isPrintQrCodeOnPrescriptions();
-    boolean erx_enable = providerPreference.isERxEnabled();
-    boolean erx_training_mode = providerPreference.isERxTrainingMode();
 
     boolean bShortcutIntakeForm = oscarVariables.getProperty("appt_intake_form", "").equalsIgnoreCase("on") ? true : false;
 
@@ -441,7 +439,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
     <c:set var="billingRights" value="true" scope="page"/>
 </security:oscarSec>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
     <c:set var="doctorLinkRights" value="true" scope="page"/>
 </security:oscarSec>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_masterLink" rights="r">
@@ -524,7 +522,7 @@
                     newGroupNo = s.options[s.selectedIndex].value;
                 }
                 var programId = 0;
-                popupPage(10, 10, "${pageContext.request.contextPath}/provider/providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&erx_enable=<%=erx_enable%>&erx_training_mode=<%=erx_training_mode%>&mygroup_no=" + newGroupNo + "&programId_oscarView=" + programId + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
+                popupPage(10, 10, "${pageContext.request.contextPath}/provider/providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&mygroup_no=" + newGroupNo + "&programId_oscarView=" + programId + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
             }
 
             function ts1(s) {
@@ -1140,7 +1138,7 @@
                     </li>
                     <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
-                           onClick="popupPage(715,680,'providerpreference.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>')"
+                           onClick="popupPage(800,1000,'providerpreference.jsp?provider_no=<%= Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo()) %>')"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
                             <span class="glyphicon">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"

@@ -120,9 +120,6 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     private Date lastUpdateDate;
 
     @Transient
-    private boolean integratorResult;
-
-    @Transient
     private String startDateFormat;
     /**
      * This string is currently nullable because this field never use to exist, therefore all previous entries are null, all new entries should be populated though.
@@ -322,14 +319,6 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
 
     public void setProviderNo(String providerNo) {
         this.providerNo = StringUtils.trimToNull(providerNo);
-    }
-
-    public boolean isIntegratorResult() {
-        return integratorResult;
-    }
-
-    public void setIntegratorResult(boolean integratorResult) {
-        this.integratorResult = integratorResult;
     }
 
     public String getStartDateFormat() {

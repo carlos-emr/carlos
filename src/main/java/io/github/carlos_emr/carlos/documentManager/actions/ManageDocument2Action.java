@@ -46,13 +46,7 @@ import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDocument;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDocumentContents;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -86,7 +80,7 @@ import java.awt.image.RenderedImage;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -827,12 +821,6 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        String temp = request.getParameter("remoteFacilityId");
-        Integer remoteFacilityId = null;
-        if (temp != null) {
-            remoteFacilityId = Integer.parseInt(temp);
-        }
-
         String doc_no = request.getParameter("doc_no");
         log.debug("Document No :" + doc_no);
         String demoNo = request.getParameter("demoNo");
@@ -842,77 +830,31 @@ public class ManageDocument2Action extends ActionSupport {
         byte[] contentBytes = null;
         String filename = null;
 
-        // local document
-        if (remoteFacilityId == null) {
-            CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
-            if (ctld.isDemographicDocument()) {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId());
-            } else {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
+        if (ctld.isDemographicDocument()) {
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId());
+        } else {
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        }
+
+        Document d = documentDao.getDocument(doc_no);
+
+        log.debug("Document Name :" + d.getDocfilename());
+
+        docxml = d.getDocxml();
+        contentType = d.getContenttype();
+        filename = d.getDocfilename();
+
+        Path file = Paths.get(DOCUMENT_DIR, filename);
+
+        if (Files.exists(file)) {
+            contentBytes = Files.readAllBytes(file);
+        } else {
+            if (docxml == null || docxml.trim().equals("")) {
+                // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
+                // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
+                throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
             }
-
-            Document d = documentDao.getDocument(doc_no);
-
-            log.debug("Document Name :" + d.getDocfilename());
-
-            docxml = d.getDocxml();
-            contentType = d.getContenttype();
-            filename = d.getDocfilename();
-
-            Path file = Paths.get(DOCUMENT_DIR, filename);
-
-            if (Files.exists(file)) {
-                contentBytes = Files.readAllBytes(file);
-            } else {
-                if (docxml == null || docxml.trim().equals("")) {
-                    // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
-                    // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
-                    throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
-                }
-            }
-        } else // remote document
-        {
-            FacilityIdIntegerCompositePk remotePk = new FacilityIdIntegerCompositePk();
-            remotePk.setIntegratorFacilityId(remoteFacilityId);
-            remotePk.setCaisiItemId(Integer.parseInt(doc_no));
-
-
-            CachedDemographicDocument remoteDocument = null;
-            CachedDemographicDocumentContents remoteDocumentContents = null;
-
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(request.getSession())) {
-                    DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                    remoteDocument = demographicWs.getCachedDemographicDocument(remotePk);
-                    remoteDocumentContents = demographicWs.getCachedDemographicDocumentContents(remotePk);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(request.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(request.getSession())) {
-                Integer demographicId = IntegratorFallBackManager.getDemographicNoFromRemoteDocument(loggedInInfo, remotePk);
-                MiscUtils.getLogger().debug("got demographic no from remote document " + demographicId);
-                List<CachedDemographicDocument> remoteDocuments = IntegratorFallBackManager.getRemoteDocuments(loggedInInfo, demographicId);
-                for (CachedDemographicDocument demographicDocument : remoteDocuments) {
-                    if (demographicDocument.getFacilityIntegerPk().getIntegratorFacilityId() == remotePk.getIntegratorFacilityId() && demographicDocument.getFacilityIntegerPk().getCaisiItemId() == remotePk.getCaisiItemId()) {
-                        remoteDocument = demographicDocument;
-                        remoteDocumentContents = IntegratorFallBackManager.getRemoteDocument(loggedInInfo, demographicId, remotePk);
-                        break;
-                    }
-                    MiscUtils.getLogger().error("End of the loop and didn't find the remoteDocument");
-                }
-            }
-
-            if (remoteDocument == null || remoteDocumentContents == null) {
-                throw new IllegalStateException("Remote document not found or contents unavailable for document ID: " + doc_no);
-            }
-
-            docxml = remoteDocument.getDocXml();
-            contentType = remoteDocument.getContentType();
-            filename = remoteDocument.getDocFilename();
-            contentBytes = remoteDocumentContents.getFileContents().getContent().toString().getBytes(StandardCharsets.UTF_8);
         }
 
         if (docxml != null && !docxml.trim().equals("")) {

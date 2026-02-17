@@ -27,6 +27,7 @@
 
 package io.github.carlos_emr.carlos.web.admin;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -35,27 +36,71 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jfree.util.Log;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 
+/**
+ * UI bean for managing the {@link ProviderPreference} entity (schedule, billing fields)
+ * as part of the consolidated provider preferences page.
+ *
+ * <p>This bean is the first half of a two-part preference save mechanism:
+ * <ol>
+ *   <li><strong>This class</strong> loads and persists the {@code ProviderPreference} entity
+ *       (schedule hours, billing defaults, encounter forms)</li>
+ *   <li>{@link io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction} saves all
+ *       remaining preferences stored as {@code UserProperty} key-value pairs</li>
+ * </ol>
+ *
+ * <p>Called from {@code providerupdatepreference.jsp} on form submission, and from
+ * {@code providerpreference.jsp} for read-only data loading.
+ *
+ * @see io.github.carlos_emr.carlos.provider.web.ProviderPropertyAction
+ * @see ProviderPreference
+ * @since 2010-09-05
+ */
 public final class ProviderPreferencesUIBean {
 
     private static final ProviderPreferenceDao providerPreferenceDao = (ProviderPreferenceDao) SpringUtils.getBean(ProviderPreferenceDao.class);
     private static final EFormDao eFormDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
     private static final EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
 
-    public static final ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
+    /**
+     * Updates or creates a {@link ProviderPreference} entity from the submitted form parameters.
+     * Handles schedule hours, billing defaults, and encounter/eForm selections.
+     *
+     * @param request {@link HttpServletRequest} containing form parameters from the
+     *                preferences page POST submission
+     * @return ProviderPreference the persisted preference entity
+     * @throws SecurityException if the session has expired (null loggedInInfo) or if the
+     *         provider lacks write ("w") access to the "_pref" security object
+     * @throws IllegalArgumentException if validation errors occur (message contains user-friendly error details)
+     * @since 2026-02-10
+     */
+    public static ProviderPreference updateOrCreateProviderPreferences(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("Session expired: cannot save preferences without an authenticated session");
+        }
+
+        // Security check: verify user has write access to preferences
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object: _pref");
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+        
+        // Collect validation errors to provide user feedback
+        List<String> validationErrors = new ArrayList<>();
 
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 
@@ -101,7 +146,7 @@ public final class ProviderPreferencesUIBean {
                 try {
                     defBilling = Integer.parseInt(temp);
                 } catch (NumberFormatException e) {
-                    Log.warn("warning", e);
+                    MiscUtils.getLogger().warn("Invalid caisiBillingPreferenceNotDelete value from session: '{}'", temp, e);
                 }
                 providerPreference.setDefaultDoNotDeleteBilling(defBilling);
             }
@@ -111,26 +156,51 @@ public final class ProviderPreferencesUIBean {
         temp = StringUtils.trimToNull(request.getParameter("dxCode"));
         if (temp != null) providerPreference.setDefaultDxCode(temp);
 
-        try {
-            Integer startHour = Integer.parseInt(StringUtils.trimToNull(request.getParameter("start_hour")));
-            Integer endHour = Integer.parseInt(StringUtils.trimToNull(request.getParameter("end_hour")));
-            if (startHour < endHour) {
-                if (startHour >= 0 && startHour <= 23) {
-                    providerPreference.setStartHour(startHour);
+        String startHourStr = StringUtils.trimToNull(request.getParameter("start_hour"));
+        String endHourStr = StringUtils.trimToNull(request.getParameter("end_hour"));
+        if (startHourStr != null && endHourStr != null) {
+            try {
+                int startHour = Integer.parseInt(startHourStr);
+                int endHour = Integer.parseInt(endHourStr);
+                if (startHour >= 0 && startHour <= 23 && endHour >= 0 && endHour <= 23) {
+                    if (startHour < endHour) {
+                        providerPreference.setStartHour(startHour);
+                        providerPreference.setEndHour(endHour);
+                    } else {
+                        validationErrors.add("Start hour must be less than end hour");
+                        MiscUtils.getLogger().warn("start_hour {} must be less than end_hour {} for provider {}", startHour, endHour, providerNo);
+                    }
+                } else {
+                    validationErrors.add("Schedule hours must be in valid range (0-23)");
+                    MiscUtils.getLogger().warn("Schedule hours out of valid range 0-23: start_hour={}, end_hour={} for provider {}", startHour, endHour, providerNo);
                 }
-                if (endHour >= 0 && endHour <= 23) {
-                    providerPreference.setEndHour(endHour);
-                }
+            } catch (NumberFormatException e) {
+                validationErrors.add("Schedule hours must be valid numbers");
+                MiscUtils.getLogger().warn("Invalid schedule hour values: start_hour='{}', end_hour='{}' for provider {}", startHourStr, endHourStr, providerNo, e);
             }
-
-
-        } catch (Exception e) {
-            MiscUtils.getLogger().warn("user entered invalid values");
         }
-        // rest
 
         temp = StringUtils.trimToNull(request.getParameter("every_min"));
-        if (temp != null) providerPreference.setEveryMin(Integer.parseInt(temp));
+        if (temp != null) {
+            try {
+                int everyMinValue = Integer.parseInt(temp);
+                int normalizedEveryMin = everyMinValue;
+
+                // Clamp to valid range without adding validation errors (silent normalization)
+                if (everyMinValue < 1) {
+                    normalizedEveryMin = 1;
+                    MiscUtils.getLogger().warn("every_min value {} below minimum; clamping to 1 for provider {}", everyMinValue, providerNo);
+                } else if (everyMinValue > 120) {
+                    normalizedEveryMin = 120;
+                    MiscUtils.getLogger().warn("every_min value {} above maximum; clamping to 120 for provider {}", everyMinValue, providerNo);
+                }
+
+                providerPreference.setEveryMin(normalizedEveryMin);
+            } catch (NumberFormatException e) {
+                validationErrors.add("Appointment period must be a valid number");
+                MiscUtils.getLogger().warn("Invalid every_min value: '{}' for provider {}", temp, providerNo, e);
+            }
+        }
 
         temp = StringUtils.trimToNull(request.getParameter("mygroup_no"));
         if (temp != null) providerPreference.setMyGroupNo(temp);
@@ -149,7 +219,20 @@ public final class ProviderPreferencesUIBean {
 
         // get encounterForms for appointment screen
         temp = StringUtils.trimToNull(request.getParameter("appointmentScreenFormsNameDisplayLength"));
-        if (temp != null) providerPreference.setAppointmentScreenLinkNameDisplayLength(Integer.parseInt(temp));
+        if (temp != null) {
+            try {
+                int displayLength = Integer.parseInt(temp);
+                if (displayLength < 0) {
+                    validationErrors.add("Appointment screen link name display length must be zero or greater");
+                    MiscUtils.getLogger().warn("appointmentScreenFormsNameDisplayLength value {} below minimum; rejected for provider {}", displayLength, providerNo);
+                } else {
+                    providerPreference.setAppointmentScreenLinkNameDisplayLength(displayLength);
+                }
+            } catch (NumberFormatException e) {
+                validationErrors.add("Appointment screen link name display length must be a valid number");
+                MiscUtils.getLogger().warn("Invalid appointmentScreenFormsNameDisplayLength value: '{}' for provider {}", temp, providerNo, e);
+            }
+        }
 
         String[] formNames = request.getParameterValues("encounterFormName");
         Collection<String> formNamesList = providerPreference.getAppointmentScreenForms();
@@ -173,32 +256,25 @@ public final class ProviderPreferencesUIBean {
         eFormsIdsList.clear();
         if (formIds != null) {
             for (String formId : formIds) {
-                Integer formIdInteger = Integer.parseInt(formId);
-                EForm eForm = eFormDao.find(formIdInteger);
-                if (eForm != null) {
-                    eFormsIdsList.add(new ProviderPreference.EformLink(formIdInteger, eForm.getFormName()));
-                } else {
-                    MiscUtils.getLogger().warn("EForm not found for id of:" + formIdInteger);
+                try {
+                    Integer formIdInteger = Integer.parseInt(formId);
+                    EForm eForm = eFormDao.find(formIdInteger);
+                    if (eForm != null) {
+                        eFormsIdsList.add(new ProviderPreference.EformLink(formIdInteger, eForm.getFormName()));
+                    } else {
+                        MiscUtils.getLogger().warn("EForm not found for id of: {}", formIdInteger);
+                    }
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Invalid eForm ID value: '{}'", formId, e);
                 }
             }
         }
 
-        // external prescriber prefs
-        providerPreference.setERxEnabled(WebUtils.isChecked(request, "erx_enable"));
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_username"));
-        if (temp != null) providerPreference.setERxUsername(temp);
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_password"));
-        if (temp != null) providerPreference.setERxPassword(temp);
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_facility"));
-        if (temp != null) providerPreference.setERxFacility(temp);
-
-        providerPreference.setERxTrainingMode(WebUtils.isChecked(request, "erx_training_mode"));
-
-        temp = StringUtils.trimToNull(request.getParameter("erx_sso_url"));
-        if (temp != null) providerPreference.setERx_SSO_URL(temp);
+        // If validation errors occurred, throw them to the caller for display
+        if (!validationErrors.isEmpty()) {
+            String errorMessage = "Validation errors occurred: " + String.join("; ", validationErrors);
+            throw new IllegalArgumentException(errorMessage);
+        }
 
         providerPreferenceDao.merge(providerPreference);
 

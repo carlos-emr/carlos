@@ -37,7 +37,6 @@ import javax.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
-import io.github.carlos_emr.carlos.managers.FacilityManager;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -45,43 +44,39 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Enhanced JSP tag for displaying detailed new message counts with categorization.
- * 
+ *
  * <p>This tag provides a more sophisticated message indicator than MsgNewMessagesTag,
- * showing separate counts for demographic messages, integrator messages, and total
- * new messages. It displays the counts as a superscript notification badge with
- * hover tooltips explaining each count.</p>
- * 
+ * showing separate counts for demographic messages and total new messages. It displays
+ * the counts as a superscript notification badge with hover tooltips explaining each count.</p>
+ *
  * <p>The tag generates HTML that shows:</p>
  * <ul>
  *   <li>Demographic message count - Messages linked to patient demographics</li>
- *   <li>Integrator message count - Cross-facility messages (if enabled)</li>
  *   <li>Total message count - Combined count of all new messages</li>
  * </ul>
- * 
+ *
  * <p>Output format examples:</p>
  * <ul>
- *   <li>With new messages: {@code <span class='tabalert'>text<sup>5|2/7</sup></span>}</li>
+ *   <li>With new messages: {@code <span class='tabalert'>text<sup>5/7</sup></span>}</li>
  *   <li>Without new messages: {@code <span>text</span>}</li>
  * </ul>
- * 
- * <p>The format "5|2/7" represents: 5 demographic | 2 integrator / 7 total messages.
- * If the facility doesn't have integrator enabled, only demographic/total is shown.</p>
- * 
+ *
+ * <p>The format "5/7" represents: 5 demographic / 7 total messages.</p>
+ *
  * <p>Usage in JSP:</p>
  * <pre>
  * &lt;msg:newMessage providerNo="${user}"&gt;
  *   Message Text
  * &lt;/msg:newMessage&gt;
  * </pre>
- * 
+ *
  * <p>Note: This tag uses EVAL_BODY_INCLUDE to process body content, allowing the
  * tag to wrap around text that should be highlighted when new messages exist.</p>
- * 
- * @version 2.0
+ *
+ * @version 3.0
  * @since 2003
  * @see MsgNewMessagesTag
  * @see MessagingManager
- * @see FacilityManager
  */
 public class MsgNewMessageTag extends TagSupport {
 
@@ -96,11 +91,6 @@ public class MsgNewMessageTag extends TagSupport {
     private static ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
     
     /**
-     * Service for managing facility settings and integrator configuration.
-     */
-    private static FacilityManager facilityManager = SpringUtils.getBean(FacilityManager.class);
-
-    /**
      * The provider number to check for messages.
      */
     private String providerNo;
@@ -114,12 +104,7 @@ public class MsgNewMessageTag extends TagSupport {
      * Count of new messages linked to patient demographics.
      */
     private int numNewDemographicMessages;
-    
-    /**
-     * Count of new messages from the integrator system.
-     */
-    private int numIntegratedMessages;
-    
+
     /**
      * Session information for the logged-in provider.
      */
@@ -134,7 +119,6 @@ public class MsgNewMessageTag extends TagSupport {
     public MsgNewMessageTag() {
         numNewMessages = 0;
         numNewDemographicMessages = 0;
-        numIntegratedMessages = 0;
         loggedInInfo = new LoggedInInfo();
     }
 
@@ -169,7 +153,6 @@ public class MsgNewMessageTag extends TagSupport {
      *   <li>Sets up the logged-in info context for the provider</li>
      *   <li>Counts total new messages in the provider's inbox</li>
      *   <li>Counts demographic-linked messages separately</li>
-     *   <li>Counts integrator messages if facility has it enabled</li>
      *   <li>Opens a span tag with 'tabalert' class if messages exist</li>
      * </ol>
      * 
@@ -193,11 +176,6 @@ public class MsgNewMessageTag extends TagSupport {
         numNewMessages = messagingManager.getMyInboxMessageCount(loggedInInfo, providerNo, false);
         numNewDemographicMessages = messagingManager.getMyInboxMessageCount(loggedInInfo, providerNo, true);
 
-        // Check for integrator messages if facility supports it
-        if (facilityManager.getDefaultFacility(loggedInInfo).isIntegratorEnabled()) {
-            numIntegratedMessages = messagingManager.getMyInboxIntegratorMessagesCount(loggedInInfo, providerNo);
-        }
-
         try {
             JspWriter out = super.pageContext.getOut();
             // Apply alert styling if there are new messages
@@ -216,13 +194,11 @@ public class MsgNewMessageTag extends TagSupport {
      * Processes the closing tag and completes the message indicator output.
      * 
      * <p>This method generates the message count badge as a superscript element
-     * showing categorized message counts. The output format depends on whether
-     * new messages exist and if the integrator is enabled.</p>
-     * 
+     * showing categorized message counts.</p>
+     *
      * <p>Output formats:</p>
      * <ul>
-     *   <li>With integrator: {@code <sup>5|2/7</sup>} (demographic|integrator/total)</li>
-     *   <li>Without integrator: {@code <sup>5/7</sup>} (demographic/total)</li>
+     *   <li>With messages: {@code <sup>5/7</sup>} (demographic/total)</li>
      *   <li>No messages: Closes the span tag only</li>
      * </ul>
      * 
@@ -250,13 +226,6 @@ public class MsgNewMessageTag extends TagSupport {
                 stringBuilder.append("<span id='demographicMessageCount' title='New Demographic Messages'>");
                 stringBuilder.append(numNewDemographicMessages);
                 stringBuilder.append("</span>");
-
-                // Integrator message count if enabled
-                if (facilityManager.getDefaultFacility(loggedInInfo).isIntegratorEnabled()) {
-                    stringBuilder.append("|<span id='integratorMessageCount' title='New Integrator Messages'>");
-                    stringBuilder.append(numIntegratedMessages);
-                    stringBuilder.append("</span>");
-                }
 
                 // Total message count
                 stringBuilder.append("/<span id='totalMessageCount' title='Total New Messages'>");

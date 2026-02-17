@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -2014,69 +2013,6 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genQuickChartSize";
     }
 
-    public String viewIntegratorProperties() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        Facility facility = loggedInInfo.getCurrentFacility();
-        UserProperty[] integratorProperties = new UserProperty[21];
-
-        integratorProperties[0] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_SYNC);
-        integratorProperties[1] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_ADMISSIONS);
-        integratorProperties[2] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_ALLERGIES);
-        integratorProperties[3] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_APPOINTMENTS);
-        integratorProperties[4] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_BILLING);
-        integratorProperties[5] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_CONSENT);
-        integratorProperties[6] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_DOCUMENTS);
-        integratorProperties[7] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_DRUGS);
-        integratorProperties[8] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_DXRESEARCH);
-        integratorProperties[9] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_EFORMS);
-        integratorProperties[10] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_ISSUES);
-        integratorProperties[11] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_LABREQ);
-        integratorProperties[12] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_MEASUREMENTS);
-        integratorProperties[13] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_NOTES);
-        integratorProperties[14] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_PREVENTIONS);
-        integratorProperties[15] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_FACILITY);
-        integratorProperties[16] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_PROGRAMS);
-        integratorProperties[17] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_PROVIDERS);
-        integratorProperties[18] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_FULL_PUSH + facility.getId());
-        integratorProperties[19] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_LAST_PUSH);
-        integratorProperties[20] = this.userPropertyDAO.getProp(UserProperty.INTEGRATOR_PATIENT_CONSENT);
-
-        request.setAttribute("integratorProperties", integratorProperties);
-        return "genIntegrator";
-    }
-
-    public String saveIntegratorProperties() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        Facility facility = loggedInInfo.getCurrentFacility();
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_ADMISSIONS, request.getParameter("integrator_demographic_admissions"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_ALLERGIES, request.getParameter("integrator_demographic_allergies"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_APPOINTMENTS, request.getParameter("integrator_demographic_appointments"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_BILLING, request.getParameter("integrator_demographic_billing"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_CONSENT, request.getParameter("integrator_demographic_consent"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_DOCUMENTS, request.getParameter("integrator_demographic_documents"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_DRUGS, request.getParameter("integrator_demographic_drugs"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_DXRESEARCH, request.getParameter("integrator_demographic_dxresearch"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_EFORMS, request.getParameter("integrator_demographic_eforms"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_ISSUES, request.getParameter("integrator_demographic_issues"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_LABREQ, request.getParameter("integrator_demographic_labreq"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_MEASUREMENTS, request.getParameter("integrator_demographic_measurements"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_NOTES, request.getParameter("integrator_demographic_notes"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_PREVENTIONS, request.getParameter("integrator_demographic_preventions"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_DEMOGRAPHIC_SYNC, request.getParameter("integrator_demographic_sync"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_FACILITY, request.getParameter("integrator_facility"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_PROGRAMS, request.getParameter("integrator_programs"));
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_PROVIDERS, request.getParameter("integrator_providers"));
-
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_PATIENT_CONSENT,
-                (request.getParameter(UserProperty.INTEGRATOR_PATIENT_CONSENT) != null) ? request.getParameter(UserProperty.INTEGRATOR_PATIENT_CONSENT) : "0");
-
-        this.userPropertyDAO.saveProp(UserProperty.INTEGRATOR_FULL_PUSH + facility.getId(), request.getParameter("integrator_full_push"));
-
-        request.setAttribute("saved", true);
-
-        return viewIntegratorProperties();
-    }
-
     public String viewPatientNameLength() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2681,8 +2617,6 @@ public class ProviderProperty2Action extends ActionSupport {
         methodMap.put("saveEncounterWindowSize", this::saveEncounterWindowSize);
         methodMap.put("viewQuickChartSize", this::viewQuickChartSize);
         methodMap.put("saveQuickChartSize", this::saveQuickChartSize);
-        methodMap.put("viewIntegratorProperties", this::viewIntegratorProperties);
-        methodMap.put("saveIntegratorProperties", this::saveIntegratorProperties);
         methodMap.put("viewPatientNameLength", this::viewPatientNameLength);
         methodMap.put("savePatientNameLength", this::savePatientNameLength);
         methodMap.put("viewDisplayDocumentAs", this::viewDisplayDocumentAs);

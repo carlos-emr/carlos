@@ -330,7 +330,7 @@ label.error {
 			</oscar:oscarPropertiesCheck>
 
 			 <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">			
-			 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r">
+			 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
 			   <li>
 			       <a HREF="#" style="display:inline-block;padding-right:0px" onclick="popupInboxManager('<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>
 				   <span id="oscar_new_lab" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/></span>

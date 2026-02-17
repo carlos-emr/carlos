@@ -512,8 +512,6 @@
             ID: <%= drug.getId()%><br>
             Audit: <%= drug.getAuditString()%><br>
             Full: <%= drug.getFullOutLine()%><br>
-            Remote Facility Name: <%= drug.getRemoteFacilityName()%><br>
-            Facility Id: <%= drug.getRemoteFacilityId()%><br>
             Position: <%= drug.getPosition()%><br>
             Start Date Unknown: <%= drug.getStartDateUnknown()%><br>
             Script No: <%= drug.getScriptNo()%><br>

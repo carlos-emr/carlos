@@ -42,9 +42,7 @@
     // Check if this is a OneID SSO session
     if (request.getSession().getAttribute("oneIdEmail") != null && !request.getSession().getAttribute("oneIdEmail").equals("")) {
         response.sendRedirect(redirectURL);
-        return;
     } else {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
-        return;
     }
 %>

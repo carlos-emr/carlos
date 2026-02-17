@@ -48,13 +48,7 @@
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -339,7 +333,6 @@
                     }
 
                     boolean toggleLine = false;
-                    boolean firstPageShowIntegratedResults = request.getParameter("firstPageShowIntegratedResults") != null && "true".equals(request.getParameter("firstPageShowIntegratedResults"));
                     int nItems = 0;
 
                     if (demoList == null) {
@@ -367,61 +360,6 @@
                         } else if (orderBy.equals("phone")) {
                             Collections.sort(demoList, Demographic.PhoneComparator);
                         }
-
-
-                        @SuppressWarnings("unchecked")
-                        List<MatchingDemographicTransferScore> integratorSearchResults = (List<MatchingDemographicTransferScore>) request.getAttribute("integratorSearchResults");
-
-
-                        if (integratorSearchResults != null) {
-                            firstPageShowIntegratedResults = true;
-                            for (MatchingDemographicTransferScore matchingDemographicTransferScore : integratorSearchResults) {
-                                if (isLocal(matchingDemographicTransferScore, demoList)) {
-                                    continue;
-                                }
-
-                                DemographicTransfer demographicTransfer = matchingDemographicTransferScore.getDemographicTransfer();
-                %>
-                <tr class="<%=toggleLine?"even":"odd"%>">
-                    <td class="demoIdSearch">
-                        <a title="Import" href="javascript:void(0)"
-                           onclick="popup(700,1027,'<%= request.getContextPath() %>/appointment/copyRemoteDemographic.jsp?remoteFacilityId=<%=demographicTransfer.getIntegratorFacilityId()%>&demographic_no=<%=String.valueOf(demographicTransfer.getCaisiDemographicId())%>&originalPage=<%= request.getContextPath() %>/demographic/demographiceditdemographic.jsp&provider_no=<%=curProvider_no%>')">Import</a>
-                    </td>
-                    <td class="links">Remote</td>
-                    <td class="name"><%=Encode.forHtml(Misc.toUpperLowerCase(demographicTransfer.getLastName()) + ", " + Misc.toUpperLowerCase(demographicTransfer.getFirstName()))%>
-                    </td>
-                    <td class="chartNo"></td>
-                    <td class="sex"><%=demographicTransfer.getGender()%>
-                    </td>
-                    <td class="dob"><%=demographicTransfer.getBirthDate() != null ? DateFormatUtils.ISO_DATE_FORMAT.format(demographicTransfer.getBirthDate()) : ""%>
-                    </td>
-                    <td class="doctor">
-
-                        <%
-                            FacilityIdStringCompositePk providerPk = new FacilityIdStringCompositePk();
-                            providerPk.setIntegratorFacilityId(demographicTransfer.getIntegratorFacilityId());
-                            providerPk.setCaisiItemId(demographicTransfer.getCaisiProviderId());
-                            CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), providerPk);
-                            MiscUtils.getLogger().debug("Cached providers, pk=" + providerPk.getIntegratorFacilityId() + "," + providerPk.getCaisiItemId() + ", cachedProvider=" + cachedProvider);
-
-                            String providerName = "";
-
-                            if (cachedProvider != null) {
-                                providerName = cachedProvider.getLastName() + ", " + cachedProvider.getFirstName();
-                            }
-                        %>
-                        <%=providerName%>
-                    </td>
-                    <td class="rosterStatus"></td>
-                    <td class="patientStatus"></td>
-                    <td class="phone"><%=demographicTransfer.getPhone1()%>
-                    </td>
-                </tr>
-                <%
-                            toggleLine = !toggleLine;
-                            nItems++;
-                        }
-                    }
 
 
                     DemographicMerged dmDAO = new DemographicMerged();
@@ -517,13 +455,13 @@
                 nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
                 if (nLastPage >= 0) {
             %>
-            <a href="demographiccontrol.jsp?keyword=<%= URLEncoder.encode((keyword != null) ? keyword : "", "UTF-8") %>&search_mode=<%=searchMode%>&displaymode=<%=displayMode%>&dboperation=<%=dboperation%>&orderby=<%=orderBy%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>&firstPageShowIntegratedResults=<%=firstPageShowIntegratedResults%><%=nLastPage==0 && firstPageShowIntegratedResults?"&includeIntegratedResults=true":""%>">
+            <a href="demographiccontrol.jsp?keyword=<%= URLEncoder.encode((keyword != null) ? keyword : "", "UTF-8") %>&search_mode=<%=searchMode%>&displaymode=<%=displayMode%>&dboperation=<%=dboperation%>&orderby=<%=orderBy%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
             }
             if (nItems >= Integer.parseInt(strLimit)) {
                 if (nLastPage >= 0) {
         %> | <% } %>
-            <a href="demographiccontrol.jsp?keyword=<%= URLEncoder.encode((keyword != null) ? keyword : "", "UTF-8") %>&search_mode=<%=searchMode%>&displaymode=<%=displayMode%>&dboperation=<%=dboperation%>&orderby=<%=orderBy%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>&firstPageShowIntegratedResults=<%=firstPageShowIntegratedResults%>">
+            <a href="demographiccontrol.jsp?keyword=<%= URLEncoder.encode((keyword != null) ? keyword : "", "UTF-8") %>&search_mode=<%=searchMode%>&displaymode=<%=displayMode%>&dboperation=<%=dboperation%>&orderby=<%=orderBy%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
             <%
                 }
@@ -551,19 +489,6 @@
     </body>
 </html>
 <%!
-
-    Boolean isLocal(MatchingDemographicTransferScore matchingDemographicTransferScore, List<Demographic> demoList) {
-        String hin = matchingDemographicTransferScore.getDemographicTransfer().getHin();
-        for (Demographic demo : demoList) {
-
-            if (hin != null && hin.equals(demo.getHin())) {
-                return true;
-            }
-        }
-
-        return false;
-
-    }
 
     List<Demographic> doSearch(DemographicDao demographicDao, String searchMode, String ptstatus, String keyword, int limit, int offset, String orderBy, String providerNo, boolean outOfDomain) {
         List<Demographic> demoList = null;
