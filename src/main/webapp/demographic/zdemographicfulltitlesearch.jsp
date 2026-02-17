@@ -318,8 +318,8 @@
                 </oscar:oscarPropertiesCheck>
             </select>
 
-            <input class="wideInput form-control" type="search" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.placeholder"/>" NAME="keyword" ID="keyword"
-                   aria-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.placeholder"/>"
+            <input class="wideInput form-control" type="search" placeholder="Search" NAME="keyword" ID="keyword"
+                   aria-label="Search"
                    VALUE="<%=Encode.forHtmlAttribute(keyWord)%>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
