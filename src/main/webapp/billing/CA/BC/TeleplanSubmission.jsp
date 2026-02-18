@@ -136,6 +136,23 @@
 
         //-->
     </script>
+    <script>
+        function sendTeleplanFile(id) {
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '<%= request.getContextPath() %>/billing/CA/BC/ManageTeleplan.do';
+            var fields = {id: id, method: 'sendFile'};
+            for (var key in fields) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
 </head>
 
 <body>
@@ -226,7 +243,7 @@
             <td><c:out value="${billAct.claimrecord}"/>&nbsp;</td>
             <td><c:choose>
                 <c:when test="${billAct.status == 'A'}">
-                    <a href="<%= request.getContextPath() %>/billing/CA/BC/ManageTeleplan.do?id=${billAct.id}&method=sendFile">
+                    <a href="javascript:void(0);" onclick="sendTeleplanFile('${billAct.id}');">
                         Send
                     </a>
                 </c:when>

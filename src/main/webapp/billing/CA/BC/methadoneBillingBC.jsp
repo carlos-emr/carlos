@@ -128,6 +128,23 @@
         }
 
     </script>
+    <script>
+        function removeBillingItem(index) {
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '<c:out value="${oscar_context_path}"/>/methadoneBillingBC.do';
+            var fields = {remove: index, type: '<%= request.getParameter("type") %>', status: '<%= request.getParameter("status") %>'};
+            for (var key in fields) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
 
 </head>
 <body id="methadoneBilling">
@@ -331,8 +348,8 @@
 
                     <td>
 
-                        <a id="removeBill"
-                           href="<c:out value="${ oscar_context_path }" />/methadoneBillingBC.do?remove=<c:out value="${loop.index}" />&type=<%= request.getParameter("type") %>&status=<%= request.getParameter("status") %>">
+                        <a id="removeBill" href="javascript:void(0);"
+                           onclick="removeBillingItem('<c:out value="${loop.index}"/>');">
                             remove
                         </a>
 

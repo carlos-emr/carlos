@@ -77,7 +77,8 @@
             </td>
             <td class="MainTableRightColumn" valign="top">
 
-                <form action="<%= request.getContextPath() %>/admin/ManageSites.do?method=add">
+                <form action="<%= request.getContextPath() %>/admin/ManageSites.do" method="post">
+                    <input type="hidden" name="method" value="add"/>
                     <input type="submit" style="border:1px solid #666666;" value="Add New Site" />
                 </form>
 

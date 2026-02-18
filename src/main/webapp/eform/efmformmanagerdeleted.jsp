@@ -46,6 +46,20 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.title"/></title>
 
+        <script>
+            function restoreEForm(fid) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/eform/restoreEForm.do';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'fid';
+                input.value = fid;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        </script>
     </head>
     <script language="javascript">
         function checkFormAndDisable() {
@@ -105,7 +119,7 @@
             </td>
             <td><%=curForm.get("formTime")%>
             </td>
-            <td><a href='<%= request.getContextPath() %>/eform/restoreEForm.do?fid=<%=curForm.get("fid")%>'
+            <td><a href='javascript:void(0);' onclick="restoreEForm('<%=curForm.get("fid")%>');"
                    class="contentLink">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.calldeletedformdata.btnRestore"/>
             </a>
