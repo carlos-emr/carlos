@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -127,7 +128,7 @@
                         request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
         %>
         <p>
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=request.getParameter("provider_no")%>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=Encode.forHtml(request.getParameter("provider_no"))%>
         </h2>
         <%
         } else {

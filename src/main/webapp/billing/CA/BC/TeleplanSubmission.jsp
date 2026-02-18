@@ -190,7 +190,7 @@
     </h4>
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do" onsubmit="return checkSubmit();"
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do" method="post" onsubmit="return checkSubmit();"
                class="form-inline">
 
         Select provider
