@@ -112,7 +112,8 @@ public class WorkFlowDSFactory {
         KieBase ruleBase = loadRuleBase(workflow);
         if (ruleBase == null) {
             throw new IllegalStateException(
-                    "Cannot create WorkFlowDS: failed to load rule base for '" + workflow + "'");
+                    "Cannot create WorkFlowDS: failed to load rule base for '" + workflow
+                            + "'. Check that the DRL file exists and is valid.");
         }
         return new WorkFlowDS(ruleBase);
     }
