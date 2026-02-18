@@ -185,6 +185,7 @@ public class WorkFlowDSFactory {
             throw e;
         } catch (IOException | DroolsCompilationException e) {
             MiscUtils.getLogger().error("Failed to load workflow rule base for DRL file '{}'", string, e);
+            throw new IllegalStateException("Failed to load workflow rule base for DRL file '" + string + "'", e);
         }
         return ruleBase;
     }
