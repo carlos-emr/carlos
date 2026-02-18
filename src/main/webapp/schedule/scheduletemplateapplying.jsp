@@ -204,11 +204,25 @@
 
             function onBtnDelete(s) {
                 if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation"/>")) {
-                    var ref = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
-                    ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
-                    ref += "&sdate=" + s.options[s.selectedIndex].value;
-                    ref += "&delete=1&deldate=all";
-                    self.location.href = ref;
+                    var form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
+                    var fields = {
+                        'provider_no': '<%=request.getParameter("provider_no")%>',
+                        'provider_name': '<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>',
+                        'sdate': s.options[s.selectedIndex].value,
+                        'delete': '1',
+                        'deldate': 'all'
+                    };
+                    for (var key in fields) {
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = fields[key];
+                        form.appendChild(input);
+                    }
+                    document.body.appendChild(form);
+                    form.submit();
                 }
             }
 

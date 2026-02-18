@@ -231,7 +231,7 @@
         String pId = (String) session.getAttribute("case_program_id");
         if (pId == null) pId = "";
     %>
-    <form action="<%=request.getContextPath() %>/CaseManagementEntry.do">
+    <form action="<%=request.getContextPath() %>/CaseManagementEntry.do" method="post">
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <c:if test="${param.providerNo==null}">

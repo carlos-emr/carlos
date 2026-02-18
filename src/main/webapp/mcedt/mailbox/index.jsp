@@ -140,7 +140,11 @@
         }
 
         function autoDownload(control) {
-            window.location.href = "<%= request.getContextPath() %>/mcedt/kaiautodl.do";
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '<%= request.getContextPath() %>/mcedt/kaiautodl.do';
+            document.body.appendChild(form);
+            form.submit();
             return false;
         }
 
@@ -149,7 +153,11 @@
         }
 
         function submitSelected(control) {
-            window.location.href = "<%= request.getContextPath() %>/mcedt/autoUpload.do";
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '<%= request.getContextPath() %>/mcedt/autoUpload.do';
+            document.body.appendChild(form);
+            form.submit();
             return false;
         }
 
