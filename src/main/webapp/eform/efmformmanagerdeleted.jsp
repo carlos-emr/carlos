@@ -75,12 +75,6 @@
         function newWindow(url, id) {
             Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=700,height=600,left=200,top=0');
         }
-
-        function confirmNRestore(url) {
-            if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.calldeletedformdata.confirmRestore"/>")) {
-                document.location = url;
-            }
-        }
     </script>
     <body>
 

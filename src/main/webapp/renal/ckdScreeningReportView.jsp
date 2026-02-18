@@ -99,7 +99,9 @@
         <script>
             function createTickler(id) {
                 jQuery.ajax({
-                    url: '<%=request.getContextPath()%>/renal/SendTickler.do?method=sendtickler&demographic_no=' + id,
+                    type: 'POST',
+                    url: '<%=request.getContextPath()%>/renal/SendTickler.do',
+                    data: {method: 'sendtickler', demographic_no: id},
                     async: false,
                     success: function (data) {
                         alert('tickler sent');
