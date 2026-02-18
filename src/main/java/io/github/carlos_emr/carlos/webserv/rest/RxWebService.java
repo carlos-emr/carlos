@@ -539,7 +539,7 @@ public class RxWebService extends AbstractServiceImpl {
     }
 
     @Path("/recordPrescriptionPrint/{scriptNo}")
-    @GET
+    @POST
     @Produces(MediaType.APPLICATION_JSON)
     public PrescriptionTo1 recordPrescriptionPrint(@PathParam("scriptNo") int scriptNo) {
 

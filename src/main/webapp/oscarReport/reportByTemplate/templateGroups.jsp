@@ -71,7 +71,7 @@
                     <div class="row-fluid">
                         <!--ADD GROUP-->
                         <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup.do"
-                              method="get" id="addGroupTemplate" class="form-inline">
+                              method="post" id="addGroupTemplate" class="form-inline">
                             <input type="text" name="groupName" class="check" placeholder="Group Name">
                             <input type="submit" name="subm" class="btn groupAdd" value="Add Group" disabled>
                         </form>
@@ -249,7 +249,7 @@
                 </div>
                 <div class="modal-body">
                     <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/rbtAddToGroup.do"
-                          id="templateToGroupForm">
+                          method="post" id="templateToGroupForm">
                         <div>
                             <select style="width:100%;height:400px;outline:none;" name="tid" id="templateSelect"
                                     multiple>

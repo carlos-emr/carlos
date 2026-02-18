@@ -579,6 +579,35 @@ var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
 window.location.href = mypage + "&x=" + X + "&y=" + Y;
 }
 
+function postViaForm(url, targetWindow) {
+var parts = url.split('?');
+var form = document.createElement('form');
+form.method = 'post';
+form.action = parts[0];
+if (targetWindow) { form.target = targetWindow; }
+if (parts.length > 1) {
+    var pairs = parts[1].split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var kv = pairs[i].split('=');
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = decodeURIComponent(kv[0]);
+        input.value = kv.length > 1 ? decodeURIComponent(kv[1]) : '';
+        form.appendChild(input);
+    }
+}
+var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
+var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
+var xi = document.createElement('input');
+xi.type = 'hidden'; xi.name = 'x'; xi.value = X;
+form.appendChild(xi);
+var yi = document.createElement('input');
+yi.type = 'hidden'; yi.name = 'y'; yi.value = Y;
+form.appendChild(yi);
+document.body.appendChild(form);
+form.submit();
+}
+
 function scrollOnLoad() {
 var X = getParameter("x");
 var Y = getParameter("y");

@@ -160,11 +160,11 @@
 
             if (validInput) {
                 jQuery.ajax({
-                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do?status=S",
-                    type: "GET",
+                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do",
+                    type: "POST",
                     async: "fasle",
                     timeout: 30000,
-                    data: jQuery("#editPayment").serialize(),
+                    data: jQuery("#editPayment").serialize() + "&status=S",
                     dataType: "json",
                     success: function (data) {
                         if (data == null) {
@@ -197,7 +197,7 @@
                 // document.forms['editPayment'].submit();
                 jQuery.ajax({
                     url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do",
-                    type: "GET",
+                    type: "POST",
                     async: "fasle",
                     timeout: 30000,
                     data: jQuery("#editPayment").serialize(),
@@ -274,7 +274,7 @@
 <body bgcolor="ivory" text="#000000" topmargin="0" leftmargin="0" rightmargin="0">
 
 <c:if test="${not empty paymentTypeList}">
-    <form name="editPayment" id="editPayment" method="GET" action="">
+    <form name="editPayment" id="editPayment" method="POST" action="">
         <input type="hidden" name="method" value="savePayment"/>
         <input type="hidden" name="billingNo" value="<%= billingNo %>"/>
         <input type="hidden" name="id" id="paymentId" value=""/>

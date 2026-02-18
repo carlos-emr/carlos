@@ -522,7 +522,7 @@
                     newGroupNo = s.options[s.selectedIndex].value;
                 }
                 var programId = 0;
-                popupPage(10, 10, "${pageContext.request.contextPath}/provider/providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&mygroup_no=" + newGroupNo + "&programId_oscarView=" + programId + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
+                postViaForm("${pageContext.request.contextPath}/provider/providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&mygroup_no=" + newGroupNo + "&programId_oscarView=" + programId + "<%=eformIds.toString()%><%=ectFormNames.toString()%>", "attachment");
             }
 
             function ts1(s) {
@@ -1390,7 +1390,7 @@
                                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                 var siteName = sel.options[sel.selectedIndex].value;
                                                 var newGroupNo = "<%=(mygroupno == null ? ".default" : mygroupno)%>";
-                                                popupPage(10, 10, "providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "&site=" + siteName);
+                                                postViaForm("providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "&site=" + siteName, "attachment");
                                             }
                                         </script>
 
@@ -1939,7 +1939,7 @@
                                                         %>
                                                         <!-- Short letters -->
                                                         <a class="apptStatus" href="javascript:void(0)"
-                                                           onclick="refreshSameLoc('providercontrol.jsp?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${ not empty param.viewall ? param.viewall : "0" }<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
+                                                           onclick="postViaForm('providercontrol.jsp?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=<c:out value="${not empty param.viewall ? param.viewall : '0'}"/><%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
                                                            title='<c:out value="<%=as.getTitleString(request.getLocale())%>" />'>
                                                             <%
                                                                 }

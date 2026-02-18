@@ -212,7 +212,7 @@
                                 io.github.carlos_emr.carlos.commn.model.WaitingList wl1 = (io.github.carlos_emr.carlos.commn.model.WaitingList) wl.get(0)[1];
 
         %>
-        <form name="updateWLFrm"
+        <form name="updateWLFrm" method="post"
               action="<%= request.getContextPath() %>/oscarWaitingList/RemoveFromWaitingList.jsp"><input
                 type="hidden" name="listId"
                 value="<%=wl1.getListId()%>"/><input
@@ -222,7 +222,7 @@
                     LANGUAGE="JavaScript">
                 var removeList = confirm("Click OK to remove patient from the waiting list: <%=wln.getName()%>");
                 if (removeList) {
-                    document.forms[0].action = "<%= request.getContextPath() %>/oscarWaitingList/RemoveFromWaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listID=<%=wl1.getListId()%>";
+                    document.forms[0].action = "<%= request.getContextPath() %>/oscarWaitingList/RemoveFromWaitingList.jsp";
                     document.forms[0].submit();
                 }
             </script>

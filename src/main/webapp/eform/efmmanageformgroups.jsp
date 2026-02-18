@@ -90,7 +90,7 @@
         <div class="well span6">
 
             <!--ADD GROUP-->
-            <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="get" id="addGroupForm"
+            <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="post" id="addGroupForm"
                   class="form-inline">
                 <div class="controls">
                     <div class="input-append">
@@ -232,7 +232,7 @@
         </div>
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
-        <form action="${pageContext.request.contextPath}/eform/addToGroup.do" method="get" id="eformToGroupForm">
+        <form action="${pageContext.request.contextPath}/eform/addToGroup.do" method="post" id="eformToGroupForm">
         <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
              aria-hidden="true">
             <div class="modal-header">
