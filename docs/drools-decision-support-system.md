@@ -511,7 +511,7 @@ All five variants share the same DRL loading logic (delegated to `DroolsHelper.l
 | MenC-C 1 | Log says "Pneu-C 4" | Wrong debug log message |
 | Rot 1, 2 | Uses `System.out.println()` instead of `prev.log()` | Inconsistent logging |
 | Flu 1 | Hardcoded 2005-2006 date range | Effectively dead code |
-| HPV-CERVIX 3 | Message: "Neighter" | Typo (should be "Neither") |
+| HPV-CERVIX 3 | Message: "Neither" | Typo (should be "Neither") |
 | FOBT Inelligible | Rule name and `isInelligible()` method | Misspelling of "Ineligible" |
 | Hib 6 | Warning says "Needs second Hib" | Should say "Needs first Hib" (count==0) |
 
