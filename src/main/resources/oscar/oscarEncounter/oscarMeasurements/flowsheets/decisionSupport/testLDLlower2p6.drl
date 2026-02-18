@@ -52,6 +52,6 @@ rule "LDL"
         eval( m.setMeasurement("LDL") == true )
         eval( m.getDataAsDouble() < 2.0 )
     then
-        m.log("LDL RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("LDL RULES IS GETTING RUN");
         m.setInRange(true);
 end

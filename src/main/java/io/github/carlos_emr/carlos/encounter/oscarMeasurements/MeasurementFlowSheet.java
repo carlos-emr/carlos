@@ -224,7 +224,7 @@ public class MeasurementFlowSheet {
      *       but the item has {@link TargetColour} objects (parsed from {@code <ruleset>} XML
      *       elements), each TargetColour generates a DRL rule string via
      *       {@link TargetColour#getRuleBaseElement(String)} and the collection is compiled
-     *       into a {@link KieBase} via {@link #loadMeasuremntRuleBase(List)}.</li>
+     *       into a {@link KieBase} via {@link #loadMeasurementRuleBase(List)}.</li>
      *   <li><strong>No rules</strong> - If neither is present, the item has no per-item
      *       decision support and no rule base is set.</li>
      * </ol>
@@ -247,7 +247,7 @@ public class MeasurementFlowSheet {
             item.setRuleBase(rb);
         } else if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
             // Priority 2: Generate DRL programmatically from TargetColour XML definitions
-            KieBase rb = loadMeasuremntRuleBase(item.getTargetColour());
+            KieBase rb = loadMeasurementRuleBase(item.getTargetColour());
             item.setRuleBase(rb);
         }
         itemList.put(item.getItemName(), item);
@@ -844,7 +844,7 @@ public class MeasurementFlowSheet {
      * @see RuleBaseCreator#getRuleBase(String, List)
      * @see MeasurementDSHelper
      */
-    public KieBase loadMeasuremntRuleBase(List<TargetColour> targetColours) {
+    public KieBase loadMeasurementRuleBase(List<TargetColour> targetColours) {
         KieBase measurementRuleBase = null;
         List<String> dsElements = new ArrayList<String>();
         RuleBaseCreator rcb = new RuleBaseCreator();
@@ -858,13 +858,12 @@ public class MeasurementFlowSheet {
                 count++;
             }
 
-            log.debug("loadMeasuremntRuleBase 1");
+            log.debug("loadMeasurementRuleBase 1");
             // Compile all generated DRL strings into a single KieBase
             measurementRuleBase = rcb.getRuleBase("rulesetName", dsElements);
-            log.debug("loadMeasuremntRuleBase 2");
-            rulesLoaded = true;
+            log.debug("loadMeasurementRuleBase 2");
         } catch (Exception e) {
-            log.debug("loadMeasuremntRuleBase EXEPTION");
+            log.debug("loadMeasurementRuleBase EXCEPTION");
 
             log.error("Failed to compile TargetColour rule base for measurement", e);
         }

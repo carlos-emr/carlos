@@ -112,7 +112,7 @@ public class PreventionDSImpl implements PreventionDS {
      * Shared across all instances (static) and thread-safe for creating new
      * {@link KieSession} instances. Initialized by {@link #loadRuleBase()} at startup.
      */
-    static KieBase kieBase = null;
+    static volatile KieBase kieBase = null;
 
     /** DAO for querying the {@code ResourceStorage} table for database-stored prevention rules. */
     @Autowired

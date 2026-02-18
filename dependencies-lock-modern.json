@@ -827,11 +827,11 @@
   }, {
     "groupId" : "com.thoughtworks.xstream",
     "artifactId" : "xstream",
-    "version" : "1.4.20",
+    "version" : "1.4.21",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:jeqf2qWWSi226aBzM73uP5KTt6AOEgQDbsOKgvHIGKGz450GhDvofqPtZVpT2dVheITWXT9A3+zULW/vnys/MA=="
+    "integrity" : "sha512:268CIpUDycaRmMf5DzYaINaMbxpcYjjSmME7+MUJCx66mTB8ZoSBpMeQH+I6cXX2pSGMz0DEVCK8RolPKcyHxQ=="
   }, {
     "groupId" : "com.twelvemonkeys.common",
     "artifactId" : "common-lang",

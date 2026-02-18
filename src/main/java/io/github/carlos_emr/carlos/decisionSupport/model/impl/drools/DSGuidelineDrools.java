@@ -640,6 +640,11 @@ public class DSGuidelineDrools extends DSGuideline {
      * @return String the assembled DRL consequence block content
      */
     public String getDroolsConsequences(List<DSConsequence> consequences) {
+        if (consequences == null) {
+            throw new IllegalStateException(
+                    "Consequences list is null for guideline '" + this.getTitle()
+                    + "'; the guideline XML may have failed to parse");
+        }
         // Always mark the guideline as passed; this is the signal to evaluate()
         // that conditions were met and consequences should be returned.
         String passedMarker = "a.setPassedGuideline(true);";

@@ -1260,7 +1260,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                         FlowSheetItem item = getItemFromString(cust.getPayload());
                         // Compile value-based threshold rules for the new item if present
                         if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
-                            KieBase rb = personalizedFlowsheet.loadMeasuremntRuleBase(item.getTargetColour());
+                            KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
                             item.setRuleBase(rb);
                         }
                         personalizedFlowsheet.addAfter(cust.getMeasurement(), item);
@@ -1268,7 +1268,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                         log.debug(" CUST UPDATING");
                         FlowSheetItem item = getItemFromString(cust.getPayload());
                         if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
-                            KieBase rb = personalizedFlowsheet.loadMeasuremntRuleBase(item.getTargetColour());
+                            KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
                             item.setRuleBase(rb);
                         }
                         personalizedFlowsheet.updateMeasurementFlowSheetInfo(cust.getMeasurement(), item);

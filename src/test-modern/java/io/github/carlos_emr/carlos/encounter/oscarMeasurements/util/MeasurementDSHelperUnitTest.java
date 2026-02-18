@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link MeasurementDSHelper} null-safety behavior when no
@@ -93,11 +94,13 @@ class MeasurementDSHelperUnitTest {
         }
 
         @Test
-        @DisplayName("should return 0 for getLastDateRecordedInMths when mdb is null")
-        void shouldReturnZero_forGetLastDateRecordedInMthsWhenMdbIsNull() {
+        @DisplayName("should throw IllegalStateException for getLastDateRecordedInMths when mdb is null")
+        void shouldThrowException_forGetLastDateRecordedInMthsWhenMdbIsNull() {
             MeasurementDSHelper helper = new MeasurementDSHelper();
 
-            assertThat(helper.getLastDateRecordedInMths()).isZero();
+            assertThatThrownBy(helper::getLastDateRecordedInMths)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("setMeasurement()");
         }
     }
 

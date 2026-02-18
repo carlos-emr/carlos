@@ -53,6 +53,6 @@ rule "BP"
         eval( m.getNumberFromSplit("/",1) > 90 )
         eval( m.getLastDateRecordedInMths() < 13 )
     then
-        m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("BP RULES IS GETTING RUN");
         m.setInRange(true);
 end

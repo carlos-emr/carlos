@@ -71,7 +71,7 @@ rule "LDL"
         eval( m.setMeasurement("LDL") == true )
         eval( m.getDataAsDouble() < 2.0 )
     then
-        m.log("LDL RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("LDL RULES IS GETTING RUN");
         m.setInRange(true);
 end
 
@@ -81,7 +81,7 @@ rule "LDL_1"
         m : MeasurementDSHelper()
         eval( m.setMeasurement("LDL") == false )
     then
-        m.log("LDL_1 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("LDL_1 RULES IS GETTING RUN");
         m.setInRange(false);
 end
 
@@ -112,7 +112,7 @@ rule "BP"
         eval( m.getNumberFromSplit("/",0) < 131 )
         eval( m.isInRange() == true )
     then
-        m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("BP RULES IS GETTING RUN");
         m.setInRange(true);
 end
 
@@ -123,7 +123,7 @@ rule "BP_2"
         eval( m.setMeasurement("BP") == true )
         eval( m.getNumberFromSplit("/",0) >= 131 )
     then
-        m.log("BP2 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("BP2 RULES IS GETTING RUN");
         m.setInRange(false);
 end
 
@@ -155,7 +155,7 @@ rule "A1C_1"
         eval( m.getDataAsDouble() >= 2.0 )
         eval( m.isInRange() == true )
     then
-        m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("A1C RULES IS GETTING RUN");
         m.setInRange(true);
 end
 
@@ -166,7 +166,7 @@ rule "A1C_1_2"
         eval( m.setMeasurement("A1C") == true )
         eval( m.getDataAsDouble() >= 7.0 )
     then
-        m.log("A1C_1_2 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("A1C_1_2 RULES IS GETTING RUN");
         m.setInRange(false);
 end
 
@@ -178,7 +178,7 @@ rule "A1C_2"
         eval( m.getDataAsDouble() < 0.07 )
         eval( m.isInRange() == true )
     then
-        m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("A1C RULES IS GETTING RUN");
         m.setInRange(true);
 end
 
@@ -190,6 +190,6 @@ rule "A1C_2_2"
         eval( m.getDataAsDouble() >= 0.07 )
         eval( m.getDataAsDouble() <= 2.0 )
     then
-        m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("A1C RULES IS GETTING RUN");
         m.setInRange(false);
 end

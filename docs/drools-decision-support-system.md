@@ -351,7 +351,7 @@ These rules evaluate individual measurement VALUES against clinical thresholds a
 
 **Referenced by**: `<item ds_rules="...">` attribute on individual measurement items in XML configs.
 
-**Also generated programmatically** by `TargetColour` objects parsed from `<ruleset>/<rule>` elements in flowsheet XML. These generate DRL via `TargetColour.getRuleBaseElement(String)` and are compiled by `MeasurementFlowSheet.loadMeasuremntRuleBase(List<TargetColour>)`.
+**Also generated programmatically** by `TargetColour` objects parsed from `<ruleset>/<rule>` elements in flowsheet XML. These generate DRL via `TargetColour.getRuleBaseElement(String)` and are compiled by `MeasurementFlowSheet.loadMeasurementRuleBase(List<TargetColour>)`.
 
 ### 3. Clinical Report Numerator Rules
 

@@ -50,6 +50,6 @@ rule "BPo130"
         eval( m.getNumberFromSplit("/",0) > 130 )
         eval( m.getNumberFromSplit("/",1) > 80 )
     then
-        m.log("BPo130 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("BPo130 RULES IS GETTING RUN");
         m.setInRange(true);
 end

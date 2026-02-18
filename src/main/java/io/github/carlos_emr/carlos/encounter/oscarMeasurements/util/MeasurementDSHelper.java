@@ -209,7 +209,7 @@ public class MeasurementDSHelper {
         }
         try {
             String data = mdb.getDataField();
-            log.debug("Trying to parse {}", data);
+            log.debug("Parsing measurement field with delimiter='{}' index={}", delimiter, number);
             ret = Double.parseDouble(data.split(delimiter)[number]);
         } catch (Exception e) {
 
@@ -244,10 +244,11 @@ public class MeasurementDSHelper {
     }
 
     public int getLastDateRecordedInMths() {
-        int mths = 0;
         if (mdb == null) {
-            return mths;
+            throw new IllegalStateException(
+                    "No measurement data loaded; call setMeasurement() before getLastDateRecordedInMths()");
         }
+        int mths = 0;
 
         Date date = mdb.getDateObservedAsDate();
         Date now = new Date();

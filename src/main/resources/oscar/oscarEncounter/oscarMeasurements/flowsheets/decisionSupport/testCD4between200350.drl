@@ -51,6 +51,6 @@ rule "CD4"
         eval( m.getDataAsDouble() >= 200 )
         eval( m.getDataAsDouble() <= 350 )
     then
-        m.log("CD4 RULES IS GETTING RUN"+m.getDataAsDouble());
+        m.log("CD4 RULES IS GETTING RUN");
         m.setInRange(true);
 end
