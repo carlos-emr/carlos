@@ -512,7 +512,7 @@ All five variants share the same DRL loading logic (delegated to `DroolsHelper.l
 | Rot 1, 2 | Uses `System.out.println()` instead of `prev.log()` | Inconsistent logging |
 | Flu 1 | Hardcoded 2005-2006 date range | Effectively dead code |
 | HPV-CERVIX 3 | Message: "Neither" | Typo (should be "Neither") |
-| FOBT Inelligible | Rule name and `isInelligible()` method | Misspelling of "Ineligible" |
+| FOBT Ineligible | Rule name and `isIneligible()` method | Misspelling of "Ineligible" |
 | Hib 6 | Warning says "Needs second Hib" | Should say "Needs first Hib" (count==0) |
 
 ### Wrong Measurement Type in addWarning() (identification.drl)
