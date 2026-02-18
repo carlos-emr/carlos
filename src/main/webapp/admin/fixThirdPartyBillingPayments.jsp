@@ -68,6 +68,12 @@
 
 <%@page import="org.apache.logging.log4j.Logger" %>
 
+<%
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
+%>
 <html>
     <head>
         <script src="<%=request.getContextPath() %>/js/jquery-1.7.1.min.js" type="text/javascript"></script>
@@ -78,10 +84,6 @@
     </body>
 
     <%
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            return;
-        }
         BillingONCHeader1Dao billingOnCHeader1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
         BillingONItemDao billingOnItemDao = SpringUtils.getBean(BillingONItemDao.class);
         BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);

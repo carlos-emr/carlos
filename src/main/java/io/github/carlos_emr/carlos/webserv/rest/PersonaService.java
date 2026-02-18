@@ -284,6 +284,7 @@ public class PersonaService extends AbstractServiceImpl {
     @POST
     @Path("/setDefaultProgramInDomain")
     @Consumes("application/x-www-form-urlencoded")
+    @Produces(MediaType.APPLICATION_JSON)
     public GenericRESTResponse setDefaultProgram(@FormParam("programId") Integer programId) {
         programManager2.setCurrentProgramInDomain(getLoggedInInfo().getLoggedInProviderNo(), programId);
         return new GenericRESTResponse();

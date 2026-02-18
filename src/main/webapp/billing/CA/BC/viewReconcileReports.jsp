@@ -121,7 +121,7 @@
                         var input = document.createElement('input');
                         input.type = 'hidden';
                         input.name = decodeURIComponent(kv[0]);
-                        input.value = decodeURIComponent(kv[1] || '');
+                        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
                         form.appendChild(input);
                     });
                 }

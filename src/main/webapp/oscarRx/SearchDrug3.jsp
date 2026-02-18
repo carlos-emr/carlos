@@ -1977,8 +1977,8 @@ function addFav(randomId,brandName){
     }
     favoriteName=encodeURIComponent(favoriteName);
    if (favoriteName.length > 0){
-        var url= ctx + "/oscarRx/addFavorite2.do?parameterValue=addFav2";
-        var data="randomId="+randomId+"&favoriteName="+favoriteName;
+        var url= ctx + "/oscarRx/addFavorite2.do";
+        var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         new Ajax.Request(url, {method: 'post',parameters:data, onSuccess:function(transport){
               window.location.href = ctx + "/oscarRx/SearchDrug3.jsp";
    }

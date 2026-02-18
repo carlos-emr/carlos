@@ -162,7 +162,7 @@
                 jQuery.ajax({
                     url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do",
                     type: "POST",
-                    async: "fasle",
+                    async: false,
                     timeout: 30000,
                     data: jQuery("#editPayment").serialize() + "&status=S",
                     dataType: "json",
@@ -198,7 +198,7 @@
                 jQuery.ajax({
                     url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments.do",
                     type: "POST",
-                    async: "fasle",
+                    async: false,
                     timeout: 30000,
                     data: jQuery("#editPayment").serialize(),
                     dataType: "json",

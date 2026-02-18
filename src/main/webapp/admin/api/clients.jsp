@@ -162,7 +162,7 @@
                                     } else {
                                         alert(xml.error);
                                     }
-                                });
+                                }, "json");
 
                         },
                         Cancel: function () {

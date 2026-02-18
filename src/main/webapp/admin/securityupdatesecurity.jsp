@@ -48,6 +48,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -239,7 +240,7 @@
                     <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/>:
                     </td>
                     <td><input type="text" name="user_name" maxlength="10"
-                               value="<%= security.getUserName() %>"></td>
+                               value="<%= Encode.forHtmlAttribute(security.getUserName()) %>"></td>
                 </tr>
                 <tr>
                     <td align="right" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formPassword"/>:
@@ -258,9 +259,9 @@
                         <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formProviderNo"/>:
                         </div>
                     </td>
-                    <td><%= security.getProviderNo() %>
+                    <td><%= Encode.forHtmlContent(security.getProviderNo()) %>
                         <input type="hidden" name="provider_no"
-                               value="<%= security.getProviderNo() %>"></td>
+                               value="<%= Encode.forHtmlAttribute(security.getProviderNo()) %>"></td>
                 </tr>
                 <!-- new sec -->
                 <tr>
@@ -367,7 +368,7 @@
 
                 <tr>
                     <td colspan="2" align="center">
-                        <input type="hidden" name="security_no" value="<%= security.getSecurityNo() %>">
+                        <input type="hidden" name="security_no" value="<%= Encode.forHtmlAttribute(String.valueOf(security.getSecurityNo())) %>">
                         <input type="submit" name="subbutton"
                                value='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.btnDelete"/>"
@@ -379,7 +380,7 @@
                 %>
             </form>
             <form id="deleteSecurityForm" method="post" action="securitydelete.jsp" style="display:none">
-                <input type="hidden" name="keyword" value="<%=security.getSecurityNo()%>">
+                <input type="hidden" name="keyword" value="<%= Encode.forHtmlAttribute(String.valueOf(security.getSecurityNo())) %>">
             </form>
         </table>
 

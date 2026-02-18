@@ -541,6 +541,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/recordPrescriptionPrint/{scriptNo}")
     @POST
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.WILDCARD)
     public PrescriptionTo1 recordPrescriptionPrint(@PathParam("scriptNo") int scriptNo) {
 
         LoggedInInfo info = getLoggedInInfo();

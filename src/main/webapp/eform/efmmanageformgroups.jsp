@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="java.net.URLEncoder" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -135,10 +136,10 @@
                     <%}%>
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup.do" style="display:inline;">
-                            <input type="hidden" name="group_name" value="<%=URLEncoder.encode(groupName, "UTF-8")%>"/>
+                            <input type="hidden" name="group_name" value="<%=Encode.forHtmlAttribute(groupName)%>"/>
                             <a href="javascript:void(0);"
                                class="btn btn-small" title="delete this group"
-                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=groupName%></strong>?"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=Encode.forHtmlAttribute(groupName)%></strong>?"
 ><i
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>
@@ -201,7 +202,7 @@
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup.do" style="display:inline;">
                             <input type="hidden" name="fid" value="<%=curForm.get("fid")%>"/>
-                            <input type="hidden" name="groupName" value="<%=URLEncoder.encode(groupView, "UTF-8")%>"/>
+                            <input type="hidden" name="groupName" value="<%=Encode.forHtmlAttribute(groupView)%>"/>
                             <a href="javascript:void(0);"
                                title="remove from group" class="btn btn-small"
                                data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"
