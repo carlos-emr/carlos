@@ -482,7 +482,8 @@
             /** inject CSRF token into dynamically created forms on submit **/
             var _originalFormSubmit = HTMLFormElement.prototype.submit;
             HTMLFormElement.prototype.submit = function() {
-                if (!this.querySelector('input[name="' + token_name + '"]')) {
+                if (token_name && token_value &&
+                    !this.querySelector('input[name="' + token_name + '"]')) {
                     var hidden = document.createElement('input');
                     hidden.setAttribute('type', 'hidden');
                     hidden.setAttribute('name', token_name);
